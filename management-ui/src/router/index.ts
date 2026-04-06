@@ -42,7 +42,37 @@ export const constantRoutes: RouteRecordRaw[] = [
         name: 'Receipt',
         component: () => import('@/views/function/receipt.vue'),
         meta: { title: '出库单打印' }
-      }
+      },
+      {
+        path: 'price',
+        name: 'Price',
+        component: () => import('@/views/function/price/price.vue'),
+        meta: { title: '价格管理' }
+      },
+      {
+        path: 'employee',
+        name: 'Employee',
+        component: () => import('@/views/function/employee.vue'),
+        meta: { title: '员工管理' }
+      },
+      {
+        path: 'role',
+        name: 'Role',
+        component: () => import('@/views/function/role.vue'),
+        meta: { title: '角色管理' }
+      },
+      {
+        path: 'customer',
+        name: 'Customer',
+        component: () => import('@/views/function/customer/customer.vue'),
+        meta: { title: '客户管理' }
+      },
+      {
+        path: 'document',
+        name: 'Document',
+        component: () => import('@/views/function/document/document.vue'),
+        meta: { title: '文档管理' }
+      },
     ]
   },
   // 后续你可以继续在这里往下加路由，比如：

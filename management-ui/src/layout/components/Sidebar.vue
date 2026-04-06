@@ -43,9 +43,13 @@ const menuList = ref<MenuItem[]>([
   { name: '总览大盘', path: '/dashboard', icon: 'dashboard' },
   { name: '生产订单', path: '/function/production', icon: 'precision_manufacturing' },
   { name: '库存管理', path: '/function/inventory', icon: 'inventory_2' },
+  { name: '员工管理', path: '/function/employee', icon: 'people' },
+  { name: '角色管理', path: '/function/role', icon: 'settings_accessibility' },
   { name: '客户管理', path: '/function/customer', icon: 'handshake' },
+  { name: '价格管理', path: '/function/price', icon: 'price_change' },
   { name: '审批中心', path: '/function/approval', icon: 'fact_check' },
   { name: '标签模板', path: '/function/label', icon: 'settings' },
   { name: '出库单模板', path: '/function/receipt', icon: 'settings' },
+  { name: '文档管理', path: '/function/document', icon: 'folder_open' },
 ]);
 </script>
