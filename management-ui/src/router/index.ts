@@ -7,7 +7,7 @@ import Layout from '@/layout/index.vue'
 export const constantRoutes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/Home/dashboard', // 访问根目录时，自动重定向到大盘页面
+    redirect: '/dashboard', // 访问根目录时，自动重定向到大盘页面
   },
   {
     path: '/',
@@ -23,6 +23,25 @@ export const constantRoutes: RouteRecordRaw[] = [
           title: '总览大盘', // 这个 title 会被 Navbar 顶部导航栏读取
           icon: 'dashboard'
         }
+      }
+    ]
+  },
+  {
+    path: '/function',
+    name: 'Function',
+    component: Layout,
+    children: [
+      {
+        path: 'label',
+        name: 'Label',
+        component: () => import('@/views/function/label.vue'),
+        meta: { title: '标签打印' }
+      },
+      {
+        path: 'receipt',
+        name: 'Receipt',
+        component: () => import('@/views/function/receipt.vue'),
+        meta: { title: '出库单打印' }
       }
     ]
   },

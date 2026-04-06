@@ -1,9 +1,6 @@
 <template>
   <aside class="w-64 bg-surface-container-low hidden md:flex flex-col relative z-20">
     <div class="h-20 flex items-center px-8 shrink-0">
-      <div class="w-8 h-8 bg-primary rounded-br-xl rounded-tl-xl mr-3 flex items-center justify-center">
-        <span class="material-symbols-outlined text-white text-sm">filter_vintage</span>
-      </div>
       <h1 class="font-black text-xl tracking-tight text-primary">数字工坊</h1>
     </div>
 
@@ -44,9 +41,11 @@ interface MenuItem {
 // 本地化菜单数据
 const menuList = ref<MenuItem[]>([
   { name: '总览大盘', path: '/dashboard', icon: 'dashboard' },
-  { name: '生产订单', path: '/production', icon: 'precision_manufacturing' },
-  { name: '库存管理', path: '/inventory', icon: 'inventory_2' },
-  { name: '客户管理', path: '/customer', icon: 'handshake' },
-  { name: '审批中心', path: '/approval', icon: 'fact_check' },
+  { name: '生产订单', path: '/function/production', icon: 'precision_manufacturing' },
+  { name: '库存管理', path: '/function/inventory', icon: 'inventory_2' },
+  { name: '客户管理', path: '/function/customer', icon: 'handshake' },
+  { name: '审批中心', path: '/function/approval', icon: 'fact_check' },
+  { name: '标签模板', path: '/function/label', icon: 'settings' },
+  { name: '出库单模板', path: '/function/receipt', icon: 'settings' },
 ]);
 </script>
