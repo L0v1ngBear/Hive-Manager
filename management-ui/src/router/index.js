@@ -1,10 +1,10 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 
 // 导入公共布局父类
 import Layout from '@/layout/index.vue'
 
 // 定义静态路由字典
-export const constantRoutes: RouteRecordRaw[] = [
+export const constantRoutes = [
   {
     path: '/',
     redirect: '/dashboard', // 访问根目录时，自动重定向到大盘页面

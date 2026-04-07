@@ -63,12 +63,8 @@
               </td>
 
               <td class="px-6 py-4">
-                  <span v-if="role.isSystem === 1" class="text-[11px] font-bold px-2 py-1 rounded bg-secondary/10 text-secondary border border-secondary/20">
-                    系统内置
-                  </span>
-                <span v-else class="text-[11px] font-bold px-2 py-1 rounded bg-surface-container-high text-on-surface-variant border border-outline-variant/20">
-                    自定义
-                  </span>
+                <span v-if="role.isSystem === 1" class="text-[11px] font-bold px-2 py-1 rounded bg-secondary/10 text-secondary border border-secondary/20">系统内置</span>
+                <span v-else class="text-[11px] font-bold px-2 py-1 rounded bg-surface-container-high text-on-surface-variant border border-outline-variant/20">自定义</span>
               </td>
 
               <td class="px-6 py-4">
@@ -82,16 +78,12 @@
 
               <td class="px-6 py-4">
                 <div class="flex flex-wrap gap-1.5">
-                  <span v-if="role.isSystem === 1 && role.roleCode === 'SUPER_ADMIN'" class="text-[11px] px-2 py-1 bg-error/10 text-error rounded font-medium">
-                    最高权限 (所有模块)
-                  </span>
+                  <span v-if="role.isSystem === 1 && role.roleCode === 'SUPER_ADMIN'" class="text-[11px] px-2 py-1 bg-error/10 text-error rounded font-medium">最高权限 (所有模块)</span>
                   <template v-else>
                     <span v-for="(perm, idx) in role.permissionSummary.slice(0, 3)" :key="idx" class="text-[11px] px-2 py-1 bg-surface-container text-on-surface rounded font-medium">
                       {{ perm }}
                     </span>
-                    <span v-if="role.permissionSummary.length > 3" class="text-[11px] px-2 py-1 bg-surface-container text-on-surface-variant rounded font-medium">
-                      +{{ role.permissionSummary.length - 3 }}
-                    </span>
+                    <span v-if="role.permissionSummary.length > 3" class="text-[11px] px-2 py-1 bg-surface-container text-on-surface-variant rounded font-medium">+{{ role.permissionSummary.length - 3 }}</span>
                     <span v-if="role.permissionSummary.length === 0" class="text-xs text-on-surface-variant/50">未分配权限</span>
                   </template>
                 </div>
@@ -103,8 +95,11 @@
 
               <td class="px-6 py-4 text-right">
                 <div class="flex justify-end gap-2">
-                  <button class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">
-                    配置权限
+                  <button
+                    @click="handleOpenDrawer(role)"
+                    class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors"
+                  >
+                    编辑配置
                   </button>
                   <button
                     v-if="role.isSystem !== 1"
@@ -121,17 +116,25 @@
           </table>
         </div>
       </section>
+
+      <PermissionDrawer ref="drawerRef" @success="handlePermissionSuccess" />
+
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import PermissionDrawer from './permissionTree.vue' // 注意这里调整为你实际的相对路径
 
+// --- 状态控制 ---
 const loading = ref(false)
 const searchQuery = ref('')
 const roles = ref([])
+const drawerRef = ref(null) // 指向子组件实例
 
+// --- 生命周期与数据加载 ---
 onMounted(() => {
   fetchData()
 })
@@ -140,44 +143,18 @@ const fetchData = async () => {
   loading.value = true
   try {
     await new Promise(resolve => setTimeout(resolve, 400))
-
-    // 这里模拟的是后端通过连表 (SysRole + UserRole + SysMenu) 返回给前端的 DTO/VO 对象
     roles.value = [
       {
-        id: 1,
-        roleCode: 'SUPER_ADMIN',
-        roleName: '超级管理员',
-        isSystem: 1,
-        createTime: '2024-01-12 10:00:00',
-        userCount: 2, // 连表查出的数据
-        permissionSummary: ['所有权限'] // 转换后的数据
+        id: 1, roleCode: 'SUPER_ADMIN', roleName: '超级管理员', isSystem: 1, createTime: '2024-01-12 10:00:00',
+        userCount: 2, permissionSummary: ['所有权限'], permIds: [1, 2, 21, 22, 23, 3, 31, 32, 33, 4, 41, 42]
       },
       {
-        id: 2,
-        roleCode: 'SALES_MGR',
-        roleName: '销售主管',
-        isSystem: 0,
-        createTime: '2024-02-05 14:30:00',
-        userCount: 5,
-        permissionSummary: ['客户列表', '订单管理', '销售报表', '退款审核']
+        id: 2, roleCode: 'SALES_MGR', roleName: '销售主管', isSystem: 0, createTime: '2024-02-05 14:30:00',
+        userCount: 5, permissionSummary: ['客户列表', '订单管理', '退款审核'], permIds: [1, 2, 21, 22, 23]
       },
       {
-        id: 3,
-        roleCode: 'WH_ADMIN',
-        roleName: '仓储专员',
-        isSystem: 0,
-        createTime: '2024-04-06 16:20:00',
-        userCount: 0,
-        permissionSummary: ['入库登记', '出库审核', '盘点记录']
-      },
-      {
-        id: 4,
-        roleCode: 'TEMP_WORKER',
-        roleName: '临时工',
-        isSystem: 0,
-        createTime: '2024-04-10 09:00:00',
-        userCount: 12,
-        permissionSummary: [] // 刚建好，还没配权限
+        id: 3, roleCode: 'WH_ADMIN', roleName: '仓储专员', isSystem: 0, createTime: '2024-04-06 16:20:00',
+        userCount: 0, permissionSummary: ['入库登记', '出库审核', '盘点记录'], permIds: [3, 31, 32, 33]
       }
     ].filter(r => r.roleName.includes(searchQuery.value))
   } finally {
@@ -185,17 +162,34 @@ const fetchData = async () => {
   }
 }
 
-const handleSearch = () => {
-  fetchData()
-}
+// --- 业务操作 ---
+const handleSearch = () => fetchData()
 
 const handleDelete = (role) => {
   if (role.userCount > 0) {
-    alert(`该角色下还有 ${role.userCount} 名员工，请先移除员工后再删除！`)
+    ElMessage.warning(`该角色下还有 ${role.userCount} 名员工，请先移除员工后再删除！`)
     return
   }
   if (confirm(`确定要删除角色 [${role.roleName}] 吗？`)) {
     roles.value = roles.value.filter(r => r.id !== role.id)
+    ElMessage.success('删除成功')
+  }
+}
+
+// --- 子组件调用逻辑 ---
+const handleOpenDrawer = (role) => {
+  if (drawerRef.value) {
+    drawerRef.value.open(role)
+  }
+}
+
+// 接收子组件抛出的成功事件
+const handlePermissionSuccess = ({ roleId, newPermIds }) => {
+  // 可以在这里重新请求接口 fetchData() 刷新数据
+  // 或者在前端直接修改状态（下面是本地修改的演示）
+  const targetRole = roles.value.find(r => r.id === roleId)
+  if (targetRole) {
+    targetRole.permIds = newPermIds
   }
 }
 </script>
