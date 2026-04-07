@@ -2,14 +2,22 @@ package my.management.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import my.management.common.dto.PageResult;
 import my.management.common.dto.Result;
+import my.management.module.sys.model.dto.SysRoleAddRequest;
+import my.management.module.sys.model.entity.SysPermission;
 import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.service.RoleService;
 import org.springframework.beans.BeanUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-@RestController("/sys/role")
+import java.util.List;
+
+@RestController
+@RequestMapping("/sys/role")
+@Validated
 public class RoleController {
 
     @Resource
@@ -27,5 +35,14 @@ public class RoleController {
     }
 
     @PostMapping("/create")
-    public Result<SysRole> create(@RequestBody SysRole role) {
+    public Result<Void> create(@Valid @RequestBody SysRoleAddRequest request) {
+        roleService.createNewRole(request);
+        return Result.success(null);
+    }
+
+    @GetMapping("/role/all")
+    public Result<List<SysPermission>> all() {
+        List<SysPermission> permissions = roleService.selectAllPermission();
+        return Result.success(permissions);
+    }
 }
