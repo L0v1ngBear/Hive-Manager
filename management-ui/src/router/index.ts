@@ -58,7 +58,7 @@ export const constantRoutes: RouteRecordRaw[] = [
       {
         path: 'role',
         name: 'Role',
-        component: () => import('@/views/function/role.vue'),
+        component: () => import('@/views/function/role/role.vue'),
         meta: { title: '角色管理' }
       },
       {

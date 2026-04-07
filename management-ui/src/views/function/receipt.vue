@@ -1,138 +1,146 @@
 <template>
-  <div class="max-w-7xl mx-auto h-[calc(100vh-8rem)] flex flex-col md:flex-row gap-6 pb-6">
+  <div class="max-w-7xl mx-auto h-[calc(100vh-8rem)] flex flex-col lg:flex-row gap-6 pb-6">
 
-    <section class="flex-1 bg-surface-container-lowest rounded-2xl shadow-sm ring-1 ring-outline-variant/20 flex flex-col overflow-hidden">
-      <header class="p-6 border-b border-outline-variant/20 flex justify-between items-center bg-surface">
+    <section class="w-full lg:w-[400px] flex flex-col bg-surface-container-lowest rounded-2xl shadow-sm ring-1 ring-outline-variant/20 overflow-hidden">
+      <header class="p-5 border-b border-outline-variant/20 bg-surface flex justify-between items-center z-10">
         <div>
-          <h2 class="text-lg font-black text-on-surface">三联单/票据 模板配置</h2>
-          <p class="text-xs text-on-surface-variant mt-1">ESC/POS 流式排版，适用于出库单、生产领料单等</p>
+          <h2 class="text-lg font-black text-on-surface flex items-center gap-2">
+            待打印任务队列
+            <span class="bg-error/10 text-error text-[10px] px-2 py-0.5 rounded-full font-bold">
+              {{ pendingOrders.length }}
+            </span>
+          </h2>
+          <p class="text-xs text-on-surface-variant mt-1">选择下方出库单进行预览和打印</p>
         </div>
-        <el-button type="primary" icon="Check" @click="handleSave">保存模板</el-button>
+        <el-button circle icon="Refresh" @click="fetchPendingList" :loading="isFetchingList" />
       </header>
 
-      <div class="flex-1 overflow-y-auto p-6 space-y-8">
+      <div class="flex-1 overflow-y-auto p-3 space-y-2 bg-surface-container-lowest">
 
-        <div class="space-y-4">
-          <h3 class="text-sm font-bold text-primary flex items-center gap-2">
-            <span class="material-symbols-outlined text-base">title</span> 表头配置 (Header)
-          </h3>
-          <div class="grid grid-cols-2 gap-4 p-4 bg-surface-container-low rounded-xl">
-            <div>
-              <label class="block text-xs font-medium text-on-surface-variant mb-1">单据标题</label>
-              <input v-model="config.header.title" type="text" class="w-full bg-surface-container-lowest border-none rounded-lg text-sm px-3 py-2 focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-on-surface-variant mb-1">对齐方式</label>
-              <el-radio-group v-model="config.header.align" size="small">
-                <el-radio-button label="left">居左</el-radio-button>
-                <el-radio-button label="center">居中</el-radio-button>
-              </el-radio-group>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-on-surface-variant mb-1">字体大小</label>
-              <el-radio-group v-model="config.header.size" size="small">
-                <el-radio-button label="normal">常规</el-radio-button>
-                <el-radio-button label="large">放大加粗</el-radio-button>
-              </el-radio-group>
-            </div>
-          </div>
+        <div v-if="pendingOrders.length === 0 && !isFetchingList" class="h-full flex flex-col items-center justify-center text-on-surface-variant/50">
+          <span class="material-symbols-outlined text-4xl mb-2">task_alt</span>
+          <p class="text-sm font-medium">当前暂无待打印单据</p>
         </div>
 
-        <div class="space-y-4">
-          <div class="flex justify-between items-center">
-            <h3 class="text-sm font-bold text-primary flex items-center gap-2">
-              <span class="material-symbols-outlined text-base">view_column</span> 表格列配置 (Table)
-            </h3>
-            <el-button size="small" plain type="primary" icon="Plus" @click="addColumn">添加列</el-button>
-          </div>
+        <div
+          v-for="item in pendingOrders"
+          :key="item.orderNo"
+          @click="selectOrder(item)"
+          :class="[
+            'p-4 rounded-xl cursor-pointer transition-all border relative overflow-hidden',
+            selectedOrder?.orderNo === item.orderNo
+              ? 'bg-primary/5 border-primary/30 ring-1 ring-primary/30'
+              : 'bg-surface hover:bg-surface-container border-outline-variant/20'
+          ]"
+        >
+          <div v-if="selectedOrder?.orderNo === item.orderNo" class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
 
-          <div class="space-y-2">
-            <div v-for="(col, index) in config.table.columns" :key="index" class="flex items-center gap-3 p-3 bg-surface-container-low rounded-xl group transition-all">
-              <div class="flex-1">
-                <input v-model="col.title" placeholder="列名 (如: 型号)" class="w-full bg-surface-container-lowest border-none rounded text-sm px-2 py-1" />
-              </div>
-              <div class="flex-1">
-                <el-select v-model="col.field" placeholder="绑定字段" size="small" class="w-full">
-                  <el-option label="面料型号 (modelCode)" value="modelCode" />
-                  <el-option label="规格 (spec)" value="spec" />
-                  <el-option label="米数 (meters)" value="meters" />
-                  <el-option label="重量 (weight)" value="weight" />
-                  <el-option label="备注 (remark)" value="remark" />
-                </el-select>
-              </div>
-              <div class="w-24">
-                <el-input-number v-model="col.widthRatio" :min="1" :max="10" size="small" controls-position="right" placeholder="宽度比例" class="!w-full" />
-              </div>
-              <button @click="removeColumn(index)" class="text-on-surface-variant hover:text-error transition-colors p-1">
-                <span class="material-symbols-outlined text-lg">delete</span>
-              </button>
-            </div>
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-sm font-black text-on-surface font-mono">{{ item.orderNo }}</span>
+            <span class="text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">{{ item.time }}</span>
+          </div>
+          <div class="text-xs text-on-surface-variant font-medium truncate mb-1">
+            客户: <span class="text-on-surface">{{ item.customerName }}</span>
+          </div>
+          <div class="text-xs text-on-surface-variant">
+            包含 <span class="font-bold text-primary">{{ item.itemCount }}</span> 条出库明细 | 经办: {{ item.operator }}
           </div>
         </div>
-
-        <div class="space-y-4">
-          <h3 class="text-sm font-bold text-primary flex items-center gap-2">
-            <span class="material-symbols-outlined text-base">horizontal_rule</span> 表尾配置 (Footer)
-          </h3>
-          <div class="grid grid-cols-2 gap-4 p-4 bg-surface-container-low rounded-xl">
-            <div>
-              <label class="block text-xs font-medium text-on-surface-variant mb-1">签字文本</label>
-              <input v-model="config.footer.signText" type="text" class="w-full bg-surface-container-lowest border-none rounded-lg text-sm px-3 py-2 focus:ring-2 focus:ring-primary/20" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-on-surface-variant mb-1">底部寄语</label>
-              <input v-model="config.footer.memo" type="text" placeholder="如: 感谢您的信任" class="w-full bg-surface-container-lowest border-none rounded-lg text-sm px-3 py-2 focus:ring-2 focus:ring-primary/20" />
-            </div>
-          </div>
-        </div>
-
       </div>
     </section>
 
-    <aside class="w-full md:w-96 flex flex-col gap-4">
-      <div class="bg-surface-container-lowest rounded-2xl shadow-sm ring-1 ring-outline-variant/20 p-4 flex-1 flex flex-col">
-        <h3 class="text-sm font-bold text-on-surface mb-4">打印机效果预览</h3>
+    <aside class="flex-1 bg-surface-container-lowest rounded-2xl shadow-sm ring-1 ring-outline-variant/20 flex flex-col overflow-hidden relative">
 
-        <div class="flex-1 bg-[#fffdf9] border border-gray-200 shadow-inner p-6 font-mono text-gray-800 text-[13px] leading-relaxed overflow-y-auto">
+      <div v-if="isLoadingDetail" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
+        <span class="material-symbols-outlined text-primary text-3xl animate-spin mb-2">progress_activity</span>
+        <span class="text-sm text-primary font-bold">正在生成单据排版...</span>
+      </div>
 
-          <div class="mb-4" :class="{ 'text-center': config.header.align === 'center', 'text-left': config.header.align === 'left' }">
-            <div :class="config.header.size === 'large' ? 'text-lg font-bold' : 'text-sm'">
-              {{ config.header.title || '（未设置标题）' }}
-            </div>
-            <div class="text-[11px] text-gray-500 mt-1">单号：CK202604050001</div>
-            <div class="text-[11px] text-gray-500">时间：2026-04-05 14:30</div>
+      <header class="p-4 border-b border-outline-variant/20 flex justify-between items-center bg-surface z-10">
+        <h3 class="text-sm font-bold text-on-surface">针打预览区 (241mm × 140mm)</h3>
+        <div class="flex gap-2">
+          <el-button v-if="selectedOrder" plain type="danger" @click="handleSkipPrint">标记为已打印 (跳过)</el-button>
+          <el-button type="success" icon="Printer" :disabled="!selectedOrder" @click="executePrint">
+            开始打印
+          </el-button>
+        </div>
+      </header>
+
+      <div class="flex-1 overflow-y-auto bg-[#e5e7eb] p-8 flex justify-center">
+        <div
+          id="print-paper-area"
+          class="bg-white shadow-xl relative overflow-hidden transition-opacity"
+          :class="!selectedOrder ? 'opacity-0' : 'opacity-100'"
+          style="width: 241mm; min-height: 140mm; padding: 10mm; font-family: 'SimSun', '宋体', serif; color: #000;"
+        >
+          <div v-if="!selectedOrder" class="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 text-gray-400 print:hidden opacity-100">
+            <span class="material-symbols-outlined text-5xl mb-2">touch_app</span>
+            <p>请在左侧列表中选择单据进行打印</p>
           </div>
 
-          <div class="border-b border-dashed border-gray-400 mb-2"></div>
-
-          <div class="flex font-bold pb-2">
-            <div v-for="(col, i) in config.table.columns" :key="'h'+i"
-                 :style="{ flex: col.widthRatio }" class="pr-2 truncate">
-              {{ col.title }}
-            </div>
-          </div>
-
-          <div class="border-b border-dashed border-gray-400 mb-2"></div>
-
-          <div class="space-y-2">
-            <div v-for="row in mockData" :key="row.id" class="flex">
-              <div v-for="(col, i) in config.table.columns" :key="'d'+i"
-                   :style="{ flex: col.widthRatio }" class="pr-2 break-all">
-                {{ row[col.field] || '-' }}
+          <template v-if="selectedOrder">
+            <div class="text-center relative mb-4">
+              <h1 class="text-2xl font-black tracking-widest">星火服装厂</h1>
+              <h2 class="text-lg font-bold tracking-widest mt-1 pb-2 border-b-2 border-black inline-block px-4">产品出库单</h2>
+              <div class="absolute right-0 bottom-0 text-xs font-bold font-mono">
+                单号: {{ selectedOrder.orderNo }}
               </div>
             </div>
-          </div>
 
-          <div class="border-b border-dashed border-gray-400 my-4"></div>
-
-          <div class="space-y-6">
-            <div v-if="config.footer.memo" class="text-center text-[11px]">{{ config.footer.memo }}</div>
-            <div class="flex justify-between mt-8">
-              <div>操作员：管理员</div>
-              <div>{{ config.footer.signText }} _________</div>
+            <div class="flex justify-between text-[13px] font-bold mb-2">
+              <div>购货单位：{{ selectedOrder.customerName }}</div>
+              <div>日期：{{ selectedOrder.time }}</div>
             </div>
-          </div>
 
+            <table class="w-full text-[12px] border-collapse border border-black text-center mb-2" style="table-layout: fixed;">
+              <thead>
+              <tr>
+                <th class="border border-black py-1.5 w-12">序号</th>
+                <th class="border border-black py-1.5">商品型号</th>
+                <th class="border border-black py-1.5">规格</th>
+                <th class="border border-black py-1.5 w-20">数量(米)</th>
+                <th class="border border-black py-1.5 w-24">单价</th>
+                <th class="border border-black py-1.5 w-24">金额</th>
+                <th class="border border-black py-1.5">备注</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr v-for="(row, index) in displayTableData" :key="index" class="h-8">
+                <td class="border border-black">{{ row.id ? index + 1 : '' }}</td>
+                <td class="border border-black text-left px-2 truncate">{{ row.modelCode }}</td>
+                <td class="border border-black">{{ row.spec }}</td>
+                <td class="border border-black font-mono">{{ row.meters }}</td>
+                <td class="border border-black font-mono">{{ row.price }}</td>
+                <td class="border border-black font-mono">{{ row.total }}</td>
+                <td class="border border-black text-left px-1 truncate">{{ row.remark }}</td>
+              </tr>
+              <tr class="h-8 font-bold">
+                <td class="border border-black" colspan="3">合 计</td>
+                <td class="border border-black font-mono">{{ totalMeters }}</td>
+                <td class="border border-black"></td>
+                <td class="border border-black font-mono">{{ totalAmount }}</td>
+                <td class="border border-black"></td>
+              </tr>
+              </tbody>
+            </table>
+
+            <div class="text-[11px] mb-4">
+              大写金额：<span class="font-bold border-b border-black inline-block w-64 pb-0.5">
+                {{ convertCurrency(totalAmount) }}
+              </span>
+            </div>
+
+            <div class="flex justify-between text-[13px] font-bold mt-auto pt-4">
+              <div>制单人：{{ selectedOrder.operator }}</div>
+              <div>库管员：________</div>
+              <div>送货人：________</div>
+              <div>收货人(签字)：________________</div>
+            </div>
+
+            <div class="text-[10px] text-gray-600 mt-2 text-center absolute bottom-2 w-full left-0">
+              第一联：存根(白) &nbsp;&nbsp;&nbsp; 第二联：客户(红) &nbsp;&nbsp;&nbsp; 第三联：财务(蓝)
+            </div>
+          </template>
         </div>
       </div>
     </aside>
@@ -141,71 +149,190 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ref, computed, onMounted } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
-defineOptions({ name: 'ReceiptDesigner' });
+defineOptions({ name: 'PendingPrintStation' });
 
-// --- 核心 JSON 结构 ---
-const config = reactive({
-  type: 'receipt',
-  header: {
-    title: '星火工坊-出库单',
-    align: 'center',
-    size: 'large'
-  },
-  table: {
-    columns: [
-      { field: 'modelCode', title: '型号', widthRatio: 4 },
-      { field: 'spec', title: '规格', widthRatio: 3 },
-      { field: 'meters', title: '米数', widthRatio: 2 }
-    ]
-  },
-  footer: {
-    signText: '客户签字：',
-    align: 'left',
-    memo: '白联:存根 红联:客户 蓝联:财务'
-  }
+// ================= 状态管理 =================
+const isFetchingList = ref(false);
+const isLoadingDetail = ref(false);
+
+const pendingOrders = ref<any[]>([]);
+const selectedOrder = ref<any>(null);
+const tableData = ref<any[]>([]);
+
+const ROWS_PER_PAGE = 5; // 控制单据每页行数
+
+// ================= 生命周期 =================
+onMounted(() => {
+  fetchPendingList();
 });
 
-// 用于右侧效果预览的假数据
-const mockData = ref([
-  { id: 1, modelCode: 'T800-210A', spec: '150cm', meters: '200.5', weight: '280' },
-  { id: 2, modelCode: 'C300-棉麻', spec: '160cm', meters: '150.0', weight: '320' },
-  { id: 3, modelCode: 'Nylon-防水', spec: '145cm', meters: '85.0', weight: '180' }
-]);
+// ================= 获取待打印列表 =================
+const fetchPendingList = async () => {
+  isFetchingList.value = true;
+  selectedOrder.value = null; // 刷新时清空右侧
 
-// --- 操作方法 ---
-const addColumn = () => {
-  if (config.table.columns.length >= 5) {
-    ElMessage.warning('小票宽度有限，建议最多设置5列');
-    return;
+  try {
+    // 模拟后端请求：获取状态为“未打印”的出库单
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    pendingOrders.value = [
+      { orderNo: 'CK20260405001', time: '2026-04-05 10:30', customerName: '杭州丝绸服装厂', itemCount: 3, operator: '张三' },
+      { orderNo: 'CK20260405002', time: '2026-04-05 11:15', customerName: '广州越秀面料批发', itemCount: 1, operator: '李四' },
+      { orderNo: 'CK20260405003', time: '2026-04-05 14:00', customerName: '江苏南通家纺城', itemCount: 5, operator: '张三' },
+    ];
+  } finally {
+    isFetchingList.value = false;
   }
-  config.table.columns.push({ field: 'remark', title: '新列', widthRatio: 2 });
 };
 
-const removeColumn = (index: number) => {
-  if (config.table.columns.length <= 1) {
-    ElMessage.warning('至少需要保留一列');
-    return;
+// ================= 选择订单并加载明细 =================
+const selectOrder = async (order: any) => {
+  if (selectedOrder.value?.orderNo === order.orderNo) return; // 重复点击拦截
+
+  selectedOrder.value = order;
+  isLoadingDetail.value = true;
+  tableData.value = [];
+
+  try {
+    // 模拟后端请求：根据 orderNo 获取出库明细
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    // 针对不同的单号生成对应的模拟数据
+    if (order.orderNo === 'CK20260405001') {
+      tableData.value = [
+        { id: 1, modelCode: 'T800-210A(白)', spec: '150cm', meters: '200', price: '12.50', total: '2500.00', remark: '' },
+        { id: 2, modelCode: 'C300-纯棉', spec: '160cm', meters: '150', price: '18.00', total: '2700.00', remark: '' },
+        { id: 3, modelCode: 'NY-防水尼龙', spec: '145cm', meters: '85', price: '20.00', total: '1700.00', remark: '急单' }
+      ];
+    } else {
+      tableData.value = [
+        { id: 1, modelCode: '默认测试面料', spec: '100cm', meters: '100', price: '10.00', total: '1000.00', remark: '' }
+      ];
+    }
+  } finally {
+    isLoadingDetail.value = false;
   }
-  config.table.columns.splice(index, 1);
 };
 
-const handleSave = () => {
-  // 这里将得到最干净、最标准的 JSON 描述文件，发送给后端保存即可
-  const finalJson = JSON.parse(JSON.stringify(config));
-  console.log('即将保存的小票模板 JSON:', finalJson);
-  ElMessage.success('JSON 生成成功，请查看控制台');
+// ================= 计算属性：处理数据 =================
+const displayTableData = computed(() => {
+  const rows = [...tableData.value];
+  while (rows.length < ROWS_PER_PAGE) {
+    rows.push({ id: '', modelCode: '', spec: '', meters: '', price: '', total: '', remark: '' });
+  }
+  return rows.slice(0, ROWS_PER_PAGE);
+});
 
-  // 实际业务：
-  // request.post('/api/print/template', { type: 'esc', content: JSON.stringify(finalJson) })
+const totalMeters = computed(() => {
+  if (tableData.value.length === 0) return '';
+  return tableData.value.reduce((sum, item) => sum + (Number(item.meters) || 0), 0).toFixed(2);
+});
+
+const totalAmount = computed(() => {
+  if (tableData.value.length === 0) return '';
+  return tableData.value.reduce((sum, item) => sum + (Number(item.total) || 0), 0).toFixed(2);
+});
+
+const convertCurrency = (money: string | number) => {
+  if (!money || Number(money) === 0) return '';
+  return '模拟大写金额：' + money + '元整'; // 真实项目需引入转换工具函数
+};
+
+// ================= 打印与状态流转 =================
+const executePrint = () => {
+  if (!selectedOrder.value) return;
+
+  const printContent = document.getElementById('print-paper-area')?.outerHTML;
+  if (!printContent) return;
+
+  const originalContent = document.body.innerHTML;
+
+  // 1. 构建打印 DOM 并调用浏览器打印
+  document.body.innerHTML = `<div class="print-container">${printContent}</div>`;
+  window.print();
+
+  // 2. 打印完毕后恢复页面 DOM (在部分浏览器里，window.print 是阻塞的，所以这里可以直接恢复)
+  document.body.innerHTML = originalContent;
+
+  // 必须重新挂载 Vue 实例，这里用重新加载页面简化处理（真实场景可以使用 iframe 隐藏打印避免页面刷新）
+  // 为了用户体验，我们询问是否打印成功，如果成功，则从左侧列表中移除
+  setTimeout(() => {
+    window.location.reload();
+    /* 真实工程最佳实践（无刷新）：
+      ElMessageBox.confirm('打印是否成功且清晰？', '打印确认', {
+        confirmButtonText: '打印成功，移除队列',
+        cancelButtonText: '重新打印',
+        type: 'warning'
+      }).then(() => {
+        // 请求后端更新状态： markPrinted(selectedOrder.value.orderNo)
+        pendingOrders.value = pendingOrders.value.filter(item => item.orderNo !== selectedOrder.value.orderNo);
+        selectedOrder.value = null;
+        ElMessage.success('已标记为打印完成');
+      }).catch(() => {});
+    */
+  }, 100);
+};
+
+const handleSkipPrint = () => {
+  ElMessageBox.confirm(`确认将单据 ${selectedOrder.value.orderNo} 标记为已打印吗？它将从当前列表中移除。`, '跳过打印', {
+    confirmButtonText: '确认标记',
+    cancelButtonText: '取消',
+    type: 'info'
+  }).then(() => {
+    // 模拟向后端发送标记请求
+    pendingOrders.value = pendingOrders.value.filter(item => item.orderNo !== selectedOrder.value.orderNo);
+    selectedOrder.value = null;
+    ElMessage.success('操作成功');
+  }).catch(() => {});
 };
 </script>
 
 <style scoped>
-/* 隐藏原生 input 的焦点黑框，使用 Tailwind 的 ring */
-input:focus {
-  outline: none;
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background-color: #cbd5e1; /* Tailwind slate-300 */
+}
+
+/* 打印指令区 (严格保持这部分逻辑) */
+@media print {
+  @page {
+    size: 241mm 140mm;
+    margin: 0;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    color: #000;
+    background: #fff;
+  }
+
+  .print-container {
+    display: block;
+    width: 241mm;
+    height: 140mm;
+    page-break-after: always;
+  }
+
+  /* 打印时去除原本由于 flex 和 margin 导致的偏移 */
+  #print-paper-area {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+  }
+
+  table, th, td {
+    border-color: #000 !important;
+  }
 }
 </style>

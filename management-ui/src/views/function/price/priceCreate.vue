@@ -197,9 +197,9 @@ const formData = reactive({
 
   // 优化后的 B2B 制造行业客户分级
   gradePrices: [
-    { code: 'T1', name: '战略级客企 (Strategic)', fixedPrice: null, discountRate: 85 },
-    { code: 'T2', name: '大宗采购商 (Bulk Buyer)', fixedPrice: null, discountRate: 90 },
-    { code: 'T3', name: '标准合作方 (Standard)', fixedPrice: null, discountRate: 95 }
+    { code: 'T1', name: '战略级客企 (Strategic)', fixedPrice: null, discountRate: 90 },
+    { code: 'T2', name: '大宗采购商 (Bulk Buyer)', fixedPrice: null, discountRate: 95 },
+    { code: 'T3', name: '标准合作方 (Standard)', fixedPrice: null, discountRate: 100 }
   ],
 
   overrides: []
