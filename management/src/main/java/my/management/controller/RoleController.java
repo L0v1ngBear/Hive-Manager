@@ -7,9 +7,7 @@ import my.management.common.dto.Result;
 import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.service.RoleService;
 import org.springframework.beans.BeanUtils;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController("/sys/role")
 public class RoleController {
@@ -28,5 +26,6 @@ public class RoleController {
         return Result.success(pageResult);
     }
 
-
+    @PostMapping("/create")
+    public Result<SysRole> create(@RequestBody SysRole role) {
 }

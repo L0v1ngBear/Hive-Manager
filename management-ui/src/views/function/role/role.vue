@@ -7,7 +7,9 @@
           <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-primary leading-none">角色权限管理</h1>
           <p class="text-sm md:text-base text-on-surface-variant mt-3 max-w-lg">配置组织职能角色，定义操作权限范围。</p>
         </div>
-        <button class="bg-primary text-on-primary flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95">
+
+        <!-- 👉 点击这里弹出新建角色抽屉 -->
+        <button @click="openCreateRole" class="bg-primary text-on-primary flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95">
           <span class="material-symbols-outlined text-[20px]">add</span>新建角色
         </button>
       </header>
@@ -54,6 +56,13 @@
       </section>
 
       <PermissionDrawer ref="drawerRef" @updated="fetchData" />
+
+      <!-- 👉 新建角色抽屉 -->
+      <CreateRoleDrawer
+        ref="createRoleRef"
+        @success="fetchData"
+      />
+
     </div>
   </div>
 </template>
@@ -61,14 +70,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import PermissionDrawer from './permissionDrawer.vue'
+import CreateRoleDrawer from './createRoleDrawer.vue' // 👈 引入
 
 const roles = ref([])
 const loading = ref(false)
 const drawerRef = ref(null)
+const createRoleRef = ref(null) // 👈 新建角色抽屉实例
 
 const fetchData = async () => {
   loading.value = true
-  // 模拟角色列表数据
   setTimeout(() => {
     roles.value = [
       { id: 101, roleName: '仓储专员', isSystem: 0, userCount: 3, createTime: '2024-03-20' },
@@ -82,6 +92,13 @@ const fetchData = async () => {
 const openPermission = (role) => {
   if (drawerRef.value) {
     drawerRef.value.open(role)
+  }
+}
+
+// 👉 打开新建角色
+const openCreateRole = () => {
+  if (createRoleRef.value) {
+    createRoleRef.value.open()
   }
 }
 
