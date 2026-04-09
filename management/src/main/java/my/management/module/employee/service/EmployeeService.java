@@ -34,8 +34,10 @@ import my.management.module.employee.model.vo.OptionVO;
 import my.management.module.employee.model.vo.PositionOptionVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.DigestUtils;
 import org.springframework.util.StringUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -45,6 +47,7 @@ public class EmployeeService {
     private static final int STATUS_RESIGNED = 0;
     private static final int STATUS_ACTIVE = 1;
     private static final int STATUS_PROBATION = 2;
+    private static final String DEFAULT_PASSWORD = "123456";
 
     @Resource
     private EmployeeMapper employeeMapper;
@@ -110,7 +113,9 @@ public class EmployeeService {
         Employee employee = new Employee();
         employee.setTenantCode(TenantPermissionContext.getTenantCode());
         employee.setName(request.getName());
+        employee.setLoginName(request.getPhone());
         employee.setPhone(request.getPhone());
+        employee.setPassword(encryptPassword(DEFAULT_PASSWORD));
         employee.setDepartmentName(department.getDeptName());
         employee.setPosition(position.getPositionName());
         employee.setManagerId(request.getLeaderId());
@@ -131,11 +136,13 @@ public class EmployeeService {
 
         insertChangeLog(employee.getId(), "CREATE", null, Map.of(
                 "name", employee.getName(),
+                "loginName", employee.getLoginName(),
                 "phone", employee.getPhone(),
                 "departmentName", employee.getDepartmentName(),
                 "position", employee.getPosition(),
                 "status", employee.getStatus(),
-                "empNo", ext.getEmpNo()
+                "empNo", ext.getEmpNo(),
+                "defaultPassword", DEFAULT_PASSWORD
         ));
         return employee.getId();
     }
@@ -148,8 +155,12 @@ public class EmployeeService {
         Position position = requirePosition(request.getPositionId());
         validateLeader(request.getLeaderId());
 
+        boolean syncLoginName = employee.getLoginName() == null || employee.getLoginName().isBlank() || employee.getLoginName().equals(employee.getPhone());
         employee.setName(request.getName());
         employee.setPhone(request.getPhone());
+        if (syncLoginName) {
+            employee.setLoginName(request.getPhone());
+        }
         employee.setDepartmentName(department.getDeptName());
         employee.setPosition(position.getPositionName());
         employee.setManagerId(request.getLeaderId());
@@ -392,5 +403,9 @@ public class EmployeeService {
         vo.setCode(position.getPositionCode());
         vo.setDepartmentId(position.getDepartmentId());
         return vo;
+    }
+
+    private String encryptPassword(String password) {
+        return DigestUtils.md5DigestAsHex(password.getBytes(StandardCharsets.UTF_8));
     }
 }

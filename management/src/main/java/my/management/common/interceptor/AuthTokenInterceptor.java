@@ -1,0 +1,66 @@
+package my.management.common.interceptor;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import my.management.common.auth.AuthUserInfo;
+import my.management.common.context.TenantPermissionContext;
+import my.management.common.dto.Result;
+import my.management.common.utils.TokenUtil;
+import my.management.module.auth.mapper.AuthMapper;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.HandlerInterceptor;
+
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+@Component
+public class AuthTokenInterceptor implements HandlerInterceptor {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Resource
+    private AuthMapper authMapper;
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
+        String authorization = request.getHeader("Authorization");
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            writeErrorResponse(response, HttpStatus.UNAUTHORIZED, 401, "请先登录");
+            return false;
+        }
+
+        AuthUserInfo authUserInfo = TokenUtil.parseToken(authorization.substring(7).trim());
+        if (authUserInfo == null || authUserInfo.getUserId() == null || authUserInfo.getTenantCode() == null || authUserInfo.getTenantCode().isBlank()) {
+            writeErrorResponse(response, HttpStatus.UNAUTHORIZED, 401, "登录状态已失效，请重新登录");
+            return false;
+        }
+
+        List<String> permissionList = authMapper.selectPermCodesByUserIdAndTenantCode(authUserInfo.getUserId(), authUserInfo.getTenantCode());
+        Set<String> permCodes = new LinkedHashSet<>(permissionList == null ? List.of() : permissionList);
+        TenantPermissionContext.init(authUserInfo.getTenantCode(), authUserInfo.getUserId(), permCodes);
+        return true;
+    }
+
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
+        TenantPermissionContext.clear();
+    }
+
+    private void writeErrorResponse(HttpServletResponse response, HttpStatus httpStatus, Integer bizCode, String msg) throws Exception {
+        Result<Void> errorResult = Result.fail(bizCode, msg);
+        response.setContentType("application/json;charset=UTF-8");
+        response.setStatus(httpStatus.value());
+        try (var writer = response.getWriter()) {
+            objectMapper.writeValue(writer, errorResult);
+            writer.flush();
+        }
+    }
+}

@@ -1,52 +1,41 @@
-﻿import { defineStore } from 'pinia'
+import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
-  const tenantCode = ref(localStorage.getItem('tenantCode') || '')
-  const userId = ref(localStorage.getItem('userId') || '')
+  const userInfo = ref(JSON.parse(localStorage.getItem('userInfo') || 'null'))
   const permissions = ref(JSON.parse(localStorage.getItem('permissions') || '[]'))
 
-  const setToken = (newToken) => {
-    token.value = newToken
-    localStorage.setItem('token', newToken)
-  }
+  const setLoginInfo = (loginData) => {
+    token.value = loginData?.token || ''
+    userInfo.value = loginData
+      ? {
+          userId: loginData.userId,
+          userName: loginData.userName,
+          tenantCode: loginData.tenantCode
+        }
+      : null
+    permissions.value = loginData?.permissions || []
 
-  const setTenantCode = (newTenantCode) => {
-    tenantCode.value = newTenantCode
-    localStorage.setItem('tenantCode', newTenantCode)
-  }
-
-  const setUserId = (newUserId) => {
-    userId.value = newUserId
-    localStorage.setItem('userId', newUserId)
-  }
-
-  const setPermissions = (newPermissions) => {
-    permissions.value = newPermissions
-    localStorage.setItem('permissions', JSON.stringify(newPermissions))
+    localStorage.setItem('token', token.value)
+    localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+    localStorage.setItem('permissions', JSON.stringify(permissions.value))
   }
 
   const logout = () => {
     token.value = ''
-    tenantCode.value = ''
-    userId.value = ''
+    userInfo.value = null
     permissions.value = []
     localStorage.removeItem('token')
-    localStorage.removeItem('tenantCode')
-    localStorage.removeItem('userId')
+    localStorage.removeItem('userInfo')
     localStorage.removeItem('permissions')
   }
 
   return {
     token,
-    tenantCode,
-    userId,
+    userInfo,
     permissions,
-    setToken,
-    setTenantCode,
-    setUserId,
-    setPermissions,
+    setLoginInfo,
     logout
   }
 })

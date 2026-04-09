@@ -5,3 +5,7 @@ server:
 spring:
   profiles:
     active: dev
+auth:
+  token:
+    secret: hive-manager-2026-token-secret
+    expire-hours: 24

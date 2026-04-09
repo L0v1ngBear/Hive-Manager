@@ -20,7 +20,12 @@ public class Employee {
 
     private String name;
 
+    private String loginName;
+
     private String phone;
+
+    @TableField(select = false)
+    private String password;
 
     private String departmentName;
 

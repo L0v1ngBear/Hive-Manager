@@ -1,5 +1,6 @@
-﻿import axios from 'axios'
+import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import router from '@/router'
 import { useUserStore } from '@/stores/user'
 
 const service = axios.create({
@@ -14,12 +15,6 @@ service.interceptors.request.use(
 
     if (userStore.token) {
       config.headers.Authorization = `Bearer ${userStore.token}`
-    }
-    if (userStore.tenantCode) {
-      config.headers['Tenant-Code'] = userStore.tenantCode
-    }
-    if (userStore.userId) {
-      config.headers['User-Id'] = userStore.userId
     }
     return config
   },
@@ -36,12 +31,21 @@ service.interceptors.response.use(
     return res.data
   },
   (error) => {
-    if (error.response?.status === 403) {
-      ElMessage.error('暂无权限')
-    } else if (error.response?.status === 400) {
+    const userStore = useUserStore()
+    const status = error.response?.status
+
+    if (status === 401) {
+      userStore.logout()
+      ElMessage.error(error.response?.data?.msg || '登录状态已失效')
+      if (router.currentRoute.value.fullPath !== '/dashboard') {
+        router.push('/dashboard')
+      }
+    } else if (status === 403) {
+      ElMessage.error(error.response?.data?.msg || '暂无权限')
+    } else if (status === 400) {
       ElMessage.error(error.response?.data?.msg || '非法请求')
     } else {
-      ElMessage.error('网络错误')
+      ElMessage.error(error.response?.data?.msg || '网络错误')
     }
     return Promise.reject(error)
   }
