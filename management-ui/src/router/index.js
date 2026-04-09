@@ -52,7 +52,7 @@ export const constantRoutes = [
       {
         path: 'employee',
         name: 'Employee',
-        component: () => import('@/views/function/employee.vue'),
+        component: () => import('@/views/employee/employee.vue'),
         meta: { title: '员工管理' }
       },
       {

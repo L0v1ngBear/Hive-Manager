@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import my.management.common.dto.PageResult;
 import my.management.common.dto.Result;
 import my.management.module.sys.model.dto.SysRoleAddRequest;
+import my.management.module.sys.model.dto.SysRoleUpdateRequest;
 import my.management.module.sys.model.entity.SysPermission;
 import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.service.RoleService;
@@ -44,5 +45,11 @@ public class RoleController {
     public Result<List<SysPermission>> all() {
         List<SysPermission> permissions = roleService.selectAllPermission();
         return Result.success(permissions);
+    }
+
+    @PostMapping("/role/update")
+    public Result<Void> update(@Valid @RequestBody SysRoleUpdateRequest request) {
+        roleService.updateRole(request);
+        return Result.success(null);
     }
 }

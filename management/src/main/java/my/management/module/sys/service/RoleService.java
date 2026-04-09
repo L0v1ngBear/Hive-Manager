@@ -3,11 +3,13 @@ package my.management.module.sys.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import my.management.common.context.TenantPermissionContext;
 import my.management.module.sys.mapper.SysPermissionMapper;
 import my.management.module.sys.mapper.SysRoleMapper;
 import my.management.module.sys.mapper.SysRolePermissionMapper;
 import my.management.module.sys.model.dto.SysRoleAddRequest;
+import my.management.module.sys.model.dto.SysRoleUpdateRequest;
 import my.management.module.sys.model.entity.SysPermission;
 import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.model.entity.SysRolePermission;
@@ -68,5 +70,23 @@ public class RoleService {
 
         // 3. 批量保存
         sysRolePermissionMapper.insertBatch(list);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void updateRole(@Valid SysRoleUpdateRequest request) {
+        // 1. 批量删除旧权限
+        sysRolePermissionMapper.delete(new LambdaQueryWrapper<SysRolePermission>()
+                .eq(SysRolePermission::getRoleId, request.getRoleId()));
+
+        // 2. 批量插入新权限
+        List<Long> permissionIds = request.getPermissionIds();
+        sysRolePermissionMapper.insertBatch(permissionIds.stream()
+                .map(pid -> {
+                    SysRolePermission rp = new SysRolePermission();
+                    rp.setRoleId(request.getRoleId());
+                    rp.setPermissionId(pid);
+                    return rp;
+                })
+                .toList());
     }
 }

@@ -11,7 +11,6 @@ export default defineConfig({
   plugins: [
     vue(),
     vueJsx(),
-    vueDevTools(),
     tailwindcss(),
   ],
   resolve: {
@@ -19,7 +18,14 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
-  define: {
-    'process.env': {}
+  server: {
+    port: 5173,
+    proxy: {
+      '/web': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   }
 })
