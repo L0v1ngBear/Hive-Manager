@@ -12,9 +12,16 @@ import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.service.RoleService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/sys/role")
@@ -43,8 +50,12 @@ public class RoleController {
 
     @GetMapping("/role/all")
     public Result<List<SysPermission>> all() {
-        List<SysPermission> permissions = roleService.selectAllPermission();
-        return Result.success(permissions);
+        return Result.success(roleService.selectAllPermission());
+    }
+
+    @GetMapping("/{roleId}/permission-ids")
+    public Result<Set<Long>> getRolePermissionIds(@PathVariable Long roleId) {
+        return Result.success(roleService.getRolePermissionIds(roleId));
     }
 
     @PostMapping("/role/update")

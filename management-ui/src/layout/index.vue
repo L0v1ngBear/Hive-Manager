@@ -8,7 +8,7 @@
       <main class="flex-1 overflow-y-auto p-4 md:p-8">
         <router-view v-slot="{ Component }">
           <transition name="fade-transform" mode="out-in">
-            <component :is="Component" />
+            <component :is="Component" :key="route.fullPath" />
           </transition>
         </router-view>
       </main>
@@ -17,11 +17,14 @@
 </template>
 
 <script setup lang="ts">
+import { useRoute } from 'vue-router';
 // Vue 3.3+ 宏定义组件名
 defineOptions({ name: 'Layout' });
 
 import Sidebar from './components/Sidebar.vue';
 import Navbar from './components/Navbar.vue';
+
+const route = useRoute();
 </script>
 
 <style scoped>
