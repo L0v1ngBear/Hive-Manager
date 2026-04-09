@@ -1,12 +1,12 @@
 <template>
   <el-drawer
-    v-model="visible"
-    :title="null"
-    size="500px"
-    direction="rtl"
-    :with-header="false"
-    class="atelier-drawer"
-    append-to-body
+      v-model="visible"
+      :title="null"
+      size="500px"
+      direction="rtl"
+      :with-header="false"
+      class="atelier-drawer"
+      append-to-body
   >
     <div class="h-1 bg-primary w-full sticky top-0 z-10"></div>
 
@@ -28,14 +28,14 @@
         <div class="space-y-2">
           <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant">角色名称</label>
           <input
-            v-model="form.roleName"
-            type="text"
-            placeholder="例如：高级裁切师"
-            class="w-full px-4 py-3.5 rounded bg-surface-container-low border-none focus:ring-2 focus:ring-primary/20 text-on-surface transition-all placeholder:text-on-surface-variant/40"
+              v-model="form.roleName"
+              type="text"
+              placeholder="例如：高级裁切师"
+              class="w-full px-4 py-3.5 rounded bg-surface-container-low border-none focus:ring-2 focus:ring-primary/20 text-on-surface transition-all placeholder:text-on-surface-variant/40"
           />
         </div>
 
-        <div class="space-y-2">
+        <div class="space-y-2 relative">
           <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant flex justify-between">
             分配权限
             <span class="text-[10px] font-normal lowercase opacity-60">勾选下方列表授予功能访问权</span>
@@ -43,23 +43,24 @@
 
           <div class="atelier-tree-select-wrapper">
             <el-tree-select
-              v-model="form.permCodes"
-              :data="allPermissions"
-              node-key="permCode"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
-              placeholder="点击选择系统权限"
-              class="atelier-tree-select w-full"
-              filterable
-              check-strictly
+                v-model="form.permCodes"
+                :data="allPermissions"
+                node-key="permCode"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                :placeholder="isLoadingPerms ? '正在加载权限列表...' : '点击选择系统权限'"
+                class="atelier-tree-select w-full"
+                filterable
+                check-strictly
+                :loading="isLoadingPerms"
             >
               <template #default="{ data }">
                 <div class="flex items-center gap-2">
                   <span class="material-symbols-outlined text-[18px] opacity-40">
-                    {{ data.children ? 'folder' : 'description' }}
+                    {{ data.children && data.children.length > 0 ? 'folder' : 'description' }}
                   </span>
-                  <span class="text-sm font-medium text-on-surface">{{ data.permName }}</span>
+                  <span class="text-sm font-medium text-on-surface">{{ data.permName || data.name }}</span>
                 </div>
               </template>
             </el-tree-select>
@@ -69,7 +70,14 @@
 
       <div class="p-8 bg-surface-container-low border-t border-surface-variant/30 grid grid-cols-2 gap-4">
         <button @click="close" class="py-3 px-6 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-all">取消返回</button>
-        <button @click="submit" class="py-3 px-6 rounded-lg text-sm font-bold text-white bg-primary shadow-lg shadow-primary/30 active:scale-95 hover:opacity-90 transition-all">确认创建</button>
+        <button
+            @click="submit"
+            :disabled="isSubmitting"
+            class="py-3 px-6 rounded-lg text-sm font-bold text-white bg-primary shadow-lg shadow-primary/30 active:scale-95 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <span v-if="isSubmitting" class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+          {{ isSubmitting ? '提交中...' : '确认创建' }}
+        </button>
       </div>
     </div>
   </el-drawer>
@@ -79,39 +87,41 @@
 import { ref } from 'vue'
 import { ElMessage, ElDrawer, ElTreeSelect } from 'element-plus'
 
+import { getAllPermissions, createRole } from './api/role.js'
+
 const emit = defineEmits(['success'])
 const visible = ref(false)
+const isSubmitting = ref(false)
+const isLoadingPerms = ref(false)
 
-// 符合后端 SysRoleAddRequest 结构的表单
 const form = ref({
   roleName: '',
-  permCodes: [] // 提交时将是 ["user:add", "order:view"] 等
+  permCodes: []
 })
 
-// 模拟权限树数据 (字段匹配 SysPermission 实体)
-const allPermissions = ref([
-  {
-    id: 1,
-    permName: '订单管理',
-    permCode: 'order:root',
-    children: [
-      { id: 11, permName: '查看订单', permCode: 'order:view' },
-      { id: 12, permName: '订单审核', permCode: 'order:audit' }
-    ]
-  },
-  {
-    id: 2,
-    permName: '库存系统',
-    permCode: 'stock:root',
-    children: [
-      { id: 21, permName: '入库登记', permCode: 'stock:in' }
-    ]
-  }
-])
+const allPermissions = ref([])
 
-const open = () => {
+// 调用你的 getAllPermissions
+const fetchPermissions = async () => {
+  isLoadingPerms.value = true
+  try {
+    const res = await getAllPermissions()
+    if (res.code === 200) {
+      allPermissions.value = res.data
+    } else {
+      ElMessage.error(res.message || '获取系统权限失败')
+    }
+  } catch (error) {
+    console.error('获取权限异常:', error)
+  } finally {
+    isLoadingPerms.value = false
+  }
+}
+
+const open = async () => {
   visible.value = true
   form.value = { roleName: '', permCodes: [] }
+  await fetchPermissions()
 }
 
 const close = () => {
@@ -119,7 +129,7 @@ const close = () => {
 }
 
 const submit = async () => {
-  if (!form.value.roleName) {
+  if (!form.value.roleName.trim()) {
     ElMessage.warning('角色名称是必填项')
     return
   }
@@ -128,19 +138,30 @@ const submit = async () => {
     return
   }
 
-  // 模拟发送给后端的请求数据
-  console.log('API Request Body:', {
-    roleName: form.value.roleName,
-    permCodes: form.value.permCodes, // 选中的字符串集合
-    isSystem: 0
-  })
+  isSubmitting.value = true
 
-  ElMessage.success(`角色 [${form.value.roleName}] 已成功创建`)
-  emit('success')
-  close()
+  try {
+    // 调用你的 createRole，组装 data
+    const res = await createRole({
+      roleName: form.value.roleName.trim(),
+      permCodes: form.value.permCodes
+    })
+
+    if (res.code === 200) {
+      ElMessage.success(`角色 [${form.value.roleName}] 已成功创建`)
+      emit('success')
+      close()
+    } else {
+      ElMessage.error(res.message || '创建角色失败')
+    }
+  } catch (error) {
+    console.error('提交异常:', error)
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
-defineExpose({ open })
+defineExpose({open})
 </script>
 
 <style scoped>
@@ -154,6 +175,10 @@ defineExpose({ open })
   box-shadow: none !important;
   border-radius: 4px;
   padding: 10px 12px;
+}
+
+:deep(.el-tree-node__expand-icon.is-leaf) {
+  color: transparent;
 }
 
 .no-scrollbar::-webkit-scrollbar {

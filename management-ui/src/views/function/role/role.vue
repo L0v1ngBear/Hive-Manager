@@ -7,10 +7,9 @@
           <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-primary leading-none">角色权限管理</h1>
           <p class="text-sm md:text-base text-on-surface-variant mt-3 max-w-lg">配置组织职能角色，定义操作权限范围。</p>
         </div>
-          <!-- 👉 点击这里弹出新建角色抽屉 -->
-          <button @click="openCreateRole" class="bg-primary text-on-primary flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95">
-            <span class="material-symbols-outlined text-[20px]">add</span>新建角色
-          </button>
+        <button @click="openCreateRole" class="bg-primary text-on-primary flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95">
+          <span class="material-symbols-outlined text-[20px]">add</span>新建角色
+        </button>
       </header>
 
       <section class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border-l-4 border-primary/20 relative">
@@ -43,10 +42,15 @@
                 <span v-if="role.isSystem" class="text-[11px] font-bold px-2 py-1 rounded bg-secondary/10 text-secondary border border-secondary/20">系统内置</span>
                 <span v-else class="text-[11px] font-bold px-2 py-1 rounded bg-surface-container-high text-on-surface-variant border border-outline-variant/20">自定义</span>
               </td>
-              <td class="px-6 py-4 text-sm font-bold text-on-surface-variant">{{ role.userCount }} 人</td>
+              <td class="px-6 py-4 text-sm font-bold text-on-surface-variant">{{ role.userCount || 0 }} 人</td>
               <td class="px-6 py-4 text-sm text-on-surface-variant">{{ role.createTime }}</td>
               <td class="px-6 py-4 text-right">
                 <button @click="openPermission(role)" class="text-primary hover:bg-primary/10 px-4 py-2 rounded-lg text-sm font-bold transition-colors">配置权限</button>
+              </td>
+            </tr>
+            <tr v-if="!loading && roles.length === 0">
+              <td colspan="5" class="px-6 py-12 text-center text-on-surface-variant">
+                暂无角色数据
               </td>
             </tr>
             </tbody>
@@ -55,12 +59,7 @@
       </section>
 
       <PermissionDrawer ref="drawerRef" @updated="fetchData" />
-
-      <!-- 👉 新建角色抽屉 -->
-      <CreateRoleDrawer
-          ref="createRoleRef"
-          @success="fetchData"
-      />
+      <CreateRoleDrawer ref="createRoleRef" @success="fetchData" />
 
     </div>
   </div>
@@ -68,25 +67,35 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import PermissionDrawer from './permissionDrawer.vue'
-import CreateRoleDrawer from './createRoleDrawer.vue' // 👈 引入
+import CreateRoleDrawer from './createRoleDrawer.vue'
+
+// ⚠️ 注意：这里的路径请替换为你实际存放 api 方法的文件路径
+import { getRolePage } from './api/role.js'
 
 const roles = ref([])
 const loading = ref(false)
 const drawerRef = ref(null)
-const createRoleRef = ref(null) // 👈 新建角色抽屉实例
+const createRoleRef = ref(null)
 
 const fetchData = async () => {
   loading.value = true
-  // 模拟角色列表数据
-  setTimeout(() => {
-    roles.value = [
-      { id: 101, roleName: '仓储专员', isSystem: 0, userCount: 3, createTime: '2024-03-20' },
-      { id: 102, roleName: '销售主管', isSystem: 0, userCount: 5, createTime: '2024-02-15' },
-      { id: 103, roleName: '系统管理员', isSystem: 1, userCount: 2, createTime: '2024-01-01' }
-    ]
+  try {
+    // 调用你封装的分页接口，这里写死了分页参数，你可以按需绑定到分页组件
+    const res = await getRolePage({ page: 1, limit: 100 })
+
+    if (res.code === 200) {
+      // 假设后端返回的数据在 res.data.records 或 res.data 里，按需调整
+      roles.value = res.data.records || res.data || []
+    } else {
+      ElMessage.error(res.message || '获取角色列表失败')
+    }
+  } catch (error) {
+    console.error('获取列表异常:', error)
+  } finally {
     loading.value = false
-  }, 500)
+  }
 }
 
 const openPermission = (role) => {
@@ -95,7 +104,6 @@ const openPermission = (role) => {
   }
 }
 
-// 👉 打开新建角色
 const openCreateRole = () => {
   if (createRoleRef.value) {
     createRoleRef.value.open()
@@ -104,4 +112,3 @@ const openCreateRole = () => {
 
 onMounted(fetchData)
 </script>
-
