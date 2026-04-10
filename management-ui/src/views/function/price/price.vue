@@ -1,500 +1,280 @@
 <template>
-  <div class="relative h-full flex flex-col min-w-0 bg-surface overflow-hidden">
-
-    <div class="p-4 md:p-8 overflow-y-auto h-full space-y-8 pb-12">
-
-      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+  <div class="min-h-screen bg-surface text-on-surface p-4 md:p-8 overflow-x-hidden font-body">
+    <div class="max-w-7xl mx-auto space-y-8">
+      <header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h2 class="text-3xl font-black text-primary tracking-tight">价格管理</h2>
-          <p class="text-on-surface-variant mt-1">配置全局价格、阶梯批发折扣和面料估值规则。</p>
+          <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-primary leading-none">价格管理</h1>
+          <p class="text-sm md:text-base text-on-surface-variant mt-3 max-w-2xl">维护面料 SKU 基准价、客户等级价和指定客户特价，价格会被后端出库金额计算复用。</p>
         </div>
         <div class="flex items-center gap-3">
-          <button
-            class="flex items-center gap-2 px-4 py-2 bg-surface-container-highest text-primary font-bold rounded-lg hover:bg-surface-container-high transition-colors text-sm">
-            <span class="material-symbols-outlined text-lg">file_upload</span>
-            导入价格表
+          <button @click="exportCsv" class="px-4 py-2 bg-surface-container-highest text-primary font-bold rounded-lg hover:bg-surface-container-high transition-colors text-sm">
+            <span class="material-symbols-outlined text-lg align-middle mr-1">file_download</span>导出价格表
           </button>
-
-          <button
-            class="flex items-center gap-2 px-4 py-2 bg-surface-container-highest text-primary font-bold rounded-lg hover:bg-surface-container-high transition-colors text-sm">
-            <span class="material-symbols-outlined text-lg">file_download</span>
-            导出价格表
-          </button>
-
-          <button
-            @click="isCreateDrawerOpen = true"
-            class="flex items-center gap-2 px-4 py-2 bg-primary text-white font-bold rounded-lg hover:bg-primary-container transition-colors text-sm shadow-md active:scale-95"
-          >
-            <span class="material-symbols-outlined text-lg">add_circle</span>
-            追加产品价格
-          </button>
-
-          <PriceCreateDrawer
-            :is-visible="isCreateDrawerOpen"
-            @close="isCreateDrawerOpen = false"
-            @success="handlePriceCreated"
-          />
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div
-            class="bg-surface-container-lowest p-6 rounded-xl border border-transparent hover:border-outline-variant/20 transition-all shadow-sm">
-            <div class="flex justify-between items-start">
-              <span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">上架型号 (SKU)</span>
-              <span class="material-symbols-outlined text-primary/40">inventory</span>
-            </div>
-            <div class="mt-4 flex flex-col">
-              <span class="text-3xl font-black text-primary">1,284</span>
-              <span class="text-xs text-green-600 font-medium flex items-center gap-1 mt-1">
-                <span class="material-symbols-outlined text-xs">trending_up</span> 本月增长 12%
-              </span>
-            </div>
-          </div>
-
-          <div
-            class="bg-surface-container-lowest p-6 rounded-xl border border-transparent shadow-sm">
-            <div class="flex justify-between items-start">
-              <span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">平均基准价</span>
-              <span class="material-symbols-outlined text-primary/40">payments</span>
-            </div>
-            <div class="mt-4 flex flex-col">
-              <span class="text-3xl font-black text-primary">¥42.50</span>
-              <span class="text-xs text-on-surface-variant font-medium mt-1">按米数加权计算</span>
-            </div>
-          </div>
-
-          <div
-            class="bg-surface-container-lowest p-6 rounded-xl border border-transparent shadow-sm">
-            <div class="flex justify-between items-start">
-              <span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">待生效变更</span>
-              <span class="material-symbols-outlined text-orange-400/80">schedule</span>
-            </div>
-            <div class="mt-4 flex flex-col">
-              <span class="text-3xl font-black text-primary">14</span>
-              <span class="text-xs text-orange-600 font-medium mt-1">将于 10 月 1 日生效</span>
-            </div>
-          </div>
-        </div>
-
-        <div
-          class="bg-[#1a365d] text-white p-6 rounded-xl flex flex-col relative overflow-hidden shadow-md">
-          <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
-
-          <div class="flex justify-between items-center mb-4 relative z-10">
-            <h3 class="text-sm font-bold uppercase tracking-wider opacity-80">阶梯批发折扣规则</h3>
-            <button class="text-xs underline hover:no-underline opacity-80">管理全部</button>
-          </div>
-          <div class="space-y-3 relative z-10 flex-1">
-            <div
-              class="flex items-center justify-between p-3 bg-white/10 rounded-lg backdrop-blur-sm">
-              <div class="flex flex-col">
-                <span class="text-xs font-bold">梯队 01: 大批量客户</span>
-                <span class="text-[10px] opacity-70">单笔订单量 > 500米</span>
-              </div>
-              <span class="text-lg font-black text-blue-200">享 95 折</span>
-            </div>
-            <div
-              class="flex items-center justify-between p-3 bg-white/10 rounded-lg backdrop-blur-sm">
-              <div class="flex flex-col">
-                <span class="text-xs font-bold">梯队 02: 战略合作伙伴</span>
-                <span class="text-[10px] opacity-70">单笔订单量 > 1000米</span>
-              </div>
-              <span class="text-lg font-black text-blue-200">享 9 折</span>
-            </div>
-          </div>
-          <button
-            class="mt-4 w-full py-2 bg-blue-100 text-[#1a365d] font-black text-xs rounded-lg uppercase tracking-widest hover:bg-white transition-colors relative z-10">
-            创建折扣规则
+          <button @click="openCreate()" class="px-5 py-2 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-md active:scale-95">
+            <span class="material-symbols-outlined text-lg align-middle mr-1">add_circle</span>新增价格
           </button>
         </div>
-      </div>
+      </header>
 
-      <div
-        class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex flex-col ring-1 ring-outline-variant/20">
+      <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-primary">
+          <p class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">SKU 数量</p>
+          <h3 class="text-4xl font-black text-primary mt-2">{{ stats.skuCount }}</h3>
+        </div>
+        <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm">
+          <p class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">平均基准价</p>
+          <h3 class="text-4xl font-black text-primary mt-2">¥{{ money(stats.averagePrice) }}</h3>
+        </div>
+        <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm">
+          <p class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">计划中价格</p>
+          <h3 class="text-4xl font-black text-primary mt-2">{{ stats.pendingCount }}</h3>
+        </div>
+        <div class="bg-[#1a365d] text-white p-6 rounded-xl shadow-md">
+          <p class="text-xs font-bold uppercase tracking-widest opacity-80">客户特价</p>
+          <h3 class="text-4xl font-black mt-2">{{ stats.overrideCount }}</h3>
+          <p class="text-xs opacity-70 mt-3">指定客户优先使用特价。</p>
+        </div>
+      </section>
 
-        <div
-          class="px-6 py-4 border-b border-surface-variant/50 flex flex-wrap items-center justify-between gap-4">
-          <div class="flex items-center gap-3">
-            <div
-              class="flex items-center bg-surface-container-low rounded-lg px-3 py-1.5 border border-outline-variant/10">
-              <span class="text-xs font-bold text-on-surface-variant mr-3">面料分类:</span>
-              <select
-                class="bg-transparent border-none p-0 text-xs font-bold text-primary focus:ring-0 cursor-pointer">
-                <option>全部面料</option>
-                <option>有机棉 (Organic Cotton)</option>
-                <option>丝绸混纺 (Silk Blends)</option>
-                <option>合成纤维 (Synthetic)</option>
-              </select>
+      <section class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden ring-1 ring-outline-variant/20">
+        <div class="px-6 py-4 border-b border-surface-variant/50 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="relative min-w-[260px]">
+              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
+              <input v-model.trim="query.keyword" @keyup.enter="fetchData" class="w-full pl-10 pr-4 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 focus:ring-2 focus:ring-primary text-sm outline-none" placeholder="搜索型号、批号、规格" />
             </div>
-            <div
-              class="flex items-center bg-surface-container-low rounded-lg px-3 py-1.5 border border-outline-variant/10">
-              <span class="text-xs font-bold text-on-surface-variant mr-3">状态:</span>
-              <div class="flex gap-2">
-                <span
-                  class="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold cursor-pointer">生效中</span>
-                <span
-                  class="text-[10px] px-2 py-0.5 rounded-full hover:bg-slate-200 text-on-surface-variant font-bold cursor-pointer transition-colors">计划中</span>
-              </div>
-            </div>
+            <select v-model="query.category" @change="handleFilter" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none">
+              <option value="">全部分类</option>
+              <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+            </select>
+            <select v-model="query.status" @change="handleFilter" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none">
+              <option value="">全部状态</option>
+              <option :value="1">生效中</option>
+              <option :value="2">计划中</option>
+              <option :value="0">已过期</option>
+            </select>
+            <button @click="fetchData" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold">查询</button>
           </div>
-          <div class="flex items-center gap-2 text-xs font-medium text-on-surface-variant">
-            <span class="material-symbols-outlined text-lg">calendar_today</span>
-            <span>2024-09-01 至 2024-09-30</span>
-          </div>
+          <span class="text-xs text-on-surface-variant">共 {{ pagination.total }} 条价格记录</span>
         </div>
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
-            <thead>
-            <tr class="bg-surface-container-low/50">
-              <th
-                class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                面料型号
-              </th>
-              <th
-                class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                规格说明
-              </th>
-              <th
-                class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant text-right">
-                基准价
-              </th>
-              <th
-                class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                币种
-              </th>
-              <th
-                class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                生效日期
-              </th>
-              <th
-                class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                状态
-              </th>
-              <th
-                class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant"></th>
-            </tr>
+        <div class="overflow-x-auto relative min-h-[260px]">
+          <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary text-3xl animate-spin">progress_activity</span>
+          </div>
+          <table class="w-full text-left border-collapse min-w-[960px]">
+            <thead class="bg-surface-container-low/50">
+              <tr>
+                <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">面料型号</th>
+                <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">分类/规格</th>
+                <th class="px-6 py-4 text-right text-xs font-black text-on-surface-variant uppercase tracking-wider">基准价</th>
+                <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">币种</th>
+                <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">生效日期</th>
+                <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">状态</th>
+                <th class="px-6 py-4 text-right text-xs font-black text-on-surface-variant uppercase tracking-wider">操作</th>
+              </tr>
             </thead>
             <tbody class="divide-y divide-surface-variant/30">
-
-            <tr
-              v-for="item in tableData"
-              :key="item.id"
-              @click="openDrawer(item)"
-              class="hover:bg-surface-container-high transition-colors cursor-pointer group"
-              :class="{'bg-primary/5': activeRowId === item.id}"
-            >
-              <td class="px-6 py-4">
-                <div class="flex items-center gap-4">
-                  <div class="w-10 h-10 rounded-md overflow-hidden flex-shrink-0 bg-slate-200">
-                    <img :src="item.image" :alt="item.model" class="w-full h-full object-cover"/>
+              <tr v-for="item in rows" :key="item.id" class="hover:bg-surface-container-high/40 transition-colors">
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-4">
+                    <img :src="item.imageUrl || fallbackImage(item.modelCode)" class="w-10 h-10 rounded-md object-cover bg-slate-200" />
+                    <div>
+                      <p class="text-sm font-bold text-primary">{{ item.modelCode }}</p>
+                      <p class="text-[10px] text-on-surface-variant">{{ item.batchNo || '未填写批号' }}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p class="text-sm font-bold text-primary">{{ item.model }}</p>
-                    <p class="text-[10px] text-on-surface-variant">{{ item.lot }}</p>
-                  </div>
-                </div>
-              </td>
-              <td class="px-6 py-4 text-xs font-medium text-secondary">{{ item.spec }}</td>
-              <td class="px-6 py-4 text-right text-sm font-black text-primary">
-                ¥{{ item.price }} <span
-                class="text-[10px] font-normal text-on-surface-variant italic">/m</span>
-              </td>
-              <td class="px-6 py-4 text-xs font-bold">{{ item.currency }}</td>
-              <td class="px-6 py-4 text-xs text-on-surface-variant font-medium">{{ item.date }}</td>
-              <td class="px-6 py-4">
-                  <span v-if="item.status === 'Active'"
-                        class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">
-                    生效中
-                  </span>
-                <span v-else-if="item.status === 'Scheduled'"
-                      class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">
-                    计划中
-                  </span>
-                <span v-else
-                      class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">
-                    已过期
-                  </span>
-              </td>
-              <td class="px-6 py-4 text-right">
-                <span
-                  class="material-symbols-outlined text-primary/40 group-hover:text-primary transition-colors">chevron_right</span>
-              </td>
-            </tr>
-
+                </td>
+                <td class="px-6 py-4">
+                  <div class="text-xs font-bold text-secondary">{{ item.category || '未分类' }}</div>
+                  <div class="text-xs text-on-surface-variant mt-1">{{ item.spec || '--' }}</div>
+                </td>
+                <td class="px-6 py-4 text-right text-sm font-black text-primary">¥{{ money(item.basePrice) }} <span class="text-[10px] text-on-surface-variant">/m</span></td>
+                <td class="px-6 py-4 text-xs font-bold">{{ item.currency }}</td>
+                <td class="px-6 py-4 text-xs text-on-surface-variant font-medium">{{ item.effectiveDate }}</td>
+                <td class="px-6 py-4"><span :class="statusClass(item.status)" class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold">{{ item.statusLabel }}</span></td>
+                <td class="px-6 py-4 text-right space-x-2">
+                  <button @click="openDetail(item)" class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-xs font-bold">详情</button>
+                  <button @click="openCreate(item)" class="text-secondary hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-xs font-bold">调整</button>
+                  <button @click="remove(item)" class="text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold">删除</button>
+                </td>
+              </tr>
+              <tr v-if="!loading && rows.length === 0">
+                <td colspan="7" class="px-6 py-12 text-center text-sm text-on-surface-variant">暂无价格记录。</td>
+              </tr>
             </tbody>
           </table>
         </div>
-      </div>
+
+        <div class="p-4 bg-surface-container/20 flex items-center justify-between text-sm text-on-surface-variant border-t border-surface-variant/50">
+          <span>第 {{ query.page }} / {{ totalPages }} 页</span>
+          <div class="flex gap-2">
+            <button @click="changePage(query.page - 1)" :disabled="query.page <= 1" class="px-3 py-1.5 rounded bg-white border disabled:opacity-50">上一页</button>
+            <button @click="changePage(query.page + 1)" :disabled="query.page >= totalPages" class="px-3 py-1.5 rounded bg-white border disabled:opacity-50">下一页</button>
+          </div>
+        </div>
+      </section>
     </div>
+
+    <PriceCreateDrawer :is-visible="createVisible" :sku-data="editingSku" @close="closeCreate" @success="handleSaved" />
 
     <transition name="fade">
-      <div v-if="isDrawerOpen" @click="closeDrawer"
-           class="absolute inset-0 bg-black/20 backdrop-blur-[2px] z-40"></div>
+      <div v-if="detailVisible" @click="detailVisible = false" class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40"></div>
     </transition>
-
-    <div
-      class="absolute top-0 right-0 h-full w-full sm:w-[400px] bg-white/80 backdrop-blur-2xl border-l border-outline-variant/30 shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-out"
-      :class="isDrawerOpen ? 'translate-x-0' : 'translate-x-full'"
-    >
-      <div class="h-1 bg-primary w-full shrink-0"></div>
-
-      <div
-        class="p-6 border-b border-outline-variant/20 flex justify-between items-center bg-white/50">
+    <aside class="fixed top-0 right-0 h-full w-full sm:w-[440px] bg-white/95 backdrop-blur-2xl border-l border-outline-variant/30 shadow-2xl z-50 flex flex-col transition-transform duration-300" :class="detailVisible ? 'translate-x-0' : 'translate-x-full'">
+      <div class="h-1 bg-primary"></div>
+      <div class="p-6 border-b flex justify-between items-start">
         <div>
-          <h3 class="font-black text-primary text-lg">价格详情洞察</h3>
-          <p class="text-xs text-on-surface-variant font-medium">{{
-              currentSku?.model || '未知型号'
-            }}</p>
+          <h3 class="font-black text-primary text-lg">价格详情</h3>
+          <p class="text-xs text-on-surface-variant mt-1">{{ detail?.modelCode || '--' }}</p>
         </div>
-        <button @click="closeDrawer"
-                class="p-1 hover:bg-surface-container-high rounded-full transition-colors text-on-surface-variant">
-          <span class="material-symbols-outlined">close</span>
-        </button>
+        <button @click="detailVisible = false" class="p-1 hover:bg-surface-container-high rounded-full"><span class="material-symbols-outlined">close</span></button>
       </div>
-
-      <div class="flex-1 p-6 space-y-8 overflow-y-auto">
-
+      <div class="flex-1 p-6 space-y-6 overflow-y-auto">
         <div class="grid grid-cols-2 gap-4">
-          <div class="bg-surface-container-low p-4 rounded-xl ring-1 ring-outline-variant/10">
-            <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">当前基准价</span>
-            <p class="text-xl font-black text-primary">¥{{ currentSku?.price || '0.00' }}</p>
-          </div>
-          <div class="bg-surface-container-low p-4 rounded-xl ring-1 ring-outline-variant/10">
-            <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">峰值价 (近12月)</span>
-            <p class="text-xl font-black text-primary">¥48.20</p>
-          </div>
+          <div class="bg-surface-container-low p-4 rounded-xl"><span class="text-[10px] text-on-surface-variant font-bold">当前基准价</span><p class="text-xl font-black text-primary">¥{{ money(detail?.basePrice) }}</p></div>
+          <div class="bg-surface-container-low p-4 rounded-xl"><span class="text-[10px] text-on-surface-variant font-bold">生效日期</span><p class="text-xl font-black text-primary">{{ detail?.effectiveDate || '--' }}</p></div>
         </div>
-
-        <div class="space-y-3">
-          <div class="flex justify-between items-center">
-            <h4 class="text-xs font-bold text-primary uppercase tracking-widest">价格趋势
-              (近12个月)</h4>
-            <span class="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded">-6.6% 波动</span>
-          </div>
-          <div
-            class="h-48 w-full bg-surface-container-low rounded-xl relative overflow-hidden flex items-end p-4 gap-2 border border-outline-variant/10">
-
-            <svg class="absolute inset-0 w-full h-full px-4 pt-10" preserveAspectRatio="none"
-                 viewBox="0 0 300 100">
-              <path d="M0,80 Q30,70 60,75 T120,60 T180,40 T240,45 T300,55" fill="none"
-                    stroke="#455f88" stroke-linecap="round" stroke-width="3"></path>
-              <path d="M0,80 Q30,70 60,75 T120,60 T180,40 T240,45 T300,55 V100 H0 Z"
-                    fill="url(#grad1)" opacity="0.1"></path>
-              <defs>
-                <linearGradient id="grad1" x1="0%" x2="0%" y1="0%" y2="100%">
-                  <stop offset="0%" style="stop-color:#455f88;stop-opacity:1"></stop>
-                  <stop offset="100%" style="stop-color:#455f88;stop-opacity:0"></stop>
-                </linearGradient>
-              </defs>
-            </svg>
-
-            <div class="flex-1 h-full flex items-end justify-between gap-1 relative z-10">
-              <div
-                class="w-full bg-primary/5 rounded-t-sm h-[60%] hover:bg-primary/30 transition-colors"></div>
-              <div
-                class="w-full bg-primary/5 rounded-t-sm h-[65%] hover:bg-primary/30 transition-colors"></div>
-              <div
-                class="w-full bg-primary/5 rounded-t-sm h-[62%] hover:bg-primary/30 transition-colors"></div>
-              <div
-                class="w-full bg-primary/5 rounded-t-sm h-[70%] hover:bg-primary/30 transition-colors"></div>
-              <div
-                class="w-full bg-primary/5 rounded-t-sm h-[75%] hover:bg-primary/30 transition-colors"></div>
-              <div
-                class="w-full bg-primary/5 rounded-t-sm h-[85%] hover:bg-primary/30 transition-colors"></div>
-              <div
-                class="w-full bg-primary/10 rounded-t-sm h-[80%] hover:bg-primary/30 transition-colors"></div>
-              <div
-                class="w-full bg-primary/10 rounded-t-sm h-[82%] hover:bg-primary/30 transition-colors"></div>
-              <div
-                class="w-full bg-primary/20 rounded-t-sm h-[88%] hover:bg-primary/30 transition-colors"></div>
-              <div
-                class="w-full bg-primary/20 rounded-t-sm h-[84%] hover:bg-primary/30 transition-colors"></div>
-              <div
-                class="w-full bg-primary/30 rounded-t-sm h-[80%] hover:bg-primary/50 transition-colors"></div>
-              <div class="w-full bg-primary rounded-t-sm h-[78%]"></div>
+        <section>
+          <h4 class="text-xs font-bold text-primary uppercase tracking-widest mb-3">客户等级价格</h4>
+          <div class="space-y-2">
+            <div v-for="tier in detail?.tierPrices || []" :key="tier.tierCode" class="flex justify-between p-3 bg-surface-container-low rounded-lg text-sm">
+              <span class="font-bold">{{ tier.tierName }}</span><span class="font-black text-primary">¥{{ money(tier.finalPrice) }}</span>
             </div>
           </div>
-          <div
-            class="flex justify-between text-[10px] text-on-surface-variant font-bold uppercase px-1">
-            <span>23年 9月</span>
-            <span>24年 3月</span>
-            <span>24年 8月</span>
+        </section>
+        <section>
+          <h4 class="text-xs font-bold text-primary uppercase tracking-widest mb-3">客户特价</h4>
+          <div v-if="(detail?.overrides || []).length === 0" class="text-xs text-on-surface-variant">暂无客户特价。</div>
+          <div v-for="item in detail?.overrides || []" :key="item.id" class="flex justify-between p-3 bg-tertiary-fixed/10 rounded-lg text-sm mb-2">
+            <span class="font-bold">{{ item.customerName }}</span><span class="font-black text-primary">¥{{ money(item.price) }}</span>
           </div>
-        </div>
-
-        <div class="space-y-4">
-          <h4 class="text-xs font-bold text-primary uppercase tracking-widest">价格调整日志</h4>
-          <div class="space-y-3">
-            <div
-              class="flex gap-4 p-3 hover:bg-surface-container-low rounded-lg transition-colors border-l-2 border-primary bg-white shadow-sm">
-              <div
-                class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <span class="material-symbols-outlined text-primary text-sm">update</span>
-              </div>
-              <div class="flex-1">
-                <p class="text-xs font-bold text-primary">基础价格更新</p>
-                <p class="text-[10px] text-on-surface-variant mt-0.5">¥42.50 → ¥45.00 (操作人:
-                  陈主管)</p>
-                <p class="text-[10px] text-on-surface-variant mt-1.5 opacity-60">2024-08-12 • 14:20
-                  PM</p>
-              </div>
-            </div>
-
-            <div
-              class="flex gap-4 p-3 hover:bg-surface-container-low rounded-lg transition-colors border-l-2 border-transparent bg-white shadow-sm">
-              <div
-                class="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                <span class="material-symbols-outlined text-orange-700 text-sm">edit_note</span>
-              </div>
-              <div class="flex-1">
-                <p class="text-xs font-bold text-primary">应用批量阶梯规则</p>
-                <p class="text-[10px] text-on-surface-variant mt-0.5">
-                  该型号已加入「战略合作伙伴」折扣梯队</p>
-                <p class="text-[10px] text-on-surface-variant mt-1.5 opacity-60">2024-06-05 • 09:15
-                  AM</p>
-              </div>
-            </div>
+        </section>
+        <section>
+          <h4 class="text-xs font-bold text-primary uppercase tracking-widest mb-3">调整日志</h4>
+          <div v-if="(detail?.logs || []).length === 0" class="text-xs text-on-surface-variant">暂无调整日志。</div>
+          <div v-for="(log, index) in detail?.logs || []" :key="index" class="p-3 bg-white shadow-sm rounded-lg border-l-2 border-primary mb-2">
+            <p class="text-xs font-bold text-primary">{{ log.remark }}：¥{{ money(log.oldPrice) }} -> ¥{{ money(log.newPrice) }}</p>
+            <p class="text-[10px] text-on-surface-variant mt-1">{{ log.createTime || '--' }}</p>
           </div>
-        </div>
+        </section>
       </div>
-
-      <div
-        class="p-6 bg-surface-container-lowest border-t border-outline-variant/20 grid grid-cols-2 gap-3 shrink-0">
-        <button
-          class="py-2.5 text-xs font-bold text-on-surface-variant bg-surface-container-high rounded-lg hover:bg-surface-variant transition-colors">
-          对比其他 SKU
-        </button>
-        <button
-          class="py-2.5 text-xs font-black text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors shadow-md">
-          修改定价规则
-        </button>
-      </div>
-    </div>
-
+    </aside>
   </div>
 </template>
 
-<script setup lang="ts">
-import {ref} from 'vue';
-import PriceCreateDrawer from './priceCreate.vue'; // 确保路径正确
+<script setup>
+import { computed, onMounted, reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import PriceCreateDrawer from './priceCreate.vue'
+import { deletePrice, getPriceCategories, getPriceDetail, getPricePage, getPriceStats } from './api/price.js'
 
-defineOptions({name: 'PriceManagement'});
+const loading = ref(false)
+const rows = ref([])
+const categories = ref([])
+const stats = reactive({ skuCount: 0, averagePrice: 0, pendingCount: 0, overrideCount: 0 })
+const pagination = reactive({ total: 0, pages: 0 })
+const query = reactive({ page: 1, size: 10, keyword: '', category: '', status: '' })
+const createVisible = ref(false)
+const editingSku = ref(null)
+const detailVisible = ref(false)
+const detail = ref(null)
+const totalPages = computed(() => Math.max(Number(pagination.pages || 1), 1))
 
-// ========================
-// 状态控制变量
-// ========================
-
-// 1. 新增：控制新增价格抽屉的开关
-const isCreateDrawerOpen = ref(false);
-
-// 新增价格成功后的回调
-const handlePriceCreated = () => {
-  console.log('价格创建成功，刷新列表数据...');
-  // TODO: 在这里添加刷新表格数据的 API 调用逻辑
-};
-
-// 2. 原有：控制详情抽屉的开关
-const isDrawerOpen = ref(false);
-const activeRowId = ref<number | null>(null);
-
-// ========================
-// 数据定义
-// ========================
-
-// 定义表格行数据类型
-interface FabricItem {
-  id: number;
-  model: string;
-  lot: string;
-  spec: string;
-  price: string;
-  currency: string;
-  date: string;
-  status: 'Active' | 'Scheduled' | 'Expired';
-  image: string;
+async function fetchData() {
+  loading.value = true
+  try {
+    const data = await getPricePage({ ...query, status: query.status === '' ? undefined : Number(query.status) })
+    rows.value = data.data || []
+    pagination.total = Number(data.total || 0)
+    pagination.pages = Number(data.pages || 0)
+  } finally {
+    loading.value = false
+  }
 }
 
-// 当前选中的 SKU 详情
-const currentSku = ref<FabricItem | null>(null);
+async function fetchStats() {
+  Object.assign(stats, await getPriceStats())
+}
 
-// 模拟表格数据
-const tableData = ref<FabricItem[]>([
-  {
-    id: 1,
-    model: 'NV-2024-OXFORD',
-    lot: '批号 #88219',
-    spec: '100% 优质纯棉 (Oxford)',
-    price: '45.00',
-    currency: 'CNY',
-    date: '2024-08-15',
-    status: 'Active',
-    image: 'https://placehold.co/100x100/e2e8f0/64748b?text=OXFORD'
-  },
-  {
-    id: 2,
-    model: 'SL-2024-LINEN',
-    lot: '批号 #11204',
-    spec: '80% 亚麻 / 20% 丝绸',
-    price: '112.50',
-    currency: 'CNY',
-    date: '2024-09-01',
-    status: 'Active',
-    image: 'https://placehold.co/100x100/e2e8f0/64748b?text=LINEN'
-  },
-  {
-    id: 3,
-    model: 'PL-2025-TWILL',
-    lot: '批号 #99321',
-    spec: '再生聚酯斜纹布 (Twill)',
-    price: '38.20',
-    currency: 'CNY',
-    date: '2024-10-12',
-    status: 'Scheduled',
-    image: 'https://placehold.co/100x100/e2e8f0/64748b?text=TWILL'
-  },
-  {
-    id: 4,
-    model: 'DT-2023-VOILE',
-    lot: '批号 #10022',
-    spec: '半透明纯棉薄纱 (Voile)',
-    price: '29.00',
-    currency: 'CNY',
-    date: '2024-01-01',
-    status: 'Expired',
-    image: 'https://placehold.co/100x100/e2e8f0/64748b?text=VOILE'
-  }
-]);
+async function fetchCategories() {
+  categories.value = await getPriceCategories()
+}
 
-// ========================
-// 方法定义
-// ========================
+function handleFilter() {
+  query.page = 1
+  fetchData()
+}
 
-// 打开详情抽屉
-const openDrawer = (item: FabricItem) => {
-  currentSku.value = item;
-  activeRowId.value = item.id;
-  isDrawerOpen.value = true;
-};
+function changePage(page) {
+  if (page < 1 || page > totalPages.value) return
+  query.page = page
+  fetchData()
+}
 
-// 关闭详情抽屉
-const closeDrawer = () => {
-  isDrawerOpen.value = false;
-  activeRowId.value = null;
-};
+function openCreate(item) {
+  editingSku.value = item || null
+  createVisible.value = true
+}
+
+function closeCreate() {
+  createVisible.value = false
+  editingSku.value = null
+}
+
+async function handleSaved() {
+  closeCreate()
+  await Promise.all([fetchData(), fetchStats(), fetchCategories()])
+  ElMessage.success('价格已保存。')
+}
+
+async function openDetail(item) {
+  detail.value = await getPriceDetail(item.id)
+  detailVisible.value = true
+}
+
+async function remove(item) {
+  await ElMessageBox.confirm(`确认删除 ${item.modelCode} 的价格记录吗？`, '删除确认', { type: 'warning' })
+  await deletePrice(item.id)
+  ElMessage.success('价格记录已删除。')
+  await Promise.all([fetchData(), fetchStats(), fetchCategories()])
+}
+
+function exportCsv() {
+  const header = ['面料型号', '批号', '分类', '规格', '基准价', '币种', '生效日期', '状态']
+  const body = rows.value.map((item) => [item.modelCode, item.batchNo, item.category, item.spec, item.basePrice, item.currency, item.effectiveDate, item.statusLabel])
+  const csv = [header, ...body].map((row) => row.map((cell) => `"${String(cell || '').replaceAll('"', '""')}"`).join(',')).join('\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `价格表-${Date.now()}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function money(value) {
+  return Number(value || 0).toFixed(2)
+}
+
+function statusClass(status) {
+  if (Number(status) === 1) return 'bg-green-100 text-green-700'
+  if (Number(status) === 2) return 'bg-amber-100 text-amber-700'
+  return 'bg-slate-100 text-slate-500'
+}
+
+function fallbackImage(modelCode) {
+  return `https://placehold.co/100x100/e2e8f0/64748b?text=${encodeURIComponent((modelCode || 'SKU').slice(0, 6))}`
+}
+
+onMounted(async () => {
+  await Promise.all([fetchData(), fetchStats(), fetchCategories()])
+})
 </script>
 
 <style scoped>
-/* 渐变动画效果用于背景遮罩 */
 .fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
+.fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
+.fade-leave-to { opacity: 0; }
 </style>
