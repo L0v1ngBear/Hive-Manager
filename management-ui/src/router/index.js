@@ -1,12 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
-
 import Layout from '@/layout/index.vue'
+import { useUserStore } from '@/stores/user'
 
 export const constantRoutes = [
   {
     path: '/login',
     name: 'Login',
-    redirect: '/dashboard'
+    component: () => import('@/views/Login.vue'),
+    meta: { public: true }
   },
   {
     path: '/',
@@ -21,10 +22,7 @@ export const constantRoutes = [
         path: 'dashboard',
         name: 'Dashboard',
         component: () => import('@/views/dashboard/index.vue'),
-        meta: {
-          title: '总览大盘',
-          icon: 'dashboard'
-        }
+        meta: { title: '总览大盘', icon: 'dashboard' }
       }
     ]
   },
@@ -79,7 +77,7 @@ export const constantRoutes = [
         path: 'approval',
         name: 'Approval',
         component: () => import('@/views/function/approval/approvalCenter.vue'),
-        meta: {title: '审批中心'}
+        meta: { title: '审批中心' }
       }
     ]
   }
@@ -89,6 +87,27 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: constantRoutes,
   scrollBehavior: () => ({ top: 0 })
+})
+
+router.beforeEach((to) => {
+  const userStore = useUserStore()
+  const hasToken = Boolean(userStore.token)
+
+  if (to.meta?.public) {
+    if (hasToken && to.path === '/login') {
+      return to.query.redirect ? String(to.query.redirect) : '/dashboard'
+    }
+    return true
+  }
+
+  if (!hasToken) {
+    return {
+      path: '/login',
+      query: to.fullPath && to.fullPath !== '/' ? { redirect: to.fullPath } : {}
+    }
+  }
+
+  return true
 })
 
 export default router

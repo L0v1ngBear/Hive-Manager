@@ -12,7 +12,6 @@ service.interceptors.request.use(
   (config) => {
     const userStore = useUserStore()
     config.headers = config.headers || {}
-
     if (userStore.token) {
       config.headers.Authorization = `Bearer ${userStore.token}`
     }
@@ -26,19 +25,20 @@ service.interceptors.response.use(
     const res = response.data
     if (res.code !== 200) {
       ElMessage.error(res.msg || '系统异常')
-      return Promise.reject(new Error(res.msg || 'Error'))
+      return Promise.reject(res)
     }
     return res.data
   },
   (error) => {
     const userStore = useUserStore()
     const status = error.response?.status
+    const currentPath = router.currentRoute.value.fullPath
 
     if (status === 401) {
       userStore.logout()
-      ElMessage.error(error.response?.data?.msg || '登录状态已失效')
-      if (router.currentRoute.value.fullPath !== '/dashboard') {
-        router.push('/dashboard')
+      if (currentPath !== '/login') {
+        ElMessage.error(error.response?.data?.msg || '登录状态已失效')
+        router.push({ path: '/login', query: currentPath ? { redirect: currentPath } : {} })
       }
     } else if (status === 403) {
       ElMessage.error(error.response?.data?.msg || '暂无权限')
