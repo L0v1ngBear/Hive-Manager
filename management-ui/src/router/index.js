@@ -74,6 +74,12 @@ export const constantRoutes = [
         name: 'Document',
         component: () => import('@/views/function/document/document.vue'),
         meta: { title: '文档管理' }
+      },
+      {
+        path: 'approval',
+        name: 'Approval',
+        component: () => import('@/views/function/approval/approvalCenter.vue'),
+        meta: {title: '审批中心'}
       }
     ]
   }

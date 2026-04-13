@@ -6,7 +6,6 @@
 
     <transition name="slide">
       <div v-if="visible" class="fixed right-0 top-0 h-full w-full sm:w-[550px] bg-white/95 backdrop-blur-2xl z-[70] shadow-[-20px_0_40px_rgba(0,32,69,0.1)] border-l-4 border-primary flex flex-col">
-
         <div class="p-6 flex items-center justify-between border-b border-outline-variant/20 bg-white">
           <div>
             <h2 class="text-xl font-bold text-primary tracking-tight">新建客户档案</h2>
@@ -18,7 +17,6 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-6 space-y-8">
-
           <section class="space-y-4">
             <h3 class="text-sm font-bold text-primary flex items-center gap-2">
               <span class="w-1 h-4 bg-primary rounded-full"></span>客户基础信息
@@ -31,7 +29,7 @@
 
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-xs font-bold text-on-surface-variant mb-1.5 ml-1">客户级别 <span class="text-error">*</span></label>
+                <label class="block text-xs font-bold text-on-surface-variant mb-1.5 ml-1">客户级别</label>
                 <select v-model="formData.customerLevel" class="w-full bg-surface-container-low border-none focus:ring-2 focus:ring-primary rounded-lg py-2.5 px-3 text-sm font-bold text-primary cursor-pointer">
                   <option value="T3">T3 标准客户</option>
                   <option value="T2">T2 大宗客户</option>
@@ -41,9 +39,9 @@
               <div>
                 <label class="block text-xs font-bold text-on-surface-variant mb-1.5 ml-1">客户类型 <span class="text-error">*</span></label>
                 <select v-model="formData.customerType" class="w-full bg-surface-container-low border-none focus:ring-2 focus:ring-primary rounded-lg py-2.5 px-3 text-sm font-bold text-primary cursor-pointer">
-                  <option value="1">直客 (甲方)</option>
-                  <option value="2">总包方</option>
-                  <option value="3">分包方</option>
+                  <option :value="1">直客 (甲方)</option>
+                  <option :value="2">总包方</option>
+                  <option :value="3">分包方</option>
                 </select>
               </div>
             </div>
@@ -64,7 +62,7 @@
               </button>
             </div>
 
-            <div v-for="(contact, index) in formData.contacts" :key="'contact'+index" class="flex items-center gap-3 bg-surface-container-low p-3 rounded-xl border border-outline-variant/10">
+            <div v-for="(contact, index) in formData.contacts" :key="'contact' + index" class="flex items-center gap-3 bg-surface-container-low p-3 rounded-xl border border-outline-variant/10">
               <div class="flex-1 grid grid-cols-2 gap-3">
                 <input v-model="contact.contactName" type="text" class="w-full bg-white border border-outline-variant/20 focus:ring-1 focus:ring-primary rounded py-2 px-3 text-xs font-bold text-primary" placeholder="联系人姓名" />
                 <input v-model="contact.contactPhone" type="text" class="w-full bg-white border border-outline-variant/20 focus:ring-1 focus:ring-primary rounded py-2 px-3 text-xs font-bold text-primary" placeholder="联系电话" />
@@ -89,7 +87,7 @@
               </button>
             </div>
 
-            <div v-for="(project, index) in formData.projects" :key="'proj'+index" class="flex items-center gap-3 bg-tertiary-fixed/10 p-3 rounded-xl border border-tertiary/20">
+            <div v-for="(project, index) in formData.projects" :key="'proj' + index" class="flex items-center gap-3 bg-tertiary-fixed/10 p-3 rounded-xl border border-tertiary/20">
               <div class="flex-1">
                 <input v-model="project.projectName" type="text" class="w-full bg-white border border-outline-variant/20 focus:ring-1 focus:ring-tertiary rounded py-2 px-3 text-xs font-bold text-tertiary" placeholder="输入工程项目名称" />
               </div>
@@ -98,27 +96,26 @@
               </button>
             </div>
           </section>
-
         </div>
 
         <div class="p-6 border-t border-outline-variant/20 bg-surface-container-lowest flex items-center justify-end gap-3 shrink-0">
           <button @click="closeDrawer" class="px-5 py-2.5 text-sm font-bold text-secondary hover:bg-surface-container-high rounded-lg transition-colors">
             取消
           </button>
-          <button @click="submit" :disabled="!isFormValid" class="px-6 py-2.5 text-sm font-bold bg-primary text-on-primary rounded-lg shadow-md hover:shadow-lg hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-            保存客户及关联信息
+          <button @click="submit" :disabled="!isFormValid || submitting" class="px-6 py-2.5 text-sm font-bold bg-primary text-on-primary rounded-lg shadow-md hover:shadow-lg hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+            {{ submitting ? '保存中...' : '保存客户及关联信息' }}
           </button>
         </div>
-
       </div>
     </transition>
   </Teleport>
 </template>
 
 <script setup>
-import { reactive, computed } from 'vue'
+import { computed, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { createCustomer } from './api/customer'
 
-// 1. 定义 Props
 const props = defineProps({
   visible: {
     type: Boolean,
@@ -126,15 +123,9 @@ const props = defineProps({
   }
 })
 
-// 2. 定义 Emits (支持 v-model:visible 双向绑定)
 const emit = defineEmits(['update:visible', 'success'])
+const submitting = ref(false)
 
-const closeDrawer = () => {
-  emit('update:visible', false)
-  resetForm()
-}
-
-// 3. 表单数据模型
 const formData = reactive({
   customerName: '',
   customerLevel: 'T3',
@@ -144,31 +135,49 @@ const formData = reactive({
   projects: []
 })
 
-// 4. 动态操作方法
+const closeDrawer = () => {
+  if (submitting.value) {
+    return
+  }
+  emit('update:visible', false)
+  resetForm()
+}
+
 const addContact = () => formData.contacts.push({ contactName: '', contactPhone: '' })
 const removeContact = (index) => formData.contacts.splice(index, 1)
-
 const addProject = () => formData.projects.push({ projectName: '' })
 const removeProject = (index) => formData.projects.splice(index, 1)
 
 const isFormValid = computed(() => {
-  return formData.customerName && formData.customerType && formData.constructionArea && formData.customerLevel
+  return formData.customerName && formData.customerType && formData.constructionArea
 })
 
-// 5. 提交逻辑
-const submit = () => {
-  if (!isFormValid.value) return
+async function submit() {
+  if (!isFormValid.value || submitting.value) {
+    return
+  }
 
-  const requestPayload = JSON.parse(JSON.stringify(formData))
-  requestPayload.contacts = requestPayload.contacts.filter(c => c.contactName || c.contactPhone)
-  requestPayload.projects = requestPayload.projects.filter(p => p.projectName)
+  const requestPayload = {
+    customerName: formData.customerName.trim(),
+    customerType: Number(formData.customerType),
+    constructionArea: formData.constructionArea.trim(),
+    contacts: formData.contacts.filter((item) => item.contactName || item.contactPhone),
+    projects: formData.projects.filter((item) => item.projectName)
+  }
 
-  // 抛出成功事件，把数据给父组件处理
-  emit('success', requestPayload)
-  closeDrawer()
+  submitting.value = true
+  try {
+    await createCustomer(requestPayload)
+    emit('success', requestPayload)
+    emit('update:visible', false)
+    ElMessage.success('客户保存成功')
+    resetForm()
+  } finally {
+    submitting.value = false
+  }
 }
 
-const resetForm = () => {
+function resetForm() {
   formData.customerName = ''
   formData.customerLevel = 'T3'
   formData.customerType = 1
