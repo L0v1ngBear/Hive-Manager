@@ -35,49 +35,62 @@ export const constantRoutes = [
         path: 'label',
         name: 'Label',
         component: () => import('@/views/function/label.vue'),
-        meta: { title: '标签打印' }
+        meta: { title: '标签打印', permissions: ['label:template:list'] }
       },
       {
         path: 'receipt',
         name: 'Receipt',
         component: () => import('@/views/function/receipt.vue'),
-        meta: { title: '出库单打印' }
+        meta: { title: '出库单打印', permissions: ['receipt:print:list'] }
       },
       {
         path: 'price',
         name: 'Price',
         component: () => import('@/views/function/price/price.vue'),
-        meta: { title: '价格管理' }
+        meta: { title: '价格管理', permissions: ['price:list'] }
       },
       {
         path: 'employee',
         name: 'Employee',
         component: () => import('@/views/function/employee/employee.vue'),
-        meta: { title: '员工管理' }
+        meta: { title: '员工管理', permissions: ['employee:list'] }
       },
       {
         path: 'role',
         name: 'Role',
         component: () => import('@/views/function/role/role.vue'),
-        meta: { title: '角色管理' }
+        meta: { title: '角色管理', permissions: ['role:list'] }
       },
       {
         path: 'customer',
         name: 'Customer',
         component: () => import('@/views/function/customer/customer.vue'),
-        meta: { title: '客户管理' }
+        meta: { title: '客户管理', permissions: ['customer:page'] }
       },
       {
         path: 'document',
         name: 'Document',
         component: () => import('@/views/function/document/document.vue'),
-        meta: { title: '文档管理' }
+        meta: { title: '文档管理', permissions: ['document:list'] }
       },
       {
         path: 'approval',
         name: 'Approval',
         component: () => import('@/views/function/approval/approvalCenter.vue'),
-        meta: { title: '审批中心' }
+        meta: { title: '审批中心', permissions: ['approval:leave', 'approval:finance', 'approval:leave:submit', 'approval:finance:submit'] }
+      }
+    ]
+  },
+  {
+    path: '/platform',
+    name: 'Platform',
+    component: Layout,
+    children: [
+      {
+        path: 'tenant',
+        name: 'PlatformTenant',
+        component: () => import('@/views/platform/tenant/index.vue'),
+        meta: { title: '租户管理', permissions: ['platform:tenant:view'] }
       }
     ]
   }
@@ -105,6 +118,10 @@ router.beforeEach((to) => {
       path: '/login',
       query: to.fullPath && to.fullPath !== '/' ? { redirect: to.fullPath } : {}
     }
+  }
+
+  if (Array.isArray(to.meta?.permissions) && to.meta.permissions.length && !userStore.hasAnyPermission(to.meta.permissions)) {
+    return '/dashboard'
   }
 
   return true

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { hasAnyPermission as matchAnyPermission, hasPermission as matchPermission } from '@/utils/permission'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
@@ -31,10 +32,16 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('permissions')
   }
 
+  const hasPermission = (permCode) => matchPermission(permissions.value, permCode)
+
+  const hasAnyPermission = (permCodes) => matchAnyPermission(permissions.value, permCodes)
+
   return {
     token,
     userInfo,
     permissions,
+    hasPermission,
+    hasAnyPermission,
     setLoginInfo,
     logout
   }

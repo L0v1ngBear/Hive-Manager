@@ -3,6 +3,7 @@ package my.management.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
+import my.management.common.annotation.RequirePermission;
 import my.management.common.dto.PageResult;
 import my.management.common.dto.Result;
 import my.management.module.sys.model.dto.SysRoleAddRequest;
@@ -32,6 +33,7 @@ public class RoleController {
     private RoleService roleService;
 
     @GetMapping("/page")
+    @RequirePermission(value = "role:list", message = "您没有权限查看角色列表")
     public Result<PageResult<SysRole>> page(@RequestParam(defaultValue = "1") Integer page,
                                             @RequestParam(defaultValue = "10") Integer size,
                                             @RequestParam(required = false) String keyword) {
@@ -43,22 +45,26 @@ public class RoleController {
     }
 
     @PostMapping("/create")
+    @RequirePermission(value = "role:create", message = "您没有权限创建角色")
     public Result<Void> create(@Valid @RequestBody SysRoleAddRequest request) {
         roleService.createNewRole(request);
         return Result.success(null);
     }
 
     @GetMapping("/role/all")
+    @RequirePermission(value = "role:permission:list", message = "您没有权限查看权限列表")
     public Result<List<SysPermission>> all() {
         return Result.success(roleService.selectAllPermission());
     }
 
     @GetMapping("/{roleId}/permission-ids")
+    @RequirePermission(value = "role:permission:list", message = "您没有权限查看角色权限")
     public Result<Set<Long>> getRolePermissionIds(@PathVariable Long roleId) {
         return Result.success(roleService.getRolePermissionIds(roleId));
     }
 
     @PostMapping("/role/update")
+    @RequirePermission(value = "role:update", message = "您没有权限配置角色权限")
     public Result<Void> update(@Valid @RequestBody SysRoleUpdateRequest request) {
         roleService.updateRole(request);
         return Result.success(null);

@@ -1,6 +1,7 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
+import my.management.common.annotation.RequirePermission;
 import my.management.common.dto.Result;
 import my.management.module.document.model.dto.DocumentAddRequest;
 import my.management.module.document.model.entity.Document;
@@ -29,6 +30,7 @@ public class DocumentController {
     private DocumentService documentService;
 
     @GetMapping("/list/{parentId}")
+    @RequirePermission(value = "document:list", message = "您没有权限查看文档列表")
     public Result<List<DocumentVO>> list(@PathVariable Long parentId) {
         List<Document> documentList = documentService.selectDocumentByParentId(parentId);
         List<DocumentVO> documentVOList = documentList.stream().map(doc -> {
@@ -40,24 +42,28 @@ public class DocumentController {
     }
 
     @PostMapping("/folder/create")
+    @RequirePermission(value = "document:folder:create", message = "您没有权限创建文件夹")
     public Result<Void> createFolder(@RequestBody DocumentAddRequest request) {
         documentService.addFolder(request);
         return Result.success(null);
     }
 
     @PutMapping("/rename")
+    @RequirePermission(value = "document:rename", message = "您没有权限重命名文档")
     public Result<Void> renameDocument(@RequestParam Long documentId, @RequestParam String newName) {
         documentService.renameDocument(documentId, newName);
         return Result.success(null);
     }
 
     @PutMapping("/move")
+    @RequirePermission(value = "document:move", message = "您没有权限移动文档")
     public Result<Void> moveDocument(@RequestParam Long documentId, @RequestParam Long newParentId) {
         documentService.moveDocument(documentId, newParentId);
         return Result.success(null);
     }
 
     @GetMapping("/breadcrumbs")
+    @RequirePermission(value = "document:breadcrumbs", message = "您没有权限查看文档面包屑")
     public Result<List<DocumentVO>> breadcrumbs(@RequestParam Long documentId) {
         return Result.success(documentService.getBreadcrumbs(documentId));
     }

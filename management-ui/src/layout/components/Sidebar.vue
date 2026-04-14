@@ -22,7 +22,7 @@
         </router-link>
       </div>
 
-      <div class="mt-4 border-t border-outline-variant/20 pt-4">
+      <div v-if="secondaryMenus.length" class="mt-4 border-t border-outline-variant/20 pt-4">
         <button
           @click="toggleMore"
           class="w-full flex rounded-xl transition-all duration-200 text-on-surface-variant hover:bg-surface-container-highest hover:text-primary"
@@ -65,10 +65,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 
 defineOptions({ name: 'Sidebar' })
 
 const route = useRoute()
+const userStore = useUserStore()
 const isCollapsed = ref(true)
 const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value
@@ -78,27 +80,41 @@ interface MenuItem {
   name: string
   path: string
   icon: string
+  permissions?: string[]
 }
 
-const primaryMenus: MenuItem[] = [
+const primaryMenus = computed<MenuItem[]>(() => filterMenus([
   { name: '总览大盘', path: '/dashboard', icon: 'dashboard' },
-  { name: '员工管理', path: '/function/employee', icon: 'people' },
-  { name: '客户管理', path: '/function/customer', icon: 'handshake' },
-  { name: '价格管理', path: '/function/price', icon: 'price_change' },
-  { name: '审批中心', path: '/function/approval', icon: 'approval' },
-]
+  { name: '员工管理', path: '/function/employee', icon: 'people', permissions: ['employee:list'] },
+  { name: '客户管理', path: '/function/customer', icon: 'handshake', permissions: ['customer:page'] },
+  { name: '价格管理', path: '/function/price', icon: 'price_change', permissions: ['price:list'] },
+  { name: '审批中心', path: '/function/approval', icon: 'approval', permissions: ['approval:leave', 'approval:finance', 'approval:leave:submit', 'approval:finance:submit'] },
+]))
 
-const secondaryMenus: MenuItem[] = [
-  { name: '生产订单', path: '/function/production', icon: 'precision_manufacturing' },
-  { name: '库存管理', path: '/function/inventory', icon: 'inventory_2' },
-  { name: '角色管理', path: '/function/role', icon: 'settings_accessibility' },
-  { name: '出库单打印', path: '/function/receipt', icon: 'print' },
-  { name: '标签模板', path: '/function/label', icon: 'sell' },
-  { name: '文档管理', path: '/function/document', icon: 'folder_open' },
-]
+const secondaryMenus = computed<MenuItem[]>(() => filterMenus([
+  { name: '角色管理', path: '/function/role', icon: 'settings_accessibility', permissions: ['role:list'] },
+  { name: '出库单打印', path: '/function/receipt', icon: 'print', permissions: ['receipt:print:list'] },
+  { name: '标签模板', path: '/function/label', icon: 'sell', permissions: ['label:template:list'] },
+  { name: '文档管理', path: '/function/document', icon: 'folder_open', permissions: ['document:list'] },
+  { name: '租户管理', path: '/platform/tenant', icon: 'apartment', permissions: ['platform:tenant:view'] },
+]))
+
+function filterMenus(menus: MenuItem[]) {
+  return menus.filter((item) => !item.permissions || userStore.hasAnyPermission(item.permissions))
+}
 
 const showMore = ref(false)
-const secondaryPaths = computed(() => secondaryMenus.map((item) => item.path))
+const secondaryPaths = computed(() => secondaryMenus.value.map((item) => item.path))
+
+watch(
+  () => secondaryMenus.value.length,
+  (count) => {
+    if (count === 0) {
+      showMore.value = false
+    }
+  },
+  { immediate: true }
+)
 
 watch(
   () => route.path,
@@ -111,6 +127,9 @@ watch(
 )
 
 const toggleMore = () => {
+  if (!secondaryMenus.value.length) {
+    return
+  }
   showMore.value = !showMore.value
 }
 

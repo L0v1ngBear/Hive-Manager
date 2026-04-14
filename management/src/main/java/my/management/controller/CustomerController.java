@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
+import my.management.common.annotation.RequirePermission;
 import my.management.common.dto.PageResult;
 import my.management.common.dto.Result;
 import my.management.module.customer.mapper.CustomerProjectMapper;
@@ -39,12 +40,14 @@ public class CustomerController {
     private CustomerProjectMapper customerProjectMapper;
 
     @PostMapping("/add")
+    @RequirePermission(value = "customer:add", message = "您没有权限新增客户")
     public Result<Void> addCustomer(@Valid @RequestBody CustomerAddRequest request) {
         customerService.addCustomer(request);
         return Result.success(null);
     }
 
     @GetMapping("/page")
+    @RequirePermission(value = "customer:page", message = "您没有权限查看客户列表")
     public Result<PageResult<CustomerPageVO>> getCustomerPage(@Valid CustomerPageRequest request) {
         Page<Customer> page = Optional.ofNullable(customerService.pageSearchCustomer(request)).orElse(new Page<>());
 
@@ -71,6 +74,7 @@ public class CustomerController {
     }
 
     @GetMapping("/detail/{id}")
+    @RequirePermission(value = "customer:detail", message = "您没有权限查看客户详情")
     public Result<CustomerDetailVO> getCustomer(@PathVariable Long id) {
         return Result.success(customerService.getCustomer(id));
     }

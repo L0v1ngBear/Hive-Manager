@@ -1,0 +1,38 @@
+package my.management.module.tenant.model.entity;
+
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+
+import java.time.LocalDateTime;
+
+@Data
+@TableName("tenant")
+public class Tenant {
+
+    @TableId(type = IdType.AUTO)
+    private Long id;
+
+    private String tenantCode;
+
+    private String tenantName;
+
+    private Integer tenantType;
+
+    private String contactPerson;
+
+    private String contactPhone;
+
+    private String password;
+
+    private Integer status;
+
+    private Long creator;
+
+    private LocalDateTime createTime;
+
+    private LocalDateTime updateTime;
+
+    private Integer deleted;
+}
