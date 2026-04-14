@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 public class EmployeeCreateRequest {
@@ -37,4 +38,6 @@ public class EmployeeCreateRequest {
     private String avatarUrl;
 
     private String remark;
+
+    private List<Long> roleIds;
 }

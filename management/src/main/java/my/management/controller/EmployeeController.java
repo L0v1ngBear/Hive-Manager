@@ -2,10 +2,12 @@ package my.management.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import my.management.common.annotation.RequirePermission;
 import my.management.common.dto.PageResult;
 import my.management.common.dto.Result;
+import my.management.common.vo.ImportResultVO;
 import my.management.module.employee.model.dto.EmployeeBatchUpdateRequest;
 import my.management.module.employee.model.dto.EmployeeCreateRequest;
 import my.management.module.employee.model.dto.EmployeePageQuery;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -111,5 +114,23 @@ public class EmployeeController {
     @RequirePermission(value = "employee:export", message = "您没有权限导出员工数据")
     public Result<List<EmployeePageVO>> export(@RequestBody(required = false) EmployeePageQuery query) {
         return Result.success(employeeService.export(query == null ? new EmployeePageQuery() : query));
+    }
+
+    @GetMapping("/export-excel")
+    @RequirePermission(value = "employee:export", message = "您没有权限导出员工数据")
+    public void exportExcel(@Valid EmployeePageQuery query, HttpServletResponse response) {
+        employeeService.exportExcel(query, response);
+    }
+
+    @GetMapping("/import-template")
+    @RequirePermission(value = "employee:export", message = "您没有权限下载员工导入模板")
+    public void downloadImportTemplate(HttpServletResponse response) {
+        employeeService.downloadImportTemplate(response);
+    }
+
+    @PostMapping("/import")
+    @RequirePermission(value = "employee:create", message = "您没有权限导入员工数据")
+    public Result<ImportResultVO> importEmployees(@RequestParam("file") MultipartFile file) {
+        return Result.success(employeeService.importEmployees(file));
     }
 }

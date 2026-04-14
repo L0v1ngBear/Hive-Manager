@@ -12,5 +12,20 @@ spring:
   # 开发环境日志级别更高，方便调试
 logging:
   level:
-    my.hive_back.module: DEBUG  # 增加模块包的日志，方便调试
-    my.hive_back.api: DEBUG  # 增加接口包的日志，方便调试 Swagger
+    root: INFO
+    my.management: DEBUG
+    my.management.module: DEBUG
+    my.management.controller: DEBUG
+    my.management.module.auth.mapper: TRACE
+    my.management.module.customer.mapper: DEBUG
+    my.management.module.document.mapper: DEBUG
+    my.management.module.employee.mapper: DEBUG
+    my.management.module.price.mapper: DEBUG
+    my.management.module.receipt.mapper: DEBUG
+    my.management.module.sys.mapper: DEBUG
+    my.management.module.tenant.mapper: DEBUG
+    com.baomidou.mybatisplus: DEBUG
+    org.apache.ibatis: TRACE
+    org.mybatis: DEBUG
+    java.sql: DEBUG
+    javax.sql: DEBUG

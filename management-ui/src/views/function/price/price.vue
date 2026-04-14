@@ -7,8 +7,14 @@
           <p class="text-sm md:text-base text-on-surface-variant mt-3 max-w-2xl">维护面料 SKU 基准价、客户等级价和指定客户特价，价格会被后端出库金额计算复用。</p>
         </div>
         <div class="flex items-center gap-3">
-          <button @click="exportCsv" class="px-4 py-2 bg-surface-container-highest text-primary font-bold rounded-lg hover:bg-surface-container-high transition-colors text-sm">
-            <span class="material-symbols-outlined text-lg align-middle mr-1">file_download</span>导出价格表
+          <button @click="downloadTemplate" class="px-4 py-2 bg-surface-container-highest text-primary font-bold rounded-lg hover:bg-surface-container-high transition-colors text-sm">
+            <span class="material-symbols-outlined text-lg align-middle mr-1">description</span>导入模板
+          </button>
+          <button @click="triggerImport" class="px-4 py-2 bg-surface-container-highest text-primary font-bold rounded-lg hover:bg-surface-container-high transition-colors text-sm">
+            <span class="material-symbols-outlined text-lg align-middle mr-1">file_upload</span>导入价格
+          </button>
+          <button @click="exportExcel" class="px-4 py-2 bg-surface-container-highest text-primary font-bold rounded-lg hover:bg-surface-container-high transition-colors text-sm">
+            <span class="material-symbols-outlined text-lg align-middle mr-1">file_download</span>导出 Excel
           </button>
           <button @click="openCreate()" class="px-5 py-2 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-md active:scale-95">
             <span class="material-symbols-outlined text-lg align-middle mr-1">add_circle</span>新增价格
@@ -160,6 +166,7 @@
         </section>
       </div>
     </aside>
+    <input ref="importInputRef" type="file" accept=".xlsx" class="hidden" @change="handleImportChange" />
   </div>
 </template>
 
@@ -167,7 +174,16 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PriceCreateDrawer from './priceCreate.vue'
-import { deletePrice, getPriceCategories, getPriceDetail, getPricePage, getPriceStats } from './api/price.js'
+import {
+  deletePrice,
+  downloadPriceImportTemplate,
+  exportPriceExcel,
+  getPriceCategories,
+  getPriceDetail,
+  getPricePage,
+  getPriceStats,
+  importPrices
+} from './api/price.js'
 
 const loading = ref(false)
 const rows = ref([])
@@ -179,6 +195,7 @@ const createVisible = ref(false)
 const editingSku = ref(null)
 const detailVisible = ref(false)
 const detail = ref(null)
+const importInputRef = ref(null)
 const totalPages = computed(() => Math.max(Number(pagination.pages || 1), 1))
 
 async function fetchData() {
@@ -240,15 +257,42 @@ async function remove(item) {
   await Promise.all([fetchData(), fetchStats(), fetchCategories()])
 }
 
-function exportCsv() {
-  const header = ['面料型号', '批号', '分类', '规格', '基准价', '币种', '生效日期', '状态']
-  const body = rows.value.map((item) => [item.modelCode, item.batchNo, item.category, item.spec, item.basePrice, item.currency, item.effectiveDate, item.statusLabel])
-  const csv = [header, ...body].map((row) => row.map((cell) => `"${String(cell || '').replaceAll('"', '""')}"`).join(',')).join('\n')
-  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+async function exportExcel() {
+  const blob = await exportPriceExcel({ ...query, status: query.status === '' ? undefined : Number(query.status) })
+  downloadBlob(blob, `价格表-${Date.now()}.xlsx`)
+}
+
+async function downloadTemplate() {
+  const blob = await downloadPriceImportTemplate()
+  downloadBlob(blob, '价格导入模板.xlsx')
+}
+
+function triggerImport() {
+  importInputRef.value?.click()
+}
+
+async function handleImportChange(event) {
+  const [file] = event.target.files || []
+  if (!file) return
+  try {
+    const result = await importPrices(file)
+    const failText = (result.failMessages || []).slice(0, 5).join('\n')
+    await ElMessageBox.alert(
+      `总行数：${result.totalCount}\n成功：${result.successCount}\n失败：${result.failCount}${failText ? `\n\n失败明细：\n${failText}` : ''}`,
+      '价格导入结果',
+      { confirmButtonText: '关闭' }
+    )
+    await Promise.all([fetchData(), fetchStats(), fetchCategories()])
+  } finally {
+    event.target.value = ''
+  }
+}
+
+function downloadBlob(blob, fileName) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `价格表-${Date.now()}.csv`
+  link.download = fileName
   link.click()
   URL.revokeObjectURL(url)
 }

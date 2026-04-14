@@ -15,6 +15,8 @@ public class SysRole {
 
     private String tenantCode;
 
+    private String roleCode;
+
     private String roleName;
 
     private Integer isSystem;

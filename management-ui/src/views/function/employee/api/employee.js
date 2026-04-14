@@ -83,3 +83,33 @@ export function exportEmployees(data) {
     data
   })
 }
+
+export function exportEmployeesExcel(params) {
+  return request({
+    url: '/emp/employee/export-excel',
+    method: 'get',
+    params,
+    responseType: 'blob'
+  })
+}
+
+export function downloadEmployeeImportTemplate() {
+  return request({
+    url: '/emp/employee/import-template',
+    method: 'get',
+    responseType: 'blob'
+  })
+}
+
+export function importEmployees(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request({
+    url: '/emp/employee/import',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}

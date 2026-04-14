@@ -1,4 +1,4 @@
-package my.management.module.auth.controller;
+package my.management.controller;
 
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;

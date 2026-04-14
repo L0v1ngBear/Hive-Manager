@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import Layout from '@/layout/index.vue'
 import { useUserStore } from '@/stores/user'
 
@@ -90,7 +91,7 @@ export const constantRoutes = [
         path: 'tenant',
         name: 'PlatformTenant',
         component: () => import('@/views/platform/tenant/index.vue'),
-        meta: { title: '租户管理', permissions: ['platform:tenant:view'] }
+        meta: { title: '租户管理', permissions: ['platform:tenant:view'], developerOnly: true }
       }
     ]
   }
@@ -121,6 +122,12 @@ router.beforeEach((to) => {
   }
 
   if (Array.isArray(to.meta?.permissions) && to.meta.permissions.length && !userStore.hasAnyPermission(to.meta.permissions)) {
+    ElMessage.warning('您暂无权限访问当前页面，如需开通请联系管理员')
+    return '/dashboard'
+  }
+
+  if (to.meta?.developerOnly && !userStore.isDeveloper) {
+    ElMessage.warning('当前页面仅系统开发者可见')
     return '/dashboard'
   }
 

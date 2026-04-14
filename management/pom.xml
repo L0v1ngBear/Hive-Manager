@@ -27,6 +27,7 @@
         <jSerialComm.version>2.9.2</jSerialComm.version>
         <fastjson.version>2.0.33</fastjson.version>
         <springdoc.version>2.2.0</springdoc.version>
+        <poi.version>5.2.5</poi.version>
     </properties>
 
     <!-- 核心：dependencyManagement 统一管理版本，不实际引入依赖 -->
@@ -114,6 +115,11 @@
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 <version>${springdoc.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -164,6 +170,10 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
 
         <!-- MyBatis-Plus依赖 -->
         <dependency>
@@ -185,6 +195,10 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
         </dependency>
 
     </dependencies>

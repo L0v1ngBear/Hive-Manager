@@ -8,8 +8,8 @@ import my.management.common.dto.PageResult;
 import my.management.common.dto.Result;
 import my.management.module.sys.model.dto.SysRoleAddRequest;
 import my.management.module.sys.model.dto.SysRoleUpdateRequest;
-import my.management.module.sys.model.entity.SysPermission;
 import my.management.module.sys.model.entity.SysRole;
+import my.management.module.sys.model.vo.SysPermissionTreeVO;
 import my.management.module.sys.service.RoleService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.validation.annotation.Validated;
@@ -53,8 +53,8 @@ public class RoleController {
 
     @GetMapping("/role/all")
     @RequirePermission(value = "role:permission:list", message = "您没有权限查看权限列表")
-    public Result<List<SysPermission>> all() {
-        return Result.success(roleService.selectAllPermission());
+    public Result<List<SysPermissionTreeVO>> all() {
+        return Result.success(roleService.selectAllPermissionTree());
     }
 
     @GetMapping("/{roleId}/permission-ids")

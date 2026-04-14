@@ -31,3 +31,33 @@ export function getPriceModels(params) {
 export function getPriceCategories() {
   return request({ url: '/price/categories', method: 'get' })
 }
+
+export function exportPriceExcel(params) {
+  return request({
+    url: '/price/export-excel',
+    method: 'get',
+    params,
+    responseType: 'blob'
+  })
+}
+
+export function downloadPriceImportTemplate() {
+  return request({
+    url: '/price/import-template',
+    method: 'get',
+    responseType: 'blob'
+  })
+}
+
+export function importPrices(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request({
+    url: '/price/import',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}

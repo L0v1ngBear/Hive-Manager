@@ -4,6 +4,7 @@ import my.management.module.auth.model.vo.LoginUserRow;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -33,4 +34,10 @@ public interface AuthMapper {
             "</script>"
     })
     List<String> selectPermCodesByUserIdAndTenantCode(@Param("userId") Long userId, @Param("tenantCode") String tenantCode);
+
+    @Update("UPDATE user SET password = #{password} WHERE id = #{userId}")
+    int updatePasswordByUserId(@Param("userId") Long userId, @Param("password") String password);
+
+    @Select("SELECT login_name FROM user WHERE id = #{userId} LIMIT 1")
+    String selectLoginNameByUserId(@Param("userId") Long userId);
 }

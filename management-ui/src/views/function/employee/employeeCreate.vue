@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <transition
       enter-active-class="transition-opacity duration-300"
       enter-from-class="opacity-0"
@@ -15,10 +15,10 @@
       class="fixed top-0 right-0 h-full w-full max-w-xl bg-surface-container-lowest/95 backdrop-blur-3xl shadow-2xl z-50 flex flex-col border-l border-outline-variant/30 transition-transform duration-300 ease-in-out"
   >
     <div class="p-8 border-t-[4px] border-primary">
-      <div class="flex justify-between items-start">
+        <div class="flex justify-between items-start">
         <div>
-          <h2 class="text-2xl font-bold text-primary tracking-tight">添加员工</h2>
-          <p class="text-on-surface-variant text-sm mt-1">创建员工记录并分配初始组织架构信息。</p>
+          <h2 class="text-2xl font-bold text-primary tracking-tight">{{ isEditMode ? '编辑员工' : '添加员工' }}</h2>
+          <p class="text-on-surface-variant text-sm mt-1">{{ isEditMode ? '更新员工信息并重新分配角色。' : '创建员工记录并分配初始组织架构信息。' }}</p>
         </div>
         <button @click="emit('close')" class="p-2 hover:bg-surface-container-high rounded-full transition-colors">
           <span class="material-symbols-outlined text-on-surface-variant">close</span>
@@ -83,6 +83,17 @@
               <option v-for="position in filteredPositions" :key="position.id" :value="position.id">{{ position.name }}</option>
             </select>
           </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1 ml-1">角色</label>
+            <select
+              v-model="form.roleIds"
+              multiple
+              class="w-full min-h-[120px] bg-surface-container-low border-b-2 border-transparent focus:border-primary px-3 py-2.5 text-sm transition-all outline-none rounded-sm"
+            >
+              <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.name }}</option>
+            </select>
+            <p class="text-[11px] text-on-surface-variant mt-2">可按住 Ctrl 或 Command 进行多选。</p>
+          </div>
 
           <div class="col-span-2 relative">
             <label class="block text-xs font-semibold text-on-surface-variant mb-1 ml-1">直属领导</label>
@@ -141,7 +152,7 @@
       <button @click="emit('close')" class="px-6 py-2.5 text-sm font-bold text-on-surface-variant hover:text-primary transition-colors">取消</button>
       <button @click="submit" :disabled="submitting" class="bg-primary hover:bg-primary-container disabled:opacity-60 text-white px-10 py-3 rounded shadow-xl shadow-primary/20 flex items-center gap-2 font-bold transition-all active:scale-95">
         <span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">save</span>
-        {{ submitting ? '保存中...' : '保存员工' }}
+        {{ submitting ? '保存中...' : isEditMode ? '更新员工' : '保存员工' }}
       </button>
     </div>
   </div>
@@ -150,12 +161,16 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { createEmployee, getEmployeeFormOptions, searchEmployeeLeaders } from './api/employee.js'
+import { createEmployee, getEmployeeDetail, getEmployeeFormOptions, searchEmployeeLeaders, updateEmployee } from './api/employee.js'
 
 const props = defineProps({
   visible: {
     type: Boolean,
     default: false
+  },
+  employeeId: {
+    type: [Number, String],
+    default: null
   }
 })
 
@@ -165,6 +180,7 @@ const submitting = ref(false)
 const initialized = ref(false)
 const departments = ref([])
 const positions = ref([])
+const roles = ref([])
 const employeeTypes = ref([])
 const employmentStatuses = ref([])
 const leaderOptions = ref([])
@@ -180,6 +196,8 @@ const filteredPositions = computed(() => {
   return positions.value.filter((item) => !item.departmentId || Number(item.departmentId) === Number(form.departmentId))
 })
 
+const isEditMode = computed(() => props.employeeId !== null && props.employeeId !== undefined && props.employeeId !== '')
+
 watch(
     () => props.visible,
     async (visible) => {
@@ -188,6 +206,9 @@ watch(
       if (!initialized.value) {
         await loadOptions()
         initialized.value = true
+      }
+      if (isEditMode.value) {
+        await loadEmployeeDetail()
       }
     }
 )
@@ -205,6 +226,7 @@ async function loadOptions() {
   const data = await getEmployeeFormOptions()
   departments.value = data.departments || []
   positions.value = data.positions || []
+  roles.value = data.roles || []
   employeeTypes.value = data.employeeTypes || []
   employmentStatuses.value = data.employmentStatuses || []
   if (!form.employeeType && employeeTypes.value[0]) {
@@ -232,9 +254,30 @@ function createDefaultForm() {
     positionId: '',
     leaderId: null,
     entryDate: new Date().toISOString().slice(0, 10),
-    status: 1,
-    avatarUrl: '',
-    remark: ''
+      status: 1,
+      avatarUrl: '',
+      remark: '',
+      roleIds: []
+    }
+}
+
+async function loadEmployeeDetail() {
+  const detail = await getEmployeeDetail(props.employeeId)
+  form.name = detail.name || ''
+  form.phone = detail.phone || ''
+  form.email = detail.email || ''
+  form.employeeType = detail.employeeType || 'FULL_TIME'
+  form.departmentId = detail.departmentId || ''
+  form.positionId = detail.positionId || ''
+  form.leaderId = detail.leaderId || null
+  form.entryDate = detail.entryDate || new Date().toISOString().slice(0, 10)
+  form.status = Number(detail.status ?? 1)
+  form.avatarUrl = detail.avatarUrl || ''
+  form.remark = detail.remark || ''
+  form.roleIds = Array.isArray(detail.roleIds) ? detail.roleIds.map((id) => Number(id)) : []
+  if (detail.leaderName) {
+    leaderKeyword.value = detail.leaderName
+    selectedLeaderLabel.value = detail.leaderName
   }
 }
 
@@ -268,14 +311,24 @@ async function submit() {
 
   submitting.value = true
   try {
-    await createEmployee({
+    const payload = {
       ...form,
       departmentId: Number(form.departmentId),
       positionId: Number(form.positionId),
       leaderId: form.leaderId ? Number(form.leaderId) : null,
-      status: Number(form.status)
-    })
-    ElMessage.success('员工创建成功。')
+      status: Number(form.status),
+      roleIds: (form.roleIds || []).map((id) => Number(id))
+    }
+    if (isEditMode.value) {
+      await updateEmployee({
+        ...payload,
+        id: Number(props.employeeId)
+      })
+      ElMessage.success('员工更新成功。')
+    } else {
+      await createEmployee(payload)
+      ElMessage.success('员工创建成功。')
+    }
     emit('success')
     emit('close')
   } finally {

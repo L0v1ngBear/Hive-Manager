@@ -3,6 +3,7 @@ package my.management.module.employee.model.vo;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 public class EmployeePageVO {
@@ -24,4 +25,6 @@ public class EmployeePageVO {
     private Long leaderId;
     private String leaderName;
     private String remark;
+    private List<Long> roleIds;
+    private List<String> roleNames;
 }

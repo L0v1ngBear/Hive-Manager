@@ -4,17 +4,25 @@ import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.handler.TenantLineHandler;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
-
 import my.management.common.context.TenantPermissionContext;
 import net.sf.jsqlparser.expression.Expression;
-import net.sf.jsqlparser.expression.NullValue;
 import net.sf.jsqlparser.expression.StringValue;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.Set;
 
 @Configuration
 public class MybatisPlusConfig {
+
+    private static final Set<String> IGNORE_TENANT_TABLES = Set.of(
+            "tenant",
+            "user",
+            "sys_user_role",
+            "sys_role",
+            "sys_role_permission",
+            "sys_permission"
+    );
 
     /*
     分页插件
@@ -26,11 +34,9 @@ public class MybatisPlusConfig {
             @Override
             public Expression getTenantId() {
                 String tenantCode = TenantPermissionContext.getTenantCode();
-                if (tenantCode == null) {
-                    return new NullValue();
-                }
                 return new StringValue(tenantCode);
             }
+
             @Override
             public String getTenantIdColumn() {
                 return "tenant_code";
@@ -38,7 +44,11 @@ public class MybatisPlusConfig {
 
             @Override
             public boolean ignoreTable(String tableName) {
-                return "tenant".equalsIgnoreCase(tableName);
+                String tenantCode = TenantPermissionContext.getTenantCode();
+                if (tenantCode == null || tenantCode.isBlank()) {
+                    return true;
+                }
+                return IGNORE_TENANT_TABLES.contains(tableName.toLowerCase());
             }
         }));
 

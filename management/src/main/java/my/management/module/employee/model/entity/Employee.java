@@ -35,6 +35,8 @@ public class Employee {
 
     private Integer status;
 
+    private Integer roleLevel;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 

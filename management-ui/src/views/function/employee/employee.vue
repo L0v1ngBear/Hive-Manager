@@ -8,10 +8,22 @@
         </div>
         <div class="flex gap-3">
           <button
+              @click="handleTemplateDownload"
+              class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
+          >
+            <span class="material-symbols-outlined text-[20px]">description</span>导入模板
+          </button>
+          <button
+              @click="triggerImport"
+              class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
+          >
+            <span class="material-symbols-outlined text-[20px]">file_upload</span>导入员工
+          </button>
+          <button
               @click="handleExport"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
-            <span class="material-symbols-outlined text-[20px]">upload_file</span>导出列表
+            <span class="material-symbols-outlined text-[20px]">download</span>导出 Excel
           </button>
           <button
               @click="showBatchTip"
@@ -20,7 +32,7 @@
             <span class="material-symbols-outlined text-[20px]">edit_square</span>批量编辑
           </button>
           <button
-              @click="isDrawerOpen = true"
+              @click="openCreateDrawer"
               class="px-5 py-2 bg-primary text-white font-bold rounded-lg flex items-center gap-2 shadow-md hover:bg-primary/90 transition-all text-sm active:scale-95"
           >
             <span class="material-symbols-outlined text-[20px]">person_add</span>添加员工
@@ -161,6 +173,9 @@
                   <button @click="showEmployeeDetail(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="查看">
                     <span class="material-symbols-outlined text-[18px]">visibility</span>
                   </button>
+                  <button @click="openEditDrawer(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="编辑">
+                    <span class="material-symbols-outlined text-[18px]">edit</span>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -204,7 +219,8 @@
       </div>
     </div>
 
-    <EmployeeCreate :visible="isDrawerOpen" @close="isDrawerOpen = false" @success="handleCreateSuccess" />
+    <input ref="importInputRef" type="file" accept=".xlsx" class="hidden" @change="handleImportChange" />
+    <EmployeeCreate :visible="isDrawerOpen" :employee-id="editingEmployeeId" @close="closeDrawer" @success="handleCreateSuccess" />
   </div>
 </template>
 
@@ -212,9 +228,19 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import EmployeeCreate from './employeeCreate.vue'
-import { exportEmployees, getEmployeeDetail, getEmployeeFormOptions, getEmployeePage, getEmployeeStats } from './api/employee.js'
+import {
+  downloadEmployeeImportTemplate,
+  exportEmployeesExcel,
+  getEmployeeDetail,
+  getEmployeeFormOptions,
+  getEmployeePage,
+  getEmployeeStats,
+  importEmployees
+} from './api/employee.js'
 
 const isDrawerOpen = ref(false)
+const editingEmployeeId = ref(null)
+const importInputRef = ref(null)
 const loading = ref(false)
 const employees = ref([])
 const departments = ref([])
@@ -283,7 +309,7 @@ const changePage = (page) => {
 }
 
 const handleCreateSuccess = async () => {
-  isDrawerOpen.value = false
+  closeDrawer()
   await Promise.all([fetchEmployees(), fetchStats()])
 }
 
@@ -294,33 +320,63 @@ const showBatchTip = () => {
 const showEmployeeDetail = async (id) => {
   const detail = await getEmployeeDetail(id)
   ElMessageBox.alert(
-      `工号: ${detail.empNo || '--'}\n部门: ${detail.departmentName || '--'}\n职位: ${detail.positionName || '--'}\n直属领导: ${detail.leaderName || '--'}\n状态: ${statusMeta(detail.status).label}`,
+      `工号: ${detail.empNo || '--'}\n部门: ${detail.departmentName || '--'}\n职位: ${detail.positionName || '--'}\n角色: ${(detail.roleNames || []).join('、') || '--'}\n直属领导: ${detail.leaderName || '--'}\n状态: ${statusMeta(detail.status).label}`,
       detail.name,
       { confirmButtonText: '关闭' }
   )
 }
 
+const openCreateDrawer = () => {
+  editingEmployeeId.value = null
+  isDrawerOpen.value = true
+}
+
+const openEditDrawer = (id) => {
+  editingEmployeeId.value = id
+  isDrawerOpen.value = true
+}
+
+const closeDrawer = () => {
+  isDrawerOpen.value = false
+  editingEmployeeId.value = null
+}
+
 const handleExport = async () => {
-  const rows = await exportEmployees(normalizeQuery())
-  const header = ['姓名', '工号', '部门', '职位', '邮箱', '电话', '状态', '入职日期']
-  const body = (rows || []).map((item) => [
-    item.name || '',
-    item.empNo || '',
-    item.departmentName || '',
-    item.positionName || '',
-    item.email || '',
-    item.phone || '',
-    statusMeta(item.status).label,
-    item.entryDate || ''
-  ])
-  const csv = [header, ...body]
-      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
-      .join('\n')
-  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+  const blob = await exportEmployeesExcel(normalizeQuery())
+  downloadBlob(blob, `员工列表-${Date.now()}.xlsx`)
+}
+
+const handleTemplateDownload = async () => {
+  const blob = await downloadEmployeeImportTemplate()
+  downloadBlob(blob, '员工导入模板.xlsx')
+}
+
+const triggerImport = () => {
+  importInputRef.value?.click()
+}
+
+const handleImportChange = async (event) => {
+  const [file] = event.target.files || []
+  if (!file) return
+  try {
+    const result = await importEmployees(file)
+    const failText = (result.failMessages || []).slice(0, 5).join('\n')
+    await ElMessageBox.alert(
+      `总行数：${result.totalCount}\n成功：${result.successCount}\n失败：${result.failCount}${failText ? `\n\n失败明细：\n${failText}` : ''}`,
+      '员工导入结果',
+      { confirmButtonText: '关闭' }
+    )
+    await Promise.all([fetchEmployees(), fetchStats(), fetchFormOptions()])
+  } finally {
+    event.target.value = ''
+  }
+}
+
+const downloadBlob = (blob, fileName) => {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `员工列表-${Date.now()}.csv`
+  link.download = fileName
   link.click()
   URL.revokeObjectURL(url)
 }

@@ -53,14 +53,24 @@
         </div>
       </section>
 
-      <PermissionDrawer ref="drawerRef" @updated="fetchData" />
-      <CreateRoleDrawer ref="createRoleRef" @success="fetchData" />
+      <PermissionDrawer
+        v-if="showPermissionDrawer"
+        ref="drawerRef"
+        @updated="fetchData"
+        @closed="handlePermissionClosed"
+      />
+      <CreateRoleDrawer
+        v-if="showCreateDrawer"
+        ref="createRoleRef"
+        @success="fetchData"
+        @closed="handleCreateClosed"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import PermissionDrawer from './permissionDrawer.vue'
 import CreateRoleDrawer from './createRoleDrawer.vue'
 import { getRolePage } from './api/role.js'
@@ -69,6 +79,8 @@ const roles = ref([])
 const loading = ref(false)
 const drawerRef = ref(null)
 const createRoleRef = ref(null)
+const showPermissionDrawer = ref(false)
+const showCreateDrawer = ref(false)
 
 async function fetchData() {
   loading.value = true
@@ -80,12 +92,24 @@ async function fetchData() {
   }
 }
 
-function openPermission(role) {
+async function openPermission(role) {
+  showPermissionDrawer.value = true
+  await nextTick()
   drawerRef.value?.open(role)
 }
 
-function openCreateRole() {
+async function openCreateRole() {
+  showCreateDrawer.value = true
+  await nextTick()
   createRoleRef.value?.open()
+}
+
+function handlePermissionClosed() {
+  showPermissionDrawer.value = false
+}
+
+function handleCreateClosed() {
+  showCreateDrawer.value = false
 }
 
 function formatTime(value) {

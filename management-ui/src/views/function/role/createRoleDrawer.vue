@@ -1,5 +1,5 @@
 <template>
-  <el-drawer v-model="visible" :title="null" size="500px" direction="rtl" :with-header="false" class="atelier-drawer" append-to-body>
+  <el-drawer v-model="visible" :title="null" size="500px" direction="rtl" :with-header="false" class="atelier-drawer" append-to-body destroy-on-close>
     <div class="h-1 bg-primary w-full sticky top-0 z-10"></div>
     <div class="flex flex-col h-full bg-surface-container-lowest font-body">
       <div class="px-8 py-8 border-b border-surface-variant/30">
@@ -18,7 +18,7 @@
       <div class="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
         <div class="space-y-2">
           <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant">角色名称</label>
-          <input v-model="form.roleName" type="text" placeholder="例如：高级裁切师" class="w-full px-4 py-3.5 rounded bg-surface-container-low border-none focus:ring-2 focus:ring-primary/20 text-on-surface transition-all placeholder:text-on-surface-variant/40" />
+          <input v-model="form.roleName" type="text" placeholder="例如：高级裁剪师" class="w-full px-4 py-3.5 rounded bg-surface-container-low border-none focus:ring-2 focus:ring-primary/20 text-on-surface transition-all placeholder:text-on-surface-variant/40" />
         </div>
 
         <div class="space-y-2 relative">
@@ -27,7 +27,10 @@
             <span class="text-[10px] font-normal lowercase opacity-60">勾选下方列表授予功能访问权</span>
           </label>
 
-          <div class="atelier-tree-select-wrapper">
+          <div v-if="permissionLoadError" class="rounded-lg bg-amber-50 text-amber-700 px-4 py-3 text-sm">
+            {{ permissionLoadError }}
+          </div>
+          <div v-else class="atelier-tree-select-wrapper">
             <el-tree-select
               v-model="form.permissionIds"
               :data="allPermissions"
@@ -42,10 +45,12 @@
               check-strictly
               :loading="isLoadingPerms"
             >
-              <template #default="{ data }">
-                <div class="flex items-center gap-2">
-                  <span class="material-symbols-outlined text-[18px] opacity-40">{{ data.children?.length ? 'folder' : 'description' }}</span>
-                  <span class="text-sm font-medium text-on-surface">{{ data.permName }}</span>
+              <template #default="scope">
+                <div v-if="scope?.data" class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[18px] opacity-40">
+                    {{ scope.data.children?.length ? 'folder' : 'description' }}
+                  </span>
+                  <span class="text-sm font-medium text-on-surface">{{ scope.data.permName }}</span>
                 </div>
               </template>
             </el-tree-select>
@@ -66,36 +71,29 @@
 
 <script setup>
 import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElDrawer } from 'element-plus'
 import { createRole, getAllPermissions } from './api/role.js'
 
-const emit = defineEmits(['success'])
+const emit = defineEmits(['success', 'closed'])
 const visible = ref(false)
 const isSubmitting = ref(false)
 const isLoadingPerms = ref(false)
+const permissionLoadError = ref('')
 const form = ref({ roleName: '', permissionIds: [] })
 const allPermissions = ref([])
 
-function buildTree(list = []) {
-  const nodeMap = new Map()
-  const roots = []
-  list.forEach((item) => nodeMap.set(item.id, { ...item, children: [] }))
-  nodeMap.forEach((node) => {
-    if (node.parentId && nodeMap.has(node.parentId)) {
-      nodeMap.get(node.parentId).children.push(node)
-    } else {
-      roots.push(node)
-    }
-  })
-  return roots
-}
-
 async function fetchPermissions() {
   isLoadingPerms.value = true
+  permissionLoadError.value = ''
   try {
-    allPermissions.value = buildTree(await getAllPermissions())
+    const rawData = await getAllPermissions()
+    allPermissions.value = Array.isArray(rawData) ? rawData : []
   } catch (error) {
     console.error('获取权限异常:', error)
+    allPermissions.value = []
+    permissionLoadError.value = error?.response?.status === 403
+      ? '您暂无权限查看权限树，请联系管理员开通“角色权限查看”权限。'
+      : '权限树加载失败，请稍后重试。'
   } finally {
     isLoadingPerms.value = false
   }
@@ -109,11 +107,16 @@ async function open() {
 
 function close() {
   visible.value = false
+  emit('closed')
 }
 
 async function submit() {
   if (!form.value.roleName.trim()) {
     ElMessage.warning('角色名称是必填项')
+    return
+  }
+  if (permissionLoadError.value) {
+    ElMessage.warning(permissionLoadError.value)
     return
   }
   if (!form.value.permissionIds.length) {
@@ -122,7 +125,10 @@ async function submit() {
   }
   isSubmitting.value = true
   try {
-    await createRole({ roleName: form.value.roleName.trim(), permissionIds: form.value.permissionIds })
+    await createRole({
+      roleName: form.value.roleName.trim(),
+      permissionIds: form.value.permissionIds
+    })
     ElMessage.success(`角色【${form.value.roleName}】已成功创建`)
     emit('success')
     close()
@@ -138,7 +144,16 @@ defineExpose({ open })
 
 <style scoped>
 :deep(.atelier-drawer) { box-shadow: 0px 20px 40px rgba(0, 32, 69, 0.06) !important; background-color: #ffffff !important; }
-:deep(.atelier-tree-select .el-input__wrapper) { background-color: #f1f4f6 !important; box-shadow: none !important; border-radius: 4px; padding: 10px 12px; }
+
+:deep(.atelier-tree-select .el-select__wrapper) {
+  background-color: #f1f4f6 !important;
+  box-shadow: none !important;
+  border-radius: 4px;
+  min-height: 48px;
+  padding: 4px 12px;
+}
+
 :deep(.el-tree-node__expand-icon.is-leaf) { color: transparent; }
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 </style>

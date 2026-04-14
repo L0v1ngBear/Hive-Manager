@@ -6,10 +6,13 @@ import jakarta.validation.Valid;
 import my.management.common.annotation.RequirePermission;
 import my.management.common.dto.PageResult;
 import my.management.common.dto.Result;
+import my.management.module.tenant.model.dto.TenantCreateRequest;
 import my.management.module.tenant.model.dto.TenantPageRequest;
 import my.management.module.tenant.model.vo.TenantDetailVO;
 import my.management.module.tenant.model.vo.TenantPageVO;
 import my.management.module.tenant.service.TenantManageService;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,5 +42,11 @@ public class TenantManageController {
     @RequirePermission(value = "platform:tenant:view", message = "您没有权限查看租户详情")
     public Result<TenantDetailVO> detail(@PathVariable Long id) {
         return Result.success(tenantManageService.detail(id));
+    }
+
+    @PostMapping("/create")
+    @RequirePermission(value = "platform:tenant:view", message = "您没有权限创建租户")
+    public Result<Long> create(@Valid @RequestBody TenantCreateRequest request) {
+        return Result.success(tenantManageService.createTenant(request));
     }
 }

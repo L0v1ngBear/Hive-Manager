@@ -16,5 +16,9 @@ public class LoginVO {
 
     private String tenantCode;
 
+    private Boolean developer = false;
+
+    private String responseKey;
+
     private List<String> permissions = new ArrayList<>();
 }

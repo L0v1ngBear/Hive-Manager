@@ -52,4 +52,8 @@ public class CodeGeneratorUtil {
     public String generateEmployeeNo() {
         return generateCode("EMP", 4);
     }
+
+    public String generateRoleCode() {
+        return generateCode("ROLE", 4);
+    }
 }

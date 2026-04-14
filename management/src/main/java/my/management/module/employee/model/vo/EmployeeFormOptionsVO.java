@@ -9,6 +9,7 @@ public class EmployeeFormOptionsVO {
 
     private List<DepartmentOptionVO> departments;
     private List<PositionOptionVO> positions;
+    private List<RoleOptionVO> roles;
     private List<OptionVO> employeeTypes;
     private List<OptionVO> employmentStatuses;
 }

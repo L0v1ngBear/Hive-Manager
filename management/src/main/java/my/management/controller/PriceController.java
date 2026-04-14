@@ -2,10 +2,12 @@ package my.management.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import my.management.common.annotation.RequirePermission;
 import my.management.common.dto.PageResult;
 import my.management.common.dto.Result;
+import my.management.common.vo.ImportResultVO;
 import my.management.module.price.model.dto.PricePageRequest;
 import my.management.module.price.model.dto.PricePublishRequest;
 import my.management.module.price.model.vo.CustomerOptionVO;
@@ -22,6 +24,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -87,5 +91,23 @@ public class PriceController {
     @RequirePermission(value = "price:list", message = "您没有权限查看价格分类")
     public Result<List<String>> categories() {
         return Result.success(priceService.categories());
+    }
+
+    @GetMapping("/export-excel")
+    @RequirePermission(value = "price:list", message = "您没有权限导出价格数据")
+    public void exportExcel(@Valid PricePageRequest request, HttpServletResponse response) {
+        priceService.exportExcel(request, response);
+    }
+
+    @GetMapping("/import-template")
+    @RequirePermission(value = "price:list", message = "您没有权限下载价格导入模板")
+    public void downloadImportTemplate(HttpServletResponse response) {
+        priceService.downloadImportTemplate(response);
+    }
+
+    @PostMapping("/import")
+    @RequirePermission(value = "price:publish", message = "您没有权限导入价格数据")
+    public Result<ImportResultVO> importPrices(@RequestParam("file") MultipartFile file) {
+        return Result.success(priceService.importPrices(file));
     }
 }

@@ -3,9 +3,12 @@ package my.management.module.price.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import my.management.common.context.TenantPermissionContext;
 import my.management.common.exception.BusinessException;
+import my.management.common.utils.ExcelUtil;
+import my.management.common.vo.ImportResultVO;
 import my.management.module.customer.mapper.CustomerMapper;
 import my.management.module.customer.model.entity.Customer;
 import my.management.module.price.mapper.ClothModelSpecViewMapper;
@@ -29,12 +32,17 @@ import my.management.module.price.model.vo.PriceDetailVO;
 import my.management.module.price.model.vo.PriceSkuVO;
 import my.management.module.price.model.vo.PriceStatsVO;
 import my.management.module.price.model.vo.TierPriceVO;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -66,25 +74,11 @@ public class PriceService {
     @Resource
     private ClothModelSpecViewMapper clothModelSpecViewMapper;
 
-    public Page<PriceSkuVO> page(PricePageRequest request) {
-        LambdaQueryWrapper<PriceSku> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PriceSku::getTenantCode, TenantPermissionContext.getTenantCode())
-                .eq(PriceSku::getIsDeleted, 0)
-                .orderByDesc(PriceSku::getUpdateTime);
-        if (StringUtils.hasText(request.getKeyword())) {
-            wrapper.and(w -> w.like(PriceSku::getModelCode, request.getKeyword())
-                    .or()
-                    .like(PriceSku::getBatchNo, request.getKeyword())
-                    .or()
-                    .like(PriceSku::getSpec, request.getKeyword()));
-        }
-        if (StringUtils.hasText(request.getCategory())) {
-            wrapper.eq(PriceSku::getCategory, request.getCategory());
-        }
-        if (request.getStatus() != null) {
-            wrapper.eq(PriceSku::getStatus, request.getStatus());
-        }
+    @Resource
+    private ExcelUtil excelUtil;
 
+    public Page<PriceSkuVO> page(PricePageRequest request) {
+        LambdaQueryWrapper<PriceSku> wrapper = buildQueryWrapper(request);
         Page<PriceSku> entityPage = priceSkuMapper.selectPage(new Page<>(safePage(request.getPage()), safeSize(request.getSize())), wrapper);
         Page<PriceSkuVO> voPage = new Page<>(entityPage.getCurrent(), entityPage.getSize(), entityPage.getTotal());
         voPage.setRecords(entityPage.getRecords().stream().map(this::toSkuVO).toList());
@@ -212,6 +206,76 @@ public class PriceService {
 
     public List<String> categories() {
         return priceSkuMapper.selectCategories(TenantPermissionContext.getTenantCode());
+    }
+
+    public void exportExcel(PricePageRequest request, HttpServletResponse response) {
+        List<String> headers = List.of("面料型号", "批号", "分类", "规格", "基准价", "币种", "生效日期", "状态", "备注");
+        List<List<String>> rows = priceSkuMapper.selectList(buildQueryWrapper(request)).stream()
+                .map(this::toSkuVO)
+                .map(item -> List.of(
+                        excelUtil.stringify(item.getModelCode()),
+                        excelUtil.stringify(item.getBatchNo()),
+                        excelUtil.stringify(item.getCategory()),
+                        excelUtil.stringify(item.getSpec()),
+                        excelUtil.stringify(item.getBasePrice()),
+                        excelUtil.stringify(item.getCurrency()),
+                        excelUtil.stringify(item.getEffectiveDate()),
+                        excelUtil.stringify(item.getStatusLabel()),
+                        excelUtil.stringify(item.getRemark())
+                ))
+                .toList();
+        excelUtil.writeToResponse(response,
+                excelUtil.createWorkbook("价格列表", headers, rows),
+                "价格列表.xlsx");
+    }
+
+    public void downloadImportTemplate(HttpServletResponse response) {
+        List<String> headers = List.of("面料型号", "批号", "分类", "规格", "基准价", "币种", "生效日期", "备注");
+        List<List<String>> examples = List.of(
+                List.of("978-1-56915-435-9", "BATCH-202604", "常规面料", "0.00", "32.50", "CNY", LocalDate.now().toString(), "导入示例"),
+                List.of("978-0-392-85262-3", "BATCH-202604", "高端面料", "1.00", "45.80", "CNY", LocalDate.now().plusDays(1).toString(), "计划生效价格")
+        );
+        List<String> notes = List.of(
+                "仅支持 .xlsx 文件导入。",
+                "必填列：面料型号、基准价。",
+                "生效日期格式：yyyy-MM-dd。为空时默认当天。",
+                "币种为空时默认 CNY。",
+                "导入时会复用价格发布逻辑，同型号将自动更新当前有效价格。",
+                "客户特价、等级价暂不在批量导入模板内，后续由客户自行补充。"
+        );
+        excelUtil.writeToResponse(response,
+                excelUtil.createTemplateWorkbook("价格导入模板", headers, examples, notes),
+                "价格导入模板.xlsx");
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public ImportResultVO importPrices(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("请先选择要导入的 Excel 文件");
+        }
+        ImportResultVO result = new ImportResultVO();
+        try (var inputStream = file.getInputStream(); var workbook = WorkbookFactory.create(inputStream)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null || isEmptyRow(row, 8)) {
+                    continue;
+                }
+                result.setTotalCount(result.getTotalCount() + 1);
+                try {
+                    publish(buildImportRequest(row));
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                } catch (Exception ex) {
+                    result.setFailCount(result.getFailCount() + 1);
+                    if (result.getFailMessages().size() < 20) {
+                        result.getFailMessages().add("第 " + (i + 1) + " 行：" + ex.getMessage());
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new BusinessException("读取价格导入文件失败");
+        }
+        return result;
     }
 
     private void saveTierPrices(Long skuId, List<TierPriceRequest> tierPrices, BigDecimal basePrice) {
@@ -350,5 +414,65 @@ public class PriceService {
 
     private BigDecimal nvl(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private LambdaQueryWrapper<PriceSku> buildQueryWrapper(PricePageRequest request) {
+        LambdaQueryWrapper<PriceSku> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PriceSku::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(PriceSku::getIsDeleted, 0)
+                .orderByDesc(PriceSku::getUpdateTime);
+        if (StringUtils.hasText(request.getKeyword())) {
+            wrapper.and(w -> w.like(PriceSku::getModelCode, request.getKeyword())
+                    .or()
+                    .like(PriceSku::getBatchNo, request.getKeyword())
+                    .or()
+                    .like(PriceSku::getSpec, request.getKeyword()));
+        }
+        if (StringUtils.hasText(request.getCategory())) {
+            wrapper.eq(PriceSku::getCategory, request.getCategory());
+        }
+        if (request.getStatus() != null) {
+            wrapper.eq(PriceSku::getStatus, request.getStatus());
+        }
+        return wrapper;
+    }
+
+    private boolean isEmptyRow(Row row, int cellCount) {
+        for (int i = 0; i < cellCount; i++) {
+            if (StringUtils.hasText(excelUtil.readString(row.getCell(i)))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private PricePublishRequest buildImportRequest(Row row) {
+        String modelCode = excelUtil.readString(row.getCell(0));
+        String batchNo = excelUtil.readString(row.getCell(1));
+        String category = excelUtil.readString(row.getCell(2));
+        String spec = excelUtil.readString(row.getCell(3));
+        String basePriceText = excelUtil.readString(row.getCell(4));
+        String currency = excelUtil.readString(row.getCell(5));
+        LocalDate effectiveDate = excelUtil.readLocalDate(row.getCell(6));
+        String remark = excelUtil.readString(row.getCell(7));
+
+        if (!StringUtils.hasText(modelCode) || !StringUtils.hasText(basePriceText)) {
+            throw new BusinessException("面料型号、基准价不能为空");
+        }
+
+        PricePublishRequest request = new PricePublishRequest();
+        request.setModelCode(modelCode.trim());
+        request.setBatchNo(blankToNull(batchNo));
+        request.setCategory(blankToNull(category));
+        request.setSpec(blankToNull(spec));
+        request.setBasePrice(new BigDecimal(basePriceText.trim()));
+        request.setCurrency(StringUtils.hasText(currency) ? currency.trim() : "CNY");
+        request.setEffectiveDate(effectiveDate == null ? LocalDate.now() : effectiveDate);
+        request.setRemark(blankToNull(remark));
+        return request;
+    }
+
+    private String blankToNull(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 }

@@ -1,0 +1,79 @@
+package my.management.controller;
+
+import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import my.management.common.annotation.RequirePermission;
+import my.management.common.dto.Result;
+import my.management.module.approval.model.dto.FinanceAuditRequest;
+import my.management.module.approval.model.dto.FinanceSubmitRequest;
+import my.management.module.approval.model.dto.LeaveAuditRequest;
+import my.management.module.approval.model.vo.FinanceApprovalVO;
+import my.management.module.approval.model.vo.LeaveApprovalListVO;
+import my.management.module.approval.model.vo.LeaveDetailVO;
+import my.management.module.approval.service.ApprovalService;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/approval")
+@Validated
+public class ApprovalController {
+
+    @Resource
+    private ApprovalService approvalService;
+
+    @GetMapping("/leave/list")
+    @RequirePermission(value = "approval:leave", message = "您没有权限查看请假审批列表")
+    public Result<List<LeaveApprovalListVO>> listLeaveApprovals(@RequestParam(defaultValue = "pending") String scope,
+                                                                @RequestParam(required = false) Integer status) {
+        return Result.success(approvalService.listLeaveApprovals(scope, status));
+    }
+
+    @GetMapping("/leave/{leaveCode}")
+    @RequirePermission(value = "approval:leave:detail", message = "您没有权限查看请假详情")
+    public Result<LeaveDetailVO> getLeaveDetail(@NotBlank @PathVariable String leaveCode) {
+        return Result.success(approvalService.getLeaveDetail(leaveCode));
+    }
+
+    @PostMapping("/leave/audit")
+    @RequirePermission(value = "approval:leave:audit", message = "您没有权限审批请假单")
+    public Result<Void> auditLeave(@Valid @RequestBody LeaveAuditRequest request) {
+        approvalService.auditLeave(request);
+        return Result.success(null);
+    }
+
+    @GetMapping("/finance/list")
+    @RequirePermission(value = "approval:finance", message = "您没有权限查看财务审批列表")
+    public Result<List<FinanceApprovalVO>> listFinanceApprovals(@RequestParam(defaultValue = "pending") String scope,
+                                                                @RequestParam(required = false) Integer status) {
+        return Result.success(approvalService.listFinanceApprovals(scope, status));
+    }
+
+    @GetMapping("/finance/{approvalCode}")
+    @RequirePermission(value = "approval:finance:detail", message = "您没有权限查看财务审批详情")
+    public Result<FinanceApprovalVO> getFinanceDetail(@PathVariable String approvalCode) {
+        return Result.success(approvalService.getFinanceDetail(approvalCode));
+    }
+
+    @PostMapping("/finance/audit")
+    @RequirePermission(value = "approval:finance:audit", message = "您没有权限审批财务单")
+    public Result<Void> auditFinance(@Valid @RequestBody FinanceAuditRequest request) {
+        approvalService.auditFinance(request);
+        return Result.success(null);
+    }
+
+    @PostMapping("/finance/submit")
+    @RequirePermission(value = "approval:finance:submit", message = "您没有权限提交财务审批")
+    public Result<String> submitFinance(@Valid @RequestBody FinanceSubmitRequest request) {
+        return Result.success(approvalService.submitFinance(request));
+    }
+}

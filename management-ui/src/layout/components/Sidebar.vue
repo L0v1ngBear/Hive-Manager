@@ -81,6 +81,7 @@ interface MenuItem {
   path: string
   icon: string
   permissions?: string[]
+  developerOnly?: boolean
 }
 
 const primaryMenus = computed<MenuItem[]>(() => filterMenus([
@@ -96,11 +97,16 @@ const secondaryMenus = computed<MenuItem[]>(() => filterMenus([
   { name: '出库单打印', path: '/function/receipt', icon: 'print', permissions: ['receipt:print:list'] },
   { name: '标签模板', path: '/function/label', icon: 'sell', permissions: ['label:template:list'] },
   { name: '文档管理', path: '/function/document', icon: 'folder_open', permissions: ['document:list'] },
-  { name: '租户管理', path: '/platform/tenant', icon: 'apartment', permissions: ['platform:tenant:view'] },
+  { name: '租户管理', path: '/platform/tenant', icon: 'apartment', permissions: ['platform:tenant:view'], developerOnly: true },
 ]))
 
 function filterMenus(menus: MenuItem[]) {
-  return menus.filter((item) => !item.permissions || userStore.hasAnyPermission(item.permissions))
+  return menus.filter((item) => {
+    if (item.developerOnly && !userStore.isDeveloper) {
+      return false
+    }
+    return !item.permissions || userStore.hasAnyPermission(item.permissions)
+  })
 }
 
 const showMore = ref(false)
