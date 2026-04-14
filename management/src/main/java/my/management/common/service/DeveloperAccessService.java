@@ -31,10 +31,14 @@ public class DeveloperAccessService {
 
     public boolean isCurrentUserDeveloper() {
         Long userId = TenantPermissionContext.getUserId();
+        String tenantCode = TenantPermissionContext.getTenantCode();
         if (userId == null) {
             return false;
         }
-        String loginName = authMapper.selectLoginNameByUserId(userId);
+        if (tenantCode == null || tenantCode.isBlank()) {
+            return false;
+        }
+        String loginName = authMapper.selectLoginNameByUserId(userId, tenantCode);
         return isDeveloperLogin(loginName);
     }
 }

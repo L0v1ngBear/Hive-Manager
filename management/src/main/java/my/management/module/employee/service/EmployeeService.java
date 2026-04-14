@@ -51,7 +51,9 @@ import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -98,36 +100,39 @@ public class EmployeeService {
     private ExcelUtil excelUtil;
 
     public Page<EmployeePageVO> page(EmployeePageQuery query) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
         Page<EmployeePageVO> page = new Page<>(query.getPage(), query.getSize());
         Page<EmployeePageVO> result = employeeMapper.selectEmployeePage(
                 page,
+                tenantCode,
                 query.getKeyword(),
                 query.getDepartmentId(),
                 query.getStatus(),
                 query.getEmployeeType(),
                 query.getEntryDateStart(),
                 query.getEntryDateEnd());
-        result.getRecords().forEach(this::fillViewFields);
+        fillViewFields(result.getRecords());
         return result;
     }
 
     public EmployeeStatsVO stats() {
+        String tenantCode = TenantPermissionContext.getTenantCode();
         EmployeeStatsVO vo = new EmployeeStatsVO();
-        Long totalEmployees = nvl(employeeMapper.countAvailableEmployees());
-        Long attendanceUsers = nvl(employeeMapper.countTodayAttendanceUsers());
+        Long totalEmployees = nvl(employeeMapper.countAvailableEmployees(tenantCode));
+        Long attendanceUsers = nvl(employeeMapper.countTodayAttendanceUsers(tenantCode));
         vo.setTotalEmployees(totalEmployees);
-        vo.setDepartmentCount(nvl(employeeMapper.countDistinctDepartments()));
-        vo.setPendingOnboardCount(nvl(employeeMapper.countPendingOnboard()));
+        vo.setDepartmentCount(nvl(employeeMapper.countDistinctDepartments(tenantCode)));
+        vo.setPendingOnboardCount(nvl(employeeMapper.countPendingOnboard(tenantCode)));
         vo.setTodayAttendanceRate(totalEmployees == 0 ? 0D : Math.round(attendanceUsers * 10000.0 / totalEmployees) / 100.0);
         return vo;
     }
 
     public EmployeeDetailVO detail(Long id) {
-        EmployeeDetailVO detail = employeeMapper.selectEmployeeDetail(id);
+        EmployeeDetailVO detail = employeeMapper.selectEmployeeDetail(TenantPermissionContext.getTenantCode(), id);
         if (detail == null) {
             throw new BusinessException("employee not found");
         }
-        fillViewFields(detail);
+        fillViewFields(List.of(detail));
         return detail;
     }
 
@@ -272,7 +277,7 @@ public class EmployeeService {
 
     public List<EmployeeLeaderOptionVO> searchLeaders(String keyword, Integer limit) {
         int safeLimit = (limit == null || limit <= 0) ? 10 : Math.min(limit, 50);
-        return employeeMapper.searchLeaders(keyword, safeLimit);
+        return employeeMapper.searchLeaders(TenantPermissionContext.getTenantCode(), keyword, safeLimit);
     }
 
     public EmployeeFormOptionsVO initFormOptions() {
@@ -312,13 +317,14 @@ public class EmployeeService {
 
     public List<EmployeePageVO> export(EmployeePageQuery query) {
         List<EmployeePageVO> list = employeeMapper.selectEmployeeExport(
+                TenantPermissionContext.getTenantCode(),
                 query.getKeyword(),
                 query.getDepartmentId(),
                 query.getStatus(),
                 query.getEmployeeType(),
                 query.getEntryDateStart(),
                 query.getEntryDateEnd());
-        list.forEach(this::fillViewFields);
+        fillViewFields(list);
         return list;
     }
 
@@ -396,11 +402,17 @@ public class EmployeeService {
     }
 
     private Employee requireEmployee(Long id) {
-        Employee employee = employeeMapper.selectById(id);
+        Employee employee = employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
+                .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(Employee::getId, id)
+                .last("LIMIT 1"));
         if (employee == null) {
             throw new BusinessException("employee not found");
         }
-        EmployeeExt ext = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>().eq(EmployeeExt::getUserId, id));
+        EmployeeExt ext = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>()
+                .eq(EmployeeExt::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(EmployeeExt::getUserId, id)
+                .last("LIMIT 1"));
         if (ext != null && Integer.valueOf(1).equals(ext.getIsDeleted())) {
             throw new BusinessException("employee has been deleted");
         }
@@ -427,14 +439,20 @@ public class EmployeeService {
         if (leaderId == null) {
             return;
         }
-        Employee leader = employeeMapper.selectById(leaderId);
+        Employee leader = employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
+                .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(Employee::getId, leaderId)
+                .last("LIMIT 1"));
         if (leader == null) {
             throw new BusinessException("leader not found");
         }
     }
 
     private EmployeeExt getOrCreateExt(Long userId) {
-        EmployeeExt ext = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>().eq(EmployeeExt::getUserId, userId));
+        EmployeeExt ext = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>()
+                .eq(EmployeeExt::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(EmployeeExt::getUserId, userId)
+                .last("LIMIT 1"));
         if (ext != null) {
             return ext;
         }
@@ -453,15 +471,55 @@ public class EmployeeService {
         }
     }
 
-    private void fillViewFields(EmployeePageVO vo) {
-        if (vo == null) {
+    private void fillViewFields(List<? extends EmployeePageVO> list) {
+        if (list == null || list.isEmpty()) {
             return;
         }
-        vo.setStatusLabel(statusLabel(vo.getStatus()));
-        List<Long> roleIds = sysUserRoleMapper.selectRoleIdsByUserIdAndTenantCode(vo.getId(), TenantPermissionContext.getTenantCode());
-        List<String> roleNames = sysUserRoleMapper.selectRoleNamesByUserIdAndTenantCode(vo.getId(), TenantPermissionContext.getTenantCode());
-        vo.setRoleIds(roleIds == null ? Collections.emptyList() : roleIds);
-        vo.setRoleNames(roleNames == null ? Collections.emptyList() : roleNames);
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        List<Long> userIds = list.stream()
+                .map(EmployeePageVO::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<Long, List<Long>> roleIdMap = new HashMap<>();
+        Map<Long, List<String>> roleNameMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            sysUserRoleMapper.selectRoleIdsByUserIds(tenantCode, userIds).forEach(row -> {
+                Long userId = toLong(row.get("userId"));
+                Long roleId = toLong(row.get("roleId"));
+                if (userId != null && roleId != null) {
+                    roleIdMap.computeIfAbsent(userId, key -> new ArrayList<>()).add(roleId);
+                }
+            });
+            sysUserRoleMapper.selectRoleNamesByUserIds(tenantCode, userIds).forEach(row -> {
+                Long userId = toLong(row.get("userId"));
+                String roleName = row.get("roleName") == null ? null : String.valueOf(row.get("roleName"));
+                if (userId != null && StringUtils.hasText(roleName)) {
+                    roleNameMap.computeIfAbsent(userId, key -> new ArrayList<>()).add(roleName);
+                }
+            });
+        }
+
+        list.forEach(vo -> {
+            vo.setStatusLabel(statusLabel(vo.getStatus()));
+            vo.setRoleIds(roleIdMap.getOrDefault(vo.getId(), Collections.emptyList()));
+            vo.setRoleNames(roleNameMap.getOrDefault(vo.getId(), Collections.emptyList()));
+        });
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private String statusLabel(Integer status) {

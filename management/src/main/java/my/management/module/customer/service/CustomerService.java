@@ -83,17 +83,18 @@ public class CustomerService {
 
     public Page<Customer> pageSearchCustomer(CustomerPageRequest request) {
         String keyword = request.getKeyword();
+        String tenantCode = TenantPermissionContext.getTenantCode();
         LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Customer::getTenantCode, TenantPermissionContext.getTenantCode());
+        wrapper.eq(Customer::getTenantCode, tenantCode);
 
         if (StringUtils.isNotBlank(keyword)) {
             String safeKeyword = keyword.replace("'", "''");
             wrapper.and(w -> w
                     .like(Customer::getCustomerName, safeKeyword)
                     .or().inSql(Customer::getId,
-                            "SELECT customer_id FROM customer_project WHERE project_name LIKE '%" + safeKeyword + "%'")
+                            "SELECT customer_id FROM customer_project WHERE tenant_code = '" + tenantCode + "' AND project_name LIKE '%" + safeKeyword + "%'")
                     .or().inSql(Customer::getId,
-                            "SELECT customer_id FROM customer_contact WHERE (contact_name LIKE '%" + safeKeyword + "%' OR contact_phone LIKE '%" + safeKeyword + "%')")
+                            "SELECT customer_id FROM customer_contact WHERE tenant_code = '" + tenantCode + "' AND (contact_name LIKE '%" + safeKeyword + "%' OR contact_phone LIKE '%" + safeKeyword + "%')")
             );
         }
 
@@ -103,14 +104,20 @@ public class CustomerService {
     }
 
     public CustomerDetailVO getCustomer(Long id) {
-        Customer customer = customerMapper.selectById(id);
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        Customer customer = customerMapper.selectOne(new LambdaQueryWrapper<Customer>()
+                .eq(Customer::getTenantCode, tenantCode)
+                .eq(Customer::getId, id)
+                .last("LIMIT 1"));
         if (customer == null) {
             throw new BusinessException("customer not found");
         }
 
         List<CustomerContact> customerContactList = customerContactMapper.selectList(new LambdaQueryWrapper<CustomerContact>()
+                .eq(CustomerContact::getTenantCode, tenantCode)
                 .eq(CustomerContact::getCustomerId, id));
         List<CustomerProject> customerProjectList = customerProjectMapper.selectList(new LambdaQueryWrapper<CustomerProject>()
+                .eq(CustomerProject::getTenantCode, tenantCode)
                 .eq(CustomerProject::getCustomerId, id));
 
         CustomerDetailVO customerDetailVO = new CustomerDetailVO();

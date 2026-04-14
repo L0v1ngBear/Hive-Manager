@@ -38,6 +38,6 @@ public interface AuthMapper {
     @Update("UPDATE user SET password = #{password} WHERE id = #{userId}")
     int updatePasswordByUserId(@Param("userId") Long userId, @Param("password") String password);
 
-    @Select("SELECT login_name FROM user WHERE id = #{userId} LIMIT 1")
-    String selectLoginNameByUserId(@Param("userId") Long userId);
+    @Select("SELECT login_name FROM user WHERE id = #{userId} AND tenant_code = #{tenantCode} LIMIT 1")
+    String selectLoginNameByUserId(@Param("userId") Long userId, @Param("tenantCode") String tenantCode);
 }

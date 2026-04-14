@@ -1,23 +1,23 @@
 <template>
   <el-drawer
-    v-model="visible"
-    :title="null"
-    size="500px"
-    direction="rtl"
-    :with-header="false"
-    class="atelier-drawer"
-    append-to-body
-    destroy-on-close
+      v-model="visible"
+      :title="null"
+      size="500px"
+      direction="rtl"
+      :with-header="false"
+      class="atelier-drawer"
+      append-to-body
+      destroy-on-close
   >
     <div class="h-1 bg-primary w-full sticky top-0 z-10"></div>
 
     <div class="flex flex-col h-full bg-surface-container-lowest relative">
       <div v-if="isLoadingData" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
         <span class="material-symbols-outlined text-primary text-4xl animate-spin">progress_activity</span>
-        <span class="text-sm font-bold text-primary mt-2">正在处理权限矩阵...</span>
+        <span class="text-sm font-bold text-primary mt-2">正在同步权限矩阵...</span>
       </div>
 
-      <div class="px-8 py-8 border-b border-surface-variant/30">
+      <div class="px-8 py-8 border-b border-surface-variant/30 flex-shrink-0">
         <div class="flex justify-between items-start mb-6">
           <div class="p-3 bg-primary-container text-white rounded-xl shadow-lg shadow-primary/10">
             <span class="material-symbols-outlined text-3xl">security</span>
@@ -33,56 +33,58 @@
         </div>
       </div>
 
-      <div class="flex-1 overflow-y-auto p-8 no-scrollbar space-y-3">
-        <div v-if="permissionLoadError" class="rounded-lg bg-amber-50 text-amber-700 px-4 py-3 text-sm">
+      <div class="flex-1 overflow-y-auto p-8 space-y-3 no-scrollbar">
+        <div v-if="permissionLoadError" class="rounded-lg bg-error-container text-error px-4 py-3 text-sm">
           {{ permissionLoadError }}
         </div>
 
         <template v-else-if="treeData.length > 0">
-          <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant flex justify-between">
-            权限树
-            <span class="text-[10px] font-normal lowercase opacity-60">支持多选、搜索、折叠标签</span>
+          <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant flex justify-between mb-2">
+            权限结构树
+            <span class="text-[10px] font-normal lowercase opacity-60">支持搜索与折叠</span>
           </label>
 
           <div class="atelier-tree-select-wrapper">
             <el-tree-select
-              v-model="checkedPermissionIds"
-              :data="treeData"
-              node-key="id"
-              multiple
-              collapse-tags
-              collapse-tags-tooltip
-              check-strictly
-              filterable
-              :loading="isLoadingData"
-              :props="{ value: 'id', label: 'permName', children: 'children' }"
-              class="atelier-tree-select w-full"
-              placeholder="请选择要分配的权限"
+                v-model="checkedPermissionIds"
+                :data="treeData"
+                node-key="id"
+                value-key="id"
+                multiple
+                show-checkbox
+                collapse-tags
+                collapse-tags-tooltip
+                filterable
+                :props="{ value: 'id', label: 'permName', children: 'children' }"
+                placeholder="请展开选择系统权限"
+                class="atelier-tree-select w-full"
             >
               <template #default="scope">
-                <div v-if="scope?.data" class="flex items-center gap-2">
+                <div v-if="scope && scope.data" class="flex items-center gap-2">
                   <span class="material-symbols-outlined text-[18px] opacity-40">
                     {{ scope.data.children?.length ? 'folder' : 'description' }}
                   </span>
-                  <span class="text-sm font-medium text-on-surface">{{ scope.data.permName }}</span>
+                  <span class="text-sm font-medium text-on-surface">
+                    {{ scope.data.permName || scope.data.label }}
+                  </span>
                 </div>
               </template>
             </el-tree-select>
           </div>
         </template>
 
-        <el-empty v-else-if="!isLoadingData" description="暂无权限配置项" />
+        <el-empty v-else-if="!isLoadingData" description="暂无权限数据结构" />
       </div>
 
-      <div class="p-8 bg-surface-container-low border-t border-surface-variant/30 grid grid-cols-2 gap-4">
-        <button @click="close" class="py-3 px-6 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-all">取消</button>
+      <div class="p-8 bg-surface-container-low border-t border-surface-variant/30 grid grid-cols-2 gap-4 flex-shrink-0">
+        <button @click="close" class="py-3 px-6 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-all">取消返回</button>
         <button
-          @click="save"
-          :disabled="isSubmitting || treeData.length === 0 || !!permissionLoadError"
-          class="py-3 px-6 rounded-lg text-sm font-bold text-white bg-primary shadow-lg shadow-primary/30 active:scale-95 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            @click="save"
+            :disabled="isSubmitting || treeData.length === 0 || !!permissionLoadError"
+            class="py-3 px-6 rounded-lg text-sm font-bold text-white bg-primary shadow-lg shadow-primary/30 active:scale-95 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <span v-if="isSubmitting" class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
-          {{ isSubmitting ? '正在保存...' : '确认分配' }}
+          {{ isSubmitting ? '保存中...' : '确认分配' }}
         </button>
       </div>
     </div>
@@ -90,22 +92,24 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { ElMessage, ElDrawer } from 'element-plus'
-import { getAllPermissions, getRolePermissionIds, updateRolePermissions } from './api/role.js'
+import { ref, nextTick } from 'vue'
+import { ElMessage, ElDrawer, ElTreeSelect } from 'element-plus'
+import {getAllPermissions, getRolePermissionIds, updateRolePermissions} from './api/role.js'
 
 const visible = ref(false)
 const currentRole = ref(null)
 const emit = defineEmits(['updated', 'closed'])
+
 const isLoadingData = ref(false)
 const isSubmitting = ref(false)
 const treeData = ref([])
-const permissionLoadError = ref('')
 const checkedPermissionIds = ref([])
+const permissionLoadError = ref('')
 
 async function open(role) {
   if (!role) return
   currentRole.value = role
+
   treeData.value = []
   checkedPermissionIds.value = []
   permissionLoadError.value = ''
@@ -113,18 +117,30 @@ async function open(role) {
   isLoadingData.value = true
 
   try {
-    const [permissionTree, ownedIds] = await Promise.all([
+    const [permissionsRes, ownedIdsRes] = await Promise.all([
       getAllPermissions(),
       getRolePermissionIds(role.id)
     ])
-    treeData.value = Array.isArray(permissionTree) ? permissionTree : []
-    checkedPermissionIds.value = Array.isArray(ownedIds) ? ownedIds : []
+
+    // 剥离包裹层，拿到后端返回的原始树形数据
+    const rawList = permissionsRes?.data?.data || permissionsRes?.data || permissionsRes || []
+    const ownedIds = ownedIdsRes?.data?.data || ownedIdsRes?.data || ownedIdsRes || []
+
+    // 🌟 核心修改：直接把后端返回的自带 children 的数组扔给组件，不需要再 buildTree 了！
+    treeData.value = Array.isArray(rawList) ? rawList : []
+
+    // 等待 DOM 树渲染完成，再赋选中值，确保能正确回显文字而不是 ID
+    await nextTick()
+
+    if (Array.isArray(ownedIds)) {
+      checkedPermissionIds.value = ownedIds.map(id => Number(id))
+    } else {
+      checkedPermissionIds.value = []
+    }
+
   } catch (error) {
-    console.error('[Hive Auth] 初始化失败', error)
-    treeData.value = []
-    permissionLoadError.value = error?.response?.status === 403
-      ? '您暂无权限查看角色权限树，请联系管理员开通“角色权限查看”权限。'
-      : '无法连接到权限服务，请稍后再试。'
+    console.error('[Hive Auth] 权限初始化失败:', error)
+    permissionLoadError.value = '无法连接到权限服务或无权查看，请稍后再试。'
   } finally {
     isLoadingData.value = false
   }
@@ -137,30 +153,32 @@ function close() {
 
 async function save() {
   if (!currentRole.value) return
-  if (permissionLoadError.value) {
-    ElMessage.warning(permissionLoadError.value)
-    return
-  }
 
   const permissionIds = [...new Set(checkedPermissionIds.value || [])]
+
   isSubmitting.value = true
   try {
-    await updateRolePermissions({
+    const res = await updateRolePermissions({
       roleId: currentRole.value.id,
       permissionIds
     })
-    ElMessage.success(`角色【${currentRole.value.roleName}】权限已同步`)
-    emit('updated')
-    close()
+
+    if (res?.code === 200 || res?.success || !res?.code) {
+      ElMessage.success(`【${currentRole.value.roleName}】权限已成功同步`)
+      emit('updated')
+      close()
+    } else {
+      ElMessage.error(res?.message || '权限保存失败')
+    }
   } catch (error) {
     console.error('[Hive Auth] 保存异常:', error)
-    ElMessage.error('网络通讯异常，保存未成功')
+    ElMessage.error('保存失败，请检查网络环境')
   } finally {
     isSubmitting.value = false
   }
 }
 
-defineExpose({ open })
+defineExpose({open})
 </script>
 
 <style scoped>
@@ -175,6 +193,26 @@ defineExpose({ open })
   border-radius: 4px;
   min-height: 48px;
   padding: 4px 12px;
+}
+
+:deep(.atelier-tree-select.is-focus .el-select__wrapper) {
+  box-shadow: 0 0 0 1px #002045 inset !important;
+}
+
+:deep(.el-tree-node__content) {
+  height: 36px;
+  border-radius: 6px;
+  margin-bottom: 2px;
+}
+
+:deep(.el-tree-node__content:hover) {
+  background-color: #ebeef0;
+}
+
+:deep(.el-checkbox__input.is-checked .el-checkbox__inner),
+:deep(.el-checkbox__input.is-indeterminate .el-checkbox__inner) {
+  background-color: #002045;
+  border-color: #002045;
 }
 
 .no-scrollbar::-webkit-scrollbar {

@@ -7,9 +7,11 @@ import jakarta.validation.Valid;
 import my.management.common.context.TenantPermissionContext;
 import my.management.common.exception.BusinessException;
 import my.management.common.utils.CodeGeneratorUtil;
+import my.management.common.utils.PermissionCacheUtil;
 import my.management.module.sys.mapper.SysPermissionMapper;
 import my.management.module.sys.mapper.SysRoleMapper;
 import my.management.module.sys.mapper.SysRolePermissionMapper;
+import my.management.module.sys.mapper.SysUserRoleMapper;
 import my.management.module.sys.model.dto.SysRoleAddRequest;
 import my.management.module.sys.model.dto.SysRoleUpdateRequest;
 import my.management.module.sys.model.entity.SysPermission;
@@ -44,7 +46,13 @@ public class RoleService {
     private SysRolePermissionMapper sysRolePermissionMapper;
 
     @Resource
+    private SysUserRoleMapper sysUserRoleMapper;
+
+    @Resource
     private CodeGeneratorUtil codeGeneratorUtil;
+
+    @Resource
+    private PermissionCacheUtil permissionCacheUtil;
 
     public Page<SysRole> selectPage(Integer pages, Integer size, String keyword) {
         Page<SysRole> page = new Page<>(pages, size);
@@ -133,6 +141,7 @@ public class RoleService {
 
     @Transactional(rollbackFor = Exception.class)
     public void updateRole(@Valid SysRoleUpdateRequest request) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
         sysRolePermissionMapper.delete(new LambdaQueryWrapper<SysRolePermission>()
                 .eq(SysRolePermission::getRoleId, request.getRoleId()));
 
@@ -148,6 +157,7 @@ public class RoleService {
                     return rp;
                 })
                 .toList());
+        evictRoleUsersPermissionCache(tenantCode, request.getRoleId());
     }
 
     public Set<Long> getRolePermissionIds(Long roleId) {
@@ -184,5 +194,10 @@ public class RoleService {
         }
         node.setChildren(filledChildren);
         return node;
+    }
+
+    private void evictRoleUsersPermissionCache(String tenantCode, Long roleId) {
+        List<Long> userIds = sysUserRoleMapper.selectUserIdsByRoleId(tenantCode, roleId);
+        userIds.forEach(userId -> permissionCacheUtil.evict(tenantCode, userId));
     }
 }

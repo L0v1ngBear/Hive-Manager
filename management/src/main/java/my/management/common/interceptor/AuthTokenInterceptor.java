@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import my.management.common.auth.AuthUserInfo;
 import my.management.common.context.TenantPermissionContext;
 import my.management.common.dto.Result;
+import my.management.common.utils.PermissionCacheUtil;
 import my.management.common.utils.TokenUtil;
 import my.management.module.auth.mapper.AuthMapper;
 import org.springframework.http.HttpStatus;
@@ -24,6 +25,9 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
 
     @Resource
     private AuthMapper authMapper;
+
+    @Resource
+    private PermissionCacheUtil permissionCacheUtil;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -43,8 +47,12 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        List<String> permissionList = authMapper.selectPermCodesByUserIdAndTenantCode(authUserInfo.getUserId(), authUserInfo.getTenantCode());
-        Set<String> permCodes = new LinkedHashSet<>(permissionList == null ? List.of() : permissionList);
+        Set<String> permCodes = permissionCacheUtil.get(authUserInfo.getTenantCode(), authUserInfo.getUserId());
+        if (permCodes == null) {
+            List<String> permissionList = authMapper.selectPermCodesByUserIdAndTenantCode(authUserInfo.getUserId(), authUserInfo.getTenantCode());
+            permCodes = new LinkedHashSet<>(permissionList == null ? List.of() : permissionList);
+            permissionCacheUtil.put(authUserInfo.getTenantCode(), authUserInfo.getUserId(), permCodes);
+        }
         TenantPermissionContext.init(authUserInfo.getTenantCode(), authUserInfo.getUserId(), permCodes);
         return true;
     }
