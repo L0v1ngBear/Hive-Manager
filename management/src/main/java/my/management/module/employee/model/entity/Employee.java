@@ -33,6 +33,8 @@ public class Employee {
 
     private Long managerId;
 
+    private String managerName;
+
     private Integer status;
 
     private Integer roleLevel;

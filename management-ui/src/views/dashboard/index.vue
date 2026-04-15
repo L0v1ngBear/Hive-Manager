@@ -1,148 +1,342 @@
 <template>
-  <div class="max-w-7xl mx-auto space-y-8 pb-12">
-
-    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+  <div class="h-full min-h-0 max-w-7xl mx-auto space-y-6">
+    <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <h3 class="text-2xl font-black tracking-tight text-on-surface mb-1">早上好，陈总。</h3>
-        <p class="text-on-surface-variant text-sm">当前待发货订单 15 笔，有 2 条次品登记需要您的确认。</p>
+        <p class="text-sm font-bold tracking-[0.2em] text-primary/70 uppercase">经营总览</p>
+        <h1 class="mt-2 text-3xl md:text-4xl font-black tracking-tight text-on-surface">
+          {{ greetingText }}，{{ userName }}
+        </h1>
+        <p class="mt-2 text-base text-on-surface-variant max-w-2xl">
+          待处理审批 <span class="font-bold text-primary">{{ summary.pendingApprovalCount }}</span> 项，
+          待打印出库单 <span class="font-bold text-primary">{{ summary.pendingPrintCount }}</span> 单。
+        </p>
       </div>
-      <div class="flex items-center gap-3">
-        <button class="bg-surface-container-high text-on-surface px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-surface-container-highest transition-colors flex items-center gap-2">
-          <span class="material-symbols-outlined text-lg">receipt_long</span>
-          新建销售单
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 w-full lg:w-auto lg:min-w-[500px]">
+        <button
+            v-for="action in quickActions"
+            :key="action.route"
+            @click="router.push(action.route)"
+            class="text-left rounded-xl bg-surface-container-lowest px-4 py-3.5 shadow-sm ring-1 ring-outline-variant/20 hover:shadow-md hover:-translate-y-0.5 transition-all group"
+        >
+          <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-[24px] w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+              {{ action.icon }}
+            </span>
+            <div class="min-w-0">
+              <p class="text-sm font-bold text-on-surface truncate">{{ action.title }}</p>
+              <p class="text-xs text-on-surface-variant truncate mt-1">{{ action.description }}</p>
+            </div>
+          </div>
         </button>
-        <button class="bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-primary/90 transition-colors flex items-center gap-2">
-          <span class="material-symbols-outlined text-lg">precision_manufacturing</span>
-          下达生产单
-        </button>
       </div>
-    </div>
+    </section>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <article class="rounded-2xl p-5 bg-primary text-white shadow-md shadow-primary/20 overflow-hidden relative flex flex-col justify-between min-h-[120px]">
+        <div class="absolute -right-2 -top-2 text-white/10">
+          <span class="material-symbols-outlined text-[90px]">receipt_long</span>
+        </div>
+        <p class="text-xs font-bold tracking-widest uppercase text-white/80 z-10">本月新增订单</p>
+        <div class="mt-auto z-10">
+          <p class="text-4xl font-black leading-none">{{ summary.monthOrderCount }}</p>
+          <p class="text-xs text-white/70 mt-1.5 truncate">销售单与生产单合并</p>
+        </div>
+      </article>
 
-      <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-sm ring-1 ring-outline-variant/20 relative overflow-hidden group hover:shadow-md transition-shadow">
-        <div class="flex justify-between items-start mb-6">
-          <div class="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center text-on-primary-container">
-            <span class="material-symbols-outlined">shopping_cart</span>
-          </div>
-          <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-green-100 text-green-800 text-xs font-bold">
-            <span class="material-symbols-outlined text-[14px]">trending_up</span> +12%
-          </span>
-        </div>
-        <div>
-          <p class="text-on-surface-variant text-sm font-medium mb-1">本月新增订单 (笔)</p>
-          <h4 class="text-3xl font-black tracking-tight text-on-surface">328</h4>
-        </div>
-      </div>
-
-      <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-sm ring-1 ring-outline-variant/20 relative overflow-hidden group hover:shadow-md transition-shadow">
-        <div class="flex justify-between items-start mb-6">
-          <div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface">
-            <span class="material-symbols-outlined">inventory_2</span>
-          </div>
-          <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-orange-100 text-orange-800 text-xs font-bold">
-            2款面料临界预警
-          </span>
-        </div>
-        <div>
-          <p class="text-on-surface-variant text-sm font-medium mb-1">当前布匹总库存 (米)</p>
-          <h4 class="text-3xl font-black tracking-tight text-on-surface">184,920</h4>
-        </div>
-      </div>
-
-      <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-sm ring-1 ring-outline-variant/20 relative overflow-hidden group hover:shadow-md transition-shadow">
-        <div class="flex justify-between items-start mb-6">
-          <div class="w-10 h-10 rounded-lg bg-error-container flex items-center justify-center text-on-error-container">
-            <span class="material-symbols-outlined">fact_check</span>
+      <article class="rounded-2xl p-5 bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between min-h-[120px]">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant">库存预警项</p>
+          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[18px]">warning</span>
           </div>
         </div>
-        <div>
-          <p class="text-on-surface-variant text-sm font-medium mb-1">待处理审批 / 请假</p>
-          <h4 class="text-3xl font-black tracking-tight text-error">5</h4>
+        <div class="mt-auto">
+          <p class="text-4xl font-black text-on-surface leading-none">{{ summary.inventoryWarningCount }}</p>
+          <p class="text-xs text-on-surface-variant mt-1.5 truncate">低于安全阈值的型号</p>
         </div>
-      </div>
-    </div>
+      </article>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      <section class="lg:col-span-2 bg-surface-container-lowest rounded-2xl shadow-sm ring-1 ring-outline-variant/20 p-6">
-        <div class="flex justify-between items-center mb-6">
-          <h4 class="text-base font-bold text-on-surface">近7日出入库流量趋势</h4>
-          <button class="text-on-surface-variant hover:text-primary"><span class="material-symbols-outlined">more_horiz</span></button>
+      <article class="rounded-2xl p-5 bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between min-h-[120px]">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant">待我审批</p>
+          <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[18px]">fact_check</span>
+          </div>
         </div>
-        <div class="h-64 bg-surface-container-low rounded-xl flex items-center justify-center text-on-surface-variant text-sm border border-dashed border-outline-variant/50">
-          [ Echarts：出入库趋势折线图渲染区 ]
+        <div class="mt-auto">
+          <p class="text-4xl font-black text-on-surface leading-none">{{ summary.pendingApprovalCount }}</p>
+          <p class="text-xs text-on-surface-variant mt-1.5 truncate">请假与财务审批</p>
         </div>
-      </section>
+      </article>
 
-      <div class="space-y-6">
+      <article class="rounded-2xl p-5 bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between min-h-[120px]">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant">待打出库单</p>
+          <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[18px]">print</span>
+          </div>
+        </div>
+        <div class="mt-auto">
+          <p class="text-4xl font-black text-on-surface leading-none">{{ summary.pendingPrintCount }}</p>
+          <p class="text-xs text-on-surface-variant mt-1.5 truncate">已提交待打印</p>
+        </div>
+      </article>
+    </section>
 
-        <section class="bg-surface-container-lowest rounded-2xl shadow-sm ring-1 ring-outline-variant/20 p-6">
-          <h4 class="text-base font-bold text-on-surface mb-6">业务异常动态</h4>
-          <div class="space-y-4">
+    <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.2fr)_minmax(350px,1fr)] gap-5">
 
-            <div class="p-4 bg-error-container/50 rounded-xl border-l-4 border-error">
-              <div class="flex justify-between items-start mb-1">
-                <p class="text-xs font-bold text-error">新增次品登记</p>
-                <span class="text-[10px] text-error/70">10分钟前</span>
-              </div>
-              <p class="text-[12px] text-on-error-container leading-relaxed">
-                仓库员(张三) 扫码上报 <strong>T800-210</strong> 次品 <strong>15.5米</strong>，原因：染色不均。
-              </p>
+      <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-black text-on-surface leading-tight">近 7 日出入库趋势</h2>
+            <p class="text-xs text-on-surface-variant mt-1">按日汇总出入库米数</p>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-bold">
+            <span class="inline-flex items-center gap-1.5 text-primary">
+              <span class="w-2.5 h-2.5 rounded-full bg-primary"></span>入库
+            </span>
+            <span class="inline-flex items-center gap-1.5 text-emerald-600">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>出库
+            </span>
+          </div>
+        </div>
+
+        <div v-if="!visibility.trendVisible" class="flex-1 rounded-xl bg-surface-container-low flex items-center justify-center text-sm text-on-surface-variant min-h-[160px]">
+          暂无查看权限
+        </div>
+        <div v-else-if="chartReady" class="flex-1 flex flex-col gap-3">
+          <div class="h-40 rounded-xl bg-[radial-gradient(circle_at_top,_rgba(25,118,210,0.06),_transparent_60%)] border border-outline-variant/20 p-3 relative">
+            <svg viewBox="0 0 100 56" preserveAspectRatio="none" class="w-full h-full overflow-visible">
+              <g v-for="grid in [0, 25, 50, 75, 100]" :key="grid">
+                <line
+                    x1="0"
+                    :x2="100"
+                    :y1="56 - (grid * 0.56)"
+                    :y2="56 - (grid * 0.56)"
+                    stroke="rgba(120, 144, 156, 0.15)"
+                    stroke-width="0.3"
+                />
+              </g>
+              <polyline
+                  :points="inLinePoints"
+                  fill="none"
+                  stroke="rgb(25,118,210)"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+              />
+              <polyline
+                  :points="outLinePoints"
+                  fill="none"
+                  stroke="rgb(16,185,129)"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+              />
+              <g v-for="(point, index) in chartPoints" :key="`point-${index}`">
+                <circle :cx="point.x" :cy="point.inY" r="1.5" fill="rgb(25,118,210)" />
+                <circle :cx="point.x" :cy="point.outY" r="1.5" fill="rgb(16,185,129)" />
+              </g>
+            </svg>
+          </div>
+
+          <div class="grid grid-cols-7 gap-1.5 text-center">
+            <div v-for="(date, index) in trendDates" :key="date" class="rounded-lg bg-surface-container-low px-1 py-2">
+              <p class="text-[11px] font-bold text-on-surface-variant origin-bottom">{{ date }}</p>
+              <p class="mt-1 text-sm font-black text-primary leading-tight">{{ formatTrendValue(trendInMeters[index]) }}</p>
+              <p class="text-[11px] font-medium text-emerald-600 leading-none mt-1">{{ formatTrendValue(trendOutMeters[index]) }}</p>
             </div>
+          </div>
+        </div>
+        <div v-else class="flex-1 rounded-xl bg-surface-container-low flex items-center justify-center text-sm text-on-surface-variant min-h-[160px]">
+          暂无数据
+        </div>
+      </article>
 
-            <div class="p-4 bg-orange-50 rounded-xl border-l-4 border-orange-400">
-              <div class="flex justify-between items-start mb-1">
-                <p class="text-xs font-bold text-orange-600">库存余量告警</p>
-                <span class="text-[10px] text-orange-600/70">1小时前</span>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-5">
+        <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-black text-on-surface">业务提醒</h2>
+            <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary">
+              {{ businessAlerts.length }} 条
+            </span>
+          </div>
+
+          <div v-if="businessAlerts.length" class="space-y-3 flex-1 overflow-y-auto pr-1 no-scrollbar max-h-[180px] xl:max-h-[220px]">
+            <div
+                v-for="(item, index) in businessAlerts"
+                :key="`${item.type}-${index}`"
+                :class="alertCardClass(item.level)"
+                class="rounded-xl p-3.5 border-l-4"
+            >
+              <div class="flex items-center justify-between gap-3 mb-1.5">
+                <p class="text-sm font-bold truncate">{{ item.title }}</p>
+                <span class="text-xs font-medium opacity-70 shrink-0">{{ item.time }}</span>
               </div>
-              <p class="text-[12px] text-orange-800 leading-relaxed">
-                面料型号 <strong>Q200-磨毛</strong> 当前可用库存仅剩 <strong>80米</strong>，已低于安全阈值。
-              </p>
+              <p class="text-xs leading-relaxed opacity-90 line-clamp-2">{{ item.content }}</p>
             </div>
           </div>
-        </section>
+          <div v-else class="flex-1 rounded-xl bg-surface-container-low flex items-center justify-center text-sm text-on-surface-variant min-h-[120px]">
+            暂无提醒
+          </div>
+        </article>
 
-        <section class="bg-surface-container-highest rounded-2xl p-6 relative overflow-hidden">
-          <div class="relative z-10">
-            <h4 class="text-sm font-bold text-primary mb-4 flex items-center gap-2">
-              <span class="material-symbols-outlined text-[18px]">co_present</span>
-              今日考勤异常
-            </h4>
+        <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-black text-on-surface">今日考勤异常</h2>
+            <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-rose-50 text-rose-700">
+              {{ attendanceAlerts.length }} 人
+            </span>
+          </div>
 
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <img alt="头像" class="w-8 h-8 rounded-full object-cover" src="https://ui-avatars.com/api/?name=Li+Hua&background=ffdad6&color=93000a">
-                  <div>
-                    <p class="text-sm font-bold text-on-surface leading-tight">李华</p>
-                    <p class="text-[11px] text-on-surface-variant mt-0.5">织造一车间</p>
-                  </div>
+          <div v-if="visibility.attendanceVisible && attendanceAlerts.length" class="space-y-3 flex-1 overflow-y-auto pr-1 no-scrollbar max-h-[180px] xl:max-h-[220px]">
+            <div
+                v-for="item in attendanceAlerts"
+                :key="`${item.userId}-${item.time}`"
+                class="flex items-center justify-between gap-3 rounded-xl bg-surface-container-low px-4 py-3"
+            >
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-col gap-0.5">
+                  <p class="text-sm font-bold text-on-surface truncate">{{ item.userName }}</p>
+                  <p class="text-xs text-on-surface-variant truncate">{{ item.departmentName }}</p>
                 </div>
-                <span class="bg-error-container text-on-error-container text-[11px] font-bold px-2 py-0.5 rounded">迟到 45分</span>
               </div>
-
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <img alt="头像" class="w-8 h-8 rounded-full object-cover" src="https://ui-avatars.com/api/?name=Wang+Wei&background=ffdad6&color=93000a">
-                  <div>
-                    <p class="text-sm font-bold text-on-surface leading-tight">王伟</p>
-                    <p class="text-[11px] text-on-surface-variant mt-0.5">销售部</p>
-                  </div>
-                </div>
-                <span class="bg-orange-200 text-orange-800 text-[11px] font-bold px-2 py-0.5 rounded">外勤未打卡</span>
+              <div class="text-right shrink-0 flex flex-col items-end gap-1">
+                <span class="inline-block px-2 py-0.5 rounded text-xs font-bold bg-rose-50 text-rose-600">
+                  {{ item.statusText }}
+                </span>
+                <p class="text-xs text-on-surface-variant font-medium">{{ item.time }}</p>
               </div>
             </div>
-
           </div>
-        </section>
-
+          <div v-else class="flex-1 rounded-xl bg-surface-container-low flex items-center justify-center text-sm text-on-surface-variant min-h-[120px]">
+            {{ visibility.attendanceVisible ? '今日全员考勤正常' : '暂无查看权限' }}
+          </div>
+        </article>
       </div>
+    </section>
 
+    <div
+        v-if="loading"
+        class="fixed inset-0 bg-white/45 backdrop-blur-sm z-50 flex items-center justify-center"
+    >
+      <div class="rounded-2xl bg-white px-6 py-5 shadow-xl flex items-center gap-3 text-primary border border-surface-variant/20">
+        <span class="material-symbols-outlined animate-spin text-[24px]">progress_activity</span>
+        <span class="text-base font-bold">同步数据中...</span>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-defineOptions({ name: 'DashboardOverview' });
+import { computed, onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { getDashboardOverview } from './api/dashboard.js'
+
+defineOptions({ name: 'DashboardOverview' })
+
+const router = useRouter()
+const userStore = useUserStore()
+
+const loading = ref(false)
+const summary = ref({
+  monthOrderCount: 0,
+  totalInventoryMeters: 0,
+  pendingApprovalCount: 0,
+  pendingPrintCount: 0,
+  inventoryWarningCount: 0
+})
+const visibility = ref({
+  orderVisible: false,
+  inventoryVisible: false,
+  approvalVisible: false,
+  receiptVisible: false,
+  trendVisible: false,
+  attendanceVisible: false
+})
+const trendDates = ref([])
+const trendInMeters = ref([])
+const trendOutMeters = ref([])
+const businessAlerts = ref([])
+const attendanceAlerts = ref([])
+const quickActions = ref([])
+
+const userName = computed(() => userStore.userInfo?.userName || '管理员')
+
+const greetingText = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 6) return '夜深了'
+  if (hour < 11) return '早上好'
+  if (hour < 14) return '中午好'
+  if (hour < 18) return '下午好'
+  return '晚上好'
+})
+
+const chartPoints = computed(() => {
+  const values = [...trendInMeters.value, ...trendOutMeters.value].map((item) => Number(item || 0))
+  const maxValue = Math.max(...values, 1)
+  const count = Math.max(trendDates.value.length, 1)
+  return trendDates.value.map((_, index) => {
+    const x = count === 1 ? 50 : (index / (count - 1)) * 100
+    const inValue = Number(trendInMeters.value[index] || 0)
+    const outValue = Number(trendOutMeters.value[index] || 0)
+    const inY = 56 - (inValue / maxValue) * 50
+    const outY = 56 - (outValue / maxValue) * 50
+    return { x, inY, outY }
+  })
+})
+
+const inLinePoints = computed(() => chartPoints.value.map((item) => `${item.x},${item.inY}`).join(' '))
+const outLinePoints = computed(() => chartPoints.value.map((item) => `${item.x},${item.outY}`).join(' '))
+const chartReady = computed(() => chartPoints.value.length > 1)
+
+const fetchOverview = async () => {
+  loading.value = true
+  try {
+    const data = await getDashboardOverview()
+    summary.value = data?.summary || summary.value
+    visibility.value = data?.visibility || visibility.value
+    trendDates.value = Array.isArray(data?.trendDates) ? data.trendDates : []
+    trendInMeters.value = Array.isArray(data?.trendInMeters) ? data.trendInMeters : []
+    trendOutMeters.value = Array.isArray(data?.trendOutMeters) ? data.trendOutMeters : []
+    businessAlerts.value = Array.isArray(data?.businessAlerts) ? data.businessAlerts : []
+    attendanceAlerts.value = Array.isArray(data?.attendanceAlerts) ? data.attendanceAlerts : []
+    quickActions.value = Array.isArray(data?.quickActions) ? data.quickActions : []
+  } catch (error) {
+    ElMessage.error(error?.msg || '总览数据加载失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
+}
+
+const formatTrendValue = (value) => {
+  const num = Number(value || 0);
+  if (num >= 10000) return `${(num/10000).toFixed(1)}w`;
+  return `${num.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}`;
+}
+
+const alertCardClass = (level) => {
+  if (level === 'warning') {
+    return 'bg-amber-50/50 border-amber-300 text-amber-900'
+  }
+  if (level === 'error') {
+    return 'bg-rose-50/50 border-rose-300 text-rose-900'
+  }
+  return 'bg-sky-50/50 border-sky-300 text-sky-900'
+}
+
+onMounted(fetchOverview)
 </script>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>

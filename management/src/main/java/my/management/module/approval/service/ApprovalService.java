@@ -43,14 +43,13 @@ public class ApprovalService {
     @Resource
     private CodeGeneratorUtil codeGeneratorUtil;
 
-    public List<LeaveApprovalListVO> listLeaveApprovals(String scope, Integer status) {
+    public List<LeaveApprovalListVO> listLeaveApprovals() {
         Long userId = TenantPermissionContext.getUserId();
         LambdaQueryWrapper<UserLeave> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserLeave::getTenantCode, TenantPermissionContext.getTenantCode());
-        if (status != null) {
-            wrapper.eq(UserLeave::getStatus, status);
-        }
-        applyScope(wrapper, scope, userId, UserLeave::getApplyUserId, UserLeave::getAuditorId, UserLeave::getStatus);
+        wrapper.eq(UserLeave::getTenantCode, TenantPermissionContext.getTenantCode())
+                .and(q -> q.eq(UserLeave::getApplyUserId, userId)
+                        .or()
+                        .eq(UserLeave::getAuditorId, userId));
         wrapper.orderByDesc(UserLeave::getCreateTime);
         return leaveMapper.selectList(wrapper).stream().map(this::toLeaveListVO).toList();
     }
@@ -91,14 +90,13 @@ public class ApprovalService {
         leaveMapper.updateById(userLeave);
     }
 
-    public List<FinanceApprovalVO> listFinanceApprovals(String scope, Integer status) {
+    public List<FinanceApprovalVO> listFinanceApprovals() {
         Long userId = TenantPermissionContext.getUserId();
         LambdaQueryWrapper<FinanceApproval> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(FinanceApproval::getTenantCode, TenantPermissionContext.getTenantCode());
-        if (status != null) {
-            wrapper.eq(FinanceApproval::getStatus, status);
-        }
-        applyScope(wrapper, scope, userId, FinanceApproval::getApplyUserId, FinanceApproval::getAuditorId, FinanceApproval::getStatus);
+        wrapper.eq(FinanceApproval::getTenantCode, TenantPermissionContext.getTenantCode())
+                .and(q -> q.eq(FinanceApproval::getApplyUserId, userId)
+                        .or()
+                        .eq(FinanceApproval::getAuditorId, userId));
         wrapper.orderByDesc(FinanceApproval::getCreateTime);
         return financeApprovalMapper.selectList(wrapper).stream().map(this::toFinanceVO).toList();
     }
@@ -259,24 +257,4 @@ public class ApprovalService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private <T> void applyScope(LambdaQueryWrapper<T> wrapper,
-                                String scope,
-                                Long userId,
-                                com.baomidou.mybatisplus.core.toolkit.support.SFunction<T, Long> applyUserField,
-                                com.baomidou.mybatisplus.core.toolkit.support.SFunction<T, Long> auditorField,
-                                com.baomidou.mybatisplus.core.toolkit.support.SFunction<T, Integer> statusField) {
-        if ("mine".equalsIgnoreCase(scope)) {
-            wrapper.eq(applyUserField, userId);
-        } else if ("self_pending".equalsIgnoreCase(scope)) {
-            wrapper.eq(applyUserField, userId)
-                    .eq(auditorField, userId)
-                    .eq(statusField, STATUS_PENDING);
-        } else if ("others_pending".equalsIgnoreCase(scope)) {
-            wrapper.eq(auditorField, userId)
-                    .ne(applyUserField, userId)
-                    .eq(statusField, STATUS_PENDING);
-        } else if (!"all".equalsIgnoreCase(scope)) {
-            wrapper.eq(auditorField, userId);
-        }
-    }
 }

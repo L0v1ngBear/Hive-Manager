@@ -1,12 +1,15 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { hasAnyPermission as matchAnyPermission, hasPermission as matchPermission } from '@/utils/permission'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
   const userInfo = ref(JSON.parse(localStorage.getItem('userInfo') || 'null'))
   const permissions = ref(JSON.parse(localStorage.getItem('permissions') || '[]'))
-  const isDeveloper = ref(JSON.parse(localStorage.getItem('isDeveloper') || 'false'))
+  const isDeveloper = computed(() => {
+    const tenantCode = userInfo.value?.tenantCode
+    return typeof tenantCode === 'string' && tenantCode.toLowerCase() === 'super'
+  })
   const responseKey = ref(localStorage.getItem('responseKey') || '')
 
   const setLoginInfo = (loginData) => {
@@ -18,14 +21,12 @@ export const useUserStore = defineStore('user', () => {
           tenantCode: loginData.tenantCode
         }
       : null
-    isDeveloper.value = Boolean(loginData?.developer)
     permissions.value = loginData?.permissions || []
     responseKey.value = loginData?.responseKey || ''
 
     localStorage.setItem('token', token.value)
     localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
     localStorage.setItem('permissions', JSON.stringify(permissions.value))
-    localStorage.setItem('isDeveloper', JSON.stringify(isDeveloper.value))
     localStorage.setItem('responseKey', responseKey.value)
   }
 
@@ -33,12 +34,10 @@ export const useUserStore = defineStore('user', () => {
     token.value = ''
     userInfo.value = null
     permissions.value = []
-    isDeveloper.value = false
     responseKey.value = ''
     localStorage.removeItem('token')
     localStorage.removeItem('userInfo')
     localStorage.removeItem('permissions')
-    localStorage.removeItem('isDeveloper')
     localStorage.removeItem('responseKey')
   }
 

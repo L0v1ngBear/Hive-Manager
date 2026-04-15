@@ -1,180 +1,155 @@
 <template>
-  <div class="p-8 space-y-8 w-full h-full overflow-y-auto bg-surface text-on-surface font-body">
-
-    <div class="flex justify-between items-end">
-      <div>
-        <h2 class="text-3xl font-extrabold text-primary tracking-tight">租户管理</h2>
-        <p class="text-on-surface-variant text-sm mt-1">Manage global enterprise textile tenants and subscription lifecycle.</p>
+  <div class="h-full min-h-0 flex flex-col gap-4 overflow-hidden bg-surface text-on-surface">
+    <section class="rounded-3xl bg-surface-container-lowest px-5 py-4 shadow-sm ring-1 ring-outline-variant/15">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <p class="text-[11px] font-black tracking-[0.28em] uppercase text-primary/70">平台视图</p>
+          <h1 class="mt-1 text-3xl font-black tracking-tight text-primary">租户管理</h1>
+          <p class="mt-1 text-sm text-on-surface-variant">仅平台超管可见，用于查看租户整体状态与续费风险。</p>
+        </div>
+        <button class="shrink-0 rounded-2xl bg-primary px-5 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition-all hover:opacity-90 active:scale-95">
+          <span class="material-symbols-outlined mr-1.5 text-[18px] align-[-3px]">add</span>
+          新增租户
+        </button>
       </div>
-      <button class="bg-primary hover:bg-primary-container text-white px-6 py-2.5 rounded-lg flex items-center gap-2 shadow-lg transition-transform active:scale-95 duration-150">
-        <span class="material-symbols-outlined text-sm">add</span>
-        <span class="font-semibold text-sm">新增租户</span>
-      </button>
-    </div>
+    </section>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0px_20px_40px_rgba(0,32,69,0.06)] flex flex-col justify-between border-l-4 border-primary">
-        <div class="flex justify-between items-start">
-          <span class="text-xs font-bold text-on-surface-variant tracking-widest uppercase">总租户数</span>
-          <span class="material-symbols-outlined text-primary/20 text-3xl">groups</span>
-        </div>
-        <div class="mt-4 flex items-baseline gap-2">
-          <span class="text-4xl font-black text-primary">{{ stats.total }}</span>
-          <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-            <span class="material-symbols-outlined text-xs">trending_up</span> {{ stats.growth }}
-          </span>
-        </div>
-      </div>
-
-      <div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0px_20px_40px_rgba(0,32,69,0.06)] flex flex-col justify-between border-l-4 border-secondary">
-        <div class="flex justify-between items-start">
-          <span class="text-xs font-bold text-on-surface-variant tracking-widest uppercase">活跃租户</span>
-          <span class="material-symbols-outlined text-secondary/20 text-3xl" style="font-variation-settings: 'FILL' 1;">bolt</span>
-        </div>
-        <div class="mt-4 flex items-baseline gap-2">
-          <span class="text-4xl font-black text-primary">{{ stats.active }}</span>
-          <span class="text-xs text-on-surface-variant">{{ stats.uptime }} uptime</span>
-        </div>
-      </div>
-
-      <div class="relative overflow-hidden bg-white/70 backdrop-blur-xl p-6 rounded-xl shadow-[0px_20px_40px_rgba(0,32,69,0.06)] flex flex-col justify-between border-l-4 border-tertiary">
-        <div class="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-          <span class="material-symbols-outlined text-8xl">event_busy</span>
-        </div>
-        <div class="flex justify-between items-start">
-          <span class="text-xs font-bold text-on-surface-variant tracking-widest uppercase">本月到期</span>
-          <span class="material-symbols-outlined text-tertiary text-2xl" style="font-variation-settings: 'FILL' 1;">notification_important</span>
-        </div>
-        <div class="mt-4 flex items-baseline gap-2">
-          <span class="text-4xl font-black text-primary">{{ stats.expiring }}</span>
-          <span class="text-xs font-semibold text-tertiary bg-tertiary-fixed px-2 py-0.5 rounded-full">需跟进</span>
-        </div>
-      </div>
-    </div>
-
-    <section class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex flex-col">
-      <div class="p-4 bg-surface-container-low flex flex-wrap items-center justify-between gap-4">
-        <div class="flex items-center gap-2">
-          <div class="relative">
-            <span class="material-symbols-outlined absolute left-3 top-2 text-slate-400 text-lg">filter_list</span>
-            <select v-model="filters.version" class="pl-10 pr-8 py-2 bg-white border-none rounded-lg text-sm text-on-surface-variant focus:ring-1 focus:ring-primary shadow-sm appearance-none outline-none">
-              <option value="all">所有版本</option>
-              <option value="Professional">Professional</option>
-              <option value="Enterprise">Enterprise</option>
-              <option value="Basic">Basic</option>
-            </select>
+    <section class="grid grid-cols-4 gap-4">
+      <article
+        v-for="card in statCards"
+        :key="card.title"
+        class="rounded-3xl bg-surface-container-lowest px-5 py-4 shadow-sm ring-1 ring-outline-variant/15"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-[11px] font-black tracking-[0.2em] uppercase text-on-surface-variant">{{ card.title }}</p>
+            <p class="mt-3 text-4xl font-black tracking-tight text-primary">{{ card.value }}</p>
+            <p class="mt-2 text-xs font-bold" :class="card.subTextClass">{{ card.subText }}</p>
           </div>
-          <div class="relative">
-            <select v-model="filters.status" class="pl-4 pr-8 py-2 bg-white border-none rounded-lg text-sm text-on-surface-variant focus:ring-1 focus:ring-primary shadow-sm appearance-none outline-none">
-              <option value="all">所有状态</option>
-              <option value="Active">Active</option>
-              <option value="Pending">Pending</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+          <div :class="card.iconClass" class="flex h-11 w-11 items-center justify-center rounded-2xl">
+            <span class="material-symbols-outlined text-[22px]">{{ card.icon }}</span>
           </div>
         </div>
-        <div class="text-xs text-on-surface-variant font-medium">
-          Showing 1-10 of {{ stats.total }} tenants
+      </article>
+    </section>
+
+    <section class="flex-1 min-h-0 rounded-3xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/15 overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between gap-4 border-b border-outline-variant/10 px-5 py-3">
+        <div class="flex items-center gap-3">
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+            <input
+              v-model.trim="filters.keyword"
+              type="text"
+              placeholder="搜索租户名称、编码或联系人"
+              class="w-72 rounded-2xl bg-surface-container-low pl-10 pr-4 py-2.5 text-sm outline-none ring-1 ring-transparent transition-all focus:ring-primary/30"
+            />
+          </div>
+          <select v-model="filters.version" class="rounded-2xl bg-surface-container-low px-4 py-2.5 text-sm outline-none">
+            <option value="all">全部版本</option>
+            <option value="Professional">Professional</option>
+            <option value="Enterprise">Enterprise</option>
+            <option value="Basic">Basic</option>
+          </select>
+          <select v-model="filters.status" class="rounded-2xl bg-surface-container-low px-4 py-2.5 text-sm outline-none">
+            <option value="all">全部状态</option>
+            <option value="Active">Active</option>
+            <option value="Pending">Pending</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+        </div>
+        <div class="text-xs font-bold text-on-surface-variant">
+          当前显示 {{ filteredTenants.length }} / {{ tenantsData.length }} 个租户
         </div>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead>
-          <tr class="bg-surface-container-low/50">
-            <th class="px-6 py-4 text-xs font-bold text-on-surface-variant tracking-widest uppercase">租户名称</th>
-            <th class="px-6 py-4 text-xs font-bold text-on-surface-variant tracking-widest uppercase">租户代码</th>
-            <th class="px-6 py-4 text-xs font-bold text-on-surface-variant tracking-widest uppercase">联系人</th>
-            <th class="px-6 py-4 text-xs font-bold text-on-surface-variant tracking-widest uppercase">版本</th>
-            <th class="px-6 py-4 text-xs font-bold text-on-surface-variant tracking-widest uppercase">到期日期</th>
-            <th class="px-6 py-4 text-xs font-bold text-on-surface-variant tracking-widest uppercase">状态</th>
-            <th class="px-6 py-4 text-xs font-bold text-on-surface-variant tracking-widest uppercase text-right">操作</th>
-          </tr>
+      <div class="flex-1 min-h-0 overflow-auto">
+        <table class="w-full min-w-[1080px] border-collapse text-left">
+          <thead class="sticky top-0 z-10 bg-surface-container-low">
+            <tr>
+              <th class="px-5 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant">租户名称</th>
+              <th class="px-5 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant">租户编码</th>
+              <th class="px-5 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant">联系人</th>
+              <th class="px-5 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant">版本</th>
+              <th class="px-5 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant">到期日期</th>
+              <th class="px-5 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant">状态</th>
+              <th class="px-5 py-3 text-[11px] font-black uppercase tracking-[0.2em] text-on-surface-variant text-right">操作</th>
+            </tr>
           </thead>
-          <tbody class="divide-y divide-surface-variant">
-          <tr v-for="tenant in filteredTenants" :key="tenant.code" class="hover:bg-surface-container-high transition-colors group">
-            <td class="px-6 py-4">
-              <div class="flex items-center gap-3">
-                <div :class="['w-8 h-8 rounded flex items-center justify-center font-bold text-xs', tenant.avatarColor]">
-                  {{ tenant.initials }}
+          <tbody class="divide-y divide-outline-variant/10">
+            <tr v-for="tenant in filteredTenants" :key="tenant.code" class="hover:bg-surface-container-low/55 transition-colors">
+              <td class="px-5 py-3">
+                <div class="flex items-center gap-3">
+                  <div :class="tenant.avatarColor" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-xs font-black">
+                    {{ tenant.initials }}
+                  </div>
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-black text-primary">{{ tenant.name }}</p>
+                    <p class="mt-0.5 truncate text-xs text-on-surface-variant">{{ tenant.location }}</p>
+                  </div>
                 </div>
-                <div>
-                  <div class="text-sm font-semibold text-primary">{{ tenant.name }}</div>
-                  <div class="text-xs text-on-surface-variant">{{ tenant.location }}</div>
-                </div>
-              </div>
-            </td>
-            <td class="px-6 py-4 text-sm font-mono text-on-surface-variant">{{ tenant.code }}</td>
-            <td class="px-6 py-4">
-              <div class="text-sm text-on-surface">{{ tenant.contact }}</div>
-              <div class="text-xs text-on-surface-variant">{{ tenant.email }}</div>
-            </td>
-            <td class="px-6 py-4">
-                <span :class="['text-xs font-bold px-2 py-1 rounded', tenant.versionStyle]">
+              </td>
+              <td class="px-5 py-3 text-sm font-bold text-on-surface">{{ tenant.code }}</td>
+              <td class="px-5 py-3">
+                <p class="text-sm font-bold text-on-surface">{{ tenant.contact }}</p>
+                <p class="mt-0.5 text-xs text-on-surface-variant">{{ tenant.email }}</p>
+              </td>
+              <td class="px-5 py-3">
+                <span :class="tenant.versionStyle" class="rounded-xl px-2.5 py-1 text-xs font-black">
                   {{ tenant.version }}
                 </span>
-            </td>
-            <td class="px-6 py-4 text-sm text-on-surface">{{ tenant.expiryDate }}</td>
-            <td class="px-6 py-4">
-              <div class="flex items-center gap-1.5">
-                <div :class="['w-2 h-2 rounded-full', tenant.statusColor]"></div>
-                <span class="text-xs font-medium text-on-surface">{{ tenant.status }}</span>
-              </div>
-            </td>
-            <td class="px-6 py-4 text-right">
-              <button class="text-slate-400 hover:text-primary transition-colors">
-                <span class="material-symbols-outlined text-xl">more_vert</span>
-              </button>
-            </td>
-          </tr>
+              </td>
+              <td class="px-5 py-3 text-sm font-medium text-on-surface">{{ tenant.expiryDate }}</td>
+              <td class="px-5 py-3">
+                <span class="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-black" :class="tenant.statusBadge">
+                  <span :class="tenant.statusColor" class="h-2 w-2 rounded-full"></span>
+                  {{ tenant.status }}
+                </span>
+              </td>
+              <td class="px-5 py-3 text-right">
+                <button class="rounded-xl px-3 py-1.5 text-xs font-black text-primary hover:bg-primary/10 transition-colors">
+                  查看
+                </button>
+              </td>
+            </tr>
+            <tr v-if="filteredTenants.length === 0">
+              <td colspan="7" class="px-5 py-12 text-center text-sm text-on-surface-variant">没有符合条件的租户</td>
+            </tr>
           </tbody>
         </table>
       </div>
 
-      <div class="p-6 bg-surface-container-low/30 flex items-center justify-between border-t border-surface-variant">
-        <button class="flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-primary transition-colors disabled:opacity-50" disabled>
-          <span class="material-symbols-outlined text-lg">chevron_left</span>
-          Previous
-        </button>
-        <div class="flex items-center gap-1">
-          <button class="w-8 h-8 rounded-lg bg-primary text-white text-xs font-bold">1</button>
-          <button class="w-8 h-8 rounded-lg hover:bg-surface-container-high text-xs font-bold transition-colors">2</button>
-          <button class="w-8 h-8 rounded-lg hover:bg-surface-container-high text-xs font-bold transition-colors">3</button>
-          <span class="px-2 text-xs text-on-surface-variant">...</span>
-          <button class="w-8 h-8 rounded-lg hover:bg-surface-container-high text-xs font-bold transition-colors">128</button>
+      <div class="flex items-center justify-between border-t border-outline-variant/10 px-5 py-3">
+        <p class="text-xs text-on-surface-variant">首屏优先展示关键租户状态，详情操作可再展开。</p>
+        <div class="flex items-center gap-1.5">
+          <button class="h-8 w-8 rounded-xl border border-outline-variant/20 text-xs font-black text-on-surface-variant" disabled>
+            <span class="material-symbols-outlined text-[18px] align-[-4px]">chevron_left</span>
+          </button>
+          <button class="h-8 min-w-8 rounded-xl bg-primary px-2 text-xs font-black text-white">1</button>
+          <button class="h-8 min-w-8 rounded-xl px-2 text-xs font-black text-on-surface-variant hover:bg-surface-container-low">2</button>
+          <button class="h-8 min-w-8 rounded-xl px-2 text-xs font-black text-on-surface-variant hover:bg-surface-container-low">3</button>
+          <button class="h-8 w-8 rounded-xl border border-outline-variant/20 text-xs font-black text-on-surface-variant">
+            <span class="material-symbols-outlined text-[18px] align-[-4px]">chevron_right</span>
+          </button>
         </div>
-        <button class="flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-primary transition-colors">
-          Next
-          <span class="material-symbols-outlined text-lg">chevron_right</span>
-        </button>
       </div>
     </section>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { computed, reactive } from 'vue'
 
-// --- 核心业务数据：看板统计 ---
-const stats = ref({
-  total: '1,284',
-  growth: '12%',
-  active: '1,156',
-  uptime: '90.1%',
-  expiring: '42'
-})
-
-// --- 核心业务数据：表格筛选状态 ---
-const filters = ref({
+const filters = reactive({
+  keyword: '',
   version: 'all',
   status: 'all'
 })
 
-// --- 核心业务数据：租户列表 ---
-const tenantsData = ref([
+const tenantsData = [
   {
     name: '华伦纺织集团',
-    location: 'Shanghai, China',
+    location: '上海，中国',
     code: 'HL-TX-2024',
     contact: '张伟',
     email: 'zhang.w@hualun.com',
@@ -182,13 +157,14 @@ const tenantsData = ref([
     expiryDate: '2025-12-12',
     status: 'Active',
     initials: 'HL',
-    avatarColor: 'bg-primary-fixed text-primary',
-    versionStyle: 'bg-primary-container text-on-primary-fixed-variant',
-    statusColor: 'bg-emerald-500'
+    avatarColor: 'bg-primary/10 text-primary',
+    versionStyle: 'bg-primary/10 text-primary',
+    statusColor: 'bg-emerald-500',
+    statusBadge: 'bg-emerald-50 text-emerald-700'
   },
   {
     name: '胜龙针织有限公司',
-    location: 'Guangzhou, China',
+    location: '广州，中国',
     code: 'SL-KNIT-092',
     contact: '李芳',
     email: 'li.f@slknit.cn',
@@ -196,13 +172,14 @@ const tenantsData = ref([
     expiryDate: '2024-11-20',
     status: 'Pending',
     initials: 'SL',
-    avatarColor: 'bg-secondary-fixed text-secondary',
-    versionStyle: 'bg-secondary-container text-on-secondary-container',
-    statusColor: 'bg-tertiary'
+    avatarColor: 'bg-secondary/10 text-secondary',
+    versionStyle: 'bg-secondary/10 text-secondary',
+    statusColor: 'bg-amber-500',
+    statusBadge: 'bg-amber-50 text-amber-700'
   },
   {
     name: '杰美服饰工艺',
-    location: 'Zhejiang, China',
+    location: '浙江，中国',
     code: 'JM-APPA-77',
     contact: '王杰',
     email: 'wang.j@jiemei.org',
@@ -210,13 +187,14 @@ const tenantsData = ref([
     expiryDate: '2024-05-30',
     status: 'Inactive',
     initials: 'JM',
-    avatarColor: 'bg-tertiary-fixed text-tertiary',
-    versionStyle: 'bg-outline-variant text-on-surface-variant',
-    statusColor: 'bg-error'
+    avatarColor: 'bg-slate-200 text-slate-700',
+    versionStyle: 'bg-slate-200 text-slate-700',
+    statusColor: 'bg-rose-500',
+    statusBadge: 'bg-rose-50 text-rose-700'
   },
   {
     name: '波特印染科技',
-    location: 'Jiangsu, China',
+    location: '江苏，中国',
     code: 'BT-DYE-884',
     contact: '陈思思',
     email: 'chen.ss@boter.com',
@@ -224,25 +202,66 @@ const tenantsData = ref([
     expiryDate: '2026-02-15',
     status: 'Active',
     initials: 'BT',
-    avatarColor: 'bg-primary-fixed text-primary',
-    versionStyle: 'bg-primary-container text-on-primary-fixed-variant',
-    statusColor: 'bg-emerald-500'
+    avatarColor: 'bg-primary/10 text-primary',
+    versionStyle: 'bg-primary/10 text-primary',
+    statusColor: 'bg-emerald-500',
+    statusBadge: 'bg-emerald-50 text-emerald-700'
+  }
+]
+
+const statCards = computed(() => [
+  {
+    title: '总租户数',
+    value: '1,284',
+    subText: '较上月 +12%',
+    subTextClass: 'text-emerald-600',
+    icon: 'groups',
+    iconClass: 'bg-primary/10 text-primary'
+  },
+  {
+    title: '活跃租户',
+    value: '1,156',
+    subText: '状态正常可使用',
+    subTextClass: 'text-on-surface-variant',
+    icon: 'bolt',
+    iconClass: 'bg-secondary/10 text-secondary'
+  },
+  {
+    title: '本月到期',
+    value: '42',
+    subText: '建议尽快跟进',
+    subTextClass: 'text-amber-700',
+    icon: 'event_busy',
+    iconClass: 'bg-amber-100 text-amber-700'
+  },
+  {
+    title: '停用租户',
+    value: '18',
+    subText: '需排查续费与状态',
+    subTextClass: 'text-rose-700',
+    icon: 'block',
+    iconClass: 'bg-rose-100 text-rose-700'
   }
 ])
 
-// --- 核心业务逻辑：表格筛选计算属性 ---
 const filteredTenants = computed(() => {
-  return tenantsData.value.filter(tenant => {
-    const matchVersion = filters.value.version === 'all' || tenant.version === filters.value.version
-    const matchStatus = filters.value.status === 'all' || tenant.status === filters.value.status
-    return matchVersion && matchStatus
+  const keyword = filters.keyword.trim().toLowerCase()
+  return tenantsData.filter((tenant) => {
+    const matchKeyword =
+      !keyword ||
+      tenant.name.toLowerCase().includes(keyword) ||
+      tenant.code.toLowerCase().includes(keyword) ||
+      tenant.contact.toLowerCase().includes(keyword)
+
+    const matchVersion = filters.version === 'all' || tenant.version === filters.version
+    const matchStatus = filters.status === 'all' || tenant.status === filters.status
+    return matchKeyword && matchVersion && matchStatus
   })
 })
 </script>
 
 <style scoped>
-/* 确保 Material Symbols 图标字体正常加载 */
 .material-symbols-outlined {
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
 }
 </style>

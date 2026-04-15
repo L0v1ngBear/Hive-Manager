@@ -1,10 +1,9 @@
 import request from '@/utils/request'
 
-export function listLeaveApprovals(params) {
+export function listLeaveApprovals() {
   return request({
     url: '/approval/leave/list',
     method: 'get',
-    params,
   })
 }
 
@@ -23,11 +22,10 @@ export function auditLeaveApproval(data) {
   })
 }
 
-export function listFinanceApprovals(params) {
+export function listFinanceApprovals() {
   return request({
     url: '/approval/finance/list',
     method: 'get',
-    params,
   })
 }
 

@@ -127,7 +127,7 @@ router.beforeEach((to) => {
   }
 
   if (to.meta?.developerOnly && !userStore.isDeveloper) {
-    ElMessage.warning('当前页面仅系统开发者可见')
+    ElMessage.warning('当前页面仅平台超管可见')
     return '/dashboard'
   }
 

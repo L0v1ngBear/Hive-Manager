@@ -25,9 +25,60 @@
   --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
-/* 全局基础样式 */
+/* ==========================================
+   全局基础样式
+   ========================================== */
 html, body, #app {
   height: 100%;
   margin: 0;
   padding: 0;
+}
+
+/* ==========================================
+   全局 【自动隐藏 + 胶囊式】 滚动条
+   ========================================== */
+
+/* 1. 针对 Firefox */
+* {
+  scrollbar-width: thin;
+  /* 默认：滑块透明，轨道透明 */
+  scrollbar-color: transparent transparent;
+}
+
+/* 悬停时：滑块显现，采用胶囊色 */
+*:hover {
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+/* 2. 针对 Webkit 内核 (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: 6px;  /* 滑块粗细 */
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent; /* 轨道永远透明 */
+}
+
+/* 🌟 胶囊样式核心：大圆角 + 内边距 */
+::-webkit-scrollbar-thumb {
+  background-color: transparent; /* 默认隐藏 */
+  border-radius: 999px;         /* 关键：超大圆角实现胶囊形状 */
+  background-clip: padding-box; /* 配合 border 实现内间距 */
+  border: 2px solid transparent; /* 制造内间距，让滑块更修长 */
+}
+
+/* 🌟 悬停显示：胶囊滑块显现 */
+*:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.3);
+}
+
+/* 鼠标按压时：颜色加深 */
+::-webkit-scrollbar-thumb:active {
+  background-color: rgba(15, 23, 42, 0.4) !important;
+}
+
+/* 隐藏右下角双向滚动条的交界处 */
+::-webkit-scrollbar-corner {
+  background-color: transparent;
 }

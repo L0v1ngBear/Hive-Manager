@@ -15,7 +15,7 @@ public class EmployeeBatchUpdateRequest {
 
     private Long positionId;
 
-    private Long leaderId;
+    private String leaderName;
 
     private Integer status;
 

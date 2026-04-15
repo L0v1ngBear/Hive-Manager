@@ -140,7 +140,7 @@ public class EmployeeService {
     public Long create(@Valid EmployeeCreateRequest request) {
         Department department = requireDepartment(request.getDepartmentId());
         Position position = requirePosition(request.getPositionId());
-        validateLeader(request.getLeaderId());
+        String leaderName = normalizeLeaderName(request.getLeaderName());
 
         Employee employee = new Employee();
         employee.setTenantCode(TenantPermissionContext.getTenantCode());
@@ -150,7 +150,8 @@ public class EmployeeService {
         employee.setPassword(encryptUtil.encode(DEFAULT_PASSWORD));
         employee.setDepartmentName(department.getDeptName());
         employee.setPosition(position.getPositionName());
-        employee.setManagerId(request.getLeaderId());
+        employee.setManagerId(null);
+        employee.setManagerName(leaderName);
         employee.setStatus(request.getStatus());
         employeeMapper.insert(employee);
 
@@ -173,6 +174,7 @@ public class EmployeeService {
                 "phone", employee.getPhone(),
                 "departmentName", employee.getDepartmentName(),
                 "position", employee.getPosition(),
+                "managerName", employee.getManagerName(),
                 "status", employee.getStatus(),
                 "empNo", ext.getEmpNo(),
                 "defaultPassword", DEFAULT_PASSWORD
@@ -186,7 +188,7 @@ public class EmployeeService {
         EmployeeDetailVO before = detail(request.getId());
         Department department = requireDepartment(request.getDepartmentId());
         Position position = requirePosition(request.getPositionId());
-        validateLeader(request.getLeaderId());
+        String leaderName = normalizeLeaderName(request.getLeaderName());
 
         boolean syncLoginName = employee.getLoginName() == null || employee.getLoginName().isBlank() || employee.getLoginName().equals(employee.getPhone());
         employee.setName(request.getName());
@@ -196,7 +198,8 @@ public class EmployeeService {
         }
         employee.setDepartmentName(department.getDeptName());
         employee.setPosition(position.getPositionName());
-        employee.setManagerId(request.getLeaderId());
+        employee.setManagerId(null);
+        employee.setManagerName(leaderName);
         employee.setStatus(request.getStatus());
         employeeMapper.updateById(employee);
 
@@ -231,14 +234,14 @@ public class EmployeeService {
 
     @Transactional(rollbackFor = Exception.class)
     public void batchUpdate(@Valid EmployeeBatchUpdateRequest request) {
-        if (request.getDepartmentId() == null && request.getPositionId() == null && request.getLeaderId() == null
+        if (request.getDepartmentId() == null && request.getPositionId() == null && request.getLeaderName() == null
                 && request.getStatus() == null && !StringUtils.hasText(request.getRemark())) {
             throw new BusinessException("at least one field is required for batch update");
         }
 
         Department department = request.getDepartmentId() == null ? null : requireDepartment(request.getDepartmentId());
         Position position = request.getPositionId() == null ? null : requirePosition(request.getPositionId());
-        validateLeader(request.getLeaderId());
+        String leaderName = request.getLeaderName() == null ? null : normalizeLeaderName(request.getLeaderName());
 
         for (Long id : request.getIds()) {
             Employee employee = requireEmployee(id);
@@ -249,8 +252,9 @@ public class EmployeeService {
             if (position != null) {
                 employee.setPosition(position.getPositionName());
             }
-            if (request.getLeaderId() != null) {
-                employee.setManagerId(request.getLeaderId());
+            if (request.getLeaderName() != null) {
+                employee.setManagerId(null);
+                employee.setManagerName(leaderName);
             }
             if (request.getStatus() != null) {
                 employee.setStatus(request.getStatus());
@@ -351,10 +355,10 @@ public class EmployeeService {
     }
 
     public void downloadImportTemplate(HttpServletResponse response) {
-        List<String> headers = List.of("姓名", "手机号", "部门", "职位", "状态", "员工类型", "入职日期", "邮箱", "直属领导手机号", "角色名称", "备注");
+        List<String> headers = List.of("姓名", "手机号", "部门", "职位", "状态", "员工类型", "入职日期", "邮箱", "直属领导姓名", "角色名称", "备注");
         List<List<String>> examples = List.of(
-                List.of("张三", "13900030001", "仓储部", "仓库专员", "在职", "全职", LocalDate.now().toString(), "zhangsan@example.com", "13900010002", "普通员工", "示例数据"),
-                List.of("李四", "13900030002", "业务部", "销售专员", "试用", "试用期", LocalDate.now().toString(), "lisi@example.com", "13900010004", "业务测试管理员,普通员工", "")
+                List.of("张三", "13900030001", "仓储部", "仓库专员", "在职", "全职", LocalDate.now().toString(), "zhangsan@example.com", "王主管", "普通员工", "示例数据"),
+                List.of("李四", "13900030002", "业务部", "销售专员", "试用", "试用期", LocalDate.now().toString(), "lisi@example.com", "刘经理", "业务测试管理员,普通员工", "")
         );
         List<String> notes = List.of(
                 "仅支持 .xlsx 文件导入。",
@@ -362,7 +366,7 @@ public class EmployeeService {
                 "状态支持：在职、试用、离职。为空时默认在职。",
                 "员工类型支持：全职、合同工、试用期。为空时默认全职。",
                 "入职日期格式：yyyy-MM-dd。为空时默认当天。",
-                "直属领导手机号可不填；填写后必须是当前租户已存在员工手机号。",
+                "直属领导姓名可不填；填写后将直接保存到员工主数据。",
                 "角色名称可填多个，使用英文逗号、中文逗号或顿号分隔；角色必须已存在。",
                 "若部门或职位不存在，系统会自动创建启用中的部门和职位。"
         );
@@ -435,17 +439,15 @@ public class EmployeeService {
         return position;
     }
 
-    private void validateLeader(Long leaderId) {
-        if (leaderId == null) {
-            return;
+    private String normalizeLeaderName(String leaderName) {
+        if (!StringUtils.hasText(leaderName)) {
+            return null;
         }
-        Employee leader = employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
-                .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
-                .eq(Employee::getId, leaderId)
-                .last("LIMIT 1"));
-        if (leader == null) {
-            throw new BusinessException("leader not found");
+        String normalized = leaderName.trim();
+        if (normalized.length() > 64) {
+            throw new BusinessException("leader name is too long");
         }
+        return normalized;
     }
 
     private EmployeeExt getOrCreateExt(Long userId) {
@@ -639,7 +641,7 @@ public class EmployeeService {
         request.setEmployeeType(parseEmployeeType(excelUtil.readString(row.getCell(5))));
         request.setEntryDate(Objects.requireNonNullElse(excelUtil.readLocalDate(row.getCell(6)), LocalDate.now()));
         request.setEmail(blankToNull(excelUtil.readString(row.getCell(7))));
-        request.setLeaderId(findLeaderIdByPhone(blankToNull(excelUtil.readString(row.getCell(8)))));
+        request.setLeaderName(blankToNull(excelUtil.readString(row.getCell(8))));
         request.setRoleIds(findRoleIdsByNames(blankToNull(excelUtil.readString(row.getCell(9)))));
         request.setRemark(blankToNull(excelUtil.readString(row.getCell(10))));
         return request;

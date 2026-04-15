@@ -252,7 +252,7 @@ function createDefaultForm() {
     employeeType: 'FULL_TIME',
     departmentId: '',
     positionId: '',
-    leaderId: null,
+    leaderName: '',
     entryDate: new Date().toISOString().slice(0, 10),
       status: 1,
       avatarUrl: '',
@@ -269,7 +269,7 @@ async function loadEmployeeDetail() {
   form.employeeType = detail.employeeType || 'FULL_TIME'
   form.departmentId = detail.departmentId || ''
   form.positionId = detail.positionId || ''
-  form.leaderId = detail.leaderId || null
+  form.leaderName = detail.leaderName || ''
   form.entryDate = detail.entryDate || new Date().toISOString().slice(0, 10)
   form.status = Number(detail.status ?? 1)
   form.avatarUrl = detail.avatarUrl || ''
@@ -286,7 +286,7 @@ function handleLeaderSearch() {
     clearTimeout(leaderSearchTimer)
   }
   if (!leaderKeyword.value) {
-    form.leaderId = null
+    form.leaderName = ''
     leaderOptions.value = []
     selectedLeaderLabel.value = ''
     return
@@ -297,7 +297,7 @@ function handleLeaderSearch() {
 }
 
 function selectLeader(leader) {
-  form.leaderId = leader.id
+  form.leaderName = leader.name
   leaderKeyword.value = leader.name
   selectedLeaderLabel.value = `${leader.name} / ${leader.empNo || '--'}`
   leaderOptions.value = []
@@ -315,7 +315,7 @@ async function submit() {
       ...form,
       departmentId: Number(form.departmentId),
       positionId: Number(form.positionId),
-      leaderId: form.leaderId ? Number(form.leaderId) : null,
+      leaderName: form.leaderName || null,
       status: Number(form.status),
       roleIds: (form.roleIds || []).map((id) => Number(id))
     }

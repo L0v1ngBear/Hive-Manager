@@ -41,7 +41,7 @@ public class ReceiptPrintController {
     }
 
     @PostMapping("/print/cancel")
-    @RequirePermission(value = "receipt:print:cancel", message = "您没有权限取消打印")
+    @RequirePermission(value = "receipt:print:cancel", message = "您没有权限作废出库单")
     public Result<Void> cancel(@RequestParam String orderNo) {
         receiptPrintService.cancel(orderNo);
         return Result.success(null);

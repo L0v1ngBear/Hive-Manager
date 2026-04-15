@@ -33,9 +33,8 @@ public class ApprovalController {
 
     @GetMapping("/leave/list")
     @RequirePermission(value = "approval:leave", message = "您没有权限查看请假审批列表")
-    public Result<List<LeaveApprovalListVO>> listLeaveApprovals(@RequestParam(defaultValue = "pending") String scope,
-                                                                @RequestParam(required = false) Integer status) {
-        return Result.success(approvalService.listLeaveApprovals(scope, status));
+    public Result<List<LeaveApprovalListVO>> listLeaveApprovals() {
+        return Result.success(approvalService.listLeaveApprovals());
     }
 
     @GetMapping("/leave/{leaveCode}")
@@ -53,9 +52,8 @@ public class ApprovalController {
 
     @GetMapping("/finance/list")
     @RequirePermission(value = "approval:finance", message = "您没有权限查看财务审批列表")
-    public Result<List<FinanceApprovalVO>> listFinanceApprovals(@RequestParam(defaultValue = "pending") String scope,
-                                                                @RequestParam(required = false) Integer status) {
-        return Result.success(approvalService.listFinanceApprovals(scope, status));
+    public Result<List<FinanceApprovalVO>> listFinanceApprovals() {
+        return Result.success(approvalService.listFinanceApprovals());
     }
 
     @GetMapping("/finance/{approvalCode}")

@@ -27,7 +27,7 @@ public class EmployeeCreateRequest {
     @NotNull(message = "positionId is required")
     private Long positionId;
 
-    private Long leaderId;
+    private String leaderName;
 
     @NotNull(message = "entryDate is required")
     private LocalDate entryDate;

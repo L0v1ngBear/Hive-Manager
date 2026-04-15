@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen bg-surface text-on-surface p-4 md:p-8 overflow-x-hidden relative">
-    <div class="max-w-7xl mx-auto space-y-8">
+  <div class="h-full min-h-0 bg-surface text-on-surface overflow-x-hidden relative">
+    <div class="max-w-7xl mx-auto space-y-6">
       <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 class="text-3xl font-black text-primary tracking-tight">员工名录</h2>

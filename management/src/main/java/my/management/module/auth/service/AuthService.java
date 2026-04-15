@@ -56,7 +56,7 @@ public class AuthService {
         loginVO.setUserId(loginUser.getUserId());
         loginVO.setUserName(loginUser.getUserName());
         loginVO.setTenantCode(loginUser.getTenantCode());
-        loginVO.setDeveloper(developerAccessService.isDeveloperLogin(loginUser.getLoginName()));
+        loginVO.setDeveloper("super".equalsIgnoreCase(loginUser.getTenantCode()));
         loginVO.setResponseKey(responseEncryptUtil.buildResponseKey(token));
         loginVO.setPermissions(List.copyOf(permCodes));
         return loginVO;

@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import jakarta.annotation.Resource;
 import my.management.common.context.TenantPermissionContext;
 import my.management.common.exception.BusinessException;
+import my.management.module.employee.mapper.EmployeeMapper;
+import my.management.module.employee.model.entity.Employee;
 import my.management.module.receipt.mapper.OutboundItemMapper;
 import my.management.module.receipt.mapper.OutboundOrderMapper;
 import my.management.module.receipt.model.entity.OutboundItem;
@@ -30,6 +32,9 @@ public class ReceiptPrintService {
     @Resource
     private OutboundItemMapper outboundItemMapper;
 
+    @Resource
+    private EmployeeMapper employeeMapper;
+
     public List<OutboundPrintOrderVO> pendingList() {
         return outboundOrderMapper.selectPendingPrintList(TenantPermissionContext.getTenantCode());
     }
@@ -46,7 +51,7 @@ public class ReceiptPrintService {
         detail.setOrderNo(order.getOrderNo());
         detail.setCustomerName(order.getCustomerName());
         detail.setCreateTime(order.getCreateTime());
-        detail.setOperator(order.getOperatorId() == null ? "--" : "用户" + order.getOperatorId());
+        detail.setOperator(resolveOperatorName(order.getOperatorId()));
         detail.setItems(items.stream().map(this::toItemVO).toList());
         detail.setTotalMeters((float) items.stream().mapToDouble(item -> item.getMeters() == null ? 0D : item.getMeters()).sum());
         detail.setTotalAmount(items.stream()
@@ -62,7 +67,7 @@ public class ReceiptPrintService {
 
     @Transactional(rollbackFor = Exception.class)
     public void cancel(String orderNo) {
-        updateStatus(orderNo, 3, 0, "出库单不存在或无法作废");
+        updateStatus(orderNo, 3, 0, "出库单不存在或当前不可作废");
     }
 
     private void updateStatus(String orderNo, Integer orderStatus, Integer printStatus, String errorMsg) {
@@ -97,5 +102,19 @@ public class ReceiptPrintService {
         OutboundPrintItemVO vo = new OutboundPrintItemVO();
         BeanUtils.copyProperties(item, vo);
         return vo;
+    }
+
+    private String resolveOperatorName(Long operatorId) {
+        if (operatorId == null) {
+            return "--";
+        }
+        Employee operator = employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
+                .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(Employee::getId, operatorId)
+                .last("LIMIT 1"));
+        if (operator == null || operator.getName() == null || operator.getName().isBlank()) {
+            return "用户" + operatorId;
+        }
+        return operator.getName();
     }
 }
