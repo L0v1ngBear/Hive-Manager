@@ -49,10 +49,6 @@
               <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
               <input v-model.trim="query.keyword" @keyup.enter="fetchData" class="w-full pl-10 pr-4 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 focus:ring-2 focus:ring-primary text-sm outline-none" placeholder="搜索型号、批号、规格" />
             </div>
-            <select v-model="query.category" @change="handleFilter" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none">
-              <option value="">全部分类</option>
-              <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
-            </select>
             <select v-model="query.status" @change="handleFilter" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none">
               <option value="">全部状态</option>
               <option :value="1">生效中</option>
@@ -72,7 +68,7 @@
             <thead class="bg-surface-container-low/50">
               <tr>
                 <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">面料型号</th>
-                <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">分类/规格</th>
+                <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">规格说明</th>
                 <th class="px-6 py-4 text-right text-xs font-black text-on-surface-variant uppercase tracking-wider">基准价</th>
                 <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">币种</th>
                 <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">生效日期</th>
@@ -83,8 +79,7 @@
             <tbody class="divide-y divide-surface-variant/30">
               <tr v-for="item in rows" :key="item.id" class="hover:bg-surface-container-high/40 transition-colors">
                 <td class="px-6 py-4">
-                  <div class="flex items-center gap-4">
-                    <img :src="item.imageUrl || fallbackImage(item.modelCode)" class="w-10 h-10 rounded-md object-cover bg-slate-200" />
+                  <div>
                     <div>
                       <p class="text-sm font-bold text-primary">{{ item.modelCode }}</p>
                       <p class="text-[10px] text-on-surface-variant">{{ item.batchNo || '未填写批号' }}</p>
@@ -92,8 +87,7 @@
                   </div>
                 </td>
                 <td class="px-6 py-4">
-                  <div class="text-xs font-bold text-secondary">{{ item.category || '未分类' }}</div>
-                  <div class="text-xs text-on-surface-variant mt-1">{{ item.spec || '--' }}</div>
+                  <div class="text-xs text-on-surface-variant">{{ item.spec || '--' }}</div>
                 </td>
                 <td class="px-6 py-4 text-right text-sm font-black text-primary">¥{{ money(item.basePrice) }} <span class="text-[10px] text-on-surface-variant">/m</span></td>
                 <td class="px-6 py-4 text-xs font-bold">{{ item.currency }}</td>
@@ -178,7 +172,6 @@ import {
   deletePrice,
   downloadPriceImportTemplate,
   exportPriceExcel,
-  getPriceCategories,
   getPriceDetail,
   getPricePage,
   getPriceStats,
@@ -187,10 +180,10 @@ import {
 
 const loading = ref(false)
 const rows = ref([])
-const categories = ref([])
 const stats = reactive({ skuCount: 0, averagePrice: 0, pendingCount: 0, overrideCount: 0 })
 const pagination = reactive({ total: 0, pages: 0 })
-const query = reactive({ page: 1, size: 10, keyword: '', category: '', status: '' })
+// 分类已下线，列表只保留仍然生效的查询条件。
+const query = reactive({ page: 1, size: 10, keyword: '', status: '' })
 const createVisible = ref(false)
 const editingSku = ref(null)
 const detailVisible = ref(false)
@@ -201,6 +194,7 @@ const totalPages = computed(() => Math.max(Number(pagination.pages || 1), 1))
 async function fetchData() {
   loading.value = true
   try {
+    // 页面列表直接复用后端分页结果，避免再拼接已经废弃的分类参数。
     const data = await getPricePage({ ...query, status: query.status === '' ? undefined : Number(query.status) })
     rows.value = data.data || []
     pagination.total = Number(data.total || 0)
@@ -212,10 +206,6 @@ async function fetchData() {
 
 async function fetchStats() {
   Object.assign(stats, await getPriceStats())
-}
-
-async function fetchCategories() {
-  categories.value = await getPriceCategories()
 }
 
 function handleFilter() {
@@ -241,7 +231,7 @@ function closeCreate() {
 
 async function handleSaved() {
   closeCreate()
-  await Promise.all([fetchData(), fetchStats(), fetchCategories()])
+  await Promise.all([fetchData(), fetchStats()])
   ElMessage.success('价格已保存。')
 }
 
@@ -254,7 +244,7 @@ async function remove(item) {
   await ElMessageBox.confirm(`确认删除 ${item.modelCode} 的价格记录吗？`, '删除确认', { type: 'warning' })
   await deletePrice(item.id)
   ElMessage.success('价格记录已删除。')
-  await Promise.all([fetchData(), fetchStats(), fetchCategories()])
+  await Promise.all([fetchData(), fetchStats()])
 }
 
 async function exportExcel() {
@@ -282,7 +272,7 @@ async function handleImportChange(event) {
       '价格导入结果',
       { confirmButtonText: '关闭' }
     )
-    await Promise.all([fetchData(), fetchStats(), fetchCategories()])
+    await Promise.all([fetchData(), fetchStats()])
   } finally {
     event.target.value = ''
   }
@@ -307,12 +297,8 @@ function statusClass(status) {
   return 'bg-slate-100 text-slate-500'
 }
 
-function fallbackImage(modelCode) {
-  return `https://placehold.co/100x100/e2e8f0/64748b?text=${encodeURIComponent((modelCode || 'SKU').slice(0, 6))}`
-}
-
 onMounted(async () => {
-  await Promise.all([fetchData(), fetchStats(), fetchCategories()])
+  await Promise.all([fetchData(), fetchStats()])
 })
 </script>
 

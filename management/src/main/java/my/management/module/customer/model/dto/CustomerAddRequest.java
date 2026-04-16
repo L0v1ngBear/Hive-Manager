@@ -17,9 +17,6 @@ public class CustomerAddRequest {
     @NotNull(message = "customerType is required")
     private Integer customerType;
 
-    @NotBlank(message = "constructionArea is required")
-    private String constructionArea;
-
     private List<CustomerContact> contacts;
 
     private List<CustomerProject> projects;

@@ -8,6 +8,10 @@ export function getPrintDetail(params) {
   return request({ url: '/receipt/print/detail', method: 'get', params })
 }
 
+export function getRawPrintCommand(params) {
+  return request({ url: '/receipt/print/raw-command', method: 'get', params })
+}
+
 export function markPrinted(params) {
   return request({ url: '/receipt/print/mark-printed', method: 'post', params })
 }

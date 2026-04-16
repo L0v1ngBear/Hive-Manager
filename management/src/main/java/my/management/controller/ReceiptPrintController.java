@@ -3,6 +3,7 @@ package my.management.controller;
 import jakarta.annotation.Resource;
 import my.management.common.annotation.RequirePermission;
 import my.management.common.dto.Result;
+import my.management.module.receipt.model.vo.OutboundPrintCommandVO;
 import my.management.module.receipt.model.vo.OutboundPrintDetailVO;
 import my.management.module.receipt.model.vo.OutboundPrintOrderVO;
 import my.management.module.receipt.service.ReceiptPrintService;
@@ -31,6 +32,12 @@ public class ReceiptPrintController {
     @RequirePermission(value = "receipt:print:detail", message = "您没有权限查看出库单详情")
     public Result<OutboundPrintDetailVO> detail(@RequestParam String orderNo) {
         return Result.success(receiptPrintService.detail(orderNo));
+    }
+
+    @GetMapping("/print/raw-command")
+    @RequirePermission(value = "receipt:print:detail", message = "您没有权限生成打印指令")
+    public Result<OutboundPrintCommandVO> rawCommand(@RequestParam String orderNo) {
+        return Result.success(receiptPrintService.rawCommand(orderNo));
     }
 
     @PostMapping("/print/mark-printed")

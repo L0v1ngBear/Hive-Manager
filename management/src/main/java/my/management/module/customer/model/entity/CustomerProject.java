@@ -17,4 +17,6 @@ public class CustomerProject {
     private Long customerId;
 
     private String projectName;
+
+    private String constructionArea;
 }

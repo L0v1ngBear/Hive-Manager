@@ -11,6 +11,7 @@ import my.management.module.receipt.mapper.OutboundItemMapper;
 import my.management.module.receipt.mapper.OutboundOrderMapper;
 import my.management.module.receipt.model.entity.OutboundItem;
 import my.management.module.receipt.model.entity.OutboundOrder;
+import my.management.module.receipt.model.vo.OutboundPrintCommandVO;
 import my.management.module.receipt.model.vo.OutboundPrintDetailVO;
 import my.management.module.receipt.model.vo.OutboundPrintItemVO;
 import my.management.module.receipt.model.vo.OutboundPrintOrderVO;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 
@@ -58,6 +60,19 @@ public class ReceiptPrintService {
                 .map(item -> item.getTotalAmount() == null ? BigDecimal.ZERO : item.getTotalAmount())
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
         return detail;
+    }
+
+    public OutboundPrintCommandVO rawCommand(String orderNo) {
+        OutboundPrintDetailVO detail = detail(orderNo);
+        byte[] commandBytes = ReceiptPrinterCommandUtil.buildTriplicateCommand(detail);
+        OutboundPrintCommandVO command = new OutboundPrintCommandVO();
+        command.setOrderNo(detail.getOrderNo());
+        command.setFileName(detail.getOrderNo() + ".prn");
+        command.setDriverType("ESC_P");
+        command.setContentType("application/octet-stream");
+        command.setCharset(ReceiptPrinterCommandUtil.PRINT_CHARSET.name());
+        command.setBase64Content(Base64.getEncoder().encodeToString(commandBytes));
+        return command;
     }
 
     @Transactional(rollbackFor = Exception.class)

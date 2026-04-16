@@ -9,6 +9,10 @@ public class DashboardAttendanceAlertRowVO {
 
     private Long userId;
 
+    private String userName;
+
+    private String departmentName;
+
     private Integer signInStatus;
 
     private Integer signOutStatus;

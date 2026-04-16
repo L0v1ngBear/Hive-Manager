@@ -65,6 +65,7 @@ public class EmployeeService {
     private static final int STATUS_ACTIVE = 1;
     private static final int STATUS_PROBATION = 2;
     private static final String DEFAULT_PASSWORD = "123456";
+    private static final String DEFAULT_EMPLOYEE_TYPE = "FULL_TIME";
 
     @Resource
     private EmployeeMapper employeeMapper;
@@ -142,6 +143,9 @@ public class EmployeeService {
         Position position = requirePosition(request.getPositionId());
         String leaderName = normalizeLeaderName(request.getLeaderName());
 
+        // The create form no longer submits employeeType, so the service owns the default.
+        String employeeType = normalizeEmployeeType(request.getEmployeeType(), DEFAULT_EMPLOYEE_TYPE);
+
         Employee employee = new Employee();
         employee.setTenantCode(TenantPermissionContext.getTenantCode());
         employee.setName(request.getName());
@@ -160,9 +164,8 @@ public class EmployeeService {
         ext.setTenantCode(TenantPermissionContext.getTenantCode());
         ext.setEmpNo(codeGeneratorUtil.generateEmployeeNo());
         ext.setEmail(request.getEmail());
-        ext.setEmployeeType(request.getEmployeeType());
+        ext.setEmployeeType(employeeType);
         ext.setEntryDate(request.getEntryDate());
-        ext.setAvatarUrl(request.getAvatarUrl());
         ext.setRemark(request.getRemark());
         ext.setIsDeleted(0);
         employeeExtMapper.insert(ext);
@@ -208,9 +211,9 @@ public class EmployeeService {
             ext.setEmpNo(codeGeneratorUtil.generateEmployeeNo());
         }
         ext.setEmail(request.getEmail());
-        ext.setEmployeeType(request.getEmployeeType());
+        // Preserve the stored type on update when the caller omits the field.
+        ext.setEmployeeType(normalizeEmployeeType(request.getEmployeeType(), ext.getEmployeeType()));
         ext.setEntryDate(request.getEntryDate());
-        ext.setAvatarUrl(request.getAvatarUrl());
         ext.setRemark(request.getRemark());
         saveOrUpdateExt(ext);
         syncUserRoles(employee.getId(), request.getRoleIds());
@@ -448,6 +451,16 @@ public class EmployeeService {
             throw new BusinessException("leader name is too long");
         }
         return normalized;
+    }
+
+    private String normalizeEmployeeType(String employeeType, String fallback) {
+        if (StringUtils.hasText(employeeType)) {
+            return employeeType.trim();
+        }
+        if (StringUtils.hasText(fallback)) {
+            return fallback.trim();
+        }
+        return DEFAULT_EMPLOYEE_TYPE;
     }
 
     private EmployeeExt getOrCreateExt(Long userId) {

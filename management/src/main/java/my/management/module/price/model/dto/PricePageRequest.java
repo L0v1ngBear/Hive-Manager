@@ -11,7 +11,5 @@ public class PricePageRequest {
 
     private String keyword;
 
-    private String category;
-
     private Integer status;
 }

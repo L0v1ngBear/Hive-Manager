@@ -1,221 +1,148 @@
 <template>
-  <div class="h-full min-h-0 max-w-7xl mx-auto flex flex-col gap-4">
-    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <article class="rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/15 p-4">
-        <div class="text-xs font-bold tracking-[0.2em] text-on-surface-variant">待打印单据</div>
-        <div class="mt-3 text-3xl font-black text-primary">{{ pendingOrders.length }}</div>
-        <div class="mt-2 text-sm text-on-surface-variant">已提交到管理端、等待纸质打印的出库单</div>
-      </article>
-      <article class="rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/15 p-4">
-        <div class="text-xs font-bold tracking-[0.2em] text-on-surface-variant">当前选中</div>
-        <div class="mt-3 text-2xl font-black text-on-surface">{{ selectedOrder?.orderNo || '--' }}</div>
-        <div class="mt-2 text-sm text-on-surface-variant">{{ selectedOrder?.customerName || '请选择左侧待打印单据' }}</div>
-      </article>
-      <article class="rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/15 p-4">
-        <div class="text-xs font-bold tracking-[0.2em] text-on-surface-variant">打印状态</div>
-        <div class="mt-3 text-2xl font-black text-on-surface">{{ selectedOrder ? '可打印' : '待选择' }}</div>
-        <div class="mt-2 text-sm text-on-surface-variant">打印后可直接标记完成，或作废当前单据</div>
-      </article>
+  <div class="max-w-7xl mx-auto h-[calc(100vh-8rem)] flex flex-col lg:flex-row gap-6 pb-6">
+    <section class="w-full lg:w-[400px] flex flex-col bg-surface-container-lowest rounded-2xl shadow-sm ring-1 ring-outline-variant/20 overflow-hidden">
+      <header class="p-5 border-b border-outline-variant/20 bg-surface flex justify-between items-center z-10">
+        <div>
+          <h2 class="text-lg font-black text-on-surface flex items-center gap-2">
+            待打印任务队列
+            <span class="bg-error/10 text-error text-[10px] px-2 py-0.5 rounded-full font-bold">{{ pendingOrders.length }}</span>
+          </h2>
+          <p class="text-xs text-on-surface-variant mt-1">小程序结单后会进入这里，由 PC 端统一下发三联打印机。</p>
+        </div>
+        <el-button circle @click="fetchPendingList" :loading="isFetchingList">
+          <span class="material-symbols-outlined text-lg">refresh</span>
+        </el-button>
+      </header>
+
+      <div class="flex-1 overflow-y-auto p-3 space-y-2 bg-surface-container-lowest">
+        <div v-if="pendingOrders.length === 0 && !isFetchingList" class="h-full flex flex-col items-center justify-center text-on-surface-variant/50">
+          <span class="material-symbols-outlined text-4xl mb-2">task_alt</span>
+          <p class="text-sm font-medium">当前暂无待打印单据</p>
+        </div>
+
+        <div
+          v-for="item in pendingOrders"
+          :key="item.orderNo"
+          @click="selectOrder(item)"
+          :class="[
+            'p-4 rounded-xl cursor-pointer transition-all border relative overflow-hidden',
+            selectedOrder?.orderNo === item.orderNo ? 'bg-primary/5 border-primary/30 ring-1 ring-primary/30' : 'bg-surface hover:bg-surface-container border-outline-variant/20'
+          ]"
+        >
+          <div v-if="selectedOrder?.orderNo === item.orderNo" class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+          <div class="flex justify-between items-start mb-2">
+            <span class="text-sm font-black text-on-surface font-mono">{{ item.orderNo }}</span>
+            <span class="text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">{{ formatDate(item.createTime) }}</span>
+          </div>
+          <div class="text-xs text-on-surface-variant font-medium truncate mb-1">客户：<span class="text-on-surface">{{ item.customerName || '--' }}</span></div>
+          <div class="text-xs text-on-surface-variant">包含 <span class="font-bold text-primary">{{ item.itemCount }}</span> 条明细 | 合计 {{ formatNumber(item.totalMeters) }} 米 | 经办：{{ item.operator || '--' }}</div>
+        </div>
+      </div>
     </section>
 
-    <div class="flex-1 min-h-0 flex flex-col xl:flex-row gap-4">
-      <section class="xl:w-[360px] 2xl:w-[400px] rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/15 overflow-hidden flex flex-col">
-        <header class="p-4 border-b border-outline-variant/15 flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-black text-on-surface">待打印队列</h2>
-            <p class="text-sm text-on-surface-variant mt-1">按出库完成时间排序，点击左侧卡片进入打印预览</p>
-          </div>
-          <el-button circle @click="fetchPendingList" :loading="isFetchingList" title="刷新待打印列表">
-            <span class="material-symbols-outlined text-lg">refresh</span>
-          </el-button>
-        </header>
+    <aside class="flex-1 bg-surface-container-lowest rounded-2xl shadow-sm ring-1 ring-outline-variant/20 flex flex-col overflow-hidden relative">
+      <div v-if="isLoadingDetail" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
+        <span class="material-symbols-outlined text-primary text-3xl animate-spin mb-2">progress_activity</span>
+        <span class="text-sm text-primary font-bold">正在生成单据排版...</span>
+      </div>
 
-        <div class="px-4 py-3 border-b border-outline-variant/10 flex items-center justify-between text-sm">
-          <span class="text-on-surface-variant">待处理数量</span>
-          <span class="inline-flex items-center gap-2 rounded-full bg-error/10 px-3 py-1 text-error font-bold">
-            <span class="material-symbols-outlined text-base">print</span>
-            {{ pendingOrders.length }} 单
+      <header class="p-4 border-b border-outline-variant/20 flex justify-between items-center bg-surface z-10">
+        <h3 class="text-sm font-bold text-on-surface">出库单打印预览（241mm × 140mm）</h3>
+        <div class="flex gap-2 flex-wrap justify-end">
+          <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold" :class="bridgeOnline ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'">
+            {{ bridgeOnline ? '桥接已连接' : '桥接未连接' }}
           </span>
+          <el-select v-model="selectedPrinterName" placeholder="默认打印机" clearable filterable style="width: 220px" :disabled="!bridgeOnline || localPrinters.length === 0">
+            <el-option v-for="printer in localPrinters" :key="printer.name" :label="printer.defaultPrinter ? `${printer.name}（默认）` : printer.name" :value="printer.name" />
+          </el-select>
+          <el-button v-if="selectedOrder" plain @click="downloadPrintCommand" :loading="isPrinting">下载指令</el-button>
+          <el-button v-if="selectedOrder" plain type="danger" @click="handleCancelPrint" :loading="isSubmitting">作废/跳过</el-button>
+          <el-button type="success" :disabled="!selectedOrder" @click="executePrint" :loading="isPrinting">
+            <span class="material-symbols-outlined text-lg mr-1">print</span>发送到打印机
+          </el-button>
         </div>
+      </header>
 
-        <div class="flex-1 overflow-y-auto p-3 space-y-3">
-          <div v-if="!isFetchingList && pendingOrders.length === 0" class="h-full min-h-[240px] flex flex-col items-center justify-center text-on-surface-variant">
-            <span class="material-symbols-outlined text-5xl mb-3 opacity-60">inventory_2</span>
-            <p class="text-base font-bold">当前没有待打印出库单</p>
-            <p class="text-sm mt-2">小程序完成出库后，会自动进入这里等待管理端打印。</p>
+      <div class="px-4 py-2 border-b border-outline-variant/10 bg-surface-container-low text-xs text-on-surface-variant">
+        优先通过本机打印桥接服务直接下发三联打印机；如果桥接未启动或本机无可用打印机，会自动下载 `.prn` 指令文件作为兜底。
+      </div>
+
+      <div class="flex-1 overflow-y-auto bg-[#e5e7eb] p-8 flex justify-center">
+        <div id="print-paper-area" class="bg-white shadow-xl relative overflow-hidden transition-opacity" :class="!selectedOrder ? 'opacity-0' : 'opacity-100'" style="width: 241mm; min-height: 140mm; padding: 10mm; font-family: 'SimSun', '宋体', serif; color: #000;">
+          <div v-if="!selectedOrder" class="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 text-gray-400 opacity-100">
+            <span class="material-symbols-outlined text-5xl mb-2">touch_app</span>
+            <p>请在左侧列表中选择单据进行打印</p>
           </div>
 
-          <button
-            v-for="item in pendingOrders"
-            :key="item.orderNo"
-            type="button"
-            @click="selectOrder(item)"
-            :class="[
-              'w-full text-left rounded-2xl border p-4 transition-all shadow-sm',
-              selectedOrder?.orderNo === item.orderNo
-                ? 'border-primary bg-primary/5 shadow-primary/10'
-                : 'border-outline-variant/15 bg-surface hover:border-primary/30 hover:bg-surface-container'
-            ]"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <div class="text-sm font-black text-on-surface font-mono">{{ item.orderNo }}</div>
-                <div class="mt-1 text-sm text-on-surface-variant">{{ item.customerName || '未填写客户名称' }}</div>
-              </div>
-              <span class="rounded-full bg-surface-container px-2.5 py-1 text-xs font-bold text-on-surface-variant">
-                {{ formatDate(item.createTime) }}
-              </span>
-            </div>
-            <div class="mt-3 grid grid-cols-3 gap-2 text-xs text-on-surface-variant">
-              <div class="rounded-xl bg-surface-container-low px-3 py-2">
-                <div>条目数</div>
-                <div class="mt-1 font-black text-on-surface">{{ item.itemCount || 0 }}</div>
-              </div>
-              <div class="rounded-xl bg-surface-container-low px-3 py-2">
-                <div>总米数</div>
-                <div class="mt-1 font-black text-on-surface">{{ formatNumber(item.totalMeters) }}</div>
-              </div>
-              <div class="rounded-xl bg-surface-container-low px-3 py-2">
-                <div>经办人</div>
-                <div class="mt-1 font-black text-on-surface truncate">{{ item.operator || '--' }}</div>
-              </div>
-            </div>
-          </button>
-        </div>
-      </section>
-
-      <section class="flex-1 min-h-0 rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/15 overflow-hidden flex flex-col relative">
-        <div v-if="isLoadingDetail" class="absolute inset-0 z-20 bg-white/70 backdrop-blur-sm flex flex-col items-center justify-center">
-          <span class="material-symbols-outlined text-4xl text-primary animate-spin">progress_activity</span>
-          <p class="mt-3 text-sm font-bold text-primary">正在加载打印明细...</p>
-        </div>
-
-        <header class="p-4 border-b border-outline-variant/15 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h3 class="text-lg font-black text-on-surface">出库单打印预览</h3>
-            <p class="text-sm text-on-surface-variant mt-1">支持直接打印、打印后标记完成，以及异常单据作废处理。</p>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <el-button @click="previewPrint" :disabled="!selectedOrder" :loading="isPrinting" plain>
-              <span class="material-symbols-outlined text-lg mr-1">preview</span>
-              打印预览
-            </el-button>
-            <el-button type="primary" @click="executePrint" :disabled="!selectedOrder" :loading="isPrinting">
-              <span class="material-symbols-outlined text-lg mr-1">print</span>
-              直接打印
-            </el-button>
-            <el-button type="success" plain @click="handleMarkPrinted" :disabled="!selectedOrder" :loading="isSubmitting">
-              <span class="material-symbols-outlined text-lg mr-1">task_alt</span>
-              标记已打印
-            </el-button>
-            <el-button type="danger" plain @click="handleCancelPrint" :disabled="!selectedOrder" :loading="isSubmitting">
-              <span class="material-symbols-outlined text-lg mr-1">block</span>
-              作废单据
-            </el-button>
-          </div>
-        </header>
-
-        <div class="px-4 py-3 border-b border-outline-variant/10 bg-surface flex flex-wrap gap-x-6 gap-y-2 text-sm">
-          <span class="text-on-surface-variant">单号：<strong class="text-on-surface font-mono">{{ selectedOrder?.orderNo || '--' }}</strong></span>
-          <span class="text-on-surface-variant">客户：<strong class="text-on-surface">{{ selectedOrder?.customerName || '--' }}</strong></span>
-          <span class="text-on-surface-variant">经办：<strong class="text-on-surface">{{ selectedOrder?.operator || '--' }}</strong></span>
-          <span class="text-on-surface-variant">总金额：<strong class="text-on-surface">¥{{ totalAmount }}</strong></span>
-        </div>
-
-        <div class="flex-1 min-h-0 overflow-auto bg-[linear-gradient(180deg,#dfe7f1_0%,#edf2f7_100%)] p-4 md:p-6">
-          <div class="mx-auto w-full max-w-[980px] min-h-[560px] rounded-[28px] border border-slate-300/70 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.12)] p-6 md:p-8">
-            <div v-if="!selectedOrder" class="h-full min-h-[500px] flex flex-col items-center justify-center text-center text-slate-400">
-              <span class="material-symbols-outlined text-6xl mb-4">print_add</span>
-              <div class="text-xl font-black text-slate-500">请选择待打印出库单</div>
-              <p class="mt-2 text-sm max-w-md leading-6">左侧队列会展示所有待处理出库单。选中后即可查看内容、预览排版并发起打印。</p>
+          <template v-if="selectedOrder">
+            <div class="text-center relative mb-4">
+              <h1 class="text-2xl font-black tracking-widest">星火服装厂</h1>
+              <h2 class="text-lg font-bold tracking-widest mt-1 pb-2 border-b-2 border-black inline-block px-4">产品出库单</h2>
+              <div class="absolute right-0 bottom-0 text-xs font-bold font-mono">单号：{{ selectedOrder.orderNo }}</div>
             </div>
 
-            <article v-else id="receipt-print-sheet" class="text-black" style="font-family: 'SimSun', '宋体', serif;">
-              <div class="flex items-start justify-between gap-4 border-b-2 border-black pb-4">
-                <div>
-                  <div class="text-[32px] font-black tracking-[0.35em] leading-none">出库单</div>
-                  <div class="mt-2 text-sm tracking-[0.25em]">仓储发货凭证</div>
-                </div>
-                <div class="text-right text-sm leading-7">
-                  <div>单号：<span class="font-bold font-mono">{{ selectedOrder.orderNo }}</span></div>
-                  <div>日期：<span class="font-bold">{{ formatDate(selectedOrder.createTime) }}</span></div>
-                  <div>客户：<span class="font-bold">{{ selectedOrder.customerName || '--' }}</span></div>
-                </div>
-              </div>
+            <div class="flex justify-between text-[13px] font-bold mb-2">
+              <div>购货单位：{{ selectedOrder.customerName || '--' }}</div>
+              <div>日期：{{ formatDate(selectedOrder.createTime) }}</div>
+            </div>
 
-              <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
-                <div class="rounded-2xl border border-black/80 px-4 py-3">
-                  <div class="text-xs text-slate-500">经办人</div>
-                  <div class="mt-1 text-base font-bold">{{ selectedOrder.operator || '--' }}</div>
-                </div>
-                <div class="rounded-2xl border border-black/80 px-4 py-3">
-                  <div class="text-xs text-slate-500">条目统计</div>
-                  <div class="mt-1 text-base font-bold">{{ tableData.length }} 项 / {{ totalMeters }} 米</div>
-                </div>
-              </div>
+            <table class="w-full text-[12px] border-collapse border border-black text-center mb-2" style="table-layout: fixed;">
+              <thead>
+                <tr>
+                  <th class="border border-black py-1.5 w-12">序号</th>
+                  <th class="border border-black py-1.5">商品型号</th>
+                  <th class="border border-black py-1.5">规格</th>
+                  <th class="border border-black py-1.5 w-20">数量(米)</th>
+                  <th class="border border-black py-1.5 w-24">单价</th>
+                  <th class="border border-black py-1.5 w-24">金额</th>
+                  <th class="border border-black py-1.5">备注</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, index) in displayTableData" :key="index" class="h-8">
+                  <td class="border border-black">{{ row.id ? index + 1 : '' }}</td>
+                  <td class="border border-black text-left px-2 truncate">{{ row.modelCode }}</td>
+                  <td class="border border-black">{{ row.spec }}</td>
+                  <td class="border border-black font-mono">{{ row.meters }}</td>
+                  <td class="border border-black font-mono">{{ row.price }}</td>
+                  <td class="border border-black font-mono">{{ row.totalAmount }}</td>
+                  <td class="border border-black text-left px-1 truncate">{{ row.barcode }}</td>
+                </tr>
+                <tr class="h-8 font-bold">
+                  <td class="border border-black" colspan="3">合计</td>
+                  <td class="border border-black font-mono">{{ totalMeters }}</td>
+                  <td class="border border-black"></td>
+                  <td class="border border-black font-mono">{{ totalAmount }}</td>
+                  <td class="border border-black"></td>
+                </tr>
+              </tbody>
+            </table>
 
-              <table class="mt-4 w-full border-collapse text-center text-[13px]" style="table-layout: fixed;">
-                <thead>
-                  <tr>
-                    <th class="sheet-th w-14">序号</th>
-                    <th class="sheet-th">面料型号</th>
-                    <th class="sheet-th w-20">规格</th>
-                    <th class="sheet-th w-24">米数</th>
-                    <th class="sheet-th w-24">单价</th>
-                    <th class="sheet-th w-28">金额</th>
-                    <th class="sheet-th">条码 / 备注</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, index) in printableRows" :key="index">
-                    <td class="sheet-td">{{ row.id ? index + 1 : '' }}</td>
-                    <td class="sheet-td px-2 text-left">{{ row.modelCode }}</td>
-                    <td class="sheet-td">{{ row.spec }}</td>
-                    <td class="sheet-td font-mono">{{ row.meters }}</td>
-                    <td class="sheet-td font-mono">{{ row.price }}</td>
-                    <td class="sheet-td font-mono">{{ row.totalAmount }}</td>
-                    <td class="sheet-td px-2 text-left">{{ row.note }}</td>
-                  </tr>
-                  <tr class="font-bold">
-                    <td class="sheet-td" colspan="3">合计</td>
-                    <td class="sheet-td font-mono">{{ totalMeters }}</td>
-                    <td class="sheet-td"></td>
-                    <td class="sheet-td font-mono">{{ totalAmount }}</td>
-                    <td class="sheet-td"></td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="text-[11px] mb-4">大写金额：<span class="font-bold border-b border-black inline-block w-64 pb-0.5">{{ totalAmountText }}</span></div>
 
-              <div class="mt-4 rounded-2xl border border-black/80 px-4 py-3 text-sm">
-                <span class="text-slate-500">金额大写：</span>
-                <span class="font-bold">{{ totalAmountText }}</span>
-              </div>
+            <div class="flex justify-between text-[13px] font-bold mt-auto pt-4">
+              <div>制单人：{{ selectedOrder.operator || '--' }}</div>
+              <div>库管员：________</div>
+              <div>送货人：________</div>
+              <div>收货人(签字)：_______________</div>
+            </div>
 
-              <div class="mt-8 grid grid-cols-4 gap-4 text-sm">
-                <div>制单人：{{ selectedOrder.operator || '--' }}</div>
-                <div>仓管员：__________</div>
-                <div>送货人：__________</div>
-                <div>签收人：__________</div>
-              </div>
-
-              <div class="mt-6 text-center text-xs tracking-[0.2em] text-slate-500">
-                第一联：存根联　　第二联：客户联　　第三联：财务联
-              </div>
-            </article>
-          </div>
+            <div class="text-[10px] text-gray-600 mt-2 text-center absolute bottom-2 w-full left-0">第一联：存根(白) &nbsp;&nbsp;&nbsp; 第二联：客户(红) &nbsp;&nbsp;&nbsp; 第三联：财务(蓝)</div>
+          </template>
         </div>
-      </section>
-    </div>
+      </div>
+    </aside>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { cancelPrint, getPendingPrintOrders, getPrintDetail, markPrinted } from './receipt/api/receipt.js'
+import { cancelPrint, getPendingPrintOrders, getPrintDetail, getRawPrintCommand, markPrinted } from './receipt/api/receipt.js'
 
-const ROWS_PER_PAGE = 8
-
+const LOCAL_PRINT_BRIDGE_URL = 'http://127.0.0.1:13528/print/raw'
+const LOCAL_PRINTERS_URL = 'http://127.0.0.1:13528/printers'
+const LOCAL_HEALTH_URL = 'http://127.0.0.1:13528/health'
 const isFetchingList = ref(false)
 const isLoadingDetail = ref(false)
 const isPrinting = ref(false)
@@ -223,209 +150,184 @@ const isSubmitting = ref(false)
 const pendingOrders = ref([])
 const selectedOrder = ref(null)
 const tableData = ref([])
+const bridgeOnline = ref(false)
+const localPrinters = ref([])
+const selectedPrinterName = ref('')
+const ROWS_PER_PAGE = 5
 
-onMounted(fetchPendingList)
+onMounted(async () => {
+  await syncBridgeState()
+  await fetchPendingList()
+})
 
-async function fetchPendingList(keepSelection = false) {
-  const previousOrderNo = keepSelection ? selectedOrder.value?.orderNo : null
+async function fetchPendingList() {
   isFetchingList.value = true
+  selectedOrder.value = null
+  tableData.value = []
   try {
-    const list = await getPendingPrintOrders()
-    pendingOrders.value = Array.isArray(list) ? list : []
-    if (!previousOrderNo) {
-      selectedOrder.value = null
-      tableData.value = []
-      return
-    }
-    const matched = pendingOrders.value.find((item) => item.orderNo === previousOrderNo)
-    if (matched) {
-      await selectOrder(matched, true)
-    } else {
-      selectedOrder.value = null
-      tableData.value = []
-    }
+    pendingOrders.value = await getPendingPrintOrders()
   } finally {
     isFetchingList.value = false
   }
 }
 
-async function selectOrder(order, silent = false) {
-  if (!order?.orderNo) {
-    return
-  }
-  if (!silent && selectedOrder.value?.orderNo === order.orderNo) {
-    return
-  }
+async function selectOrder(order) {
+  if (selectedOrder.value?.orderNo === order.orderNo) return
   isLoadingDetail.value = true
   try {
     const detail = await getPrintDetail({ orderNo: order.orderNo })
     selectedOrder.value = detail
-    tableData.value = Array.isArray(detail?.items) ? detail.items : []
+    tableData.value = detail.items || []
   } finally {
     isLoadingDetail.value = false
   }
 }
 
-const printableRows = computed(() => {
+const displayTableData = computed(() => {
   const rows = tableData.value.map((item) => ({
     ...item,
-    modelCode: item.modelCode || '--',
-    spec: item.spec == null || item.spec === '' ? '--' : String(item.spec),
     meters: formatNumber(item.meters),
     price: money(item.price),
     totalAmount: money(item.totalAmount),
-    note: item.barcode || item.remark || '--'
+    spec: item.spec == null ? '' : item.spec
   }))
   while (rows.length < ROWS_PER_PAGE) {
-    rows.push({ id: '', modelCode: '', spec: '', meters: '', price: '', totalAmount: '', note: '' })
+    rows.push({ id: '', modelCode: '', spec: '', meters: '', price: '', totalAmount: '', barcode: '' })
   }
   return rows.slice(0, ROWS_PER_PAGE)
 })
 
-const totalMeters = computed(() => formatNumber(tableData.value.reduce((sum, item) => sum + Number(item?.meters || 0), 0)))
-const totalAmount = computed(() => money(tableData.value.reduce((sum, item) => sum + Number(item?.totalAmount || 0), 0)))
-const totalAmountText = computed(() => {
-  const amount = Number(totalAmount.value || 0)
-  return amount <= 0 ? '零元整' : toChineseCurrency(amount)
-})
-
-async function previewPrint() {
-  if (!selectedOrder.value) {
-    return
-  }
-  await printReceipt()
-}
+const totalMeters = computed(() => formatNumber(tableData.value.reduce((sum, item) => sum + Number(item.meters || 0), 0)))
+const totalAmount = computed(() => money(tableData.value.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0)))
+const totalAmountText = computed(() => totalAmount.value === '0.00' ? '' : `人民币 ${totalAmount.value} 元`)
 
 async function executePrint() {
-  if (!selectedOrder.value) {
-    return
-  }
-  await printReceipt()
-  try {
-    await ElMessageBox.confirm(
-      `请确认出库单 ${selectedOrder.value.orderNo} 已打印完成。确认后该单据将从待打印队列移除。`,
-      '打印确认',
-      {
-        confirmButtonText: '已打印完成',
-        cancelButtonText: '稍后再处理',
-        type: 'warning'
-      }
-    )
-    await handleMarkPrinted(true)
-  } catch (error) {
-    if (error !== 'cancel' && error !== 'close') {
-      throw error
-    }
-  }
-}
-
-async function handleMarkPrinted(skipConfirm = false) {
-  if (!selectedOrder.value) {
-    return
-  }
-  if (!skipConfirm) {
-    await ElMessageBox.confirm(
-      `确认将出库单 ${selectedOrder.value.orderNo} 标记为已打印吗？`,
-      '标记已打印',
-      {
-        confirmButtonText: '确认',
-        cancelButtonText: '取消',
-        type: 'success'
-      }
-    )
-  }
-  isSubmitting.value = true
-  try {
-    await markPrinted({ orderNo: selectedOrder.value.orderNo })
-    ElMessage.success('已标记为打印完成')
-    await fetchPendingList()
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
-async function handleCancelPrint() {
-  if (!selectedOrder.value) {
-    return
-  }
-  await ElMessageBox.confirm(
-    `确认作废出库单 ${selectedOrder.value.orderNo} 吗？作废后将不会继续出现在待打印列表中。`,
-    '作废确认',
-    {
-      confirmButtonText: '确认作废',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  )
-  isSubmitting.value = true
-  try {
-    await cancelPrint({ orderNo: selectedOrder.value.orderNo })
-    ElMessage.success('出库单已作废')
-    await fetchPendingList()
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
-async function printReceipt() {
-  const target = document.getElementById('receipt-print-sheet')
-  if (!target) {
-    ElMessage.warning('请先选择需要打印的出库单')
-    return
-  }
+  if (!selectedOrder.value) return
   isPrinting.value = true
   try {
-    const iframe = document.createElement('iframe')
-    iframe.style.position = 'fixed'
-    iframe.style.right = '0'
-    iframe.style.bottom = '0'
-    iframe.style.width = '0'
-    iframe.style.height = '0'
-    iframe.style.border = '0'
-    document.body.appendChild(iframe)
-
-    const doc = iframe.contentWindow?.document
-    if (!doc) {
-      throw new Error('打印窗口创建失败')
+    const command = await getRawPrintCommand({ orderNo: selectedOrder.value.orderNo })
+    const sent = await trySendToLocalPrinter(command)
+    if (!sent) {
+      downloadCommandFile(command)
+      ElMessage.warning('未检测到本机打印桥接，已为你下载 PRN 指令文件，请用打印桥接工具发送到三联打印机。')
+      return
     }
 
-    doc.open()
-    doc.write(`
-      <!doctype html>
-      <html lang="zh-CN">
-        <head>
-          <meta charset="UTF-8" />
-          <title>出库单打印</title>
-          <style>
-            @page { size: A4 portrait; margin: 12mm; }
-            body { margin: 0; color: #000; background: #fff; font-family: "SimSun", "宋体", serif; }
-            .sheet-th, .sheet-td {
-              border: 1px solid #000;
-              padding: 8px 6px;
-              vertical-align: middle;
-            }
-            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-          </style>
-        </head>
-        <body>${target.outerHTML}</body>
-      </html>
-    `)
-    doc.close()
-
-    await new Promise((resolve) => setTimeout(resolve, 180))
-    iframe.contentWindow?.focus()
-    iframe.contentWindow?.print()
-    await new Promise((resolve) => setTimeout(resolve, 200))
-    iframe.remove()
+    await ElMessageBox.confirm('请确认三联出库单已打印成功，确认后该单据将移出待打印队列。', '打印确认', {
+      confirmButtonText: '打印成功',
+      cancelButtonText: '稍后再打',
+      type: 'warning'
+    })
+    await markPrinted({ orderNo: selectedOrder.value.orderNo })
+    ElMessage.success('已标记为打印完成。')
+    await fetchPendingList()
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      console.error(error)
+      ElMessage.error('打印指令下发失败，请稍后重试')
+    }
   } finally {
     isPrinting.value = false
   }
 }
 
-function formatDate(value) {
-  if (!value) {
-    return '--'
+async function downloadPrintCommand() {
+  if (!selectedOrder.value) return
+  isPrinting.value = true
+  try {
+    const command = await getRawPrintCommand({ orderNo: selectedOrder.value.orderNo })
+    downloadCommandFile(command)
+    ElMessage.success('打印指令文件已开始下载')
+  } finally {
+    isPrinting.value = false
   }
+}
+
+async function handleCancelPrint() {
+  if (!selectedOrder.value) return
+  await ElMessageBox.confirm(`确认作废/跳过单据 ${selectedOrder.value.orderNo} 吗？`, '操作确认', {
+    confirmButtonText: '确认',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+  isSubmitting.value = true
+  try {
+    await cancelPrint({ orderNo: selectedOrder.value.orderNo })
+    ElMessage.success('操作成功。')
+    await fetchPendingList()
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+async function trySendToLocalPrinter(command) {
+  try {
+    const response = await fetch(LOCAL_PRINT_BRIDGE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jobName: command.fileName,
+        driverType: command.driverType,
+        contentType: command.contentType,
+        charset: command.charset,
+        base64Content: command.base64Content,
+        printerName: selectedPrinterName.value || undefined
+      })
+    })
+    return response.ok
+  } catch (error) {
+    return false
+  }
+}
+
+async function syncBridgeState() {
+  try {
+    const healthResponse = await fetch(LOCAL_HEALTH_URL)
+    bridgeOnline.value = healthResponse.ok
+  } catch (error) {
+    bridgeOnline.value = false
+  }
+  if (!bridgeOnline.value) {
+    localPrinters.value = []
+    selectedPrinterName.value = ''
+    return
+  }
+  try {
+    const printersResponse = await fetch(LOCAL_PRINTERS_URL)
+    const printersJson = await printersResponse.json()
+    localPrinters.value = Array.isArray(printersJson?.data) ? printersJson.data : []
+    const defaultPrinter = localPrinters.value.find((printer) => printer.defaultPrinter)
+    selectedPrinterName.value = defaultPrinter?.name || localPrinters.value[0]?.name || ''
+  } catch (error) {
+    localPrinters.value = []
+    selectedPrinterName.value = ''
+  }
+}
+
+function downloadCommandFile(command) {
+  const bytes = base64ToUint8Array(command.base64Content)
+  const blob = new Blob([bytes], { type: command.contentType || 'application/octet-stream' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = command.fileName || `${command.orderNo || 'print'}.prn`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function base64ToUint8Array(base64) {
+  const binary = window.atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+function formatDate(value) {
+  if (!value) return '--'
   return String(value).replace('T', ' ').slice(0, 16)
 }
 
@@ -436,86 +338,9 @@ function formatNumber(value) {
 function money(value) {
   return Number(value || 0).toFixed(2)
 }
-
-function toChineseCurrency(value) {
-  const digits = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖']
-  const sectionUnits = ['元', '万', '亿', '兆']
-  const digitUnits = ['', '拾', '佰', '仟']
-  const scaled = Math.round(Number(value || 0) * 100)
-  if (!scaled) {
-    return '零元整'
-  }
-
-  let integerPart = Math.floor(scaled / 100)
-  const decimalPart = scaled % 100
-  let result = ''
-  let sectionIndex = 0
-
-  while (integerPart > 0) {
-    let section = integerPart % 10000
-    let sectionText = ''
-    let digitIndex = 0
-    let zeroPending = false
-
-    while (section > 0) {
-      const digit = section % 10
-      if (digit === 0) {
-        if (!zeroPending && sectionText) {
-          sectionText = `${digits[0]}${sectionText}`
-        }
-        zeroPending = true
-      } else {
-        sectionText = `${digits[digit]}${digitUnits[digitIndex]}${sectionText}`
-        zeroPending = false
-      }
-      section = Math.floor(section / 10)
-      digitIndex += 1
-    }
-
-    if (sectionText) {
-      result = `${sectionText}${sectionUnits[sectionIndex]}${result}`
-    }
-    integerPart = Math.floor(integerPart / 10000)
-    sectionIndex += 1
-  }
-
-  result = result
-    .replace(/零+/g, '零')
-    .replace(/零(万|亿|兆|元)/g, '$1')
-    .replace(/亿万/g, '亿')
-
-  if (decimalPart === 0) {
-    return `${result}整`
-  }
-
-  const jiao = Math.floor(decimalPart / 10)
-  const fen = decimalPart % 10
-  let decimalText = ''
-  if (jiao > 0) {
-    decimalText += `${digits[jiao]}角`
-  }
-  if (fen > 0) {
-    decimalText += `${digits[fen]}分`
-  }
-  return `${result}${decimalText}`
-}
 </script>
 
 <style scoped>
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-thumb {
-  border-radius: 9999px;
-  background-color: rgba(100, 116, 139, 0.35);
-}
-
-.sheet-th,
-.sheet-td {
-  border: 1px solid #000;
-  padding: 8px 6px;
-  vertical-align: middle;
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { border-radius: 4px; background-color: #cbd5e1; }
 </style>

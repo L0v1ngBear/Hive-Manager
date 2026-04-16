@@ -18,7 +18,4 @@ public interface PriceSkuMapper extends BaseMapper<PriceSku> {
 
     @Select("SELECT COUNT(1) AS skuCount, COALESCE(AVG(base_price), 0) AS averagePrice, SUM(CASE WHEN status = 2 THEN 1 ELSE 0 END) AS pendingCount FROM price_sku WHERE tenant_code = #{tenantCode} AND is_deleted = 0")
     PriceStatsVO selectStats(@Param("tenantCode") String tenantCode);
-
-    @Select("SELECT DISTINCT category FROM price_sku WHERE tenant_code = #{tenantCode} AND is_deleted = 0 AND category IS NOT NULL AND category != '' ORDER BY category")
-    List<String> selectCategories(@Param("tenantCode") String tenantCode);
 }

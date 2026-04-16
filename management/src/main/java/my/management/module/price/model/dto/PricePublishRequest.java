@@ -21,8 +21,6 @@ public class PricePublishRequest {
 
     private String batchNo;
 
-    private String category;
-
     private String spec;
 
     @NotNull(message = "基准价不能为空")
@@ -33,8 +31,6 @@ public class PricePublishRequest {
 
     @NotNull(message = "生效日期不能为空")
     private LocalDate effectiveDate;
-
-    private String imageUrl;
 
     private String remark;
 

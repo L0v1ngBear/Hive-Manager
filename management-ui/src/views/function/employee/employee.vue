@@ -142,12 +142,9 @@
             <tbody class="divide-y divide-surface-variant/50">
             <tr v-for="emp in employees" :key="emp.id" class="hover:bg-surface-container-high/50 transition-colors group">
               <td class="px-6 py-3">
-                <div class="flex items-center gap-3">
-                  <img :src="emp.avatarUrl || fallbackAvatar(emp.name)" class="w-9 h-9 rounded-full object-cover bg-slate-200 shrink-0" />
-                  <div>
-                    <p class="font-bold text-primary leading-none whitespace-nowrap">{{ emp.name }}</p>
-                    <p class="text-[10px] text-on-surface-variant uppercase mt-1">{{ formatEmployeeType(emp.employeeType) }}</p>
-                  </div>
+                <div>
+                  <p class="font-bold text-primary leading-none whitespace-nowrap">{{ emp.name }}</p>
+                  <p class="text-[10px] text-on-surface-variant uppercase mt-1">{{ formatEmployeeType(emp.employeeType) }}</p>
                 </div>
               </td>
               <td class="px-6 py-3 font-mono text-sm text-secondary whitespace-nowrap">{{ emp.empNo || '--' }}</td>
@@ -391,7 +388,6 @@ const normalizeQuery = () => ({
 
 const formatPercent = (value) => `${Number(value || 0).toFixed(2)}%`
 const formatEmployeeType = (value) => ({ FULL_TIME: '全职', CONTRACT: '合同工', PROBATION: '试用期' }[value] || value || '--')
-const fallbackAvatar = (name) => `https://placehold.co/100x100/e2e8f0/64748b?text=${encodeURIComponent((name || 'U').slice(0, 1).toUpperCase())}`
 const departmentBadge = (name) => {
   const palettes = [
     'bg-blue-50 text-blue-700 border-blue-200',

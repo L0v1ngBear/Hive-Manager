@@ -28,10 +28,6 @@ export function getPriceModels(params) {
   return request({ url: '/price/models', method: 'get', params })
 }
 
-export function getPriceCategories() {
-  return request({ url: '/price/categories', method: 'get' })
-}
-
 export function exportPriceExcel(params) {
   return request({
     url: '/price/export-excel',

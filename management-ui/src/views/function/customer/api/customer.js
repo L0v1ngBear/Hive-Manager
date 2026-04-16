@@ -16,6 +16,14 @@ export function createCustomer(data) {
   })
 }
 
+export function updateCustomer(data) {
+  return request({
+    url: '/customer/update',
+    method: 'post',
+    data
+  })
+}
+
 export function getCustomerDetail(id) {
   return request({
     url: `/customer/detail/${id}`,

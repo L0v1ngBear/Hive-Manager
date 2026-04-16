@@ -23,8 +23,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -85,12 +85,6 @@ public class PriceController {
     @RequirePermission(value = "price:list", message = "您没有权限查看型号选项")
     public Result<List<ModelSpecOptionVO>> models(String keyword) {
         return Result.success(priceService.modelOptions(keyword));
-    }
-
-    @GetMapping("/categories")
-    @RequirePermission(value = "price:list", message = "您没有权限查看价格分类")
-    public Result<List<String>> categories() {
-        return Result.success(priceService.categories());
     }
 
     @GetMapping("/export-excel")

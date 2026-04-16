@@ -1,6 +1,8 @@
 package my.management.module.customer.model.vo;
 
 import lombok.Data;
+import my.management.module.customer.model.entity.CustomerContact;
+import my.management.module.customer.model.entity.CustomerProject;
 
 import java.util.List;
 
@@ -12,4 +14,6 @@ public class CustomerPageVO {
     private String constructionArea;
     private Integer projectCount;
     private List<String> projectNames;
+    private List<CustomerContact> contacts;
+    private List<CustomerProject> projects;
 }

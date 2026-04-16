@@ -124,13 +124,13 @@ public class PriceService {
 
         sku.setModelCode(request.getModelCode());
         sku.setBatchNo(request.getBatchNo());
-        sku.setCategory(request.getCategory());
+        // Category is no longer maintained in the price workflow, so new writes clear it.
+        sku.setCategory(null);
         sku.setSpec(request.getSpec());
         sku.setBasePrice(request.getBasePrice());
         sku.setCurrency(StringUtils.hasText(request.getCurrency()) ? request.getCurrency() : "CNY");
         sku.setEffectiveDate(request.getEffectiveDate());
         sku.setStatus(calcStatus(request.getEffectiveDate()));
-        sku.setImageUrl(request.getImageUrl());
         sku.setRemark(request.getRemark());
 
         if (created) {
@@ -204,18 +204,13 @@ public class PriceService {
         return clothModelSpecViewMapper.searchModelSpec(TenantPermissionContext.getTenantCode(), keyword, 50);
     }
 
-    public List<String> categories() {
-        return priceSkuMapper.selectCategories(TenantPermissionContext.getTenantCode());
-    }
-
     public void exportExcel(PricePageRequest request, HttpServletResponse response) {
-        List<String> headers = List.of("面料型号", "批号", "分类", "规格", "基准价", "币种", "生效日期", "状态", "备注");
+        List<String> headers = List.of("面料型号", "批号", "规格", "基准价", "币种", "生效日期", "状态", "备注");
         List<List<String>> rows = priceSkuMapper.selectList(buildQueryWrapper(request)).stream()
                 .map(this::toSkuVO)
                 .map(item -> List.of(
                         excelUtil.stringify(item.getModelCode()),
                         excelUtil.stringify(item.getBatchNo()),
-                        excelUtil.stringify(item.getCategory()),
                         excelUtil.stringify(item.getSpec()),
                         excelUtil.stringify(item.getBasePrice()),
                         excelUtil.stringify(item.getCurrency()),
@@ -230,10 +225,10 @@ public class PriceService {
     }
 
     public void downloadImportTemplate(HttpServletResponse response) {
-        List<String> headers = List.of("面料型号", "批号", "分类", "规格", "基准价", "币种", "生效日期", "备注");
+        List<String> headers = List.of("面料型号", "批号", "规格", "基准价", "币种", "生效日期", "备注");
         List<List<String>> examples = List.of(
-                List.of("978-1-56915-435-9", "BATCH-202604", "常规面料", "0.00", "32.50", "CNY", LocalDate.now().toString(), "导入示例"),
-                List.of("978-0-392-85262-3", "BATCH-202604", "高端面料", "1.00", "45.80", "CNY", LocalDate.now().plusDays(1).toString(), "计划生效价格")
+                List.of("978-1-56915-435-9", "BATCH-202604", "0.00", "32.50", "CNY", LocalDate.now().toString(), "导入示例"),
+                List.of("978-0-392-85262-3", "BATCH-202604", "1.00", "45.80", "CNY", LocalDate.now().plusDays(1).toString(), "计划生效价格")
         );
         List<String> notes = List.of(
                 "仅支持 .xlsx 文件导入。",
@@ -241,7 +236,7 @@ public class PriceService {
                 "生效日期格式：yyyy-MM-dd。为空时默认当天。",
                 "币种为空时默认 CNY。",
                 "导入时会复用价格发布逻辑，同型号将自动更新当前有效价格。",
-                "客户特价、等级价暂不在批量导入模板内，后续由客户自行补充。"
+                "客户特价、等级价暂不在批量导入模板内，后续由业务自行补充。"
         );
         excelUtil.writeToResponse(response,
                 excelUtil.createTemplateWorkbook("价格导入模板", headers, examples, notes),
@@ -258,7 +253,7 @@ public class PriceService {
             Sheet sheet = workbook.getSheetAt(0);
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
-                if (row == null || isEmptyRow(row, 8)) {
+                if (row == null || isEmptyRow(row, 7)) {
                     continue;
                 }
                 result.setTotalCount(result.getTotalCount() + 1);
@@ -389,10 +384,12 @@ public class PriceService {
         strategic.setTierCode("T1");
         strategic.setTierName("战略客户");
         strategic.setDiscountRate(BigDecimal.valueOf(90));
+
         TierPriceRequest bulk = new TierPriceRequest();
         bulk.setTierCode("T2");
         bulk.setTierName("大宗采购");
         bulk.setDiscountRate(BigDecimal.valueOf(95));
+
         TierPriceRequest standard = new TierPriceRequest();
         standard.setTierCode("T3");
         standard.setTierName("标准客户");
@@ -421,15 +418,13 @@ public class PriceService {
         wrapper.eq(PriceSku::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(PriceSku::getIsDeleted, 0)
                 .orderByDesc(PriceSku::getUpdateTime);
+        // 分类字段已下线，这里只保留关键词和状态两个有效筛选入口。
         if (StringUtils.hasText(request.getKeyword())) {
             wrapper.and(w -> w.like(PriceSku::getModelCode, request.getKeyword())
                     .or()
                     .like(PriceSku::getBatchNo, request.getKeyword())
                     .or()
                     .like(PriceSku::getSpec, request.getKeyword()));
-        }
-        if (StringUtils.hasText(request.getCategory())) {
-            wrapper.eq(PriceSku::getCategory, request.getCategory());
         }
         if (request.getStatus() != null) {
             wrapper.eq(PriceSku::getStatus, request.getStatus());
@@ -449,12 +444,11 @@ public class PriceService {
     private PricePublishRequest buildImportRequest(Row row) {
         String modelCode = excelUtil.readString(row.getCell(0));
         String batchNo = excelUtil.readString(row.getCell(1));
-        String category = excelUtil.readString(row.getCell(2));
-        String spec = excelUtil.readString(row.getCell(3));
-        String basePriceText = excelUtil.readString(row.getCell(4));
-        String currency = excelUtil.readString(row.getCell(5));
-        LocalDate effectiveDate = excelUtil.readLocalDate(row.getCell(6));
-        String remark = excelUtil.readString(row.getCell(7));
+        String spec = excelUtil.readString(row.getCell(2));
+        String basePriceText = excelUtil.readString(row.getCell(3));
+        String currency = excelUtil.readString(row.getCell(4));
+        LocalDate effectiveDate = excelUtil.readLocalDate(row.getCell(5));
+        String remark = excelUtil.readString(row.getCell(6));
 
         if (!StringUtils.hasText(modelCode) || !StringUtils.hasText(basePriceText)) {
             throw new BusinessException("面料型号、基准价不能为空");
@@ -463,7 +457,6 @@ public class PriceService {
         PricePublishRequest request = new PricePublishRequest();
         request.setModelCode(modelCode.trim());
         request.setBatchNo(blankToNull(batchNo));
-        request.setCategory(blankToNull(category));
         request.setSpec(blankToNull(spec));
         request.setBasePrice(new BigDecimal(basePriceText.trim()));
         request.setCurrency(StringUtils.hasText(currency) ? currency.trim() : "CNY");

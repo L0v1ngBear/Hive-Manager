@@ -14,8 +14,6 @@ public class PriceSkuVO {
 
     private String batchNo;
 
-    private String category;
-
     private String spec;
 
     private BigDecimal basePrice;
@@ -27,8 +25,6 @@ public class PriceSkuVO {
     private Integer status;
 
     private String statusLabel;
-
-    private String imageUrl;
 
     private String remark;
 }

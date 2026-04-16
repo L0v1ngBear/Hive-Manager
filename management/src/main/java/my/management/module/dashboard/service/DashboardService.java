@@ -1,6 +1,5 @@
 package my.management.module.dashboard.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import my.management.common.context.TenantPermissionContext;
 import my.management.module.dashboard.mapper.DashboardMapper;
@@ -9,21 +8,22 @@ import my.management.module.dashboard.model.vo.DashboardInventoryTrendRowVO;
 import my.management.module.dashboard.model.vo.DashboardInventoryWarningRowVO;
 import my.management.module.dashboard.model.vo.DashboardOverviewVO;
 import my.management.module.dashboard.model.vo.DashboardPendingPrintRowVO;
-import my.management.module.employee.mapper.EmployeeMapper;
-import my.management.module.employee.model.entity.Employee;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,16 +33,21 @@ public class DashboardService {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("MM-dd HH:mm");
     private static final DateTimeFormatter DAY_PREFIX_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final BigDecimal INVENTORY_WARNING_THRESHOLD = new BigDecimal("100");
+    private static final Duration OVERVIEW_CACHE_TTL = Duration.ofSeconds(20);
 
     @Resource
     private DashboardMapper dashboardMapper;
 
-    @Resource
-    private EmployeeMapper employeeMapper;
+    private final ConcurrentMap<String, DashboardCacheEntry> overviewCache = new ConcurrentHashMap<>();
 
     public DashboardOverviewVO overview() {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
+        String cacheKey = buildCacheKey(tenantCode, userId);
+        DashboardCacheEntry cached = overviewCache.get(cacheKey);
+        if (cached != null && !cached.isExpired()) {
+            return cached.value();
+        }
 
         DashboardOverviewVO vo = new DashboardOverviewVO();
         DashboardOverviewVO.Visibility visibility = buildVisibility();
@@ -52,6 +57,9 @@ public class DashboardService {
         vo.setBusinessAlerts(buildBusinessAlerts(tenantCode, visibility));
         vo.setAttendanceAlerts(buildAttendanceAlerts(tenantCode, visibility));
         vo.setQuickActions(buildQuickActions(visibility));
+
+        // Dashboard traffic is read-heavy, so a short cache window removes repeated aggregate queries.
+        overviewCache.put(cacheKey, new DashboardCacheEntry(vo, System.currentTimeMillis() + OVERVIEW_CACHE_TTL.toMillis()));
         return vo;
     }
 
@@ -134,9 +142,11 @@ public class DashboardService {
                 item.setType("inventory");
                 item.setLevel("warning");
                 item.setTitle("库存预警");
-                item.setContent(String.format("面料型号 %s 当前可用库存仅剩 %s 米，已低于建议安全阈值。",
+                item.setContent(String.format(
+                        "面料型号 %s 当前可用库存仅剩 %s 米，已低于建议安全阈值。",
                         defaultText(warning.getModelCode(), "未命名型号"),
-                        scale(warning.getTotalMeters()).stripTrailingZeros().toPlainString()));
+                        scale(warning.getTotalMeters()).stripTrailingZeros().toPlainString()
+                ));
                 item.setTime(formatTime(warning.getLatestTime()));
                 alerts.add(item);
             }
@@ -149,9 +159,11 @@ public class DashboardService {
                 item.setType("receipt");
                 item.setLevel("info");
                 item.setTitle("待打印出库单");
-                item.setContent(String.format("出库单 %s（客户：%s）仍待打印处理。",
+                item.setContent(String.format(
+                        "出库单 %s（客户：%s）仍待打印处理。",
                         defaultText(order.getOrderNo(), "--"),
-                        defaultText(order.getCustomerName(), "未填写")));
+                        defaultText(order.getCustomerName(), "未填写")
+                ));
                 item.setTime(formatTime(order.getUpdateTime()));
                 alerts.add(item);
             }
@@ -175,23 +187,12 @@ public class DashboardService {
             return List.of();
         }
 
-        Set<Long> userIds = rows.stream().map(DashboardAttendanceAlertRowVO::getUserId).collect(Collectors.toSet());
-        Map<Long, Employee> employeeMap = new HashMap<>();
-        if (!userIds.isEmpty()) {
-            employeeMap = employeeMapper.selectList(new LambdaQueryWrapper<Employee>()
-                            .eq(Employee::getTenantCode, tenantCode)
-                            .in(Employee::getId, userIds))
-                    .stream()
-                    .collect(Collectors.toMap(Employee::getId, item -> item, (a, b) -> a));
-        }
-
         List<DashboardOverviewVO.AttendanceAlert> alerts = new ArrayList<>();
         for (DashboardAttendanceAlertRowVO row : rows) {
-            Employee employee = employeeMap.get(row.getUserId());
             DashboardOverviewVO.AttendanceAlert alert = new DashboardOverviewVO.AttendanceAlert();
             alert.setUserId(row.getUserId());
-            alert.setUserName(employee == null ? "未命名员工" : defaultText(employee.getName(), "未命名员工"));
-            alert.setDepartmentName(employee == null ? "未分配部门" : defaultText(employee.getDepartmentName(), "未分配部门"));
+            alert.setUserName(defaultText(row.getUserName(), "未命名员工"));
+            alert.setDepartmentName(defaultText(row.getDepartmentName(), "未分配部门"));
             alert.setStatusText(resolveAttendanceStatus(row));
             alert.setTime(formatTime(row.getUpdateTime() == null ? row.getCreateTime() : row.getUpdateTime()));
             alerts.add(alert);
@@ -238,6 +239,12 @@ public class DashboardService {
         return currentPermCodes.contains("*") || currentPermCodes.contains("*:*");
     }
 
+    private String buildCacheKey(String tenantCode, Long userId) {
+        Set<String> permCodes = TenantPermissionContext.getPermCodes();
+        String permSignature = permCodes == null ? "" : String.join(",", new TreeSet<>(permCodes));
+        return tenantCode + ":" + userId + ":" + Integer.toHexString(permSignature.hashCode());
+    }
+
     private long nvl(Long value) {
         return value == null ? 0L : value;
     }
@@ -260,8 +267,10 @@ public class DashboardService {
             if (value == null || "--".equals(value)) {
                 return LocalDateTime.MIN;
             }
-            return LocalDateTime.parse(LocalDate.now().getYear() + "-" + value.replace(" ", "T") + ":00",
-                    DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+            return LocalDateTime.parse(
+                    LocalDate.now().getYear() + "-" + value.replace(" ", "T") + ":00",
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
+            );
         } catch (Exception ignored) {
             return LocalDateTime.MIN;
         }
@@ -285,5 +294,11 @@ public class DashboardService {
             }
         }
         return "考勤异常";
+    }
+
+    private record DashboardCacheEntry(DashboardOverviewVO value, long expireAt) {
+        private boolean isExpired() {
+            return System.currentTimeMillis() >= expireAt;
+        }
     }
 }

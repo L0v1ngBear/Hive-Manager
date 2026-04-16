@@ -18,7 +18,6 @@ public class EmployeeCreateRequest {
 
     private String email;
 
-    @NotBlank(message = "employeeType is required")
     private String employeeType;
 
     @NotNull(message = "departmentId is required")
@@ -34,8 +33,6 @@ public class EmployeeCreateRequest {
 
     @NotNull(message = "status is required")
     private Integer status;
-
-    private String avatarUrl;
 
     private String remark;
 

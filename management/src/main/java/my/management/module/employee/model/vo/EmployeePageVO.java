@@ -21,7 +21,6 @@ public class EmployeePageVO {
     private Integer status;
     private String statusLabel;
     private LocalDate entryDate;
-    private String avatarUrl;
     private Long leaderId;
     private String leaderName;
     private String remark;

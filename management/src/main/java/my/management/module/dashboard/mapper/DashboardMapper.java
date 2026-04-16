@@ -83,13 +83,15 @@ public interface DashboardMapper {
                                                                     @Param("limit") Integer limit);
 
     @Select({
-            "SELECT user_id AS userId, sign_in_status AS signInStatus, sign_out_status AS signOutStatus, ",
-            "create_time AS createTime, update_time AS updateTime ",
-            "FROM attendance_record ",
-            "WHERE tenant_code = #{tenantCode} ",
-            "AND punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
-            "AND (sign_in_status IN (1, 3, 6) OR sign_out_status IN (2, 3, 6)) ",
-            "ORDER BY update_time DESC, id DESC ",
+            "SELECT a.user_id AS userId, u.name AS userName, u.department_name AS departmentName, ",
+            "a.sign_in_status AS signInStatus, a.sign_out_status AS signOutStatus, ",
+            "a.create_time AS createTime, a.update_time AS updateTime ",
+            "FROM attendance_record a ",
+            "LEFT JOIN user u ON u.id = a.user_id AND u.tenant_code = a.tenant_code ",
+            "WHERE a.tenant_code = #{tenantCode} ",
+            "AND a.punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
+            "AND (a.sign_in_status IN (1, 3, 6) OR a.sign_out_status IN (2, 3, 6)) ",
+            "ORDER BY a.update_time DESC, a.id DESC ",
             "LIMIT #{limit}"
     })
     List<DashboardAttendanceAlertRowVO> selectTodayAttendanceAlerts(@Param("tenantCode") String tenantCode,
