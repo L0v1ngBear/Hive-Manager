@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
+/**
+ * TenantManageController 是管理端后端请求入口控制类，负责接收请求并调用对应服务。
+ */
 @RestController
 @RequestMapping("/platform/tenant")
 public class TenantManageController {

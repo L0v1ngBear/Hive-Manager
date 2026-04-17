@@ -3,7 +3,9 @@ package my.management.module.approval.model.vo;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-
+/**
+ * LeaveDetailVO 属于管理端后端审批模块，定义出参结构。
+ */
 @Data
 public class LeaveDetailVO {
 

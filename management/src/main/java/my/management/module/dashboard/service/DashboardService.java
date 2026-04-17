@@ -25,7 +25,9 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
-
+/**
+ * DashboardService 属于管理端后端总览大盘模块，实现核心业务编排与规则逻辑。
+ */
 @Service
 public class DashboardService {
 

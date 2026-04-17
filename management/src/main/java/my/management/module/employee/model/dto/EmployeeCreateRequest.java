@@ -6,7 +6,9 @@ import lombok.Data;
 
 import java.time.LocalDate;
 import java.util.List;
-
+/**
+ * EmployeeCreateRequest 属于管理端后端员工模块，定义入参结构。
+ */
 @Data
 public class EmployeeCreateRequest {
 

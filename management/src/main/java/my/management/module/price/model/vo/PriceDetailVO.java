@@ -4,7 +4,9 @@ import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
-
+/**
+ * PriceDetailVO 属于管理端后端价格模块，定义出参结构。
+ */
 @Data
 public class PriceDetailVO extends PriceSkuVO {
 

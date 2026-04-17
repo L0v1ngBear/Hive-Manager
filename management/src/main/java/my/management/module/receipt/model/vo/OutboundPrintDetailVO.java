@@ -6,7 +6,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-
+/**
+ * OutboundPrintDetailVO 属于管理端后端打印回执模块，定义出参结构。
+ */
 @Data
 public class OutboundPrintDetailVO {
 

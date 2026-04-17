@@ -2,7 +2,9 @@ package my.management.common.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
-
+/**
+ * Result 属于管理端后端通用能力层，定义通用传输对象。
+ */
 @Data
 public class Result<T> {
 

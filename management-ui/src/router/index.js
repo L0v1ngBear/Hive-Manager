@@ -75,6 +75,11 @@ export const constantRoutes = [
         meta: { title: '文档管理', permissions: ['document:list'] }
       },
       {
+        path: 'order',
+        name: 'Order',
+        component: () => import('@/views/function/order/order.vue'),
+      },
+      {
         path: 'approval',
         name: 'Approval',
         component: () => import('@/views/function/approval/approvalCenter.vue'),

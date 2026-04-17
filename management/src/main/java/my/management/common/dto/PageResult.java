@@ -4,7 +4,9 @@ package my.management.common.dto;
 import lombok.Data;
 
 import java.util.List;
-
+/**
+ * PageResult 属于管理端后端通用能力层，定义通用传输对象。
+ */
 @Data
 public class PageResult<T> {
     /** 当前页码 */

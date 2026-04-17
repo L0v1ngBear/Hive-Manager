@@ -3,7 +3,9 @@ package my.management.module.tenant.model.vo;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-
+/**
+ * TenantDetailVO 属于管理端后端租户模块，定义出参结构。
+ */
 @Data
 public class TenantDetailVO {
 

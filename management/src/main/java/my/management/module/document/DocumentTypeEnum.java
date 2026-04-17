@@ -1,7 +1,9 @@
 package my.management.module.document;
 
 import lombok.Getter;
-
+/**
+ * DocumentTypeEnum 属于管理端后端单据模块，属于该领域的细分实现。
+ */
 @Getter
 public enum DocumentTypeEnum {
     FOLDER(0),

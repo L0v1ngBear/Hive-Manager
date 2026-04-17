@@ -6,7 +6,9 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-
+/**
+ * Tenant 属于管理端后端租户模块，定义持久化实体结构，用于表字段映射。
+ */
 @Data
 @TableName("tenant")
 public class Tenant {

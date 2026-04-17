@@ -5,7 +5,18 @@ server:
 
 spring:
   profiles:
-    active: prod
+    active: dev
+
+tenant:
+  isolation:
+    # Reserved for future one-tenant-one-database routing. Keep FIELD for now.
+    mode: FIELD
+    default-datasource-key: default
+    registry-table: tenant_database_config
+    # Future database registry is stored in a shared table instead of yaml rows.
+    # Management login currently has no tenantCode in the request, so before
+    # enabling DATABASE mode you need a shared lookup path such as:
+    # phone/openId/user identity -> tenantCode -> datasourceKey.
 
 mybatis-plus:
   configuration:

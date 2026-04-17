@@ -10,7 +10,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
+/**
+ * AuthController 是管理端后端请求入口控制类，负责接收请求并调用对应服务。
+ */
 @RestController
 @RequestMapping("/auth")
 public class AuthController {

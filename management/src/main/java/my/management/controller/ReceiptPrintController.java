@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-
+/**
+ * ReceiptPrintController 是管理端后端请求入口控制类，负责接收请求并调用对应服务。
+ */
 @RestController
 @RequestMapping("/receipt")
 public class ReceiptPrintController {

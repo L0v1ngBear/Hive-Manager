@@ -8,7 +8,9 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
-
+/**
+ * OutboundOrderMapper 属于管理端后端打印回执模块，是数据访问类，负责与数据库交互。
+ */
 @Mapper
 public interface OutboundOrderMapper extends BaseMapper<OutboundOrder> {
 

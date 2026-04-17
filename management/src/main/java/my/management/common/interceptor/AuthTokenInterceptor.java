@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import my.management.common.auth.AuthUserInfo;
 import my.management.common.context.TenantPermissionContext;
 import my.management.common.dto.Result;
+import my.management.common.tenant.TenantIsolationSupport;
 import my.management.common.utils.PermissionCacheUtil;
 import my.management.common.utils.TokenUtil;
 import my.management.module.auth.mapper.AuthMapper;
@@ -17,7 +18,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-
+/**
+ * AuthTokenInterceptor 属于管理端后端通用能力层，是请求拦截器，用于补充上下文、鉴权或租户处理。
+ */
 @Component
 public class AuthTokenInterceptor implements HandlerInterceptor {
 
@@ -28,6 +31,9 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
 
     @Resource
     private PermissionCacheUtil permissionCacheUtil;
+
+    @Resource
+    private TenantIsolationSupport tenantIsolationSupport;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -53,12 +59,17 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
             permCodes = new LinkedHashSet<>(permissionList == null ? List.of() : permissionList);
             permissionCacheUtil.put(authUserInfo.getTenantCode(), authUserInfo.getUserId(), permCodes);
         }
+        // FIELD mode keeps using the shared datasource. DATABASE mode will switch
+        // to the tenant datasource here before permission/service queries run.
+        tenantIsolationSupport.bindTenantDatasource(authUserInfo.getTenantCode());
         TenantPermissionContext.init(authUserInfo.getTenantCode(), authUserInfo.getUserId(), permCodes);
         return true;
     }
 
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
+        // Always clear routing state to avoid thread reuse leaking another tenant's datasource.
+        tenantIsolationSupport.clearTenantDatasource();
         TenantPermissionContext.clear();
     }
 

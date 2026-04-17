@@ -16,7 +16,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-
+/**
+ * AuthService 属于管理端后端认证模块，实现核心业务编排与规则逻辑。
+ */
 @Service
 public class AuthService {
 

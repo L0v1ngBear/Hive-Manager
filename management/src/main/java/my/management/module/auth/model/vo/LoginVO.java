@@ -4,7 +4,9 @@ import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
-
+/**
+ * LoginVO 属于管理端后端认证模块，定义出参结构。
+ */
 @Data
 public class LoginVO {
 

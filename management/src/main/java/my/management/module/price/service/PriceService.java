@@ -48,7 +48,9 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
-
+/**
+ * PriceService 属于管理端后端价格模块，实现核心业务编排与规则逻辑。
+ */
 @Service
 public class PriceService {
 

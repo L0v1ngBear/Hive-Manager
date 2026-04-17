@@ -28,7 +28,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
-
+/**
+ * TenantManageService 属于管理端后端租户模块，实现核心业务编排与规则逻辑。
+ */
 @Service
 public class TenantManageService {
 

@@ -1,7 +1,9 @@
 package my.management.common.auth;
 
 import lombok.Data;
-
+/**
+ * AuthUserInfo 属于管理端后端通用能力层，提供认证或鉴权支撑逻辑。
+ */
 @Data
 public class AuthUserInfo {
 

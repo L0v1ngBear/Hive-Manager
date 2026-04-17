@@ -7,7 +7,9 @@ import my.management.module.dashboard.service.DashboardService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
+/**
+ * DashboardController 是管理端后端请求入口控制类，负责接收请求并调用对应服务。
+ */
 @RestController
 @RequestMapping("/dashboard")
 public class DashboardController {

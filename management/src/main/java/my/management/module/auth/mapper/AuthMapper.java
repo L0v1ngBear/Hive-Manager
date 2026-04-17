@@ -7,7 +7,9 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
-
+/**
+ * AuthMapper 属于管理端后端认证模块，是数据访问类，负责与数据库交互。
+ */
 @Mapper
 public interface AuthMapper {
 

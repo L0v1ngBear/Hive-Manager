@@ -3,7 +3,9 @@ package my.management.common.exception;
 
 import lombok.Getter;
 import lombok.Setter;
-
+/**
+ * BusinessException 属于管理端后端通用能力层，定义异常语义或异常处理行为。
+ */
 @Getter
 @Setter
 public class BusinessException extends RuntimeException {

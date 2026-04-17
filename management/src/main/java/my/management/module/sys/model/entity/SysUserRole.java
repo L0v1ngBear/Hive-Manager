@@ -7,7 +7,9 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-
+/**
+ * SysUserRole 属于管理端后端系统模块，定义持久化实体结构，用于表字段映射。
+ */
 @Data
 @TableName("sys_user_role")
 public class SysUserRole {

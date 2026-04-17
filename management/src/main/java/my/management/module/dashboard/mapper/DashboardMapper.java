@@ -11,7 +11,9 @@ import my.management.module.dashboard.model.vo.DashboardPendingPrintRowVO;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-
+/**
+ * DashboardMapper 属于管理端后端总览大盘模块，是数据访问类，负责与数据库交互。
+ */
 @Mapper
 public interface DashboardMapper {
 

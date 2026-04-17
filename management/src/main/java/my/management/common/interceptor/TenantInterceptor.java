@@ -5,16 +5,24 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import my.management.common.context.TenantPermissionContext;
 import my.management.common.dto.Result;
+import my.management.common.tenant.TenantIsolationSupport;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.util.Set;
-
+/**
+ * TenantInterceptor 属于管理端后端通用能力层，是请求拦截器，用于补充上下文、鉴权或租户处理。
+ */
 @Component
 public class TenantInterceptor implements HandlerInterceptor {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final TenantIsolationSupport tenantIsolationSupport;
+
+    public TenantInterceptor(TenantIsolationSupport tenantIsolationSupport) {
+        this.tenantIsolationSupport = tenantIsolationSupport;
+    }
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -38,12 +46,14 @@ public class TenantInterceptor implements HandlerInterceptor {
             return false;
         }
 
+        tenantIsolationSupport.bindTenantDatasource(tenantCode);
         TenantPermissionContext.init(tenantCode, userId, Set.of());
         return true;
     }
 
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
+        tenantIsolationSupport.clearTenantDatasource();
         TenantPermissionContext.clear();
     }
 

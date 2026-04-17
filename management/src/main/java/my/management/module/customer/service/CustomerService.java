@@ -27,7 +27,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-
+/**
+ * CustomerService 属于管理端后端客户模块，实现核心业务编排与规则逻辑。
+ */
 @Service
 public class CustomerService {
 

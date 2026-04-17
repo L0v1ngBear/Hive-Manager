@@ -26,7 +26,9 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.List;
-
+/**
+ * ExcelUtil 属于管理端后端通用能力层，提供可复用的工具方法。
+ */
 @Component
 public class ExcelUtil {
 

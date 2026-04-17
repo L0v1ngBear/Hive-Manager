@@ -32,7 +32,9 @@ import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
-
+/**
+ * RoleService 属于管理端后端系统模块，实现核心业务编排与规则逻辑。
+ */
 @Service
 public class RoleService {
 

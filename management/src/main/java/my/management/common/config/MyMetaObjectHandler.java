@@ -7,7 +7,9 @@ import org.apache.ibatis.reflection.MetaObject;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-
+/**
+ * MyMetaObjectHandler 属于管理端后端通用能力层，定义框架配置，用于组织基础设施行为。
+ */
 @Component
 public class MyMetaObjectHandler implements MetaObjectHandler {
 

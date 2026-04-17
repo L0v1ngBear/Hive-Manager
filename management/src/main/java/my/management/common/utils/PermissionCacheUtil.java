@@ -10,7 +10,9 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
-
+/**
+ * PermissionCacheUtil 属于管理端后端通用能力层，提供可复用的工具方法。
+ */
 @Component
 public class PermissionCacheUtil {
 

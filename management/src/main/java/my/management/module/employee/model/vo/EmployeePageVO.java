@@ -4,7 +4,9 @@ import lombok.Data;
 
 import java.time.LocalDate;
 import java.util.List;
-
+/**
+ * EmployeePageVO 属于管理端后端员工模块，定义出参结构。
+ */
 @Data
 public class EmployeePageVO {
 

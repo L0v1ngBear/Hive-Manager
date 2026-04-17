@@ -24,7 +24,9 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
-
+/**
+ * ReceiptPrintService 属于管理端后端打印回执模块，实现核心业务编排与规则逻辑。
+ */
 @Service
 public class ReceiptPrintService {
 

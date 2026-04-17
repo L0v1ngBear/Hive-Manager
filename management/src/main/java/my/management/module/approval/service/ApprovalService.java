@@ -22,7 +22,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-
+/**
+ * ApprovalService 属于管理端后端审批模块，实现核心业务编排与规则逻辑。
+ */
 @Service
 public class ApprovalService {
 

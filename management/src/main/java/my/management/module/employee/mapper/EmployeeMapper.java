@@ -12,7 +12,9 @@ import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDate;
 import java.util.List;
-
+/**
+ * EmployeeMapper 属于管理端后端员工模块，是数据访问类，负责与数据库交互。
+ */
 @Mapper
 public interface EmployeeMapper extends BaseMapper<Employee> {
 

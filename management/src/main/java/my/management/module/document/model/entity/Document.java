@@ -10,8 +10,10 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-
-@TableName("document")
+/**
+ * Document 属于管理端后端单据模块，定义持久化实体结构，用于表字段映射。
+ */
+@TableName
 @Data
 public class Document implements Serializable {
 

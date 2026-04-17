@@ -32,7 +32,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-
+/**
+ * EmployeeController 是管理端后端请求入口控制类，负责接收请求并调用对应服务。
+ */
 @RestController
 @RequestMapping("/emp/employee")
 @Validated

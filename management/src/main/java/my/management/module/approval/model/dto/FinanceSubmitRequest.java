@@ -6,7 +6,9 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
-
+/**
+ * FinanceSubmitRequest 属于管理端后端审批模块，定义入参结构。
+ */
 @Data
 public class FinanceSubmitRequest {
 

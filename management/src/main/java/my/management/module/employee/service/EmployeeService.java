@@ -57,7 +57,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
+/**
+ * EmployeeService 属于管理端后端员工模块，实现核心业务编排与规则逻辑。
+ */
 @Service
 public class EmployeeService {
 

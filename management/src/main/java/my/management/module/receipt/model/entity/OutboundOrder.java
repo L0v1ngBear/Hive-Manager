@@ -8,7 +8,9 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-
+/**
+ * OutboundOrder 属于管理端后端打印回执模块，定义持久化实体结构，用于表字段映射。
+ */
 @Data
 @TableName("outbound_order")
 public class OutboundOrder {

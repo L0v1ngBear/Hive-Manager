@@ -6,7 +6,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
-
+/**
+ * CorsConfig 属于管理端后端通用能力层，定义框架配置，用于组织基础设施行为。
+ */
 @Configuration
 public class CorsConfig {
 

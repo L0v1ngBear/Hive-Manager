@@ -10,7 +10,9 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-
+/**
+ * PriceSku 属于管理端后端价格模块，定义持久化实体结构，用于表字段映射。
+ */
 @Data
 @TableName("price_sku")
 public class PriceSku {
