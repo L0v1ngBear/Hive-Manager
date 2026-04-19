@@ -78,6 +78,7 @@ export const constantRoutes = [
         path: 'order',
         name: 'Order',
         component: () => import('@/views/function/order/order.vue'),
+        meta: { title: '订单管理', permissions: ['sales:order:list', 'production:order:list'] }
       },
       {
         path: 'approval',
