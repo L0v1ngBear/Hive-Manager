@@ -1,7 +1,7 @@
 package my.management.module.dashboard.service;
 
 import jakarta.annotation.Resource;
-import my.management.common.context.TenantPermissionContext;
+import my.hive.common.context.TenantPermissionContext;
 import my.management.module.dashboard.mapper.DashboardMapper;
 import my.management.module.dashboard.model.vo.DashboardAttendanceAlertRowVO;
 import my.management.module.dashboard.model.vo.DashboardInventoryTrendRowVO;

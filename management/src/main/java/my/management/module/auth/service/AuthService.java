@@ -1,11 +1,11 @@
 package my.management.module.auth.service;
 
 import jakarta.annotation.Resource;
-import my.management.common.exception.BusinessException;
+import my.hive.common.exception.BusinessException;
 import my.management.common.service.DeveloperAccessService;
-import my.management.common.utils.EncryptUtil;
-import my.management.common.utils.ResponseEncryptUtil;
-import my.management.common.utils.TokenUtil;
+import my.hive.common.utils.EncryptUtil;
+import my.hive.common.utils.ResponseEncryptUtil;
+import my.hive.common.utils.TokenUtil;
 import my.management.module.auth.mapper.AuthMapper;
 import my.management.module.auth.model.dto.LoginRequest;
 import my.management.module.auth.model.vo.LoginUserRow;

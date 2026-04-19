@@ -1,8 +1,8 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
-import my.management.common.annotation.RequirePermission;
-import my.management.common.dto.Result;
+import my.hive.common.annotation.RequirePermission;
+import my.hive.common.dto.Result;
 import my.management.module.document.model.dto.DocumentAddRequest;
 import my.management.module.document.model.entity.Document;
 import my.management.module.document.model.vo.DocumentVO;

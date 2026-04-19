@@ -1,7 +1,7 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
-import my.management.common.dto.Result;
+import my.hive.common.dto.Result;
 import my.management.module.dashboard.model.vo.DashboardOverviewVO;
 import my.management.module.dashboard.service.DashboardService;
 import org.springframework.web.bind.annotation.GetMapping;

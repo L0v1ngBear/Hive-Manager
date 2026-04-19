@@ -2,7 +2,7 @@ package my.management.controller;
 
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
-import my.management.common.dto.Result;
+import my.hive.common.dto.Result;
 import my.management.module.auth.model.dto.LoginRequest;
 import my.management.module.auth.model.vo.LoginVO;
 import my.management.module.auth.service.AuthService;

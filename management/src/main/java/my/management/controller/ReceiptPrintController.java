@@ -1,8 +1,8 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
-import my.management.common.annotation.RequirePermission;
-import my.management.common.dto.Result;
+import my.hive.common.annotation.RequirePermission;
+import my.hive.common.dto.Result;
 import my.management.module.receipt.model.vo.OutboundPrintCommandVO;
 import my.management.module.receipt.model.vo.OutboundPrintDetailVO;
 import my.management.module.receipt.model.vo.OutboundPrintOrderVO;
