@@ -20,6 +20,8 @@ public class SalesOrderDetailVO {
 
     private String customerPhone;
 
+    private String projectName;
+
     private String goodsDesc;
 
     private BigDecimal totalAmount;
@@ -48,6 +50,8 @@ public class SalesOrderDetailVO {
         private Long id;
 
         private String modelCode;
+
+        private Float weight;
 
         private String spec;
 

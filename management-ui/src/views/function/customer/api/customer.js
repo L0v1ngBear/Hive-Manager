@@ -30,3 +30,11 @@ export function getCustomerDetail(id) {
     method: 'get'
   })
 }
+
+export function getCustomerOptions(params) {
+  return request({
+    url: '/customer/options',
+    method: 'get',
+    params
+  })
+}

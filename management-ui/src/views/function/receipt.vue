@@ -7,7 +7,7 @@
             待打印任务队列
             <span class="bg-error/10 text-error text-[10px] px-2 py-0.5 rounded-full font-bold">{{ pendingOrders.length }}</span>
           </h2>
-          <p class="text-xs text-on-surface-variant mt-1">小程序结单后会进入这里，由 PC 端统一下发三联打印机。</p>
+          <p class="text-xs text-on-surface-variant mt-1">小程序出库后会进入这里，电脑端可直接预览并通过浏览器打印到三联打印机。</p>
         </div>
         <el-button circle @click="fetchPendingList" :loading="isFetchingList">
           <span class="material-symbols-outlined text-lg">refresh</span>
@@ -17,7 +17,7 @@
       <div class="flex-1 overflow-y-auto p-3 space-y-2 bg-surface-container-lowest">
         <div v-if="pendingOrders.length === 0 && !isFetchingList" class="h-full flex flex-col items-center justify-center text-on-surface-variant/50">
           <span class="material-symbols-outlined text-4xl mb-2">task_alt</span>
-          <p class="text-sm font-medium">当前暂无待打印单据</p>
+          <p class="text-sm font-medium">当前暂无待打印出库单</p>
         </div>
 
         <div
@@ -30,7 +30,7 @@
           ]"
         >
           <div v-if="selectedOrder?.orderNo === item.orderNo" class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
-          <div class="flex justify-between items-start mb-2">
+          <div class="flex justify-between items-start mb-2 gap-3">
             <span class="text-sm font-black text-on-surface font-mono">{{ item.orderNo }}</span>
             <span class="text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded">{{ formatDate(item.createTime) }}</span>
           </div>
@@ -43,35 +43,33 @@
     <aside class="flex-1 bg-surface-container-lowest rounded-2xl shadow-sm ring-1 ring-outline-variant/20 flex flex-col overflow-hidden relative">
       <div v-if="isLoadingDetail" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
         <span class="material-symbols-outlined text-primary text-3xl animate-spin mb-2">progress_activity</span>
-        <span class="text-sm text-primary font-bold">正在生成单据排版...</span>
+        <span class="text-sm text-primary font-bold">正在生成出库单预览...</span>
       </div>
 
-      <header class="p-4 border-b border-outline-variant/20 flex justify-between items-center bg-surface z-10">
-        <h3 class="text-sm font-bold text-on-surface">出库单打印预览（241mm × 140mm）</h3>
-        <div class="flex gap-2 flex-wrap justify-end">
-          <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold" :class="bridgeOnline ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'">
-            {{ bridgeOnline ? '桥接已连接' : '桥接未连接' }}
-          </span>
-          <el-select v-model="selectedPrinterName" placeholder="默认打印机" clearable filterable style="width: 220px" :disabled="!bridgeOnline || localPrinters.length === 0">
-            <el-option v-for="printer in localPrinters" :key="printer.name" :label="printer.defaultPrinter ? `${printer.name}（默认）` : printer.name" :value="printer.name" />
-          </el-select>
-          <el-button v-if="selectedOrder" plain @click="downloadPrintCommand" :loading="isPrinting">下载指令</el-button>
-          <el-button v-if="selectedOrder" plain type="danger" @click="handleCancelPrint" :loading="isSubmitting">作废/跳过</el-button>
-          <el-button type="success" :disabled="!selectedOrder" @click="executePrint" :loading="isPrinting">
-            <span class="material-symbols-outlined text-lg mr-1">print</span>发送到打印机
+      <header class="p-4 border-b border-outline-variant/20 flex justify-between items-center gap-3 bg-surface z-10 flex-wrap">
+        <div>
+          <h3 class="text-sm font-bold text-on-surface">出库单打印预览</h3>
+        </div>
+        <div class="flex gap-2 flex-wrap justify-end receipt-actions">
+          <el-button v-if="selectedOrder" class="receipt-action-button" @click="openBrowserPrint" :loading="isPrinting">
+            <span class="material-symbols-outlined text-[18px] mr-1">print</span>浏览器打印
+          </el-button>
+          <el-button v-if="selectedOrder" class="receipt-action-button receipt-action-button--danger" @click="handleCancelPrint" :loading="isSubmitting">作废/跳过</el-button>
+          <el-button class="receipt-action-button receipt-action-button--success" :disabled="!selectedOrder" @click="confirmPrinted" :loading="isSubmitting">
+            <span class="material-symbols-outlined text-[18px] mr-1">task_alt</span>确认已打印
           </el-button>
         </div>
       </header>
 
-      <div class="px-4 py-2 border-b border-outline-variant/10 bg-surface-container-low text-xs text-on-surface-variant">
-        优先通过本机打印桥接服务直接下发三联打印机；如果桥接未启动或本机无可用打印机，会自动下载 `.prn` 指令文件作为兜底。
-      </div>
-
       <div class="flex-1 overflow-y-auto bg-[#e5e7eb] p-8 flex justify-center">
-        <div id="print-paper-area" class="bg-white shadow-xl relative overflow-hidden transition-opacity" :class="!selectedOrder ? 'opacity-0' : 'opacity-100'" style="width: 241mm; min-height: 140mm; padding: 10mm; font-family: 'SimSun', '宋体', serif; color: #000;">
+        <div
+          id="print-paper-area"
+          class="bg-white shadow-xl relative overflow-hidden transition-opacity print-sheet"
+          :class="!selectedOrder ? 'opacity-0' : 'opacity-100'"
+        >
           <div v-if="!selectedOrder" class="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 text-gray-400 opacity-100">
             <span class="material-symbols-outlined text-5xl mb-2">touch_app</span>
-            <p>请在左侧列表中选择单据进行打印</p>
+            <p>请在左侧列表中选择出库单进行打印</p>
           </div>
 
           <template v-if="selectedOrder">
@@ -81,12 +79,12 @@
               <div class="absolute right-0 bottom-0 text-xs font-bold font-mono">单号：{{ selectedOrder.orderNo }}</div>
             </div>
 
-            <div class="flex justify-between text-[13px] font-bold mb-2">
-              <div>购货单位：{{ selectedOrder.customerName || '--' }}</div>
+            <div class="flex justify-between text-[13px] font-bold mb-2 gap-4">
+              <div>客户：{{ selectedOrder.customerName || '--' }}</div>
               <div>日期：{{ formatDate(selectedOrder.createTime) }}</div>
             </div>
 
-            <table class="w-full text-[12px] border-collapse border border-black text-center mb-2" style="table-layout: fixed;">
+            <table class="w-full text-[12px] border-collapse border border-black text-center mb-2 receipt-table" style="table-layout: fixed;">
               <thead>
                 <tr>
                   <th class="border border-black py-1.5 w-12">序号</th>
@@ -120,14 +118,14 @@
 
             <div class="text-[11px] mb-4">大写金额：<span class="font-bold border-b border-black inline-block w-64 pb-0.5">{{ totalAmountText }}</span></div>
 
-            <div class="flex justify-between text-[13px] font-bold mt-auto pt-4">
+            <div class="flex justify-between text-[13px] font-bold mt-auto pt-4 gap-4 flex-wrap">
               <div>制单人：{{ selectedOrder.operator || '--' }}</div>
               <div>库管员：________</div>
               <div>送货人：________</div>
-              <div>收货人(签字)：_______________</div>
+              <div>收货人(签字)：______________</div>
             </div>
 
-            <div class="text-[10px] text-gray-600 mt-2 text-center absolute bottom-2 w-full left-0">第一联：存根(白) &nbsp;&nbsp;&nbsp; 第二联：客户(红) &nbsp;&nbsp;&nbsp; 第三联：财务(蓝)</div>
+            <div class="text-[10px] text-gray-600 mt-2 text-center absolute bottom-2 w-full left-0">第一联：存根(白)　　第二联：客户(红)　　第三联：财务(蓝)</div>
           </template>
         </div>
       </div>
@@ -138,11 +136,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { cancelPrint, getPendingPrintOrders, getPrintDetail, getRawPrintCommand, markPrinted } from './receipt/api/receipt.js'
+import { cancelPrint, getPendingPrintOrders, getPrintDetail, markPrinted } from './receipt/api/receipt.js'
 
-const LOCAL_PRINT_BRIDGE_URL = 'http://127.0.0.1:13528/print/raw'
-const LOCAL_PRINTERS_URL = 'http://127.0.0.1:13528/printers'
-const LOCAL_HEALTH_URL = 'http://127.0.0.1:13528/health'
 const isFetchingList = ref(false)
 const isLoadingDetail = ref(false)
 const isPrinting = ref(false)
@@ -150,13 +145,9 @@ const isSubmitting = ref(false)
 const pendingOrders = ref([])
 const selectedOrder = ref(null)
 const tableData = ref([])
-const bridgeOnline = ref(false)
-const localPrinters = ref([])
-const selectedPrinterName = ref('')
 const ROWS_PER_PAGE = 5
 
 onMounted(async () => {
-  await syncBridgeState()
   await fetchPendingList()
 })
 
@@ -201,45 +192,48 @@ const totalMeters = computed(() => formatNumber(tableData.value.reduce((sum, ite
 const totalAmount = computed(() => money(tableData.value.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0)))
 const totalAmountText = computed(() => totalAmount.value === '0.00' ? '' : `人民币 ${totalAmount.value} 元`)
 
-async function executePrint() {
+async function openBrowserPrint() {
   if (!selectedOrder.value) return
   isPrinting.value = true
   try {
-    const command = await getRawPrintCommand({ orderNo: selectedOrder.value.orderNo })
-    const sent = await trySendToLocalPrinter(command)
-    if (!sent) {
-      downloadCommandFile(command)
-      ElMessage.warning('未检测到本机打印桥接，已为你下载 PRN 指令文件，请用打印桥接工具发送到三联打印机。')
+    const printable = document.getElementById('print-paper-area')
+    if (!printable) {
+      ElMessage.error('未找到打印内容')
       return
     }
-
-    await ElMessageBox.confirm('请确认三联出库单已打印成功，确认后该单据将移出待打印队列。', '打印确认', {
-      confirmButtonText: '打印成功',
-      cancelButtonText: '稍后再打',
-      type: 'warning'
-    })
-    await markPrinted({ orderNo: selectedOrder.value.orderNo })
-    ElMessage.success('已标记为打印完成。')
-    await fetchPendingList()
-  } catch (error) {
-    if (error !== 'cancel' && error !== 'close') {
-      console.error(error)
-      ElMessage.error('打印指令下发失败，请稍后重试')
+    const printWindow = window.open('about:blank', '_blank', 'width=1200,height=900')
+    if (!printWindow) {
+      ElMessage.error('浏览器拦截了打印窗口，请允许弹窗后重试')
+      return
     }
+    const html = buildPrintHtml(printable.innerHTML)
+    printWindow.document.open()
+    printWindow.document.write(html)
+    printWindow.document.close()
+    printWindow.document.title = ''
+    printWindow.focus()
+    setTimeout(() => {
+      printWindow.print()
+    }, 300)
   } finally {
     isPrinting.value = false
   }
 }
 
-async function downloadPrintCommand() {
+async function confirmPrinted() {
   if (!selectedOrder.value) return
-  isPrinting.value = true
+  await ElMessageBox.confirm('确认这张出库单已经通过浏览器打印成功吗？确认后该单据会移出待打印队列。', '打印确认', {
+    confirmButtonText: '确认已打印',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+  isSubmitting.value = true
   try {
-    const command = await getRawPrintCommand({ orderNo: selectedOrder.value.orderNo })
-    downloadCommandFile(command)
-    ElMessage.success('打印指令文件已开始下载')
+    await markPrinted({ orderNo: selectedOrder.value.orderNo })
+    ElMessage.success('已标记为打印完成')
+    await fetchPendingList()
   } finally {
-    isPrinting.value = false
+    isSubmitting.value = false
   }
 }
 
@@ -253,77 +247,98 @@ async function handleCancelPrint() {
   isSubmitting.value = true
   try {
     await cancelPrint({ orderNo: selectedOrder.value.orderNo })
-    ElMessage.success('操作成功。')
+    ElMessage.success('操作成功')
     await fetchPendingList()
   } finally {
     isSubmitting.value = false
   }
 }
 
-async function trySendToLocalPrinter(command) {
-  try {
-    const response = await fetch(LOCAL_PRINT_BRIDGE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jobName: command.fileName,
-        driverType: command.driverType,
-        contentType: command.contentType,
-        charset: command.charset,
-        base64Content: command.base64Content,
-        printerName: selectedPrinterName.value || undefined
-      })
-    })
-    return response.ok
-  } catch (error) {
-    return false
-  }
-}
-
-async function syncBridgeState() {
-  try {
-    const healthResponse = await fetch(LOCAL_HEALTH_URL)
-    bridgeOnline.value = healthResponse.ok
-  } catch (error) {
-    bridgeOnline.value = false
-  }
-  if (!bridgeOnline.value) {
-    localPrinters.value = []
-    selectedPrinterName.value = ''
-    return
-  }
-  try {
-    const printersResponse = await fetch(LOCAL_PRINTERS_URL)
-    const printersJson = await printersResponse.json()
-    localPrinters.value = Array.isArray(printersJson?.data) ? printersJson.data : []
-    const defaultPrinter = localPrinters.value.find((printer) => printer.defaultPrinter)
-    selectedPrinterName.value = defaultPrinter?.name || localPrinters.value[0]?.name || ''
-  } catch (error) {
-    localPrinters.value = []
-    selectedPrinterName.value = ''
-  }
-}
-
-function downloadCommandFile(command) {
-  const bytes = base64ToUint8Array(command.base64Content)
-  const blob = new Blob([bytes], { type: command.contentType || 'application/octet-stream' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = command.fileName || `${command.orderNo || 'print'}.prn`
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
-
-function base64ToUint8Array(base64) {
-  const binary = window.atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return bytes
+function buildPrintHtml(content) {
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title></title>
+  <style>
+    @page {
+      size: 241mm 140mm;
+      margin: 0;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #000;
+      font-family: SimSun, '宋体', serif;
+    }
+    .print-sheet {
+      width: 241mm;
+      min-height: 140mm;
+      padding: 10mm;
+      position: relative;
+      overflow: hidden;
+    }
+    .receipt-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .receipt-table th, .receipt-table td { border: 1px solid #000; }
+    .text-center { text-align: center; }
+    .text-left { text-align: left; }
+    .text-right { text-align: right; }
+    .font-black { font-weight: 900; }
+    .font-bold { font-weight: 700; }
+    .font-mono { font-family: 'Consolas', 'Courier New', monospace; }
+    .tracking-widest { letter-spacing: 0.2em; }
+    .text-2xl { font-size: 24px; }
+    .text-lg { font-size: 18px; }
+    .text-[13px] { font-size: 13px; }
+    .text-[12px] { font-size: 12px; }
+    .text-[11px] { font-size: 11px; }
+    .text-[10px] { font-size: 10px; }
+    .mb-4 { margin-bottom: 16px; }
+    .mb-2 { margin-bottom: 8px; }
+    .mt-1 { margin-top: 4px; }
+    .mt-2 { margin-top: 8px; }
+    .pt-4 { padding-top: 16px; }
+    .pb-2 { padding-bottom: 8px; }
+    .pb-0\.5 { padding-bottom: 2px; }
+    .py-1\.5 { padding-top: 6px; padding-bottom: 6px; }
+    .px-1 { padding-left: 4px; padding-right: 4px; }
+    .px-2 { padding-left: 8px; padding-right: 8px; }
+    .px-4 { padding-left: 16px; padding-right: 16px; }
+    .w-12 { width: 48px; }
+    .w-20 { width: 80px; }
+    .w-24 { width: 96px; }
+    .w-64 { width: 256px; }
+    .h-8 { height: 32px; }
+    .border-b-2 { border-bottom: 2px solid #000; }
+    .border-b { border-bottom: 1px solid #000; }
+    .inline-block { display: inline-block; }
+    .flex { display: flex; }
+    .justify-between { justify-content: space-between; }
+    .items-start { align-items: flex-start; }
+    .gap-4 { gap: 16px; }
+    .gap-3 { gap: 12px; }
+    .gap-2 { gap: 8px; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .relative { position: relative; }
+    .absolute { position: absolute; }
+    .right-0 { right: 0; }
+    .bottom-0 { bottom: 0; }
+    .bottom-2 { bottom: 8px; }
+    .left-0 { left: 0; }
+    .w-full { width: 100%; }
+    .mt-auto { margin-top: auto; }
+    .flex-wrap { flex-wrap: wrap; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-sheet">${content}</div>
+</body>
+</html>`
 }
 
 function formatDate(value) {
@@ -341,6 +356,74 @@ function money(value) {
 </script>
 
 <style scoped>
+.print-sheet {
+  width: 241mm;
+  min-height: 140mm;
+  padding: 10mm;
+  font-family: 'SimSun', '宋体', serif;
+  color: #000;
+}
+
+.receipt-table th,
+.receipt-table td {
+  border-color: #000;
+}
+
+:deep(.receipt-actions .el-button) {
+  border-radius: 999px;
+  min-height: 40px;
+  padding: 0 18px;
+  border-width: 1px;
+  font-weight: 700;
+}
+
+:deep(.receipt-action-button) {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+:deep(.receipt-action-button:hover) {
+  border-color: rgba(37, 99, 235, 0.28);
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+:deep(.receipt-action-button--danger) {
+  border-color: rgba(220, 38, 38, 0.14);
+  color: #b91c1c;
+  background: #fff5f5;
+  box-shadow: 0 8px 18px rgba(220, 38, 38, 0.08);
+}
+
+:deep(.receipt-action-button--danger:hover) {
+  border-color: rgba(220, 38, 38, 0.24);
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+:deep(.receipt-action-button--success) {
+  border-color: #0f766e;
+  background: linear-gradient(135deg, #14b8a6, #0f766e);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(15, 118, 110, 0.22);
+}
+
+:deep(.receipt-action-button--success:hover) {
+  border-color: #115e59;
+  background: linear-gradient(135deg, #0f766e, #115e59);
+  color: #ffffff;
+}
+
+:deep(.receipt-action-button.is-disabled),
+:deep(.receipt-action-button.is-disabled:hover) {
+  background: #e5e7eb;
+  border-color: #e5e7eb;
+  color: #94a3b8;
+  box-shadow: none;
+}
+
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { border-radius: 4px; background-color: #cbd5e1; }
 </style>

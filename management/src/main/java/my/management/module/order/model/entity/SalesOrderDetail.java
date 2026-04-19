@@ -31,6 +31,11 @@ public class SalesOrderDetail {
     @TableField("model_code")
     private String modelCode;
 
+    /**
+     * 销售明细克重来自小程序下单页，管理端新建和编辑时也沿用这一结构。
+     */
+    private Float weight;
+
     private String spec;
 
     private BigDecimal quantity;

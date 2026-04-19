@@ -140,7 +140,7 @@
             </tr>
             </thead>
             <tbody class="divide-y divide-surface-variant/50">
-            <tr v-for="emp in employees" :key="emp.id" class="hover:bg-surface-container-high/50 transition-colors group">
+            <tr v-for="emp in employees" :key="emp.id" class="cursor-pointer hover:bg-surface-container-high/50 transition-colors group" @click="showEmployeeDetail(emp.id)">
               <td class="px-6 py-3">
                 <div>
                   <p class="font-bold text-primary leading-none whitespace-nowrap">{{ emp.name }}</p>
@@ -167,10 +167,10 @@
               <td class="px-6 py-3 text-sm text-on-surface-variant font-medium whitespace-nowrap">{{ emp.entryDate || '--' }}</td>
               <td class="px-6 py-3 text-right">
                 <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button @click="showEmployeeDetail(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="查看">
+                  <button @click.stop="showEmployeeDetail(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="查看">
                     <span class="material-symbols-outlined text-[18px]">visibility</span>
                   </button>
-                  <button @click="openEditDrawer(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="编辑">
+                  <button @click.stop="openEditDrawer(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="编辑">
                     <span class="material-symbols-outlined text-[18px]">edit</span>
                   </button>
                 </div>

@@ -19,6 +19,8 @@ public class SalesOrderPageVO {
 
     private String customerPhone;
 
+    private String projectName;
+
     private String goodsDesc;
 
     private BigDecimal totalAmount;

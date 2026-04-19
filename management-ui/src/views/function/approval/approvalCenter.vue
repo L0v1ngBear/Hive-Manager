@@ -120,7 +120,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-surface-variant/20">
-              <tr v-for="item in rows" :key="item.code" class="hover:bg-surface-container-low/50 transition-colors group">
+              <tr v-for="item in rows" :key="item.code" class="cursor-pointer hover:bg-surface-container-low/50 transition-colors group" @click="openDetail(item)">
                 <td class="px-5 py-3.5">
                   <div class="text-sm font-black text-on-surface group-hover:text-primary transition-colors">{{ item.code }}</div>
                   <div class="text-[10px] font-medium text-on-surface-variant mt-0.5">{{ item.typeLabel }}</div>
@@ -153,10 +153,10 @@
                 </td>
                 <td class="px-5 py-3.5 text-xs font-medium text-on-surface-variant">{{ formatTime(item.createTime) }}</td>
                 <td class="px-5 py-3.5 text-right space-x-2">
-                  <button @click="openDetail(item)" class="text-on-surface-variant hover:text-primary hover:bg-primary/10 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors">详情</button>
+                  <button @click.stop="openDetail(item)" class="text-on-surface-variant hover:text-primary hover:bg-primary/10 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors">详情</button>
                   <template v-if="item.status === 1 && item.canAudit">
-                    <button @click="quickAudit(item, 1)" class="text-white bg-primary hover:bg-primary/90 shadow-sm shadow-primary/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95">通过</button>
-                    <button @click="quickAudit(item, 2)" class="text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors active:scale-95">拒绝</button>
+                    <button @click.stop="quickAudit(item, 1)" class="text-white bg-primary hover:bg-primary/90 shadow-sm shadow-primary/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95">通过</button>
+                    <button @click.stop="quickAudit(item, 2)" class="text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors active:scale-95">拒绝</button>
                   </template>
                 </td>
               </tr>

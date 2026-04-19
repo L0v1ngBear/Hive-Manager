@@ -6,8 +6,10 @@ import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
 import my.management.module.order.model.dto.ProductionOrderPageRequest;
+import my.management.module.order.model.dto.ProductionOrderSaveRequest;
 import my.management.module.order.model.dto.ProductionOrderUpdateRequest;
 import my.management.module.order.model.dto.SalesOrderPageRequest;
+import my.management.module.order.model.dto.SalesOrderSaveRequest;
 import my.management.module.order.model.dto.SalesOrderUpdateRequest;
 import my.management.module.order.model.vo.ProductionOrderDetailVO;
 import my.management.module.order.model.vo.ProductionOrderPageVO;
@@ -15,6 +17,7 @@ import my.management.module.order.model.vo.ProductionOrderStatusLogVO;
 import my.management.module.order.model.vo.SalesOrderDetailVO;
 import my.management.module.order.model.vo.SalesOrderPageVO;
 import my.management.module.order.service.OrderService;
+import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,6 +52,19 @@ public class OrderController {
         return Result.success(orderService.getSalesOrderDetail(orderId));
     }
 
+    @PostMapping("/sales/create")
+    @RequirePermission(value = "sales:order:status", message = "您没有权限创建销售订单")
+    public Result<String> createSales(@RequestBody @Valid SalesOrderSaveRequest request) {
+        return Result.success(orderService.createSalesOrder(request));
+    }
+
+    @PostMapping("/sales/save/{orderId}")
+    @RequirePermission(value = "sales:order:status", message = "您没有权限编辑销售订单")
+    public Result<Void> saveSales(@PathVariable String orderId, @RequestBody @Valid SalesOrderSaveRequest request) {
+        orderService.saveSalesOrder(orderId, request);
+        return Result.success(null);
+    }
+
     @PostMapping("/sales/update/{orderId}")
     @RequirePermission(value = "sales:order:status", message = "您没有权限更新销售订单")
     public Result<Void> updateSales(@PathVariable String orderId, @RequestBody SalesOrderUpdateRequest request) {
@@ -66,6 +82,19 @@ public class OrderController {
     @RequirePermission(value = "production:order:detail", message = "您没有权限查看生产订单详情")
     public Result<ProductionOrderDetailVO> productionDetail(@PathVariable String orderId) {
         return Result.success(orderService.getProductionOrderDetail(orderId));
+    }
+
+    @PostMapping("/production/create")
+    @RequirePermission(value = "production:order:status", message = "您没有权限创建生产订单")
+    public Result<String> createProduction(@RequestBody @Valid ProductionOrderSaveRequest request) {
+        return Result.success(orderService.createProductionOrder(request));
+    }
+
+    @PostMapping("/production/save/{orderId}")
+    @RequirePermission(value = "production:order:status", message = "您没有权限编辑生产订单")
+    public Result<Void> saveProduction(@PathVariable String orderId, @RequestBody @Valid ProductionOrderSaveRequest request) {
+        orderService.saveProductionOrder(orderId, request);
+        return Result.success(null);
     }
 
     @GetMapping("/production/log/{orderId}")

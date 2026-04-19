@@ -58,4 +58,18 @@ public class CodeGeneratorUtil {
     public String generateRoleCode() {
         return generateCode("ROLE", 4);
     }
+
+    /**
+     * 生成销售订单编号，和小程序端保持同一套前缀规则，方便后续跨端排查。
+     */
+    public String generateSalesOrderCode() {
+        return generateCode("SO", 4);
+    }
+
+    /**
+     * 生成生产订单编号，统一由后端生成，避免管理端和小程序端格式漂移。
+     */
+    public String generateProductionOrderCode() {
+        return generateCode("PO", 4);
+    }
 }

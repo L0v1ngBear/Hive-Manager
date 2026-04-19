@@ -15,6 +15,22 @@ export function getSalesOrderDetail(orderId) {
   })
 }
 
+export function createSalesOrder(data) {
+  return request({
+    url: '/order/sales/create',
+    method: 'post',
+    data
+  })
+}
+
+export function saveSalesOrder(orderId, data) {
+  return request({
+    url: `/order/sales/save/${orderId}`,
+    method: 'post',
+    data
+  })
+}
+
 export function updateSalesOrder(orderId, data) {
   return request({
     url: `/order/sales/update/${orderId}`,
@@ -35,6 +51,22 @@ export function getProductionOrderDetail(orderId) {
   return request({
     url: `/order/production/detail/${orderId}`,
     method: 'get'
+  })
+}
+
+export function createProductionOrder(data) {
+  return request({
+    url: '/order/production/create',
+    method: 'post',
+    data
+  })
+}
+
+export function saveProductionOrder(orderId, data) {
+  return request({
+    url: `/order/production/save/${orderId}`,
+    method: 'post',
+    data
   })
 }
 

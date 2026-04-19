@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 /**
  * Position 属于管理端后端员工模块，定义持久化实体结构，用于表字段映射。
  */
-@TableName
+@TableName("emp_position")
 @Data
 public class Position {
 

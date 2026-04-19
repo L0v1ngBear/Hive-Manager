@@ -10,6 +10,7 @@ import my.management.module.customer.model.dto.CustomerAddRequest;
 import my.management.module.customer.model.dto.CustomerPageRequest;
 import my.management.module.customer.model.dto.CustomerUpdateRequest;
 import my.management.module.customer.model.vo.CustomerDetailVO;
+import my.management.module.customer.model.vo.CustomerOptionVO;
 import my.management.module.customer.model.vo.CustomerPageVO;
 import my.management.module.customer.service.CustomerService;
 import org.springframework.validation.annotation.Validated;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Optional;
+import java.util.List;
 /**
  * CustomerController 是管理端后端请求入口控制类，负责接收请求并调用对应服务。
  */
@@ -64,5 +66,11 @@ public class CustomerController {
     @RequirePermission(value = "customer:detail", message = "您没有权限查看客户详情")
     public Result<CustomerDetailVO> getCustomer(@PathVariable Long id) {
         return Result.success(customerService.getCustomer(id));
+    }
+
+    @GetMapping("/options")
+    @RequirePermission(value = "customer:page", message = "您没有权限查看客户选项")
+    public Result<List<CustomerOptionVO>> listCustomerOptions(String keyword) {
+        return Result.success(customerService.listCustomerOptions(keyword));
     }
 }

@@ -30,6 +30,9 @@ public class SalesOrder {
     @TableField("customer_phone")
     private String customerPhone;
 
+    @TableField("project_name")
+    private String projectName;
+
     @TableField("goods_desc")
     private String goodsDesc;
 

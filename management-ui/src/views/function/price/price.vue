@@ -77,7 +77,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-surface-variant/30">
-              <tr v-for="item in rows" :key="item.id" class="hover:bg-surface-container-high/40 transition-colors">
+              <tr v-for="item in rows" :key="item.id" class="cursor-pointer hover:bg-surface-container-high/40 transition-colors" @click="openDetail(item)">
                 <td class="px-6 py-4">
                   <div>
                     <div>
@@ -94,9 +94,9 @@
                 <td class="px-6 py-4 text-xs text-on-surface-variant font-medium">{{ item.effectiveDate }}</td>
                 <td class="px-6 py-4"><span :class="statusClass(item.status)" class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold">{{ item.statusLabel }}</span></td>
                 <td class="px-6 py-4 text-right space-x-2">
-                  <button @click="openDetail(item)" class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-xs font-bold">详情</button>
-                  <button @click="openCreate(item)" class="text-secondary hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-xs font-bold">调整</button>
-                  <button @click="remove(item)" class="text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold">删除</button>
+                  <button @click.stop="openDetail(item)" class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-xs font-bold">详情</button>
+                  <button @click.stop="openCreate(item)" class="text-secondary hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-xs font-bold">调整</button>
+                  <button @click.stop="remove(item)" class="text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold">删除</button>
                 </td>
               </tr>
               <tr v-if="!loading && rows.length === 0">

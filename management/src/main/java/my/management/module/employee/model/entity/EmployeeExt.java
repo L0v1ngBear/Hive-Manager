@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 /**
  * EmployeeExt 属于管理端后端员工模块，定义持久化实体结构，用于表字段映射。
  */
-@TableName
+@TableName("emp_employee_ext")
 @Data
 public class EmployeeExt {
 

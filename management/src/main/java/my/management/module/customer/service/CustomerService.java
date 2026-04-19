@@ -16,6 +16,7 @@ import my.management.module.customer.model.entity.Customer;
 import my.management.module.customer.model.entity.CustomerContact;
 import my.management.module.customer.model.entity.CustomerProject;
 import my.management.module.customer.model.vo.CustomerDetailVO;
+import my.management.module.customer.model.vo.CustomerOptionVO;
 import my.management.module.customer.model.vo.CustomerPageVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -146,6 +147,39 @@ public class CustomerService {
         customerDetailVO.setContacts(customerContactList);
         customerDetailVO.setProjects(customerProjectList);
         return customerDetailVO;
+    }
+
+    public List<CustomerOptionVO> listCustomerOptions(String keyword) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<Customer>()
+                .eq(Customer::getTenantCode, tenantCode)
+                .orderByDesc(Customer::getId);
+        if (StringUtils.isNotBlank(keyword)) {
+            wrapper.like(Customer::getCustomerName, keyword.trim());
+        }
+        List<Customer> customers = customerMapper.selectList(wrapper);
+        if (customers.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> customerIds = customers.stream().map(Customer::getId).toList();
+        Map<Long, List<String>> projectNamesByCustomerId = customerProjectMapper.selectList(new LambdaQueryWrapper<CustomerProject>()
+                        .eq(CustomerProject::getTenantCode, tenantCode)
+                        .in(CustomerProject::getCustomerId, customerIds)
+                        .orderByDesc(CustomerProject::getId))
+                .stream()
+                .collect(Collectors.groupingBy(
+                        CustomerProject::getCustomerId,
+                        LinkedHashMap::new,
+                        Collectors.mapping(CustomerProject::getProjectName, Collectors.toList())
+                ));
+
+        return customers.stream().map(customer -> {
+            CustomerOptionVO vo = new CustomerOptionVO();
+            vo.setId(customer.getId());
+            vo.setCustomerName(customer.getCustomerName());
+            vo.setProjectNames(projectNamesByCustomerId.getOrDefault(customer.getId(), Collections.emptyList()));
+            return vo;
+        }).toList();
     }
 
     private void saveContactsAndProjects(String tenantCode, Long customerId, CustomerAddRequest request) {

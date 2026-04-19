@@ -73,7 +73,8 @@
               <tr
                 v-for="customer in customerList"
                 :key="customer.id"
-                class="group transition-colors hover:bg-surface-container-high/30"
+                class="group cursor-pointer transition-colors hover:bg-surface-container-high/30"
+                @click="openDetail(customer.id)"
               >
                 <td class="px-6 py-4">
                   <div class="flex items-center gap-3">
@@ -123,14 +124,14 @@
                     <button
                       class="rounded-md p-1.5 text-secondary transition-colors hover:bg-white"
                       title="编辑客户"
-                      @click="openEditDrawer(customer.id)"
+                      @click.stop="openEditDrawer(customer.id)"
                     >
                       <span class="material-symbols-outlined text-[18px]">edit</span>
                     </button>
                     <button
                       class="rounded-md p-1.5 text-primary transition-colors hover:bg-white"
                       title="查看详情"
-                      @click="openDetail(customer.id)"
+                      @click.stop="openDetail(customer.id)"
                     >
                       <span class="material-symbols-outlined text-[18px]">visibility</span>
                     </button>
