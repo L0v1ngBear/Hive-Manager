@@ -1,6 +1,7 @@
 package my.management.module.dashboard.model.vo;
 
 import lombok.Data;
+import my.management.module.ai.model.vo.DashboardAiAdviceVO;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -26,6 +27,8 @@ public class DashboardOverviewVO {
     private List<AttendanceAlert> attendanceAlerts = new ArrayList<>();
 
     private List<QuickAction> quickActions = new ArrayList<>();
+
+    private List<DashboardAiAdviceVO> aiAdvices = new ArrayList<>();
 
     @Data
     public static class Summary {

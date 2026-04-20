@@ -85,6 +85,39 @@
     </section>
 
     <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.2fr)_minmax(350px,1fr)] gap-5">
+      <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 xl:col-span-2">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-black text-on-surface leading-tight">AI 今日建议</h2>
+            <p class="text-xs text-on-surface-variant mt-1">第一阶段基于真实业务规则生成，可直接用于经营提醒和客户沟通。</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary">{{ aiAdvices.length }} 条</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div
+            v-for="(item, index) in aiAdvices"
+            :key="`${item.category}-${index}`"
+            class="rounded-2xl p-4 border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
+            :class="adviceCardClass(item.level)"
+            @click="item.route && router.push(item.route)"
+          >
+            <div class="flex items-start gap-3">
+              <span class="material-symbols-outlined text-[22px] w-11 h-11 rounded-xl flex items-center justify-center shrink-0" :class="adviceIconClass(item.level)">
+                {{ item.icon || 'tips_and_updates' }}
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2">
+                  <p class="text-sm font-black truncate">{{ item.title }}</p>
+                  <span class="text-[10px] font-bold uppercase tracking-widest opacity-70 shrink-0">{{ adviceLevelText(item.level) }}</span>
+                </div>
+                <p class="mt-2 text-sm leading-6 opacity-90">{{ item.summary }}</p>
+                <p class="mt-3 text-xs leading-6 font-medium opacity-80">{{ item.suggestion }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
 
       <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 flex flex-col">
         <div class="flex items-center justify-between mb-4">
@@ -263,6 +296,7 @@ const trendOutMeters = ref([])
 const businessAlerts = ref([])
 const attendanceAlerts = ref([])
 const quickActions = ref([])
+const aiAdvices = ref([])
 
 const userName = computed(() => userStore.userInfo?.userName || '管理员')
 
@@ -305,6 +339,7 @@ const fetchOverview = async () => {
     businessAlerts.value = Array.isArray(data?.businessAlerts) ? data.businessAlerts : []
     attendanceAlerts.value = Array.isArray(data?.attendanceAlerts) ? data.attendanceAlerts : []
     quickActions.value = Array.isArray(data?.quickActions) ? data.quickActions : []
+    aiAdvices.value = Array.isArray(data?.aiAdvices) ? data.aiAdvices : []
   } catch (error) {
     ElMessage.error(error?.msg || '总览数据加载失败，请稍后重试')
   } finally {
@@ -326,6 +361,32 @@ const alertCardClass = (level) => {
     return 'bg-rose-50/50 border-rose-300 text-rose-900'
   }
   return 'bg-sky-50/50 border-sky-300 text-sky-900'
+}
+
+const adviceCardClass = (level) => {
+  if (level === 'warning') {
+    return 'border-amber-200 bg-amber-50/60 text-amber-950'
+  }
+  if (level === 'success') {
+    return 'border-emerald-200 bg-emerald-50/60 text-emerald-950'
+  }
+  return 'border-sky-200 bg-sky-50/60 text-sky-950'
+}
+
+const adviceIconClass = (level) => {
+  if (level === 'warning') {
+    return 'bg-amber-100 text-amber-700'
+  }
+  if (level === 'success') {
+    return 'bg-emerald-100 text-emerald-700'
+  }
+  return 'bg-sky-100 text-sky-700'
+}
+
+const adviceLevelText = (level) => {
+  if (level === 'warning') return '重点关注'
+  if (level === 'success') return '运行平稳'
+  return '建议动作'
 }
 
 onMounted(fetchOverview)

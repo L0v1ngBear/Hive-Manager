@@ -2,6 +2,7 @@ package my.management.module.dashboard.service;
 
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
+import my.management.module.ai.service.AiAnalysisService;
 import my.management.module.dashboard.mapper.DashboardMapper;
 import my.management.module.dashboard.model.vo.DashboardAttendanceAlertRowVO;
 import my.management.module.dashboard.model.vo.DashboardInventoryTrendRowVO;
@@ -40,6 +41,9 @@ public class DashboardService {
     @Resource
     private DashboardMapper dashboardMapper;
 
+    @Resource
+    private AiAnalysisService aiAnalysisService;
+
     private final ConcurrentMap<String, DashboardCacheEntry> overviewCache = new ConcurrentHashMap<>();
 
     public DashboardOverviewVO overview() {
@@ -59,6 +63,7 @@ public class DashboardService {
         vo.setBusinessAlerts(buildBusinessAlerts(tenantCode, visibility));
         vo.setAttendanceAlerts(buildAttendanceAlerts(tenantCode, visibility));
         vo.setQuickActions(buildQuickActions(visibility));
+        vo.setAiAdvices(aiAnalysisService.buildDashboardAdvices(tenantCode, visibility));
 
         // Dashboard traffic is read-heavy, so a short cache window removes repeated aggregate queries.
         overviewCache.put(cacheKey, new DashboardCacheEntry(vo, System.currentTimeMillis() + OVERVIEW_CACHE_TTL.toMillis()));

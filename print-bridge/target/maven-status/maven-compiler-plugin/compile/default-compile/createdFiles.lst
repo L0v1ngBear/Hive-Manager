@@ -1,8 +1,0 @@
-my\management\printbridge\model\BridgeResponse.class
-my\management\printbridge\PrintBridgeHttpHandler$1.class
-my\management\printbridge\PrintBridgeRoute.class
-my\management\printbridge\model\RawPrintRequest.class
-my\management\printbridge\PrintBridgeHttpHandler.class
-my\management\printbridge\PrintBridgeApplication.class
-my\management\printbridge\model\PrinterInfo.class
-my\management\printbridge\service\PrinterBridgeService.class
