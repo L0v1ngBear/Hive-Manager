@@ -81,6 +81,12 @@ export const constantRoutes = [
         meta: { title: '订单管理', permissions: ['sales:order:list', 'production:order:list'] }
       },
       {
+        path: 'bad-product',
+        name: 'BadProduct',
+        component: () => import('@/views/function/badProduct/badProduct.vue'),
+        meta: { title: '次品管理' }
+      },
+      {
         path: 'approval',
         name: 'Approval',
         component: () => import('@/views/function/approval/approvalCenter.vue'),

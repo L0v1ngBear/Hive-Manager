@@ -25,6 +25,15 @@ public interface AuthMapper {
     LoginUserRow selectLoginUser(@Param("username") String username);
 
     @Select({
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, u.name AS userName, u.login_name AS loginName, ",
+            "u.phone AS phone, u.password AS password, u.status AS userStatus ",
+            "FROM user u ",
+            "WHERE u.id = #{userId} AND u.tenant_code = #{tenantCode} ",
+            "LIMIT 1"
+    })
+    LoginUserRow selectLoginUserByUserIdAndTenantCode(@Param("userId") Long userId, @Param("tenantCode") String tenantCode);
+
+    @Select({
             "<script>",
             "SELECT DISTINCT p.perm_code ",
             "FROM sys_user_role ur ",

@@ -7,3 +7,18 @@ export function login(data) {
     data
   })
 }
+
+export function createScanLoginSession() {
+  return request({
+    url: '/auth/scan-login/session',
+    method: 'post'
+  })
+}
+
+export function getScanLoginStatus(params) {
+  return request({
+    url: '/auth/scan-login/status',
+    method: 'get',
+    params
+  })
+}

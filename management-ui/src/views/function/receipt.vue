@@ -175,7 +175,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, ElButton } from 'element-plus'
 // 你的 API 接口保持不变
 import { cancelPrint, getPendingPrintOrders, getPrintDetail, markPrinted } from './receipt/api/receipt.js'
 
