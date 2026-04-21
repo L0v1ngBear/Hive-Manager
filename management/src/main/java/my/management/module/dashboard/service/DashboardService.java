@@ -1,5 +1,6 @@
 package my.management.module.dashboard.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.management.module.ai.service.AiAnalysisService;
@@ -9,6 +10,7 @@ import my.management.module.dashboard.model.vo.DashboardInventoryTrendRowVO;
 import my.management.module.dashboard.model.vo.DashboardInventoryWarningRowVO;
 import my.management.module.dashboard.model.vo.DashboardOverviewVO;
 import my.management.module.dashboard.model.vo.DashboardPendingPrintRowVO;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -23,15 +25,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
+
 /**
- * DashboardService 属于管理端后端总览大盘模块，实现核心业务编排与规则逻辑。
+ * 总览大盘服务，负责聚合首页需要的摘要数据，并优先从 Redis 读取缓存结果。
  */
 @Service
 public class DashboardService {
 
+    private static final String OVERVIEW_CACHE_KEY_PREFIX = "management:dashboard:overview:";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("MM-dd");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("MM-dd HH:mm");
     private static final DateTimeFormatter DAY_PREFIX_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -44,15 +46,20 @@ public class DashboardService {
     @Resource
     private AiAnalysisService aiAnalysisService;
 
-    private final ConcurrentMap<String, DashboardCacheEntry> overviewCache = new ConcurrentHashMap<>();
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private ObjectMapper objectMapper;
 
     public DashboardOverviewVO overview() {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
         String cacheKey = buildCacheKey(tenantCode, userId);
-        DashboardCacheEntry cached = overviewCache.get(cacheKey);
-        if (cached != null && !cached.isExpired()) {
-            return cached.value();
+
+        DashboardOverviewVO cached = getCachedOverview(cacheKey);
+        if (cached != null) {
+            return cached;
         }
 
         DashboardOverviewVO vo = new DashboardOverviewVO();
@@ -65,8 +72,8 @@ public class DashboardService {
         vo.setQuickActions(buildQuickActions(visibility));
         vo.setAiAdvices(aiAnalysisService.buildDashboardAdvices(tenantCode, visibility));
 
-        // Dashboard traffic is read-heavy, so a short cache window removes repeated aggregate queries.
-        overviewCache.put(cacheKey, new DashboardCacheEntry(vo, System.currentTimeMillis() + OVERVIEW_CACHE_TTL.toMillis()));
+        // Dashboard is read-heavy, so a short Redis cache avoids repeated aggregate queries across multiple instances.
+        cacheOverview(cacheKey, vo);
         return vo;
     }
 
@@ -249,7 +256,7 @@ public class DashboardService {
     private String buildCacheKey(String tenantCode, Long userId) {
         Set<String> permCodes = TenantPermissionContext.getPermCodes();
         String permSignature = permCodes == null ? "" : String.join(",", new TreeSet<>(permCodes));
-        return tenantCode + ":" + userId + ":" + Integer.toHexString(permSignature.hashCode());
+        return OVERVIEW_CACHE_KEY_PREFIX + tenantCode + ":" + userId + ":" + Integer.toHexString(permSignature.hashCode());
     }
 
     private long nvl(Long value) {
@@ -303,9 +310,22 @@ public class DashboardService {
         return "考勤异常";
     }
 
-    private record DashboardCacheEntry(DashboardOverviewVO value, long expireAt) {
-        private boolean isExpired() {
-            return System.currentTimeMillis() >= expireAt;
+    private DashboardOverviewVO getCachedOverview(String cacheKey) {
+        try {
+            String cached = stringRedisTemplate.opsForValue().get(cacheKey);
+            if (cached == null || cached.isBlank()) {
+                return null;
+            }
+            return objectMapper.readValue(cached, DashboardOverviewVO.class);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private void cacheOverview(String cacheKey, DashboardOverviewVO value) {
+        try {
+            stringRedisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(value), OVERVIEW_CACHE_TTL);
+        } catch (Exception ignored) {
         }
     }
 }
