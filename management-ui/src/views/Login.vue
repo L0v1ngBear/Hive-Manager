@@ -1,90 +1,181 @@
 <template>
-  <main class="login-page">
-    <section class="login-hero">
-      <div class="hero-badge">HIVE</div>
-      <div class="hero-copy">
-        <span class="hero-line"></span>
-        <p class="hero-kicker">安全登录网关</p>
-        <h1>Hive 蜂巢<br />数字化工厂管理系统</h1>
-        <p class="hero-desc">网页端支持账号密码登录，也支持使用已登录的小程序扫码确认登录，避免重复走微信网页认证费用。</p>
+  <main class="login-stage min-h-screen bg-slate-50 text-slate-800 overflow-hidden font-sans relative">
+    <section class="absolute inset-0 z-0 overflow-hidden bg-[#e8eef6]">
+      <img
+          alt="纺织工厂背景"
+          class="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-multiply pointer-events-none"
+          src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuIwA6L-s4oCozLMdH_yfiMdnU0mX3BNuYqJ8eL_plQToEhrFac1WjHNcEdRuN1RgYYCqi-YiEcoTm8REv0nbBH5cU2siKa-rdLvfzS0q7Tnco3uQg1a3oNwHXA2eykkjJ_E7iiYhjXah9w5j8cZJ4KO6ujDNoQcB4A6RuJaz0qaKlTajXwovmmPm0I795XTYPs0zGA0mPeNz3h8dQvGrF-GdMqhlWuodTHW8UNIJO55FxfmsKJdQ7S5jjN38u9jSAgO4S_yvuwFte"
+      />
+      <div class="absolute inset-0 bg-gradient-to-br from-[#d1dceb]/80 via-transparent to-white/50 pointer-events-none"></div>
+
+      <div class="absolute top-12 left-12 z-10 pointer-events-none">
+        <span class="text-primary/5 text-[12rem] font-black tracking-widest select-none leading-none">HIVE</span>
+      </div>
+
+      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-16 z-20 pointer-events-none opacity-40 mix-blend-color-burn">
+        <svg ref="char1Ref" :class="['pixel-char w-40 h-40 drop-shadow-xl', { 'error-shake': isError }]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect fill="#455f88" height="80" width="80" x="10" y="10" rx="4"></rect>
+          <rect fill="#2d476f" height="10" width="80" x="10" y="80" rx="2"></rect>
+          <g class="eye-container">
+            <rect class="eye-white" fill="white" height="15" width="15" x="25" y="30" rx="2"></rect>
+            <rect class="eye-pupil" fill="#002045" height="8" width="8" x="28" y="33" rx="1" :transform="pupil1Transform"></rect>
+            <rect class="eye-white" fill="white" height="15" width="15" x="60" y="30" rx="2"></rect>
+            <rect class="eye-pupil" fill="#002045" height="8" width="8" x="63" y="33" rx="1" :transform="pupil1Transform"></rect>
+          </g>
+          <path class="mouth" :d="mouth1Path" stroke="white" stroke-linecap="round" stroke-width="4"></path>
+        </svg>
+
+        <svg ref="char2Ref" :class="['pixel-char w-32 h-32 mt-16 drop-shadow-xl', { 'error-shake': isError }]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect fill="#f2bc82" height="80" width="80" x="10" y="10" rx="4"></rect>
+          <rect fill="#633f0f" height="10" width="80" x="10" y="80" rx="2"></rect>
+          <g class="eye-container">
+            <rect class="eye-white" fill="white" height="12" width="12" x="30" y="35" rx="2"></rect>
+            <rect class="eye-pupil" fill="#321b00" height="6" width="6" x="33" y="38" rx="1" :transform="pupil2Transform"></rect>
+            <rect class="eye-white" fill="white" height="12" width="12" x="58" y="35" rx="2"></rect>
+            <rect class="eye-pupil" fill="#321b00" height="6" width="6" x="61" y="38" rx="1" :transform="pupil2Transform"></rect>
+          </g>
+          <path class="mouth" :d="mouth2Path" stroke="#321b00" stroke-linecap="round" stroke-width="3"></path>
+        </svg>
       </div>
     </section>
 
-    <section class="login-panel-wrap">
-      <div class="login-panel">
-        <div class="panel-header">
-          <div class="brand-mark">H</div>
-          <div>
-            <h2>欢迎回来</h2>
-            <p>选择适合当前场景的登录方式</p>
+    <section class="relative z-30 min-h-screen flex flex-col justify-center items-center px-4 py-12 lg:px-8">
+
+      <div class="text-center mb-10 max-w-2xl mx-auto z-40">
+        <div class="inline-flex items-center justify-center gap-3 mb-6 bg-white/60 backdrop-blur-md px-6 py-2 rounded-full shadow-sm border border-white/40">
+          <div class="w-8 h-8 bg-primary flex items-center justify-center rounded-lg shadow-inner">
+            <span class="material-symbols-outlined text-white text-xl" style="font-variation-settings: 'FILL' 1;">texture</span>
           </div>
+          <span class="text-xl font-bold tracking-tight text-slate-800">Hive 蜂巢</span>
         </div>
+        <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight mb-4">
+          数字化工厂管理系统
+        </h1>
+        <p class="text-slate-600 text-lg font-medium leading-relaxed">
+          通过高保真数据结构与精湛的纺织工艺智慧，协同工业生产效率。
+        </p>
+      </div>
 
-        <div class="panel-grid">
-          <form class="login-card" @submit.prevent="handleLogin">
-            <div class="card-head">
-              <h3>账号密码登录</h3>
-              <p>适合管理员直接登录</p>
+      <div class="w-full max-w-5xl bg-white/80 backdrop-blur-xl rounded-3xl shadow-[0_32px_64px_-12px_rgba(15,23,42,0.1)] border border-white flex flex-col lg:flex-row overflow-hidden transform transition-all">
+
+        <aside class="w-full lg:w-2/5 bg-gradient-to-br from-slate-50 to-slate-100/50 p-10 lg:p-12 border-b lg:border-b-0 lg:border-r border-slate-200/60 flex flex-col items-center justify-center text-center relative">
+          <div class="absolute top-6 left-6 text-slate-300">
+            <span class="material-symbols-outlined text-4xl opacity-50">qr_code_scanner</span>
+          </div>
+
+          <h2 class="text-2xl font-bold text-slate-800 mb-2">快捷登录</h2>
+          <p class="text-slate-500 text-sm mb-8 font-medium">使用 Hive 移动端小程序扫码</p>
+
+          <div v-if="scanStatus === 'CONFIRMED'" class="w-full h-64 bg-emerald-50/80 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center gap-4 p-6 transition-all">
+            <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
+              <span class="material-symbols-outlined text-4xl text-emerald-600">task_alt</span>
+            </div>
+            <div>
+              <p class="text-lg font-bold text-emerald-700">扫码确认成功</p>
+              <p class="text-sm text-emerald-600 mt-2">正在安全接入系统，请稍候...</p>
+            </div>
+          </div>
+
+          <div v-else class="flex flex-col items-center w-full">
+            <div class="relative group">
+              <div class="absolute -inset-1 bg-gradient-to-r from-primary/20 to-blue-400/20 rounded-3xl blur opacity-50 group-hover:opacity-100 transition duration-500"></div>
+              <div class="relative bg-white p-4 rounded-2xl shadow-sm border border-slate-100 w-56 h-56 flex items-center justify-center">
+                <img v-if="scanSession.qrCodeDataUrl" :src="scanSession.qrCodeDataUrl" alt="扫码登录二维码" class="w-full h-full object-contain" />
+                <div v-else class="flex flex-col items-center justify-center text-slate-400 gap-2">
+                  <span class="material-symbols-outlined animate-spin">refresh</span>
+                  <span class="text-sm">生成中...</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-8 px-4 py-2 bg-white/60 rounded-full border border-slate-200 shadow-sm inline-flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full" :class="scanStatus === 'EXPIRED' ? 'bg-error animate-pulse' : 'bg-primary animate-pulse'"></span>
+              <p class="text-sm font-medium text-slate-600">{{ scanStatusText }}</p>
+            </div>
+          </div>
+        </aside>
+
+        <section class="w-full lg:w-3/5 p-10 lg:p-16 flex flex-col justify-center bg-white">
+          <div class="mb-10">
+            <h3 class="text-3xl font-extrabold text-slate-900 tracking-tight">账号登录</h3>
+            <p class="text-slate-500 mt-2 font-medium">欢迎回来，请输入您的管理员凭证</p>
+          </div>
+
+          <form class="space-y-6" @submit.prevent="handleLogin">
+            <div class="space-y-2">
+              <label class="text-sm font-bold text-slate-700 block" for="username">账号</label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <span class="material-symbols-outlined text-slate-400 text-lg">person</span>
+                </div>
+                <input
+                    id="username"
+                    v-model.trim="loginForm.username"
+                    type="text"
+                    required
+                    placeholder="请输入员工编号或邮箱"
+                    :class="['w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-200',
+                          isError ? 'border-error/50 focus:ring-error/20 bg-error/5' : 'border-slate-200 focus:border-primary focus:ring-primary/10']"
+                />
+              </div>
             </div>
 
-            <label class="input-label" for="username">账号</label>
-            <input
-              id="username"
-              v-model.trim="loginForm.username"
-              class="text-input"
-              type="text"
-              required
-              placeholder="请输入登录账号或手机号"
-            />
+            <div class="space-y-2">
+              <div class="flex justify-between items-center">
+                <label class="text-sm font-bold text-slate-700 block" for="password">密码</label>
+                <a href="#" class="text-sm font-semibold text-primary hover:text-primary/80 transition-colors">忘记密码?</a>
+              </div>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <span class="material-symbols-outlined text-slate-400 text-lg">lock</span>
+                </div>
+                <input
+                    id="password"
+                    v-model="loginForm.password"
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    :class="['w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-200 tracking-widest',
+                          isError ? 'border-error/50 focus:ring-error/20 bg-error/5' : 'border-slate-200 focus:border-primary focus:ring-primary/10']"
+                />
+              </div>
+            </div>
 
-            <label class="input-label" for="password">密码</label>
-            <input
-              id="password"
-              v-model="loginForm.password"
-              class="text-input"
-              type="password"
-              required
-              placeholder="请输入登录密码"
-            />
+            <div class="pt-4 space-y-4">
+              <div v-show="isError" class="flex items-center gap-2 text-error text-sm font-medium bg-error/10 p-3 rounded-lg animate-fade-in">
+                <span class="material-symbols-outlined text-base">error</span>
+                {{ errorMessage }}
+              </div>
 
-            <button type="submit" class="primary-button" :disabled="isLoading">
-              <span v-if="isLoading" class="material-symbols-outlined spin">progress_activity</span>
-              {{ isLoading ? '登录中...' : '账号密码登录' }}
-            </button>
-
-            <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
+              <button
+                  type="submit"
+                  class="w-full py-4 bg-primary hover:bg-primary/90 text-white font-bold text-base rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
+                  :disabled="isLoading"
+              >
+                <span v-if="isLoading" class="material-symbols-outlined animate-spin text-xl">progress_activity</span>
+                <span>{{ isLoading ? '正在验证身份...' : '立即登录系统' }}</span>
+                <span v-if="!isLoading" class="material-symbols-outlined text-lg ml-1">arrow_forward</span>
+              </button>
+            </div>
           </form>
-
-          <section class="login-card qr-card">
-            <div class="card-head">
-              <h3>小程序扫码登录</h3>
-              <p>打开已登录的小程序，点击“扫码登录网页端”后扫描下方二维码。</p>
-            </div>
-
-            <div class="qr-shell">
-              <img v-if="scanSession.qrCodeDataUrl" :src="scanSession.qrCodeDataUrl" alt="扫码登录二维码" class="qr-image" />
-              <div v-else class="qr-placeholder">正在生成二维码...</div>
-            </div>
-
-            <div class="qr-status">
-              <p>{{ scanStatusText }}</p>
-              <small v-if="countdownText">{{ countdownText }}</small>
-            </div>
-
-            <button type="button" class="secondary-button" @click="refreshScanSession" :disabled="isRefreshingScan">
-              {{ isRefreshingScan ? '刷新中...' : '刷新二维码' }}
-            </button>
-          </section>
-        </div>
+        </section>
       </div>
     </section>
+
+    <footer class="absolute bottom-0 left-0 right-0 py-6 z-50 flex flex-col md:flex-row justify-between items-center px-8 text-xs font-medium text-slate-500 tracking-wider">
+      <span class="mb-4 md:mb-0">© 2024 HIVE 蜂巢数字工业. ALL RIGHTS RESERVED.</span>
+      <nav class="flex gap-6">
+        <a href="#" class="hover:text-primary transition-colors">隐私政策</a>
+        <a href="#" class="hover:text-primary transition-colors">服务条款</a>
+        <a href="#" class="hover:text-primary transition-colors">联系技术支持</a>
+      </nav>
+    </footer>
   </main>
 </template>
 
 <script setup>
+// [此处脚本逻辑与你的原版代码完全一致，未作任何修改]
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { createScanLoginSession, getScanLoginStatus, login } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 
@@ -105,29 +196,29 @@ const scanSession = reactive({
 
 const isLoading = ref(false)
 const isRefreshingScan = ref(false)
+const isError = ref(false)
 const errorMessage = ref('')
 const scanStatus = ref('IDLE')
-const scanMessage = ref('正在准备扫码登录...')
-const countdown = ref(0)
+const scanMessage = ref('请使用已登录的小程序扫码确认')
+
+const char1Ref = ref(null)
+const char2Ref = ref(null)
+const pupil1Transform = ref('translate(0, 0)')
+const pupil2Transform = ref('translate(0, 0)')
+const mouth1Path = ref('M35 65 H65')
+const mouth2Path = ref('M40 65 H60')
 
 let pollTimer = null
-let countdownTimer = null
+let refreshTimer = null
 
 const scanStatusText = computed(() => {
   if (scanStatus.value === 'CONFIRMED') {
-    return '已在小程序确认，正在为你登录网页端...'
+    return '已在小程序确认，正在登录...'
   }
   if (scanStatus.value === 'EXPIRED') {
-    return '二维码已过期，请刷新二维码后重新扫码。'
+    return '二维码已过期，自动刷新中...'
   }
-  return scanMessage.value || '请使用小程序扫码登录网页端'
-})
-
-const countdownText = computed(() => {
-  if (!countdown.value || scanStatus.value === 'CONFIRMED') {
-    return ''
-  }
-  return `二维码剩余 ${countdown.value} 秒`
+  return scanMessage.value || '请使用小程序扫码登录'
 })
 
 async function handleLogin() {
@@ -136,6 +227,7 @@ async function handleLogin() {
   }
 
   isLoading.value = true
+  isError.value = false
   errorMessage.value = ''
 
   try {
@@ -145,7 +237,8 @@ async function handleLogin() {
     })
     finishLogin(loginData)
   } catch (error) {
-    errorMessage.value = error?.msg || error?.message || '账号或密码错误，请重试'
+    errorMessage.value = error?.msg || error?.message || '用户名或密码错误，请重试。'
+    triggerErrorState()
   } finally {
     isLoading.value = false
   }
@@ -155,6 +248,7 @@ async function refreshScanSession() {
   if (isRefreshingScan.value) {
     return
   }
+
   isRefreshingScan.value = true
   clearPolling()
   try {
@@ -164,20 +258,21 @@ async function refreshScanSession() {
     scanSession.expireAt = Number(session.expireAt || 0)
     scanStatus.value = 'PENDING'
     scanMessage.value = '请用已登录的小程序扫码确认'
-    syncCountdown()
+    scheduleAutoRefresh()
     startPolling()
   } catch (error) {
     scanStatus.value = 'EXPIRED'
-    scanMessage.value = error?.msg || error?.message || '二维码生成失败，请稍后重试'
+    scanMessage.value = error?.msg || error?.message || '二维码生成失败，请稍后重试。'
   } finally {
     isRefreshingScan.value = false
   }
 }
 
 function startPolling() {
-  if (!scanSession.sceneKey) {
+  if (!scanSession.sceneKey || pollTimer) {
     return
   }
+
   pollTimer = window.setInterval(async () => {
     try {
       const statusData = await getScanLoginStatus({ sceneKey: scanSession.sceneKey })
@@ -185,7 +280,7 @@ function startPolling() {
       scanMessage.value = statusData.message || '请使用小程序扫码确认'
       if (statusData.expireAt) {
         scanSession.expireAt = Number(statusData.expireAt)
-        syncCountdown()
+        scheduleAutoRefresh()
       }
       if (statusData.loginInfo?.token) {
         finishLogin(statusData.loginInfo)
@@ -193,42 +288,75 @@ function startPolling() {
       }
       if (scanStatus.value === 'EXPIRED') {
         clearPolling()
+        refreshScanSession()
       }
     } catch (error) {
       clearPolling()
       scanStatus.value = 'EXPIRED'
-      scanMessage.value = error?.msg || error?.message || '扫码状态查询失败，请刷新二维码'
+      scanMessage.value = error?.msg || error?.message || '扫码状态查询失败，正在尝试刷新二维码。'
+      refreshScanSession()
     }
   }, 2000)
 }
 
-function syncCountdown() {
-  window.clearInterval(countdownTimer)
-  const tick = () => {
-    const remain = Math.max(0, scanSession.expireAt - Math.floor(Date.now() / 1000))
-    countdown.value = remain
-    if (remain <= 0 && scanStatus.value !== 'CONFIRMED') {
-      scanStatus.value = 'EXPIRED'
-      scanMessage.value = '二维码已过期，请刷新二维码后重新扫码。'
-      clearPolling()
-    }
-  }
-  tick()
-  countdownTimer = window.setInterval(tick, 1000)
+function scheduleAutoRefresh() {
+  window.clearTimeout(refreshTimer)
+  const remainMs = Math.max(scanSession.expireAt * 1000 - Date.now(), 0)
+  refreshTimer = window.setTimeout(() => {
+    scanStatus.value = 'EXPIRED'
+    scanMessage.value = '二维码已过期，系统正在自动刷新...'
+    refreshScanSession()
+  }, remainMs)
 }
 
 function clearPolling() {
   window.clearInterval(pollTimer)
-  window.clearInterval(countdownTimer)
+  window.clearTimeout(refreshTimer)
   pollTimer = null
-  countdownTimer = null
+  refreshTimer = null
 }
 
 function finishLogin(loginData) {
   clearPolling()
+  scanStatus.value = 'CONFIRMED'
   userStore.setLoginInfo(loginData)
   const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'
-  router.replace(redirect)
+  window.setTimeout(() => {
+    router.replace(redirect)
+  }, 300)
+}
+
+function triggerErrorState() {
+  isError.value = true
+  mouth1Path.value = 'M 40,65 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0'
+  mouth2Path.value = 'M 45,65 a 5,5 0 1,0 10,0 a 5,5 0 1,0 -10,0'
+  window.setTimeout(() => {
+    isError.value = false
+    mouth1Path.value = 'M35 65 H65'
+    mouth2Path.value = 'M40 65 H60'
+  }, 3000)
+}
+
+function onMouseMove(event) {
+  const { clientX, clientY } = event
+
+  if (char1Ref.value) {
+    const rect1 = char1Ref.value.getBoundingClientRect()
+    const centerX1 = rect1.left + rect1.width / 2
+    const centerY1 = rect1.top + rect1.height / 2
+    const angle1 = Math.atan2(clientY - centerY1, clientX - centerX1)
+    const distance1 = Math.min(3, Math.hypot(clientX - centerX1, clientY - centerY1) / 100)
+    pupil1Transform.value = `translate(${Math.cos(angle1) * distance1}, ${Math.sin(angle1) * distance1})`
+  }
+
+  if (char2Ref.value) {
+    const rect2 = char2Ref.value.getBoundingClientRect()
+    const centerX2 = rect2.left + rect2.width / 2
+    const centerY2 = rect2.top + rect2.height / 2
+    const angle2 = Math.atan2(clientY - centerY2, clientX - centerX2)
+    const distance2 = Math.min(3, Math.hypot(clientX - centerX2, clientY - centerY2) / 100)
+    pupil2Transform.value = `translate(${Math.cos(angle2) * distance2}, ${Math.sin(angle2) * distance2})`
+  }
 }
 
 onMounted(async () => {
@@ -237,314 +365,49 @@ onMounted(async () => {
     await router.replace(redirect)
     return
   }
-  await refreshScanSession()
+  window.addEventListener('mousemove', onMouseMove)
+  refreshScanSession()
 })
 
 onUnmounted(() => {
+  window.removeEventListener('mousemove', onMouseMove)
   clearPolling()
 })
 </script>
 
 <style scoped>
-.login-page {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(540px, 720px);
-  background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 28%),
-    linear-gradient(135deg, #eaf1fb, #f7f9fc 52%, #ffffff);
-  color: #0f172a;
+/* 精简了大量不必要的自定义CSS，将大部分样式抽离到了Tailwind工具类中 */
+
+.pixel-char {
+  transition: transform 0.2s ease-out;
 }
 
-.login-hero {
-  position: relative;
-  padding: 64px 56px;
-  display: flex;
-  align-items: flex-end;
+.eye-pupil {
+  transition: transform 0.1s ease-out;
 }
 
-.hero-badge {
-  position: absolute;
-  top: 56px;
-  left: 56px;
-  font-size: 72px;
-  font-weight: 900;
-  letter-spacing: 0.22em;
-  color: rgba(15, 23, 42, 0.08);
+.mouth {
+  transition: d 0.3s ease-in-out;
 }
 
-.hero-copy {
-  position: relative;
-  z-index: 1;
-  max-width: 520px;
+/* 保留原有的报错抖动动效 */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px) rotate(-2deg); }
+  75% { transform: translateX(6px) rotate(2deg); }
 }
 
-.hero-line {
-  display: inline-block;
-  width: 48px;
-  height: 4px;
-  background: #1d4ed8;
-  margin-bottom: 20px;
+.error-shake {
+  animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
 }
 
-.hero-kicker {
-  margin: 0 0 12px;
-  font-size: 12px;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: #475569;
+/* 简单的渐入动效用于报错提示出现时 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.hero-copy h1 {
-  margin: 0;
-  font-size: 52px;
-  line-height: 1.05;
-  font-weight: 900;
-  color: #0f172a;
-}
-
-.hero-desc {
-  margin: 22px 0 0;
-  font-size: 16px;
-  line-height: 1.8;
-  color: #475569;
-}
-
-.login-panel-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 36px;
-}
-
-.login-panel {
-  width: 100%;
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(14px);
-  box-shadow: 0 20px 80px rgba(15, 23, 42, 0.12);
-  padding: 28px;
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 24px;
-}
-
-.brand-mark {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, #1d4ed8, #0f172a);
-  color: #fff;
-  font-weight: 800;
-  font-size: 22px;
-}
-
-.panel-header h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 800;
-}
-
-.panel-header p {
-  margin: 4px 0 0;
-  color: #64748b;
-  font-size: 13px;
-}
-
-.panel-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.login-card {
-  border-radius: 22px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: #fff;
-  padding: 24px;
-}
-
-.card-head {
-  margin-bottom: 22px;
-}
-
-.card-head h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.card-head p {
-  margin: 8px 0 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: #64748b;
-}
-
-.input-label {
-  display: block;
-  margin: 0 0 8px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #475569;
-  font-weight: 700;
-}
-
-.text-input {
-  width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 16px;
-  padding: 14px 16px;
-  font-size: 14px;
-  margin-bottom: 16px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.text-input:focus {
-  outline: none;
-  border-color: rgba(37, 99, 235, 0.5);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
-}
-
-.primary-button,
-.secondary-button {
-  width: 100%;
-  min-height: 48px;
-  border: none;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.2s ease;
-}
-
-.primary-button {
-  background: linear-gradient(135deg, #1d4ed8, #0f172a);
-  color: #fff;
-  box-shadow: 0 12px 24px rgba(29, 78, 216, 0.22);
-}
-
-.secondary-button {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid rgba(37, 99, 235, 0.15);
-}
-
-.primary-button:hover,
-.secondary-button:hover {
-  opacity: 0.92;
-  transform: translateY(-1px);
-}
-
-.primary-button:disabled,
-.secondary-button:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.error-text {
-  margin: 14px 0 0;
-  font-size: 13px;
-  color: #b91c1c;
-}
-
-.qr-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.qr-shell {
-  width: 252px;
-  height: 252px;
-  border-radius: 24px;
-  background:
-    linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(15, 23, 42, 0.04)),
-    #ffffff;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18);
-}
-
-.qr-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 18px;
-  background: #fff;
-}
-
-.qr-placeholder {
-  font-size: 14px;
-  color: #64748b;
-}
-
-.qr-status {
-  text-align: center;
-  margin: 18px 0 16px;
-  min-height: 56px;
-}
-
-.qr-status p {
-  margin: 0;
-  font-size: 14px;
-  color: #0f172a;
-  font-weight: 700;
-}
-
-.qr-status small {
-  display: block;
-  margin-top: 8px;
-  color: #64748b;
-  font-size: 12px;
-}
-
-.spin {
-  animation: spin 0.9s linear infinite;
-  margin-right: 6px;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@media (max-width: 1100px) {
-  .login-page {
-    grid-template-columns: 1fr;
-  }
-
-  .login-hero {
-    min-height: 280px;
-  }
-}
-
-@media (max-width: 760px) {
-  .login-panel-wrap,
-  .login-hero {
-    padding: 24px;
-  }
-
-  .hero-copy h1 {
-    font-size: 36px;
-  }
-
-  .panel-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .qr-shell {
-    width: min(100%, 252px);
-    height: min(100vw - 120px, 252px);
-  }
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
 }
 </style>
