@@ -34,6 +34,8 @@ public class SalesOrderDetailVO {
 
     private String expressNo;
 
+    private Integer isInvoice;
+
     private String creator;
 
     private String remark;

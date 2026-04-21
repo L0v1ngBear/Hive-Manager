@@ -16,5 +16,7 @@ public class SalesOrderUpdateRequest {
 
     private String expressNo;
 
+    private Integer isInvoice;
+
     private String remark;
 }

@@ -210,6 +210,9 @@ public class OrderService {
         if (request.getExpressNo() != null) {
             order.setExpressNo(blankToNull(request.getExpressNo()));
         }
+        if (request.getIsInvoice() != null) {
+            order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
+        }
         if (request.getRemark() != null) {
             order.setRemark(blankToNull(request.getRemark()));
         }
@@ -355,6 +358,7 @@ public class OrderService {
         order.setDeliveryDate(requireText(request.getDeliveryDate(), "销售订单交付日期不能为空"));
         order.setExpressCompany(blankToNull(request.getExpressCompany()));
         order.setExpressNo(blankToNull(request.getExpressNo()));
+        order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
         order.setRemark(blankToNull(request.getRemark()));
         order.setStatus(StringUtils.hasText(request.getStatus()) ? request.getStatus().trim() : defaultSalesStatus(order.getStatus()));
         validateShippingInfo(order.getStatus(), order.getExpressCompany(), order.getExpressNo());
@@ -364,6 +368,10 @@ public class OrderService {
         if (createMode && order.getTotalAmount() == null) {
             order.setTotalAmount(BigDecimal.ZERO);
         }
+    }
+
+    private Integer normalizeInvoiceFlag(Integer value) {
+        return Objects.equals(value, 1) ? 1 : 0;
     }
 
     private void replaceSalesOrderItems(String orderId, List<SalesOrderSaveRequest.ItemDTO> items) {

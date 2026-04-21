@@ -33,6 +33,8 @@ public class SalesOrderPageVO {
 
     private String expressNo;
 
+    private Integer isInvoice;
+
     private String creator;
 
     private String remark;

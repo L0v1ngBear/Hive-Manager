@@ -51,6 +51,12 @@ public class SalesOrder {
     @TableField("express_no")
     private String expressNo;
 
+    /**
+     * 是否开票：0-否，1-是。
+     */
+    @TableField("is_invoice")
+    private Integer isInvoice;
+
     private String creator;
 
     private String remark;
