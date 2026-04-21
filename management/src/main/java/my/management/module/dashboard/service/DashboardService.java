@@ -1,8 +1,10 @@
 package my.management.module.dashboard.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
+import my.management.module.ai.model.vo.DashboardAiAdviceVO;
 import my.management.module.ai.service.AiAnalysisService;
 import my.management.module.dashboard.mapper.DashboardMapper;
 import my.management.module.dashboard.model.vo.DashboardAttendanceAlertRowVO;
@@ -34,11 +36,13 @@ import java.util.stream.Collectors;
 public class DashboardService {
 
     private static final String OVERVIEW_CACHE_KEY_PREFIX = "management:dashboard:overview:";
+    private static final String AI_ADVICE_CACHE_KEY_PREFIX = "management:dashboard:ai-advice:";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("MM-dd");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("MM-dd HH:mm");
     private static final DateTimeFormatter DAY_PREFIX_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final BigDecimal INVENTORY_WARNING_THRESHOLD = new BigDecimal("100");
-    private static final Duration OVERVIEW_CACHE_TTL = Duration.ofSeconds(20);
+    private static final Duration OVERVIEW_CACHE_TTL = Duration.ofSeconds(3600);
+    private static final Duration AI_ADVICE_CACHE_TTL = Duration.ofSeconds(60);
 
     @Resource
     private DashboardMapper dashboardMapper;
@@ -55,7 +59,7 @@ public class DashboardService {
     public DashboardOverviewVO overview() {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
-        String cacheKey = buildCacheKey(tenantCode, userId);
+        String cacheKey = buildScopedCacheKey(OVERVIEW_CACHE_KEY_PREFIX, tenantCode, userId);
 
         DashboardOverviewVO cached = getCachedOverview(cacheKey);
         if (cached != null) {
@@ -72,9 +76,23 @@ public class DashboardService {
         vo.setQuickActions(buildQuickActions(visibility));
         vo.setAiAdvices(aiAnalysisService.buildDashboardAdvices(tenantCode, visibility));
 
-        // Dashboard is read-heavy, so a short Redis cache avoids repeated aggregate queries across multiple instances.
         cacheOverview(cacheKey, vo);
         return vo;
+    }
+
+    public List<DashboardAiAdviceVO> aiAdvices() {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        Long userId = TenantPermissionContext.getUserId();
+        String cacheKey = buildScopedCacheKey(AI_ADVICE_CACHE_KEY_PREFIX, tenantCode, userId);
+
+        List<DashboardAiAdviceVO> cached = getCachedAiAdvices(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
+        List<DashboardAiAdviceVO> advices = aiAnalysisService.buildAllDashboardAdvices(tenantCode, buildVisibility());
+        cacheAiAdvices(cacheKey, advices);
+        return advices;
     }
 
     private DashboardOverviewVO.Visibility buildVisibility() {
@@ -253,10 +271,10 @@ public class DashboardService {
         return currentPermCodes.contains("*") || currentPermCodes.contains("*:*");
     }
 
-    private String buildCacheKey(String tenantCode, Long userId) {
+    private String buildScopedCacheKey(String prefix, String tenantCode, Long userId) {
         Set<String> permCodes = TenantPermissionContext.getPermCodes();
         String permSignature = permCodes == null ? "" : String.join(",", new TreeSet<>(permCodes));
-        return OVERVIEW_CACHE_KEY_PREFIX + tenantCode + ":" + userId + ":" + Integer.toHexString(permSignature.hashCode());
+        return prefix + tenantCode + ":" + userId + ":" + Integer.toHexString(permSignature.hashCode());
     }
 
     private long nvl(Long value) {
@@ -322,9 +340,29 @@ public class DashboardService {
         }
     }
 
+    private List<DashboardAiAdviceVO> getCachedAiAdvices(String cacheKey) {
+        try {
+            String cached = stringRedisTemplate.opsForValue().get(cacheKey);
+            if (cached == null || cached.isBlank()) {
+                return null;
+            }
+            return objectMapper.readValue(cached, new TypeReference<List<DashboardAiAdviceVO>>() {
+            });
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
     private void cacheOverview(String cacheKey, DashboardOverviewVO value) {
         try {
             stringRedisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(value), OVERVIEW_CACHE_TTL);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void cacheAiAdvices(String cacheKey, List<DashboardAiAdviceVO> value) {
+        try {
+            stringRedisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(value), AI_ADVICE_CACHE_TTL);
         } catch (Exception ignored) {
         }
     }

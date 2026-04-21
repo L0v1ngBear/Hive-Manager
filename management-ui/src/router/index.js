@@ -24,6 +24,12 @@ export const constantRoutes = [
         name: 'Dashboard',
         component: () => import('@/views/dashboard/index.vue'),
         meta: { title: '总览大盘', icon: 'dashboard' }
+      },
+      {
+        path: 'dashboard/ai-advices',
+        name: 'DashboardAiAdvice',
+        component: () => import('@/views/dashboard/aiAdvice.vue'),
+        meta: { title: 'AI 经营建议' }
       }
     ]
   },
@@ -43,6 +49,12 @@ export const constantRoutes = [
         name: 'Receipt',
         component: () => import('@/views/function/receipt.vue'),
         meta: { title: '出库单打印', permissions: ['receipt:print:list'] }
+      },
+      {
+        path: 'inventory',
+        name: 'Inventory',
+        component: () => import('@/views/function/inventory/inventory.vue'),
+        meta: { title: '库存管理', permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:in', 'inventory:cloth:out'] }
       },
       {
         path: 'price',

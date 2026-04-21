@@ -87,6 +87,7 @@ interface MenuItem {
 const primaryMenus = computed<MenuItem[]>(() => filterMenus([
   { name: '总览大盘', path: '/dashboard', icon: 'dashboard' },
   { name: '订单管理', path: '/function/order', icon: 'list_alt', permissions: ['sales:order:list', 'production:order:list'] },
+  { name: '库存管理', path: '/function/inventory', icon: 'storage', permissions: ['inventory:list'] },
   { name: '次品管理', path: '/function/bad-product', icon: 'warning' },
   { name: '客户管理', path: '/function/customer', icon: 'handshake', permissions: ['customer:page'] },
   { name: '价格管理', path: '/function/price', icon: 'price_change', permissions: ['price:list'] },

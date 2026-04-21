@@ -20,9 +20,11 @@
             class="text-left rounded-xl bg-surface-container-lowest px-4 py-3.5 shadow-sm ring-1 ring-outline-variant/20 hover:shadow-md hover:-translate-y-0.5 transition-all group"
         >
           <div class="flex items-center gap-3">
-            <span class="material-symbols-outlined text-[24px] w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
-              {{ action.icon }}
-            </span>
+            <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary transition-colors">
+              <span class="material-symbols-outlined text-[30px] text-primary group-hover:text-white leading-none transition-colors">
+                {{ action.icon }}
+              </span>
+            </div>
             <div class="min-w-0">
               <p class="text-sm font-bold text-on-surface truncate">{{ action.title }}</p>
               <p class="text-xs text-on-surface-variant truncate mt-1">{{ action.description }}</p>
@@ -47,8 +49,8 @@
       <article class="rounded-2xl p-5 bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between min-h-[120px]">
         <div class="flex items-center justify-between mb-2">
           <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant">库存预警项</p>
-          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <span class="material-symbols-outlined text-[18px]">warning</span>
+          <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[30px] leading-none">warning</span>
           </div>
         </div>
         <div class="mt-auto">
@@ -60,8 +62,8 @@
       <article class="rounded-2xl p-5 bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between min-h-[120px]">
         <div class="flex items-center justify-between mb-2">
           <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant">待我审批</p>
-          <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-            <span class="material-symbols-outlined text-[18px]">fact_check</span>
+          <div class="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[30px] leading-none">fact_check</span>
           </div>
         </div>
         <div class="mt-auto">
@@ -73,8 +75,8 @@
       <article class="rounded-2xl p-5 bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between min-h-[120px]">
         <div class="flex items-center justify-between mb-2">
           <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant">待打出库单</p>
-          <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-            <span class="material-symbols-outlined text-[18px]">print</span>
+          <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[30px] leading-none">print</span>
           </div>
         </div>
         <div class="mt-auto">
@@ -88,24 +90,31 @@
       <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 xl:col-span-2">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h2 class="text-lg font-black text-on-surface leading-tight">AI 今日建议</h2>
-            <p class="text-xs text-on-surface-variant mt-1">第一阶段基于真实业务规则生成，可直接用于经营提醒和客户沟通。</p>
+            <h2 class="text-lg font-black text-on-surface leading-tight">AI 经营洞察</h2>
+            <p class="text-xs text-on-surface-variant mt-1">基于真实业务数据生成关键异动诊断，辅助管理层快速判断优先级。</p>
           </div>
-          <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary">{{ aiAdvices.length }} 条</span>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary">{{ aiAdvices.length }} 条</span>
+            <button @click="router.push('/dashboard/ai-advices')" class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90">
+              查看更多
+            </button>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div
-            v-for="(item, index) in aiAdvices"
-            :key="`${item.category}-${index}`"
-            class="rounded-2xl p-4 border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
-            :class="adviceCardClass(item.level)"
-            @click="item.route && router.push(item.route)"
+              v-for="(item, index) in aiAdvices"
+              :key="`${item.category}-${index}`"
+              class="rounded-2xl p-4 border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
+              :class="adviceCardClass(item.level)"
+              @click="item.route && router.push(item.route)"
           >
             <div class="flex items-start gap-3">
-              <span class="material-symbols-outlined text-[22px] w-11 h-11 rounded-xl flex items-center justify-center shrink-0" :class="adviceIconClass(item.level)">
-                {{ item.icon || 'tips_and_updates' }}
-              </span>
+              <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" :class="adviceIconClass(item.level)">
+                <span class="material-symbols-outlined text-[26px] leading-none">
+                  {{ item.icon || 'tips_and_updates' }}
+                </span>
+              </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-center justify-between gap-2">
                   <p class="text-sm font-black truncate">{{ item.title }}</p>
@@ -319,7 +328,7 @@ const chartPoints = computed(() => {
     const outValue = Number(trendOutMeters.value[index] || 0)
     const inY = 56 - (inValue / maxValue) * 50
     const outY = 56 - (outValue / maxValue) * 50
-    return { x, inY, outY }
+    return {x, inY, outY}
   })
 })
 
@@ -349,8 +358,8 @@ const fetchOverview = async () => {
 
 const formatTrendValue = (value) => {
   const num = Number(value || 0);
-  if (num >= 10000) return `${(num/10000).toFixed(1)}w`;
-  return `${num.toLocaleString('zh-CN', { maximumFractionDigits: 0 })}`;
+  if (num >= 10000) return `${(num / 10000).toFixed(1)}w`;
+  return `${num.toLocaleString('zh-CN', {maximumFractionDigits: 0})}`;
 }
 
 const alertCardClass = (level) => {
@@ -396,6 +405,7 @@ onMounted(fetchOverview)
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;

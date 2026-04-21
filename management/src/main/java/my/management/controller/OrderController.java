@@ -16,6 +16,7 @@ import my.management.module.order.model.vo.ProductionOrderPageVO;
 import my.management.module.order.model.vo.ProductionOrderStatusLogVO;
 import my.management.module.order.model.vo.SalesOrderDetailVO;
 import my.management.module.order.model.vo.SalesOrderPageVO;
+import my.management.module.order.model.vo.SalesOrderStatusLogVO;
 import my.management.module.order.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
@@ -70,6 +71,12 @@ public class OrderController {
     public Result<Void> updateSales(@PathVariable String orderId, @RequestBody SalesOrderUpdateRequest request) {
         orderService.updateSalesOrder(orderId, request);
         return Result.success(null);
+    }
+
+    @GetMapping("/sales/log/{orderId}")
+    @RequirePermission(value = "sales:order:log", message = "您没有权限查看销售订单日志")
+    public Result<List<SalesOrderStatusLogVO>> salesLog(@PathVariable String orderId) {
+        return Result.success(orderService.listSalesLogs(orderId));
     }
 
     @GetMapping("/production/page")

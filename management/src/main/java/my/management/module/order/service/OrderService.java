@@ -10,10 +10,13 @@ import my.management.module.customer.mapper.CustomerMapper;
 import my.management.module.customer.mapper.CustomerProjectMapper;
 import my.management.module.customer.model.entity.Customer;
 import my.management.module.customer.model.entity.CustomerProject;
+import my.management.module.employee.mapper.EmployeeMapper;
+import my.management.module.employee.model.entity.Employee;
 import my.management.module.order.mapper.ProductionOrderMapper;
 import my.management.module.order.mapper.ProductionOrderStatusLogMapper;
 import my.management.module.order.mapper.SalesOrderDetailMapper;
 import my.management.module.order.mapper.SalesOrderMapper;
+import my.management.module.order.mapper.SalesOrderStatusLogMapper;
 import my.management.module.order.model.dto.ProductionOrderPageRequest;
 import my.management.module.order.model.dto.ProductionOrderSaveRequest;
 import my.management.module.order.model.dto.ProductionOrderUpdateRequest;
@@ -24,11 +27,13 @@ import my.management.module.order.model.entity.ProductionOrder;
 import my.management.module.order.model.entity.ProductionOrderStatusLog;
 import my.management.module.order.model.entity.SalesOrder;
 import my.management.module.order.model.entity.SalesOrderDetail;
+import my.management.module.order.model.entity.SalesOrderStatusLog;
 import my.management.module.order.model.vo.ProductionOrderDetailVO;
 import my.management.module.order.model.vo.ProductionOrderPageVO;
 import my.management.module.order.model.vo.ProductionOrderStatusLogVO;
 import my.management.module.order.model.vo.SalesOrderDetailVO;
 import my.management.module.order.model.vo.SalesOrderPageVO;
+import my.management.module.order.model.vo.SalesOrderStatusLogVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,6 +78,9 @@ public class OrderService {
     private ProductionOrderStatusLogMapper productionOrderStatusLogMapper;
 
     @Resource
+    private SalesOrderStatusLogMapper salesOrderStatusLogMapper;
+
+    @Resource
     private CodeGeneratorUtil codeGeneratorUtil;
 
     @Resource
@@ -80,6 +88,9 @@ public class OrderService {
 
     @Resource
     private CustomerProjectMapper customerProjectMapper;
+
+    @Resource
+    private EmployeeMapper employeeMapper;
 
     public Page<SalesOrderPageVO> pageSalesOrders(SalesOrderPageRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
@@ -131,7 +142,23 @@ public class OrderService {
             BeanUtils.copyProperties(detail, itemVO);
             return itemVO;
         }).toList());
+        vo.setLogs(listSalesLogs(orderId));
         return vo;
+    }
+
+    public List<SalesOrderStatusLogVO> listSalesLogs(String orderId) {
+        findSalesOrder(orderId);
+        return salesOrderStatusLogMapper.selectList(new LambdaQueryWrapper<SalesOrderStatusLog>()
+                        .eq(SalesOrderStatusLog::getTenantCode, TenantPermissionContext.getTenantCode())
+                        .eq(SalesOrderStatusLog::getOrderId, orderId)
+                        .orderByDesc(SalesOrderStatusLog::getCreateTime))
+                .stream()
+                .map(log -> {
+                    SalesOrderStatusLogVO vo = new SalesOrderStatusLogVO();
+                    BeanUtils.copyProperties(log, vo);
+                    return vo;
+                })
+                .toList();
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -143,6 +170,7 @@ public class OrderService {
         applySalesOrderContent(order, request, true);
         salesOrderMapper.insert(order);
         replaceSalesOrderItems(order.getOrderId(), request.getItems());
+        insertSalesLog(order, null, "create", "创建销售订单");
 
         if (Objects.equals(request.getCreateProductionOrder(), 1)) {
             createProductionOrdersFromSales(order, request.getItems());
@@ -157,6 +185,9 @@ public class OrderService {
         applySalesOrderContent(order, request, false);
         salesOrderMapper.updateById(order);
         replaceSalesOrderItems(orderId, request.getItems());
+        if (!Objects.equals(oldStatus, order.getStatus()) || StringUtils.hasText(request.getRemark())) {
+            insertSalesLog(order, oldStatus, "status_change", blankToNull(request.getRemark()));
+        }
         syncLinkedProductionOrders(order, oldStatus);
     }
 
@@ -184,6 +215,9 @@ public class OrderService {
         }
         validateShippingInfo(order.getStatus(), order.getExpressCompany(), order.getExpressNo());
         salesOrderMapper.updateById(order);
+        if (!Objects.equals(oldStatus, order.getStatus()) || StringUtils.hasText(request.getRemark())) {
+            insertSalesLog(order, oldStatus, "status_change", blankToNull(request.getRemark()));
+        }
         syncLinkedProductionOrders(order, oldStatus);
     }
 
@@ -307,6 +341,7 @@ public class OrderService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("salesOrderTableReady", salesOrderMapper.selectCount(null) >= 0);
         result.put("salesOrderDetailTableReady", salesOrderDetailMapper.selectCount(null) >= 0);
+        result.put("salesOrderLogTableReady", salesOrderStatusLogMapper.selectCount(null) >= 0);
         result.put("productionOrderTableReady", productionOrderMapper.selectCount(null) >= 0);
         result.put("productionOrderLogTableReady", productionOrderStatusLogMapper.selectCount(null) >= 0);
         result.put("checkedAt", LocalDateTime.now());
@@ -396,8 +431,23 @@ public class OrderService {
         log.setOperateType(order.getProcess() != null ? "process_change" : "status_change");
         log.setRemark(StringUtils.hasText(remark) ? remark : "管理端更新订单信息");
         log.setOperator(resolveCurrentUser());
+        log.setOperatorName(resolveCurrentUserName());
         log.setCreateTime(LocalDateTime.now());
         productionOrderStatusLogMapper.insert(log);
+    }
+
+    private void insertSalesLog(SalesOrder order, String oldStatus, String operateType, String remark) {
+        SalesOrderStatusLog log = new SalesOrderStatusLog();
+        log.setTenantCode(order.getTenantCode());
+        log.setOrderId(order.getOrderId());
+        log.setOldStatus(oldStatus);
+        log.setNewStatus(order.getStatus());
+        log.setOperateType(operateType);
+        log.setRemark(StringUtils.hasText(remark) ? remark : "管理端更新销售订单信息");
+        log.setOperator(resolveCurrentUser());
+        log.setOperatorName(resolveCurrentUserName());
+        log.setCreateTime(LocalDateTime.now());
+        salesOrderStatusLogMapper.insert(log);
     }
 
     /**
@@ -484,9 +534,11 @@ public class OrderService {
         if (linkedSalesOrder == null || Objects.equals(linkedSalesOrder.getStatus(), productionOrder.getStatus())) {
             return;
         }
+        String oldSalesStatus = linkedSalesOrder.getStatus();
         linkedSalesOrder.setStatus(productionOrder.getStatus());
         validateShippingInfo(linkedSalesOrder.getStatus(), linkedSalesOrder.getExpressCompany(), linkedSalesOrder.getExpressNo());
         salesOrderMapper.updateById(linkedSalesOrder);
+        insertSalesLog(linkedSalesOrder, oldSalesStatus, "sync", "生产订单状态同步更新");
     }
 
     private boolean supportsProductionStatusSync(String status) {
@@ -578,6 +630,21 @@ public class OrderService {
     private String resolveCurrentUser() {
         Long userId = TenantPermissionContext.getUserId();
         return userId == null ? "system" : String.valueOf(userId);
+    }
+
+    private String resolveCurrentUserName() {
+        Long userId = TenantPermissionContext.getUserId();
+        if (userId == null) {
+            return "系统";
+        }
+        Employee employee = employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
+                .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(Employee::getId, userId)
+                .last("LIMIT 1"));
+        if (employee != null && StringUtils.hasText(employee.getName())) {
+            return employee.getName();
+        }
+        return String.valueOf(userId);
     }
 
     private long safePage(long pageNum) {

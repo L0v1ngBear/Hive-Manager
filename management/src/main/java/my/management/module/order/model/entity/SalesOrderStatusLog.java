@@ -9,11 +9,11 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 生产订单状态日志实体，记录状态变更轨迹。
+ * 销售订单状态日志实体，用于记录销售订单从创建到发货、完成的每一次状态流转。
  */
 @Data
-@TableName("production_order_status_log")
-public class ProductionOrderStatusLog {
+@TableName("sales_order_status_log")
+public class SalesOrderStatusLog {
 
     @TableId(type = IdType.AUTO)
     private Long id;

@@ -6,3 +6,10 @@ export function getDashboardOverview() {
     method: 'get'
   })
 }
+
+export function getDashboardAiAdvices() {
+  return request({
+    url: '/dashboard/ai-advices',
+    method: 'get'
+  })
+}

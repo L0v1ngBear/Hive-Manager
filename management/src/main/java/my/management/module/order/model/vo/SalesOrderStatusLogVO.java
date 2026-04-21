@@ -5,10 +5,10 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 生产订单状态日志对象。
+ * 销售订单状态日志出参，用于管理端和小程序端展示时间轴。
  */
 @Data
-public class ProductionOrderStatusLogVO {
+public class SalesOrderStatusLogVO {
 
     private Long id;
 

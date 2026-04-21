@@ -44,6 +44,8 @@ public class SalesOrderDetailVO {
 
     private List<ItemVO> items;
 
+    private List<SalesOrderStatusLogVO> logs;
+
     @Data
     public static class ItemVO {
 

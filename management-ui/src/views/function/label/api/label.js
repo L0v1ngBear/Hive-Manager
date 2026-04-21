@@ -8,6 +8,14 @@ export function listLabelTemplates(params = {}) {
   })
 }
 
+export function listLabelTemplateVariables(params = {}) {
+  return request({
+    url: '/label-template/variables',
+    method: 'get',
+    params
+  })
+}
+
 export function saveLabelTemplate(data) {
   return request({
     url: '/label-template/save',
