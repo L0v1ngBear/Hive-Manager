@@ -50,13 +50,14 @@
       </div>
 
       <div class="overflow-x-auto">
-        <table class="min-w-[1120px] w-full text-left">
+        <table class="min-w-[1220px] w-full text-left">
           <thead class="bg-surface-container-low/50">
             <tr>
               <th class="th-cell">编号</th>
               <th class="th-cell">客户 / 项目</th>
               <th class="th-cell">核心信息</th>
               <th class="th-cell">交付信息</th>
+              <th class="th-cell">开票</th>
               <th class="th-cell">状态</th>
               <th class="th-cell">时间</th>
               <th class="th-cell text-right">操作</th>
@@ -101,6 +102,16 @@
                 </template>
               </td>
               <td class="td-cell">
+                <template v-if="currentTab === 'sales'">
+                  <span :class="invoiceClass(row.isInvoice)" class="inline-flex rounded-full px-3 py-1 text-xs font-bold">
+                    {{ invoiceLabel(row.isInvoice) }}
+                  </span>
+                </template>
+                <template v-else>
+                  <span class="text-xs text-on-surface-variant">--</span>
+                </template>
+              </td>
+              <td class="td-cell">
                 <span
                   class="inline-flex rounded-full px-3 py-1 text-xs font-bold"
                   :class="currentTab === 'sales' ? salesStatusClass(row.status) : productionStatusClass(row.status)"
@@ -121,7 +132,7 @@
               </td>
             </tr>
             <tr v-if="!currentState.loading && !currentState.rows.length">
-              <td colspan="7" class="px-6 py-14 text-center text-sm text-on-surface-variant">暂无订单数据</td>
+              <td colspan="8" class="px-6 py-14 text-center text-sm text-on-surface-variant">暂无订单数据</td>
             </tr>
           </tbody>
         </table>
@@ -176,6 +187,11 @@
                     {{ salesDetail.expressCompany || '未发货' }}
                     <template v-if="salesDetail.expressNo"> / {{ salesDetail.expressNo }}</template>
                   </div>
+                </div>
+                <div class="info-card">
+                  <div class="info-label">开票状态</div>
+                  <div class="info-value">{{ invoiceLabel(salesDetail.isInvoice) }}</div>
+                  <div class="mt-1 text-xs text-on-surface-variant">用于财务开票跟进和后续统计。</div>
                 </div>
               </div>
               <div class="mt-6">
@@ -338,6 +354,13 @@
                   <label class="field-label">订单状态</label>
                   <select v-model="salesForm.status" class="box-input">
                     <option v-for="status in salesStatuses" :key="status.value" :value="status.value">{{ status.label }}</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="field-label">是否开票</label>
+                  <select v-model.number="salesForm.isInvoice" class="box-input">
+                    <option :value="0">未开票</option>
+                    <option :value="1">已开票</option>
                   </select>
                 </div>
                 <div class="flex items-end">
@@ -523,6 +546,7 @@ function defaultSalesForm() {
     deliveryDate: '',
     expressCompany: '',
     expressNo: '',
+    isInvoice: 0,
     remark: '',
     status: 'pending_confirm',
     createProductionOrder: 1,
@@ -666,6 +690,7 @@ async function openEdit(orderId) {
     salesForm.deliveryDate = toDateInput(detail.deliveryDate)
     salesForm.expressCompany = detail.expressCompany || ''
     salesForm.expressNo = detail.expressNo || ''
+    salesForm.isInvoice = Number(detail.isInvoice || 0)
     salesForm.remark = detail.remark || ''
     salesForm.status = detail.status || 'pending_confirm'
     salesForm.createProductionOrder = 0
@@ -768,6 +793,7 @@ function buildSalesPayload() {
     deliveryDate: blank(salesForm.deliveryDate),
     expressCompany: blank(salesForm.expressCompany),
     expressNo: blank(salesForm.expressNo),
+    isInvoice: Number(salesForm.isInvoice || 0),
     remark: blank(salesForm.remark),
     status: salesForm.status,
     createProductionOrder: formMode.value === 'create' ? Number(salesForm.createProductionOrder || 0) : 0,
@@ -849,6 +875,14 @@ function salesStatusLabel(status) {
 
 function productionStatusLabel(status) {
   return productionStatuses.find(item => item.value === status)?.label || status || '未设置'
+}
+
+function invoiceLabel(value) {
+  return Number(value || 0) === 1 ? '已开票' : '未开票'
+}
+
+function invoiceClass(value) {
+  return Number(value || 0) === 1 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
 }
 
 function salesStatusClass(status) {

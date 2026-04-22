@@ -8,6 +8,12 @@
         </div>
         <div class="flex gap-3">
           <button
+              @click="openOrganizationDrawer"
+              class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
+          >
+            <span class="material-symbols-outlined text-[20px]">account_tree</span>组织架构
+          </button>
+          <button
               @click="handleTemplateDownload"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
@@ -218,12 +224,102 @@
 
     <input ref="importInputRef" type="file" accept=".xlsx" class="hidden" @change="handleImportChange" />
     <EmployeeCreate :visible="isDrawerOpen" :employee-id="editingEmployeeId" @close="closeDrawer" @success="handleCreateSuccess" />
+
+    <transition name="fade">
+      <div
+        v-if="isOrganizationDrawerOpen"
+        class="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[2px]"
+        @click="closeOrganizationDrawer"
+      ></div>
+    </transition>
+    <aside
+      class="fixed top-0 right-0 z-50 h-full w-full max-w-[1180px] overflow-hidden border-l border-outline-variant/30 bg-surface shadow-2xl transition-transform duration-300"
+      :class="isOrganizationDrawerOpen ? 'translate-x-0' : 'translate-x-full'"
+    >
+      <div class="flex h-full flex-col">
+        <div class="flex items-start justify-between border-b border-outline-variant/20 bg-white/95 px-6 py-4 backdrop-blur">
+          <div>
+            <h3 class="text-xl font-black text-primary">组织架构</h3>
+            <p class="mt-1 text-sm text-on-surface-variant">根据员工展示上下级汇报关系，仅用于查看。</p>
+          </div>
+          <button class="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high hover:text-primary" @click="closeOrganizationDrawer">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div class="flex-1 overflow-y-auto bg-surface p-6">
+          <div class="mb-5 grid grid-cols-2 gap-4 md:grid-cols-4">
+            <article class="org-stat-card">
+              <span>人员总数</span>
+              <strong>{{ organizationEmployees.length }}</strong>
+            </article>
+            <article class="org-stat-card">
+              <span>顶层人员</span>
+              <strong>{{ employeeHierarchy.length }}</strong>
+            </article>
+            <article class="org-stat-card">
+              <span>有下级</span>
+              <strong>{{ managerCount }}</strong>
+            </article>
+            <article class="org-stat-card warning">
+              <span>未设置上级</span>
+              <strong>{{ rootEmployeeCount }}</strong>
+            </article>
+          </div>
+
+          <div class="org-tree-panel">
+            <div v-if="organizationLoading" class="flex min-h-[360px] items-center justify-center text-primary">
+              <span class="material-symbols-outlined animate-spin text-4xl">progress_activity</span>
+            </div>
+            <div v-else-if="employeeHierarchy.length" class="org-chart-wrap">
+              <Vue3TreeOrg
+                :data="orgChartData"
+                :props="orgChartProps"
+                :horizontal="false"
+                :collapsable="true"
+                :draggable="false"
+                :node-draggable="false"
+                :disabled="true"
+                :define-menus="[]"
+                :tool-bar="{ expand: true, scale: true, zoom: true, restore: true, fullscreen: false }"
+                :default-expand-level="4"
+                center
+              >
+                <template #default="{ node }">
+                  <div class="org-chart-card" :class="{ root: node.$$data?.isVirtualRoot }">
+                    <div class="org-chart-icon">
+                      <span class="material-symbols-outlined">{{ node.$$data?.isVirtualRoot ? 'account_tree' : node.children?.length ? 'supervisor_account' : 'person' }}</span>
+                    </div>
+                    <div class="org-chart-content">
+                      <p class="org-chart-name">{{ node.label }}</p>
+                      <p v-if="!node.$$data?.isVirtualRoot" class="org-chart-meta">
+                        {{ node.$$data?.departmentName || '未分配部门' }} · {{ node.$$data?.positionName || '未设置职位' }}
+                      </p>
+                      <p v-else class="org-chart-meta">按 manager_id 自动生成上下级关系</p>
+                    </div>
+                    <span v-if="!node.$$data?.isVirtualRoot" :class="['org-chart-status', Number(node.$$data?.status) === 1 ? 'enabled' : 'disabled']">
+                      {{ employeeStatusLabel(node.$$data?.status) }}
+                    </span>
+                  </div>
+                </template>
+              </Vue3TreeOrg>
+            </div>
+            <div v-else class="flex min-h-[360px] flex-col items-center justify-center rounded-2xl bg-surface-container-low text-center">
+              <span class="material-symbols-outlined text-5xl text-primary">account_tree</span>
+              <p class="mt-3 text-sm font-bold text-on-surface">暂无上下级关系</p>
+              <p class="mt-1 text-xs text-on-surface-variant">还没有员工数据或 manager_id 尚未维护。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Vue3TreeOrg } from 'vue3-tree-org'
+import 'vue3-tree-org/lib/vue3-tree-org.css'
 import EmployeeCreate from './employeeCreate.vue'
 import {
   downloadEmployeeImportTemplate,
@@ -239,6 +335,9 @@ const isDrawerOpen = ref(false)
 const editingEmployeeId = ref(null)
 const importInputRef = ref(null)
 const loading = ref(false)
+const isOrganizationDrawerOpen = ref(false)
+const organizationLoading = ref(false)
+const organizationEmployees = ref([])
 const employees = ref([])
 const departments = ref([])
 const statusOptions = ref([])
@@ -263,6 +362,18 @@ const query = reactive({
 const totalPages = computed(() => Math.max(pagination.pages || 1, 1))
 const pageStart = computed(() => (pagination.total === 0 ? 0 : (query.page - 1) * query.size + 1))
 const pageEnd = computed(() => Math.min(query.page * query.size, pagination.total || 0))
+const employeeHierarchy = computed(() => buildEmployeeHierarchy(organizationEmployees.value))
+const managerCount = computed(() => organizationEmployees.value.filter((item) => employeeHierarchyHasChildren(item.id, employeeHierarchy.value)).length)
+const rootEmployeeCount = computed(() => employeeHierarchy.value.length)
+const orgChartProps = { id: 'id', pid: 'pid', label: 'label', children: 'children', expand: 'expand' }
+const orgChartData = computed(() => ({
+  id: 'root',
+  pid: null,
+  label: '组织架构',
+  expand: true,
+  isVirtualRoot: true,
+  children: employeeHierarchy.value.map(toOrgChartNode)
+}))
 
 const fetchEmployees = async () => {
   loading.value = true
@@ -338,6 +449,66 @@ const closeDrawer = () => {
   editingEmployeeId.value = null
 }
 
+const openOrganizationDrawer = async () => {
+  isOrganizationDrawerOpen.value = true
+  await fetchOrganizationTree()
+}
+
+const closeOrganizationDrawer = async () => {
+  isOrganizationDrawerOpen.value = false
+  await Promise.all([fetchFormOptions(), fetchStats()])
+}
+
+const fetchOrganizationTree = async () => {
+  organizationLoading.value = true
+  try {
+    const data = await getEmployeePage({ page: 1, size: 2000 })
+    organizationEmployees.value = data.data || []
+  } finally {
+    organizationLoading.value = false
+  }
+}
+
+const buildEmployeeHierarchy = (source) => {
+  const nodes = source.map((item) => ({ ...item, children: [] }))
+  const byId = new Map(nodes.map((item) => [Number(item.id), item]))
+  const byName = new Map(nodes.filter((item) => item.name).map((item) => [item.name, item]))
+  const roots = []
+
+  nodes.forEach((node) => {
+    const leaderId = node.leaderId == null ? null : Number(node.leaderId)
+    const leader = leaderId ? byId.get(leaderId) : byName.get(node.leaderName)
+    if (leader && leader.id !== node.id) {
+      leader.children.push(node)
+    } else {
+      roots.push(node)
+    }
+  })
+
+  return roots
+}
+
+const toOrgChartNode = (employee) => ({
+  ...employee,
+  id: String(employee.id),
+  pid: employee.leaderId ? String(employee.leaderId) : 'root',
+  label: employee.name || '--',
+  expand: true,
+  children: (employee.children || []).map(toOrgChartNode)
+})
+
+const employeeHierarchyHasChildren = (employeeId, nodes) => {
+  for (const node of nodes) {
+    if (Number(node.id) === Number(employeeId)) {
+      return (node.children || []).length > 0
+    }
+    if (employeeHierarchyHasChildren(employeeId, node.children || [])) {
+      return true
+    }
+  }
+  return false
+}
+
 const handleExport = async () => {
   const blob = await exportEmployeesExcel(normalizeQuery())
   downloadBlob(blob, `员工列表-${Date.now()}.xlsx`)
@@ -404,8 +575,179 @@ const statusMeta = (status) => {
   if (Number(status) === 0) return { label: '离职', text: 'text-slate-500', dot: 'bg-slate-400' }
   return { label: '未知', text: 'text-slate-500', dot: 'bg-slate-400' }
 }
+const employeeStatusLabel = (status) => statusMeta(status).label
 
 onMounted(async () => {
   await Promise.all([fetchEmployees(), fetchStats(), fetchFormOptions()])
 })
 </script>
+
+<style scoped>
+.org-stat-card {
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, .86);
+  padding: 1rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+}
+
+.org-stat-card span {
+  display: block;
+  color: rgb(var(--on-surface-variant));
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.org-stat-card strong {
+  display: block;
+  margin-top: .55rem;
+  color: rgb(var(--primary));
+  font-size: 2rem;
+  line-height: 2.1rem;
+  font-weight: 900;
+}
+
+.org-stat-card.warning {
+  border-color: rgba(245, 158, 11, .22);
+  background: rgba(255, 251, 235, .9);
+}
+
+.org-tree-panel {
+  min-height: 440px;
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(0, 82, 204, .08), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(248, 250, 252, .96));
+  padding: 1.25rem;
+}
+
+.org-chart-wrap {
+  min-height: 560px;
+  overflow: hidden;
+}
+
+.org-chart-card {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  min-width: 230px;
+  max-width: 270px;
+  border: 1px solid rgba(69, 95, 136, .18);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #fff, #f8fafc);
+  padding: .85rem;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, .08);
+}
+
+.org-chart-card.root {
+  border-color: rgba(69, 95, 136, .35);
+  background: linear-gradient(135deg, rgb(var(--primary)), #6c86b3);
+  color: white;
+}
+
+.org-chart-icon {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2.55rem;
+  height: 2.55rem;
+  border-radius: .85rem;
+  background: rgba(69, 95, 136, .1);
+  color: rgb(var(--primary));
+}
+
+.org-chart-card.root .org-chart-icon {
+  background: rgba(255, 255, 255, .16);
+  color: white;
+}
+
+.org-chart-icon .material-symbols-outlined {
+  font-size: 1.55rem;
+}
+
+.org-chart-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.org-chart-name {
+  overflow: hidden;
+  font-size: .95rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-chart-meta {
+  margin-top: .25rem;
+  overflow: hidden;
+  color: rgb(var(--on-surface-variant));
+  font-size: .72rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-chart-card.root .org-chart-meta {
+  color: rgba(255, 255, 255, .78);
+}
+
+.org-chart-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: .22rem .5rem;
+  font-size: .66rem;
+  font-weight: 900;
+}
+
+.org-chart-status.enabled {
+  background: rgba(16, 185, 129, .12);
+  color: rgb(4, 120, 87);
+}
+
+.org-chart-status.disabled {
+  background: rgba(100, 116, 139, .12);
+  color: rgb(71, 85, 105);
+}
+
+:deep(.zm-tree-org) {
+  width: 100%;
+  height: 560px;
+  background: transparent;
+}
+
+:deep(.zoom-container) {
+  background: transparent;
+}
+
+:deep(.tree-org-node__inner) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:deep(.tree-org-node__content) {
+  padding: 0 10px;
+}
+
+:deep(.tree-org-node__children::before),
+:deep(.tree-org-node::before),
+:deep(.tree-org-node::after) {
+  border-color: rgba(69, 95, 136, .35) !important;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity .25s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

@@ -34,6 +34,26 @@ html, body, #app {
   padding: 0;
 }
 
+/* Material Symbols 图标字体改为本地 npm 依赖，避免 Google Fonts 被网络或 VPN 影响。 */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "liga";
+}
+
 /* ==========================================
    全局 【自动隐藏 + 胶囊式】 滚动条
    ========================================== */

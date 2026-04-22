@@ -49,7 +49,28 @@ public class LabelTemplateService {
             new LabelTemplateVariableVO("入库时间", "inboundTime", "text", "2026-04-21"),
             new LabelTemplateVariableVO("客户", "customerName", "text", "示例客户")
     );
-    private static final Map<String, List<LabelTemplateVariableVO>> VARIABLE_MAP = Map.of("label", LABEL_VARIABLES);
+    private static final List<LabelTemplateVariableVO> RECEIPT_VARIABLES = List.of(
+            new LabelTemplateVariableVO("单据编号", "orderNo", "text", "CK20260414001"),
+            new LabelTemplateVariableVO("客户名称", "customerName", "text", "上海某服饰"),
+            new LabelTemplateVariableVO("项目名称", "projectName", "text", "春季面料项目"),
+            new LabelTemplateVariableVO("录单日期", "createDate", "text", "2026-04-14"),
+            new LabelTemplateVariableVO("制单人", "operator", "text", "仓库管理员"),
+            new LabelTemplateVariableVO("当前页码", "pageNo", "text", "1"),
+            new LabelTemplateVariableVO("总页数", "totalPages", "text", "2"),
+            new LabelTemplateVariableVO("货物名称", "modelCode", "text", "978-1-56915-43-9"),
+            new LabelTemplateVariableVO("规格", "spec", "text", "160"),
+            new LabelTemplateVariableVO("米数", "meters", "text", "120.50"),
+            new LabelTemplateVariableVO("单价", "price", "text", "32.50"),
+            new LabelTemplateVariableVO("金额", "amount", "text", "3916.25"),
+            new LabelTemplateVariableVO("行备注", "remark", "text", "A区使用"),
+            new LabelTemplateVariableVO("本页合计米数", "pageMeters", "text", "206.50"),
+            new LabelTemplateVariableVO("本页小计金额", "pageAmount", "text", "7855.05"),
+            new LabelTemplateVariableVO("总金额", "totalAmount", "text", "7855.05")
+    );
+    private static final Map<String, List<LabelTemplateVariableVO>> VARIABLE_MAP = Map.of(
+            "label", LABEL_VARIABLES,
+            "receipt", RECEIPT_VARIABLES
+    );
     private static final String DEFAULT_LABEL_TEMPLATE = "SIZE 70 mm,50 mm\r\n"
             + "GAP 2 mm,0 mm\r\n"
             + "DIRECTION 1\r\n"
@@ -60,6 +81,32 @@ public class LabelTemplateService {
             + "BARCODE 30,160,\"128\",80,1,0,2,2,\"${barcode}\"\r\n"
             + "TEXT 30,250,\"TSS24.BF2\",0,1,1,\"${barcode}\"\r\n"
             + "PRINT 1,1";
+    private static final String DEFAULT_RECEIPT_TEMPLATE = """
+            {
+              "title": "面料销售码单",
+              "subtitle": "出库凭证",
+              "paperWidthMm": 215.9,
+              "paperHeightMm": 139.7,
+              "rowsPerPage": 7,
+              "warehouse": "成品仓库",
+              "notice": "请您与发货单核对本页货物，若有质量问题请在 15 天内告知；开剪后概不退换！感谢合作，共赢发展。",
+              "showLogistics": true,
+              "showSignature": true,
+              "columns": [
+                {"key": "modelCode", "label": "货物名称", "visible": true},
+                {"key": "spec", "label": "规格", "visible": true},
+                {"key": "meters", "label": "数量/米", "visible": true},
+                {"key": "blank1", "label": "数量/米", "visible": true},
+                {"key": "blank2", "label": "数量/米", "visible": true},
+                {"key": "blank3", "label": "数量/米", "visible": true},
+                {"key": "totalMeters", "label": "总米数", "visible": true},
+                {"key": "price", "label": "单价", "visible": true},
+                {"key": "amount", "label": "金额", "visible": true},
+                {"key": "remark", "label": "备注", "visible": true}
+              ],
+              "variables": ["orderNo", "customerName", "projectName", "createDate", "operator", "modelCode", "spec", "meters", "price", "amount", "remark"]
+            }
+            """;
 
     @Resource
     private LabelTemplateMapper labelTemplateMapper;
@@ -79,8 +126,8 @@ public class LabelTemplateService {
         queryWrapper.orderByDesc(LabelTemplate::getIsDefault);
         queryWrapper.orderByDesc(LabelTemplate::getUpdateTime);
         List<LabelTemplate> templates = labelTemplateMapper.selectList(queryWrapper);
-        if (templates.isEmpty() && (!StringUtils.isNotBlank(printType) || "label".equals(printType))) {
-            templates = List.of(createDefaultLabelTemplate());
+        if (templates.isEmpty()) {
+            templates = List.of(createDefaultTemplate(resolvePrintType(printType)));
         }
         return templates.stream().map(this::toVO).toList();
     }
@@ -211,6 +258,13 @@ public class LabelTemplateService {
         return template;
     }
 
+    private LabelTemplate createDefaultTemplate(String printType) {
+        if ("receipt".equals(printType)) {
+            return createDefaultReceiptTemplate();
+        }
+        return createDefaultLabelTemplate();
+    }
+
     private LabelTemplate createDefaultLabelTemplate() {
         LabelTemplate template = new LabelTemplate();
         template.setTenantCode(TenantPermissionContext.getTenantCode());
@@ -222,6 +276,26 @@ public class LabelTemplateService {
         template.setVariables(String.join(",", extractVariables(DEFAULT_LABEL_TEMPLATE)));
         template.setFileName("system-default.prn");
         template.setFileSize((long) DEFAULT_LABEL_TEMPLATE.getBytes(StandardCharsets.UTF_8).length);
+        template.setIsDefault(1);
+        template.setStatus(1);
+        template.setIsDeleted(0);
+        template.setCreatorId(TenantPermissionContext.getUserId());
+        labelTemplateMapper.insert(template);
+        return template;
+    }
+
+    private LabelTemplate createDefaultReceiptTemplate() {
+        LabelTemplate template = new LabelTemplate();
+        template.setTenantCode(TenantPermissionContext.getTenantCode());
+        template.setName("系统默认出库单");
+        template.setPrintType("receipt");
+        template.setContent(DEFAULT_RECEIPT_TEMPLATE);
+        template.setDesignJson(DEFAULT_RECEIPT_TEMPLATE);
+        template.setWidthMm(new BigDecimal("215.9"));
+        template.setHeightMm(new BigDecimal("139.7"));
+        template.setVariables(String.join(",", RECEIPT_VARIABLES.stream().map(LabelTemplateVariableVO::getField).toList()));
+        template.setFileName("system-default-receipt.json");
+        template.setFileSize((long) DEFAULT_RECEIPT_TEMPLATE.getBytes(StandardCharsets.UTF_8).length);
         template.setIsDefault(1);
         template.setStatus(1);
         template.setIsDeleted(0);

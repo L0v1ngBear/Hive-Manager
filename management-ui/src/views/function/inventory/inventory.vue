@@ -117,7 +117,6 @@
             <table class="w-full text-left border-collapse min-w-[1040px]">
               <thead class="bg-slate-50/80 sticky top-0 z-0">
               <tr>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">条码 / 来源</th>
                 <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">型号</th>
                 <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">规格</th>
                 <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">总米数</th>
@@ -129,10 +128,6 @@
               </thead>
               <tbody class="divide-y divide-slate-100">
               <tr v-for="item in rows" :key="item.id" class="cursor-pointer hover:bg-blue-50/40 transition-colors group" @click="openDetail(item)">
-                <td class="px-6 py-4">
-                  <p class="text-sm font-black text-slate-800 group-hover:text-blue-600 transition-colors">{{ item.barcode }}</p>
-                  <p class="text-[11px] text-slate-400 mt-0.5 uppercase tracking-wider">{{ item.inType || 'manual' }}</p>
-                </td>
                 <td class="px-6 py-4 text-sm font-bold text-slate-700">{{ item.modelCode }}</td>
                 <td class="px-6 py-4 text-right text-sm text-slate-600">{{ meter(item.spec) }}</td>
                 <td class="px-6 py-4 text-right text-sm text-slate-600">{{ meter(item.totalMeters) }}</td>

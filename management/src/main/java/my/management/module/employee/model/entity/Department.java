@@ -25,6 +25,16 @@ public class Department {
 
     private String deptCode;
 
+    /**
+     * 上级部门 ID，为空表示一级部门。
+     */
+    private Long parentId;
+
+    /**
+     * 部门负责人名称，先用文本保存，避免强绑定用户 ID 导致历史负责人展示丢失。
+     */
+    private String leaderName;
+
     private Integer sortNo;
 
     private Integer status;
