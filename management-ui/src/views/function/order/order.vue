@@ -3,7 +3,8 @@
     <header class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
       <div>
         <h1 class="text-3xl font-extrabold tracking-tight text-primary">订单管理中心</h1>
-        <p class="mt-2 text-sm text-on-surface-variant">统一管理销售订单和生产订单，支持抽屉式新建、编辑、详情查看和状态流转追踪。</p>
+        <p class="mt-2 text-sm text-on-surface-variant">
+          统一管理销售订单和生产订单，支持抽屉式新建、编辑、详情查看和状态流转追踪。</p>
       </div>
       <div class="flex flex-col gap-3 sm:flex-row sm:items-stretch">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -16,7 +17,8 @@
             <div class="stat-value">{{ productionState.total }}</div>
           </div>
         </div>
-        <button class="rounded-2xl bg-primary px-6 py-4 text-sm font-bold text-on-primary shadow-md" @click="openCreate">
+        <button class="rounded-2xl bg-primary px-6 py-4 text-sm font-bold text-on-primary shadow-md"
+                @click="openCreate">
           {{ currentTab === 'sales' ? '新建销售订单' : '新建生产订单' }}
         </button>
       </div>
@@ -25,137 +27,161 @@
     <section class="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
       <div class="flex border-b border-outline-variant/10">
         <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          class="relative px-6 py-4 text-sm font-bold"
-          :class="currentTab === tab.id ? 'text-primary' : 'text-on-surface-variant'"
-          @click="switchTab(tab.id)"
+            v-for="tab in tabs"
+            :key="tab.id"
+            class="relative px-6 py-4 text-sm font-bold"
+            :class="currentTab === tab.id ? 'text-primary' : 'text-on-surface-variant'"
+            @click="switchTab(tab.id)"
         >
           {{ tab.label }}
           <span v-if="currentTab === tab.id" class="absolute inset-x-0 bottom-0 h-[3px] bg-primary"></span>
         </button>
       </div>
-      <div class="grid grid-cols-1 gap-4 border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-5 md:grid-cols-[minmax(0,1fr)_220px_auto]">
+      <div
+          class="grid grid-cols-1 gap-4 border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-5 md:grid-cols-[minmax(0,1fr)_220px_auto]">
         <input
-          v-model.trim="filters.keyword"
-          class="box-input"
-          :placeholder="currentTab === 'sales' ? '搜索订单号、客户、项目或商品描述' : '搜索生产单号、销售单号、客户、项目或型号'"
-          @keyup.enter="refreshCurrentTab"
+            v-model.trim="filters.keyword"
+            class="box-input"
+            :placeholder="currentTab === 'sales' ? '搜索订单号、客户、项目或商品描述' : '搜索生产单号、销售单号、客户、项目或型号'"
+            @keyup.enter="refreshCurrentTab"
         />
         <select v-model="filters.status" class="box-input" @change="refreshCurrentTab">
           <option value="">全部状态</option>
-          <option v-for="status in currentStatuses" :key="status.value" :value="status.value">{{ status.label }}</option>
+          <option v-for="status in currentStatuses" :key="status.value" :value="status.value">{{
+              status.label
+            }}
+          </option>
         </select>
-        <button class="rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-on-primary" @click="refreshCurrentTab">查询</button>
+        <button class="rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-on-primary" @click="refreshCurrentTab">
+          查询
+        </button>
       </div>
 
       <div class="overflow-x-auto">
         <table class="min-w-[1220px] w-full text-left">
           <thead class="bg-surface-container-low/50">
-            <tr>
-              <th class="th-cell">编号</th>
-              <th class="th-cell">客户 / 项目</th>
-              <th class="th-cell">核心信息</th>
-              <th class="th-cell">交付信息</th>
-              <th class="th-cell">开票</th>
-              <th class="th-cell">状态</th>
-              <th class="th-cell">时间</th>
-              <th class="th-cell text-right">操作</th>
-            </tr>
+          <tr>
+            <th class="th-cell">编号</th>
+            <th class="th-cell">客户 / 项目</th>
+            <th class="th-cell">核心信息</th>
+            <th class="th-cell">交付信息</th>
+            <th class="th-cell">开票</th>
+            <th class="th-cell">状态</th>
+            <th class="th-cell">时间</th>
+            <th class="th-cell text-right">操作</th>
+          </tr>
           </thead>
           <tbody class="divide-y divide-outline-variant/10">
-            <tr
+          <tr
               v-for="row in currentState.rows"
               :key="row.orderId"
               class="group cursor-pointer hover:bg-surface-container-high/30"
               @click="openDetail(row.orderId)"
-            >
-              <td class="td-cell">
-                <div class="font-bold text-primary">{{ row.orderId }}</div>
-                <div class="mt-1 text-xs text-on-surface-variant">{{ currentTab === 'sales' ? `明细 ${row.detailCount || 0} 项` : `数量 ${row.quantity || 0}` }}</div>
-              </td>
-              <td class="td-cell">
-                <div class="font-bold text-primary">{{ row.customerName || '未填写客户' }}</div>
-                <div class="mt-1 text-xs text-on-surface-variant">{{ row.projectName || '未填写项目' }}</div>
-              </td>
-              <td class="td-cell">
-                <template v-if="currentTab === 'sales'">
-                  <div class="max-w-[320px] truncate font-bold text-primary">{{ row.goodsDesc || '未填写商品信息' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">总数量 {{ row.totalQuantity || 0 }} / 金额 ￥{{ formatAmount(row.totalAmount) }}</div>
-                </template>
-                <template v-else>
-                  <div class="font-bold text-primary">{{ row.modelCode || '未填写型号' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">{{ formatNumber(row.weight) }} 克 / {{ formatNumber(row.width) }} 规格</div>
-                </template>
-              </td>
-              <td class="td-cell">
-                <template v-if="currentTab === 'sales'">
-                  <div class="text-sm text-on-surface-variant">{{ row.deliveryDate || '未填写交付日期' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">
-                    {{ row.expressCompany || '未发货' }}
-                    <template v-if="row.expressNo"> / {{ row.expressNo }}</template>
-                  </div>
-                </template>
-                <template v-else>
-                  <div class="text-sm text-on-surface-variant">{{ row.salesOrderId || '未关联销售单' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">{{ formatDateTime(row.deliveryDate || row.createTime) }}</div>
-                </template>
-              </td>
-              <td class="td-cell">
-                <template v-if="currentTab === 'sales'">
-                  <span :class="invoiceClass(row.isInvoice)" class="inline-flex rounded-full px-3 py-1 text-xs font-bold">
+          >
+            <td class="td-cell">
+              <div class="font-bold text-primary">{{ row.orderId }}</div>
+              <div class="mt-1 text-xs text-on-surface-variant">
+                {{ currentTab === 'sales' ? `明细 ${row.detailCount || 0} 项` : `数量 ${row.quantity || 0}` }}
+              </div>
+            </td>
+            <td class="td-cell">
+              <div class="font-bold text-primary">{{ row.customerName || '未填写客户' }}</div>
+              <div class="mt-1 text-xs text-on-surface-variant">{{ row.projectName || '未填写项目' }}</div>
+            </td>
+            <td class="td-cell">
+              <template v-if="currentTab === 'sales'">
+                <div class="max-w-[320px] truncate font-bold text-primary">{{ row.goodsDesc || '未填写商品信息' }}</div>
+                <div class="mt-1 text-xs text-on-surface-variant">总数量 {{ row.totalQuantity || 0 }} / 金额
+                  ￥{{ formatAmount(row.totalAmount) }}
+                </div>
+              </template>
+              <template v-else>
+                <div class="font-bold text-primary">{{ row.modelCode || '未填写型号' }}</div>
+                <div class="mt-1 text-xs text-on-surface-variant">{{ formatNumber(row.weight) }} 克 /
+                  {{ formatNumber(row.width) }} 规格
+                </div>
+              </template>
+            </td>
+            <td class="td-cell">
+              <template v-if="currentTab === 'sales'">
+                <div class="text-sm text-on-surface-variant">{{ row.deliveryDate || '未填写交付日期' }}</div>
+                <div class="mt-1 text-xs text-on-surface-variant">
+                  {{ row.expressCompany || '未发货' }}
+                  <template v-if="row.expressNo"> / {{ row.expressNo }}</template>
+                </div>
+              </template>
+              <template v-else>
+                <div class="text-sm text-on-surface-variant">{{ row.salesOrderId || '未关联销售单' }}</div>
+                <div class="mt-1 text-xs text-on-surface-variant">{{
+                    formatDateTime(row.deliveryDate || row.createTime)
+                  }}
+                </div>
+              </template>
+            </td>
+            <td class="td-cell">
+              <template v-if="currentTab === 'sales'">
+                  <span :class="invoiceClass(row.isInvoice)"
+                        class="inline-flex rounded-full px-3 py-1 text-xs font-bold">
                     {{ invoiceLabel(row.isInvoice) }}
                   </span>
-                </template>
-                <template v-else>
-                  <span class="text-xs text-on-surface-variant">--</span>
-                </template>
-              </td>
-              <td class="td-cell">
+              </template>
+              <template v-else>
+                <span class="text-xs text-on-surface-variant">--</span>
+              </template>
+            </td>
+            <td class="td-cell">
                 <span
-                  class="inline-flex rounded-full px-3 py-1 text-xs font-bold"
-                  :class="currentTab === 'sales' ? salesStatusClass(row.status) : productionStatusClass(row.status)"
+                    class="inline-flex rounded-full px-3 py-1 text-xs font-bold"
+                    :class="currentTab === 'sales' ? salesStatusClass(row.status) : productionStatusClass(row.status)"
                 >
                   {{ currentTab === 'sales' ? salesStatusLabel(row.status) : productionStatusLabel(row.status) }}
                 </span>
-              </td>
-              <td class="td-cell text-sm text-on-surface-variant">{{ formatDateTime(row.createTime) }}</td>
-              <td class="td-cell">
-                <div class="flex justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                  <button class="icon-btn text-secondary" @click.stop="openDetail(row.orderId)">
-                    <span class="material-symbols-outlined text-[18px]">visibility</span>
-                  </button>
-                  <button class="icon-btn text-primary" @click.stop="openEdit(row.orderId)">
-                    <span class="material-symbols-outlined text-[18px]">edit</span>
-                  </button>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="!currentState.loading && !currentState.rows.length">
-              <td colspan="8" class="px-6 py-14 text-center text-sm text-on-surface-variant">暂无订单数据</td>
-            </tr>
+            </td>
+            <td class="td-cell text-sm text-on-surface-variant">{{ formatDateTime(row.createTime) }}</td>
+            <td class="td-cell">
+              <div class="flex justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                <button class="icon-btn text-secondary" @click.stop="openDetail(row.orderId)">
+                  <span class="material-symbols-outlined text-[18px]">visibility</span>
+                </button>
+                <button class="icon-btn text-primary" @click.stop="openEdit(row.orderId)">
+                  <span class="material-symbols-outlined text-[18px]">edit</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr v-if="!currentState.loading && !currentState.rows.length">
+            <td colspan="8" class="px-6 py-14 text-center text-sm text-on-surface-variant">暂无订单数据</td>
+          </tr>
           </tbody>
         </table>
       </div>
-      <div class="flex items-center justify-between border-t border-outline-variant/10 bg-surface-container-low/30 px-6 py-4 text-sm">
+      <div
+          class="flex items-center justify-between border-t border-outline-variant/10 bg-surface-container-low/30 px-6 py-4 text-sm">
         <span class="text-on-surface-variant">共 {{ currentState.total }} 条</span>
         <div class="flex items-center gap-2">
-          <button class="page-btn" :disabled="currentState.page <= 1 || currentState.loading" @click="changePage(currentState.page - 1)">上一页</button>
+          <button class="page-btn" :disabled="currentState.page <= 1 || currentState.loading"
+                  @click="changePage(currentState.page - 1)">上一页
+          </button>
           <span>{{ currentState.page }} / {{ Math.max(currentState.pages, 1) }}</span>
-          <button class="page-btn" :disabled="currentState.page >= Math.max(currentState.pages, 1) || currentState.loading" @click="changePage(currentState.page + 1)">下一页</button>
+          <button class="page-btn"
+                  :disabled="currentState.page >= Math.max(currentState.pages, 1) || currentState.loading"
+                  @click="changePage(currentState.page + 1)">下一页
+          </button>
         </div>
       </div>
     </section>
 
     <Teleport defer to="body">
       <transition name="fade">
-        <div v-if="detailVisible" class="fixed inset-0 z-[60] bg-primary/20 backdrop-blur-sm" @click="closeDetail"></div>
+        <div v-if="detailVisible" class="fixed inset-0 z-[60] bg-primary/20 backdrop-blur-sm"
+             @click="closeDetail"></div>
       </transition>
       <transition name="slide">
         <aside v-if="detailVisible" class="drawer-large">
           <div class="drawer-head">
             <div>
-              <h2 class="text-xl font-bold tracking-tight text-primary">{{ currentTab === 'sales' ? '销售订单详情' : '生产订单详情' }}</h2>
+              <h2 class="text-xl font-bold tracking-tight text-primary">
+                {{ currentTab === 'sales' ? '销售订单详情' : '生产订单详情' }}</h2>
               <p class="mt-1 text-xs text-on-surface-variant">查看订单主体信息、明细内容和状态流转记录。</p>
             </div>
             <button class="close-btn" @click="closeDetail">
@@ -199,18 +225,20 @@
                 <div v-for="item in salesDetail.items || []" :key="item.id" class="detail-item">
                   <div class="font-bold text-primary">{{ item.modelCode || '未填写型号' }}</div>
                   <div class="mt-1 text-sm text-on-surface-variant">
-                    克重：{{ formatNumber(item.weight) || '未填写' }} / 规格：{{ item.spec || '未填写' }} / 数量：{{ item.quantity || 0 }}
+                    克重：{{ formatNumber(item.weight) || '未填写' }} / 规格：{{ item.spec || '未填写' }} /
+                    数量：{{ item.quantity || 0 }}
                   </div>
                 </div>
-                <div v-if="!(salesDetail.items || []).length" class="mt-3 text-sm text-on-surface-variant">暂无明细项</div>
+                <div v-if="!(salesDetail.items || []).length" class="mt-3 text-sm text-on-surface-variant">暂无明细项
+                </div>
               </div>
               <div class="mt-6">
                 <div class="section-title">状态流转记录</div>
                 <div v-if="(salesDetail.logs || []).length" class="status-timeline">
                   <div
-                    v-for="(log, index) in salesDetail.logs || []"
-                    :key="log.id || index"
-                    class="status-log-item"
+                      v-for="(log, index) in salesDetail.logs || []"
+                      :key="log.id || index"
+                      class="status-log-item"
                   >
                     <div class="status-log-rail">
                       <div class="status-log-dot" :class="{ current: index === 0 }"></div>
@@ -221,7 +249,9 @@
                         <span v-if="index === 0" class="status-log-current">最新</span>
                       </div>
                       <div class="status-log-time">{{ formatDateTime(log.createTime) }}</div>
-                      <div v-if="log.operatorName || log.operator" class="status-log-meta">操作人：{{ log.operatorName || log.operator }}</div>
+                      <div v-if="log.operatorName || log.operator" class="status-log-meta">
+                        操作人：{{ log.operatorName || log.operator }}
+                      </div>
                       <div v-if="log.remark" class="status-log-remark">备注：{{ log.remark }}</div>
                     </div>
                   </div>
@@ -243,13 +273,17 @@
                 <div class="info-card">
                   <div class="info-label">客户 / 项目</div>
                   <div class="info-value">{{ productionDetail.customerName || '未填写客户' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">{{ productionDetail.projectName || '未填写项目' }}</div>
+                  <div class="mt-1 text-xs text-on-surface-variant">{{
+                      productionDetail.projectName || '未填写项目'
+                    }}
+                  </div>
                 </div>
                 <div class="info-card">
                   <div class="info-label">生产信息</div>
                   <div class="info-value">{{ productionDetail.modelCode || '未填写型号' }}</div>
                   <div class="mt-1 text-xs text-on-surface-variant">
-                    {{ formatNumber(productionDetail.weight) }} 克 / {{ formatNumber(productionDetail.width) }} 规格 / 数量 {{ productionDetail.quantity || 0 }}
+                    {{ formatNumber(productionDetail.weight) }} 克 / {{ formatNumber(productionDetail.width) }} 规格 /
+                    数量 {{ productionDetail.quantity || 0 }}
                   </div>
                 </div>
               </div>
@@ -258,9 +292,9 @@
                 <div class="section-title">状态流转记录</div>
                 <div v-if="(productionDetail.logs || []).length" class="status-timeline">
                   <div
-                    v-for="(log, index) in productionDetail.logs || []"
-                    :key="log.id || index"
-                    class="status-log-item"
+                      v-for="(log, index) in productionDetail.logs || []"
+                      :key="log.id || index"
+                      class="status-log-item"
                   >
                     <div class="status-log-rail">
                       <div class="status-log-dot" :class="{ current: index === 0 }"></div>
@@ -271,7 +305,9 @@
                         <span v-if="index === 0" class="status-log-current">最新</span>
                       </div>
                       <div class="status-log-time">{{ formatDateTime(log.createTime) }}</div>
-                      <div v-if="log.operatorName || log.operator" class="status-log-meta">操作人：{{ log.operatorName || log.operator }}</div>
+                      <div v-if="log.operatorName || log.operator" class="status-log-meta">
+                        操作人：{{ log.operatorName || log.operator }}
+                      </div>
                       <div v-if="log.remark" class="status-log-remark">备注：{{ log.remark }}</div>
                     </div>
                   </div>
@@ -293,7 +329,9 @@
           <div class="drawer-head">
             <div>
               <h2 class="text-xl font-bold tracking-tight text-primary">
-                {{ currentTab === 'sales' ? (formMode === 'create' ? '新建销售订单' : '编辑销售订单') : (formMode === 'create' ? '新建生产订单' : '编辑生产订单') }}
+                {{
+                  currentTab === 'sales' ? (formMode === 'create' ? '新建销售订单' : '编辑销售订单') : (formMode === 'create' ? '新建生产订单' : '编辑生产订单')
+                }}
               </h2>
               <p class="mt-1 text-xs text-on-surface-variant">
                 {{ currentTab === 'sales' ? '参照小程序下单页录入销售订单信息。' : '参照小程序下单页录入生产订单信息。' }}
@@ -309,25 +347,28 @@
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label class="field-label">客户名称 *</label>
-                  <input v-model.trim="salesForm.customerName" list="sales-customer-options" class="box-input" type="text" @input="handleSalesCustomerChange" @change="handleSalesCustomerChange" />
+                  <input v-model.trim="salesForm.customerName" list="sales-customer-options" class="box-input"
+                         type="text" @input="handleSalesCustomerChange" @change="handleSalesCustomerChange"/>
                   <datalist id="sales-customer-options">
                     <option v-for="option in customerOptions" :key="option.id" :value="option.customerName"></option>
                   </datalist>
                 </div>
                 <div>
                   <label class="field-label">联系电话</label>
-                  <input v-model.trim="salesForm.customerPhone" class="box-input" type="text" />
+                  <input v-model.trim="salesForm.customerPhone" class="box-input" type="text"/>
                 </div>
                 <div>
                   <label class="field-label">项目名称 *</label>
-                  <input v-model.trim="salesForm.projectName" list="sales-project-options" class="box-input" type="text" />
+                  <input v-model.trim="salesForm.projectName" list="sales-project-options" class="box-input"
+                         type="text"/>
                   <datalist id="sales-project-options">
-                    <option v-for="projectName in selectedCustomerProjects" :key="projectName" :value="projectName"></option>
+                    <option v-for="projectName in selectedCustomerProjects" :key="projectName"
+                            :value="projectName"></option>
                   </datalist>
                 </div>
                 <div>
                   <label class="field-label">交付日期 *</label>
-                  <input v-model="salesForm.deliveryDate" class="box-input" type="date" />
+                  <input v-model="salesForm.deliveryDate" class="box-input" type="date"/>
                 </div>
               </div>
 
@@ -338,10 +379,13 @@
                 </div>
                 <div v-for="(item, index) in salesForm.items" :key="index" class="detail-item">
                   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input v-model.trim="item.modelCode" class="box-input" placeholder="型号" type="text" />
-                    <input v-model.number="item.quantity" class="box-input" placeholder="数量" type="number" min="0.01" step="0.01" />
-                    <input v-model.number="item.weight" class="box-input" placeholder="克重" type="number" min="0.01" step="0.01" />
-                    <input v-model.number="item.spec" class="box-input" placeholder="规格" type="number" min="0.01" step="0.01" />
+                    <input v-model.trim="item.modelCode" class="box-input" placeholder="型号" type="text"/>
+                    <input v-model.number="item.quantity" class="box-input" placeholder="数量" type="number" min="0.01"
+                           step="0.01"/>
+                    <input v-model.number="item.weight" class="box-input" placeholder="克重" type="number" min="0.01"
+                           step="0.01"/>
+                    <input v-model.number="item.spec" class="box-input" placeholder="规格" type="number" min="0.01"
+                           step="0.01"/>
                   </div>
                   <div class="mt-2 flex justify-end">
                     <button class="text-xs font-bold text-error" @click="removeSalesItem(index)">删除</button>
@@ -353,7 +397,10 @@
                 <div>
                   <label class="field-label">订单状态</label>
                   <select v-model="salesForm.status" class="box-input">
-                    <option v-for="status in salesStatuses" :key="status.value" :value="status.value">{{ status.label }}</option>
+                    <option v-for="status in salesStatuses" :key="status.value" :value="status.value">{{
+                        status.label
+                      }}
+                    </option>
                   </select>
                 </div>
                 <div>
@@ -364,17 +411,19 @@
                   </select>
                 </div>
                 <div class="flex items-end">
-                  <label class="flex items-center gap-2 rounded-xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-sm">
-                    <input v-model="salesForm.createProductionOrder" :true-value="1" :false-value="0" type="checkbox" /> 同步创建生产单
+                  <label
+                      class="flex items-center gap-2 rounded-xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-sm">
+                    <input v-model="salesForm.createProductionOrder" :true-value="1" :false-value="0" type="checkbox"/>
+                    同步创建生产单
                   </label>
                 </div>
                 <div v-if="salesForm.status === 'shipped'">
                   <label class="field-label">物流公司</label>
-                  <input v-model.trim="salesForm.expressCompany" class="box-input" type="text" />
+                  <input v-model.trim="salesForm.expressCompany" class="box-input" type="text"/>
                 </div>
                 <div v-if="salesForm.status === 'shipped'">
                   <label class="field-label">物流单号</label>
-                  <input v-model.trim="salesForm.expressNo" class="box-input" type="text" />
+                  <input v-model.trim="salesForm.expressNo" class="box-input" type="text"/>
                 </div>
               </div>
               <div>
@@ -387,63 +436,67 @@
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label class="field-label">关联销售单号</label>
-                  <input v-model.trim="productionForm.salesOrderId" class="box-input" type="text" />
+                  <input v-model.trim="productionForm.salesOrderId" class="box-input" type="text"/>
                 </div>
                 <div>
                   <label class="field-label">交付日期 *</label>
-                  <input v-model="productionForm.deliveryDate" class="box-input" type="date" />
+                  <input v-model="productionForm.deliveryDate" class="box-input" type="date"/>
                 </div>
                 <div>
                   <label class="field-label">客户名称</label>
-                  <input v-model.trim="productionForm.customerName" class="box-input" type="text" />
+                  <input v-model.trim="productionForm.customerName" class="box-input" type="text"/>
                 </div>
                 <div>
                   <label class="field-label">项目名称</label>
-                  <input v-model.trim="productionForm.projectName" class="box-input" type="text" />
+                  <input v-model.trim="productionForm.projectName" class="box-input" type="text"/>
                 </div>
                 <div>
                   <label class="field-label">联系电话</label>
-                  <input v-model.trim="productionForm.contactPhone" class="box-input" type="text" />
+                  <input v-model.trim="productionForm.contactPhone" class="box-input" type="text"/>
                 </div>
                 <div>
                   <label class="field-label">订单状态</label>
                   <select v-model="productionForm.status" class="box-input">
-                    <option v-for="status in productionStatuses" :key="status.value" :value="status.value">{{ status.label }}</option>
+                    <option v-for="status in productionStatuses" :key="status.value" :value="status.value">
+                      {{ status.label }}
+                    </option>
                   </select>
                 </div>
                 <div>
                   <label class="field-label">面料型号 *</label>
-                  <input v-model.trim="productionForm.modelCode" class="box-input" type="text" />
+                  <input v-model.trim="productionForm.modelCode" class="box-input" type="text"/>
                 </div>
                 <div>
                   <label class="field-label">数量 *</label>
-                  <input v-model.number="productionForm.quantity" class="box-input" type="number" min="1" step="1" />
+                  <input v-model.number="productionForm.quantity" class="box-input" type="number" min="1" step="1"/>
                 </div>
                 <div>
                   <label class="field-label">克重 *</label>
-                  <input v-model.number="productionForm.weight" class="box-input" type="number" min="0.01" step="0.01" />
+                  <input v-model.number="productionForm.weight" class="box-input" type="number" min="0.01" step="0.01"/>
                 </div>
                 <div>
                   <label class="field-label">规格 *</label>
-                  <input v-model.number="productionForm.spec" class="box-input" type="number" min="0.01" step="0.01" />
+                  <input v-model.number="productionForm.spec" class="box-input" type="number" min="0.01" step="0.01"/>
                 </div>
                 <div>
                   <label class="field-label">面料材质</label>
-                  <input v-model.trim="productionForm.fabric" class="box-input" type="text" />
+                  <input v-model.trim="productionForm.fabric" class="box-input" type="text"/>
                 </div>
                 <div>
                   <label class="field-label">颜色</label>
-                  <input v-model.trim="productionForm.color" class="box-input" type="text" />
+                  <input v-model.trim="productionForm.color" class="box-input" type="text"/>
                 </div>
                 <div>
                   <label class="field-label">单价</label>
-                  <input v-model.number="productionForm.price" class="box-input" type="number" min="0" step="0.01" />
+                  <input v-model.number="productionForm.price" class="box-input" type="number" min="0" step="0.01"/>
                 </div>
                 <div v-if="productionForm.status === 'producing'">
                   <label class="field-label">生产工序</label>
                   <select v-model="productionForm.process" class="box-input">
                     <option :value="null">未设置</option>
-                    <option v-for="process in processOptions" :key="process.value" :value="process.value">{{ process.label }}</option>
+                    <option v-for="process in processOptions" :key="process.value" :value="process.value">
+                      {{ process.label }}
+                    </option>
                   </select>
                 </div>
               </div>
@@ -453,9 +506,14 @@
               </div>
             </template>
           </div>
-          <div class="flex shrink-0 items-center justify-end gap-3 border-t border-outline-variant/20 bg-surface-container-lowest p-6">
-            <button class="rounded-lg px-5 py-2.5 text-sm font-bold text-secondary hover:bg-surface-container-high" @click="closeForm">取消</button>
-            <button :disabled="submitting" class="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-on-primary disabled:opacity-50" @click="submitForm">
+          <div
+              class="flex shrink-0 items-center justify-end gap-3 border-t border-outline-variant/20 bg-surface-container-lowest p-6">
+            <button class="rounded-lg px-5 py-2.5 text-sm font-bold text-secondary hover:bg-surface-container-high"
+                    @click="closeForm">取消
+            </button>
+            <button :disabled="submitting"
+                    class="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-on-primary disabled:opacity-50"
+                    @click="submitForm">
               {{ formMode === 'create' ? '提交创建' : '保存修改' }}
             </button>
           </div>
@@ -466,9 +524,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { getCustomerOptions } from '../customer/api/customer'
+import {computed, onMounted, reactive, ref} from 'vue'
+import {ElMessage} from 'element-plus'
+import {getCustomerOptions} from '../customer/api/customer'
 import {
   createProductionOrder,
   createSalesOrder,
@@ -480,35 +538,35 @@ import {
   saveSalesOrder
 } from './api/order'
 
-const tabs = [{ id: 'sales', label: '销售订单' }, { id: 'production', label: '生产订单' }]
+const tabs = [{id: 'sales', label: '销售订单'}, {id: 'production', label: '生产订单'}]
 const salesStatuses = [
-  { value: 'pending_confirm', label: '待确认' },
-  { value: 'pending_pay', label: '待收款' },
-  { value: 'pending_ship', label: '待发货' },
-  { value: 'shipped', label: '已发货' },
-  { value: 'completed', label: '已完成' },
-  { value: 'cancelled', label: '已取消' }
+  {value: 'pending_confirm', label: '待确认'},
+  {value: 'pending_pay', label: '待收款'},
+  {value: 'pending_ship', label: '待发货'},
+  {value: 'shipped', label: '已发货'},
+  {value: 'completed', label: '已完成'},
+  {value: 'cancelled', label: '已取消'}
 ]
 const productionStatuses = [
-  { value: 'pending_confirm', label: '待确认' },
-  { value: 'pending_material', label: '备料中' },
-  { value: 'producing', label: '生产中' },
-  { value: 'pending_ship', label: '待发货' },
-  { value: 'shipped', label: '已发货' },
-  { value: 'completed', label: '已完成' }
+  {value: 'pending_confirm', label: '待确认'},
+  {value: 'pending_material', label: '备料中'},
+  {value: 'producing', label: '生产中'},
+  {value: 'pending_ship', label: '待发货'},
+  {value: 'shipped', label: '已发货'},
+  {value: 'completed', label: '已完成'}
 ]
 const processOptions = [
-  { value: 0, label: '整经' },
-  { value: 1, label: '浆纱' },
-  { value: 2, label: '织造' },
-  { value: 3, label: '验布' },
-  { value: 4, label: '卷布' }
+  {value: 0, label: '整经'},
+  {value: 1, label: '浆纱'},
+  {value: 2, label: '织造'},
+  {value: 3, label: '验布'},
+  {value: 4, label: '卷布'}
 ]
 
-const filters = reactive({ keyword: '', status: '' })
+const filters = reactive({keyword: '', status: ''})
 const currentTab = ref('sales')
-const salesState = reactive({ rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false })
-const productionState = reactive({ rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false })
+const salesState = reactive({rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false})
+const productionState = reactive({rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false})
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const salesDetail = ref(null)
@@ -535,7 +593,7 @@ onMounted(async () => {
 })
 
 function defaultSalesItem() {
-  return { modelCode: '', quantity: 1, weight: '', spec: '' }
+  return {modelCode: '', quantity: 1, weight: '', spec: ''}
 }
 
 function defaultSalesForm() {
@@ -583,7 +641,7 @@ function resetProductionForm() {
 }
 
 async function loadCustomerOptions(keyword) {
-  customerOptions.value = await getCustomerOptions(keyword ? { keyword } : undefined)
+  customerOptions.value = await getCustomerOptions(keyword ? {keyword} : undefined)
 }
 
 async function handleSalesCustomerChange() {
@@ -695,8 +753,13 @@ async function openEdit(orderId) {
     salesForm.status = detail.status || 'pending_confirm'
     salesForm.createProductionOrder = 0
     salesForm.items = (detail.items || []).length
-      ? detail.items.map(item => ({ modelCode: item.modelCode || '', quantity: num(item.quantity), weight: num(item.weight), spec: num(item.spec) }))
-      : [defaultSalesItem()]
+        ? detail.items.map(item => ({
+          modelCode: item.modelCode || '',
+          quantity: num(item.quantity),
+          weight: num(item.weight),
+          spec: num(item.spec)
+        }))
+        : [defaultSalesItem()]
     return
   }
 
@@ -906,42 +969,257 @@ function productionStatusClass(status) {
 </script>
 
 <style scoped>
-.box-input{width:100%;border-radius:.75rem;background:rgb(var(--surface-container-low));padding:.625rem 1rem;font-size:.875rem;color:rgb(var(--on-surface));outline:none}
-.box-input:focus{box-shadow:0 0 0 2px rgba(0,82,204,.2)}
-.stat-card{min-width:132px;border-radius:1rem;border:1px solid rgba(0,82,204,.1);background:rgb(var(--surface-container-high));padding:1rem 1.25rem;box-shadow:0 1px 2px rgba(15,23,42,.05)}
-.stat-label{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.18em;color:rgb(var(--on-surface-variant))}
-.stat-value{margin-top:.5rem;font-size:1.875rem;line-height:2.25rem;font-weight:900;color:rgb(var(--primary))}
-.th-cell{padding:1rem 1.5rem;font-size:.75rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:rgb(var(--on-surface-variant))}
-.td-cell{padding:1rem 1.5rem}
-.icon-btn{border-radius:.375rem;padding:.375rem}
-.page-btn{border-radius:.375rem;border:1px solid rgba(148,163,184,.35);padding:.375rem .75rem}
-.page-btn:disabled{opacity:.5}
-.drawer-large,.drawer-small{position:fixed;top:0;right:0;z-index:70;display:flex;height:100%;width:100%;flex-direction:column;border-left:4px solid rgb(var(--primary));background:rgba(255,255,255,.95);box-shadow:-20px 0 40px rgba(0,32,69,.1);backdrop-filter:blur(24px)}
-.drawer-large{max-width:780px}
-.drawer-small{max-width:620px}
-.drawer-head{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(148,163,184,.2);background:#fff;padding:1.5rem}
-.close-btn{border-radius:999px;padding:.5rem;color:rgb(var(--on-surface-variant))}
-.info-card,.detail-item{margin-top:.75rem;border-radius:.75rem;border:1px solid rgba(148,163,184,.18);background:rgb(var(--surface-container-low));padding:1rem}
-.info-card{margin-top:0}
-.info-label{font-size:.75rem;color:rgb(var(--on-surface-variant))}
-.info-value{margin-top:.5rem;font-weight:700;color:rgb(var(--primary))}
-.section-title,.field-label{margin-bottom:.5rem;font-size:.75rem;font-weight:700;color:rgb(var(--primary))}
-.status-timeline{overflow:hidden;border-radius:1rem;border:1px solid rgba(148,163,184,.18);background:rgb(var(--surface-container-low));padding:1rem}
-.status-log-item{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr);gap:.75rem;padding-bottom:1rem}
-.status-log-item:last-child{padding-bottom:0}
-.status-log-rail{position:relative;display:flex;justify-content:center}
-.status-log-rail::after{position:absolute;top:20px;bottom:-1rem;width:1px;background:rgba(0,82,204,.18);content:""}
-.status-log-item:last-child .status-log-rail::after{display:none}
-.status-log-dot{position:relative;z-index:1;margin-top:.25rem;height:12px;width:12px;border-radius:999px;background:rgb(var(--surface-container-high));box-shadow:0 0 0 3px rgba(0,82,204,.12)}
-.status-log-dot.current{background:rgb(var(--primary));box-shadow:0 0 0 5px rgba(0,82,204,.16)}
-.status-log-content{border-radius:.875rem;background:#fff;padding:.875rem 1rem;box-shadow:0 8px 24px rgba(15,23,42,.05)}
-.status-log-title{font-size:.9rem;font-weight:800;color:rgb(var(--primary))}
-.status-log-current{border-radius:999px;background:rgba(0,82,204,.1);padding:.125rem .5rem;font-size:.7rem;font-weight:800;color:rgb(var(--primary))}
-.status-log-time,.status-log-meta{margin-top:.35rem;font-size:.78rem;color:rgb(var(--on-surface-variant))}
-.status-log-remark{margin-top:.45rem;border-radius:.625rem;background:rgba(0,82,204,.06);padding:.5rem .625rem;font-size:.8rem;color:rgb(var(--on-surface-variant))}
-.status-log-empty{border-radius:1rem;border:1px dashed rgba(148,163,184,.35);background:rgb(var(--surface-container-low));padding:1.5rem;text-align:center;font-size:.875rem;color:rgb(var(--on-surface-variant))}
-.fade-enter-active,.fade-leave-active{transition:opacity .24s ease}
-.fade-enter-from,.fade-leave-to{opacity:0}
-.slide-enter-active,.slide-leave-active{transition:transform .28s ease,opacity .28s ease}
-.slide-enter-from,.slide-leave-to{opacity:0;transform:translateX(100%)}
+.box-input {
+  width: 100%;
+  border-radius: .75rem;
+  background: rgb(var(--surface-container-low));
+  padding: .625rem 1rem;
+  font-size: .875rem;
+  color: rgb(var(--on-surface));
+  outline: none
+}
+
+.box-input:focus {
+  box-shadow: 0 0 0 2px rgba(0, 82, 204, .2)
+}
+
+.stat-card {
+  min-width: 132px;
+  border-radius: 1rem;
+  border: 1px solid rgba(0, 82, 204, .1);
+  background: rgb(var(--surface-container-high));
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05)
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .18em;
+  color: rgb(var(--on-surface-variant))
+}
+
+.stat-value {
+  margin-top: .5rem;
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  font-weight: 900;
+  color: rgb(var(--primary))
+}
+
+.th-cell {
+  padding: 1rem 1.5rem;
+  font-size: .75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: rgb(var(--on-surface-variant))
+}
+
+.td-cell {
+  padding: 1rem 1.5rem
+}
+
+.icon-btn {
+  border-radius: .375rem;
+  padding: .375rem
+}
+
+.page-btn {
+  border-radius: .375rem;
+  border: 1px solid rgba(148, 163, 184, .35);
+  padding: .375rem .75rem
+}
+
+.page-btn:disabled {
+  opacity: .5
+}
+
+.drawer-large, .drawer-small {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 70;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  border-left: 4px solid rgb(var(--primary));
+  background: rgba(255, 255, 255, .95);
+  box-shadow: -20px 0 40px rgba(0, 32, 69, .1);
+  backdrop-filter: blur(24px)
+}
+
+.drawer-large {
+  max-width: 780px
+}
+
+.drawer-small {
+  max-width: 620px
+}
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(148, 163, 184, .2);
+  background: #fff;
+  padding: 1.5rem
+}
+
+.close-btn {
+  border-radius: 999px;
+  padding: .5rem;
+  color: rgb(var(--on-surface-variant))
+}
+
+.info-card, .detail-item {
+  margin-top: .75rem;
+  border-radius: .75rem;
+  border: 1px solid rgba(148, 163, 184, .18);
+  background: rgb(var(--surface-container-low));
+  padding: 1rem
+}
+
+.info-card {
+  margin-top: 0
+}
+
+.info-label {
+  font-size: .75rem;
+  color: rgb(var(--on-surface-variant))
+}
+
+.info-value {
+  margin-top: .5rem;
+  font-weight: 700;
+  color: rgb(var(--primary))
+}
+
+.section-title, .field-label {
+  margin-bottom: .5rem;
+  font-size: .75rem;
+  font-weight: 700;
+  color: rgb(var(--primary))
+}
+
+.status-timeline {
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, .18);
+  background: rgb(var(--surface-container-low));
+  padding: 1rem
+}
+
+.status-log-item {
+  position: relative;
+  display: grid;
+  grid-template-columns:28px minmax(0, 1fr);
+  gap: .75rem;
+  padding-bottom: 1rem
+}
+
+.status-log-item:last-child {
+  padding-bottom: 0
+}
+
+.status-log-rail {
+  position: relative;
+  display: flex;
+  justify-content: center
+}
+
+.status-log-rail::after {
+  position: absolute;
+  top: 20px;
+  bottom: -1rem;
+  width: 1px;
+  background: rgba(0, 82, 204, .18);
+  content: ""
+}
+
+.status-log-item:last-child .status-log-rail::after {
+  display: none
+}
+
+.status-log-dot {
+  position: relative;
+  z-index: 1;
+  margin-top: .25rem;
+  height: 12px;
+  width: 12px;
+  border-radius: 999px;
+  background: rgb(var(--surface-container-high));
+  box-shadow: 0 0 0 3px rgba(0, 82, 204, .12)
+}
+
+.status-log-dot.current {
+  background: rgb(var(--primary));
+  box-shadow: 0 0 0 5px rgba(0, 82, 204, .16)
+}
+
+.status-log-content {
+  border-radius: .875rem;
+  background: #fff;
+  padding: .875rem 1rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .05)
+}
+
+.status-log-title {
+  font-size: .9rem;
+  font-weight: 800;
+  color: rgb(var(--primary))
+}
+
+.status-log-current {
+  border-radius: 999px;
+  background: rgba(0, 82, 204, .1);
+  padding: .125rem .5rem;
+  font-size: .7rem;
+  font-weight: 800;
+  color: rgb(var(--primary))
+}
+
+.status-log-time, .status-log-meta {
+  margin-top: .35rem;
+  font-size: .78rem;
+  color: rgb(var(--on-surface-variant))
+}
+
+.status-log-remark {
+  margin-top: .45rem;
+  border-radius: .625rem;
+  background: rgba(0, 82, 204, .06);
+  padding: .5rem .625rem;
+  font-size: .8rem;
+  color: rgb(var(--on-surface-variant))
+}
+
+.status-log-empty {
+  border-radius: 1rem;
+  border: 1px dashed rgba(148, 163, 184, .35);
+  background: rgb(var(--surface-container-low));
+  padding: 1.5rem;
+  text-align: center;
+  font-size: .875rem;
+  color: rgb(var(--on-surface-variant))
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity .24s ease
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0
+}
+
+.slide-enter-active, .slide-leave-active {
+  transition: transform .28s ease, opacity .28s ease
+}
+
+.slide-enter-from, .slide-leave-to {
+  opacity: 0;
+  transform: translateX(100%)
+}
 </style>
