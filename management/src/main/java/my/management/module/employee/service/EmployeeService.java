@@ -419,7 +419,6 @@ public class EmployeeService {
             throw new BusinessException("employee not found");
         }
         EmployeeExt ext = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>()
-                .eq(EmployeeExt::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(EmployeeExt::getUserId, id)
                 .last("LIMIT 1"));
         if (ext != null && Integer.valueOf(1).equals(ext.getIsDeleted())) {
@@ -467,7 +466,6 @@ public class EmployeeService {
 
     private EmployeeExt getOrCreateExt(Long userId) {
         EmployeeExt ext = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>()
-                .eq(EmployeeExt::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(EmployeeExt::getUserId, userId)
                 .last("LIMIT 1"));
         if (ext != null) {
@@ -682,7 +680,6 @@ public class EmployeeService {
 
     private Department getOrCreateDepartment(String departmentName) {
         Department department = departmentMapper.selectOne(new LambdaQueryWrapper<Department>()
-                .eq(Department::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Department::getDeptName, departmentName)
                 .last("LIMIT 1"));
         if (department != null) {
@@ -701,7 +698,6 @@ public class EmployeeService {
 
     private Position getOrCreatePosition(String positionName, Long departmentId) {
         Position position = positionMapper.selectOne(new LambdaQueryWrapper<Position>()
-                .eq(Position::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Position::getPositionName, positionName)
                 .last("LIMIT 1"));
         if (position != null) {

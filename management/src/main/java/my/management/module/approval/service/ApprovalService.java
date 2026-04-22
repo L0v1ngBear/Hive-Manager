@@ -48,8 +48,7 @@ public class ApprovalService {
     public List<LeaveApprovalListVO> listLeaveApprovals() {
         Long userId = TenantPermissionContext.getUserId();
         LambdaQueryWrapper<UserLeave> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserLeave::getTenantCode, TenantPermissionContext.getTenantCode())
-                .and(q -> q.eq(UserLeave::getApplyUserId, userId)
+        wrapper.and(q -> q.eq(UserLeave::getApplyUserId, userId)
                         .or()
                         .eq(UserLeave::getAuditorId, userId));
         wrapper.orderByDesc(UserLeave::getCreateTime);
@@ -95,8 +94,7 @@ public class ApprovalService {
     public List<FinanceApprovalVO> listFinanceApprovals() {
         Long userId = TenantPermissionContext.getUserId();
         LambdaQueryWrapper<FinanceApproval> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(FinanceApproval::getTenantCode, TenantPermissionContext.getTenantCode())
-                .and(q -> q.eq(FinanceApproval::getApplyUserId, userId)
+        wrapper.and(q -> q.eq(FinanceApproval::getApplyUserId, userId)
                         .or()
                         .eq(FinanceApproval::getAuditorId, userId));
         wrapper.orderByDesc(FinanceApproval::getCreateTime);
@@ -157,7 +155,6 @@ public class ApprovalService {
 
     private UserLeave getLeaveByCode(String leaveCode) {
         UserLeave userLeave = leaveMapper.selectOne(new LambdaQueryWrapper<UserLeave>()
-                .eq(UserLeave::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(UserLeave::getLeaveCode, leaveCode));
         if (userLeave == null) {
             throw new BusinessException("请假单不存在");
@@ -167,7 +164,6 @@ public class ApprovalService {
 
     private FinanceApproval getFinanceByCode(String approvalCode) {
         FinanceApproval approval = financeApprovalMapper.selectOne(new LambdaQueryWrapper<FinanceApproval>()
-                .eq(FinanceApproval::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(FinanceApproval::getApprovalCode, approvalCode));
         if (approval == null) {
             throw new BusinessException("财务审批单不存在");

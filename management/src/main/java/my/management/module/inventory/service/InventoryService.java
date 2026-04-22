@@ -70,7 +70,6 @@ public class InventoryService {
 
     public PageResult<ClothInventoryVO> page(InventoryPageRequest request) {
         LambdaQueryWrapper<Cloth> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Cloth::getTenantCode, TenantPermissionContext.getTenantCode());
         if (request.getStatus() != null) {
             wrapper.eq(Cloth::getStatus, request.getStatus());
         }
@@ -118,7 +117,6 @@ public class InventoryService {
             throw new BusinessException("请输入条码");
         }
         Cloth cloth = clothMapper.selectOne(new LambdaQueryWrapper<Cloth>()
-                .eq(Cloth::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Cloth::getBarcode, barcode.trim()));
         if (cloth == null) {
             throw new BusinessException("未找到该条码库存");
@@ -168,7 +166,6 @@ public class InventoryService {
         LocalDateTime now = LocalDateTime.now();
 
         Cloth cloth = clothMapper.selectOne(new LambdaQueryWrapper<Cloth>()
-                .eq(Cloth::getTenantCode, tenantCode)
                 .eq(Cloth::getBarcode, request.getBarcode().trim()));
         if (cloth == null) {
             throw new BusinessException("未找到该条码库存");
@@ -211,7 +208,6 @@ public class InventoryService {
 
     private void saveModelSpecIfAbsent(String tenantCode, String modelCode, BigDecimal spec) {
         Long count = clothModelSpecMapper.selectCount(new LambdaQueryWrapper<ClothModelSpec>()
-                .eq(ClothModelSpec::getTenantCode, tenantCode)
                 .eq(ClothModelSpec::getModelCode, modelCode)
                 .eq(ClothModelSpec::getSpec, spec));
         if (count != null && count > 0) {
@@ -237,7 +233,6 @@ public class InventoryService {
 
     private boolean existsBarcode(String tenantCode, String barcode) {
         Long count = clothMapper.selectCount(new LambdaQueryWrapper<Cloth>()
-                .eq(Cloth::getTenantCode, tenantCode)
                 .eq(Cloth::getBarcode, barcode));
         return count != null && count > 0;
     }

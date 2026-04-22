@@ -1,5 +1,6 @@
 package my.management.module.inventory.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import my.management.module.inventory.model.entity.Cloth;
 import my.management.module.inventory.model.vo.InventorySummaryVO;
@@ -19,6 +20,7 @@ import java.util.List;
 @Mapper
 public interface ClothMapper extends BaseMapper<Cloth> {
 
+    @InterceptorIgnore(tenantLine = "true")
     @Select({
             "SELECT COALESCE(SUM(remaining_meters), 0) AS totalMeters, COUNT(1) AS clothCount ",
             "FROM cloth ",
@@ -26,6 +28,7 @@ public interface ClothMapper extends BaseMapper<Cloth> {
     })
     InventorySummaryVO selectSummary(@Param("tenantCode") String tenantCode);
 
+    @InterceptorIgnore(tenantLine = "true")
     @Select({
             "SELECT COUNT(1) FROM (",
             "SELECT model_code FROM cloth ",
@@ -36,6 +39,7 @@ public interface ClothMapper extends BaseMapper<Cloth> {
     })
     Long countWarningModels(@Param("tenantCode") String tenantCode, @Param("threshold") BigDecimal threshold);
 
+    @InterceptorIgnore(tenantLine = "true")
     @Select({
             "SELECT model_code AS modelCode, COALESCE(SUM(remaining_meters), 0) AS totalMeters, MAX(update_time) AS latestTime ",
             "FROM cloth ",
@@ -49,6 +53,7 @@ public interface ClothMapper extends BaseMapper<Cloth> {
                                             @Param("threshold") BigDecimal threshold,
                                             @Param("limit") Integer limit);
 
+    @InterceptorIgnore(tenantLine = "true")
     @Select({
             "SELECT DATE(create_time) AS statDate, ",
             "COALESCE(SUM(CASE WHEN operate_type = 0 THEN operate_meters ELSE 0 END), 0) AS inMeters, ",

@@ -97,7 +97,6 @@ public class OrderService {
         Page<SalesOrder> page = new Page<>(safePage(request.getPageNum()), safeSize(request.getPageSize()));
 
         LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<SalesOrder>()
-                .eq(SalesOrder::getTenantCode, tenantCode)
                 .orderByDesc(SalesOrder::getCreateTime);
 
         if (StringUtils.hasText(request.getStatus())) {
@@ -149,7 +148,6 @@ public class OrderService {
     public List<SalesOrderStatusLogVO> listSalesLogs(String orderId) {
         findSalesOrder(orderId);
         return salesOrderStatusLogMapper.selectList(new LambdaQueryWrapper<SalesOrderStatusLog>()
-                        .eq(SalesOrderStatusLog::getTenantCode, TenantPermissionContext.getTenantCode())
                         .eq(SalesOrderStatusLog::getOrderId, orderId)
                         .orderByDesc(SalesOrderStatusLog::getCreateTime))
                 .stream()
@@ -229,7 +227,6 @@ public class OrderService {
         Page<ProductionOrder> page = new Page<>(safePage(request.getPageNum()), safeSize(request.getPageSize()));
 
         LambdaQueryWrapper<ProductionOrder> wrapper = new LambdaQueryWrapper<ProductionOrder>()
-                .eq(ProductionOrder::getTenantCode, tenantCode)
                 .orderByDesc(ProductionOrder::getCreateTime);
 
         if (StringUtils.hasText(request.getStatus())) {
@@ -270,7 +267,6 @@ public class OrderService {
     public List<ProductionOrderStatusLogVO> listProductionLogs(String orderId) {
         findProductionOrder(orderId);
         return productionOrderStatusLogMapper.selectList(new LambdaQueryWrapper<ProductionOrderStatusLog>()
-                        .eq(ProductionOrderStatusLog::getTenantCode, TenantPermissionContext.getTenantCode())
                         .eq(ProductionOrderStatusLog::getOrderId, orderId)
                         .orderByDesc(ProductionOrderStatusLog::getCreateTime))
                 .stream()
@@ -464,7 +460,6 @@ public class OrderService {
     private void ensureCustomerProjectExists(String customerName, String projectName) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Customer customer = customerMapper.selectOne(new LambdaQueryWrapper<Customer>()
-                .eq(Customer::getTenantCode, tenantCode)
                 .eq(Customer::getCustomerName, customerName)
                 .last("LIMIT 1"));
         if (customer == null) {
@@ -476,7 +471,6 @@ public class OrderService {
         }
 
         Long projectCount = customerProjectMapper.selectCount(new LambdaQueryWrapper<CustomerProject>()
-                .eq(CustomerProject::getTenantCode, tenantCode)
                 .eq(CustomerProject::getCustomerId, customer.getId())
                 .eq(CustomerProject::getProjectName, projectName));
         if (projectCount == null || projectCount == 0) {
@@ -508,7 +502,6 @@ public class OrderService {
             return;
         }
         List<ProductionOrder> linkedOrders = productionOrderMapper.selectList(new LambdaQueryWrapper<ProductionOrder>()
-                .eq(ProductionOrder::getTenantCode, salesOrder.getTenantCode())
                 .eq(ProductionOrder::getSalesOrderId, salesOrder.getOrderId()));
         for (ProductionOrder linkedOrder : linkedOrders) {
             if (Objects.equals(linkedOrder.getStatus(), salesOrder.getStatus())) {
@@ -536,7 +529,6 @@ public class OrderService {
             return;
         }
         SalesOrder linkedSalesOrder = salesOrderMapper.selectOne(new LambdaQueryWrapper<SalesOrder>()
-                .eq(SalesOrder::getTenantCode, productionOrder.getTenantCode())
                 .eq(SalesOrder::getOrderId, productionOrder.getSalesOrderId())
                 .last("LIMIT 1"));
         if (linkedSalesOrder == null || Objects.equals(linkedSalesOrder.getStatus(), productionOrder.getStatus())) {
@@ -565,7 +557,6 @@ public class OrderService {
 
     private SalesOrder findSalesOrder(String orderId) {
         SalesOrder order = salesOrderMapper.selectOne(new LambdaQueryWrapper<SalesOrder>()
-                .eq(SalesOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(SalesOrder::getOrderId, orderId)
                 .last("LIMIT 1"));
         if (order == null) {
@@ -576,7 +567,6 @@ public class OrderService {
 
     private ProductionOrder findProductionOrder(String orderId) {
         ProductionOrder order = productionOrderMapper.selectOne(new LambdaQueryWrapper<ProductionOrder>()
-                .eq(ProductionOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(ProductionOrder::getOrderId, orderId)
                 .last("LIMIT 1"));
         if (order == null) {

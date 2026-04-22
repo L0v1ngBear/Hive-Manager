@@ -1,5 +1,6 @@
 package my.management.module.price.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import my.management.module.price.model.vo.ModelSpecOptionVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -10,6 +11,7 @@ import java.util.List;
  * ClothModelSpecViewMapper 属于管理端后端价格模块，是数据访问类，负责与数据库交互。
  */
 @Mapper
+@InterceptorIgnore(tenantLine = "true")
 public interface ClothModelSpecViewMapper {
 
     @Select({

@@ -1,5 +1,6 @@
 package my.management.module.inventory.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import my.management.module.inventory.model.entity.InventoryRecord;
 import my.management.module.inventory.model.vo.InventoryRecordVO;
@@ -17,6 +18,7 @@ import java.util.List;
 @Mapper
 public interface InventoryRecordMapper extends BaseMapper<InventoryRecord> {
 
+    @InterceptorIgnore(tenantLine = "true")
     @Select({
             "SELECT COALESCE(SUM(operate_meters), 0) FROM inventory_record ",
             "WHERE tenant_code = #{tenantCode} AND operate_type = #{operateType} ",
@@ -27,6 +29,7 @@ public interface InventoryRecordMapper extends BaseMapper<InventoryRecord> {
                                 @Param("startTime") LocalDateTime startTime,
                                 @Param("endTime") LocalDateTime endTime);
 
+    @InterceptorIgnore(tenantLine = "true")
     @Select({
             "SELECT r.id, c.barcode, r.model_code AS modelCode, r.operate_type AS operateType, ",
             "r.operate_meters AS operateMeters, r.remaining_meters AS remainingMeters, ",

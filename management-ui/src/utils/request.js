@@ -32,8 +32,6 @@ service.interceptors.response.use(
 
         try {
             res.data = await decryptPayload(userStore.responseKey, res.data)
-            console.log('[密文响应]', response.data)
-            console.log('[解密后 data]', res.data)
         } catch (error) {
             ElMessage.error('响应解密失败，请稍后重试')
             if (userStore.token) {

@@ -1,5 +1,6 @@
 package my.management.module.employee.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import my.management.module.employee.model.entity.Employee;
@@ -16,6 +17,7 @@ import java.util.List;
  * EmployeeMapper 属于管理端后端员工模块，是数据访问类，负责与数据库交互。
  */
 @Mapper
+@InterceptorIgnore(tenantLine = "true")
 public interface EmployeeMapper extends BaseMapper<Employee> {
 
     @Select({

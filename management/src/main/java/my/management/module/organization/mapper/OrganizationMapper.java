@@ -1,5 +1,6 @@
 package my.management.module.organization.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import my.management.module.organization.model.vo.OrganizationEmployeeVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -13,6 +14,7 @@ import java.util.Map;
  * 组织架构数据访问层，负责部门维度的员工统计和部门名称同步。
  */
 @Mapper
+@InterceptorIgnore(tenantLine = "true")
 public interface OrganizationMapper {
 
     @Select({

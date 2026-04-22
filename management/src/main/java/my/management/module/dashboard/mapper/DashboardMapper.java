@@ -1,5 +1,6 @@
 package my.management.module.dashboard.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -15,6 +16,7 @@ import java.util.List;
  * DashboardMapper 属于管理端后端总览大盘模块，是数据访问类，负责与数据库交互。
  */
 @Mapper
+@InterceptorIgnore(tenantLine = "true")
 public interface DashboardMapper {
 
     @Select("SELECT COUNT(1) FROM sales_order WHERE tenant_code = #{tenantCode} AND create_time >= #{startOfMonth}")

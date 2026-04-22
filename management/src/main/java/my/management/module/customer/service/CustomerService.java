@@ -48,8 +48,7 @@ public class CustomerService {
         String tenantCode = TenantPermissionContext.getTenantCode();
 
         Long count = customerMapper.selectCount(new LambdaQueryWrapper<Customer>()
-                .eq(Customer::getCustomerName, request.getCustomerName())
-                .eq(Customer::getTenantCode, tenantCode));
+                .eq(Customer::getCustomerName, request.getCustomerName()));
         if (count > 0) {
             throw new BusinessException("customer already exists");
         }
@@ -66,7 +65,6 @@ public class CustomerService {
     public void updateCustomer(CustomerUpdateRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Customer customer = customerMapper.selectOne(new LambdaQueryWrapper<Customer>()
-                .eq(Customer::getTenantCode, tenantCode)
                 .eq(Customer::getId, request.getId())
                 .last("LIMIT 1"));
         if (customer == null) {
@@ -74,7 +72,6 @@ public class CustomerService {
         }
 
         Long duplicateCount = customerMapper.selectCount(new LambdaQueryWrapper<Customer>()
-                .eq(Customer::getTenantCode, tenantCode)
                 .eq(Customer::getCustomerName, request.getCustomerName())
                 .ne(Customer::getId, request.getId()));
         if (duplicateCount != null && duplicateCount > 0) {
@@ -87,10 +84,8 @@ public class CustomerService {
 
         // Replace children in one transaction so the drawer can submit the full latest state directly.
         customerContactMapper.delete(new LambdaQueryWrapper<CustomerContact>()
-                .eq(CustomerContact::getTenantCode, tenantCode)
                 .eq(CustomerContact::getCustomerId, request.getId()));
         customerProjectMapper.delete(new LambdaQueryWrapper<CustomerProject>()
-                .eq(CustomerProject::getTenantCode, tenantCode)
                 .eq(CustomerProject::getCustomerId, request.getId()));
 
         saveContactsAndProjects(tenantCode, request.getId(), request);
@@ -100,16 +95,15 @@ public class CustomerService {
         String keyword = request.getKeyword();
         String tenantCode = TenantPermissionContext.getTenantCode();
         LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Customer::getTenantCode, tenantCode);
 
         if (StringUtils.isNotBlank(keyword)) {
             String safeKeyword = keyword.replace("'", "''");
             wrapper.and(w -> w
                     .like(Customer::getCustomerName, safeKeyword)
                     .or().inSql(Customer::getId,
-                            "SELECT customer_id FROM customer_project WHERE tenant_code = '" + tenantCode + "' AND project_name LIKE '%" + safeKeyword + "%'")
+                            "SELECT customer_id FROM customer_project WHERE project_name LIKE '%" + safeKeyword + "%'")
                     .or().inSql(Customer::getId,
-                            "SELECT customer_id FROM customer_contact WHERE tenant_code = '" + tenantCode + "' AND (contact_name LIKE '%" + safeKeyword + "%' OR contact_phone LIKE '%" + safeKeyword + "%')")
+                            "SELECT customer_id FROM customer_contact WHERE (contact_name LIKE '%" + safeKeyword + "%' OR contact_phone LIKE '%" + safeKeyword + "%')")
             );
         }
 
@@ -128,7 +122,6 @@ public class CustomerService {
     public CustomerDetailVO getCustomer(Long id) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Customer customer = customerMapper.selectOne(new LambdaQueryWrapper<Customer>()
-                .eq(Customer::getTenantCode, tenantCode)
                 .eq(Customer::getId, id)
                 .last("LIMIT 1"));
         if (customer == null) {
@@ -136,10 +129,8 @@ public class CustomerService {
         }
 
         List<CustomerContact> customerContactList = customerContactMapper.selectList(new LambdaQueryWrapper<CustomerContact>()
-                .eq(CustomerContact::getTenantCode, tenantCode)
                 .eq(CustomerContact::getCustomerId, id));
         List<CustomerProject> customerProjectList = customerProjectMapper.selectList(new LambdaQueryWrapper<CustomerProject>()
-                .eq(CustomerProject::getTenantCode, tenantCode)
                 .eq(CustomerProject::getCustomerId, id));
 
         CustomerDetailVO customerDetailVO = new CustomerDetailVO();
@@ -152,7 +143,6 @@ public class CustomerService {
     public List<CustomerOptionVO> listCustomerOptions(String keyword) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<Customer>()
-                .eq(Customer::getTenantCode, tenantCode)
                 .orderByDesc(Customer::getId);
         if (StringUtils.isNotBlank(keyword)) {
             wrapper.like(Customer::getCustomerName, keyword.trim());
@@ -163,7 +153,6 @@ public class CustomerService {
         }
         List<Long> customerIds = customers.stream().map(Customer::getId).toList();
         Map<Long, List<String>> projectNamesByCustomerId = customerProjectMapper.selectList(new LambdaQueryWrapper<CustomerProject>()
-                        .eq(CustomerProject::getTenantCode, tenantCode)
                         .in(CustomerProject::getCustomerId, customerIds)
                         .orderByDesc(CustomerProject::getId))
                 .stream()
@@ -227,7 +216,6 @@ public class CustomerService {
         // Keep contacts/projects grouped in memory so the page endpoint stays O(1) database round-trips.
         Map<Long, List<CustomerContact>> contactsByCustomerId = customerContactMapper.selectList(
                         new LambdaQueryWrapper<CustomerContact>()
-                                .eq(CustomerContact::getTenantCode, tenantCode)
                                 .in(CustomerContact::getCustomerId, customerIds)
                                 .orderByDesc(CustomerContact::getId))
                 .stream()
@@ -239,7 +227,6 @@ public class CustomerService {
 
         Map<Long, List<CustomerProject>> projectsByCustomerId = customerProjectMapper.selectList(
                         new LambdaQueryWrapper<CustomerProject>()
-                                .eq(CustomerProject::getTenantCode, tenantCode)
                                 .in(CustomerProject::getCustomerId, customerIds)
                                 .orderByDesc(CustomerProject::getId))
                 .stream()

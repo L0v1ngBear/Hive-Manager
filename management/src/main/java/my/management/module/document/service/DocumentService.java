@@ -30,7 +30,6 @@ public class DocumentService {
     public List<Document> selectDocumentByParentId(Long parentId) {
         LambdaQueryWrapper<Document> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Document::getParentId, parentId);
-        queryWrapper.eq(Document::getTenantCode, TenantPermissionContext.getTenantCode());
         queryWrapper.orderByAsc(Document::getType);
         queryWrapper.orderByAsc(Document::getCreateTime);
         return documentMapper.selectList(queryWrapper);
@@ -41,7 +40,6 @@ public class DocumentService {
         LambdaQueryWrapper<Document> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Document::getParentId, request.getParentId());
         queryWrapper.eq(Document::getName, request.getName());
-        queryWrapper.eq(Document::getTenantCode, TenantPermissionContext.getTenantCode());
         if (documentMapper.selectOne(queryWrapper) != null) {
             throw new BusinessException("folder already exists");
         }
@@ -64,7 +62,6 @@ public class DocumentService {
         LambdaQueryWrapper<Document> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Document::getParentId, document.getParentId());
         queryWrapper.eq(Document::getName, newName);
-        queryWrapper.eq(Document::getTenantCode, TenantPermissionContext.getTenantCode());
         Document oldDocument = documentMapper.selectOne(queryWrapper);
         if (oldDocument != null && !oldDocument.getId().equals(documentId)) {
             throw new BusinessException("document name already exists");

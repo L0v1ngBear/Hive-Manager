@@ -1,5 +1,6 @@
 package my.management.module.inventory.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import my.management.module.inventory.model.entity.ClothModelSpec;
 import my.management.module.inventory.model.vo.InventoryModelOptionVO;
@@ -15,6 +16,7 @@ import java.util.List;
 @Mapper
 public interface ClothModelSpecMapper extends BaseMapper<ClothModelSpec> {
 
+    @InterceptorIgnore(tenantLine = "true")
     @Select({
             "SELECT model_code AS modelCode, spec ",
             "FROM cloth_model_spec ",

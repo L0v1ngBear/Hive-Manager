@@ -1,5 +1,6 @@
 package my.management.module.receipt.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import my.management.module.receipt.model.entity.OutboundOrder;
 import my.management.module.receipt.model.vo.OutboundPrintOrderVO;
@@ -14,6 +15,7 @@ import java.util.List;
 @Mapper
 public interface OutboundOrderMapper extends BaseMapper<OutboundOrder> {
 
+    @InterceptorIgnore(tenantLine = "true")
     @Select({
             "SELECT o.id, o.order_no AS orderNo, o.customer_name AS customerName, o.create_time AS createTime, ",
             "COALESCE(u.name, CONCAT('用户', o.operator_id)) AS operator, ",

@@ -1,5 +1,6 @@
 package my.management.module.ai.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import my.management.module.ai.model.vo.BadProductTypeSummaryRowVO;
 import my.management.module.ai.model.vo.CustomerOrderDigestRowVO;
 import my.management.module.ai.model.vo.DueOrderRiskRowVO;
@@ -14,6 +15,7 @@ import java.util.List;
  * AI 分析数据访问层，负责准备规则分析所需的聚合原始数据。
  */
 @Mapper
+@InterceptorIgnore(tenantLine = "true")
 public interface AiAnalysisMapper {
 
     @Select({
