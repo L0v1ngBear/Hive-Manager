@@ -7,9 +7,17 @@ export function getDashboardOverview() {
   })
 }
 
-export function getDashboardAiAdvices() {
+export function getDashboardAiAdvices(params = {}) {
   return request({
     url: '/dashboard/ai-advices',
+    method: 'get',
+    params
+  })
+}
+
+export function getDashboardAiSnapshot() {
+  return request({
+    url: '/dashboard/ai-snapshot',
     method: 'get'
   })
 }

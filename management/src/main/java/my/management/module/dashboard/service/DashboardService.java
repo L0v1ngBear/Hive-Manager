@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
+import my.management.module.ai.model.vo.AiBusinessSnapshotVO;
 import my.management.module.ai.model.vo.DashboardAiAdviceVO;
 import my.management.module.ai.service.AiAnalysisService;
 import my.management.module.dashboard.mapper.DashboardMapper;
@@ -80,19 +81,27 @@ public class DashboardService {
         return vo;
     }
 
-    public List<DashboardAiAdviceVO> aiAdvices() {
+    public List<DashboardAiAdviceVO> aiAdvices(boolean refresh) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
         String cacheKey = buildScopedCacheKey(AI_ADVICE_CACHE_KEY_PREFIX, tenantCode, userId);
 
-        List<DashboardAiAdviceVO> cached = getCachedAiAdvices(cacheKey);
-        if (cached != null) {
-            return cached;
+        if (refresh) {
+            stringRedisTemplate.delete(cacheKey);
+        } else {
+            List<DashboardAiAdviceVO> cached = getCachedAiAdvices(cacheKey);
+            if (cached != null) {
+                return cached;
+            }
         }
 
         List<DashboardAiAdviceVO> advices = aiAnalysisService.buildAllDashboardAdvices(tenantCode, buildVisibility());
         cacheAiAdvices(cacheKey, advices);
         return advices;
+    }
+
+    public AiBusinessSnapshotVO aiSnapshot() {
+        return aiAnalysisService.buildBusinessSnapshot(TenantPermissionContext.getTenantCode());
     }
 
     private DashboardOverviewVO.Visibility buildVisibility() {

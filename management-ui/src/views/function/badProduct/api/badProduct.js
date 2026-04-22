@@ -4,7 +4,7 @@ export function getBadProductPage(params) {
   return request({
     url: '/bad-product/list',
     method: 'get',
-    params
+    params: cleanParams(params)
   })
 }
 
@@ -22,4 +22,14 @@ export function processBadProduct(data) {
     method: 'post',
     data
   })
+}
+
+function cleanParams(params = {}) {
+  return Object.entries(params).reduce((target, [key, value]) => {
+    if (value === undefined || value === null || value === '') {
+      return target
+    }
+    target[key] = value
+    return target
+  }, {})
 }

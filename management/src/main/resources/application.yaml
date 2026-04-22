@@ -32,3 +32,15 @@ security:
 
 platform:
   developer-logins: platform_admin
+
+ai:
+  llm:
+    # 默认关闭：未配置模型时仍使用本地规则分析，保证总览大盘稳定可用。
+    enabled: ${AI_LLM_ENABLED:false}
+    # OpenAI-Compatible Chat Completions 地址，例如 https://api.openai.com/v1/chat/completions。
+    endpoint: ${AI_LLM_ENDPOINT:}
+    api-key: ${AI_LLM_API_KEY:}
+    model: ${AI_LLM_MODEL:}
+    max-advices: ${AI_LLM_MAX_ADVICES:3}
+    timeout-seconds: ${AI_LLM_TIMEOUT_SECONDS:30}
+    temperature: ${AI_LLM_TEMPERATURE:0.2}

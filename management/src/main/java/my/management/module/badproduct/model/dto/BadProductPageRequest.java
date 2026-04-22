@@ -3,7 +3,10 @@ package my.management.module.badproduct.model.dto;
 import lombok.Data;
 
 /**
- * 次品分页查询请求。
+ * 次品列表分页查询入参。
+ *
+ * <p>该接口与小程序端保持同一套请求契约：
+ * pageNum/pageSize/status/type/date，空筛选字段不参与查询。</p>
  */
 @Data
 public class BadProductPageRequest {

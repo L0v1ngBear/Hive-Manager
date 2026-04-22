@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -76,4 +77,129 @@ public interface AiAnalysisMapper {
     Long countBadProductRecordsBetween(@Param("tenantCode") String tenantCode,
                                        @Param("startTime") LocalDateTime startTime,
                                        @Param("endTime") LocalDateTime endTime);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM sales_order ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND create_time >= #{startTime}"
+    })
+    Long countSalesOrdersSince(@Param("tenantCode") String tenantCode,
+                               @Param("startTime") LocalDateTime startTime);
+
+    @Select({
+            "SELECT COALESCE(SUM(total_amount), 0) ",
+            "FROM sales_order ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND create_time >= #{startTime}"
+    })
+    BigDecimal sumSalesAmountSince(@Param("tenantCode") String tenantCode,
+                                   @Param("startTime") LocalDateTime startTime);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM production_order ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND create_time >= #{startTime}"
+    })
+    Long countProductionOrdersSince(@Param("tenantCode") String tenantCode,
+                                    @Param("startTime") LocalDateTime startTime);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM production_order ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND status = 'producing'"
+    })
+    Long countProducingOrders(@Param("tenantCode") String tenantCode);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM sales_order ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND delivery_date IS NOT NULL AND delivery_date <> '' ",
+            "AND delivery_date <= #{deliveryDateLimit} ",
+            "AND status NOT IN ('shipped', 'completed')"
+    })
+    Long countDueSoonUnshippedOrders(@Param("tenantCode") String tenantCode,
+                                     @Param("deliveryDateLimit") String deliveryDateLimit);
+
+    @Select({
+            "SELECT COALESCE(SUM(remaining_meters), 0) ",
+            "FROM cloth ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND del_flag = 0"
+    })
+    BigDecimal sumInventoryMeters(@Param("tenantCode") String tenantCode);
+
+    @Select({
+            "SELECT COUNT(1) FROM (",
+            "  SELECT model_code ",
+            "  FROM cloth ",
+            "  WHERE tenant_code = #{tenantCode} AND del_flag = 0 ",
+            "  GROUP BY model_code ",
+            "  HAVING COALESCE(SUM(remaining_meters), 0) < #{threshold}",
+            ") t"
+    })
+    Long countLowStockModels(@Param("tenantCode") String tenantCode,
+                             @Param("threshold") BigDecimal threshold);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM cloth ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND del_flag = 0 ",
+            "AND is_bad = 1"
+    })
+    Long countBadCloth(@Param("tenantCode") String tenantCode);
+
+    @Select({
+            "SELECT COALESCE(SUM(loss_amount), 0) ",
+            "FROM bad_product_record ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND create_time >= #{startTime}"
+    })
+    BigDecimal sumBadProductLossSince(@Param("tenantCode") String tenantCode,
+                                      @Param("startTime") LocalDateTime startTime);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM bad_product_record ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND status = 'pending'"
+    })
+    Long countPendingBadProduct(@Param("tenantCode") String tenantCode);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM customer ",
+            "WHERE tenant_code = #{tenantCode}"
+    })
+    Long countCustomers(@Param("tenantCode") String tenantCode);
+
+    @Select({
+            "SELECT COUNT(DISTINCT customer_name) ",
+            "FROM sales_order ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND customer_name IS NOT NULL AND customer_name <> '' ",
+            "AND create_time >= #{startTime}"
+    })
+    Long countActiveCustomersSince(@Param("tenantCode") String tenantCode,
+                                   @Param("startTime") LocalDateTime startTime);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM finance_approval ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND status = 1"
+    })
+    Long countPendingFinanceApprovals(@Param("tenantCode") String tenantCode);
+
+    @Select({
+            "SELECT COALESCE(SUM(amount), 0) ",
+            "FROM finance_approval ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND status = 1"
+    })
+    BigDecimal sumPendingFinanceAmount(@Param("tenantCode") String tenantCode);
 }
