@@ -331,6 +331,7 @@ import {
   importEmployees
 } from './api/employee.js'
 
+// --- 状态定义 ---
 const isDrawerOpen = ref(false)
 const editingEmployeeId = ref(null)
 const importInputRef = ref(null)
@@ -359,21 +360,74 @@ const query = reactive({
   status: ''
 })
 
+// --- 计算属性 ---
 const totalPages = computed(() => Math.max(pagination.pages || 1, 1))
 const pageStart = computed(() => (pagination.total === 0 ? 0 : (query.page - 1) * query.size + 1))
 const pageEnd = computed(() => Math.min(query.page * query.size, pagination.total || 0))
+
+// 核心逻辑：构建层级结构
 const employeeHierarchy = computed(() => buildEmployeeHierarchy(organizationEmployees.value))
+
+// 关键改动：计算树的数据源
+const orgChartData = computed(() => {
+  const roots = employeeHierarchy.value
+
+  if (!roots || roots.length === 0) {
+    return { id: 'empty', label: '暂无数据' }
+  }
+
+  // 方案1：如果只有一个最高领导，直接让他成为根节点，消除多余的方块
+  if (roots.length === 1) {
+    return toOrgChartNode(roots[0])
+  }
+
+  // 如果有多个并列最高级，才保留虚拟根节点进行包裹
+  return {
+    id: 'root',
+    pid: null,
+    label: '组织架构',
+    expand: true,
+    isVirtualRoot: true,
+    children: roots.map(toOrgChartNode)
+  }
+})
+
 const managerCount = computed(() => organizationEmployees.value.filter((item) => employeeHierarchyHasChildren(item.id, employeeHierarchy.value)).length)
 const rootEmployeeCount = computed(() => employeeHierarchy.value.length)
 const orgChartProps = { id: 'id', pid: 'pid', label: 'label', children: 'children', expand: 'expand' }
-const orgChartData = computed(() => ({
-  id: 'root',
-  pid: null,
-  label: '组织架构',
+
+// --- 方法定义 ---
+
+// 转换节点格式
+const toOrgChartNode = (employee) => ({
+  ...employee,
+  id: String(employee.id),
+  // 如果是根节点且没有虚拟包裹，pid 设为 null
+  pid: employee.leaderId ? String(employee.leaderId) : null,
+  label: employee.name || '--',
   expand: true,
-  isVirtualRoot: true,
-  children: employeeHierarchy.value.map(toOrgChartNode)
-}))
+  children: (employee.children || []).map(toOrgChartNode)
+})
+
+const buildEmployeeHierarchy = (source) => {
+  const nodes = source.map((item) => ({ ...item, children: [] }))
+  const byId = new Map(nodes.map((item) => [Number(item.id), item]))
+  const byName = new Map(nodes.filter((item) => item.name).map((item) => [item.name, item]))
+  const roots = []
+
+  nodes.forEach((node) => {
+    const leaderId = node.leaderId == null ? null : Number(node.leaderId)
+    // 优先匹配 ID，其次匹配名称
+    const leader = leaderId ? byId.get(leaderId) : (node.leaderName ? byName.get(node.leaderName) : null)
+
+    if (leader && leader.id !== node.id) {
+      leader.children.push(node)
+    } else {
+      roots.push(node)
+    }
+  })
+  return roots
+}
 
 const fetchEmployees = async () => {
   loading.value = true
@@ -388,7 +442,8 @@ const fetchEmployees = async () => {
 }
 
 const fetchStats = async () => {
-  Object.assign(stats, await getEmployeeStats())
+  const data = await getEmployeeStats()
+  Object.assign(stats, data)
 }
 
 const fetchFormOptions = async () => {
@@ -422,13 +477,13 @@ const handleCreateSuccess = async () => {
 }
 
 const showBatchTip = () => {
-  ElMessage.info('批量编辑接口已准备就绪。当前页面仍需实现行选择 UI。')
+  ElMessage.info('批量编辑功能开发中...')
 }
 
 const showEmployeeDetail = async (id) => {
   const detail = await getEmployeeDetail(id)
   ElMessageBox.alert(
-      `工号: ${detail.empNo || '--'}\n部门: ${detail.departmentName || '--'}\n职位: ${detail.positionName || '--'}\n角色: ${(detail.roleNames || []).join('、') || '--'}\n直属领导: ${detail.leaderName || '--'}\n状态: ${statusMeta(detail.status).label}`,
+      `工号: ${detail.empNo || '--'}\n部门: ${detail.departmentName || '--'}\n职位: ${detail.positionName || '--'}\n直属领导: ${detail.leaderName || '--'}\n状态: ${statusMeta(detail.status).label}`,
       detail.name,
       { confirmButtonText: '关闭' }
   )
@@ -456,46 +511,18 @@ const openOrganizationDrawer = async () => {
 
 const closeOrganizationDrawer = async () => {
   isOrganizationDrawerOpen.value = false
-  await Promise.all([fetchFormOptions(), fetchStats()])
 }
 
 const fetchOrganizationTree = async () => {
   organizationLoading.value = true
   try {
+    // 获取全部员工用于构建树
     const data = await getEmployeePage({ page: 1, size: 2000 })
     organizationEmployees.value = data.data || []
   } finally {
     organizationLoading.value = false
   }
 }
-
-const buildEmployeeHierarchy = (source) => {
-  const nodes = source.map((item) => ({ ...item, children: [] }))
-  const byId = new Map(nodes.map((item) => [Number(item.id), item]))
-  const byName = new Map(nodes.filter((item) => item.name).map((item) => [item.name, item]))
-  const roots = []
-
-  nodes.forEach((node) => {
-    const leaderId = node.leaderId == null ? null : Number(node.leaderId)
-    const leader = leaderId ? byId.get(leaderId) : byName.get(node.leaderName)
-    if (leader && leader.id !== node.id) {
-      leader.children.push(node)
-    } else {
-      roots.push(node)
-    }
-  })
-
-  return roots
-}
-
-const toOrgChartNode = (employee) => ({
-  ...employee,
-  id: String(employee.id),
-  pid: employee.leaderId ? String(employee.leaderId) : 'root',
-  label: employee.name || '--',
-  expand: true,
-  children: (employee.children || []).map(toOrgChartNode)
-})
 
 const employeeHierarchyHasChildren = (employeeId, nodes) => {
   for (const node of nodes) {
@@ -530,11 +557,10 @@ const handleImportChange = async (event) => {
     const result = await importEmployees(file)
     const failText = (result.failMessages || []).slice(0, 5).join('\n')
     await ElMessageBox.alert(
-      `总行数：${result.totalCount}\n成功：${result.successCount}\n失败：${result.failCount}${failText ? `\n\n失败明细：\n${failText}` : ''}`,
-      '员工导入结果',
-      { confirmButtonText: '关闭' }
+        `导入结果：成功 ${result.successCount} 条，失败 ${result.failCount} 条。${failText ? `\n\n部分失败原因：\n${failText}` : ''}`,
+        '导入结果'
     )
-    await Promise.all([fetchEmployees(), fetchStats(), fetchFormOptions()])
+    await Promise.all([fetchEmployees(), fetchStats()])
   } finally {
     event.target.value = ''
   }
@@ -559,6 +585,7 @@ const normalizeQuery = () => ({
 
 const formatPercent = (value) => `${Number(value || 0).toFixed(2)}%`
 const formatEmployeeType = (value) => ({ FULL_TIME: '全职', CONTRACT: '合同工', PROBATION: '试用期' }[value] || value || '--')
+
 const departmentBadge = (name) => {
   const palettes = [
     'bg-blue-50 text-blue-700 border-blue-200',
@@ -569,12 +596,15 @@ const departmentBadge = (name) => {
   const index = Math.abs((name || '').split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0)) % palettes.length
   return palettes[index]
 }
+
 const statusMeta = (status) => {
-  if (Number(status) === 1) return { label: '在职', text: 'text-emerald-600', dot: 'bg-emerald-600' }
-  if (Number(status) === 2) return { label: '试用', text: 'text-amber-600', dot: 'bg-amber-500' }
-  if (Number(status) === 0) return { label: '离职', text: 'text-slate-500', dot: 'bg-slate-400' }
+  const s = Number(status)
+  if (s === 1) return { label: '在职', text: 'text-emerald-600', dot: 'bg-emerald-600' }
+  if (s === 2) return { label: '试用', text: 'text-amber-600', dot: 'bg-amber-500' }
+  if (s === 0) return { label: '离职', text: 'text-slate-500', dot: 'bg-slate-400' }
   return { label: '未知', text: 'text-slate-500', dot: 'bg-slate-400' }
 }
+
 const employeeStatusLabel = (status) => statusMeta(status).label
 
 onMounted(async () => {
