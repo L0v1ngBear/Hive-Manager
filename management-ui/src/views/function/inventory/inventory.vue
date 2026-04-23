@@ -1,23 +1,23 @@
 <template>
-  <div class="h-full min-h-0 bg-slate-50/50 text-slate-800 overflow-x-hidden font-sans">
-    <div class="max-w-7xl mx-auto space-y-6 p-2 md:p-4">
+  <div class="function-page-shell h-full min-h-0 font-sans">
+    <div class="function-page-container space-y-6 p-2 md:p-4">
 
-      <header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <header class="function-page-header">
         <div>
-          <div class="inline-flex items-center gap-2 mb-2 px-3 py-1 rounded-full bg-blue-100/50 text-blue-700 text-xs font-bold tracking-widest uppercase">
+          <div class="function-page-eyebrow">
             <span class="material-symbols-outlined text-[16px]">inventory_2</span>
             仓库调度中心
           </div>
-          <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">库存实时管理</h1>
-          <p class="text-sm md:text-base text-slate-500 mt-2 max-w-2xl leading-relaxed">
+          <h1 class="function-page-title">库存实时管理</h1>
+          <p class="function-page-desc">
             管理布匹入库、出库和库存预警，网页端已接入真实库存接口，方便仓库人员快速查条码和看流水。
           </p>
         </div>
         <div class="flex items-center gap-3">
-          <button @click="openInDrawer" class="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-md shadow-blue-600/20 active:scale-95 flex items-center justify-center gap-1.5">
+          <button @click="openInDrawer" class="function-action-primary">
             <span class="material-symbols-outlined text-[20px]">add_circle</span>新增入库
           </button>
-          <button @click="openOutDrawer()" class="px-5 py-2.5 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-900 transition-all shadow-md shadow-slate-800/20 active:scale-95 flex items-center justify-center gap-1.5">
+          <button @click="openOutDrawer()" class="function-action-dark">
             <span class="material-symbols-outlined text-[20px]">outbox</span>扫码出库
           </button>
         </div>
@@ -236,7 +236,7 @@
                   <div class="flex items-center justify-between">
                     <p class="text-sm font-bold text-slate-800">{{ item.operateTypeName }} <span :class="item.operateType === 1 ? 'text-slate-600' : 'text-emerald-600'">{{ meter(item.operateMeters) }}</span> 米</p>
                   </div>
-                  <p class="text-xs text-slate-500 mt-1 font-medium">{{ item.modelCode }} <span class="mx-1 opacity-50">/</span> {{ item.barcode || '--' }}</p>
+                  <p class="text-xs text-slate-500 mt-1 font-medium">型号：{{ item.modelCode || '--' }}</p>
                   <p class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
                     <span class="material-symbols-outlined text-[12px]">person</span> {{ item.operatorName || '系统' }}
                     <span class="mx-1 opacity-50">·</span>
@@ -405,8 +405,9 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRoute } from 'vue-router'
 import {
   getInventoryPage,
   getInventorySummary,
@@ -419,6 +420,7 @@ import {
   searchInventoryModels
 } from './api/inventory.js'
 
+const route = useRoute()
 const rows = ref([])
 const warningRows = ref([])
 const recordRows = ref([])
@@ -439,7 +441,24 @@ const outForm = reactive({ barcode: '', meters: '' })
 const totalPages = computed(() => Math.max(Number(pagination.pages || 1), 1))
 const maxTrendValue = computed(() => Math.max(1, ...trendRows.value.flatMap((item) => [Number(item.inMeters || 0), Number(item.outMeters || 0)])))
 
+applyRouteKeyword()
 refreshAll()
+
+watch(
+  () => [route.query.keyword, route.query.q],
+  async () => {
+    applyRouteKeyword()
+    await fetchData()
+  }
+)
+
+function applyRouteKeyword() {
+  const routeKeyword = String(route.query.keyword || route.query.q || '').trim()
+  if (routeKeyword !== query.keyword) {
+    query.keyword = routeKeyword
+    query.pageNum = 1
+  }
+}
 
 async function refreshAll() {
   await Promise.all([fetchData(), fetchSummary(), fetchWarnings(), fetchRecords(), fetchTrend()])

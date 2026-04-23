@@ -1,12 +1,12 @@
 <template>
   <main class="login-stage min-h-screen bg-slate-50 text-slate-800 overflow-hidden font-sans relative">
-    <section class="absolute inset-0 z-0 overflow-hidden bg-[#e8eef6]">
+    <section class="absolute inset-0 z-0 overflow-hidden bg-[#f4f8ff]">
       <img
           alt="纺织工厂背景"
           class="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-multiply pointer-events-none"
           src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuIwA6L-s4oCozLMdH_yfiMdnU0mX3BNuYqJ8eL_plQToEhrFac1WjHNcEdRuN1RgYYCqi-YiEcoTm8REv0nbBH5cU2siKa-rdLvfzS0q7Tnco3uQg1a3oNwHXA2eykkjJ_E7iiYhjXah9w5j8cZJ4KO6ujDNoQcB4A6RuJaz0qaKlTajXwovmmPm0I795XTYPs0zGA0mPeNz3h8dQvGrF-GdMqhlWuodTHW8UNIJO55FxfmsKJdQ7S5jjN38u9jSAgO4S_yvuwFte"
       />
-      <div class="absolute inset-0 bg-gradient-to-br from-[#d1dceb]/80 via-transparent to-white/50 pointer-events-none"></div>
+      <div class="absolute inset-0 bg-gradient-to-br from-[#e8f2ff]/90 via-transparent to-white/60 pointer-events-none"></div>
 
       <div class="absolute top-12 left-12 z-10 pointer-events-none">
         <span class="text-primary/5 text-[12rem] font-black tracking-widest select-none leading-none">HIVE</span>
@@ -14,27 +14,27 @@
 
       <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-16 z-20 pointer-events-none opacity-40 mix-blend-color-burn">
         <svg ref="char1Ref" :class="['pixel-char w-40 h-40 drop-shadow-xl', { 'error-shake': isError }]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect fill="#455f88" height="80" width="80" x="10" y="10" rx="4"></rect>
-          <rect fill="#2d476f" height="10" width="80" x="10" y="80" rx="2"></rect>
+          <rect fill="#1f6fff" height="80" width="80" x="10" y="10" rx="4"></rect>
+          <rect fill="#0b2a6f" height="10" width="80" x="10" y="80" rx="2"></rect>
           <g class="eye-container">
             <rect class="eye-white" fill="white" height="15" width="15" x="25" y="30" rx="2"></rect>
-            <rect class="eye-pupil" fill="#002045" height="8" width="8" x="28" y="33" rx="1" :transform="pupil1Transform"></rect>
+            <rect class="eye-pupil" fill="#071f5f" height="8" width="8" x="28" y="33" rx="1" :transform="pupil1Transform"></rect>
             <rect class="eye-white" fill="white" height="15" width="15" x="60" y="30" rx="2"></rect>
-            <rect class="eye-pupil" fill="#002045" height="8" width="8" x="63" y="33" rx="1" :transform="pupil1Transform"></rect>
+            <rect class="eye-pupil" fill="#071f5f" height="8" width="8" x="63" y="33" rx="1" :transform="pupil1Transform"></rect>
           </g>
           <path class="mouth" :d="mouth1Path" stroke="white" stroke-linecap="round" stroke-width="4"></path>
         </svg>
 
         <svg ref="char2Ref" :class="['pixel-char w-32 h-32 mt-16 drop-shadow-xl', { 'error-shake': isError }]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect fill="#f2bc82" height="80" width="80" x="10" y="10" rx="4"></rect>
-          <rect fill="#633f0f" height="10" width="80" x="10" y="80" rx="2"></rect>
+          <rect fill="#67b7ff" height="80" width="80" x="10" y="10" rx="4"></rect>
+          <rect fill="#1f6fff" height="10" width="80" x="10" y="80" rx="2"></rect>
           <g class="eye-container">
             <rect class="eye-white" fill="white" height="12" width="12" x="30" y="35" rx="2"></rect>
-            <rect class="eye-pupil" fill="#321b00" height="6" width="6" x="33" y="38" rx="1" :transform="pupil2Transform"></rect>
+            <rect class="eye-pupil" fill="#071f5f" height="6" width="6" x="33" y="38" rx="1" :transform="pupil2Transform"></rect>
             <rect class="eye-white" fill="white" height="12" width="12" x="58" y="35" rx="2"></rect>
-            <rect class="eye-pupil" fill="#321b00" height="6" width="6" x="61" y="38" rx="1" :transform="pupil2Transform"></rect>
+            <rect class="eye-pupil" fill="#071f5f" height="6" width="6" x="61" y="38" rx="1" :transform="pupil2Transform"></rect>
           </g>
-          <path class="mouth" :d="mouth2Path" stroke="#321b00" stroke-linecap="round" stroke-width="3"></path>
+          <path class="mouth" :d="mouth2Path" stroke="#071f5f" stroke-linecap="round" stroke-width="3"></path>
         </svg>
       </div>
     </section>

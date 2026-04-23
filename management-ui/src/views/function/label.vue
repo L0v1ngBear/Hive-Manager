@@ -2,10 +2,11 @@
   <div class="label-page">
     <header class="label-header">
       <div class="header-left">
-        <div class="header-icon">
-          <span class="material-symbols-outlined text-xl">sell</span>
-        </div>
         <div>
+          <div class="function-page-eyebrow">
+            <span class="material-symbols-outlined">sell</span>
+            标签模板中心
+          </div>
           <input v-model="templateName" class="template-name-input" placeholder="输入模板名称" />
           <p class="header-desc">管理端设计和维护标签模板，小程序端选择同一批模板进行打印。</p>
         </div>
@@ -580,7 +581,9 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   margin: -1rem;
-  background: linear-gradient(135deg, #f7f9fc 0%, #edf3f8 48%, #f8fafc 100%);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(103, 183, 255, 0.16), transparent 32%),
+    linear-gradient(180deg, #f7fbff 0%, #f4f8ff 100%);
 }
 
 @media (min-width: 768px) {
@@ -590,17 +593,17 @@ onMounted(async () => {
 }
 
 .label-header {
-  min-height: 76px;
+  min-height: 96px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
   padding: 12px 24px;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  border-bottom: 1px solid rgba(191, 215, 245, 0.65);
+  box-shadow: 0 18px 42px rgba(31, 111, 255, 0.08);
 }
 
 .header-left,
@@ -627,7 +630,7 @@ onMounted(async () => {
 }
 
 .header-desc {
-  color: #64748b;
+  color: #4d6280;
   font-size: 12px;
   padding: 0 8px;
 }
@@ -636,8 +639,8 @@ onMounted(async () => {
   min-width: 280px;
   border: none;
   background: transparent;
-  color: #111827;
-  font-size: 18px;
+  color: #071f5f;
+  font-size: 24px;
   font-weight: 900;
   outline: none;
   padding: 2px 8px;
@@ -646,7 +649,7 @@ onMounted(async () => {
 
 .template-name-input:hover,
 .template-name-input:focus {
-  background: rgba(226, 232, 240, 0.65);
+  background: rgba(232, 242, 255, 0.78);
 }
 
 .mode-switch {
@@ -704,16 +707,16 @@ onMounted(async () => {
   border-radius: 14px;
   padding: 10px 18px;
   color: #fff;
-  background: #0f4c81;
-  box-shadow: 0 12px 24px rgba(15, 76, 129, 0.2);
+  background: linear-gradient(135deg, #67b7ff 0%, #1f6fff 58%, #0b2a6f 100%);
+  box-shadow: 0 14px 30px rgba(31, 111, 255, 0.22);
 }
 
 .secondary-action,
 .ghost-action {
   border-radius: 14px;
   padding: 10px 14px;
-  color: #0f4c81;
-  background: #dbeafe;
+  color: #0b2a6f;
+  background: #e8f2ff;
 }
 
 .danger-action {

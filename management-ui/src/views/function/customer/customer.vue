@@ -1,10 +1,14 @@
 <template>
-  <div class="h-full min-h-0 overflow-x-hidden bg-surface text-on-surface">
-    <div class="mx-auto max-w-7xl space-y-6">
-      <header class="mb-8 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+  <div class="function-page-shell h-full min-h-0">
+    <div class="function-page-container space-y-6">
+      <header class="function-page-header mb-8">
         <div>
-          <h1 class="text-3xl leading-none font-extrabold tracking-tight text-primary md:text-4xl">客户档案库</h1>
-          <p class="mt-3 max-w-lg text-sm text-on-surface-variant md:text-base">
+          <div class="function-page-eyebrow">
+            <span class="material-symbols-outlined">handshake</span>
+            客户经营中心
+          </div>
+          <h1 class="function-page-title">客户档案库</h1>
+          <p class="function-page-desc">
             管理客户基础信息、联系人和合作项目，施工区域按项目维度维护。
           </p>
         </div>
@@ -25,14 +29,14 @@
           </div>
 
           <button
-            class="flex items-center gap-2 rounded-lg bg-surface-container-high px-5 py-2.5 text-sm font-bold text-on-surface shadow-sm transition-colors hover:bg-surface-container-highest active:scale-95"
+            class="function-action-secondary"
             @click="fetchCustomerList"
           >
             <span class="material-symbols-outlined text-[20px]">refresh</span>刷新
           </button>
 
           <button
-            class="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-on-primary shadow-md transition-all hover:bg-primary/90 hover:shadow-lg active:scale-95"
+            class="function-action-primary"
             @click="openCreateDrawer"
           >
             <span class="material-symbols-outlined text-[20px]">domain_add</span>新建客户
@@ -45,8 +49,8 @@
           <div class="absolute top-0 right-0 p-4 opacity-10 transition-transform group-hover:scale-110">
             <span class="material-symbols-outlined text-[80px]">corporate_fare</span>
           </div>
-          <p class="text-xs font-bold tracking-widest text-on-primary-container uppercase">客户总数</p>
-          <h3 class="mt-2 text-4xl font-black text-white">{{ total }}</h3>
+          <p class="text-xs font-bold tracking-widest text-on-primary-container uppercase black">客户总数</p>
+          <h3 class="mt-2 text-4xl font-black text-black">{{ total }}</h3>
         </div>
       </section>
 
@@ -252,11 +256,13 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useRoute } from 'vue-router'
 import CustomerCreateDrawer from './customerCreate.vue'
 import { getCustomerDetail, getCustomerPage } from './api/customer'
 
+const route = useRoute()
 const isDrawerOpen = ref(false)
 const editingCustomerId = ref(null)
 const loading = ref(false)
@@ -328,7 +334,26 @@ async function changePage(nextPage) {
   await fetchCustomerList()
 }
 
-onMounted(fetchCustomerList)
+function applyRouteKeyword() {
+  const routeKeyword = String(route.query.keyword || route.query.q || '').trim()
+  if (routeKeyword !== keyword.value) {
+    keyword.value = routeKeyword
+    pageNum.value = 1
+  }
+}
+
+onMounted(() => {
+  applyRouteKeyword()
+  fetchCustomerList()
+})
+
+watch(
+  () => [route.query.keyword, route.query.q],
+  async () => {
+    applyRouteKeyword()
+    await fetchCustomerList()
+  }
+)
 </script>
 
 <style scoped>

@@ -143,7 +143,7 @@ defineExpose({ open })
 </script>
 
 <style scoped>
-:deep(.atelier-drawer) { box-shadow: 0px 20px 40px rgba(0, 32, 69, 0.06) !important; background-color: #ffffff !important; }
+:deep(.atelier-drawer) { box-shadow: 0px 20px 40px rgba(31, 111, 255, 0.06) !important; background-color: #ffffff !important; }
 
 :deep(.atelier-tree-select .el-select__wrapper) {
   background-color: #f1f4f6 !important;

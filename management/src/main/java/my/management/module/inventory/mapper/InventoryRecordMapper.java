@@ -31,7 +31,7 @@ public interface InventoryRecordMapper extends BaseMapper<InventoryRecord> {
 
     @InterceptorIgnore(tenantLine = "true")
     @Select({
-            "SELECT r.id, c.barcode, r.model_code AS modelCode, r.operate_type AS operateType, ",
+            "SELECT r.id, c.barcode, COALESCE(r.model_code, c.model_code) AS modelCode, r.operate_type AS operateType, ",
             "r.operate_meters AS operateMeters, r.remaining_meters AS remainingMeters, ",
             "COALESCE(e.name, '系统') AS operatorName, r.create_time AS createTime ",
             "FROM inventory_record r ",

@@ -1,22 +1,26 @@
 <template>
-  <div class="h-full min-h-0 bg-surface text-on-surface overflow-x-hidden font-body">
-    <div class="max-w-7xl mx-auto space-y-6">
-      <header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+  <div class="function-page-shell h-full min-h-0 font-body">
+    <div class="function-page-container space-y-6">
+      <header class="function-page-header">
         <div>
-          <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-primary leading-none">价格管理</h1>
-          <p class="text-sm md:text-base text-on-surface-variant mt-3 max-w-2xl">维护面料 SKU 基准价、客户等级价和指定客户特价，价格会被后端出库金额计算复用。</p>
+          <div class="function-page-eyebrow">
+            <span class="material-symbols-outlined">sell</span>
+            价格策略中心
+          </div>
+          <h1 class="function-page-title">价格管理</h1>
+          <p class="function-page-desc">维护面料 SKU 基准价、客户等级价和指定客户特价，价格会被后端出库金额计算复用。</p>
         </div>
         <div class="flex items-center gap-3">
-          <button @click="downloadTemplate" class="px-4 py-2 bg-surface-container-highest text-primary font-bold rounded-lg hover:bg-surface-container-high transition-colors text-sm">
+          <button @click="downloadTemplate" class="function-action-secondary">
             <span class="material-symbols-outlined text-lg align-middle mr-1">description</span>导入模板
           </button>
-          <button @click="triggerImport" class="px-4 py-2 bg-surface-container-highest text-primary font-bold rounded-lg hover:bg-surface-container-high transition-colors text-sm">
+          <button @click="triggerImport" class="function-action-secondary">
             <span class="material-symbols-outlined text-lg align-middle mr-1">file_upload</span>导入价格
           </button>
-          <button @click="exportExcel" class="px-4 py-2 bg-surface-container-highest text-primary font-bold rounded-lg hover:bg-surface-container-high transition-colors text-sm">
+          <button @click="exportExcel" class="function-action-secondary">
             <span class="material-symbols-outlined text-lg align-middle mr-1">file_download</span>导出 Excel
           </button>
-          <button @click="openCreate()" class="px-5 py-2 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-md active:scale-95">
+          <button @click="openCreate()" class="function-action-primary">
             <span class="material-symbols-outlined text-lg align-middle mr-1">add_circle</span>新增价格
           </button>
         </div>
@@ -165,8 +169,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRoute } from 'vue-router'
 import PriceCreateDrawer from './priceCreate.vue'
 import {
   deletePrice,
@@ -178,6 +183,7 @@ import {
   importPrices
 } from './api/price.js'
 
+const route = useRoute()
 const loading = ref(false)
 const rows = ref([])
 const stats = reactive({ skuCount: 0, averagePrice: 0, pendingCount: 0, overrideCount: 0 })
@@ -297,9 +303,26 @@ function statusClass(status) {
   return 'bg-slate-100 text-slate-500'
 }
 
+function applyRouteKeyword() {
+  const routeKeyword = String(route.query.keyword || route.query.q || '').trim()
+  if (routeKeyword !== query.keyword) {
+    query.keyword = routeKeyword
+    query.page = 1
+  }
+}
+
 onMounted(async () => {
+  applyRouteKeyword()
   await Promise.all([fetchData(), fetchStats()])
 })
+
+watch(
+  () => [route.query.keyword, route.query.q],
+  async () => {
+    applyRouteKeyword()
+    await fetchData()
+  }
+)
 </script>
 
 <style scoped>

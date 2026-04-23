@@ -1,15 +1,18 @@
 <template>
-  <div class="h-full min-h-0 bg-surface text-on-surface overflow-x-hidden font-body">
-    <div class="max-w-7xl mx-auto space-y-6">
-      <header class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
+  <div class="function-page-shell h-full min-h-0 font-body">
+    <div class="function-page-container space-y-6">
+      <header class="function-page-header">
         <div>
-          <p class="text-sm font-bold tracking-[0.2em] text-primary/70 uppercase">Organization</p>
-          <h1 class="mt-2 text-3xl md:text-4xl font-black tracking-tight text-primary">组织架构</h1>
-          <p class="mt-3 text-sm md:text-base text-on-surface-variant max-w-2xl">
+          <div class="function-page-eyebrow">
+            <span class="material-symbols-outlined">account_tree</span>
+            组织治理中心
+          </div>
+          <h1 class="function-page-title">组织架构</h1>
+          <p class="function-page-desc">
             维护部门层级、负责人和成员归属，员工管理中的部门选择会同步使用这里的部门数据。
           </p>
         </div>
-        <button class="rounded-2xl bg-primary px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-primary/90" @click="openCreate(null)">
+        <button class="function-action-primary" @click="openCreate(null)">
           <span class="material-symbols-outlined text-[18px] align-middle mr-1">account_tree</span>新增部门
         </button>
       </header>

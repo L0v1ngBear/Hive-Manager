@@ -15,12 +15,20 @@ import my.management.module.approval.model.entity.UserLeave;
 import my.management.module.approval.model.vo.FinanceApprovalVO;
 import my.management.module.approval.model.vo.LeaveApprovalListVO;
 import my.management.module.approval.model.vo.LeaveDetailVO;
+import my.management.module.attendance.mapper.AttendanceRecordMapper;
+import my.management.module.attendance.mapper.TenantAttendanceRuleManageMapper;
+import my.management.module.attendance.model.entity.AttendanceRecord;
+import my.management.module.attendance.model.entity.TenantAttendanceRule;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.employee.model.entity.Employee;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 /**
  * ApprovalService 属于管理端后端审批模块，实现核心业务编排与规则逻辑。
@@ -44,6 +52,12 @@ public class ApprovalService {
 
     @Resource
     private CodeGeneratorUtil codeGeneratorUtil;
+
+    @Resource
+    private AttendanceRecordMapper attendanceRecordMapper;
+
+    @Resource
+    private TenantAttendanceRuleManageMapper tenantAttendanceRuleManageMapper;
 
     public List<LeaveApprovalListVO> listLeaveApprovals() {
         Long userId = TenantPermissionContext.getUserId();
@@ -82,6 +96,7 @@ public class ApprovalService {
             Integer roleLevel = getRoleLevel(currentUserId);
             if ((roleLevel != null && roleLevel >= 2) || nextManagerId == null) {
                 userLeave.setStatus(STATUS_APPROVED);
+                syncLeaveToAttendance(userLeave);
             } else {
                 userLeave.setAuditorId(nextManagerId);
             }
@@ -89,6 +104,83 @@ public class ApprovalService {
             userLeave.setStatus(STATUS_REJECTED);
         }
         leaveMapper.updateById(userLeave);
+    }
+
+    /**
+     * 请假审批最终通过后，同步写入考勤记录。
+     * 这样无论审批是在小程序还是管理端完成，考勤页和每日统计都能识别该员工当天处于请假状态。
+     */
+    private void syncLeaveToAttendance(UserLeave leave) {
+        LocalDate currentDate = leave.getStartTime().toLocalDate();
+        LocalDate endDate = leave.getEndTime().toLocalDate();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+        TenantAttendanceRule rule = tenantAttendanceRuleManageMapper.selectByTenantCode(leave.getTenantCode());
+
+        while (!currentDate.isAfter(endDate)) {
+            boolean coverSignIn = isLeaveOverlapTimeRange(currentDate, rule == null ? null : rule.getWorkStartTime(),
+                    rule == null ? null : rule.getWorkEndTime(), leave);
+            boolean coverSignOut = isLeaveOverlapTimeRange(currentDate, rule == null ? null : rule.getOffWorkStartTime(),
+                    rule == null ? null : rule.getOffWorkEndTime(), leave);
+            if (!coverSignIn && !coverSignOut) {
+                currentDate = currentDate.plusDays(1);
+                continue;
+            }
+
+            String punchId = currentDate.format(formatter) + "_" + leave.getApplyUserId();
+            AttendanceRecord record = attendanceRecordMapper.selectOne(new LambdaQueryWrapper<AttendanceRecord>()
+                    .eq(AttendanceRecord::getPunchId, punchId));
+
+            if (record == null) {
+                record = new AttendanceRecord();
+                record.setPunchId(punchId);
+                record.setTenantCode(leave.getTenantCode());
+                record.setUserId(leave.getApplyUserId());
+                if (coverSignIn) {
+                    record.setSignInStatus(5);
+                }
+                if (coverSignOut) {
+                    record.setSignOutStatus(5);
+                }
+                attendanceRecordMapper.insert(record);
+            } else if (fillLeaveStatus(record, coverSignIn, coverSignOut)) {
+                attendanceRecordMapper.updateById(record);
+            }
+            currentDate = currentDate.plusDays(1);
+        }
+    }
+
+    /**
+     * 只覆盖空状态或异常状态，保留已经正常打卡/加班的真实记录。
+     */
+    private boolean fillLeaveStatus(AttendanceRecord record, boolean coverSignIn, boolean coverSignOut) {
+        boolean changed = false;
+        if (coverSignIn && (record.getSignInStatus() == null
+                || record.getSignInStatus() == 3
+                || record.getSignInStatus() == 6)) {
+            record.setSignInStatus(5);
+            changed = true;
+        }
+        if (coverSignOut && (record.getSignOutStatus() == null
+                || record.getSignOutStatus() == 2
+                || record.getSignOutStatus() == 3
+                || record.getSignOutStatus() == 6)) {
+            record.setSignOutStatus(5);
+            changed = true;
+        }
+        return changed;
+    }
+
+    /**
+     * 判断请假时间是否覆盖某个打卡时间段。
+     * 未配置规则时按全天覆盖处理，避免老租户没有规则导致请假无法同步。
+     */
+    private boolean isLeaveOverlapTimeRange(LocalDate date, LocalTime rangeStart, LocalTime rangeEnd, UserLeave leave) {
+        if (rangeStart == null || rangeEnd == null) {
+            return true;
+        }
+        LocalDateTime segmentStart = LocalDateTime.of(date, rangeStart);
+        LocalDateTime segmentEnd = LocalDateTime.of(date, rangeEnd);
+        return leave.getStartTime().isBefore(segmentEnd) && leave.getEndTime().isAfter(segmentStart);
     }
 
     public List<FinanceApprovalVO> listFinanceApprovals() {

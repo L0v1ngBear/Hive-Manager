@@ -1,29 +1,28 @@
 <template>
-  <div class="h-full min-h-0 bg-surface text-on-surface overflow-x-hidden font-body">
-    <div class="max-w-7xl mx-auto space-y-6">
-      <header class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-        <div class="flex items-start gap-4">
-          <div class="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20 shrink-0">
-            <span class="material-symbols-outlined text-2xl">rule_folder</span>
+  <div class="function-page-shell h-full min-h-0 font-body">
+    <div class="function-page-container space-y-6">
+      <header class="function-page-header">
+        <div>
+          <div class="function-page-eyebrow">
+            <span class="material-symbols-outlined">rule_folder</span>
+            流程审批中心
           </div>
-          <div>
-            <h1 class="text-2xl md:text-3xl font-black tracking-tight text-on-surface">审批中心</h1>
-            <p class="text-sm text-on-surface-variant mt-1 max-w-2xl">
+          <h1 class="function-page-title">审批中心</h1>
+          <p class="function-page-desc">
               这里只展示和您本人相关的审批请求，包括您发起的申请，以及当前流转到您这里的待审批事项。
             </p>
-          </div>
         </div>
         <div class="flex items-center gap-3">
           <button
             @click="fetchList"
-            class="px-4 py-2.5 bg-surface-container-lowest text-on-surface-variant font-bold rounded-xl hover:text-primary hover:bg-surface-container-low transition-all text-sm ring-1 ring-outline-variant/20 shadow-sm flex items-center gap-1.5 active:scale-95"
+            class="function-action-secondary"
           >
             <span class="material-symbols-outlined text-[18px]">refresh</span>刷新
           </button>
           <button
             v-if="activeTab === 'finance'"
             @click="financeDialogVisible = true"
-            class="px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all text-sm shadow-md shadow-primary/20 flex items-center gap-1.5 active:scale-95"
+            class="function-action-primary"
           >
             <span class="material-symbols-outlined text-[18px]">add_circle</span>新建财务审批
           </button>

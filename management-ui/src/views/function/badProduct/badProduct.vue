@@ -1,17 +1,21 @@
 <template>
-  <div class="h-full min-h-0 bg-surface text-on-surface overflow-x-hidden font-body">
-    <div class="max-w-7xl mx-auto space-y-6">
-      <header class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+  <div class="function-page-shell h-full min-h-0 font-body">
+    <div class="function-page-container space-y-6">
+      <header class="function-page-header">
         <div>
-          <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-primary leading-none">次品管理</h1>
-          <p class="text-sm md:text-base text-on-surface-variant mt-3 max-w-2xl">
+          <div class="function-page-eyebrow">
+            <span class="material-symbols-outlined">report_problem</span>
+            质量追踪中心
+          </div>
+          <h1 class="function-page-title">次品管理</h1>
+          <p class="function-page-desc">
             统一登记质量问题、运输破损和其他异常次品记录，支持处理闭环和损失跟踪。
           </p>
         </div>
         <div class="flex items-center gap-3">
           <button
             @click="openCreate"
-            class="px-5 py-2 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-md active:scale-95"
+            class="function-action-primary"
           >
             <span class="material-symbols-outlined text-lg align-middle mr-1">add_circle</span>新增次品
           </button>

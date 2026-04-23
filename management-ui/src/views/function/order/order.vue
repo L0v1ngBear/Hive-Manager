@@ -1,9 +1,13 @@
 <template>
   <div class="space-y-6">
-    <header class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <header class="function-page-header">
       <div>
-        <h1 class="text-3xl font-extrabold tracking-tight text-primary">订单管理中心</h1>
-        <p class="mt-2 text-sm text-on-surface-variant">
+        <div class="function-page-eyebrow">
+          <span class="material-symbols-outlined">list_alt</span>
+          订单协同中心
+        </div>
+        <h1 class="function-page-title">订单全流程管理</h1>
+        <p class="function-page-desc">
           统一管理销售订单和生产订单，支持抽屉式新建、编辑、详情查看和状态流转追踪。</p>
       </div>
       <div class="flex flex-col gap-3 sm:flex-row sm:items-stretch">
@@ -17,7 +21,7 @@
             <div class="stat-value">{{ productionState.total }}</div>
           </div>
         </div>
-        <button class="rounded-2xl bg-primary px-6 py-4 text-sm font-bold text-on-primary shadow-md"
+        <button class="function-action-primary px-6 py-4"
                 @click="openCreate">
           {{ currentTab === 'sales' ? '新建销售订单' : '新建生产订单' }}
         </button>
@@ -524,8 +528,9 @@
 </template>
 
 <script setup>
-import {computed, onMounted, reactive, ref} from 'vue'
+import {computed, onMounted, reactive, ref, watch} from 'vue'
 import {ElMessage} from 'element-plus'
+import {useRoute} from 'vue-router'
 import {getCustomerOptions} from '../customer/api/customer'
 import {
   createProductionOrder,
@@ -538,6 +543,7 @@ import {
   saveSalesOrder
 } from './api/order'
 
+const route = useRoute()
 const tabs = [{id: 'sales', label: '销售订单'}, {id: 'production', label: '生产订单'}]
 const salesStatuses = [
   {value: 'pending_confirm', label: '待确认'},
@@ -589,8 +595,30 @@ const selectedCustomerProjects = computed(() => {
 })
 
 onMounted(async () => {
+  applyRouteSearch()
   await Promise.all([loadSalesOrders(), loadProductionOrders(), loadCustomerOptions()])
 })
+
+watch(
+  () => [route.query.keyword, route.query.q, route.query.tab],
+  async () => {
+    applyRouteSearch()
+    await refreshCurrentTab()
+  }
+)
+
+function applyRouteSearch() {
+  const routeKeyword = String(route.query.keyword || route.query.q || '').trim()
+  const routeTab = String(route.query.tab || '').trim()
+  if (routeTab === 'sales' || routeTab === 'production') {
+    currentTab.value = routeTab
+  }
+  if (routeKeyword !== filters.keyword) {
+    filters.keyword = routeKeyword
+    salesState.page = 1
+    productionState.page = 1
+  }
+}
 
 function defaultSalesItem() {
   return {modelCode: '', quantity: 1, weight: '', spec: ''}
@@ -1047,7 +1075,7 @@ function productionStatusClass(status) {
   flex-direction: column;
   border-left: 4px solid rgb(var(--primary));
   background: rgba(255, 255, 255, .95);
-  box-shadow: -20px 0 40px rgba(0, 32, 69, .1);
+  box-shadow: -20px 0 40px rgba(31, 111, 255, .1);
   backdrop-filter: blur(24px)
 }
 

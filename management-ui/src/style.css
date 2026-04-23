@@ -3,26 +3,26 @@
 
 @theme {
   /* 自定义颜色 */
-  --color-primary: #455f88;
-  --color-primary-container: #d3e3ff;
-  --color-on-primary-container: #001c39;
-  --color-secondary: #545f70;
-  --color-surface-tint: #455f88;
+  --color-primary: #1f6fff;
+  --color-primary-container: #e8f2ff;
+  --color-on-primary-container: #071f5f;
+  --color-secondary: #4d6280;
+  --color-surface-tint: #1f6fff;
   --color-error: #ba1a1a;
   --color-error-container: #ffdad6;
   --color-on-error-container: #93000a;
-  --color-surface-bright: #f7fafc;
+  --color-surface-bright: #f7fbff;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f2f4f6;
-  --color-surface-container-high: #e6e8eb;
-  --color-surface-container-highest: #e1e3e5;
-  --color-surface: #f7fafc;
-  --color-on-surface: #181c1e;
-  --color-on-surface-variant: #43474e;
-  --color-outline-variant: #c3c6cf;
+  --color-surface-container-low: #eef6ff;
+  --color-surface-container-high: #dbeafe;
+  --color-surface-container-highest: #d7e9ff;
+  --color-surface: #f4f8ff;
+  --color-on-surface: #071f5f;
+  --color-on-surface-variant: #4d6280;
+  --color-outline-variant: #bfd7f5;
 
   /* 自定义字体 */
-  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-sans: "PingFang SC", "Microsoft YaHei", "Inter", sans-serif;
 }
 
 /* ==========================================
@@ -32,6 +32,84 @@ html, body, #app {
   height: 100%;
   margin: 0;
   padding: 0;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(103, 183, 255, 0.22), transparent 34%),
+    linear-gradient(180deg, #f7fbff 0%, #ffffff 100%);
+  color: #071f5f;
+}
+
+body {
+  --ys-primary: #1f6fff;
+  --ys-primary-dark: #071f5f;
+  --ys-primary-mid: #0b2a6f;
+  --ys-primary-light: #67b7ff;
+  --ys-soft: #eef6ff;
+  --ys-surface: #f4f8ff;
+  --ys-line: #dbe8ff;
+  --el-color-primary: #1f6fff;
+  --el-color-primary-light-3: #67b7ff;
+  --el-color-primary-light-5: #8fd0ff;
+  --el-color-primary-light-7: #b8dcff;
+  --el-color-primary-light-9: #eef6ff;
+  --el-color-primary-dark-2: #0b2a6f;
+  --el-text-color-primary: #071f5f;
+  --el-text-color-regular: #334e75;
+  --el-border-color: #dbe8ff;
+  --el-fill-color-light: #f4f8ff;
+}
+
+.bg-primary,
+.el-button--primary {
+  background: linear-gradient(135deg, #67b7ff 0%, #1f6fff 58%, #0b2a6f 100%) !important;
+}
+
+.text-primary {
+  color: #1f6fff !important;
+}
+
+.border-primary {
+  border-color: #1f6fff !important;
+}
+
+.bg-surface,
+.bg-slate-50,
+.bg-slate-50\/50 {
+  background-color: #f4f8ff !important;
+}
+
+.bg-surface-container-low,
+.bg-slate-100 {
+  background-color: #eef6ff !important;
+}
+
+.text-slate-900,
+.text-slate-800,
+.text-on-surface {
+  color: #071f5f !important;
+}
+
+.text-slate-600,
+.text-slate-500,
+.text-on-surface-variant {
+  color: #4d6280 !important;
+}
+
+.border-slate-100,
+.border-slate-200,
+.border-outline-variant\/20,
+.border-outline-variant\/30 {
+  border-color: rgba(191, 215, 245, 0.9) !important;
+}
+
+.shadow-sm,
+.ambient-shadow {
+  box-shadow: 0 18px 42px rgba(31, 111, 255, 0.08) !important;
+}
+
+.el-drawer,
+.el-dialog {
+  --el-bg-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(18px);
 }
 
 /* Material Symbols 图标字体改为本地 npm 依赖，避免 Google Fonts 被网络或 VPN 影响。 */
@@ -52,6 +130,118 @@ html, body, #app {
   -webkit-font-feature-settings: "liga";
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "liga";
+}
+
+/* ==========================================
+   功能页统一标题区
+   ========================================== */
+.function-page-shell {
+  min-height: 100%;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(103, 183, 255, 0.16), transparent 32%),
+    linear-gradient(180deg, #f7fbff 0%, #f4f8ff 100%);
+  color: #071f5f;
+}
+
+.function-page-container {
+  width: min(100%, 80rem);
+  margin: 0 auto;
+}
+
+.function-page-header {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .function-page-header {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+}
+
+.function-page-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid rgba(31, 111, 255, 0.12);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(232, 242, 255, 0.96), rgba(255, 255, 255, 0.78));
+  color: #1f6fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.function-page-eyebrow .material-symbols-outlined {
+  width: 1rem;
+  height: 1rem;
+  font-size: 1rem;
+}
+
+.function-page-title {
+  color: #071f5f;
+  font-size: clamp(1.875rem, 3vw, 2.5rem);
+  line-height: 1.12;
+  font-weight: 900;
+  letter-spacing: -0.045em;
+}
+
+.function-page-desc {
+  margin-top: 0.5rem;
+  max-width: 42rem;
+  color: #4d6280;
+  font-size: clamp(0.875rem, 1.6vw, 1rem);
+  line-height: 1.75;
+}
+
+.function-action-primary,
+.function-action-secondary,
+.function-action-dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 800;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.function-action-primary {
+  background: linear-gradient(135deg, #67b7ff 0%, #1f6fff 58%, #0b2a6f 100%);
+  color: #ffffff;
+  box-shadow: 0 14px 30px rgba(31, 111, 255, 0.22);
+}
+
+.function-action-secondary {
+  border: 1px solid rgba(191, 215, 245, 0.9);
+  background: rgba(255, 255, 255, 0.82);
+  color: #0b2a6f;
+}
+
+.function-action-dark {
+  background: linear-gradient(135deg, #0b2a6f 0%, #071f5f 100%);
+  color: #ffffff;
+  box-shadow: 0 14px 30px rgba(7, 31, 95, 0.18);
+}
+
+.function-action-primary:hover,
+.function-action-secondary:hover,
+.function-action-dark:hover {
+  transform: translateY(-1px);
+}
+
+.function-action-primary:active,
+.function-action-secondary:active,
+.function-action-dark:active {
+  transform: scale(0.97);
 }
 
 /* ==========================================

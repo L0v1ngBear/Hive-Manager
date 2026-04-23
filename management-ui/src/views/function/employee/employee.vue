@@ -1,10 +1,14 @@
 <template>
-  <div class="h-full min-h-0 bg-surface text-on-surface overflow-x-hidden relative">
-    <div class="max-w-7xl mx-auto space-y-6">
-      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+  <div class="function-page-shell h-full min-h-0 relative">
+    <div class="function-page-container space-y-6">
+      <div class="function-page-header">
         <div>
-          <h2 class="text-3xl font-black text-primary tracking-tight">员工名录</h2>
-          <p class="text-on-surface-variant mt-1">管理员工记录、入职及人事状态。</p>
+          <div class="function-page-eyebrow">
+            <span class="material-symbols-outlined">groups</span>
+            人员组织中心
+          </div>
+          <h2 class="function-page-title">员工名录</h2>
+          <p class="function-page-desc">管理员工记录、入职及人事状态，联动组织架构和角色权限。</p>
         </div>
         <div class="flex gap-3">
           <button
@@ -316,8 +320,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useRoute } from 'vue-router'
 import { Vue3TreeOrg } from 'vue3-tree-org'
 import 'vue3-tree-org/lib/vue3-tree-org.css'
 import EmployeeCreate from './employeeCreate.vue'
@@ -331,6 +336,7 @@ import {
   importEmployees
 } from './api/employee.js'
 
+const route = useRoute()
 // --- 状态定义 ---
 const isDrawerOpen = ref(false)
 const editingEmployeeId = ref(null)
@@ -607,9 +613,26 @@ const statusMeta = (status) => {
 
 const employeeStatusLabel = (status) => statusMeta(status).label
 
+function applyRouteKeyword() {
+  const routeKeyword = String(route.query.keyword || route.query.q || '').trim()
+  if (routeKeyword !== query.keyword) {
+    query.keyword = routeKeyword
+    query.page = 1
+  }
+}
+
 onMounted(async () => {
+  applyRouteKeyword()
   await Promise.all([fetchEmployees(), fetchStats(), fetchFormOptions()])
 })
+
+watch(
+  () => [route.query.keyword, route.query.q],
+  async () => {
+    applyRouteKeyword()
+    await fetchEmployees()
+  }
+)
 </script>
 
 <style scoped>

@@ -69,6 +69,12 @@ export const constantRoutes = [
         meta: { title: '员工管理', permissions: ['employee:list'] }
       },
       {
+        path: 'attendance',
+        name: 'Attendance',
+        component: () => import('@/views/function/attendance/attendanceManagement.vue'),
+        meta: { title: '考勤管理', permissions: ['attendance:record:list', 'attendance:*'] }
+      },
+      {
         path: 'role',
         name: 'Role',
         component: () => import('@/views/function/role/role.vue'),

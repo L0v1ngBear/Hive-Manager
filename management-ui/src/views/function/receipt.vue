@@ -1,5 +1,18 @@
 <template>
   <div class="receipt-page-shell">
+    <header class="receipt-hero function-page-header">
+      <div>
+        <div class="function-page-eyebrow">
+          <span class="material-symbols-outlined">print</span>
+          出库打印中心
+        </div>
+        <h1 class="function-page-title">出库单打印与模板</h1>
+        <p class="function-page-desc">
+          选择待打印出库单并套用模板，支持浏览器连续纸打印和模板字段自定义排版。
+        </p>
+      </div>
+    </header>
+
     <nav class="receipt-tabs">
       <button :class="{ active: activeMode === 'print' }" @click="activeMode = 'print'">
         <span class="material-symbols-outlined">print</span>
@@ -828,6 +841,15 @@ function buildReceiptTemplateContent(config) {
 <style scoped>
 .receipt-page-shell {
   min-height: calc(100vh - 5rem);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(103, 183, 255, 0.16), transparent 32%),
+    linear-gradient(180deg, #f7fbff 0%, #f4f8ff 100%);
+}
+
+.receipt-hero {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 1rem 1rem 0;
 }
 
 .receipt-tabs {
@@ -839,10 +861,10 @@ function buildReceiptTemplateContent(config) {
 }
 
 .receipt-tabs button {
-  border: 1px solid #dbe3ef;
+  border: 1px solid #dbe8ff;
   border-radius: 999px;
-  background: #fff;
-  color: #64748b;
+  background: rgba(255, 255, 255, 0.86);
+  color: #4d6280;
   padding: .7rem 1rem;
   display: inline-flex;
   align-items: center;
@@ -852,14 +874,14 @@ function buildReceiptTemplateContent(config) {
 }
 
 .receipt-tabs button.active {
-  background: #455f88;
-  border-color: #455f88;
+  background: linear-gradient(135deg, #67b7ff 0%, #1f6fff 58%, #0b2a6f 100%);
+  border-color: #1f6fff;
   color: #fff;
-  box-shadow: 0 10px 24px rgb(69 95 136 / 18%);
+  box-shadow: 0 14px 30px rgba(31, 111, 255, 0.22);
 }
 
 .receipt-workspace {
-  height: calc(100vh - 9rem);
+  height: calc(100vh - 16rem);
   max-width: 1500px;
   margin: 0 auto;
   padding: 1rem;
@@ -977,7 +999,7 @@ function buildReceiptTemplateContent(config) {
 
 .queue-card:hover,
 .queue-card.active {
-  border-color: #455f88;
+  border-color: #1f6fff;
   box-shadow: 0 8px 24px rgb(69 95 136 / 12%);
   transform: translateY(-1px);
 }
@@ -1066,7 +1088,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .template-select:focus {
-  border-color: #455f88;
+  border-color: #1f6fff;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 
@@ -1088,13 +1110,13 @@ function buildReceiptTemplateContent(config) {
 }
 
 .btn-print {
-  background: #455f88;
+  background: #1f6fff;
   color: white;
 }
 
 .btn-template {
   background: #f8fafc;
-  color: #455f88;
+  color: #1f6fff;
   border: 1px solid #dbe3ef;
 }
 
@@ -1126,7 +1148,7 @@ function buildReceiptTemplateContent(config) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #455f88;
+  color: #1f6fff;
   font-weight: 900;
 }
 
@@ -1204,7 +1226,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .template-grid input:focus {
-  border-color: #455f88;
+  border-color: #1f6fff;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 
@@ -1234,7 +1256,7 @@ function buildReceiptTemplateContent(config) {
 .variable-strip span {
   border-radius: 999px;
   background: #eef2f7;
-  color: #455f88;
+  color: #1f6fff;
   padding: .28rem .6rem;
   font-size: .72rem;
   font-weight: 800;
@@ -1308,7 +1330,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .column-editor-row > input:focus {
-  border-color: #455f88;
+  border-color: #1f6fff;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 
@@ -1321,7 +1343,7 @@ function buildReceiptTemplateContent(config) {
   border: 1px solid #dbe3ef;
   border-radius: .55rem;
   background: #f8fafc;
-  color: #455f88;
+  color: #1f6fff;
   padding: .35rem .5rem;
   font-size: .72rem;
   font-weight: 900;
@@ -1429,7 +1451,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .remark-editor-row input:focus {
-  border-color: #455f88;
+  border-color: #1f6fff;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 

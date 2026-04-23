@@ -19,7 +19,8 @@ tenant:
     # phone/openId/user identity -> tenantCode -> datasourceKey.
 
 mybatis-plus:
-  configuration: {}
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 auth:
   token:
