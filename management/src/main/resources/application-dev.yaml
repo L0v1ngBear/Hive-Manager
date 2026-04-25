@@ -9,6 +9,22 @@ spring:
     url: jdbc:mysql://localhost:3306/hive?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: root
     password: 123456
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: guest
+    password: guest
+
+hive:
+  operation-log:
+    enabled: true
+    collect-to-db: true
+    collect-to-slf4j: true
+    async-db: true
+    queue-type: rabbitmq
+    rabbit-exchange: hive.operation.log.exchange
+    rabbit-routing-key: hive.operation.log
+    rabbit-queue: hive.operation.log.queue
   # 开发环境日志级别更高，方便调试
 logging:
   level:

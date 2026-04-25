@@ -49,8 +49,8 @@
           <div class="absolute top-0 right-0 p-4 opacity-10 transition-transform group-hover:scale-110">
             <span class="material-symbols-outlined text-[80px]">corporate_fare</span>
           </div>
-          <p class="text-xs font-bold tracking-widest text-on-primary-container uppercase black">客户总数</p>
-          <h3 class="mt-2 text-4xl font-black text-black">{{ total }}</h3>
+          <p class="text-xs font-bold tracking-widest text-on-primary/80 uppercase">客户总数</p>
+          <h3 class="mt-2 text-4xl font-black text-white">{{ total }}</h3>
         </div>
       </section>
 

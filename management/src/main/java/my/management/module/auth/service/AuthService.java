@@ -22,6 +22,7 @@ import my.management.module.auth.model.vo.LoginVO;
 import my.management.module.auth.model.vo.WebScanSessionVO;
 import my.management.module.auth.model.vo.WebScanStatusVO;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -41,6 +42,8 @@ import java.util.concurrent.TimeUnit;
 public class AuthService {
 
     private static final String WEB_SCAN_LOGIN_KEY_PREFIX = "auth:web-scan-login:";
+    private static final String LOGIN_FAIL_ACCOUNT_KEY_PREFIX = "auth:management-login:fail:account:";
+    private static final String LOGIN_FAIL_IP_KEY_PREFIX = "auth:management-login:fail:ip:";
     private static final long WEB_SCAN_LOGIN_EXPIRE_SECONDS = 180L;
 
     @Resource
@@ -61,9 +64,26 @@ public class AuthService {
     @Resource
     private ObjectMapper objectMapper;
 
-    public LoginVO login(LoginRequest request) {
-        LoginUserRow loginUser = authMapper.selectLoginUser(request.getUsername().trim());
-        validatePasswordLogin(loginUser, request.getPassword());
+    @Value("${auth.login.max-fail-count:5}")
+    private Long maxFailCount;
+
+    @Value("${auth.login.max-ip-fail-count:20}")
+    private Long maxIpFailCount;
+
+    @Value("${auth.login.lock-minutes:15}")
+    private Long lockMinutes;
+
+    public LoginVO login(LoginRequest request, String clientIp) {
+        String username = request.getUsername().trim();
+        String accountFailKey = LOGIN_FAIL_ACCOUNT_KEY_PREFIX + username;
+        String ipFailKey = LOGIN_FAIL_IP_KEY_PREFIX + normalizeClientIp(clientIp);
+        ensureLoginNotLocked(accountFailKey, maxFailCount, "登录失败次数过多，请稍后再试");
+        ensureLoginNotLocked(ipFailKey, maxIpFailCount, "当前访问过于频繁，请稍后再试");
+
+        LoginUserRow loginUser = authMapper.selectLoginUser(username);
+        validatePasswordLogin(loginUser, request.getPassword(), accountFailKey, ipFailKey);
+        stringRedisTemplate.delete(accountFailKey);
+        stringRedisTemplate.delete(ipFailKey);
         return buildLoginVO(loginUser, request.getPassword());
     }
 
@@ -139,16 +159,49 @@ public class AuthService {
         saveWebScanPayload(sceneKey, payload, WEB_SCAN_LOGIN_EXPIRE_SECONDS);
     }
 
-    private void validatePasswordLogin(LoginUserRow loginUser, String password) {
+    private void validatePasswordLogin(LoginUserRow loginUser, String password, String accountFailKey, String ipFailKey) {
         if (loginUser == null) {
+            recordLoginFail(accountFailKey);
+            recordLoginFail(ipFailKey);
             throw new BusinessException(401, "账号或密码错误");
         }
         if (!Objects.equals(loginUser.getUserStatus(), 1)) {
+            recordLoginFail(accountFailKey);
+            recordLoginFail(ipFailKey);
             throw new BusinessException(403, "该员工账号已禁用");
         }
         if (password == null || !encryptUtil.matches(password, loginUser.getPassword())) {
+            recordLoginFail(accountFailKey);
+            recordLoginFail(ipFailKey);
             throw new BusinessException(401, "账号或密码错误");
         }
+    }
+
+    private void ensureLoginNotLocked(String failKey, Long limit, String message) {
+        String failCountValue = stringRedisTemplate.opsForValue().get(failKey);
+        if (failCountValue == null) {
+            return;
+        }
+        try {
+            if (Long.parseLong(failCountValue) >= limit) {
+                throw new BusinessException(429, message);
+            }
+        } catch (NumberFormatException ignored) {
+        }
+    }
+
+    private void recordLoginFail(String failKey) {
+        Long failCount = stringRedisTemplate.opsForValue().increment(failKey);
+        if (failCount != null && failCount == 1L) {
+            stringRedisTemplate.expire(failKey, lockMinutes, TimeUnit.MINUTES);
+        }
+    }
+
+    private String normalizeClientIp(String clientIp) {
+        if (clientIp == null || clientIp.isBlank()) {
+            return "unknown";
+        }
+        return clientIp.replace(":", "_").replace(".", "_");
     }
 
     private LoginVO buildLoginVO(LoginUserRow loginUser, String rawPassword) {

@@ -151,6 +151,18 @@ public class LabelTemplateService {
                 .orElse(templates.get(0));
     }
 
+    /**
+     * 为新租户预置标签和出库单模板，避免用户首次进入打印页面时缺少默认配置。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void ensureDefaultsForTenant(String tenantCode, Long creatorId) {
+        runIgnoringTenant(() -> {
+            ensureDefaultTemplate(tenantCode, creatorId, "label");
+            ensureDefaultTemplate(tenantCode, creatorId, "receipt");
+            return null;
+        });
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public LabelTemplateVO save(LabelTemplateSaveRequest request) {
         LabelTemplate template = resolveTemplateForSave(request.getId());
@@ -260,9 +272,29 @@ public class LabelTemplateService {
         return createDefaultLabelTemplate();
     }
 
+    private void ensureDefaultTemplate(String tenantCode, Long creatorId, String printType) {
+        Long count = labelTemplateMapper.selectCount(new LambdaQueryWrapper<LabelTemplate>()
+                .eq(LabelTemplate::getTenantCode, tenantCode)
+                .eq(LabelTemplate::getPrintType, printType)
+                .eq(LabelTemplate::getStatus, 1)
+                .eq(LabelTemplate::getIsDeleted, 0));
+        if (count != null && count > 0) {
+            return;
+        }
+        if ("receipt".equals(printType)) {
+            createDefaultReceiptTemplate(tenantCode, creatorId);
+        } else {
+            createDefaultLabelTemplate(tenantCode, creatorId);
+        }
+    }
+
     private LabelTemplate createDefaultLabelTemplate() {
+        return createDefaultLabelTemplate(TenantPermissionContext.getTenantCode(), TenantPermissionContext.getUserId());
+    }
+
+    private LabelTemplate createDefaultLabelTemplate(String tenantCode, Long creatorId) {
         LabelTemplate template = new LabelTemplate();
-        template.setTenantCode(TenantPermissionContext.getTenantCode());
+        template.setTenantCode(tenantCode);
         template.setName("系统默认面料标签");
         template.setPrintType("label");
         template.setContent(DEFAULT_LABEL_TEMPLATE);
@@ -274,14 +306,18 @@ public class LabelTemplateService {
         template.setIsDefault(1);
         template.setStatus(1);
         template.setIsDeleted(0);
-        template.setCreatorId(TenantPermissionContext.getUserId());
+        template.setCreatorId(creatorId);
         labelTemplateMapper.insert(template);
         return template;
     }
 
     private LabelTemplate createDefaultReceiptTemplate() {
+        return createDefaultReceiptTemplate(TenantPermissionContext.getTenantCode(), TenantPermissionContext.getUserId());
+    }
+
+    private LabelTemplate createDefaultReceiptTemplate(String tenantCode, Long creatorId) {
         LabelTemplate template = new LabelTemplate();
-        template.setTenantCode(TenantPermissionContext.getTenantCode());
+        template.setTenantCode(tenantCode);
         template.setName("系统默认出库单");
         template.setPrintType("receipt");
         template.setContent(DEFAULT_RECEIPT_TEMPLATE);
@@ -294,7 +330,7 @@ public class LabelTemplateService {
         template.setIsDefault(1);
         template.setStatus(1);
         template.setIsDeleted(0);
-        template.setCreatorId(TenantPermissionContext.getUserId());
+        template.setCreatorId(creatorId);
         labelTemplateMapper.insert(template);
         return template;
     }
@@ -336,6 +372,24 @@ public class LabelTemplateService {
             String variable = matcher.group(1);
             if (StringUtils.isNotBlank(variable)) {
                 variables.add(variable.trim());
+            }
+        }
+    }
+
+    private <T> T runIgnoringTenant(java.util.concurrent.Callable<T> callable) {
+        boolean previous = TenantPermissionContext.isIgnoreTenant();
+        TenantPermissionContext.setIgnoreTenant(true);
+        try {
+            return callable.call();
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new BusinessException("模板默认数据初始化失败");
+        } finally {
+            if (previous) {
+                TenantPermissionContext.setIgnoreTenant(true);
+            } else {
+                TenantPermissionContext.clearIgnore();
             }
         }
     }

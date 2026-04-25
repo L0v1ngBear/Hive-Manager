@@ -53,6 +53,7 @@
         </h1>
         <p class="text-slate-600 text-lg font-medium leading-relaxed">
           通过高保真数据结构与精湛的纺织工艺智慧，协同工业生产效率。
+          把经验和流程变成可追踪、可复盘、可优化的数据资产。
         </p>
       </div>
 

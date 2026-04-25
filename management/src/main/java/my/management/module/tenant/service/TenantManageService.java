@@ -7,6 +7,17 @@ import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
 import my.management.common.service.DeveloperAccessService;
 import my.hive.common.utils.EncryptUtil;
+import my.management.module.attendance.mapper.TenantAttendanceRuleManageMapper;
+import my.management.module.attendance.model.entity.TenantAttendanceRule;
+import my.management.module.employee.mapper.DepartmentMapper;
+import my.management.module.employee.mapper.EmployeeExtMapper;
+import my.management.module.employee.mapper.EmployeeMapper;
+import my.management.module.employee.mapper.PositionMapper;
+import my.management.module.employee.model.entity.Department;
+import my.management.module.employee.model.entity.Employee;
+import my.management.module.employee.model.entity.EmployeeExt;
+import my.management.module.employee.model.entity.Position;
+import my.management.module.label.service.LabelTemplateService;
 import my.management.module.tenant.mapper.TenantMapper;
 import my.management.module.tenant.model.dto.TenantCreateRequest;
 import my.management.module.tenant.model.dto.TenantPageRequest;
@@ -16,10 +27,13 @@ import my.management.module.tenant.model.vo.TenantPageVO;
 import my.management.module.sys.mapper.SysPermissionMapper;
 import my.management.module.sys.mapper.SysRoleMapper;
 import my.management.module.sys.mapper.SysRolePermissionMapper;
+import my.management.module.sys.mapper.SysUserRoleMapper;
 import my.management.module.sys.model.entity.SysPermission;
 import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.model.entity.SysRolePermission;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +42,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 /**
  * TenantManageService 属于管理端后端租户模块，实现核心业务编排与规则逻辑。
  */
@@ -35,12 +53,16 @@ import java.util.stream.Collectors;
 public class TenantManageService {
 
     private static final String DEFAULT_TENANT_PASSWORD = "Test@123456";
+    private static final String TENANT_OWNER_ROLE_CODE = "TENANT_OWNER";
+    private static final String TENANT_CREATE_LOCK_PREFIX = "tenant:create:lock:";
+    private static final DefaultRedisScript<Long> RELEASE_LOCK_SCRIPT = buildReleaseLockScript();
 
     private static final Map<String, String> MODULE_ROLE_NAME_MAP = Map.of(
             "document:*", "文档管理员",
             "sales:order:*", "销售订单管理员",
             "production:order:*", "生产订单管理员",
             "inventory:*", "库存管理员",
+            "badproduct:*", "次品管理员",
             "customer:*", "客户管理员",
             "attendance:*", "考勤管理员",
             "approval:*", "审批管理员"
@@ -59,10 +81,34 @@ public class TenantManageService {
     private SysRolePermissionMapper sysRolePermissionMapper;
 
     @Resource
+    private SysUserRoleMapper sysUserRoleMapper;
+
+    @Resource
+    private EmployeeMapper employeeMapper;
+
+    @Resource
+    private EmployeeExtMapper employeeExtMapper;
+
+    @Resource
+    private DepartmentMapper departmentMapper;
+
+    @Resource
+    private PositionMapper positionMapper;
+
+    @Resource
+    private TenantAttendanceRuleManageMapper tenantAttendanceRuleManageMapper;
+
+    @Resource
+    private LabelTemplateService labelTemplateService;
+
+    @Resource
     private EncryptUtil encryptUtil;
 
     @Resource
     private DeveloperAccessService developerAccessService;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     public Page<TenantPageVO> page(TenantPageRequest request) {
         ensureDeveloperAccess();
@@ -107,6 +153,20 @@ public class TenantManageService {
         if (!tenantCode.matches("^[A-Z0-9_]+$")) {
             throw new BusinessException("租户编码仅支持大写字母、数字和下划线");
         }
+        String lockKey = TENANT_CREATE_LOCK_PREFIX + tenantCode;
+        String lockValue = UUID.randomUUID().toString();
+        Boolean locked = stringRedisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, 30, TimeUnit.SECONDS);
+        if (!Boolean.TRUE.equals(locked)) {
+            throw new BusinessException("租户正在创建中，请稍后再试");
+        }
+        try {
+            return doCreateTenant(request, tenantCode);
+        } finally {
+            releaseTenantCreateLock(lockKey, lockValue);
+        }
+    }
+
+    private Long doCreateTenant(TenantCreateRequest request, String tenantCode) {
         Long count = tenantMapper.selectCount(new LambdaQueryWrapper<Tenant>()
                 .eq(Tenant::getTenantCode, tenantCode));
         if (count != null && count > 0) {
@@ -127,8 +187,17 @@ public class TenantManageService {
         tenant.setCreator(TenantPermissionContext.getUserId());
         tenantMapper.insert(tenant);
 
+        Long ownerRoleId = initTenantOwnerRole(tenantCode);
         initTenantModuleRoles(tenantCode);
+        Long ownerUserId = initTenantOwnerUser(tenantCode, request, ownerRoleId);
+        initTenantOrgDefaults(tenantCode);
+        initTenantAttendanceRule(tenantCode, request.getTenantName().trim());
+        labelTemplateService.ensureDefaultsForTenant(tenantCode, ownerUserId);
         return tenant.getId();
+    }
+
+    private void releaseTenantCreateLock(String lockKey, String lockValue) {
+        stringRedisTemplate.execute(RELEASE_LOCK_SCRIPT, List.of(lockKey), lockValue);
     }
 
     private TenantPageVO toPageVO(Tenant tenant) {
@@ -166,6 +235,164 @@ public class TenantManageService {
         }
     }
 
+    private Long initTenantOwnerRole(String tenantCode) {
+        SysRole existed = sysRoleMapper.selectOne(new LambdaQueryWrapper<SysRole>()
+                .eq(SysRole::getTenantCode, tenantCode)
+                .eq(SysRole::getRoleCode, TENANT_OWNER_ROLE_CODE)
+                .last("LIMIT 1"));
+        if (existed != null) {
+            return existed.getId();
+        }
+
+        SysRole role = new SysRole();
+        role.setTenantCode(tenantCode);
+        role.setRoleCode(TENANT_OWNER_ROLE_CODE);
+        role.setRoleName("租户负责人");
+        role.setIsSystem(1);
+        role.setIsDeleted(0);
+        sysRoleMapper.insert(role);
+
+        List<SysPermission> permissions = sysPermissionMapper.selectList(new LambdaQueryWrapper<SysPermission>()
+                .eq(SysPermission::getIsDeleted, 0));
+        List<SysRolePermission> mappings = permissions.stream()
+                .map(permission -> {
+                    SysRolePermission relation = new SysRolePermission();
+                    relation.setRoleId(role.getId());
+                    relation.setPermissionId(permission.getId());
+                    relation.setIsDeleted(0);
+                    return relation;
+                })
+                .toList();
+        if (!mappings.isEmpty()) {
+            sysRolePermissionMapper.insertBatch(mappings);
+        }
+        return role.getId();
+    }
+
+    private Long initTenantOwnerUser(String tenantCode, TenantCreateRequest request, Long ownerRoleId) {
+        return runIgnoringTenant(() -> {
+            String loginName = tenantCode.toLowerCase(Locale.ROOT) + "_admin";
+            Employee existed = employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
+                    .eq(Employee::getTenantCode, tenantCode)
+                    .eq(Employee::getLoginName, loginName)
+                    .last("LIMIT 1"));
+            if (existed != null) {
+                return existed.getId();
+            }
+
+            Employee owner = new Employee();
+            owner.setTenantCode(tenantCode);
+            owner.setName(defaultText(request.getContactPerson(), "租户负责人"));
+            owner.setLoginName(loginName);
+            owner.setPhone(null);
+            owner.setPassword(encryptUtil.encode(request.getPassword() == null || request.getPassword().isBlank()
+                    ? DEFAULT_TENANT_PASSWORD
+                    : request.getPassword().trim()));
+            owner.setDepartmentName("管理部");
+            owner.setPosition("负责人");
+            owner.setStatus(1);
+            owner.setRoleLevel(1);
+            employeeMapper.insert(owner);
+
+            EmployeeExt ext = new EmployeeExt();
+            ext.setTenantCode(tenantCode);
+            ext.setUserId(owner.getId());
+            ext.setEmpNo("ADMIN001");
+            ext.setEmployeeType("formal");
+            ext.setEntryDate(LocalDate.now());
+            ext.setRemark("系统创建的租户初始化账号");
+            ext.setIsDeleted(0);
+            employeeExtMapper.insert(ext);
+
+            my.management.module.sys.model.entity.SysUserRole userRole = new my.management.module.sys.model.entity.SysUserRole();
+            userRole.setTenantCode(tenantCode);
+            userRole.setUserId(owner.getId());
+            userRole.setRoleId(ownerRoleId);
+            userRole.setIsDeleted(0);
+            sysUserRoleMapper.insert(userRole);
+            return owner.getId();
+        });
+    }
+
+    private void initTenantOrgDefaults(String tenantCode) {
+        runIgnoringTenant(() -> {
+            Department management = ensureDepartment(tenantCode, "管理部", "DEPT_MGMT", 1);
+            Department sales = ensureDepartment(tenantCode, "销售部", "DEPT_SALES", 2);
+            Department warehouse = ensureDepartment(tenantCode, "仓储部", "DEPT_WAREHOUSE", 3);
+            ensureDepartment(tenantCode, "生产部", "DEPT_PRODUCTION", 4);
+            ensureDepartment(tenantCode, "财务部", "DEPT_FINANCE", 5);
+            ensurePosition(tenantCode, management.getId(), "负责人", "POS_OWNER", 1);
+            ensurePosition(tenantCode, sales.getId(), "销售员", "POS_SALES", 2);
+            ensurePosition(tenantCode, warehouse.getId(), "仓库管理员", "POS_WAREHOUSE", 3);
+            return null;
+        });
+    }
+
+    private Department ensureDepartment(String tenantCode, String name, String code, Integer sortNo) {
+        Department existed = departmentMapper.selectOne(new LambdaQueryWrapper<Department>()
+                .eq(Department::getTenantCode, tenantCode)
+                .eq(Department::getDeptCode, code)
+                .last("LIMIT 1"));
+        if (existed != null) {
+            return existed;
+        }
+        Department department = new Department();
+        department.setTenantCode(tenantCode);
+        department.setDeptName(name);
+        department.setDeptCode(code);
+        department.setParentId(0L);
+        department.setSortNo(sortNo);
+        department.setStatus(1);
+        department.setIsDeleted(0);
+        departmentMapper.insert(department);
+        return department;
+    }
+
+    private void ensurePosition(String tenantCode, Long departmentId, String name, String code, Integer sortNo) {
+        Long count = positionMapper.selectCount(new LambdaQueryWrapper<Position>()
+                .eq(Position::getTenantCode, tenantCode)
+                .eq(Position::getPositionCode, code));
+        if (count != null && count > 0) {
+            return;
+        }
+        Position position = new Position();
+        position.setTenantCode(tenantCode);
+        position.setDepartmentId(departmentId);
+        position.setPositionName(name);
+        position.setPositionCode(code);
+        position.setSortNo(sortNo);
+        position.setStatus(1);
+        position.setIsDeleted(0);
+        positionMapper.insert(position);
+    }
+
+    private void initTenantAttendanceRule(String tenantCode, String tenantName) {
+        TenantAttendanceRule existed = tenantAttendanceRuleManageMapper.selectByTenantCode(tenantCode);
+        if (existed != null) {
+            return;
+        }
+        TenantAttendanceRule rule = new TenantAttendanceRule();
+        rule.setTenantCode(tenantCode);
+        rule.setTenantName(tenantName);
+        rule.setStatus(1);
+        rule.setLatitude(0D);
+        rule.setLongitude(0D);
+        rule.setAddress("请在考勤管理中配置打卡地址");
+        rule.setRadius(300D);
+        rule.setWorkStartTime(LocalTime.of(8, 30));
+        rule.setWorkEndTime(LocalTime.of(9, 30));
+        rule.setOffWorkStartTime(LocalTime.of(17, 30));
+        rule.setOffWorkEndTime(LocalTime.of(18, 30));
+        rule.setOverTimeStartTime(LocalTime.of(18, 30));
+        rule.setOverTimeEndTime(LocalTime.of(22, 0));
+        rule.setLateToleranceMinutes(5);
+        rule.setEarlyToleranceMinutes(5);
+        rule.setWorkDays("1,2,3,4,5,6");
+        rule.setEnableGps(1);
+        rule.setEnableWifi(0);
+        tenantAttendanceRuleManageMapper.insert(rule);
+    }
+
     private List<SysPermission> collectModulePermissions(String modulePermCode) {
         String prefix = modulePermCode.substring(0, modulePermCode.length() - 1);
         return sysPermissionMapper.selectList(new LambdaQueryWrapper<SysPermission>()
@@ -179,6 +406,40 @@ public class TenantManageService {
 
     private String buildRoleCode(String permCode) {
         return "AUTO_" + permCode.replace(":*", "").replace(':', '_').toUpperCase(Locale.ROOT);
+    }
+
+    private String defaultText(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value.trim();
+    }
+
+    private static DefaultRedisScript<Long> buildReleaseLockScript() {
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setResultType(Long.class);
+        script.setScriptText("""
+                if redis.call('get', KEYS[1]) == ARGV[1] then
+                    return redis.call('del', KEYS[1])
+                end
+                return 0
+                """);
+        return script;
+    }
+
+    private <T> T runIgnoringTenant(java.util.concurrent.Callable<T> callable) {
+        boolean previous = TenantPermissionContext.isIgnoreTenant();
+        TenantPermissionContext.setIgnoreTenant(true);
+        try {
+            return callable.call();
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new BusinessException("租户默认数据初始化失败");
+        } finally {
+            if (previous) {
+                TenantPermissionContext.setIgnoreTenant(true);
+            } else {
+                TenantPermissionContext.clearIgnore();
+            }
+        }
     }
 
     private void ensureDeveloperAccess() {

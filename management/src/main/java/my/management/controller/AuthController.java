@@ -1,6 +1,7 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import my.hive.common.dto.Result;
 import my.management.module.auth.model.dto.LoginRequest;
@@ -26,8 +27,8 @@ public class AuthController {
     private AuthService authService;
 
     @PostMapping("/login")
-    public Result<LoginVO> login(@Valid @RequestBody LoginRequest request) {
-        return Result.success(authService.login(request));
+    public Result<LoginVO> login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
+        return Result.success(authService.login(request, resolveClientIp(servletRequest)));
     }
 
     @PostMapping("/scan-login/session")
@@ -44,5 +45,14 @@ public class AuthController {
     public Result<Void> confirmScanLogin(@Valid @RequestBody WebScanConfirmRequest request) {
         authService.confirmWebScanLogin(request);
         return Result.success(null);
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        return realIp == null || realIp.isBlank() ? request.getRemoteAddr() : realIp.trim();
     }
 }

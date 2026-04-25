@@ -59,7 +59,7 @@
               <p class="text-sm font-black text-on-surface">待办通知</p>
               <p class="text-xs text-on-surface-variant">{{ pendingNotifications.length ? `有 ${pendingNotifications.length} 条需要处理` : '当前没有新的待办' }}</p>
             </div>
-            <button class="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container" @click="refreshNotifications">
+            <button class="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container" @click="refreshNotifications(true)">
               刷新
             </button>
           </div>
@@ -68,7 +68,7 @@
               v-for="item in pendingNotifications"
               :key="item.key"
               class="w-full rounded-xl px-3 py-3 text-left transition-colors hover:bg-primary-container"
-              @click="goApproval"
+              @click="openNotification(item)"
             >
               <div class="flex items-center justify-between gap-3">
                 <strong class="text-sm text-on-surface">{{ item.title }}</strong>
@@ -91,7 +91,7 @@
             <p class="text-sm font-bold text-on-surface">{{ displayName }}</p>
             <p class="text-xs text-on-surface-variant">{{ roleLabel }}</p>
           </div>
-          <img :src="avatarUrl" alt="头像" class="w-10 h-10 rounded-xl object-cover">
+          <span class="local-avatar">{{ avatarText }}</span>
         </button>
         <div
           v-if="userMenuOpen"
@@ -121,7 +121,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { listFinanceApprovals, listLeaveApprovals } from '@/views/function/approval/api/approval'
+import { getUnreadNotifications, markNotificationRead, syncAiNotifications } from '@/api/notification.js'
 
 defineOptions({ name: 'Navbar' });
 
@@ -137,29 +137,29 @@ const keyword = ref('')
 const searchPanelOpen = ref(false)
 const notificationOpen = ref(false)
 const userMenuOpen = ref(false)
-const pendingNotifications = ref<Array<{ key: string; title: string; desc: string; type: string }>>([])
+const pendingNotifications = ref<Array<{ key: string; id: number; title: string; desc: string; type: string; route?: string; level?: string }>>([])
 
 // 动态获取路由元信息中的中文标题
 const pageTitle = computed<string>(() => (route.meta.title as string) || '高管总览大盘')
 const displayName = computed(() => userStore.userInfo?.userName || '当前用户')
 const tenantCode = computed(() => userStore.userInfo?.tenantCode || '--')
 const roleLabel = computed(() => (userStore.isDeveloper ? '平台超管' : '运营管理'))
-const avatarUrl = computed(() => {
-  const name = encodeURIComponent(displayName.value || 'User')
-  return `https://ui-avatars.com/api/?name=${name}&background=1f6fff&color=fff`
+const avatarText = computed(() => {
+  const name = displayName.value.trim()
+  return name ? name.slice(0, 1).toUpperCase() : 'U'
 })
 
 const searchableMenus = computed(() => filterMenus([
   { name: '总览大盘', path: '/dashboard', icon: 'dashboard', desc: '查看经营总览、AI 建议和关键待办' },
   { name: 'AI 经营建议', path: '/dashboard/ai-advices', icon: 'psychology', desc: '查看库存、订单、客户、质量等经营洞察' },
   { name: '订单管理', path: '/function/order', icon: 'list_alt', desc: '销售订单、生产订单和状态流转', permissions: ['sales:order:list', 'production:order:list'] },
-  { name: '库存管理', path: '/function/inventory', icon: 'inventory_2', desc: '布匹入库、出库、库存预警和流水', permissions: ['inventory:list', 'inventory:record:recent', 'inventory:cloth:in', 'inventory:cloth:out'] },
-  { name: '次品管理', path: '/function/bad-product', icon: 'report_problem', desc: '质量异常登记、处理闭环和损失跟踪' },
+  { name: '库存管理', path: '/function/inventory', icon: 'inventory_2', desc: '布匹入库、出库、库存预警和流水', permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:in', 'inventory:cloth:out'] },
+  { name: '次品管理', path: '/function/bad-product', icon: 'report_problem', desc: '质量异常登记、处理闭环和损失跟踪', permissions: ['badproduct:list', 'badproduct:save', 'badproduct:process'] },
   { name: '客户管理', path: '/function/customer', icon: 'handshake', desc: '客户档案、联系人和合作项目维护', permissions: ['customer:page'] },
   { name: '价格管理', path: '/function/price', icon: 'sell', desc: 'SKU 基准价、客户等级价和特价维护', permissions: ['price:list'] },
   { name: '出库单打印', path: '/function/receipt', icon: 'print', desc: '待打印出库单、连续纸模板和打印确认', permissions: ['receipt:print:list'] },
   { name: '审批中心', path: '/function/approval', icon: 'approval', desc: '请假审批、财务审批和待办处理', permissions: ['approval:leave', 'approval:finance', 'approval:leave:submit', 'approval:finance:submit'] },
-  { name: '考勤管理', path: '/function/attendance', icon: 'fingerprint', desc: '小程序打卡记录、规则配置和异常统计', permissions: ['attendance:record:list', 'attendance:*', 'attendance:list'] },
+  { name: '考勤管理', path: '/function/attendance', icon: 'fingerprint', desc: '小程序打卡记录、规则配置和异常统计', permissions: ['attendance:record:list', 'attendance:*'] },
   { name: '员工管理', path: '/function/employee', icon: 'groups', desc: '员工名录、组织架构和人员状态', permissions: ['employee:list'] },
   { name: '角色管理', path: '/function/role', icon: 'admin_panel_settings', desc: '角色权限配置和员工授权', permissions: ['role:list'] },
   { name: '标签模板', path: '/function/label', icon: 'sell', desc: '标签模板可视化设计与小程序打印联动', permissions: ['label:template:list'] },
@@ -252,12 +252,17 @@ function buildSmartSearchResults(rawKeyword: string) {
     }
   )
 
+  const allowedDirectResults = directResults.filter((item) => canAccessSearchTarget(item.path))
   const moduleResults = searchableMenus.value.map((item) => ({
     ...item,
     label: `进入${item.name}`,
     to: item.path
   }))
-  return [...directResults, ...moduleResults]
+  return [...allowedDirectResults, ...moduleResults]
+}
+
+function canAccessSearchTarget(path: string) {
+  return searchableMenus.value.some((item) => item.path === path)
 }
 
 function goFirstSearchResult() {
@@ -287,42 +292,34 @@ async function toggleNotifications() {
   }
 }
 
-async function refreshNotifications() {
-  const list: Array<{ key: string; title: string; desc: string; type: string }> = []
-  const currentUserId = Number(userStore.userInfo?.userId || 0)
+async function refreshNotifications(sync = false) {
   try {
-    if (userStore.hasAnyPermission(['approval:leave', 'approval:leave:submit'])) {
-      const leaves = await listLeaveApprovals()
-      ;(leaves || [])
-        .filter((item: any) => item.status === 1 && Number(item.auditorId) === currentUserId)
-        .slice(0, 5)
-        .forEach((item: any) => {
-          list.push({
-            key: `leave-${item.leaveCode}`,
-            title: `${item.applyUserName || '员工'} 的请假审批`,
-            desc: `${item.leaveTypeText || '请假'}：${formatText(item.startTime)} 至 ${formatText(item.endTime)}`,
-            type: '请假'
-          })
-        })
+    if (sync) {
+      await syncAiNotifications()
     }
-    if (userStore.hasAnyPermission(['approval:finance', 'approval:finance:submit'])) {
-      const finances = await listFinanceApprovals()
-      ;(finances || [])
-        .filter((item: any) => item.status === 1 && Number(item.auditorId) === currentUserId)
-        .slice(0, 5)
-        .forEach((item: any) => {
-          list.push({
-            key: `finance-${item.approvalCode}`,
-            title: `${item.applyUserName || '员工'} 的财务审批`,
-            desc: `${item.category || '费用'}：￥${item.amount || 0} / ${item.reason || '未填写原因'}`,
-            type: '财务'
-          })
-        })
-    }
+    const list = await getUnreadNotifications()
+    pendingNotifications.value = (list || []).slice(0, 8).map((item: any) => ({
+      key: `notification-${item.id}`,
+      id: Number(item.id),
+      title: item.title || '业务提醒',
+      desc: item.content || '请进入对应业务页面查看详情',
+      type: resolveNotificationType(item),
+      route: item.route || '/dashboard',
+      level: item.level
+    }))
   } catch (error) {
     ElMessage.warning('通知加载失败，请稍后再试')
   }
-  pendingNotifications.value = list.slice(0, 8)
+}
+
+async function openNotification(item: { id: number; route?: string }) {
+  try {
+    await markNotificationRead(item.id)
+  } catch {
+    // 已读失败不阻断跳转，避免提醒入口不可用。
+  }
+  goRoute(item.route || '/dashboard')
+  await refreshNotifications()
 }
 
 async function handleLogout() {
@@ -340,8 +337,17 @@ async function handleLogout() {
   }
 }
 
-function formatText(value: string) {
-  return value ? String(value).replace('T', ' ').slice(0, 16) : '--'
+function resolveNotificationType(item: any) {
+  if (item.level === 'critical') {
+    return '紧急'
+  }
+  if (item.level === 'warning') {
+    return '预警'
+  }
+  if (item.type === 'AI_ADVICE') {
+    return 'AI'
+  }
+  return '提醒'
 }
 
 function handleClickOutside(event: MouseEvent) {
@@ -385,6 +391,20 @@ onBeforeUnmount(() => {
 
 .navbar-menu-item:hover {
   background: #e8f2ff;
+}
+
+.local-avatar {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #67b7ff 0%, #1f6fff 58%, #0b2a6f 100%);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 900;
+  box-shadow: 0 12px 24px rgba(31, 111, 255, 0.22);
 }
 
 .line-clamp-2 {

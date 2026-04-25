@@ -56,7 +56,7 @@
             <span class="material-symbols-outlined text-[80px]">groups</span>
           </div>
           <p class="text-on-primary-container text-sm font-bold uppercase tracking-widest">员工总数</p>
-          <h3 class="text-4xl font-black text-white mt-2">{{ stats.totalEmployees }}</h3>
+          <h3 class="text-4xl font-black text-black mt-2">{{ stats.totalEmployees }}</h3>
           <p class="text-on-primary-container text-xs mt-3">实时员工基数</p>
         </div>
 

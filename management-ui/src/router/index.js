@@ -98,12 +98,12 @@ export const constantRoutes = [
         component: () => import('@/views/function/order/order.vue'),
         meta: { title: '订单管理', permissions: ['sales:order:list', 'production:order:list'] }
       },
-      {
-        path: 'bad-product',
-        name: 'BadProduct',
-        component: () => import('@/views/function/badProduct/badProduct.vue'),
-        meta: { title: '次品管理' }
-      },
+        {
+          path: 'bad-product',
+          name: 'BadProduct',
+          component: () => import('@/views/function/badProduct/badProduct.vue'),
+          meta: { title: '次品管理', permissions: ['badproduct:list', 'badproduct:save', 'badproduct:process'] }
+        },
       {
         path: 'approval',
         name: 'Approval',
@@ -122,6 +122,12 @@ export const constantRoutes = [
         name: 'PlatformTenant',
         component: () => import('@/views/platform/tenant/index.vue'),
         meta: { title: '租户管理', permissions: ['platform:tenant:view'], developerOnly: true }
+      },
+      {
+        path: 'operation-log',
+        name: 'OperationLog',
+        component: () => import('@/views/platform/operationLog/index.vue'),
+        meta: { title: '运维日志', developerOnly: true }
       }
     ]
   }

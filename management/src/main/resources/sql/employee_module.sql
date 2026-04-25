@@ -7,7 +7,7 @@ SET login_name = phone
 WHERE login_name IS NULL OR login_name = '';
 
 UPDATE user
-SET password = MD5('123456')
+SET password = '$2a$10$Ahqja4UeEp4qJVCI.9.AROfQA53In8fF8hGGbp9oDsHo/Z3.afG3C'
 WHERE password IS NULL OR password = '';
 
 ALTER TABLE user

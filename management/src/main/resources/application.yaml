@@ -24,12 +24,12 @@ mybatis-plus:
 
 auth:
   token:
-    secret: hive-manager-2026-token-secret
-    expire-hours: 24
+    secret: ${AUTH_TOKEN_SECRET:hive-manager-dev-token-secret}
+    expire-hours: ${AUTH_TOKEN_EXPIRE_HOURS:24}
 
 security:
   response:
-    key: sygav9Iec4kZiRvivnwSVe3iWq66cTCleo8gr3qL2GyXTcQHXJ1E57ZqfhqfIyWp70Imy0rJ7ZkS5SI4T0asRQ==
+    key: ${RESPONSE_ENCRYPT_KEY:sygav9Iec4kZiRvivnwSVe3iWq66cTCleo8gr3qL2GyXTcQHXJ1E57ZqfhqfIyWp70Imy0rJ7ZkS5SI4T0asRQ==}
 
 platform:
   developer-logins: platform_admin

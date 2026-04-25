@@ -113,8 +113,8 @@ const primaryMenus = computed<MenuItem[]>(() => filterMenus([
     icon: 'list_alt',
     permissions: ['sales:order:list', 'production:order:list']
   },
-  {name: '库存管理', path: '/function/inventory', icon: 'storage', permissions: ['inventory:list']},
-  {name: '次品管理', path: '/function/bad-product', icon: 'warning'},
+  {name: '库存管理', path: '/function/inventory', icon: 'storage', permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:in', 'inventory:cloth:out']},
+  {name: '次品管理', path: '/function/bad-product', icon: 'warning', permissions: ['badproduct:list', 'badproduct:save', 'badproduct:process']},
   {name: '客户管理', path: '/function/customer', icon: 'handshake', permissions: ['customer:page']},
   {name: '价格管理', path: '/function/price', icon: 'price_change', permissions: ['price:list']},
   {name: '出库单打印', path: '/function/receipt', icon: 'print', permissions: ['receipt:print:list']},
@@ -127,7 +127,7 @@ const primaryMenus = computed<MenuItem[]>(() => filterMenus([
 ]))
 
 const secondaryMenus = computed<MenuItem[]>(() => filterMenus([
-  {name: '考勤管理', path: '/function/attendance', icon: 'timer', permissions: ['attendance:list']},
+  {name: '考勤管理', path: '/function/attendance', icon: 'timer', permissions: ['attendance:record:list', 'attendance:*']},
   {name: '员工管理', path: '/function/employee', icon: 'people', permissions: ['employee:list']},
   {name: '角色管理', path: '/function/role', icon: 'settings_accessibility', permissions: ['role:list']},
   {name: '标签模板', path: '/function/label', icon: 'sell', permissions: ['label:template:list']},
@@ -137,6 +137,12 @@ const secondaryMenus = computed<MenuItem[]>(() => filterMenus([
     path: '/platform/tenant',
     icon: 'apartment',
     permissions: ['platform:tenant:view'],
+    developerOnly: true
+  },
+  {
+    name: '运维日志',
+    path: '/platform/operation-log',
+    icon: 'plagiarism',
     developerOnly: true
   },
 ]))

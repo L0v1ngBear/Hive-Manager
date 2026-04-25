@@ -3,6 +3,7 @@ package my.management.module.inventory.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
+import my.hive.common.annotation.CollectLog;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
@@ -22,6 +23,7 @@ import my.management.module.inventory.model.vo.InventorySummaryVO;
 import my.management.module.inventory.model.vo.InventoryTrendVO;
 import my.management.module.inventory.model.vo.InventoryWarningVO;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,8 @@ public class InventoryService {
 
     private static final BigDecimal WARNING_THRESHOLD = new BigDecimal("100");
     private static final DateTimeFormatter BARCODE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final String DASHBOARD_OVERVIEW_CACHE_PREFIX = "management:dashboard:overview:";
+    private static final String DASHBOARD_AI_CACHE_PREFIX = "management:dashboard:ai-advice:";
 
     @Resource
     private ClothMapper clothMapper;
@@ -49,6 +53,9 @@ public class InventoryService {
 
     @Resource
     private ClothModelSpecMapper clothModelSpecMapper;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     public InventorySummaryVO summary() {
         String tenantCode = TenantPermissionContext.getTenantCode();
@@ -125,6 +132,7 @@ public class InventoryService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    @CollectLog(module = "inventory", action = "cloth_in", bizType = "cloth", bizNo = "#p0.barcode", description = "网页端布匹入库")
     public void in(InventoryInRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
@@ -157,9 +165,11 @@ public class InventoryService {
 
         saveRecord(cloth, 0, request.getMeters(), userId, now);
         saveModelSpecIfAbsent(tenantCode, cloth.getModelCode(), cloth.getSpec());
+        invalidateDashboardCache(tenantCode);
     }
 
     @Transactional(rollbackFor = Exception.class)
+    @CollectLog(module = "inventory", action = "cloth_out", bizType = "cloth", bizNo = "#p0.barcode", description = "网页端布匹出库")
     public void out(InventoryOutRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
@@ -183,6 +193,7 @@ public class InventoryService {
         clothMapper.updateById(cloth);
 
         saveRecord(cloth, 1, request.getMeters(), userId, now);
+        invalidateDashboardCache(tenantCode);
     }
 
     private ClothInventoryVO toClothVO(Cloth cloth) {
@@ -256,5 +267,20 @@ public class InventoryService {
 
     private Long nvl(Long value) {
         return value == null ? 0L : value;
+    }
+
+    private void invalidateDashboardCache(String tenantCode) {
+        deleteCacheByPattern(DASHBOARD_OVERVIEW_CACHE_PREFIX + tenantCode + ":*");
+        deleteCacheByPattern(DASHBOARD_AI_CACHE_PREFIX + tenantCode + ":*");
+    }
+
+    private void deleteCacheByPattern(String pattern) {
+        try {
+            var keys = stringRedisTemplate.keys(pattern);
+            if (keys != null && !keys.isEmpty()) {
+                stringRedisTemplate.delete(keys);
+            }
+        } catch (Exception ignored) {
+        }
     }
 }

@@ -74,7 +74,7 @@ public class OrderController {
     }
 
     @GetMapping("/sales/log/{orderId}")
-    @RequirePermission(value = "sales:order:log", message = "您没有权限查看销售订单日志")
+    @RequirePermission(value = "sales:order:detail", message = "您没有权限查看销售订单日志")
     public Result<List<SalesOrderStatusLogVO>> salesLog(@PathVariable String orderId) {
         return Result.success(orderService.listSalesLogs(orderId));
     }

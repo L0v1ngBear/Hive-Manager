@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@fontsource/material-symbols-outlined": "^5.2.42",
-    "axios": "^1.13.5",
+    "axios": "^1.15.2",
     "element-plus": "^2.13.0",
     "fabric": "^7.2.0",
     "pinia": "^3.0.4",
@@ -37,7 +37,7 @@
     "postcss": "^8.5.8",
     "prettier": "3.8.1",
     "tailwindcss": "^4.2.2",
-    "vite": "^8.0.3",
+    "vite": "^8.0.10",
     "vite-plugin-vue-devtools": "^8.1.1"
   },
   "engines": {

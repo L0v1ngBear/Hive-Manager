@@ -66,7 +66,7 @@ public class EmployeeService {
     private static final int STATUS_RESIGNED = 0;
     private static final int STATUS_ACTIVE = 1;
     private static final int STATUS_PROBATION = 2;
-    private static final String DEFAULT_PASSWORD = "123456";
+    private static final String DEFAULT_PASSWORD = "Test@123456";
     private static final String DEFAULT_EMPLOYEE_TYPE = "FULL_TIME";
 
     @Resource

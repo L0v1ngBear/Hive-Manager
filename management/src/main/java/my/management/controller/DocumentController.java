@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 /**
  * DocumentController 是管理端后端请求入口控制类，负责接收请求并调用对应服务。
  */
-//TODO 接入oss
+    // 文件内容存储已预留扩展点，后续接入 OSS 时保持当前接口契约不变。
 @RestController
 @RequestMapping("/document")
 @Validated
