@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `behavior_event` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `tenant_code` varchar(50) NOT NULL COMMENT '租户编码',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `event_type` varchar(60) NOT NULL COMMENT '事件类型',
+  `page_path` varchar(255) DEFAULT NULL COMMENT '页面路径',
+  `module` varchar(60) DEFAULT NULL COMMENT '业务模块',
+  `target_type` varchar(60) DEFAULT NULL COMMENT '目标类型',
+  `target_id` varchar(120) DEFAULT NULL COMMENT '目标标识',
+  `action` varchar(60) DEFAULT NULL COMMENT '动作',
+  `source` varchar(80) DEFAULT NULL COMMENT '来源',
+  `session_id` varchar(80) DEFAULT NULL COMMENT '前端会话ID',
+  `metadata_json` json DEFAULT NULL COMMENT '低敏扩展元数据',
+  `client_time` datetime DEFAULT NULL COMMENT '客户端事件时间',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '服务端写入时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_behavior_tenant_event_time` (`tenant_code`,`event_type`,`create_time`),
+  KEY `idx_behavior_tenant_user_time` (`tenant_code`,`user_id`,`create_time`),
+  KEY `idx_behavior_tenant_target` (`tenant_code`,`target_type`,`target_id`,`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户行为事件表';
