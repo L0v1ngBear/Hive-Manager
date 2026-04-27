@@ -1,7 +1,13 @@
 package my.management.module.ai.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
+import my.management.module.ai.mapper.AiAdviceTrainingSampleMapper;
+import my.management.module.behavior.mapper.BehaviorEventMapper;
+import my.management.module.behavior.model.vo.BehaviorModulePreferenceVO;
 import my.management.module.ai.mapper.AiAnalysisMapper;
+import my.management.module.ai.model.entity.AiAdviceTrainingSample;
 import my.management.module.ai.model.vo.BadProductTypeSummaryRowVO;
 import my.management.module.ai.model.vo.AiBusinessSnapshotVO;
 import my.management.module.ai.model.vo.CustomerOrderDigestRowVO;
@@ -21,8 +27,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +51,15 @@ public class AiAnalysisService {
 
     @Resource
     private DashboardMapper dashboardMapper;
+
+    @Resource
+    private AiAdviceTrainingSampleMapper aiAdviceTrainingSampleMapper;
+
+    @Resource
+    private BehaviorEventMapper behaviorEventMapper;
+
+    @Resource
+    private ObjectMapper objectMapper;
 
     @Autowired(required = false)
     private List<AiInsightProvider> aiInsightProviders = List.of();
@@ -87,11 +105,14 @@ public class AiAnalysisService {
         advices.add(buildOperationAdvice());
 
         advices.addAll(buildProviderAdvices(snapshot, advices));
+        Map<String, BehaviorModulePreferenceVO> behaviorPreferences = loadTenantBehaviorPreferences(tenantCode);
+        applyTenantBehaviorPersonalization(behaviorPreferences, advices);
 
         if (advices.isEmpty()) {
             advices.add(buildStableAdvice());
         }
 
+        persistTrainingSamples(tenantCode, snapshot, behaviorPreferences, advices);
         return advices;
     }
 
@@ -123,6 +144,154 @@ public class AiAnalysisService {
             }
         }
         return result;
+    }
+
+    /**
+     * 根据当前租户近期行为偏好微调建议权重。
+     *
+     * <p>这一步不是模型训练，而是“租户级个性化校准”：同样的经营异常，不同租户的关注点不同。
+     * 系统会把用户近期查看、点击、通知打开等行为聚合为偏好分，用于调整建议排序、置信度和跟进提示。</p>
+     */
+    private Map<String, BehaviorModulePreferenceVO> loadTenantBehaviorPreferences(String tenantCode) {
+        Map<String, BehaviorModulePreferenceVO> preferenceMap = new LinkedHashMap<>();
+        List<BehaviorModulePreferenceVO> preferences;
+        try {
+            preferences = behaviorEventMapper.selectTenantPreferences(tenantCode, 30);
+        } catch (Exception ignored) {
+            return preferenceMap;
+        }
+        for (BehaviorModulePreferenceVO preference : preferences) {
+            if (preference != null && !isBlank(preference.getCategory())) {
+                preferenceMap.put(preference.getCategory(), preference);
+            }
+        }
+        return preferenceMap;
+    }
+
+    private void applyTenantBehaviorPersonalization(Map<String, BehaviorModulePreferenceVO> preferenceMap, List<DashboardAiAdviceVO> advices) {
+        if (preferenceMap == null || preferenceMap.isEmpty() || advices == null || advices.isEmpty()) {
+            return;
+        }
+
+        for (DashboardAiAdviceVO advice : advices) {
+            BehaviorModulePreferenceVO preference = preferenceMap.get(advice.getCategory());
+            if (preference == null || preference.getBehaviorScore() == null || preference.getBehaviorScore() <= 0) {
+                continue;
+            }
+            int boost = Math.min((int) Math.round(preference.getBehaviorScore() / 8D), 10);
+            advice.setConfidence(Math.min((advice.getConfidence() == null ? 70 : advice.getConfidence()) + boost, 98));
+            if (!"success".equals(advice.getLevel()) && "P2".equals(advice.getPriority()) && nvl(preference.getClickCount()) > 0) {
+                advice.setPriority("P1");
+            }
+            advice.setTrackingHint(buildPersonalizedTrackingHint(advice, preference));
+        }
+
+        advices.sort((left, right) -> {
+            int priorityCompare = Integer.compare(priorityOrder(left.getPriority()), priorityOrder(right.getPriority()));
+            if (priorityCompare != 0) {
+                return priorityCompare;
+            }
+            int behaviorCompare = Double.compare(
+                    behaviorScore(preferenceMap.get(right.getCategory())),
+                    behaviorScore(preferenceMap.get(left.getCategory()))
+            );
+            if (behaviorCompare != 0) {
+                return behaviorCompare;
+            }
+            return String.valueOf(right.getGeneratedAt()).compareTo(String.valueOf(left.getGeneratedAt()));
+        });
+    }
+
+    private String buildPersonalizedTrackingHint(DashboardAiAdviceVO advice, BehaviorModulePreferenceVO preference) {
+        String base = isBlank(advice.getTrackingHint()) ? resolveTrackingHint(advice.getCategory(), advice.getLevel()) : advice.getTrackingHint();
+        return base + String.format(
+                " 结合本租户近30天行为，该维度被关注 %d 次、点击/打开 %d 次，建议优先按本租户管理习惯跟进。",
+                nvl(preference.getTotalCount()),
+                nvl(preference.getClickCount())
+        );
+    }
+
+    private int priorityOrder(String priority) {
+        return switch (priority == null ? "" : priority) {
+            case "P0" -> 0;
+            case "P1" -> 1;
+            case "P2" -> 2;
+            case "P3" -> 3;
+            default -> 9;
+        };
+    }
+
+    private double behaviorScore(BehaviorModulePreferenceVO preference) {
+        return preference == null || preference.getBehaviorScore() == null ? 0D : preference.getBehaviorScore();
+    }
+
+    /**
+     * 沉淀 AI 训练样本。
+     *
+     * <p>样本以“当天 + 租户 + 建议标题 + 维度”去重，避免用户频繁刷新导致样本爆炸。
+     * 后续微调专用模型时，可直接使用这些样本构造监督微调数据集。</p>
+     */
+    private void persistTrainingSamples(String tenantCode,
+                                        AiBusinessSnapshotVO snapshot,
+                                        Map<String, BehaviorModulePreferenceVO> behaviorPreferences,
+                                        List<DashboardAiAdviceVO> advices) {
+        if (tenantCode == null || tenantCode.isBlank() || advices == null || advices.isEmpty()) {
+            return;
+        }
+        String snapshotJson = toJson(snapshot);
+        String behaviorJson = toJson(behaviorPreferences == null ? Map.of() : behaviorPreferences);
+        List<AiAdviceTrainingSample> samples = advices.stream()
+                .filter(Objects::nonNull)
+                .limit(30)
+                .map(advice -> toTrainingSample(tenantCode, snapshotJson, behaviorJson, advice))
+                .toList();
+        if (samples.isEmpty()) {
+            return;
+        }
+        try {
+            aiAdviceTrainingSampleMapper.upsertBatch(samples);
+        } catch (Exception ignored) {
+            // 训练样本沉淀失败不能影响用户查看大盘。
+        }
+    }
+
+    private AiAdviceTrainingSample toTrainingSample(String tenantCode,
+                                                    String snapshotJson,
+                                                    String behaviorJson,
+                                                    DashboardAiAdviceVO advice) {
+        AiAdviceTrainingSample sample = new AiAdviceTrainingSample();
+        sample.setTenantCode(tenantCode);
+        sample.setSampleKey(buildSampleKey(advice));
+        advice.setSampleKey(sample.getSampleKey());
+        sample.setCategory(advice.getCategory());
+        sample.setTitle(defaultText(advice.getTitle(), "未命名建议"));
+        sample.setSourceType(defaultText(advice.getSourceType(), "local_rules"));
+        sample.setPriority(advice.getPriority());
+        sample.setConfidence(advice.getConfidence());
+        sample.setInputSnapshotJson(snapshotJson);
+        sample.setBehaviorContextJson(behaviorJson);
+        sample.setAdviceJson(toJson(advice));
+        sample.setLabelStatus("unlabeled");
+        return sample;
+    }
+
+    private String buildSampleKey(DashboardAiAdviceVO advice) {
+        String raw = String.join("|",
+                LocalDate.now().toString(),
+                defaultText(advice.getCategory(), "overview"),
+                defaultText(advice.getTitle(), ""),
+                defaultText(advice.getRoute(), ""),
+                defaultText(advice.getSourceType(), "local_rules")
+        );
+        return "AI_SAMPLE:" + sha256(raw).substring(0, 48);
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException ignored) {
+            return "{}";
+        }
     }
 
     /**
@@ -640,6 +809,15 @@ public class AiAnalysisService {
 
     private BigDecimal scale(BigDecimal value) {
         return (value == null ? BigDecimal.ZERO : value).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception ignored) {
+            return Integer.toHexString(value.hashCode());
+        }
     }
 
     private record CustomerFollowUpCandidate(String customerName, int orderCount, long lastOrderDays, long avgCycleDays) {

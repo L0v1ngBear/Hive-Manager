@@ -27,6 +27,10 @@ hive:
     rabbit-exchange: ${OPERATION_LOG_EXCHANGE:hive.operation.log.exchange}
     rabbit-routing-key: ${OPERATION_LOG_ROUTING_KEY:hive.operation.log}
     rabbit-queue: ${OPERATION_LOG_QUEUE:hive.operation.log.queue}
+    cleanup-enabled: ${OPERATION_LOG_CLEANUP_ENABLED:true}
+    retention-days: ${OPERATION_LOG_RETENTION_DAYS:90}
+    cleanup-batch-size: ${OPERATION_LOG_CLEANUP_BATCH_SIZE:5000}
+    cleanup-cron: "${OPERATION_LOG_CLEANUP_CRON:0 20 3 * * ?}"
 springdoc:
   api-docs:
     enabled: false

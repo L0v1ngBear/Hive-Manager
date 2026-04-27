@@ -582,8 +582,8 @@ onMounted(async () => {
   flex-direction: column;
   margin: -1rem;
   background:
-    radial-gradient(circle at 8% 0%, rgba(103, 183, 255, 0.16), transparent 32%),
-    linear-gradient(180deg, #f7fbff 0%, #f4f8ff 100%);
+    radial-gradient(circle at 8% 0%, rgba(255, 196, 41, 0.18), transparent 32%),
+    linear-gradient(180deg, #fffdf8 0%, #fffaf0 100%);
 }
 
 @media (min-width: 768px) {
@@ -602,8 +602,8 @@ onMounted(async () => {
   padding: 12px 24px;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(191, 215, 245, 0.65);
-  box-shadow: 0 18px 42px rgba(31, 111, 255, 0.08);
+  border-bottom: 1px solid rgba(233, 197, 109, 0.55);
+  box-shadow: 0 18px 42px rgba(245, 164, 0, 0.10);
 }
 
 .header-left,
@@ -623,14 +623,14 @@ onMounted(async () => {
   height: 40px;
   border-radius: 18px;
   color: #fff;
-  background: #0f4c81;
+  background: #101418;
   display: grid;
   place-items: center;
-  box-shadow: 0 12px 24px rgba(15, 76, 129, 0.18);
+  box-shadow: 0 12px 24px rgba(16, 20, 24, 0.18);
 }
 
 .header-desc {
-  color: #4d6280;
+  color: #5f5a4e;
   font-size: 12px;
   padding: 0 8px;
 }
@@ -639,7 +639,7 @@ onMounted(async () => {
   min-width: 280px;
   border: none;
   background: transparent;
-  color: #071f5f;
+  color: #101418;
   font-size: 24px;
   font-weight: 900;
   outline: none;
@@ -649,7 +649,7 @@ onMounted(async () => {
 
 .template-name-input:hover,
 .template-name-input:focus {
-  background: rgba(232, 242, 255, 0.78);
+  background: rgba(255, 243, 204, 0.78);
 }
 
 .mode-switch {
@@ -670,9 +670,9 @@ onMounted(async () => {
 }
 
 .mode-switch button.active {
-  color: #0f4c81;
+  color: #b56f00;
   background: #fff;
-  box-shadow: 0 6px 18px rgba(15, 76, 129, 0.12);
+  box-shadow: 0 6px 18px rgba(245, 164, 0, 0.14);
 }
 
 .default-check {
@@ -686,7 +686,7 @@ onMounted(async () => {
 }
 
 .default-check input {
-  accent-color: #0f4c81;
+  accent-color: #f5a400;
 }
 
 .primary-action,
@@ -707,16 +707,16 @@ onMounted(async () => {
   border-radius: 14px;
   padding: 10px 18px;
   color: #fff;
-  background: linear-gradient(135deg, #67b7ff 0%, #1f6fff 58%, #0b2a6f 100%);
-  box-shadow: 0 14px 30px rgba(31, 111, 255, 0.22);
+  background: linear-gradient(135deg, #ffd43b 0%, #f5a400 58%, #f08a00 100%);
+  box-shadow: 0 14px 30px rgba(245, 164, 0, 0.24);
 }
 
 .secondary-action,
 .ghost-action {
   border-radius: 14px;
   padding: 10px 14px;
-  color: #0b2a6f;
-  background: #e8f2ff;
+  color: #101418;
+  background: #fff3cc;
 }
 
 .danger-action {
@@ -794,9 +794,9 @@ onMounted(async () => {
 }
 
 .tool-item:hover {
-  color: #0f4c81;
-  border-color: rgba(15, 76, 129, 0.24);
-  background: #eef6ff;
+  color: #b56f00;
+  border-color: rgba(245, 164, 0, 0.30);
+  background: #fff8e6;
 }
 
 .size-card,
@@ -1013,7 +1013,7 @@ onMounted(async () => {
 
 .variable-chip {
   padding: 10px 12px;
-  border-left: 4px solid #0f4c81;
+  border-left: 4px solid #f5a400;
   border-radius: 12px;
   color: #111827;
   background: #f1f5f9;
@@ -1046,7 +1046,7 @@ onMounted(async () => {
   border-radius: 999px;
   padding: 3px 8px;
   color: #fff;
-  background: #0f4c81;
+  background: #f5a400;
   font-size: 11px;
   font-weight: 900;
 }
@@ -1060,7 +1060,7 @@ onMounted(async () => {
 }
 
 .mini-action.primary {
-  color: #0f4c81;
+  color: #b56f00;
   background: #dbeafe;
 }
 

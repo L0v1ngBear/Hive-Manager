@@ -73,6 +73,14 @@ public class OperationLogService {
             conditions.add("success = ?");
             params.add(request.getSuccess());
         }
+        if (request.getStartTime() != null) {
+            conditions.add("create_time >= ?");
+            params.add(request.getStartTime());
+        }
+        if (request.getEndTime() != null) {
+            conditions.add("create_time <= ?");
+            params.add(request.getEndTime());
+        }
         if (request.getKeyword() != null && !request.getKeyword().isBlank()) {
             String keyword = "%" + request.getKeyword().trim() + "%";
             conditions.add("(trace_id LIKE ? OR tenant_code LIKE ? OR biz_no LIKE ? OR description LIKE ? OR error_message LIKE ?)");

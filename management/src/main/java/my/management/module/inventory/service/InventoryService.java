@@ -7,6 +7,7 @@ import my.hive.common.annotation.CollectLog;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
+import my.hive.common.utils.RedisCacheHelper;
 import my.management.module.inventory.mapper.ClothMapper;
 import my.management.module.inventory.mapper.ClothModelSpecMapper;
 import my.management.module.inventory.mapper.InventoryRecordMapper;
@@ -23,7 +24,6 @@ import my.management.module.inventory.model.vo.InventorySummaryVO;
 import my.management.module.inventory.model.vo.InventoryTrendVO;
 import my.management.module.inventory.model.vo.InventoryWarningVO;
 import org.springframework.beans.BeanUtils;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,7 +55,7 @@ public class InventoryService {
     private ClothModelSpecMapper clothModelSpecMapper;
 
     @Resource
-    private StringRedisTemplate stringRedisTemplate;
+    private RedisCacheHelper redisCacheHelper;
 
     public InventorySummaryVO summary() {
         String tenantCode = TenantPermissionContext.getTenantCode();
@@ -275,12 +275,6 @@ public class InventoryService {
     }
 
     private void deleteCacheByPattern(String pattern) {
-        try {
-            var keys = stringRedisTemplate.keys(pattern);
-            if (keys != null && !keys.isEmpty()) {
-                stringRedisTemplate.delete(keys);
-            }
-        } catch (Exception ignored) {
-        }
+        redisCacheHelper.deleteByPattern(pattern);
     }
 }

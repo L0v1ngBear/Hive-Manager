@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import Layout from '@/layout/index.vue'
 import { useUserStore } from '@/stores/user'
+import { buildLoginQuery, normalizeLoginRedirect } from '@/utils/redirect'
 
 export const constantRoutes = [
   {
@@ -9,6 +10,18 @@ export const constantRoutes = [
     name: 'Login',
     component: () => import('@/views/Login.vue'),
     meta: { public: true }
+  },
+  {
+    path: '/privacy',
+    name: 'Privacy',
+    component: () => import('@/views/legal/LegalPage.vue'),
+    meta: { public: true, title: '隐私政策' }
+  },
+  {
+    path: '/terms',
+    name: 'Terms',
+    component: () => import('@/views/legal/LegalPage.vue'),
+    meta: { public: true, title: '服务条款' }
   },
   {
     path: '/',
@@ -121,7 +134,7 @@ export const constantRoutes = [
         path: 'tenant',
         name: 'PlatformTenant',
         component: () => import('@/views/platform/tenant/index.vue'),
-        meta: { title: '租户管理', permissions: ['platform:tenant:view'], developerOnly: true }
+        meta: { title: '租户管理', developerOnly: true }
       },
       {
         path: 'operation-log',
@@ -139,13 +152,18 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 })
 })
 
+const PLATFORM_SUPER_HOME = '/platform/tenant'
+
 router.beforeEach((to) => {
   const userStore = useUserStore()
   const hasToken = Boolean(userStore.token)
 
   if (to.meta?.public) {
     if (hasToken && to.path === '/login') {
-      return to.query.redirect ? String(to.query.redirect) : '/dashboard'
+      if (userStore.isDeveloper) {
+        return PLATFORM_SUPER_HOME
+      }
+      return normalizeLoginRedirect(to.query.redirect)
     }
     return true
   }
@@ -153,8 +171,16 @@ router.beforeEach((to) => {
   if (!hasToken) {
     return {
       path: '/login',
-      query: to.fullPath && to.fullPath !== '/' ? { redirect: to.fullPath } : {}
+      query: buildLoginQuery(to.fullPath)
     }
+  }
+
+  if (userStore.isDeveloper && to.path !== PLATFORM_SUPER_HOME) {
+    return PLATFORM_SUPER_HOME
+  }
+
+  if (userStore.isDeveloper && to.path === PLATFORM_SUPER_HOME) {
+    return true
   }
 
   if (Array.isArray(to.meta?.permissions) && to.meta.permissions.length && !userStore.hasAnyPermission(to.meta.permissions)) {

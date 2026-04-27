@@ -1,12 +1,7 @@
 <template>
   <main class="login-stage min-h-screen bg-slate-50 text-slate-800 overflow-hidden font-sans relative">
-    <section class="absolute inset-0 z-0 overflow-hidden bg-[#f4f8ff]">
-      <img
-          alt="纺织工厂背景"
-          class="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-multiply pointer-events-none"
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuIwA6L-s4oCozLMdH_yfiMdnU0mX3BNuYqJ8eL_plQToEhrFac1WjHNcEdRuN1RgYYCqi-YiEcoTm8REv0nbBH5cU2siKa-rdLvfzS0q7Tnco3uQg1a3oNwHXA2eykkjJ_E7iiYhjXah9w5j8cZJ4KO6ujDNoQcB4A6RuJaz0qaKlTajXwovmmPm0I795XTYPs0zGA0mPeNz3h8dQvGrF-GdMqhlWuodTHW8UNIJO55FxfmsKJdQ7S5jjN38u9jSAgO4S_yvuwFte"
-      />
-      <div class="absolute inset-0 bg-gradient-to-br from-[#e8f2ff]/90 via-transparent to-white/60 pointer-events-none"></div>
+    <section class="absolute inset-0 z-0 overflow-hidden bg-[#fffdf8]">
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_12%,rgba(255,196,41,0.16),transparent_34%),linear-gradient(180deg,#ffffff_0%,#fffaf0_100%)] pointer-events-none"></div>
 
       <div class="absolute top-12 left-12 z-10 pointer-events-none">
         <span class="text-primary/5 text-[12rem] font-black tracking-widest select-none leading-none">HIVE</span>
@@ -14,27 +9,27 @@
 
       <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-16 z-20 pointer-events-none opacity-40 mix-blend-color-burn">
         <svg ref="char1Ref" :class="['pixel-char w-40 h-40 drop-shadow-xl', { 'error-shake': isError }]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect fill="#1f6fff" height="80" width="80" x="10" y="10" rx="4"></rect>
-          <rect fill="#0b2a6f" height="10" width="80" x="10" y="80" rx="2"></rect>
+          <rect fill="#f5a400" height="80" width="80" x="10" y="10" rx="4"></rect>
+          <rect fill="#101418" height="10" width="80" x="10" y="80" rx="2"></rect>
           <g class="eye-container">
             <rect class="eye-white" fill="white" height="15" width="15" x="25" y="30" rx="2"></rect>
-            <rect class="eye-pupil" fill="#071f5f" height="8" width="8" x="28" y="33" rx="1" :transform="pupil1Transform"></rect>
+            <rect class="eye-pupil" fill="#101418" height="8" width="8" x="28" y="33" rx="1" :transform="pupil1Transform"></rect>
             <rect class="eye-white" fill="white" height="15" width="15" x="60" y="30" rx="2"></rect>
-            <rect class="eye-pupil" fill="#071f5f" height="8" width="8" x="63" y="33" rx="1" :transform="pupil1Transform"></rect>
+            <rect class="eye-pupil" fill="#101418" height="8" width="8" x="63" y="33" rx="1" :transform="pupil1Transform"></rect>
           </g>
           <path class="mouth" :d="mouth1Path" stroke="white" stroke-linecap="round" stroke-width="4"></path>
         </svg>
 
         <svg ref="char2Ref" :class="['pixel-char w-32 h-32 mt-16 drop-shadow-xl', { 'error-shake': isError }]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect fill="#67b7ff" height="80" width="80" x="10" y="10" rx="4"></rect>
-          <rect fill="#1f6fff" height="10" width="80" x="10" y="80" rx="2"></rect>
+          <rect fill="#ffd43b" height="80" width="80" x="10" y="10" rx="4"></rect>
+          <rect fill="#f5a400" height="10" width="80" x="10" y="80" rx="2"></rect>
           <g class="eye-container">
             <rect class="eye-white" fill="white" height="12" width="12" x="30" y="35" rx="2"></rect>
-            <rect class="eye-pupil" fill="#071f5f" height="6" width="6" x="33" y="38" rx="1" :transform="pupil2Transform"></rect>
+            <rect class="eye-pupil" fill="#101418" height="6" width="6" x="33" y="38" rx="1" :transform="pupil2Transform"></rect>
             <rect class="eye-white" fill="white" height="12" width="12" x="58" y="35" rx="2"></rect>
-            <rect class="eye-pupil" fill="#071f5f" height="6" width="6" x="61" y="38" rx="1" :transform="pupil2Transform"></rect>
+            <rect class="eye-pupil" fill="#101418" height="6" width="6" x="61" y="38" rx="1" :transform="pupil2Transform"></rect>
           </g>
-          <path class="mouth" :d="mouth2Path" stroke="#071f5f" stroke-linecap="round" stroke-width="3"></path>
+          <path class="mouth" :d="mouth2Path" stroke="#101418" stroke-linecap="round" stroke-width="3"></path>
         </svg>
       </div>
     </section>
@@ -43,16 +38,14 @@
 
       <div class="text-center mb-10 max-w-2xl mx-auto z-40">
         <div class="inline-flex items-center justify-center gap-3 mb-6 bg-white/60 backdrop-blur-md px-6 py-2 rounded-full shadow-sm border border-white/40">
-          <div class="w-8 h-8 bg-primary flex items-center justify-center rounded-lg shadow-inner">
-            <span class="material-symbols-outlined text-white text-xl" style="font-variation-settings: 'FILL' 1;">texture</span>
-          </div>
-          <span class="text-xl font-bold tracking-tight text-slate-800">Hive 蜂巢</span>
+          <img src="../../images/logo.png" alt="蜂巢 logo" class="h-10 w-10 rounded-xl object-contain drop-shadow-sm ring-1 ring-primary/10" />
+          <span class="text-xl font-bold tracking-tight text-slate-800">蜂巢 Hive</span>
         </div>
         <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight mb-4">
           数字化工厂管理系统
         </h1>
         <p class="text-slate-600 text-lg font-medium leading-relaxed">
-          通过高保真数据结构与精湛的纺织工艺智慧，协同工业生产效率。
+          专业、高效、可靠、价值，协同工业生产效率。
           把经验和流程变成可追踪、可复盘、可优化的数据资产。
         </p>
       </div>
@@ -163,11 +156,12 @@
     </section>
 
     <footer class="absolute bottom-0 left-0 right-0 py-6 z-50 flex flex-col md:flex-row justify-between items-center px-8 text-xs font-medium text-slate-500 tracking-wider">
-      <span class="mb-4 md:mb-0">© 2024 HIVE 蜂巢数字工业. ALL RIGHTS RESERVED.</span>
+      <span class="mb-4 md:mb-0">{{ siteConfig.copyright }}</span>
       <nav class="flex gap-6">
-        <a href="#" class="hover:text-primary transition-colors">隐私政策</a>
-        <a href="#" class="hover:text-primary transition-colors">服务条款</a>
-        <a href="#" class="hover:text-primary transition-colors">联系技术支持</a>
+        <a :href="siteConfig.icpUrl" target="_blank" rel="noopener noreferrer" class="hover:text-primary transition-colors">{{ siteConfig.icpNumber }}</a>
+        <router-link to="/privacy" class="hover:text-primary transition-colors">隐私政策</router-link>
+        <router-link to="/terms" class="hover:text-primary transition-colors">服务条款</router-link>
+        <a :href="`mailto:${siteConfig.supportEmail}`" class="hover:text-primary transition-colors">联系技术支持</a>
       </nav>
     </footer>
   </main>
@@ -179,6 +173,8 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createScanLoginSession, getScanLoginStatus, login } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
+import { siteConfig } from '@/config/site'
+import { normalizeLoginRedirect } from '@/utils/redirect'
 
 const router = useRouter()
 const route = useRoute()
@@ -321,10 +317,17 @@ function finishLogin(loginData) {
   clearPolling()
   scanStatus.value = 'CONFIRMED'
   userStore.setLoginInfo(loginData)
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'
+  const redirect = resolveLoginRedirect()
   window.setTimeout(() => {
     router.replace(redirect)
   }, 300)
+}
+
+function resolveLoginRedirect() {
+  if (userStore.isDeveloper) {
+    return '/platform/tenant'
+  }
+  return normalizeLoginRedirect(route.query.redirect)
 }
 
 function triggerErrorState() {
@@ -362,8 +365,7 @@ function onMouseMove(event) {
 
 onMounted(async () => {
   if (userStore.token) {
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'
-    await router.replace(redirect)
+    await router.replace(resolveLoginRedirect())
     return
   }
   window.addEventListener('mousemove', onMouseMove)

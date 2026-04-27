@@ -21,3 +21,11 @@ export function getDashboardAiSnapshot() {
     method: 'get'
   })
 }
+
+export function feedbackDashboardAiAdvice(data) {
+  return request({
+    url: '/dashboard/ai-advices/feedback',
+    method: 'post',
+    data
+  })
+}

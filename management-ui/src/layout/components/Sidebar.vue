@@ -5,8 +5,8 @@
   >
     <div class="h-20 flex items-center shrink-0 overflow-hidden" :class="isCollapsed ? 'justify-center px-0' : 'px-8'">
       <div class="flex items-center overflow-hidden" :class="isCollapsed ? 'justify-center' : 'gap-3'">
-        <img src="../../../images/logo.jpg" alt="logo" class="w-12 h-12 rounded-xl object-cover shadow-sm">
-        <h1 v-if="!isCollapsed" class="font-black text-xl tracking-tight text-slate-900 whitespace-nowrap">云枢Hive</h1>
+        <img src="../../../images/logo.png" alt="蜂巢 logo" class="w-12 h-12 rounded-xl object-contain drop-shadow-sm">
+        <h1 v-if="!isCollapsed" class="font-black text-xl tracking-tight text-slate-900 whitespace-nowrap">蜂巢 Hive</h1>
       </div>
     </div>
 
@@ -105,7 +105,20 @@ interface MenuItem {
   developerOnly?: boolean
 }
 
-const primaryMenus = computed<MenuItem[]>(() => filterMenus([
+const platformSuperMenus: MenuItem[] = [
+  {
+    name: '租户管理',
+    path: '/platform/tenant',
+    icon: 'apartment',
+    developerOnly: true
+  }
+]
+
+const primaryMenus = computed<MenuItem[]>(() => {
+  if (userStore.isDeveloper) {
+    return filterMenus(platformSuperMenus)
+  }
+  return filterMenus([
   {name: '总览大盘', path: '/dashboard', icon: 'dashboard'},
   {
     name: '订单管理',
@@ -124,9 +137,14 @@ const primaryMenus = computed<MenuItem[]>(() => filterMenus([
     icon: 'approval',
     permissions: ['approval:leave', 'approval:finance', 'approval:leave:submit', 'approval:finance:submit']
   },
-]))
+])
+})
 
-const secondaryMenus = computed<MenuItem[]>(() => filterMenus([
+const secondaryMenus = computed<MenuItem[]>(() => {
+  if (userStore.isDeveloper) {
+    return []
+  }
+  return filterMenus([
   {name: '考勤管理', path: '/function/attendance', icon: 'timer', permissions: ['attendance:record:list', 'attendance:*']},
   {name: '员工管理', path: '/function/employee', icon: 'people', permissions: ['employee:list']},
   {name: '角色管理', path: '/function/role', icon: 'settings_accessibility', permissions: ['role:list']},
@@ -136,7 +154,6 @@ const secondaryMenus = computed<MenuItem[]>(() => filterMenus([
     name: '租户管理',
     path: '/platform/tenant',
     icon: 'apartment',
-    permissions: ['platform:tenant:view'],
     developerOnly: true
   },
   {
@@ -145,7 +162,8 @@ const secondaryMenus = computed<MenuItem[]>(() => filterMenus([
     icon: 'plagiarism',
     developerOnly: true
   },
-]))
+])
+})
 
 function filterMenus(menus: MenuItem[]) {
   return menus.filter((item) => {
@@ -209,8 +227,8 @@ const linkClass = (path: string) => {
 
 .ys-sidebar {
   background:
-      linear-gradient(180deg, rgba(238, 246, 255, 0.96), rgba(255, 255, 255, 0.92)),
-      radial-gradient(circle at 20% 0%, rgba(103, 183, 255, 0.22), transparent 36%);
-  box-shadow: 18px 0 42px rgba(31, 111, 255, 0.06);
+      linear-gradient(180deg, rgba(255, 250, 240, 0.96), rgba(255, 255, 255, 0.92)),
+      radial-gradient(circle at 20% 0%, rgba(255, 196, 41, 0.24), transparent 36%);
+  box-shadow: 18px 0 42px rgba(245, 164, 0, 0.08);
 }
 </style>

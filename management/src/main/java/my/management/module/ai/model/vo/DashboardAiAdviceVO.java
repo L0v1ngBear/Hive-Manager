@@ -8,6 +8,11 @@ import lombok.Data;
 @Data
 public class DashboardAiAdviceVO {
 
+    /**
+     * 建议样本键，前端反馈时用它回写训练样本标签。
+     */
+    private String sampleKey;
+
     private String category;
 
     private String level;

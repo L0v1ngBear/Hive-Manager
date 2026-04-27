@@ -16,7 +16,7 @@
         <button
             v-for="action in quickActions"
             :key="action.route"
-            @click="router.push(action.route)"
+            @click="openQuickAction(action)"
             class="text-left rounded-xl bg-surface-container-lowest px-4 py-3.5 shadow-sm ring-1 ring-outline-variant/20 hover:shadow-md hover:-translate-y-0.5 transition-all group"
         >
           <div class="flex items-center gap-3">
@@ -95,7 +95,7 @@
           </div>
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary">{{ aiAdvices.length }} 条</span>
-            <button @click="router.push('/dashboard/ai-advices')" class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90">
+            <button @click="openAiAdviceCenter" class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90">
               查看更多
             </button>
           </div>
@@ -107,7 +107,7 @@
               :key="`${item.category}-${index}`"
               class="rounded-2xl p-4 border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
               :class="adviceCardClass(item.level)"
-              @click="item.route && router.push(item.route)"
+              @click="openDashboardAdvice(item)"
           >
             <div class="flex items-start gap-3">
               <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" :class="adviceIconClass(item.level)">
@@ -277,6 +277,7 @@ import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getDashboardOverview } from './api/dashboard.js'
+import { trackBehavior } from '@/utils/behavior'
 
 defineOptions({ name: 'DashboardOverview' })
 
@@ -349,11 +350,84 @@ const fetchOverview = async () => {
     attendanceAlerts.value = Array.isArray(data?.attendanceAlerts) ? data.attendanceAlerts : []
     quickActions.value = Array.isArray(data?.quickActions) ? data.quickActions : []
     aiAdvices.value = Array.isArray(data?.aiAdvices) ? data.aiAdvices : []
+    trackDashboardAdviceExposure()
   } catch (error) {
     ElMessage.error(error?.msg || '总览数据加载失败，请稍后重试')
   } finally {
     loading.value = false
   }
+}
+
+function openQuickAction(action) {
+  trackBehavior({
+    eventType: 'quick_action_click',
+    pagePath: '/dashboard',
+    module: 'dashboard',
+    targetType: 'quick_action',
+    targetId: action.route,
+    action: 'click',
+    source: 'dashboard',
+    metadata: {
+      title: action.title,
+      route: action.route
+    }
+  })
+  router.push(action.route)
+}
+
+function openAiAdviceCenter() {
+  trackBehavior({
+    eventType: 'ai_advice_more_click',
+    pagePath: '/dashboard',
+    module: 'ai_advice',
+    targetType: 'route',
+    targetId: '/dashboard/ai-advices',
+    action: 'click',
+    source: 'dashboard'
+  })
+  router.push('/dashboard/ai-advices')
+}
+
+function trackDashboardAdviceExposure() {
+  aiAdvices.value.slice(0, 8).forEach((item) => {
+    trackBehavior({
+      eventType: 'ai_advice_view',
+      pagePath: '/dashboard',
+      module: 'ai_advice',
+      targetType: 'advice',
+      targetId: `${item.category || 'overview'}:${item.title || ''}`,
+      action: 'view',
+      source: 'dashboard',
+      metadata: {
+        category: item.category,
+        level: item.level,
+        priority: item.priority,
+        route: item.route
+      }
+    })
+  })
+}
+
+function openDashboardAdvice(item) {
+  if (!item.route) {
+    return
+  }
+  trackBehavior({
+    eventType: 'ai_advice_click',
+    pagePath: '/dashboard',
+    module: 'ai_advice',
+    targetType: 'advice',
+    targetId: `${item.category || 'overview'}:${item.title || ''}`,
+    action: 'click',
+    source: 'dashboard',
+    metadata: {
+      category: item.category,
+      level: item.level,
+      priority: item.priority,
+      route: item.route
+    }
+  })
+  router.push(item.route)
 }
 
 const formatTrendValue = (value) => {

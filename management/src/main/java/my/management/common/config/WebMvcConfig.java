@@ -2,6 +2,7 @@ package my.management.common.config;
 
 import jakarta.annotation.Resource;
 import my.management.common.interceptor.AuthTokenInterceptor;
+import my.management.common.interceptor.PlatformScopeInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -13,8 +14,28 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
+    private static final String[] PUBLIC_PATHS = {
+            "/auth/login",
+            "/auth/scan-login/session",
+            "/auth/scan-login/status",
+            "/web/auth/login",
+            "/web/auth/scan-login/session",
+            "/web/auth/scan-login/status",
+            "/v3/api-docs",
+            "/v3/api-docs/**",
+            "/swagger-ui.html",
+            "/swagger-ui/**",
+            "/swagger-resources/**",
+            "/webjars/**",
+            "/favicon.ico",
+            "/error"
+    };
+
     @Resource
     private AuthTokenInterceptor authTokenInterceptor;
+
+    @Resource
+    private PlatformScopeInterceptor platformScopeInterceptor;
 
     @Value("${app.cors.allowed-origin-patterns:*}")
     private String allowedOriginPatterns;
@@ -23,19 +44,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authTokenInterceptor)
                 .addPathPatterns("/**")
-                .excludePathPatterns(
-                        "/auth/login",
-                        "/auth/scan-login/session",
-                        "/auth/scan-login/status",
-                        "/v3/api-docs",
-                        "/v3/api-docs/**",
-                        "/swagger-ui.html",
-                        "/swagger-ui/**",
-                        "/swagger-resources/**",
-                        "/webjars/**",
-                        "/favicon.ico",
-                        "/error"
-                );
+                .excludePathPatterns(PUBLIC_PATHS);
+        registry.addInterceptor(platformScopeInterceptor)
+                .addPathPatterns("/**")
+                .excludePathPatterns(PUBLIC_PATHS);
     }
 
     @Override

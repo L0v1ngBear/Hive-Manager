@@ -5,6 +5,9 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
+import my.hive.common.print.PrintTaskService;
+import my.hive.common.print.PrintTaskStatus;
+import my.hive.common.print.dto.PrintTaskReportRequest;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.employee.model.entity.Employee;
 import my.management.module.receipt.mapper.OutboundItemMapper;
@@ -38,6 +41,9 @@ public class ReceiptPrintService {
 
     @Resource
     private EmployeeMapper employeeMapper;
+
+    @Resource
+    private PrintTaskService printTaskService;
 
     public List<OutboundPrintOrderVO> pendingList() {
         return outboundOrderMapper.selectPendingPrintList(TenantPermissionContext.getTenantCode());
@@ -78,7 +84,16 @@ public class ReceiptPrintService {
 
     @Transactional(rollbackFor = Exception.class)
     public void markPrinted(String orderNo) {
+        OutboundPrintDetailVO detail = detail(orderNo);
         updateStatus(orderNo, 2, 1, "出库单不存在或不是待打印状态");
+        String taskNo = printTaskService.createReceiptTask(detail.getOrderNo(), detail, null, null, "网页端确认出库单已打印");
+        if (taskNo != null) {
+            PrintTaskReportRequest request = new PrintTaskReportRequest();
+            request.setTaskNo(taskNo);
+            request.setStatus(PrintTaskStatus.SUCCESS);
+            request.setPrintChannel("browser");
+            printTaskService.report(request);
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)

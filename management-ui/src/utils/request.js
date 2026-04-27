@@ -3,6 +3,7 @@ import {ElMessage} from 'element-plus'
 import router from '@/router'
 import {useUserStore} from '@/stores/user'
 import {decryptPayload} from '@/utils/secure'
+import { buildLoginQuery, isLoginPath } from '@/utils/redirect'
 
 const service = axios.create({
     baseURL: '/web',
@@ -36,7 +37,7 @@ service.interceptors.response.use(
             ElMessage.error('响应解密失败，请稍后重试')
             if (userStore.token) {
                 userStore.logout()
-                if (router.currentRoute.value.fullPath !== '/login') {
+                if (!isLoginPath(router.currentRoute.value.fullPath)) {
                     router.push('/login')
                 }
             }
@@ -44,7 +45,9 @@ service.interceptors.response.use(
         }
 
         if (res.code !== 200) {
-            ElMessage.error(res.msg || '系统异常')
+            if (!response.config?.silent) {
+                ElMessage.error(res.msg || '系统异常')
+            }
             return Promise.reject(res)
         }
         return res.data
@@ -54,11 +57,15 @@ service.interceptors.response.use(
         const status = error.response?.status
         const currentPath = router.currentRoute.value.fullPath
 
+        if (error.config?.silent) {
+            return Promise.reject(error)
+        }
+
         if (status === 401) {
             userStore.logout()
-            if (currentPath !== '/login') {
+            if (!isLoginPath(currentPath)) {
                 ElMessage.error(error.response?.data?.msg || '登录状态已失效，请重新登录')
-                router.push({path: '/login', query: currentPath ? {redirect: currentPath} : {}})
+                router.push({path: '/login', query: buildLoginQuery(currentPath)})
             }
         } else if (status === 403) {
             ElMessage.warning(error.response?.data?.msg || '您暂无权限访问当前功能，如需开通请联系管理员')

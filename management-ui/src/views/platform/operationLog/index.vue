@@ -46,6 +46,8 @@
             <option value="1">成功</option>
             <option value="0">失败</option>
           </select>
+          <input v-model="query.startTime" type="datetime-local" class="rounded-2xl bg-surface-container-low px-4 py-2.5 text-sm outline-none" @change="handleSearch" />
+          <input v-model="query.endTime" type="datetime-local" class="rounded-2xl bg-surface-container-low px-4 py-2.5 text-sm outline-none" @change="handleSearch" />
         </div>
         <p class="text-xs font-bold text-on-surface-variant">共 {{ page.total }} 条</p>
       </div>
@@ -65,7 +67,7 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-outline-variant/10">
-            <tr v-for="row in logs" :key="row.id" class="hover:bg-surface-container-low/55">
+            <tr v-for="row in logs" :key="row.id" class="cursor-pointer hover:bg-surface-container-low/55" @click="openDetail(row)">
               <td class="px-4 py-3">
                 <span class="rounded-xl px-2.5 py-1 text-xs font-black" :class="levelClass(row.logLevel)">{{ row.logLevel }}</span>
               </td>
@@ -102,6 +104,52 @@
         <button class="rounded-xl px-4 py-2 text-sm font-black text-primary hover:bg-primary/10 disabled:opacity-40" :disabled="page.current >= page.pages" @click="changePage(page.current + 1)">下一页</button>
       </div>
     </section>
+
+    <transition name="fade">
+      <div v-if="selectedLog" class="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm" @click.self="closeDetail">
+        <aside class="h-full w-[560px] max-w-full overflow-y-auto bg-surface-container-lowest p-6 shadow-2xl">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-[11px] font-black tracking-[0.25em] text-primary/70">LOG DETAIL</p>
+              <h2 class="mt-1 text-2xl font-black text-primary">日志详情</h2>
+              <p class="mt-1 text-xs font-bold text-on-surface-variant">{{ selectedLog.traceId || '无 traceId' }}</p>
+            </div>
+            <button class="rounded-2xl bg-surface-container-low px-3 py-2 text-sm font-black text-on-surface-variant hover:text-primary" @click="closeDetail">
+              <span class="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+
+          <div class="mt-6 grid grid-cols-2 gap-3">
+            <div v-for="item in detailFields" :key="item.label" class="rounded-2xl bg-surface-container-low p-3">
+              <p class="text-[11px] font-black text-on-surface-variant">{{ item.label }}</p>
+              <p class="mt-1 break-all text-sm font-black text-on-surface">{{ item.value || '-' }}</p>
+            </div>
+          </div>
+
+          <section v-if="selectedLog.errorMessage" class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800">
+            <p class="text-sm font-black">{{ selectedLog.errorType || '错误信息' }}</p>
+            <p class="mt-2 whitespace-pre-wrap text-sm font-bold">{{ selectedLog.errorMessage }}</p>
+          </section>
+
+          <section class="mt-4 space-y-4">
+            <div class="rounded-2xl bg-surface-container-low p-4">
+              <div class="mb-2 flex items-center justify-between">
+                <p class="text-sm font-black text-primary">请求参数</p>
+                <button class="text-xs font-black text-primary" @click="copyText(selectedLog.argsJson)">复制</button>
+              </div>
+              <pre class="max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-on-surface-variant">{{ formatJson(selectedLog.argsJson) }}</pre>
+            </div>
+            <div class="rounded-2xl bg-surface-container-low p-4">
+              <div class="mb-2 flex items-center justify-between">
+                <p class="text-sm font-black text-primary">返回结果</p>
+                <button class="text-xs font-black text-primary" @click="copyText(selectedLog.resultJson)">复制</button>
+              </div>
+              <pre class="max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-on-surface-variant">{{ formatJson(selectedLog.resultJson) }}</pre>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -115,6 +163,8 @@ const query = reactive({
   keyword: '',
   logLevel: '',
   success: '',
+  startTime: '',
+  endTime: '',
 })
 const page = reactive({
   current: 1,
@@ -144,6 +194,8 @@ async function loadLogs() {
       keyword: query.keyword || undefined,
       logLevel: query.logLevel || undefined,
       success: query.success === '' ? undefined : Number(query.success),
+      startTime: normalizeDateTime(query.startTime),
+      endTime: normalizeDateTime(query.endTime),
     })
     logs.value = result?.data || []
     page.total = result?.total || 0
@@ -152,6 +204,24 @@ async function loadLogs() {
     loading.value = false
   }
 }
+
+const selectedLog = ref(null)
+
+const detailFields = computed(() => {
+  const row = selectedLog.value || {}
+  return [
+    { label: '级别', value: row.logLevel },
+    { label: '结果', value: row.success === 1 ? '成功' : '失败' },
+    { label: '租户', value: row.tenantCode },
+    { label: '用户ID', value: row.userId },
+    { label: '模块动作', value: `${row.module || '-'}/${row.action || '-'}` },
+    { label: '业务编号', value: row.bizNo },
+    { label: '耗时', value: `${row.durationMs || 0}ms` },
+    { label: '客户端IP', value: row.clientIp },
+    { label: '接口', value: `${row.requestMethod || '-'} ${row.requestUri || '-'}` },
+    { label: '时间', value: formatTime(row.createTime) },
+  ]
+})
 
 function handleSearch() {
   page.current = 1
@@ -174,5 +244,44 @@ function formatTime(value) {
   return String(value).replace('T', ' ').slice(0, 19)
 }
 
+function normalizeDateTime(value) {
+  if (!value) return undefined
+  return value.length === 16 ? `${value}:00` : value
+}
+
+function openDetail(row) {
+  selectedLog.value = row
+}
+
+function closeDetail() {
+  selectedLog.value = null
+}
+
+function formatJson(value) {
+  if (!value) return '-'
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2)
+  } catch {
+    return value
+  }
+}
+
+async function copyText(value) {
+  if (!value || !navigator?.clipboard) return
+  await navigator.clipboard.writeText(formatJson(value))
+}
+
 onMounted(loadLogs)
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

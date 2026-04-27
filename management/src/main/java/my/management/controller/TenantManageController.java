@@ -3,7 +3,6 @@ package my.management.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
-import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
 import my.management.module.tenant.model.dto.TenantCreateRequest;
@@ -28,7 +27,6 @@ public class TenantManageController {
     private TenantManageService tenantManageService;
 
     @GetMapping("/page")
-    @RequirePermission(value = "platform:tenant:view", message = "您没有权限查看租户信息")
     public Result<PageResult<TenantPageVO>> page(@Valid TenantPageRequest request) {
         Page<TenantPageVO> page = tenantManageService.page(request);
         PageResult<TenantPageVO> result = new PageResult<>();
@@ -41,13 +39,11 @@ public class TenantManageController {
     }
 
     @GetMapping("/{id}")
-    @RequirePermission(value = "platform:tenant:view", message = "您没有权限查看租户详情")
     public Result<TenantDetailVO> detail(@PathVariable Long id) {
         return Result.success(tenantManageService.detail(id));
     }
 
     @PostMapping("/create")
-    @RequirePermission(value = "platform:tenant:view", message = "您没有权限创建租户")
     public Result<Long> create(@Valid @RequestBody TenantCreateRequest request) {
         return Result.success(tenantManageService.createTenant(request));
     }

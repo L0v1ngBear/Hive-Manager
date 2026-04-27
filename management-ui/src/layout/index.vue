@@ -9,6 +9,17 @@
         <router-view v-slot="{ Component }">
           <component :is="Component" />
         </router-view>
+        <footer class="mt-8 flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4 text-xs text-on-surface-variant/70">
+          <span>{{ siteConfig.copyright }}</span>
+          <a
+            :href="siteConfig.icpUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-semibold hover:text-primary transition-colors"
+          >
+            {{ siteConfig.icpNumber }}
+          </a>
+        </footer>
       </main>
     </div>
 
@@ -29,6 +40,7 @@ import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import Sidebar from './components/Sidebar.vue';
 import Navbar from './components/Navbar.vue';
+import { siteConfig } from '@/config/site';
 
 const route = useRoute();
 const mobileMenuOpen = ref(false);
@@ -44,8 +56,8 @@ watch(
 <style scoped>
 .ys-app-shell {
   background:
-      radial-gradient(circle at 10% 0%, rgba(103, 183, 255, 0.24), transparent 32%),
-      radial-gradient(circle at 88% 8%, rgba(31, 111, 255, 0.10), transparent 30%),
-      linear-gradient(180deg, #f7fbff 0%, #ffffff 100%);
+      radial-gradient(circle at 10% 0%, rgba(255, 196, 41, 0.20), transparent 32%),
+      radial-gradient(circle at 88% 8%, rgba(245, 164, 0, 0.12), transparent 30%),
+      linear-gradient(180deg, #fffdf8 0%, #ffffff 100%);
 }
 </style>

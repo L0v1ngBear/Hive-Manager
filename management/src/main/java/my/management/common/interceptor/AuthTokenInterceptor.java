@@ -53,15 +53,15 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
             return false;
         }
 
+        // FIELD 模式下这里是空操作；未来 DATABASE 模式会先切到租户库，再查询租户内权限。
+        tenantIsolationSupport.bindTenantDatasource(authUserInfo.getTenantCode());
+
         Set<String> permCodes = permissionCacheUtil.get(authUserInfo.getTenantCode(), authUserInfo.getUserId());
         if (permCodes == null) {
             List<String> permissionList = authMapper.selectPermCodesByUserIdAndTenantCode(authUserInfo.getUserId(), authUserInfo.getTenantCode());
             permCodes = new LinkedHashSet<>(permissionList == null ? List.of() : permissionList);
             permissionCacheUtil.put(authUserInfo.getTenantCode(), authUserInfo.getUserId(), permCodes);
         }
-        // FIELD mode keeps using the shared datasource. DATABASE mode will switch
-        // to the tenant datasource here before permission/service queries run.
-        tenantIsolationSupport.bindTenantDatasource(authUserInfo.getTenantCode());
         TenantPermissionContext.init(authUserInfo.getTenantCode(), authUserInfo.getUserId(), permCodes);
         return true;
     }

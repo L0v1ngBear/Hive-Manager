@@ -10,7 +10,7 @@
     <div class="flex items-center gap-6 flex-1 max-w-2xl ml-4 md:ml-0">
       <h2 class="text-xl font-bold text-on-surface hidden lg:block">{{ pageTitle }}</h2>
 
-      <div class="relative flex-1 group max-w-md hidden md:block">
+      <div v-if="!isPlatformSuper" class="relative flex-1 group max-w-md hidden md:block">
         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">search</span>
         <input
           v-model.trim="keyword"
@@ -42,7 +42,7 @@
     </div>
 
     <div class="flex items-center gap-2 md:gap-4">
-      <div class="relative">
+      <div v-if="!isPlatformSuper" class="relative">
       <button
         class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors relative"
         @click="toggleNotifications"
@@ -101,11 +101,14 @@
             <p class="text-sm font-black text-on-surface">{{ displayName }}</p>
             <p class="mt-1 text-xs text-on-surface-variant">租户：{{ tenantCode }}</p>
           </div>
-          <button class="navbar-menu-item" @click="goRoute('/dashboard')">
+          <button v-if="!isPlatformSuper" class="navbar-menu-item" @click="goRoute('/dashboard')">
             <span class="material-symbols-outlined">dashboard</span>回到总览大盘
           </button>
-          <button class="navbar-menu-item" @click="goApproval">
+          <button v-if="!isPlatformSuper" class="navbar-menu-item" @click="goApproval">
             <span class="material-symbols-outlined">approval</span>查看审批中心
+          </button>
+          <button v-if="isPlatformSuper" class="navbar-menu-item" @click="goRoute('/platform/tenant')">
+            <span class="material-symbols-outlined">apartment</span>租户管理
           </button>
           <button class="navbar-menu-item text-error" @click="handleLogout">
             <span class="material-symbols-outlined">logout</span>退出登录
@@ -122,6 +125,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getUnreadNotifications, markNotificationRead, syncAiNotifications } from '@/api/notification.js'
+import { trackBehavior } from '@/utils/behavior'
 
 defineOptions({ name: 'Navbar' });
 
@@ -143,13 +147,20 @@ const pendingNotifications = ref<Array<{ key: string; id: number; title: string;
 const pageTitle = computed<string>(() => (route.meta.title as string) || '高管总览大盘')
 const displayName = computed(() => userStore.userInfo?.userName || '当前用户')
 const tenantCode = computed(() => userStore.userInfo?.tenantCode || '--')
+const isPlatformSuper = computed(() => userStore.isDeveloper)
 const roleLabel = computed(() => (userStore.isDeveloper ? '平台超管' : '运营管理'))
 const avatarText = computed(() => {
   const name = displayName.value.trim()
   return name ? name.slice(0, 1).toUpperCase() : 'U'
 })
 
-const searchableMenus = computed(() => filterMenus([
+const searchableMenus = computed(() => {
+  if (isPlatformSuper.value) {
+    return filterMenus([
+      { name: '租户管理', path: '/platform/tenant', icon: 'apartment', desc: '平台超管维护租户和初始账号', developerOnly: true }
+    ])
+  }
+  return filterMenus([
   { name: '总览大盘', path: '/dashboard', icon: 'dashboard', desc: '查看经营总览、AI 建议和关键待办' },
   { name: 'AI 经营建议', path: '/dashboard/ai-advices', icon: 'psychology', desc: '查看库存、订单、客户、质量等经营洞察' },
   { name: '订单管理', path: '/function/order', icon: 'list_alt', desc: '销售订单、生产订单和状态流转', permissions: ['sales:order:list', 'production:order:list'] },
@@ -164,8 +175,9 @@ const searchableMenus = computed(() => filterMenus([
   { name: '角色管理', path: '/function/role', icon: 'admin_panel_settings', desc: '角色权限配置和员工授权', permissions: ['role:list'] },
   { name: '标签模板', path: '/function/label', icon: 'sell', desc: '标签模板可视化设计与小程序打印联动', permissions: ['label:template:list'] },
   { name: '文档管理', path: '/function/document', icon: 'folder_open', desc: '企业文档目录和文件管理', permissions: ['document:list'] },
-  { name: '租户管理', path: '/platform/tenant', icon: 'apartment', desc: '平台超管维护租户和初始账号', permissions: ['platform:tenant:view'], developerOnly: true }
-]))
+  { name: '租户管理', path: '/platform/tenant', icon: 'apartment', desc: '平台超管维护租户和初始账号', developerOnly: true }
+])
+})
 
 const filteredMenus = computed(() => {
   const query = keyword.value.toLowerCase()
@@ -267,7 +279,22 @@ function canAccessSearchTarget(path: string) {
 
 function goFirstSearchResult() {
   if (filteredMenus.value.length) {
-    goRoute(filteredMenus.value[0].to || filteredMenus.value[0].path)
+    const first = filteredMenus.value[0]
+    trackBehavior({
+      eventType: 'global_search',
+      pagePath: route.fullPath,
+      module: 'navbar',
+      targetType: 'search_result',
+      targetId: first.path,
+      action: 'enter',
+      source: 'navbar_search',
+      metadata: {
+        keyword: keyword.value,
+        label: first.label || first.name,
+        route: first.to || first.path
+      }
+    })
+    goRoute(first.to || first.path)
   }
 }
 
@@ -293,6 +320,10 @@ async function toggleNotifications() {
 }
 
 async function refreshNotifications(sync = false) {
+  if (isPlatformSuper.value) {
+    pendingNotifications.value = []
+    return
+  }
   try {
     if (sync) {
       await syncAiNotifications()
@@ -313,6 +344,18 @@ async function refreshNotifications(sync = false) {
 }
 
 async function openNotification(item: { id: number; route?: string }) {
+  trackBehavior({
+    eventType: 'notification_open',
+    pagePath: route.fullPath,
+    module: 'notification',
+    targetType: 'notification',
+    targetId: String(item.id),
+    action: 'open',
+    source: 'navbar',
+    metadata: {
+      route: item.route || '/dashboard'
+    }
+  })
   try {
     await markNotificationRead(item.id)
   } catch {
@@ -371,9 +414,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .ys-navbar {
-  background: rgba(247, 251, 255, 0.86);
+  background: rgba(255, 253, 248, 0.88);
   backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(191, 215, 245, 0.56);
+  border-bottom: 1px solid rgba(233, 197, 109, 0.42);
 }
 
 .navbar-menu-item {
@@ -385,12 +428,12 @@ onBeforeUnmount(() => {
   text-align: left;
   font-size: 0.875rem;
   font-weight: 800;
-  color: #0b2a6f;
+  color: #101418;
   transition: background 0.18s ease;
 }
 
 .navbar-menu-item:hover {
-  background: #e8f2ff;
+  background: #fff3cc;
 }
 
 .local-avatar {
@@ -400,11 +443,11 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.75rem;
-  background: linear-gradient(135deg, #67b7ff 0%, #1f6fff 58%, #0b2a6f 100%);
+  background: linear-gradient(135deg, #ffd43b 0%, #f5a400 58%, #f08a00 100%);
   color: #ffffff;
   font-size: 1rem;
   font-weight: 900;
-  box-shadow: 0 12px 24px rgba(31, 111, 255, 0.22);
+  box-shadow: 0 12px 24px rgba(245, 164, 0, 0.24);
 }
 
 .line-clamp-2 {

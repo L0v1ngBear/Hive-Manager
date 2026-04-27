@@ -842,8 +842,8 @@ function buildReceiptTemplateContent(config) {
 .receipt-page-shell {
   min-height: calc(100vh - 5rem);
   background:
-    radial-gradient(circle at 8% 0%, rgba(103, 183, 255, 0.16), transparent 32%),
-    linear-gradient(180deg, #f7fbff 0%, #f4f8ff 100%);
+    radial-gradient(circle at 8% 0%, rgba(255, 196, 41, 0.18), transparent 32%),
+    linear-gradient(180deg, #fffdf8 0%, #fffaf0 100%);
 }
 
 .receipt-hero {
@@ -861,10 +861,10 @@ function buildReceiptTemplateContent(config) {
 }
 
 .receipt-tabs button {
-  border: 1px solid #dbe8ff;
+  border: 1px solid #f0d48e;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.86);
-  color: #4d6280;
+  color: #5f5a4e;
   padding: .7rem 1rem;
   display: inline-flex;
   align-items: center;
@@ -874,10 +874,10 @@ function buildReceiptTemplateContent(config) {
 }
 
 .receipt-tabs button.active {
-  background: linear-gradient(135deg, #67b7ff 0%, #1f6fff 58%, #0b2a6f 100%);
-  border-color: #1f6fff;
+  background: linear-gradient(135deg, #ffd43b 0%, #f5a400 58%, #f08a00 100%);
+  border-color: #f5a400;
   color: #fff;
-  box-shadow: 0 14px 30px rgba(31, 111, 255, 0.22);
+  box-shadow: 0 14px 30px rgba(245, 164, 0, 0.24);
 }
 
 .receipt-workspace {
@@ -999,7 +999,7 @@ function buildReceiptTemplateContent(config) {
 
 .queue-card:hover,
 .queue-card.active {
-  border-color: #1f6fff;
+  border-color: #f5a400;
   box-shadow: 0 8px 24px rgb(69 95 136 / 12%);
   transform: translateY(-1px);
 }
@@ -1088,7 +1088,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .template-select:focus {
-  border-color: #1f6fff;
+  border-color: #f5a400;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 
@@ -1110,13 +1110,13 @@ function buildReceiptTemplateContent(config) {
 }
 
 .btn-print {
-  background: #1f6fff;
+  background: #f5a400;
   color: white;
 }
 
 .btn-template {
   background: #f8fafc;
-  color: #1f6fff;
+  color: #b56f00;
   border: 1px solid #dbe3ef;
 }
 
@@ -1148,7 +1148,7 @@ function buildReceiptTemplateContent(config) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #1f6fff;
+  color: #b56f00;
   font-weight: 900;
 }
 
@@ -1226,7 +1226,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .template-grid input:focus {
-  border-color: #1f6fff;
+  border-color: #f5a400;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 
@@ -1256,7 +1256,7 @@ function buildReceiptTemplateContent(config) {
 .variable-strip span {
   border-radius: 999px;
   background: #eef2f7;
-  color: #1f6fff;
+  color: #b56f00;
   padding: .28rem .6rem;
   font-size: .72rem;
   font-weight: 800;
@@ -1330,7 +1330,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .column-editor-row > input:focus {
-  border-color: #1f6fff;
+  border-color: #f5a400;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 
@@ -1343,7 +1343,7 @@ function buildReceiptTemplateContent(config) {
   border: 1px solid #dbe3ef;
   border-radius: .55rem;
   background: #f8fafc;
-  color: #1f6fff;
+  color: #b56f00;
   padding: .35rem .5rem;
   font-size: .72rem;
   font-weight: 900;
@@ -1451,7 +1451,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .remark-editor-row input:focus {
-  border-color: #1f6fff;
+  border-color: #f5a400;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 

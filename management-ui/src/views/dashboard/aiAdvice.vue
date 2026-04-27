@@ -155,14 +155,37 @@
 
               <div class="mt-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <p class="text-xs text-on-surface-variant leading-5">{{ item.trackingHint || '建议纳入部门例会跟进，形成处理和复盘记录。' }}</p>
-                <button
-                  v-if="item.route"
-                  @click="router.push(item.route)"
-                  class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-black hover:bg-primary/90 transition-colors"
-                >
-                  {{ item.actionLabel || '查看详情' }}
-                  <span class="material-symbols-outlined text-[18px] leading-none">arrow_forward</span>
-                </button>
+                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    @click="submitAdviceFeedback(item, 'useful')"
+                    class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/80 text-primary text-xs font-black border border-primary/20 hover:bg-primary/10 transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[17px] leading-none">thumb_up</span>
+                    有价值
+                  </button>
+                  <button
+                    @click="submitAdviceFeedback(item, 'irrelevant')"
+                    class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/80 text-on-surface-variant text-xs font-black border border-outline-variant/40 hover:bg-surface-container-high transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[17px] leading-none">thumb_down</span>
+                    不准确
+                  </button>
+                  <button
+                    @click="submitAdviceFeedback(item, 'resolved')"
+                    class="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 transition-colors"
+                  >
+                    <span class="material-symbols-outlined text-[17px] leading-none">task_alt</span>
+                    已处理
+                  </button>
+                  <button
+                    v-if="item.route"
+                    @click="openAdviceRoute(item)"
+                    class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-black hover:bg-primary/90 transition-colors"
+                  >
+                    {{ item.actionLabel || '查看详情' }}
+                    <span class="material-symbols-outlined text-[18px] leading-none">arrow_forward</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -181,7 +204,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { getDashboardAiAdvices } from './api/dashboard.js'
+import { feedbackDashboardAiAdvice, getDashboardAiAdvices } from './api/dashboard.js'
+import { trackBehavior } from '@/utils/behavior'
 
 defineOptions({ name: 'DashboardAiAdvice' })
 
@@ -237,11 +261,89 @@ async function fetchAdvices(refresh = false) {
   loading.value = true
   try {
     advices.value = await getDashboardAiAdvices(refresh ? { refresh: true } : {})
+    trackAdviceExposure()
   } catch (error) {
     ElMessage.error(error?.msg || 'AI 建议加载失败')
   } finally {
     loading.value = false
   }
+}
+
+function trackAdviceExposure() {
+  advices.value.slice(0, 20).forEach((item) => {
+    trackBehavior({
+      eventType: 'ai_advice_view',
+      pagePath: '/dashboard/ai-advices',
+      module: 'ai_advice',
+      targetType: 'advice',
+      targetId: `${item.category || 'overview'}:${item.title || ''}`,
+      action: 'view',
+      source: 'ai_center',
+      metadata: {
+        category: item.category,
+        level: item.level,
+        priority: item.priority,
+        sourceType: item.sourceType,
+        route: item.route
+      }
+    })
+  })
+}
+
+function openAdviceRoute(item) {
+  trackBehavior({
+    eventType: 'ai_advice_click',
+    pagePath: '/dashboard/ai-advices',
+    module: 'ai_advice',
+    targetType: 'advice',
+    targetId: `${item.category || 'overview'}:${item.title || ''}`,
+    action: 'click',
+    source: 'ai_center',
+    metadata: {
+      category: item.category,
+      level: item.level,
+      priority: item.priority,
+      route: item.route
+    }
+  })
+  router.push(item.route)
+}
+
+async function submitAdviceFeedback(item, feedbackType) {
+  if (!item?.sampleKey) {
+    ElMessage.warning('该建议暂未生成训练样本，请刷新后再反馈')
+    return
+  }
+  try {
+    await feedbackDashboardAiAdvice({
+      sampleKey: item.sampleKey,
+      feedbackType
+    })
+    trackBehavior({
+      eventType: 'ai_advice_feedback',
+      pagePath: '/dashboard/ai-advices',
+      module: 'ai_advice',
+      targetType: 'advice',
+      targetId: item.sampleKey,
+      action: feedbackType,
+      source: 'ai_center',
+      metadata: {
+        category: item.category,
+        level: item.level,
+        priority: item.priority,
+        title: item.title
+      }
+    })
+    ElMessage.success(resolveFeedbackMessage(feedbackType))
+  } catch (error) {
+    ElMessage.error(error?.msg || '反馈提交失败')
+  }
+}
+
+function resolveFeedbackMessage(feedbackType) {
+  if (feedbackType === 'irrelevant') return '已记录为不准确，后续会降低类似建议权重'
+  if (feedbackType === 'resolved') return '已记录为已处理，后续会用于闭环评估'
+  return '已记录为有价值，后续会强化类似建议'
 }
 
 const categoryMeta = {

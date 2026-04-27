@@ -22,10 +22,14 @@ hive:
     collect-to-slf4j: true
     async-db: true
     queue-type: rabbitmq
-    rabbit-exchange: hive.operation.log.exchange
-    rabbit-routing-key: hive.operation.log
-    rabbit-queue: hive.operation.log.queue
-  # 开发环境日志级别更高，方便调试
+      rabbit-exchange: hive.operation.log.exchange
+      rabbit-routing-key: hive.operation.log
+      rabbit-queue: hive.operation.log.queue
+      cleanup-enabled: true
+      retention-days: 90
+      cleanup-batch-size: 5000
+      cleanup-cron: "0 20 3 * * ?"
+    # 开发环境日志级别更高，方便调试
 logging:
   level:
     root: INFO
