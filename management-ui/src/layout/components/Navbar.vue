@@ -1,5 +1,5 @@
 <template>
-  <header ref="navbarRef" class="ys-navbar h-20 bg-surface flex items-center justify-between px-4 md:px-8 shrink-0 relative z-10">
+  <header ref="navbarRef" class="ys-navbar min-h-16 md:h-20 bg-surface flex flex-wrap md:flex-nowrap items-center justify-between gap-3 px-3 py-3 md:px-8 md:py-0 shrink-0 relative z-10">
     <button
       class="md:hidden p-2 text-on-surface-variant rounded-full hover:bg-surface-container-highest"
       @click="emit('toggle-mobile-menu')"
@@ -7,7 +7,7 @@
       <span class="material-symbols-outlined">menu</span>
     </button>
 
-    <div class="flex items-center gap-6 flex-1 max-w-2xl ml-4 md:ml-0">
+    <div class="flex min-w-0 flex-1 items-center gap-3 md:gap-6 max-w-2xl md:ml-0">
       <h2 class="text-xl font-bold text-on-surface hidden lg:block">{{ pageTitle }}</h2>
 
       <div v-if="!isPlatformSuper" class="relative flex-1 group max-w-md hidden md:block">
@@ -22,7 +22,7 @@
         >
         <div
           v-if="searchPanelOpen && filteredMenus.length"
-          class="absolute left-0 right-0 top-[calc(100%+10px)] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white/95 shadow-xl shadow-primary/10 backdrop-blur-xl"
+          class="absolute left-0 right-0 top-[calc(100%+10px)] z-40 overflow-hidden rounded-2xl border border-outline-variant/40 bg-white/95 shadow-xl shadow-primary/10 backdrop-blur-xl"
         >
           <button
             v-for="item in filteredMenus"
@@ -42,6 +42,14 @@
     </div>
 
     <div class="flex items-center gap-2 md:gap-4">
+      <button
+        v-if="!isPlatformSuper"
+        class="md:hidden w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors"
+        @click.stop="toggleMobileSearch"
+      >
+        <span class="material-symbols-outlined">search</span>
+      </button>
+
       <div v-if="!isPlatformSuper" class="relative">
       <button
         class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors relative"
@@ -52,30 +60,45 @@
       </button>
         <div
           v-if="notificationOpen"
-          class="absolute right-0 top-[calc(100%+12px)] w-[320px] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white/95 shadow-xl shadow-primary/10 backdrop-blur-xl"
+          class="absolute right-0 top-[calc(100%+12px)] w-[min(320px,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white/95 shadow-xl shadow-primary/10 backdrop-blur-xl"
         >
           <div class="flex items-center justify-between border-b border-outline-variant/30 px-4 py-3">
             <div>
               <p class="text-sm font-black text-on-surface">待办通知</p>
               <p class="text-xs text-on-surface-variant">{{ pendingNotifications.length ? `有 ${pendingNotifications.length} 条需要处理` : '当前没有新的待办' }}</p>
             </div>
-            <button class="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container" @click="refreshNotifications(true)">
+            <button class="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container" @click="refreshNotifications(canViewAiAdvice)">
               刷新
             </button>
           </div>
           <div class="max-h-[360px] overflow-y-auto p-2">
-            <button
+            <div
               v-for="item in pendingNotifications"
               :key="item.key"
-              class="w-full rounded-xl px-3 py-3 text-left transition-colors hover:bg-primary-container"
-              @click="openNotification(item)"
+              class="rounded-xl px-3 py-3 transition-colors hover:bg-primary-container"
             >
-              <div class="flex items-center justify-between gap-3">
-                <strong class="text-sm text-on-surface">{{ item.title }}</strong>
-                <span class="rounded-full bg-primary-container px-2 py-0.5 text-[10px] font-bold text-primary">{{ item.type }}</span>
+              <button class="w-full text-left" @click="openNotification(item)">
+                <div class="flex items-center justify-between gap-3">
+                  <strong class="text-sm text-on-surface">{{ item.title }}</strong>
+                  <span class="rounded-full bg-primary-container px-2 py-0.5 text-[10px] font-bold text-primary">{{ item.type }}</span>
+                </div>
+                <p class="mt-1 line-clamp-2 text-xs leading-5 text-on-surface-variant">{{ item.desc }}</p>
+              </button>
+              <div class="mt-2 flex items-center gap-2">
+                <button
+                  class="rounded-full bg-primary px-3 py-1 text-[11px] font-black text-white shadow-sm shadow-primary/20 transition hover:-translate-y-0.5"
+                  @click.stop="closeNotification(item, 'DONE')"
+                >
+                  完成
+                </button>
+                <button
+                  class="rounded-full bg-surface-container-highest px-3 py-1 text-[11px] font-black text-on-surface-variant transition hover:-translate-y-0.5 hover:bg-outline-variant/40"
+                  @click.stop="closeNotification(item, 'IGNORED')"
+                >
+                  跳过
+                </button>
               </div>
-              <p class="mt-1 line-clamp-2 text-xs leading-5 text-on-surface-variant">{{ item.desc }}</p>
-            </button>
+            </div>
             <div v-if="!pendingNotifications.length" class="px-4 py-8 text-center">
               <span class="material-symbols-outlined text-4xl text-primary/40">task_alt</span>
               <p class="mt-2 text-sm font-bold text-on-surface">待办已清空</p>
@@ -95,7 +118,7 @@
         </button>
         <div
           v-if="userMenuOpen"
-          class="absolute right-0 top-[calc(100%+12px)] w-64 overflow-hidden rounded-2xl border border-outline-variant/40 bg-white/95 shadow-xl shadow-primary/10 backdrop-blur-xl"
+          class="absolute right-0 top-[calc(100%+12px)] w-[min(16rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white/95 shadow-xl shadow-primary/10 backdrop-blur-xl"
         >
           <div class="border-b border-outline-variant/30 px-4 py-4">
             <p class="text-sm font-black text-on-surface">{{ displayName }}</p>
@@ -110,8 +133,43 @@
           <button v-if="isPlatformSuper" class="navbar-menu-item" @click="goRoute('/platform/tenant')">
             <span class="material-symbols-outlined">apartment</span>租户管理
           </button>
+          <button v-if="!isPlatformSuper" class="navbar-menu-item" @click="goRoute('/manual')">
+            <span class="material-symbols-outlined">menu_book</span>使用手册
+          </button>
           <button class="navbar-menu-item text-error" @click="handleLogout">
             <span class="material-symbols-outlined">logout</span>退出登录
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="mobileSearchOpen && !isPlatformSuper" class="w-full md:hidden">
+      <div class="relative">
+        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
+        <input
+          v-model.trim="keyword"
+          type="text"
+          placeholder="搜索订单、库存、客户、员工..."
+          class="w-full bg-surface-container-highest border-none rounded-xl py-2.5 pl-12 pr-4 text-sm text-on-surface focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-on-surface-variant/60"
+          @focus="searchPanelOpen = true"
+          @keydown.enter.prevent="goFirstSearchResult"
+        >
+        <div
+          v-if="searchPanelOpen && filteredMenus.length"
+          class="absolute left-0 right-0 top-[calc(100%+10px)] z-40 max-h-[60vh] overflow-y-auto rounded-2xl border border-outline-variant/40 bg-white/95 shadow-xl shadow-primary/10 backdrop-blur-xl"
+        >
+          <button
+            v-for="item in filteredMenus"
+            :key="`mobile-${item.path}-${item.label || item.name}`"
+            class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-primary-container"
+            @click="goRoute(item.to || item.path)"
+          >
+            <span class="material-symbols-outlined text-primary text-[20px]">{{ item.icon }}</span>
+            <span class="min-w-0 flex-1">
+              <strong class="block truncate text-on-surface">{{ item.label || item.name }}</strong>
+              <small class="block truncate text-on-surface-variant">{{ item.desc }}</small>
+            </span>
+            <span class="material-symbols-outlined text-on-surface-variant text-[18px]">arrow_forward</span>
           </button>
         </div>
       </div>
@@ -124,7 +182,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { getUnreadNotifications, markNotificationRead, syncAiNotifications } from '@/api/notification.js'
+import { closeNotificationTask, getUnreadNotifications, markNotificationRead, syncAiNotifications } from '@/api/notification.js'
 import { trackBehavior } from '@/utils/behavior'
 
 defineOptions({ name: 'Navbar' });
@@ -137,17 +195,42 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const navbarRef = ref<HTMLElement | null>(null)
+const AI_ADVICE_PERMISSIONS = [
+  'dashboard:ai:view',
+  'dashboard:ai:*',
+  'dashboard:*',
+  'dashboard:ai:inventory',
+  'dashboard:ai:order',
+  'dashboard:ai:customer',
+  'dashboard:ai:quality',
+  'dashboard:ai:finance',
+  'dashboard:ai:employee',
+  'dashboard:ai:operation'
+]
 const keyword = ref('')
 const searchPanelOpen = ref(false)
+const mobileSearchOpen = ref(false)
 const notificationOpen = ref(false)
 const userMenuOpen = ref(false)
-const pendingNotifications = ref<Array<{ key: string; id: number; title: string; desc: string; type: string; route?: string; level?: string }>>([])
+type PendingNotification = {
+  key: string
+  id: number
+  title: string
+  desc: string
+  type: string
+  route?: string
+  level?: string
+  taskStatus?: string
+}
+
+const pendingNotifications = ref<PendingNotification[]>([])
 
 // 动态获取路由元信息中的中文标题
 const pageTitle = computed<string>(() => (route.meta.title as string) || '高管总览大盘')
 const displayName = computed(() => userStore.userInfo?.userName || '当前用户')
 const tenantCode = computed(() => userStore.userInfo?.tenantCode || '--')
 const isPlatformSuper = computed(() => userStore.isDeveloper)
+const canViewAiAdvice = computed(() => userStore.hasAnyPermission(AI_ADVICE_PERMISSIONS))
 const roleLabel = computed(() => (userStore.isDeveloper ? '平台超管' : '运营管理'))
 const avatarText = computed(() => {
   const name = displayName.value.trim()
@@ -162,7 +245,8 @@ const searchableMenus = computed(() => {
   }
   return filterMenus([
   { name: '总览大盘', path: '/dashboard', icon: 'dashboard', desc: '查看经营总览、AI 建议和关键待办' },
-  { name: 'AI 经营建议', path: '/dashboard/ai-advices', icon: 'psychology', desc: '查看库存、订单、客户、质量等经营洞察' },
+  { name: '使用手册', path: '/manual', icon: 'menu_book', desc: '查看系统使用流程、打印说明和常见问题' },
+  { name: 'AI 经营建议', path: '/dashboard/ai-advices', icon: 'psychology', desc: '查看库存、订单、客户、质量等经营洞察', permissions: AI_ADVICE_PERMISSIONS },
   { name: '订单管理', path: '/function/order', icon: 'list_alt', desc: '销售订单、生产订单和状态流转', permissions: ['sales:order:list', 'production:order:list'] },
   { name: '库存管理', path: '/function/inventory', icon: 'inventory_2', desc: '布匹入库、出库、库存预警和流水', permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:in', 'inventory:cloth:out'] },
   { name: '次品管理', path: '/function/bad-product', icon: 'report_problem', desc: '质量异常登记、处理闭环和损失跟踪', permissions: ['badproduct:list', 'badproduct:save', 'badproduct:process'] },
@@ -300,10 +384,18 @@ function goFirstSearchResult() {
 
 function goRoute(target: string | { path: string; query?: Record<string, string> }) {
   searchPanelOpen.value = false
+  mobileSearchOpen.value = false
   notificationOpen.value = false
   userMenuOpen.value = false
   keyword.value = ''
   router.push(target)
+}
+
+function toggleMobileSearch() {
+  mobileSearchOpen.value = !mobileSearchOpen.value
+  searchPanelOpen.value = mobileSearchOpen.value
+  notificationOpen.value = false
+  userMenuOpen.value = false
 }
 
 function goApproval() {
@@ -314,6 +406,7 @@ async function toggleNotifications() {
   notificationOpen.value = !notificationOpen.value
   userMenuOpen.value = false
   searchPanelOpen.value = false
+  mobileSearchOpen.value = false
   if (notificationOpen.value) {
     await refreshNotifications()
   }
@@ -336,14 +429,15 @@ async function refreshNotifications(sync = false) {
       desc: item.content || '请进入对应业务页面查看详情',
       type: resolveNotificationType(item),
       route: item.route || '/dashboard',
-      level: item.level
+      level: item.level,
+      taskStatus: item.taskStatus || 'PENDING'
     }))
   } catch (error) {
     ElMessage.warning('通知加载失败，请稍后再试')
   }
 }
 
-async function openNotification(item: { id: number; route?: string }) {
+async function openNotification(item: PendingNotification) {
   trackBehavior({
     eventType: 'notification_open',
     pagePath: route.fullPath,
@@ -363,6 +457,30 @@ async function openNotification(item: { id: number; route?: string }) {
   }
   goRoute(item.route || '/dashboard')
   await refreshNotifications()
+}
+
+async function closeNotification(item: PendingNotification, taskStatus: 'DONE' | 'IGNORED') {
+  try {
+    await closeNotificationTask(item.id, { taskStatus })
+    trackBehavior({
+      eventType: 'notification_close',
+      pagePath: route.fullPath,
+      module: 'notification',
+      targetType: 'notification',
+      targetId: String(item.id),
+      action: taskStatus === 'DONE' ? 'done' : 'ignored',
+      source: 'navbar',
+      metadata: {
+        title: item.title,
+        type: item.type,
+        route: item.route || '/dashboard'
+      }
+    })
+    ElMessage.success(taskStatus === 'DONE' ? '已完成，AI 建议会同步记录处理结果' : '已跳过，后续会减少类似提醒')
+    await refreshNotifications()
+  } catch (error) {
+    ElMessage.warning('待办处理失败，请稍后再试')
+  }
 }
 
 async function handleLogout() {
@@ -397,6 +515,7 @@ function handleClickOutside(event: MouseEvent) {
   const target = event.target as Node
   if (navbarRef.value && !navbarRef.value.contains(target)) {
     searchPanelOpen.value = false
+    mobileSearchOpen.value = false
     notificationOpen.value = false
     userMenuOpen.value = false
   }

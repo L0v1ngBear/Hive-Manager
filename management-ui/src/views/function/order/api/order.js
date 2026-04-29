@@ -23,6 +23,25 @@ export function createSalesOrder(data) {
   })
 }
 
+export function uploadSalesOrderAttachment(data) {
+  return request({
+    url: '/order/sales/attachment/upload',
+    method: 'post',
+    data,
+    timeout: 30000
+  })
+}
+
+export function downloadSalesOrderAttachment(params) {
+  return request({
+    url: '/order/sales/attachment/download',
+    method: 'get',
+    params,
+    responseType: 'blob',
+    timeout: 30000
+  })
+}
+
 export function saveSalesOrder(orderId, data) {
   return request({
     url: `/order/sales/save/${orderId}`,

@@ -224,6 +224,18 @@
                   <div class="mt-1 text-xs text-on-surface-variant">用于财务开票跟进和后续统计。</div>
                 </div>
               </div>
+              <div class="mt-4">
+                <div class="info-card">
+                  <div class="info-label">订单附件</div>
+                  <template v-if="salesDetail.attachmentUrl">
+                    <button class="mt-2 text-left font-bold text-primary hover:underline" @click="openAttachmentUrl(salesDetail.attachmentUrl, salesDetail.attachmentName)">
+                      {{ salesDetail.attachmentName || '查看附件' }}
+                    </button>
+                    <div class="mt-1 text-xs text-on-surface-variant">{{ formatFileSize(salesDetail.attachmentSize) }}</div>
+                  </template>
+                  <div v-else class="mt-2 text-sm text-on-surface-variant">暂无附件</div>
+                </div>
+              </div>
               <div class="mt-6">
                 <div class="section-title">订单明细</div>
                 <div v-for="item in salesDetail.items || []" :key="item.id" class="detail-item">
@@ -434,6 +446,36 @@
                 <label class="field-label">备注</label>
                 <textarea v-model.trim="salesForm.remark" class="box-input min-h-[92px] resize-none"></textarea>
               </div>
+              <div>
+                <label class="field-label">订单附件</label>
+                <input
+                    ref="salesAttachmentInputRef"
+                    type="file"
+                    class="hidden"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
+                    @change="handleSalesAttachmentChange"
+                />
+                <div class="attachment-uploader" @click="triggerSalesAttachmentUpload">
+                  <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-2xl text-primary">
+                      {{ salesAttachmentUploading ? 'progress_activity' : 'upload_file' }}
+                    </span>
+                    <div class="min-w-0 flex-1">
+                      <p class="truncate text-sm font-bold text-primary">
+                        {{ salesForm.attachmentName || '上传合同、客户需求或沟通截图' }}
+                      </p>
+                      <p class="mt-1 text-xs text-on-surface-variant">
+                        支持 PDF、图片、Word、Excel、文本或压缩包，单个不超过 10MB
+                        <template v-if="salesForm.attachmentSize"> · {{ formatFileSize(salesForm.attachmentSize) }}</template>
+                      </p>
+                    </div>
+                  </div>
+                  <div v-if="salesForm.attachmentUrl" class="mt-3 flex gap-2">
+                    <span class="attachment-action text-primary">已上传</span>
+                    <button type="button" class="attachment-action text-error" @click.stop="removeSalesAttachment">移除附件</button>
+                  </div>
+                </div>
+              </div>
             </template>
 
             <template v-else>
@@ -539,8 +581,10 @@ import {
   getProductionOrderPage,
   getSalesOrderDetail,
   getSalesOrderPage,
+  downloadSalesOrderAttachment,
   saveProductionOrder,
-  saveSalesOrder
+  saveSalesOrder,
+  uploadSalesOrderAttachment
 } from './api/order'
 
 const route = useRoute()
@@ -584,6 +628,8 @@ const editingOrderId = ref('')
 const submitting = ref(false)
 const salesForm = reactive(defaultSalesForm())
 const productionForm = reactive(defaultProductionForm())
+const salesAttachmentInputRef = ref(null)
+const salesAttachmentUploading = ref(false)
 
 const currentStatuses = computed(() => currentTab.value === 'sales' ? salesStatuses : productionStatuses)
 const currentState = computed(() => currentTab.value === 'sales' ? salesState : productionState)
@@ -634,6 +680,9 @@ function defaultSalesForm() {
     expressNo: '',
     isInvoice: 0,
     remark: '',
+    attachmentName: '',
+    attachmentUrl: '',
+    attachmentSize: null,
     status: 'pending_confirm',
     createProductionOrder: 1,
     items: [defaultSalesItem()]
@@ -778,6 +827,9 @@ async function openEdit(orderId) {
     salesForm.expressNo = detail.expressNo || ''
     salesForm.isInvoice = Number(detail.isInvoice || 0)
     salesForm.remark = detail.remark || ''
+    salesForm.attachmentName = detail.attachmentName || ''
+    salesForm.attachmentUrl = detail.attachmentUrl || ''
+    salesForm.attachmentSize = detail.attachmentSize || null
     salesForm.status = detail.status || 'pending_confirm'
     salesForm.createProductionOrder = 0
     salesForm.items = (detail.items || []).length
@@ -824,6 +876,61 @@ function removeSalesItem(index) {
     return
   }
   salesForm.items.splice(index, 1)
+}
+
+function triggerSalesAttachmentUpload() {
+  salesAttachmentInputRef.value?.click()
+}
+
+async function handleSalesAttachmentChange(event) {
+  const file = event.target.files?.[0]
+  if (!file) {
+    return
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    ElMessage.warning('订单附件不能超过 10MB')
+    event.target.value = ''
+    return
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+  salesAttachmentUploading.value = true
+  try {
+    const result = await uploadSalesOrderAttachment(formData)
+    salesForm.attachmentName = result.fileName || file.name
+    salesForm.attachmentUrl = result.fileUrl || ''
+    salesForm.attachmentSize = result.fileSize || file.size
+    ElMessage.success('订单附件上传成功')
+  } finally {
+    salesAttachmentUploading.value = false
+    event.target.value = ''
+  }
+}
+
+function removeSalesAttachment() {
+  salesForm.attachmentName = ''
+  salesForm.attachmentUrl = ''
+  salesForm.attachmentSize = null
+}
+
+function openSalesAttachment() {
+  openAttachmentUrl(salesForm.attachmentUrl, salesForm.attachmentName)
+}
+
+async function openAttachmentUrl(url, name) {
+  if (!url) {
+    return
+  }
+  const blob = await downloadSalesOrderAttachment({url, name})
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = name || 'order-attachment'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(objectUrl)
 }
 
 async function submitForm() {
@@ -886,6 +993,9 @@ function buildSalesPayload() {
     expressNo: blank(salesForm.expressNo),
     isInvoice: Number(salesForm.isInvoice || 0),
     remark: blank(salesForm.remark),
+    attachmentName: blank(salesForm.attachmentName),
+    attachmentUrl: blank(salesForm.attachmentUrl),
+    attachmentSize: salesForm.attachmentSize || null,
     status: salesForm.status,
     createProductionOrder: formMode.value === 'create' ? Number(salesForm.createProductionOrder || 0) : 0,
     items: salesForm.items.map(item => ({
@@ -951,6 +1061,17 @@ function formatAmount(value) {
   return value === null || value === undefined || value === '' ? '0.00' : Number(value).toFixed(2)
 }
 
+function formatFileSize(value) {
+  const size = Number(value || 0)
+  if (!size) {
+    return ''
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`
+  }
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
 function formatNumber(value) {
   return value === null || value === undefined || value === '' ? '' : String(Number(value))
 }
@@ -1009,6 +1130,30 @@ function productionStatusClass(status) {
 
 .box-input:focus {
   box-shadow: 0 0 0 2px rgba(0, 82, 204, .2)
+}
+
+.attachment-uploader {
+  margin-top: .5rem;
+  cursor: pointer;
+  border-radius: 1rem;
+  border: 1px dashed rgba(31, 111, 255, .35);
+  background: linear-gradient(135deg, rgba(31, 111, 255, .06), rgba(255, 176, 0, .08));
+  padding: 1rem;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease
+}
+
+.attachment-uploader:hover {
+  border-color: rgb(var(--primary));
+  box-shadow: 0 12px 28px rgba(31, 111, 255, .12);
+  transform: translateY(-1px)
+}
+
+.attachment-action {
+  border-radius: .625rem;
+  background: rgba(255, 255, 255, .8);
+  padding: .375rem .75rem;
+  font-size: .75rem;
+  font-weight: 800
 }
 
 .stat-card {

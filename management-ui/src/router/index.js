@@ -4,6 +4,19 @@ import Layout from '@/layout/index.vue'
 import { useUserStore } from '@/stores/user'
 import { buildLoginQuery, normalizeLoginRedirect } from '@/utils/redirect'
 
+const AI_ADVICE_PERMISSIONS = [
+  'dashboard:ai:view',
+  'dashboard:ai:*',
+  'dashboard:*',
+  'dashboard:ai:inventory',
+  'dashboard:ai:order',
+  'dashboard:ai:customer',
+  'dashboard:ai:quality',
+  'dashboard:ai:finance',
+  'dashboard:ai:employee',
+  'dashboard:ai:operation'
+]
+
 export const constantRoutes = [
   {
     path: '/login',
@@ -42,7 +55,13 @@ export const constantRoutes = [
         path: 'dashboard/ai-advices',
         name: 'DashboardAiAdvice',
         component: () => import('@/views/dashboard/aiAdvice.vue'),
-        meta: { title: 'AI 经营建议' }
+        meta: { title: 'AI 经营建议', permissions: AI_ADVICE_PERMISSIONS }
+      },
+      {
+        path: 'manual',
+        name: 'UserManual',
+        component: () => import('@/views/manual/UserManual.vue'),
+        meta: { title: '使用手册' }
       }
     ]
   },

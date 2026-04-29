@@ -4,11 +4,13 @@ import jakarta.annotation.Resource;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
 import my.management.module.notification.model.dto.NotificationPageRequest;
+import my.management.module.notification.model.dto.NotificationTaskCloseRequest;
 import my.management.module.notification.model.vo.NotificationVO;
 import my.management.module.notification.service.NotificationService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -42,6 +44,12 @@ public class NotificationController {
     @PostMapping("/{id}/read")
     public Result<Void> read(@PathVariable Long id) {
         notificationService.markRead(id);
+        return Result.success(null);
+    }
+
+    @PostMapping("/{id}/close")
+    public Result<Void> close(@PathVariable Long id, @RequestBody NotificationTaskCloseRequest request) {
+        notificationService.closeTask(id, request);
         return Result.success(null);
     }
 

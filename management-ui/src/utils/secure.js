@@ -1,5 +1,3 @@
-const GLOBAL_RESPONSE_KEY = 'sygav9Iec4kZiRvivnwSVe3iWq66cTCleo8gr3qL2GyXTcQHXJ1E57ZqfhqfIyWp70Imy0rJ7ZkS5SI4T0asRQ=='
-
 function base64ToUint8Array(base64) {
   const binaryString = window.atob(base64)
   const bytes = new Uint8Array(binaryString.length)
@@ -30,15 +28,21 @@ async function importMacKey(rawKey) {
 }
 
 export async function decryptPayload(responseKey, payload) {
-  const finalKey = responseKey || GLOBAL_RESPONSE_KEY
-  if (!finalKey || !payload?.iv || !payload?.ciphertext || !payload?.mac) {
+  if (!payload?.iv || !payload?.ciphertext || !payload?.mac) {
     return payload
+  }
+  if (!responseKey) {
+    throw new Error('缺少响应解密密钥，请重新登录')
   }
   if (!window.crypto?.subtle) {
     throw new Error('当前浏览器不支持响应解密')
   }
 
-  const keyMaterial = base64ToUint8Array(finalKey)
+  const keyMaterial = base64ToUint8Array(responseKey)
+  if (keyMaterial.length < 64) {
+    throw new Error('响应解密密钥格式错误')
+  }
+
   const cipherKey = keyMaterial.slice(0, 32)
   const macKey = keyMaterial.slice(32, 64)
   const key = await importAesKey(cipherKey)

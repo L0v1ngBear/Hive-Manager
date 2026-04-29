@@ -40,6 +40,12 @@ public class SalesOrderDetailVO {
 
     private String remark;
 
+    private String attachmentName;
+
+    private String attachmentUrl;
+
+    private Long attachmentSize;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

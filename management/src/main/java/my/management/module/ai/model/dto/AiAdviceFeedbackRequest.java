@@ -13,7 +13,7 @@ public class AiAdviceFeedbackRequest {
     private String sampleKey;
 
     /**
-     * useful：有价值；irrelevant：不准确；resolved：已处理。
+     * useful：有价值；irrelevant：不准确；ignored：暂不采纳；resolved：已处理。
      */
     private String feedbackType;
 

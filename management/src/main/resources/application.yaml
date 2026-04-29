@@ -30,6 +30,9 @@ auth:
 security:
   response:
     key: ${RESPONSE_ENCRYPT_KEY:sygav9Iec4kZiRvivnwSVe3iWq66cTCleo8gr3qL2GyXTcQHXJ1E57ZqfhqfIyWp70Imy0rJ7ZkS5SI4T0asRQ==}
+  privacy:
+    # 手机号等隐私字段的一致性哈希密钥；生产环境必须通过环境变量提供并妥善保管。
+    hash-secret: ${PRIVACY_HASH_SECRET:${AUTH_TOKEN_SECRET:hive-manager-dev-privacy-secret}}
 
 platform:
   developer-logins: platform_admin

@@ -26,6 +26,12 @@ public class NotificationVO {
 
     private Integer readFlag;
 
+    private String taskStatus;
+
+    private String closeResult;
+
+    private String closeNote;
+
     private String sourceType;
 
     private LocalDateTime updateTime;

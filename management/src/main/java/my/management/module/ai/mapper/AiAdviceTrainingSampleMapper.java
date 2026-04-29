@@ -2,9 +2,11 @@ package my.management.module.ai.mapper;
 
 import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import my.management.module.ai.model.entity.AiAdviceTrainingSample;
+import my.management.module.ai.model.vo.AiAdviceLearningStatVO;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
@@ -66,4 +68,39 @@ public interface AiAdviceTrainingSampleMapper {
                        @Param("feedbackType") String feedbackType,
                        @Param("feedbackText") String feedbackText,
                        @Param("feedbackUserId") Long feedbackUserId);
+
+    /**
+     * 根据样本键查询建议维度，用于反馈前做维度权限校验。
+     */
+    @Select("""
+            SELECT category
+            FROM ai_advice_training_sample
+            WHERE tenant_code = #{tenantCode}
+              AND sample_key = #{sampleKey}
+            LIMIT 1
+            """)
+    String selectCategoryBySampleKey(@Param("tenantCode") String tenantCode,
+                                     @Param("sampleKey") String sampleKey);
+
+    /**
+     * 按业务维度聚合租户反馈，用于后续建议的个性化排序和置信度校准。
+     */
+    @Select("""
+            SELECT
+                COALESCE(category, 'overview') AS category,
+                COUNT(1) AS sampleCount,
+                SUM(CASE WHEN feedback_type IS NOT NULL THEN 1 ELSE 0 END) AS feedbackCount,
+                SUM(CASE WHEN feedback_type = 'useful' THEN 1 ELSE 0 END) AS positiveCount,
+                SUM(CASE WHEN feedback_type = 'resolved' THEN 1 ELSE 0 END) AS resolvedCount,
+                SUM(CASE WHEN feedback_type = 'irrelevant' THEN 1 ELSE 0 END) AS negativeCount,
+                SUM(CASE WHEN feedback_type = 'ignored' THEN 1 ELSE 0 END) AS ignoredCount,
+                COALESCE(AVG(confidence), 0) AS avgConfidence,
+                MAX(feedback_time) AS latestFeedbackTime
+            FROM ai_advice_training_sample
+            WHERE tenant_code = #{tenantCode}
+              AND update_time >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+            GROUP BY COALESCE(category, 'overview')
+            """)
+    List<AiAdviceLearningStatVO> selectLearningStats(@Param("tenantCode") String tenantCode,
+                                                     @Param("days") Integer days);
 }

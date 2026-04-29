@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
+import my.hive.common.privacy.PrivacyProtectionUtil;
 import my.management.common.utils.CodeGeneratorUtil;
 import my.management.module.employee.mapper.DepartmentMapper;
 import my.management.module.employee.mapper.EmployeeMapper;
@@ -44,6 +45,9 @@ public class OrganizationService {
     @Resource
     private CodeGeneratorUtil codeGeneratorUtil;
 
+    @Resource
+    private PrivacyProtectionUtil privacyProtectionUtil;
+
     public OrganizationOverviewVO overview() {
         List<Department> departments = listTenantDepartments();
         Map<String, Long> employeeCountMap = buildEmployeeCountMap();
@@ -61,7 +65,9 @@ public class OrganizationService {
 
     public List<OrganizationEmployeeVO> employees(Long departmentId) {
         Department department = requireDepartment(departmentId);
-        return organizationMapper.selectEmployeesByDepartment(TenantPermissionContext.getTenantCode(), department.getDeptName());
+        List<OrganizationEmployeeVO> employees = organizationMapper.selectEmployeesByDepartment(TenantPermissionContext.getTenantCode(), department.getDeptName());
+        employees.forEach(item -> item.setPhone(privacyProtectionUtil.maskPhone(item.getPhone())));
+        return employees;
     }
 
     @Transactional(rollbackFor = Exception.class)

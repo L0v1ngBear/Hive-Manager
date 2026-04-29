@@ -32,6 +32,7 @@ import my.management.module.sys.model.entity.SysPermission;
 import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.model.entity.SysRolePermission;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -52,9 +53,11 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class TenantManageService {
 
-    private static final String DEFAULT_TENANT_PASSWORD = "Test@123456";
     private static final String TENANT_OWNER_ROLE_CODE = "TENANT_OWNER";
     private static final String TENANT_CREATE_LOCK_PREFIX = "tenant:create:lock:";
+    private static final long DEFAULT_PAGE_NUM = 1L;
+    private static final long DEFAULT_PAGE_SIZE = 10L;
+    private static final long MAX_PAGE_SIZE = 200L;
     private static final DefaultRedisScript<Long> RELEASE_LOCK_SCRIPT = buildReleaseLockScript();
 
     private static final Map<String, String> MODULE_ROLE_NAME_MAP = Map.of(
@@ -65,7 +68,8 @@ public class TenantManageService {
             "badproduct:*", "次品管理员",
             "customer:*", "客户管理员",
             "attendance:*", "考勤管理员",
-            "approval:*", "审批管理员"
+            "approval:*", "审批管理员",
+            "dashboard:ai:*", "经营洞察管理员"
     );
 
     @Resource
@@ -110,9 +114,15 @@ public class TenantManageService {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+    /**
+     * 新租户负责人初始密码从配置读取，线上可通过环境变量单独轮换。
+     */
+    @Value("${app.default-password.tenant-owner}")
+    private String defaultTenantPassword;
+
     public Page<TenantPageVO> page(TenantPageRequest request) {
         ensureDeveloperAccess();
-        Page<Tenant> page = new Page<>(request.getCurrent(), request.getSize());
+        Page<Tenant> page = new Page<>(safePageNum(request.getCurrent()), safePageSize(request.getSize()));
         LambdaQueryWrapper<Tenant> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Tenant::getDeleted, 0)
                 .orderByDesc(Tenant::getCreateTime);
@@ -133,6 +143,17 @@ public class TenantManageService {
         List<TenantPageVO> records = tenantPage.getRecords().stream().map(this::toPageVO).toList();
         result.setRecords(records);
         return result;
+    }
+
+    private long safePageNum(Long pageNum) {
+        return pageNum == null || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+    }
+
+    private long safePageSize(Long pageSize) {
+        if (pageSize == null || pageSize <= 0) {
+            return DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(pageSize, MAX_PAGE_SIZE);
     }
 
     public TenantDetailVO detail(Long id) {
@@ -180,7 +201,7 @@ public class TenantManageService {
         tenant.setContactPerson(request.getContactPerson());
         tenant.setContactPhone(request.getContactPhone());
         tenant.setPassword(encryptUtil.encode(request.getPassword() == null || request.getPassword().isBlank()
-                ? DEFAULT_TENANT_PASSWORD
+                ? defaultTenantPassword
                 : request.getPassword().trim()));
         tenant.setStatus(1);
         tenant.setDeleted(0);
@@ -286,7 +307,7 @@ public class TenantManageService {
             owner.setLoginName(loginName);
             owner.setPhone(null);
             owner.setPassword(encryptUtil.encode(request.getPassword() == null || request.getPassword().isBlank()
-                    ? DEFAULT_TENANT_PASSWORD
+                    ? defaultTenantPassword
                     : request.getPassword().trim()));
             owner.setDepartmentName("管理部");
             owner.setPosition("负责人");

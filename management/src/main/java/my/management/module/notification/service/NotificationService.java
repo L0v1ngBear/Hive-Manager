@@ -3,12 +3,17 @@ package my.management.module.notification.service;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
+import my.hive.common.exception.BusinessException;
+import my.management.module.ai.service.AiAdviceFeedbackService;
 import my.management.module.ai.model.vo.DashboardAiAdviceVO;
+import my.management.module.ai.service.AiAdvicePermissionService;
 import my.management.module.ai.service.AiAnalysisService;
 import my.management.module.dashboard.model.vo.DashboardOverviewVO;
 import my.management.module.notification.mapper.NotificationMapper;
 import my.management.module.notification.model.dto.NotificationPageRequest;
+import my.management.module.notification.model.dto.NotificationTaskCloseRequest;
 import my.management.module.notification.model.entity.NotificationRecord;
+import my.management.module.notification.model.vo.NotificationReceiverVO;
 import my.management.module.notification.model.vo.NotificationVO;
 import my.management.module.notification.sms.SmsMessage;
 import my.management.module.notification.sms.SmsSender;
@@ -19,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 通知服务，负责把异常预测、AI 建议和流程待办统一沉淀为可跟进的通知。
@@ -26,11 +32,19 @@ import java.util.List;
 @Service
 public class NotificationService {
 
+    private static final String AI_ADVICE_BIZ_TYPE = "AI_ADVICE";
+
     @Resource
     private NotificationMapper notificationMapper;
 
     @Resource
     private AiAnalysisService aiAnalysisService;
+
+    @Resource
+    private AiAdviceFeedbackService aiAdviceFeedbackService;
+
+    @Resource
+    private AiAdvicePermissionService aiAdvicePermissionService;
 
     @Resource
     private SmsSender smsSender;
@@ -78,12 +92,49 @@ public class NotificationService {
         notificationMapper.markRead(TenantPermissionContext.getTenantCode(), TenantPermissionContext.getUserId(), id);
     }
 
+    public void closeTask(Long id, NotificationTaskCloseRequest request) {
+        if (id == null) {
+            return;
+        }
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        Long userId = TenantPermissionContext.getUserId();
+        NotificationRecord record = notificationMapper.selectByIdForUser(tenantCode, userId, id);
+        if (record == null) {
+            return;
+        }
+
+        String taskStatus = normalizeTaskStatus(request == null ? null : request.getTaskStatus());
+        String closeNote = limit(request == null ? null : request.getCloseNote(), 500);
+        String closeResult = "DONE".equals(taskStatus) ? "resolved" : "ignored";
+        int updated = notificationMapper.closeTask(tenantCode, userId, id, taskStatus, closeResult, closeNote);
+        if (updated > 0 && AI_ADVICE_BIZ_TYPE.equals(record.getBizType()) && record.getBizId() != null && record.getBizId().startsWith("AI_SAMPLE:")) {
+            try {
+                aiAdviceFeedbackService.feedbackBySampleKey(
+                        tenantCode,
+                        userId,
+                        record.getBizId(),
+                        closeResult,
+                        closeNote
+                );
+            } catch (BusinessException ignored) {
+                // 用户权限调整后仍允许关闭旧通知，AI 反馈写入失败不应阻断待办闭环。
+            }
+        }
+    }
+
     public int syncAiAdviceNotificationsForCurrentTenant() {
+        if (!aiAdvicePermissionService.canViewAny()) {
+            return 0;
+        }
         return syncAiAdviceNotifications(TenantPermissionContext.getTenantCode());
     }
 
     public int syncAiAdviceNotifications(String tenantCode) {
         if (tenantCode == null || tenantCode.isBlank()) {
+            return 0;
+        }
+        List<NotificationReceiverVO> receivers = notificationMapper.selectAiAdviceReceivers(tenantCode);
+        if (receivers == null || receivers.isEmpty()) {
             return 0;
         }
         List<DashboardAiAdviceVO> advices = aiAnalysisService.buildAllDashboardAdvices(tenantCode, fullVisibility());
@@ -92,9 +143,15 @@ public class NotificationService {
             if (!shouldCreateNotification(advice)) {
                 continue;
             }
-            NotificationRecord record = fromAdvice(tenantCode, advice);
-            count += notificationMapper.upsert(record);
-            sendSmsIfNeeded(record);
+            for (NotificationReceiverVO receiver : receivers) {
+                Set<String> permissionCodes = aiAdvicePermissionService.parsePermissionCodes(receiver.getPermissionCodes());
+                if (!aiAdvicePermissionService.canViewCategory(advice.getCategory(), permissionCodes)) {
+                    continue;
+                }
+                NotificationRecord record = fromAdvice(tenantCode, advice, receiver);
+                count += notificationMapper.upsert(record);
+                sendSmsIfNeeded(record);
+            }
         }
         return count;
     }
@@ -107,27 +164,36 @@ public class NotificationService {
         visibility.setReceiptVisible(true);
         visibility.setTrendVisible(true);
         visibility.setAttendanceVisible(true);
+        visibility.setAiAdviceVisible(true);
         return visibility;
     }
 
     private boolean shouldCreateNotification(DashboardAiAdviceVO advice) {
-        return advice != null && !"success".equals(advice.getLevel()) && advice.getTitle() != null && advice.getSummary() != null;
+        if (advice == null || advice.getTitle() == null || advice.getSummary() == null || "success".equals(advice.getLevel())) {
+            return false;
+        }
+        return "P0".equals(advice.getPriority()) || "P1".equals(advice.getPriority());
     }
 
-    private NotificationRecord fromAdvice(String tenantCode, DashboardAiAdviceVO advice) {
+    private NotificationRecord fromAdvice(String tenantCode, DashboardAiAdviceVO advice, NotificationReceiverVO receiver) {
         NotificationRecord record = new NotificationRecord();
         record.setTenantCode(tenantCode);
-        record.setDedupeKey(buildDedupeKey(advice));
-        record.setBizType("AI_ADVICE");
-        record.setBizId(advice.getCategory());
+        record.setDedupeKey(buildDedupeKey(advice, receiver == null ? null : receiver.getUserId()));
+        record.setBizType(AI_ADVICE_BIZ_TYPE);
+        record.setBizId(advice.getSampleKey() == null ? advice.getCategory() : advice.getSampleKey());
         record.setTitle(advice.getTitle());
         record.setContent(buildAdviceContent(advice));
         record.setLevel(resolveLevel(advice.getLevel(), advice.getPriority()));
         record.setChannel("IN_APP");
         record.setRoute(advice.getRoute());
+        if (receiver != null) {
+            record.setReceiverUserId(receiver.getUserId());
+            record.setReceiverName(receiver.getUserName());
+        }
         record.setStatus(1);
         record.setReadFlag(0);
         record.setSendStatus("PENDING");
+        record.setTaskStatus("PENDING");
         record.setSourceType(advice.getSourceType() == null ? "local_rules" : advice.getSourceType());
         return record;
     }
@@ -154,9 +220,11 @@ public class NotificationService {
         return "info";
     }
 
-    private String buildDedupeKey(DashboardAiAdviceVO advice) {
+    private String buildDedupeKey(DashboardAiAdviceVO advice, Long receiverUserId) {
         String raw = String.join("|",
                 "AI_ADVICE",
+                safe(receiverUserId == null ? null : String.valueOf(receiverUserId)),
+                safe(advice.getSampleKey()),
                 safe(advice.getCategory()),
                 safe(advice.getTitle()),
                 safe(advice.getRoute())
@@ -184,6 +252,21 @@ public class NotificationService {
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private String normalizeTaskStatus(String taskStatus) {
+        if ("IGNORED".equalsIgnoreCase(taskStatus)) {
+            return "IGNORED";
+        }
+        return "DONE";
+    }
+
+    private String limit(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.length() <= maxLength ? trimmed : trimmed.substring(0, maxLength);
     }
 
     private String sha256(String value) {

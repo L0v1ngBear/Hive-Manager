@@ -1,6 +1,7 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
+import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.Result;
 import my.management.module.ai.model.dto.AiAdviceFeedbackRequest;
 import my.management.module.ai.model.vo.AiBusinessSnapshotVO;
@@ -40,6 +41,7 @@ public class DashboardController {
     }
 
     @GetMapping("/ai-snapshot")
+    @RequirePermission(value = "dashboard:ai:view", message = "您没有权限查看 AI 经营快照")
     public Result<AiBusinessSnapshotVO> aiSnapshot() {
         return Result.success(dashboardService.aiSnapshot());
     }

@@ -21,6 +21,14 @@ export function markNotificationRead(id) {
   })
 }
 
+export function closeNotificationTask(id, data) {
+  return request({
+    url: `/notifications/${id}/close`,
+    method: 'post',
+    data
+  })
+}
+
 export function syncAiNotifications() {
   return request({
     url: '/notifications/sync-ai',

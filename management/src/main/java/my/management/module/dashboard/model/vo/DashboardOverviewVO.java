@@ -47,6 +47,7 @@ public class DashboardOverviewVO {
         private Boolean receiptVisible = Boolean.FALSE;
         private Boolean trendVisible = Boolean.FALSE;
         private Boolean attendanceVisible = Boolean.FALSE;
+        private Boolean aiAdviceVisible = Boolean.FALSE;
     }
 
     @Data

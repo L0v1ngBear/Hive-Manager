@@ -16,6 +16,11 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USERNAME:hive_mq}
     password: ${RABBITMQ_PASSWORD}
+    connection-timeout: ${RABBITMQ_CONNECTION_TIMEOUT:5s}
+    listener:
+      simple:
+        # RabbitMQ 短暂不可用时不让业务服务启动失败，监听器会后台重连。
+        missing-queues-fatal: false
 
 hive:
   operation-log:
@@ -23,7 +28,7 @@ hive:
     collect-to-db: ${OPERATION_LOG_COLLECT_TO_DB:true}
     collect-to-slf4j: ${OPERATION_LOG_COLLECT_TO_SLF4J:true}
     async-db: true
-    queue-type: rabbitmq
+    queue-type: ${OPERATION_LOG_QUEUE_TYPE:rabbitmq}
     rabbit-exchange: ${OPERATION_LOG_EXCHANGE:hive.operation.log.exchange}
     rabbit-routing-key: ${OPERATION_LOG_ROUTING_KEY:hive.operation.log}
     rabbit-queue: ${OPERATION_LOG_QUEUE:hive.operation.log.queue}
@@ -38,5 +43,8 @@ springdoc:
     enabled: false
 
 app:
+  default-password:
+    employee: ${EMPLOYEE_DEFAULT_PASSWORD}
+    tenant-owner: ${TENANT_OWNER_DEFAULT_PASSWORD}
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGINS:https://*.your-domain.com}

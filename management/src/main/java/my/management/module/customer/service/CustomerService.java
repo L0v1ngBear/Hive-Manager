@@ -34,6 +34,10 @@ import java.util.stream.Collectors;
 @Service
 public class CustomerService {
 
+    private static final int DEFAULT_PAGE_NUM = 1;
+    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final int MAX_PAGE_SIZE = 200;
+
     @Resource
     private CustomerMapper customerMapper;
 
@@ -97,18 +101,16 @@ public class CustomerService {
         LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<>();
 
         if (StringUtils.isNotBlank(keyword)) {
-            String safeKeyword = keyword.replace("'", "''");
+            String safeKeyword = keyword.trim();
             wrapper.and(w -> w
                     .like(Customer::getCustomerName, safeKeyword)
-                    .or().inSql(Customer::getId,
-                            "SELECT customer_id FROM customer_project WHERE project_name LIKE '%" + safeKeyword + "%'")
-                    .or().inSql(Customer::getId,
-                            "SELECT customer_id FROM customer_contact WHERE (contact_name LIKE '%" + safeKeyword + "%' OR contact_phone LIKE '%" + safeKeyword + "%')")
+                    .or().apply("id IN (SELECT customer_id FROM customer_project WHERE tenant_code = {0} AND project_name LIKE CONCAT('%', {1}, '%'))", tenantCode, safeKeyword)
+                    .or().apply("id IN (SELECT customer_id FROM customer_contact WHERE tenant_code = {0} AND (contact_name LIKE CONCAT('%', {1}, '%') OR contact_phone LIKE CONCAT('%', {1}, '%')))", tenantCode, safeKeyword)
             );
         }
 
         wrapper.orderByDesc(Customer::getCreateTime);
-        Page<Customer> page = new Page<>(request.getPageNum(), request.getPageSize());
+        Page<Customer> page = new Page<>(safePageNum(request.getPageNum()), safePageSize(request.getPageSize()));
         Page<Customer> customerPage = customerMapper.selectPage(page, wrapper);
 
         // Batch-enrich the current page to avoid per-row contact/project queries.
@@ -117,6 +119,17 @@ public class CustomerService {
         result.setPages(customerPage.getPages());
         result.setRecords(records);
         return result;
+    }
+
+    private int safePageNum(Integer pageNum) {
+        return pageNum == null || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+    }
+
+    private int safePageSize(Integer pageSize) {
+        if (pageSize == null || pageSize <= 0) {
+            return DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(pageSize, MAX_PAGE_SIZE);
     }
 
     public CustomerDetailVO getCustomer(Long id) {

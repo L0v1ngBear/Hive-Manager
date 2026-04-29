@@ -26,6 +26,16 @@ public class Employee {
 
     private String phone;
 
+    /**
+     * 手机号不可逆哈希，用于登录和查重，不对前端返回。
+     */
+    private String phoneHash;
+
+    /**
+     * 手机号脱敏值，用于列表、详情和导出展示。
+     */
+    private String phoneMask;
+
     @TableField(select = false)
     private String password;
 

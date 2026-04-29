@@ -61,6 +61,24 @@ public class SalesOrder {
 
     private String remark;
 
+    /**
+     * 销售订单附件原始文件名。
+     */
+    @TableField("attachment_name")
+    private String attachmentName;
+
+    /**
+     * 销售订单附件访问地址。
+     */
+    @TableField("attachment_url")
+    private String attachmentUrl;
+
+    /**
+     * 销售订单附件大小，单位字节。
+     */
+    @TableField("attachment_size")
+    private Long attachmentSize;
+
     @TableField("create_time")
     private LocalDateTime createTime;
 

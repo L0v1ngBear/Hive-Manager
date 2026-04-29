@@ -37,6 +37,21 @@ public class SalesOrderSaveRequest {
 
     private String remark;
 
+    /**
+     * 销售订单附件名称，通常用于保存合同、客户需求或沟通截图的原始文件名。
+     */
+    private String attachmentName;
+
+    /**
+     * 销售订单附件访问地址，由附件上传接口返回。
+     */
+    private String attachmentUrl;
+
+    /**
+     * 销售订单附件大小，单位字节，便于前端展示和后续清理策略判断。
+     */
+    private Long attachmentSize;
+
     private String status;
 
     private Integer createProductionOrder;

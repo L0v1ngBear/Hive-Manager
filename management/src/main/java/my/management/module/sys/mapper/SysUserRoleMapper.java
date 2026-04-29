@@ -17,11 +17,14 @@ public interface SysUserRoleMapper extends BaseMapper<SysUserRole> {
 
     @Select({
             "<script>",
-            "SELECT ur.role_id ",
+            "SELECT DISTINCT ur.role_id ",
             "FROM sys_user_role ur ",
+            "INNER JOIN sys_role r ON r.id = ur.role_id AND r.tenant_code = ur.tenant_code ",
             "WHERE ur.user_id = #{userId} ",
             "AND ur.tenant_code = #{tenantCode} ",
-            "AND IFNULL(ur.is_deleted, 0) = 0",
+            "AND IFNULL(ur.is_deleted, 0) = 0 ",
+            "AND IFNULL(r.is_deleted, 0) = 0 ",
+            "ORDER BY ur.role_id ASC",
             "</script>"
     })
     List<Long> selectRoleIdsByUserIdAndTenantCode(@Param("userId") Long userId, @Param("tenantCode") String tenantCode);
@@ -42,10 +45,12 @@ public interface SysUserRoleMapper extends BaseMapper<SysUserRole> {
 
     @Select({
             "<script>",
-            "SELECT ur.user_id AS userId, ur.role_id AS roleId ",
+            "SELECT DISTINCT ur.user_id AS userId, ur.role_id AS roleId ",
             "FROM sys_user_role ur ",
+            "INNER JOIN sys_role r ON r.id = ur.role_id AND r.tenant_code = ur.tenant_code ",
             "WHERE ur.tenant_code = #{tenantCode} ",
             "AND IFNULL(ur.is_deleted, 0) = 0 ",
+            "AND IFNULL(r.is_deleted, 0) = 0 ",
             "AND ur.user_id IN ",
             "<foreach collection='userIds' item='userId' open='(' separator=',' close=')'>",
             "#{userId}",

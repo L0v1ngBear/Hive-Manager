@@ -35,7 +35,7 @@ public interface OrganizationMapper {
     List<Map<String, Object>> selectDepartmentPositionCounts(@Param("tenantCode") String tenantCode);
 
     @Select({
-            "SELECT u.id, u.name, ext.emp_no AS empNo, u.phone, u.department_name AS departmentName, ",
+            "SELECT u.id, u.name, ext.emp_no AS empNo, COALESCE(u.phone_mask, u.phone) AS phone, u.department_name AS departmentName, ",
             "u.position AS positionName, u.status ",
             "FROM user u ",
             "LEFT JOIN emp_employee_ext ext ON ext.user_id = u.id AND ext.tenant_code = u.tenant_code AND ext.is_deleted = 0 ",

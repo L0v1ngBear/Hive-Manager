@@ -6,9 +6,9 @@
       <div class="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
           <p class="text-xs font-black tracking-[0.24em] uppercase text-white/70">Global Decision Insights</p>
-          <h1 class="mt-3 text-3xl md:text-5xl font-black tracking-tight">AI 经营建议中心</h1>
+          <h1 class="mt-3 text-3xl md:text-5xl font-black tracking-tight">AI 全局决策建议中心</h1>
           <p class="mt-4 max-w-3xl text-sm md:text-base leading-7 text-white/80">
-            基于库存、订单、客户、次品和审批数据生成经营洞察，帮助管理层快速识别风险、明确责任部门，并推动处理闭环。
+            基于库存、订单、客户、员工、次品和审批数据生成全局洞察，帮助管理层快速识别风险、明确责任部门，并推动处理闭环。
           </p>
         </div>
         <div class="flex flex-wrap gap-3">
@@ -44,7 +44,7 @@
       <article class="rounded-3xl bg-sky-50 p-5 shadow-sm ring-1 ring-sky-200">
         <p class="text-xs font-black tracking-widest text-sky-700 uppercase">覆盖维度</p>
         <p class="mt-3 text-4xl font-black text-sky-700">{{ activeModuleCount }}</p>
-        <p class="mt-2 text-xs text-sky-700/80">库存、订单、质量等</p>
+        <p class="mt-2 text-xs text-sky-700/80">库存、订单、客户、员工等</p>
       </article>
       <article class="rounded-3xl bg-emerald-50 p-5 shadow-sm ring-1 ring-emerald-200">
         <p class="text-xs font-black tracking-widest text-emerald-700 uppercase">稳定项</p>
@@ -118,6 +118,7 @@
             <div class="flex-1 min-w-0">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-primary/10 text-primary">{{ categoryTitle(item.category) }}</span>
+                <span v-if="item.decisionType" class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-white/80 text-primary">{{ item.decisionType }}</span>
                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-surface-container-high text-on-surface-variant">{{ adviceLevelText(item.level) }}</span>
                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-white/70 text-on-surface-variant">{{ item.generatedAt || '实时生成' }}</span>
               </div>
@@ -134,6 +135,33 @@
                   <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">数据口径</p>
                   <p class="mt-2 text-sm font-bold text-on-surface">{{ item.metricText || categorySubtitle(item.category) }}</p>
                 </div>
+              </div>
+
+              <div
+                v-if="item.riskScore !== undefined || item.impactText || item.timeWindow || item.reviewMetric"
+                class="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3"
+              >
+                <div class="rounded-2xl bg-white/70 border border-outline-variant/20 p-4">
+                  <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">风险评分</p>
+                  <p class="mt-2 text-2xl font-black" :class="riskScoreClass(item.riskScore)">{{ item.riskScore ?? '--' }}<span class="text-xs">/100</span></p>
+                </div>
+                <div class="rounded-2xl bg-white/70 border border-outline-variant/20 p-4">
+                  <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">影响范围</p>
+                  <p class="mt-2 text-xs leading-5 font-bold text-on-surface">{{ item.impactText || categorySubtitle(item.category) }}</p>
+                </div>
+                <div class="rounded-2xl bg-white/70 border border-outline-variant/20 p-4">
+                  <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">处理窗口</p>
+                  <p class="mt-2 text-sm font-black text-on-surface">{{ item.timeWindow || '本周内跟进' }}</p>
+                </div>
+                <div class="rounded-2xl bg-white/70 border border-outline-variant/20 p-4">
+                  <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">复盘指标</p>
+                  <p class="mt-2 text-xs leading-5 font-bold text-on-surface">{{ item.reviewMetric || '异常关闭率、复盘完成率' }}</p>
+                </div>
+              </div>
+
+              <div v-if="item.firstAction" class="mt-4 rounded-2xl bg-primary/10 border border-primary/20 p-4">
+                <p class="text-xs font-black text-primary tracking-widest uppercase mb-2">第一动作</p>
+                <p class="text-sm leading-7 font-bold text-on-surface">{{ item.firstAction }}</p>
               </div>
 
               <div class="mt-4 rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
@@ -220,6 +248,7 @@ const moduleCatalog = [
   { category: 'order' },
   { category: 'delivery' },
   { category: 'customer' },
+  { category: 'employee' },
   { category: 'quality' },
   { category: 'finance' },
   { category: 'operation' }
@@ -232,6 +261,7 @@ const filters = computed(() => [
 
 const priorityFilters = computed(() => [
   { value: 'all', label: '全部' },
+  { value: 'P0', label: `P0 ${countByPriority('P0')}` },
   { value: 'P1', label: `P1 ${countByPriority('P1')}` },
   { value: 'P2', label: `P2 ${countByPriority('P2')}` },
   { value: 'P3', label: `P3 ${countByPriority('P3')}` }
@@ -350,10 +380,11 @@ const categoryMeta = {
   inventory: { title: '库存水位与周转', subtitle: '库存余量、低库存型号、近期开单消耗', icon: 'inventory_2' },
   order: { title: '订单履约与交付', subtitle: '销售订单、生产订单、履约状态', icon: 'receipt_long' },
   delivery: { title: '物流运输与发货', subtitle: '交付日期、发货状态、物流完整度', icon: 'local_shipping' },
-  customer: { title: '客户客情与风控', subtitle: '客户复购周期、近 180 天下单节奏', icon: 'handshake' },
+  customer: { title: '客户客情与风控', subtitle: '客户复购周期、活跃客户、核心客户贡献', icon: 'handshake' },
+  employee: { title: '员工组织与效率', subtitle: '员工状态、考勤异常、请假审批与上下级关系', icon: 'groups' },
   quality: { title: '质量管控与溯源', subtitle: '近 30 天次品数量与损失金额', icon: 'assignment_late' },
   finance: { title: '财务健康与成本', subtitle: '订单金额、损耗金额、审批事项', icon: 'payments' },
-  operation: { title: '生产运营节奏', subtitle: '库存、订单、审批、打印任务联动', icon: 'fact_check' },
+  operation: { title: '生产运营节奏', subtitle: '库存、订单、客户、员工、审批、打印任务联动', icon: 'fact_check' },
   overview: { title: '全局经营总览', subtitle: '总览大盘核心指标', icon: 'monitoring' }
 }
 
@@ -375,6 +406,7 @@ function ownerByCategory(category) {
     order: '销售 / 生产 / 仓库',
     delivery: '销售 / 仓库',
     customer: '销售负责人',
+    employee: '人事 / 部门负责人',
     quality: '质检 / 生产',
     finance: '财务 / 经营管理',
     operation: '运营负责人'
@@ -395,9 +427,17 @@ function adviceIconClass(level) {
 }
 
 function priorityClass(priority) {
+  if (priority === 'P0') return 'bg-red-100 text-red-800'
   if (priority === 'P1') return 'bg-amber-100 text-amber-800'
   if (priority === 'P3') return 'bg-emerald-100 text-emerald-800'
   return 'bg-sky-100 text-sky-800'
+}
+
+function riskScoreClass(score) {
+  if (score >= 85) return 'text-red-600'
+  if (score >= 70) return 'text-amber-600'
+  if (score <= 35) return 'text-emerald-600'
+  return 'text-primary'
 }
 
 function adviceLevelText(level) {
@@ -413,7 +453,7 @@ function priorityText(level) {
 }
 
 function priorityWeight(priority) {
-  return { P1: 1, P2: 2, P3: 3 }[priority] || 9
+  return { P0: 0, P1: 1, P2: 2, P3: 3 }[priority] || 9
 }
 
 function countByPriority(priority) {

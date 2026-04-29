@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
+import my.hive.common.privacy.PrivacyProtectionUtil;
 import my.management.common.utils.ExcelUtil;
 import my.management.module.attendance.mapper.AttendanceManageMapper;
 import my.management.module.attendance.mapper.TenantAttendanceRuleManageMapper;
@@ -37,6 +38,10 @@ public class AttendanceManageService {
     private static final DateTimeFormatter PUNCH_DAY_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final String ATTENDANCE_RULE_CACHE_KEY = "companyAttendanceRule";
     private static final List<Integer> DEFAULT_WORK_DAYS = List.of(1, 2, 3, 4, 5);
+    private static final long DEFAULT_PAGE_NUM = 1L;
+    private static final long DEFAULT_PAGE_SIZE = 10L;
+    private static final long MAX_PAGE_SIZE = 200L;
+    private static final long EXPORT_PAGE_SIZE = 10000L;
 
     @Resource
     private AttendanceManageMapper attendanceManageMapper;
@@ -49,6 +54,9 @@ public class AttendanceManageService {
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private PrivacyProtectionUtil privacyProtectionUtil;
 
     public AttendanceSummaryVO summary(LocalDate date) {
         String tenantCode = TenantPermissionContext.getTenantCode();
@@ -67,7 +75,11 @@ public class AttendanceManageService {
     }
 
     public PageResult<AttendanceRecordManageVO> page(AttendancePageRequest request) {
-        normalizeRequest(request);
+        normalizeRequest(request, MAX_PAGE_SIZE);
+        return pageNormalized(request);
+    }
+
+    private PageResult<AttendanceRecordManageVO> pageNormalized(AttendancePageRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Page<AttendanceRecordManageVO> page = attendanceManageMapper.selectPage(
                 new Page<>(request.getPageNum(), request.getPageSize()),
@@ -136,12 +148,12 @@ public class AttendanceManageService {
     }
 
     public void exportExcel(AttendancePageRequest request, HttpServletResponse response) {
-        normalizeRequest(request);
-        request.setPageNum(1L);
-        request.setPageSize(10000L);
+        normalizeRequest(request, EXPORT_PAGE_SIZE);
+        request.setPageNum(DEFAULT_PAGE_NUM);
+        request.setPageSize(EXPORT_PAGE_SIZE);
 
         List<String> headers = List.of("员工姓名", "工号", "手机号", "部门", "上班打卡", "下班打卡", "状态", "更新时间");
-        List<List<String>> rows = page(request).getData().stream()
+        List<List<String>> rows = pageNormalized(request).getData().stream()
                 .map(item -> List.of(
                         excelUtil.stringify(item.getEmployeeName()),
                         excelUtil.stringify(item.getEmpNo()),
@@ -159,14 +171,19 @@ public class AttendanceManageService {
                 "考勤记录_" + (request.getDate() == null ? LocalDate.now() : request.getDate()) + ".xlsx");
     }
 
-    private void normalizeRequest(AttendancePageRequest request) {
+    private void normalizeRequest(AttendancePageRequest request, long maxPageSize) {
         if (request.getPageNum() == null || request.getPageNum() <= 0) {
-            request.setPageNum(1L);
+            request.setPageNum(DEFAULT_PAGE_NUM);
         }
         if (request.getPageSize() == null || request.getPageSize() <= 0) {
-            request.setPageSize(10L);
+            request.setPageSize(DEFAULT_PAGE_SIZE);
+        } else {
+            request.setPageSize(Math.min(request.getPageSize(), maxPageSize));
         }
         request.setKeyword(clean(request.getKeyword()));
+        request.setKeywordPhoneHash(privacyProtectionUtil.mayBePhoneKeyword(request.getKeyword())
+                ? privacyProtectionUtil.hashPhone(request.getKeyword())
+                : null);
         request.setDepartmentName(clean(request.getDepartmentName()));
         request.setStatus(clean(request.getStatus()));
     }
@@ -269,6 +286,7 @@ public class AttendanceManageService {
     }
 
     private void fillStatus(AttendanceRecordManageVO row) {
+        row.setPhone(privacyProtectionUtil.maskPhone(row.getPhone()));
         if (row.getSignInStatus() != null) {
             if (row.getSignInStatus() == 1) {
                 row.setStatus("late");

@@ -1,5 +1,5 @@
 <template>
-  <main class="login-stage min-h-screen bg-slate-50 text-slate-800 overflow-hidden font-sans relative">
+  <main class="login-stage min-h-full bg-slate-50 text-slate-800 overflow-hidden font-sans relative">
     <section class="absolute inset-0 z-0 overflow-hidden bg-[#fffdf8]">
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_12%,rgba(255,196,41,0.16),transparent_34%),linear-gradient(180deg,#ffffff_0%,#fffaf0_100%)] pointer-events-none"></div>
 
@@ -34,7 +34,7 @@
       </div>
     </section>
 
-    <section class="relative z-30 min-h-screen flex flex-col justify-center items-center px-4 py-12 lg:px-8">
+    <section class="relative z-30 min-h-full flex flex-col justify-center items-center px-4 py-12 lg:px-8">
 
       <div class="text-center mb-10 max-w-2xl mx-auto z-40">
         <div class="inline-flex items-center justify-center gap-3 mb-6 bg-white/60 backdrop-blur-md px-6 py-2 rounded-full shadow-sm border border-white/40">
@@ -42,7 +42,7 @@
           <span class="text-xl font-bold tracking-tight text-slate-800">蜂巢 Hive</span>
         </div>
         <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight mb-4">
-          数字化工厂管理系统
+          企业信息管理
         </h1>
         <p class="text-slate-600 text-lg font-medium leading-relaxed">
           专业、高效、可靠、价值，协同工业生产效率。
@@ -155,15 +155,6 @@
       </div>
     </section>
 
-    <footer class="absolute bottom-0 left-0 right-0 py-6 z-50 flex flex-col md:flex-row justify-between items-center px-8 text-xs font-medium text-slate-500 tracking-wider">
-      <span class="mb-4 md:mb-0">{{ siteConfig.copyright }}</span>
-      <nav class="flex gap-6">
-        <a :href="siteConfig.icpUrl" target="_blank" rel="noopener noreferrer" class="hover:text-primary transition-colors">{{ siteConfig.icpNumber }}</a>
-        <router-link to="/privacy" class="hover:text-primary transition-colors">隐私政策</router-link>
-        <router-link to="/terms" class="hover:text-primary transition-colors">服务条款</router-link>
-        <a :href="`mailto:${siteConfig.supportEmail}`" class="hover:text-primary transition-colors">联系技术支持</a>
-      </nav>
-    </footer>
   </main>
 </template>
 
@@ -173,7 +164,6 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createScanLoginSession, getScanLoginStatus, login } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
-import { siteConfig } from '@/config/site'
 import { normalizeLoginRedirect } from '@/utils/redirect'
 
 const router = useRouter()

@@ -6,6 +6,7 @@ import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.management.module.ai.model.vo.AiBusinessSnapshotVO;
 import my.management.module.ai.model.vo.DashboardAiAdviceVO;
+import my.management.module.ai.service.AiAdvicePermissionService;
 import my.management.module.ai.service.AiAnalysisService;
 import my.management.module.dashboard.mapper.DashboardMapper;
 import my.management.module.dashboard.model.vo.DashboardAttendanceAlertRowVO;
@@ -52,6 +53,9 @@ public class DashboardService {
     private AiAnalysisService aiAnalysisService;
 
     @Resource
+    private AiAdvicePermissionService aiAdvicePermissionService;
+
+    @Resource
     private StringRedisTemplate stringRedisTemplate;
 
     @Resource
@@ -75,13 +79,21 @@ public class DashboardService {
         vo.setBusinessAlerts(buildBusinessAlerts(tenantCode, visibility));
         vo.setAttendanceAlerts(buildAttendanceAlerts(tenantCode, visibility));
         vo.setQuickActions(buildQuickActions(visibility));
-        vo.setAiAdvices(aiAnalysisService.buildDashboardAdvices(tenantCode, visibility));
+        if (Boolean.TRUE.equals(visibility.getAiAdviceVisible())) {
+            DashboardOverviewVO.Visibility aiVisibility = aiAdvicePermissionService.enrichVisibilityForAi(visibility);
+            vo.setAiAdvices(aiAdvicePermissionService
+                    .filterVisible(aiAnalysisService.buildAllDashboardAdvices(tenantCode, aiVisibility))
+                    .stream()
+                    .limit(4)
+                    .toList());
+        }
 
         cacheOverview(cacheKey, vo);
         return vo;
     }
 
     public List<DashboardAiAdviceVO> aiAdvices(boolean refresh) {
+        aiAdvicePermissionService.requireAnyView();
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
         String cacheKey = buildScopedCacheKey(AI_ADVICE_CACHE_KEY_PREFIX, tenantCode, userId);
@@ -95,7 +107,8 @@ public class DashboardService {
             }
         }
 
-        List<DashboardAiAdviceVO> advices = aiAnalysisService.buildAllDashboardAdvices(tenantCode, buildVisibility());
+        DashboardOverviewVO.Visibility aiVisibility = aiAdvicePermissionService.enrichVisibilityForAi(buildVisibility());
+        List<DashboardAiAdviceVO> advices = aiAdvicePermissionService.filterVisible(aiAnalysisService.buildAllDashboardAdvices(tenantCode, aiVisibility));
         cacheAiAdvices(cacheKey, advices);
         return advices;
     }
@@ -112,6 +125,7 @@ public class DashboardService {
         visibility.setReceiptVisible(hasAnyPermission("receipt:print:list", "receipt:print:detail", "receipt:print:mark", "receipt:print:cancel"));
         visibility.setTrendVisible(Boolean.TRUE.equals(visibility.getInventoryVisible()));
         visibility.setAttendanceVisible(hasAnyPermission("employee:list", "attendance:*", "attendance:record:list"));
+        visibility.setAiAdviceVisible(aiAdvicePermissionService.canViewAny());
         return visibility;
     }
 

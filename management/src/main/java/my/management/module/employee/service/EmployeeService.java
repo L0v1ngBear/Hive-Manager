@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
+import my.hive.common.privacy.PrivacyProtectionUtil;
 import my.management.common.utils.CodeGeneratorUtil;
 import my.management.common.utils.ExcelUtil;
 import my.hive.common.utils.EncryptUtil;
@@ -44,6 +45,7 @@ import my.management.module.sys.model.entity.SysUserRole;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,9 +56,11 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 /**
  * EmployeeService 属于管理端后端员工模块，实现核心业务编排与规则逻辑。
  */
@@ -66,8 +70,10 @@ public class EmployeeService {
     private static final int STATUS_RESIGNED = 0;
     private static final int STATUS_ACTIVE = 1;
     private static final int STATUS_PROBATION = 2;
-    private static final String DEFAULT_PASSWORD = "Test@123456";
     private static final String DEFAULT_EMPLOYEE_TYPE = "FULL_TIME";
+    private static final int DEFAULT_PAGE_NUM = 1;
+    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final int MAX_PAGE_SIZE = 200;
 
     @Resource
     private EmployeeMapper employeeMapper;
@@ -102,13 +108,23 @@ public class EmployeeService {
     @Resource
     private ExcelUtil excelUtil;
 
+    @Resource
+    private PrivacyProtectionUtil privacyProtectionUtil;
+
+    /**
+     * 新员工初始密码从配置读取，避免敏感默认值固定写死在代码中。
+     */
+    @Value("${app.default-password.employee}")
+    private String defaultPassword;
+
     public Page<EmployeePageVO> page(EmployeePageQuery query) {
         String tenantCode = TenantPermissionContext.getTenantCode();
-        Page<EmployeePageVO> page = new Page<>(query.getPage(), query.getSize());
+        Page<EmployeePageVO> page = new Page<>(safePageNum(query.getPage()), safePageSize(query.getSize()));
         Page<EmployeePageVO> result = employeeMapper.selectEmployeePage(
                 page,
                 tenantCode,
                 query.getKeyword(),
+                phoneKeywordHash(query.getKeyword()),
                 query.getDepartmentId(),
                 query.getStatus(),
                 query.getEmployeeType(),
@@ -116,6 +132,17 @@ public class EmployeeService {
                 query.getEntryDateEnd());
         fillViewFields(result.getRecords());
         return result;
+    }
+
+    private int safePageNum(Integer pageNum) {
+        return pageNum == null || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+    }
+
+    private int safePageSize(Integer pageSize) {
+        if (pageSize == null || pageSize <= 0) {
+            return DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(pageSize, MAX_PAGE_SIZE);
     }
 
     public EmployeeStatsVO stats() {
@@ -147,13 +174,20 @@ public class EmployeeService {
 
         // The create form no longer submits employeeType, so the service owns the default.
         String employeeType = normalizeEmployeeType(request.getEmployeeType(), DEFAULT_EMPLOYEE_TYPE);
+        String normalizedPhone = requireNormalizedPhone(request.getPhone());
+        ensurePhoneNotExists(normalizedPhone);
+        String phoneMask = privacyProtectionUtil.maskPhone(normalizedPhone);
+        String empNo = codeGeneratorUtil.generateEmployeeNo();
 
         Employee employee = new Employee();
         employee.setTenantCode(TenantPermissionContext.getTenantCode());
         employee.setName(request.getName());
-        employee.setLoginName(request.getPhone());
-        employee.setPhone(request.getPhone());
-        employee.setPassword(encryptUtil.encode(DEFAULT_PASSWORD));
+        // 登录账号使用工号，手机号只以不可逆哈希参与登录和查重，避免明文落库。
+        employee.setLoginName(empNo);
+        employee.setPhone(phoneMask);
+        employee.setPhoneHash(privacyProtectionUtil.hashPhone(normalizedPhone));
+        employee.setPhoneMask(phoneMask);
+        employee.setPassword(encryptUtil.encode(defaultPassword));
         employee.setDepartmentName(department.getDeptName());
         employee.setPosition(position.getPositionName());
         employee.setManagerId(null);
@@ -164,7 +198,7 @@ public class EmployeeService {
         EmployeeExt ext = new EmployeeExt();
         ext.setUserId(employee.getId());
         ext.setTenantCode(TenantPermissionContext.getTenantCode());
-        ext.setEmpNo(codeGeneratorUtil.generateEmployeeNo());
+        ext.setEmpNo(empNo);
         ext.setEmail(request.getEmail());
         ext.setEmployeeType(employeeType);
         ext.setEntryDate(request.getEntryDate());
@@ -176,13 +210,12 @@ public class EmployeeService {
         insertChangeLog(employee.getId(), "CREATE", null, Map.of(
                 "name", employee.getName(),
                 "loginName", employee.getLoginName(),
-                "phone", employee.getPhone(),
+                "phone", phoneMask,
                 "departmentName", employee.getDepartmentName(),
                 "position", employee.getPosition(),
                 "managerName", employee.getManagerName(),
                 "status", employee.getStatus(),
-                "empNo", ext.getEmpNo(),
-                "defaultPassword", DEFAULT_PASSWORD
+                "empNo", ext.getEmpNo()
         ));
         return employee.getId();
     }
@@ -194,12 +227,26 @@ public class EmployeeService {
         Department department = requireDepartment(request.getDepartmentId());
         Position position = requirePosition(request.getPositionId());
         String leaderName = normalizeLeaderName(request.getLeaderName());
+        EmployeeExt ext = getOrCreateExt(employee.getId());
+        if (!StringUtils.hasText(ext.getEmpNo())) {
+            ext.setEmpNo(codeGeneratorUtil.generateEmployeeNo());
+        }
+        boolean keepExistingPhone = privacyProtectionUtil.isMasked(request.getPhone());
+        String normalizedPhone = keepExistingPhone ? null : requireNormalizedPhone(request.getPhone());
+        String phoneMask = keepExistingPhone ? privacyProtectionUtil.maskPhone(employee.getPhone()) : privacyProtectionUtil.maskPhone(normalizedPhone);
+        if (!keepExistingPhone) {
+            ensurePhoneNotExistsForUpdate(employee.getId(), normalizedPhone);
+        }
 
         boolean syncLoginName = employee.getLoginName() == null || employee.getLoginName().isBlank() || employee.getLoginName().equals(employee.getPhone());
         employee.setName(request.getName());
-        employee.setPhone(request.getPhone());
+        if (!keepExistingPhone) {
+            employee.setPhone(phoneMask);
+            employee.setPhoneHash(privacyProtectionUtil.hashPhone(normalizedPhone));
+            employee.setPhoneMask(phoneMask);
+        }
         if (syncLoginName) {
-            employee.setLoginName(request.getPhone());
+            employee.setLoginName(ext.getEmpNo());
         }
         employee.setDepartmentName(department.getDeptName());
         employee.setPosition(position.getPositionName());
@@ -208,10 +255,6 @@ public class EmployeeService {
         employee.setStatus(request.getStatus());
         employeeMapper.updateById(employee);
 
-        EmployeeExt ext = getOrCreateExt(employee.getId());
-        if (!StringUtils.hasText(ext.getEmpNo())) {
-            ext.setEmpNo(codeGeneratorUtil.generateEmployeeNo());
-        }
         ext.setEmail(request.getEmail());
         // Preserve the stored type on update when the caller omits the field.
         ext.setEmployeeType(normalizeEmployeeType(request.getEmployeeType(), ext.getEmployeeType()));
@@ -328,6 +371,7 @@ public class EmployeeService {
         List<EmployeePageVO> list = employeeMapper.selectEmployeeExport(
                 TenantPermissionContext.getTenantCode(),
                 query.getKeyword(),
+                phoneKeywordHash(query.getKeyword()),
                 query.getDepartmentId(),
                 query.getStatus(),
                 query.getEmployeeType(),
@@ -518,6 +562,7 @@ public class EmployeeService {
 
         list.forEach(vo -> {
             vo.setStatusLabel(statusLabel(vo.getStatus()));
+            vo.setPhone(privacyProtectionUtil.maskPhone(vo.getPhone()));
             vo.setRoleIds(roleIdMap.getOrDefault(vo.getId(), Collections.emptyList()));
             vo.setRoleNames(roleNameMap.getOrDefault(vo.getId(), Collections.emptyList()));
         });
@@ -601,6 +646,9 @@ public class EmployeeService {
 
     private void syncUserRoles(Long userId, List<Long> roleIds) {
         String tenantCode = TenantPermissionContext.getTenantCode();
+        List<Long> normalizedRoleIds = normalizeRoleIds(roleIds);
+        validateAssignableRoles(tenantCode, normalizedRoleIds);
+
         List<SysUserRole> existed = sysUserRoleMapper.selectList(new LambdaQueryWrapper<SysUserRole>()
                 .eq(SysUserRole::getUserId, userId)
                 .eq(SysUserRole::getTenantCode, tenantCode)
@@ -610,25 +658,48 @@ public class EmployeeService {
             sysUserRoleMapper.updateById(item);
         }
 
-        if (roleIds == null || roleIds.isEmpty()) {
+        if (normalizedRoleIds.isEmpty()) {
             return;
         }
 
-        List<SysRole> roles = sysRoleMapper.selectList(new LambdaQueryWrapper<SysRole>()
-                .eq(SysRole::getTenantCode, tenantCode)
-                .eq(SysRole::getIsDeleted, 0)
-                .in(SysRole::getId, roleIds));
-        if (roles.size() != roleIds.size()) {
-            throw new BusinessException("存在无效角色，无法分配");
-        }
-
-        for (Long roleId : roleIds.stream().distinct().toList()) {
+        for (Long roleId : normalizedRoleIds) {
             SysUserRole userRole = new SysUserRole();
             userRole.setUserId(userId);
             userRole.setTenantCode(tenantCode);
             userRole.setRoleId(roleId);
             userRole.setIsDeleted(0);
             sysUserRoleMapper.insert(userRole);
+        }
+    }
+
+    /**
+     * 角色 ID 由前端多选框传入，历史数据中可能存在重复关联，保存前统一去重并过滤空值。
+     */
+    private List<Long> normalizeRoleIds(List<Long> roleIds) {
+        if (roleIds == null || roleIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return roleIds.stream()
+                .filter(Objects::nonNull)
+                .filter(roleId -> roleId > 0)
+                .distinct()
+                .toList();
+    }
+
+    /**
+     * 先校验角色再清空旧关联，避免无效角色导致事务回滚时给排查带来干扰。
+     */
+    private void validateAssignableRoles(String tenantCode, List<Long> roleIds) {
+        if (roleIds == null || roleIds.isEmpty()) {
+            return;
+        }
+        List<SysRole> roles = sysRoleMapper.selectList(new LambdaQueryWrapper<SysRole>()
+                .eq(SysRole::getTenantCode, tenantCode)
+                .eq(SysRole::getIsDeleted, 0)
+                .in(SysRole::getId, roleIds));
+        Set<Long> validRoleIds = new HashSet<>(roles.stream().map(SysRole::getId).toList());
+        if (validRoleIds.size() != roleIds.size()) {
+            throw new BusinessException("存在无效角色，无法分配");
         }
     }
 
@@ -670,11 +741,25 @@ public class EmployeeService {
     }
 
     private void ensurePhoneNotExists(String phone) {
+        String normalizedPhone = requireNormalizedPhone(phone);
+        String phoneHash = privacyProtectionUtil.hashPhone(normalizedPhone);
         Long count = employeeMapper.selectCount(new LambdaQueryWrapper<Employee>()
                 .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
-                .eq(Employee::getPhone, phone));
+                .and(wrapper -> wrapper.eq(Employee::getPhoneHash, phoneHash).or().eq(Employee::getPhone, normalizedPhone)));
         if (count != null && count > 0) {
-            throw new BusinessException("手机号 " + phone + " 已存在");
+            throw new BusinessException("手机号 " + privacyProtectionUtil.maskPhone(normalizedPhone) + " 已存在");
+        }
+    }
+
+    private void ensurePhoneNotExistsForUpdate(Long employeeId, String phone) {
+        String normalizedPhone = requireNormalizedPhone(phone);
+        String phoneHash = privacyProtectionUtil.hashPhone(normalizedPhone);
+        Long count = employeeMapper.selectCount(new LambdaQueryWrapper<Employee>()
+                .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
+                .ne(Employee::getId, employeeId)
+                .and(wrapper -> wrapper.eq(Employee::getPhoneHash, phoneHash).or().eq(Employee::getPhone, normalizedPhone)));
+        if (count != null && count > 0) {
+            throw new BusinessException("手机号 " + privacyProtectionUtil.maskPhone(normalizedPhone) + " 已存在");
         }
     }
 
@@ -719,14 +804,34 @@ public class EmployeeService {
         if (!StringUtils.hasText(phone)) {
             return null;
         }
+        String normalizedPhone = requireNormalizedPhone(phone);
+        String phoneHash = privacyProtectionUtil.hashPhone(normalizedPhone);
         Employee leader = employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
                 .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
-                .eq(Employee::getPhone, phone)
+                .and(wrapper -> wrapper.eq(Employee::getPhoneHash, phoneHash).or().eq(Employee::getPhone, normalizedPhone))
                 .last("LIMIT 1"));
         if (leader == null) {
-            throw new BusinessException("直属领导手机号 " + phone + " 未找到");
+            throw new BusinessException("直属领导手机号 " + privacyProtectionUtil.maskPhone(normalizedPhone) + " 未找到");
         }
         return leader.getId();
+    }
+
+    private String requireNormalizedPhone(String phone) {
+        if (privacyProtectionUtil.isMasked(phone)) {
+            throw new BusinessException("请填写完整手机号后再保存");
+        }
+        String normalizedPhone = privacyProtectionUtil.normalizePhone(phone);
+        if (!StringUtils.hasText(normalizedPhone) || normalizedPhone.length() < 7) {
+            throw new BusinessException("手机号格式不正确");
+        }
+        return normalizedPhone;
+    }
+
+    private String phoneKeywordHash(String keyword) {
+        if (!privacyProtectionUtil.mayBePhoneKeyword(keyword)) {
+            return null;
+        }
+        return privacyProtectionUtil.hashPhone(keyword);
     }
 
     private List<Long> findRoleIdsByNames(String roleNames) {

@@ -93,6 +93,18 @@ const props = withDefaults(defineProps<{
 const route = useRoute()
 const userStore = useUserStore()
 const isCollapsed = ref(!props.mobile)
+const AI_ADVICE_PERMISSIONS = [
+  'dashboard:ai:view',
+  'dashboard:ai:*',
+  'dashboard:*',
+  'dashboard:ai:inventory',
+  'dashboard:ai:order',
+  'dashboard:ai:customer',
+  'dashboard:ai:quality',
+  'dashboard:ai:finance',
+  'dashboard:ai:employee',
+  'dashboard:ai:operation'
+]
 const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value
 }
@@ -145,11 +157,13 @@ const secondaryMenus = computed<MenuItem[]>(() => {
     return []
   }
   return filterMenus([
+  {name: 'AI 经营建议', path: '/dashboard/ai-advices', icon: 'psychology', permissions: AI_ADVICE_PERMISSIONS},
   {name: '考勤管理', path: '/function/attendance', icon: 'timer', permissions: ['attendance:record:list', 'attendance:*']},
   {name: '员工管理', path: '/function/employee', icon: 'people', permissions: ['employee:list']},
   {name: '角色管理', path: '/function/role', icon: 'settings_accessibility', permissions: ['role:list']},
   {name: '标签模板', path: '/function/label', icon: 'sell', permissions: ['label:template:list']},
   {name: '文档管理', path: '/function/document', icon: 'folder_open', permissions: ['document:list']},
+  {name: '使用手册', path: '/manual', icon: 'menu_book'},
   {
     name: '租户管理',
     path: '/platform/tenant',

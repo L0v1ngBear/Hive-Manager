@@ -179,6 +179,15 @@
 
         <section class="space-y-3">
           <div class="rounded-xl bg-surface-container-low p-4">
+            <p class="text-[10px] text-on-surface-variant font-bold mb-2">闭环信息</p>
+            <div class="space-y-2 text-sm">
+              <p><span class="text-on-surface-variant">负责人员：</span>{{ detailRecord.responsiblePerson || '未填写' }}</p>
+              <p><span class="text-on-surface-variant">处理措施：</span>{{ detailRecord.processMeasure || '未填写' }}</p>
+              <p><span class="text-on-surface-variant">改进方案：</span>{{ detailRecord.improvementPlan || '未填写' }}</p>
+            </div>
+          </div>
+
+          <div class="rounded-xl bg-surface-container-low p-4">
             <p class="text-[10px] text-on-surface-variant font-bold mb-2">基础信息</p>
             <div class="space-y-2 text-sm">
               <p><span class="text-on-surface-variant">关联订单：</span>{{ detailRecord.orderId || '未关联' }}</p>
@@ -245,6 +254,32 @@
             rows="5"
             class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
             placeholder="请输入次品问题说明"
+          />
+        </label>
+        <label class="block">
+          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">负责人员</span>
+          <input
+            v-model.trim="form.responsiblePerson"
+            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary"
+            placeholder="请输入负责人员"
+          />
+        </label>
+        <label class="block">
+          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">处理措施</span>
+          <textarea
+            v-model.trim="form.processMeasure"
+            rows="3"
+            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
+            placeholder="请输入处理措施"
+          />
+        </label>
+        <label class="block">
+          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">改进方案</span>
+          <textarea
+            v-model.trim="form.improvementPlan"
+            rows="3"
+            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
+            placeholder="请输入改进方案"
           />
         </label>
       </div>
@@ -391,6 +426,9 @@ function openEdit(record) {
   form.quantity = record.quantity == null ? '' : String(record.quantity)
   form.lossAmount = record.lossAmount == null ? '' : String(record.lossAmount)
   form.description = record.description || ''
+  form.responsiblePerson = record.responsiblePerson || ''
+  form.processMeasure = record.processMeasure || ''
+  form.improvementPlan = record.improvementPlan || ''
   formVisible.value = true
 }
 
@@ -436,7 +474,10 @@ async function submitForm() {
     type: form.type,
     quantity: Number(form.quantity),
     lossAmount: Number(form.lossAmount),
-    description: form.description || undefined
+    description: form.description || undefined,
+    responsiblePerson: form.responsiblePerson || undefined,
+    processMeasure: form.processMeasure || undefined,
+    improvementPlan: form.improvementPlan || undefined
   })
   ElMessage.success(editingRecord.value ? '次品记录已更新' : '次品记录已新增')
   closeForm()
@@ -493,7 +534,10 @@ function createEmptyForm() {
     type: 'quality',
     quantity: '',
     lossAmount: '',
-    description: ''
+    description: '',
+    responsiblePerson: '',
+    processMeasure: '',
+    improvementPlan: ''
   }
 }
 </script>

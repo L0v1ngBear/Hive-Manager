@@ -29,4 +29,19 @@ public class BadProductSaveRequest {
     private BigDecimal lossAmount;
 
     private String description;
+
+    /**
+     * 负责跟进本次次品问题的人员，便于后续追责和闭环。
+     */
+    private String responsiblePerson;
+
+    /**
+     * 本次次品的即时处理措施，例如返工、报废、让步接收等。
+     */
+    private String processMeasure;
+
+    /**
+     * 针对同类问题的后续改进方案，用于减少重复发生。
+     */
+    private String improvementPlan;
 }

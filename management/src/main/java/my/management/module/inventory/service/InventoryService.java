@@ -44,6 +44,9 @@ public class InventoryService {
     private static final DateTimeFormatter BARCODE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final String DASHBOARD_OVERVIEW_CACHE_PREFIX = "management:dashboard:overview:";
     private static final String DASHBOARD_AI_CACHE_PREFIX = "management:dashboard:ai-advice:";
+    private static final long DEFAULT_PAGE_NUM = 1L;
+    private static final long DEFAULT_PAGE_SIZE = 10L;
+    private static final long MAX_PAGE_SIZE = 200L;
 
     @Resource
     private ClothMapper clothMapper;
@@ -86,7 +89,10 @@ public class InventoryService {
         }
         wrapper.orderByDesc(Cloth::getUpdateTime).orderByDesc(Cloth::getId);
 
-        Page<Cloth> page = clothMapper.selectPage(new Page<>(request.getPageNum(), request.getPageSize()), wrapper);
+        Page<Cloth> page = clothMapper.selectPage(
+                new Page<>(safePageNum(request.getPageNum()), safePageSize(request.getPageSize())),
+                wrapper
+        );
         List<ClothInventoryVO> records = page.getRecords().stream().map(this::toClothVO).toList();
 
         PageResult<ClothInventoryVO> result = new PageResult<>();
@@ -96,6 +102,17 @@ public class InventoryService {
         result.setPages(page.getPages());
         result.setData(records);
         return result;
+    }
+
+    private long safePageNum(Long pageNum) {
+        return pageNum == null || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+    }
+
+    private long safePageSize(Long pageSize) {
+        if (pageSize == null || pageSize <= 0) {
+            return DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(pageSize, MAX_PAGE_SIZE);
     }
 
     public List<InventoryWarningVO> warnings() {

@@ -1,5 +1,5 @@
 <template>
-  <main class="min-h-screen bg-[#fffdf8] px-4 py-10 text-[#101418]">
+  <main class="min-h-full bg-[#fffdf8] px-4 py-10 text-[#101418]">
     <section class="mx-auto max-w-4xl overflow-hidden rounded-[2rem] border border-[#f0d48e]/70 bg-white/90 shadow-xl shadow-amber-500/10">
       <header class="border-b border-[#f0d48e]/60 bg-gradient-to-br from-[#fff8e6] to-white px-6 py-8 md:px-10">
         <div class="flex items-center gap-4">

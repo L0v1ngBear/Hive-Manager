@@ -10,6 +10,7 @@ import com.google.zxing.common.BitMatrix;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
+import my.hive.common.privacy.PrivacyProtectionUtil;
 import my.hive.common.utils.EncryptUtil;
 import my.hive.common.utils.ResponseEncryptUtil;
 import my.hive.common.utils.TokenUtil;
@@ -59,6 +60,9 @@ public class AuthService {
     private ResponseEncryptUtil responseEncryptUtil;
 
     @Resource
+    private PrivacyProtectionUtil privacyProtectionUtil;
+
+    @Resource
     private StringRedisTemplate stringRedisTemplate;
 
     @Resource
@@ -75,12 +79,13 @@ public class AuthService {
 
     public LoginVO login(LoginRequest request, String clientIp) {
         String username = request.getUsername().trim();
-        String accountFailKey = LOGIN_FAIL_ACCOUNT_KEY_PREFIX + username;
+        String usernamePhoneHash = privacyProtectionUtil.mayBePhoneKeyword(username) ? privacyProtectionUtil.hashPhone(username) : null;
+        String accountFailKey = LOGIN_FAIL_ACCOUNT_KEY_PREFIX + accountFailKeySegment(username, usernamePhoneHash);
         String ipFailKey = LOGIN_FAIL_IP_KEY_PREFIX + normalizeClientIp(clientIp);
         ensureLoginNotLocked(accountFailKey, maxFailCount, "登录失败次数过多，请稍后再试");
         ensureLoginNotLocked(ipFailKey, maxIpFailCount, "当前访问过于频繁，请稍后再试");
 
-        LoginUserRow loginUser = authMapper.selectLoginUser(username);
+        LoginUserRow loginUser = authMapper.selectLoginUser(username, usernamePhoneHash);
         validatePasswordLogin(loginUser, request.getPassword(), accountFailKey, ipFailKey);
         stringRedisTemplate.delete(accountFailKey);
         stringRedisTemplate.delete(ipFailKey);
@@ -202,6 +207,13 @@ public class AuthService {
             return "unknown";
         }
         return clientIp.replace(":", "_").replace(".", "_");
+    }
+
+    private String accountFailKeySegment(String username, String usernamePhoneHash) {
+        if (usernamePhoneHash != null && !usernamePhoneHash.isBlank()) {
+            return "phone:" + usernamePhoneHash;
+        }
+        return username;
     }
 
     private LoginVO buildLoginVO(LoginUserRow loginUser, String rawPassword) {

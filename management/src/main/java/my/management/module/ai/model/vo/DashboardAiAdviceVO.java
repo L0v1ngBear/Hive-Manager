@@ -71,4 +71,34 @@ public class DashboardAiAdviceVO {
      * 分析依据，说明该建议为什么成立。
      */
     private String reasoning;
+
+    /**
+     * 决策类型，例如风险预警、增长机会、效率优化或运营治理。
+     */
+    private String decisionType;
+
+    /**
+     * 综合风险分，0-100。分数越高代表越需要管理层优先处理。
+     */
+    private Integer riskScore;
+
+    /**
+     * 影响范围，描述该建议可能影响的业务结果。
+     */
+    private String impactText;
+
+    /**
+     * 建议处理窗口，例如今日内、本周内或持续观察。
+     */
+    private String timeWindow;
+
+    /**
+     * 第一动作，给管理层一个最小可执行切入点。
+     */
+    private String firstAction;
+
+    /**
+     * 复盘指标，帮助判断建议是否真正形成闭环。
+     */
+    private String reviewMetric;
 }

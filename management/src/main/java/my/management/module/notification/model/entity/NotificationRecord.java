@@ -46,6 +46,16 @@ public class NotificationRecord {
 
     private LocalDateTime sendTime;
 
+    private String taskStatus;
+
+    private String closeResult;
+
+    private String closeNote;
+
+    private Long closeUserId;
+
+    private LocalDateTime closeTime;
+
     private String sourceType;
 
     private LocalDateTime createTime;

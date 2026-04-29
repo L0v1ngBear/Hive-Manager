@@ -27,6 +27,12 @@ public class BadProductVO {
 
     private String description;
 
+    private String responsiblePerson;
+
+    private String processMeasure;
+
+    private String improvementPlan;
+
     private String status;
 
     private String processMethod;

@@ -3,6 +3,7 @@ package my.management.module.ai.mapper;
 import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import my.management.module.ai.model.vo.BadProductTypeSummaryRowVO;
 import my.management.module.ai.model.vo.CustomerOrderDigestRowVO;
+import my.management.module.ai.model.vo.CustomerValueSummaryRowVO;
 import my.management.module.ai.model.vo.DueOrderRiskRowVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -29,6 +30,19 @@ public interface AiAnalysisMapper {
     })
     List<CustomerOrderDigestRowVO> selectCustomerOrderDigests(@Param("tenantCode") String tenantCode,
                                                               @Param("startTime") LocalDateTime startTime);
+
+    @Select({
+            "SELECT customer_name AS customerName, COUNT(1) AS orderCount, COALESCE(SUM(total_amount), 0) AS totalAmount ",
+            "FROM sales_order ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND customer_name IS NOT NULL AND customer_name <> '' ",
+            "AND create_time >= #{startTime} ",
+            "GROUP BY customer_name ",
+            "ORDER BY totalAmount DESC, orderCount DESC ",
+            "LIMIT 1"
+    })
+    CustomerValueSummaryRowVO selectTopCustomerValueSince(@Param("tenantCode") String tenantCode,
+                                                         @Param("startTime") LocalDateTime startTime);
 
     @Select({
             "SELECT customer_name AS customerName, create_time AS createTime, total_amount AS totalAmount ",
@@ -77,6 +91,67 @@ public interface AiAnalysisMapper {
     Long countBadProductRecordsBetween(@Param("tenantCode") String tenantCode,
                                        @Param("startTime") LocalDateTime startTime,
                                        @Param("endTime") LocalDateTime endTime);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM sales_order ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND create_time >= #{startTime} AND create_time < #{endTime}"
+    })
+    Long countSalesOrdersBetween(@Param("tenantCode") String tenantCode,
+                                 @Param("startTime") LocalDateTime startTime,
+                                 @Param("endTime") LocalDateTime endTime);
+
+    @Select({
+            "SELECT COALESCE(SUM(total_amount), 0) ",
+            "FROM sales_order ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND create_time >= #{startTime} AND create_time < #{endTime}"
+    })
+    BigDecimal sumSalesAmountBetween(@Param("tenantCode") String tenantCode,
+                                     @Param("startTime") LocalDateTime startTime,
+                                     @Param("endTime") LocalDateTime endTime);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM production_order ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND create_time >= #{startTime} AND create_time < #{endTime}"
+    })
+    Long countProductionOrdersBetween(@Param("tenantCode") String tenantCode,
+                                      @Param("startTime") LocalDateTime startTime,
+                                      @Param("endTime") LocalDateTime endTime);
+
+    @Select({
+            "SELECT COALESCE(SUM(loss_amount), 0) ",
+            "FROM bad_product_record ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND create_time >= #{startTime} AND create_time < #{endTime}"
+    })
+    BigDecimal sumBadProductLossBetween(@Param("tenantCode") String tenantCode,
+                                        @Param("startTime") LocalDateTime startTime,
+                                        @Param("endTime") LocalDateTime endTime);
+
+    @Select({
+            "SELECT COUNT(DISTINCT customer_name) ",
+            "FROM sales_order ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND customer_name IS NOT NULL AND customer_name <> '' ",
+            "AND create_time >= #{startTime} AND create_time < #{endTime}"
+    })
+    Long countActiveCustomersBetween(@Param("tenantCode") String tenantCode,
+                                     @Param("startTime") LocalDateTime startTime,
+                                     @Param("endTime") LocalDateTime endTime);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM customer ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND create_time >= #{startTime} AND create_time < #{endTime}"
+    })
+    Long countNewCustomersBetween(@Param("tenantCode") String tenantCode,
+                                  @Param("startTime") LocalDateTime startTime,
+                                  @Param("endTime") LocalDateTime endTime);
 
     @Select({
             "SELECT COUNT(1) ",
@@ -178,6 +253,15 @@ public interface AiAnalysisMapper {
     Long countCustomers(@Param("tenantCode") String tenantCode);
 
     @Select({
+            "SELECT COUNT(1) ",
+            "FROM customer ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND create_time >= #{startTime}"
+    })
+    Long countNewCustomersSince(@Param("tenantCode") String tenantCode,
+                                @Param("startTime") LocalDateTime startTime);
+
+    @Select({
             "SELECT COUNT(DISTINCT customer_name) ",
             "FROM sales_order ",
             "WHERE tenant_code = #{tenantCode} ",
@@ -186,6 +270,67 @@ public interface AiAnalysisMapper {
     })
     Long countActiveCustomersSince(@Param("tenantCode") String tenantCode,
                                    @Param("startTime") LocalDateTime startTime);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM user ",
+            "WHERE tenant_code = #{tenantCode}"
+    })
+    Long countEmployees(@Param("tenantCode") String tenantCode);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM user ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND (status IS NULL OR status = 1)"
+    })
+    Long countActiveEmployees(@Param("tenantCode") String tenantCode);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM user ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND (status IS NULL OR status = 1) ",
+            "AND (manager_id IS NULL OR manager_id = 0)"
+    })
+    Long countEmployeesWithoutManager(@Param("tenantCode") String tenantCode);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM attendance_record ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
+            "AND (sign_in_status IN (1, 3, 6) OR sign_out_status IN (2, 3, 6))"
+    })
+    Long countTodayAttendanceExceptions(@Param("tenantCode") String tenantCode,
+                                        @Param("dayPrefix") String dayPrefix);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM attendance_record ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
+            "AND sign_in_status = 1"
+    })
+    Long countTodayLate(@Param("tenantCode") String tenantCode,
+                        @Param("dayPrefix") String dayPrefix);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM user_leave ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND status = 1"
+    })
+    Long countPendingLeaveApprovals(@Param("tenantCode") String tenantCode);
+
+    @Select({
+            "SELECT COUNT(1) ",
+            "FROM user_leave ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND create_time >= #{startTime}"
+    })
+    Long countLeaveRequestsSince(@Param("tenantCode") String tenantCode,
+                                 @Param("startTime") LocalDateTime startTime);
 
     @Select({
             "SELECT COUNT(1) ",

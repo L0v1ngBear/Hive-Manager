@@ -151,10 +151,12 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
                 输出必须是 JSON 数组，不要 Markdown，不要解释性前后缀。
                 每条建议字段必须包含：
                 category, level, icon, title, summary, suggestion, route, priority,
-                ownerDepartment, actionLabel, metricText, trackingHint, sourceType, confidence, reasoning。
-                category 只能使用 inventory/order/delivery/customer/quality/finance/operation/overview。
+                ownerDepartment, actionLabel, metricText, trackingHint, sourceType, confidence, reasoning,
+                decisionType, riskScore, impactText, timeWindow, firstAction, reviewMetric。
+                category 只能使用 inventory/order/delivery/customer/employee/quality/finance/operation/overview。
                 level 只能使用 warning/info/success。sourceType 固定为 llm。
-                建议必须面向老板和管理层，强调业务洞察、决策辅助和行动闭环。
+                riskScore 必须是 0-100 的整数，firstAction 必须是能立刻执行的一句话。
+                建议必须面向老板和管理层，强调业务洞察、决策辅助、影响范围和行动闭环。
                 """;
     }
 
@@ -176,11 +178,11 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
                     .limit(8)
                     .toList());
 
-            return "请基于以下经营快照生成最多 " + properties.getMaxAdvices()
-                    + " 条额外的高价值经营建议，避免与 baselineAdviceTitles 重复：\n"
+            return "请基于以下全局经营快照生成最多 " + properties.getMaxAdvices()
+                    + " 条额外的高价值决策建议，重点观察经营、客户、员工、质量和财务之间的交叉影响，避免与 baselineAdviceTitles 重复：\n"
                     + objectMapper.writeValueAsString(payload);
         } catch (Exception ignored) {
-            return "请基于当前经营快照生成经营建议。";
+            return "请基于当前全局经营快照生成决策建议。";
         }
     }
 

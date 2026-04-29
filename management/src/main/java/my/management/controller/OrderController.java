@@ -14,19 +14,27 @@ import my.management.module.order.model.dto.SalesOrderUpdateRequest;
 import my.management.module.order.model.vo.ProductionOrderDetailVO;
 import my.management.module.order.model.vo.ProductionOrderPageVO;
 import my.management.module.order.model.vo.ProductionOrderStatusLogVO;
+import my.management.module.order.model.vo.SalesOrderAttachmentVO;
 import my.management.module.order.model.vo.SalesOrderDetailVO;
 import my.management.module.order.model.vo.SalesOrderPageVO;
 import my.management.module.order.model.vo.SalesOrderStatusLogVO;
 import my.management.module.order.service.OrderService;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -57,6 +65,26 @@ public class OrderController {
     @RequirePermission(value = "sales:order:status", message = "您没有权限创建销售订单")
     public Result<String> createSales(@RequestBody @Valid SalesOrderSaveRequest request) {
         return Result.success(orderService.createSalesOrder(request));
+    }
+
+    @PostMapping("/sales/attachment/upload")
+    @RequirePermission(value = "sales:order:status", message = "您没有权限上传销售订单附件")
+    public Result<SalesOrderAttachmentVO> uploadSalesAttachment(@RequestParam("file") MultipartFile file) {
+        return Result.success(orderService.uploadSalesAttachment(file));
+    }
+
+    @GetMapping("/sales/attachment/download")
+    @RequirePermission(value = "sales:order:detail", message = "您没有权限下载销售订单附件")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadSalesAttachment(@RequestParam String url,
+                                                                                       @RequestParam(required = false) String name) {
+        org.springframework.core.io.Resource resource = orderService.loadSalesAttachment(url);
+        String filename = name != null && !name.isBlank() ? name.trim() : resource.getFilename();
+        String encodedFilename = URLEncoder.encode(filename == null ? "order-attachment" : filename, StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFilename)
+                .body(resource);
     }
 
     @PostMapping("/sales/save/{orderId}")

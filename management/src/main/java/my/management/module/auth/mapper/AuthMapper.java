@@ -16,17 +16,19 @@ public interface AuthMapper {
     @Select({
             "<script>",
             "SELECT u.id AS userId, u.tenant_code AS tenantCode, u.name AS userName, u.login_name AS loginName, ",
-            "u.phone AS phone, u.password AS password, u.status AS userStatus ",
+            "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, u.status AS userStatus ",
             "FROM user u ",
-            "WHERE (u.login_name = #{username} OR u.phone = #{username}) ",
+            "WHERE (u.login_name = #{username} ",
+            "<if test='phoneHash != null and phoneHash != \"\"'>OR u.phone_hash = #{phoneHash} </if>",
+            "OR u.phone = #{username}) ",
             "LIMIT 1",
             "</script>"
     })
-    LoginUserRow selectLoginUser(@Param("username") String username);
+    LoginUserRow selectLoginUser(@Param("username") String username, @Param("phoneHash") String phoneHash);
 
     @Select({
             "SELECT u.id AS userId, u.tenant_code AS tenantCode, u.name AS userName, u.login_name AS loginName, ",
-            "u.phone AS phone, u.password AS password, u.status AS userStatus ",
+            "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, u.status AS userStatus ",
             "FROM user u ",
             "WHERE u.id = #{userId} AND u.tenant_code = #{tenantCode} ",
             "LIMIT 1"

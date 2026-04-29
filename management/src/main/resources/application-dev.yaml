@@ -16,6 +16,11 @@ spring:
     username: guest
     password: guest
 
+app:
+  default-password:
+    employee: ${EMPLOYEE_DEFAULT_PASSWORD:Test@123456}
+    tenant-owner: ${TENANT_OWNER_DEFAULT_PASSWORD:Test@123456}
+
 hive:
   operation-log:
     enabled: true

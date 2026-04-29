@@ -2,15 +2,35 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { hasAnyPermission as matchAnyPermission, hasPermission as matchPermission } from '@/utils/permission'
 
+const authStorage = window.sessionStorage
+const legacyStorage = window.localStorage
+
+const readStorageItem = (key, fallback = '') => authStorage.getItem(key) || legacyStorage.getItem(key) || fallback
+
+const readJsonStorageItem = (key, fallback) => {
+  try {
+    return JSON.parse(readStorageItem(key, JSON.stringify(fallback)))
+  } catch (error) {
+    return fallback
+  }
+}
+
+const removeLoginStorage = () => {
+  ;['token', 'userInfo', 'permissions', 'responseKey'].forEach((key) => {
+    authStorage.removeItem(key)
+    legacyStorage.removeItem(key)
+  })
+}
+
 export const useUserStore = defineStore('user', () => {
-  const token = ref(localStorage.getItem('token') || '')
-  const userInfo = ref(JSON.parse(localStorage.getItem('userInfo') || 'null'))
-  const permissions = ref(JSON.parse(localStorage.getItem('permissions') || '[]'))
+  const token = ref(readStorageItem('token'))
+  const userInfo = ref(readJsonStorageItem('userInfo', null))
+  const permissions = ref(readJsonStorageItem('permissions', []))
   const isDeveloper = computed(() => {
     const tenantCode = userInfo.value?.tenantCode
     return typeof tenantCode === 'string' && tenantCode.toLowerCase() === 'super'
   })
-  const responseKey = ref(localStorage.getItem('responseKey') || '')
+  const responseKey = ref(readStorageItem('responseKey'))
 
   const setLoginInfo = (loginData) => {
     token.value = loginData?.token || ''
@@ -24,10 +44,14 @@ export const useUserStore = defineStore('user', () => {
     permissions.value = loginData?.permissions || []
     responseKey.value = loginData?.responseKey || ''
 
-    localStorage.setItem('token', token.value)
-    localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
-    localStorage.setItem('permissions', JSON.stringify(permissions.value))
-    localStorage.setItem('responseKey', responseKey.value)
+    legacyStorage.removeItem('token')
+    legacyStorage.removeItem('userInfo')
+    legacyStorage.removeItem('permissions')
+    legacyStorage.removeItem('responseKey')
+    authStorage.setItem('token', token.value)
+    authStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+    authStorage.setItem('permissions', JSON.stringify(permissions.value))
+    authStorage.setItem('responseKey', responseKey.value)
   }
 
   const logout = () => {
@@ -35,10 +59,7 @@ export const useUserStore = defineStore('user', () => {
     userInfo.value = null
     permissions.value = []
     responseKey.value = ''
-    localStorage.removeItem('token')
-    localStorage.removeItem('userInfo')
-    localStorage.removeItem('permissions')
-    localStorage.removeItem('responseKey')
+    removeLoginStorage()
   }
 
   const hasPermission = (permCode) => matchPermission(permissions.value, permCode)

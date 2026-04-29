@@ -38,6 +38,10 @@ import java.util.stream.Collectors;
 @Service
 public class RoleService {
 
+    private static final int DEFAULT_PAGE_NUM = 1;
+    private static final int DEFAULT_PAGE_SIZE = 10;
+    private static final int MAX_PAGE_SIZE = 200;
+
     @Resource
     private SysRoleMapper sysRoleMapper;
 
@@ -57,7 +61,7 @@ public class RoleService {
     private PermissionCacheUtil permissionCacheUtil;
 
     public Page<SysRole> selectPage(Integer pages, Integer size, String keyword) {
-        Page<SysRole> page = new Page<>(pages, size);
+        Page<SysRole> page = new Page<>(safePageNum(pages), safePageSize(size));
         LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SysRole::getTenantCode, TenantPermissionContext.getTenantCode());
         wrapper.orderByDesc(SysRole::getCreateTime);
@@ -65,6 +69,17 @@ public class RoleService {
             wrapper.like(SysRole::getRoleName, keyword);
         }
         return sysRoleMapper.selectPage(page, wrapper);
+    }
+
+    private int safePageNum(Integer pageNum) {
+        return pageNum == null || pageNum <= 0 ? DEFAULT_PAGE_NUM : pageNum;
+    }
+
+    private int safePageSize(Integer pageSize) {
+        if (pageSize == null || pageSize <= 0) {
+            return DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(pageSize, MAX_PAGE_SIZE);
     }
 
     public List<SysPermissionTreeVO> selectAllPermissionTree() {
