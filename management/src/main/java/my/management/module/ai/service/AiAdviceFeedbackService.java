@@ -3,13 +3,13 @@ package my.management.module.ai.service;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
+import my.hive.common.redis.HiveRedisKeyBuilder;
+import my.hive.common.utils.RedisCacheHelper;
 import my.management.module.ai.mapper.AiAdviceTrainingSampleMapper;
 import my.management.module.ai.model.dto.AiAdviceFeedbackRequest;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
-import java.util.Set;
 
 /**
  * AI 建议反馈服务。
@@ -20,7 +20,6 @@ import java.util.Set;
 public class AiAdviceFeedbackService {
 
     private static final int MAX_FEEDBACK_TEXT_LENGTH = 500;
-    private static final String AI_ADVICE_CACHE_KEY_PREFIX = "management:dashboard:ai-advice:";
     private static final Map<String, String> LABEL_STATUS_MAP = Map.of(
             "useful", "positive",
             "resolved", "resolved",
@@ -35,7 +34,10 @@ public class AiAdviceFeedbackService {
     private AiAdvicePermissionService aiAdvicePermissionService;
 
     @Resource
-    private StringRedisTemplate stringRedisTemplate;
+    private RedisCacheHelper redisCacheHelper;
+
+    @Resource
+    private HiveRedisKeyBuilder redisKeyBuilder;
 
     public void feedback(AiAdviceFeedbackRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
@@ -77,10 +79,7 @@ public class AiAdviceFeedbackService {
 
     private void clearTenantAdviceCache(String tenantCode) {
         try {
-            Set<String> keys = stringRedisTemplate.keys(AI_ADVICE_CACHE_KEY_PREFIX + tenantCode + ":*");
-            if (keys != null && !keys.isEmpty()) {
-                stringRedisTemplate.delete(keys);
-            }
+            redisCacheHelper.deleteByPattern(redisKeyBuilder.cachePattern("management", "dashboard", "ai-advice", tenantCode, "*"));
         } catch (Exception ignored) {
             // 反馈已经写入数据库，缓存清理失败最多延迟 60 秒生效，不影响主流程。
         }

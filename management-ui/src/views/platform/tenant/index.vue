@@ -7,7 +7,11 @@
           <h1 class="mt-1 text-3xl font-black tracking-tight text-primary">租户管理</h1>
           <p class="mt-1 text-sm text-on-surface-variant">仅平台超管可见，用于查看租户整体状态与续费风险。</p>
         </div>
-        <button class="shrink-0 rounded-2xl bg-primary px-5 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition-all hover:opacity-90 active:scale-95">
+        <button
+          v-permission="'platform:tenant:create'"
+          class="shrink-0 rounded-2xl bg-primary px-5 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition-all hover:opacity-90 active:scale-95"
+          @click="openCreateDialog"
+        >
           <span class="material-symbols-outlined mr-1.5 text-[18px] align-[-3px]">add</span>
           新增租户
         </button>
@@ -134,11 +138,57 @@
         </div>
       </div>
     </section>
+
+    <el-dialog v-model="createDialogVisible" title="新增租户" width="640px" destroy-on-close>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="space-y-1.5">
+          <span class="text-xs font-black text-on-surface-variant">租户名称</span>
+          <input v-model.trim="createForm.tenantName" class="tenant-input" placeholder="例如：蜂巢纺织有限公司" />
+        </label>
+        <label class="space-y-1.5">
+          <span class="text-xs font-black text-on-surface-variant">租户编码</span>
+          <input v-model.trim="createForm.tenantCode" class="tenant-input uppercase" placeholder="例如：HIVE_TEXTILE" />
+        </label>
+        <label class="space-y-1.5">
+          <span class="text-xs font-black text-on-surface-variant">联系人</span>
+          <input v-model.trim="createForm.contactPerson" class="tenant-input" placeholder="企业负责人或管理员" />
+        </label>
+        <label class="space-y-1.5">
+          <span class="text-xs font-black text-on-surface-variant">联系电话</span>
+          <input v-model.trim="createForm.contactPhone" class="tenant-input" placeholder="手机号或座机" />
+        </label>
+        <label class="space-y-1.5">
+          <span class="text-xs font-black text-on-surface-variant">所在城市</span>
+          <input v-model.trim="createForm.companyCity" class="tenant-input" placeholder="例如：杭州" />
+        </label>
+        <label class="space-y-1.5">
+          <span class="text-xs font-black text-on-surface-variant">初始密码</span>
+          <input v-model.trim="createForm.password" class="tenant-input" type="password" placeholder="不填则使用系统默认密码" />
+        </label>
+        <label class="md:col-span-2 space-y-1.5">
+          <span class="text-xs font-black text-on-surface-variant">公司详细地址</span>
+          <input v-model.trim="createForm.companyAddress" class="tenant-input" placeholder="可选；配置天地图 key 后可自动解析为打卡坐标" />
+        </label>
+        <p class="md:col-span-2 rounded-2xl bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-800">
+          后端配置天地图 key 后会尝试按公司地址自动生成打卡点；建议管理员后续仍到公司现场，在小程序考勤页用当前位置校准一次。
+        </p>
+      </div>
+      <template #footer>
+        <button class="rounded-xl px-4 py-2 text-sm font-black text-on-surface-variant hover:bg-surface-container-low" @click="createDialogVisible = false">
+          取消
+        </button>
+        <button class="rounded-xl bg-primary px-5 py-2 text-sm font-black text-white disabled:opacity-60" :disabled="creating" @click="submitCreateTenant">
+          {{ creating ? '创建中...' : '提交创建' }}
+        </button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { createTenant } from './api/tenant'
 
 const filters = reactive({
   keyword: '',
@@ -146,7 +196,11 @@ const filters = reactive({
   status: 'all'
 })
 
-const tenantsData = [
+const createDialogVisible = ref(false)
+const creating = ref(false)
+const createForm = reactive(defaultCreateForm())
+
+const tenantsData = reactive([
   {
     name: '华伦纺织集团',
     location: '上海，中国',
@@ -207,7 +261,7 @@ const tenantsData = [
     statusColor: 'bg-emerald-500',
     statusBadge: 'bg-emerald-50 text-emerald-700'
   }
-]
+])
 
 const statCards = computed(() => [
   {
@@ -244,6 +298,80 @@ const statCards = computed(() => [
   }
 ])
 
+function defaultCreateForm() {
+  return {
+    tenantName: '',
+    tenantCode: '',
+    tenantType: 1,
+    contactPerson: '',
+    contactPhone: '',
+    password: '',
+    companyCity: '',
+    companyAddress: ''
+  }
+}
+
+function openCreateDialog() {
+  Object.assign(createForm, defaultCreateForm())
+  createDialogVisible.value = true
+}
+
+function validateCreateForm() {
+  if (!createForm.tenantName) {
+    ElMessage.warning('请填写租户名称')
+    return false
+  }
+  if (!createForm.tenantCode) {
+    ElMessage.warning('请填写租户编码')
+    return false
+  }
+  if (!/^[A-Za-z0-9_]+$/.test(createForm.tenantCode)) {
+    ElMessage.warning('租户编码仅支持字母、数字和下划线')
+    return false
+  }
+  return true
+}
+
+async function submitCreateTenant() {
+  if (!validateCreateForm() || creating.value) {
+    return
+  }
+  creating.value = true
+  try {
+    await createTenant({
+      ...createForm,
+      tenantCode: createForm.tenantCode.toUpperCase()
+    })
+    tenantsData.unshift(buildTenantRow(createForm))
+    ElMessage.success('租户已创建，请在小程序考勤页设置公司打卡点')
+    createDialogVisible.value = false
+  } catch (error) {
+    console.error('租户创建失败', error)
+  } finally {
+    creating.value = false
+  }
+}
+
+function buildTenantRow(form) {
+  const name = form.tenantName || '新租户'
+  const code = (form.tenantCode || '').toUpperCase()
+  return {
+    name,
+    location: form.companyCity || form.companyAddress || '待完善地址',
+    code,
+    contact: form.contactPerson || '未填写',
+    email: form.contactPhone || '--',
+    version: 'Basic',
+    expiryDate: '--',
+    status: 'Active',
+    initials: name.slice(0, 2).toUpperCase(),
+    avatarColor: 'bg-primary/10 text-primary',
+    versionStyle: 'bg-primary/10 text-primary',
+    statusColor: 'bg-emerald-500',
+    statusBadge: 'bg-emerald-50 text-emerald-700'
+  }
+}
+
 const filteredTenants = computed(() => {
   const keyword = filters.keyword.trim().toLowerCase()
   return tenantsData.filter((tenant) => {
@@ -263,5 +391,21 @@ const filteredTenants = computed(() => {
 <style scoped>
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+}
+
+.tenant-input {
+  width: 100%;
+  border-radius: 1rem;
+  background: #f8fafc;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+  transition: box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.tenant-input:focus {
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.6), 0 0 0 4px rgba(245, 158, 11, 0.12);
 }
 </style>

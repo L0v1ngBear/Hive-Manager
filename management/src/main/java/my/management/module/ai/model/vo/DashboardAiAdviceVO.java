@@ -101,4 +101,54 @@ public class DashboardAiAdviceVO {
      * 复盘指标，帮助判断建议是否真正形成闭环。
      */
     private String reviewMetric;
+
+    /**
+     * 管理层应该先回答的关键决策问题。
+     */
+    private String decisionQuestion;
+
+    /**
+     * 跨部门协同路径，避免建议只停留在提醒层。
+     */
+    private String collaborationPath;
+
+    /**
+     * 风险升级规则，明确什么时候需要更高权限负责人介入。
+     */
+    private String escalationRule;
+
+    /**
+     * 预防动作，用于把一次性处理沉淀成长期机制。
+     */
+    private String preventionAction;
+
+    /**
+     * 建议复盘节奏，例如日会、周会或月度经营会。
+     */
+    private String meetingCadence;
+
+    /**
+     * 建议可见层级，用于前端区分一线提醒和高层经营建议。
+     */
+    private String visibilityTier;
+
+    /**
+     * 生成该建议的规则编码，用于问题追踪和后续策略回退。
+     */
+    private String ruleCode;
+
+    /**
+     * 规则版本，帮助判断建议来自哪一版规则体系。
+     */
+    private String ruleVersion;
+
+    /**
+     * 策略版本，区分当前线上策略和候选影子策略。
+     */
+    private String strategyVersion;
+
+    /**
+     * 评估模式：ONLINE 表示当前线上可见建议，SHADOW 表示只参与对比评估。
+     */
+    private String evaluationMode;
 }

@@ -53,6 +53,316 @@
       </article>
     </section>
 
+    <section v-if="dailyBrief" class="relative overflow-hidden rounded-[2rem] bg-[#172033] text-white p-6 md:p-7 shadow-lg">
+      <div class="absolute -right-12 -top-16 h-48 w-48 rounded-full bg-white/8"></div>
+      <div class="absolute right-24 bottom-0 h-24 w-24 rounded-full bg-amber-300/10"></div>
+      <div class="relative z-10 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="text-xs font-black tracking-[0.22em] uppercase text-white/45">Daily Brief</p>
+            <span class="px-3 py-1 rounded-full bg-white/10 text-white/75 text-xs font-black">{{ dailyBrief.briefVersion || 'daily_brief' }}</span>
+          </div>
+          <h2 class="mt-3 text-2xl md:text-3xl font-black">{{ dailyBrief.title || '今日经营简报' }}</h2>
+          <p class="mt-3 text-sm leading-7 text-white/75">{{ dailyBrief.executiveSummary }}</p>
+          <div class="mt-5 rounded-2xl bg-white/8 border border-white/10 p-4">
+            <p class="text-[10px] font-black tracking-widest text-white/45 uppercase">今日第一动作</p>
+            <p class="mt-2 text-sm leading-7 font-bold text-white">{{ dailyBrief.firstAction }}</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 xl:grid-cols-1 gap-3">
+          <div class="rounded-2xl bg-white/8 border border-white/10 p-4">
+            <p class="text-[10px] font-black tracking-widest text-white/45 uppercase">重点风险</p>
+            <p class="mt-2 text-2xl font-black text-amber-200">{{ dailyBrief.riskCount || 0 }}</p>
+          </div>
+          <div class="rounded-2xl bg-white/8 border border-white/10 p-4">
+            <p class="text-[10px] font-black tracking-widest text-white/45 uppercase">行动项</p>
+            <p class="mt-2 text-2xl font-black text-sky-200">{{ dailyBrief.urgentActionCount || 0 }}</p>
+          </div>
+          <div class="rounded-2xl bg-white/8 border border-white/10 p-4">
+            <p class="text-[10px] font-black tracking-widest text-white/45 uppercase">观察项</p>
+            <p class="mt-2 text-2xl font-black text-emerald-200">{{ dailyBrief.watchCount || 0 }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative z-10 mt-5 grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div class="rounded-2xl bg-white/8 border border-white/10 p-4">
+          <p class="text-[10px] font-black tracking-widest text-white/45 uppercase">最高风险</p>
+          <p class="mt-2 text-sm font-black text-white">{{ dailyBrief.topRiskTitle || '暂无重点风险' }}</p>
+          <p class="mt-2 text-xs leading-6 text-white/60">{{ dailyBrief.topRiskSummary }}</p>
+        </div>
+        <div class="rounded-2xl bg-white/8 border border-white/10 p-4">
+          <p class="text-[10px] font-black tracking-widest text-white/45 uppercase">优先处理</p>
+          <p
+            v-for="item in dailyBrief.urgentActions?.slice(0, 3) || []"
+            :key="`${item.category}-${item.title}`"
+            class="mt-2 text-xs leading-6 text-white/70"
+          >
+            {{ item.priority }} · {{ item.title }}
+          </p>
+          <p v-if="!dailyBrief.urgentActions?.length" class="mt-2 text-xs leading-6 text-white/60">暂无高优先级行动。</p>
+        </div>
+        <div class="rounded-2xl bg-white/8 border border-white/10 p-4">
+          <p class="text-[10px] font-black tracking-widest text-white/45 uppercase">复盘关注</p>
+          <p
+            v-for="item in dailyBrief.reviewItems?.slice(0, 3) || []"
+            :key="`${item.category}-${item.reviewMetric}`"
+            class="mt-2 text-xs leading-6 text-white/70"
+          >
+            {{ item.reviewMetric }}
+          </p>
+          <p v-if="!dailyBrief.reviewItems?.length" class="mt-2 text-xs leading-6 text-white/60">暂无明确复盘指标。</p>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="evolutionReport" class="rounded-[2rem] bg-surface-container-lowest p-5 md:p-6 shadow-sm ring-1 ring-outline-variant/20">
+      <div class="flex flex-col xl:flex-row xl:items-start justify-between gap-5">
+        <div class="max-w-3xl">
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="text-xs font-black tracking-[0.22em] uppercase text-on-surface-variant">Learning Loop</p>
+            <span class="px-3 py-1 rounded-full text-xs font-black" :class="evolutionStageClass(evolutionReport.learningStage)">
+              {{ evolutionStageText(evolutionReport.learningStage) }}
+            </span>
+          </div>
+          <h2 class="mt-3 text-2xl font-black text-on-surface">建议自进化评估</h2>
+          <p class="mt-2 text-sm leading-7 text-on-surface-variant">{{ evolutionReport.stageText }}</p>
+        </div>
+        <div class="grid grid-cols-3 gap-3 w-full xl:w-[420px]">
+          <div class="rounded-2xl bg-sky-50 p-4 text-center ring-1 ring-sky-100">
+            <p class="text-[10px] font-black tracking-widest text-sky-700 uppercase">样本</p>
+            <p class="mt-2 text-2xl font-black text-sky-700">{{ evolutionReport.sampleCount || 0 }}</p>
+          </div>
+          <div class="rounded-2xl bg-amber-50 p-4 text-center ring-1 ring-amber-100">
+            <p class="text-[10px] font-black tracking-widest text-amber-700 uppercase">反馈</p>
+            <p class="mt-2 text-2xl font-black text-amber-700">{{ evolutionReport.feedbackCoverageRate || 0 }}%</p>
+          </div>
+          <div class="rounded-2xl bg-emerald-50 p-4 text-center ring-1 ring-emerald-100">
+            <p class="text-[10px] font-black tracking-widest text-emerald-700 uppercase">质量</p>
+            <p class="mt-2 text-2xl font-black text-emerald-700">{{ evolutionReport.qualityScore || 0 }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
+          <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">当前策略</p>
+          <p class="mt-2 text-sm font-black text-on-surface">{{ evolutionReport.currentStrategyVersion || '--' }}</p>
+        </div>
+        <div class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
+          <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">候选策略</p>
+          <p class="mt-2 text-sm font-black text-on-surface">{{ evolutionReport.candidateStrategyVersion || '--' }}</p>
+        </div>
+        <div class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
+          <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">影子胜率</p>
+          <p class="mt-2 text-sm font-black text-on-surface">{{ evolutionReport.shadowWinRate || 0 }}%</p>
+        </div>
+        <div class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
+          <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">平均差值</p>
+          <p class="mt-2 text-sm font-black" :class="shadowDeltaClass(evolutionReport.shadowAverageDelta)">
+            {{ signedNumber(evolutionReport.shadowAverageDelta || 0) }}
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
+          <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">影子评估</p>
+          <p class="mt-2 text-xs leading-6 font-bold text-on-surface">{{ evolutionReport.shadowEvaluation }}</p>
+        </div>
+        <div class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
+          <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">灰度策略</p>
+          <p class="mt-2 text-xs leading-6 font-bold text-on-surface">{{ evolutionReport.rolloutPolicy }}</p>
+        </div>
+        <div class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
+          <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">回退规则</p>
+          <p class="mt-2 text-xs leading-6 font-bold text-on-surface">{{ evolutionReport.rollbackPolicy }}</p>
+        </div>
+      </div>
+
+      <div v-if="evolutionReport.rolloutCandidates?.length" class="mt-5 rounded-3xl bg-lime-50 border border-lime-200 p-4 md:p-5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+          <div>
+            <p class="text-xs font-black tracking-[0.22em] uppercase text-lime-700/70">Rollout Governance</p>
+            <h3 class="mt-2 text-lg font-black text-lime-950">灰度候选方案</h3>
+            <p class="mt-2 text-xs leading-6 text-lime-900/75">{{ evolutionReport.governanceSummary }}</p>
+          </div>
+          <span class="w-fit px-3 py-1 rounded-full bg-lime-100 text-lime-800 text-xs font-black">
+            {{ evolutionReport.rolloutCandidateCount || evolutionReport.rolloutCandidates.length }} 个候选
+          </span>
+        </div>
+        <div class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <article
+            v-for="item in evolutionReport.rolloutCandidates.slice(0, 4)"
+            :key="`${item.category}-${item.ruleTitle}-${item.candidateStrategyVersion}`"
+            class="rounded-2xl bg-white/85 border border-lime-200 p-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-[11px] font-black text-lime-700">{{ categoryTitle(item.category) }}</p>
+                <p class="mt-1 text-sm font-black text-on-surface line-clamp-2">{{ item.ruleTitle || '未命名建议' }}</p>
+              </div>
+              <span class="shrink-0 px-2 py-1 rounded-full bg-lime-100 text-lime-800 text-[10px] font-black">
+                {{ item.governanceStatus || '待确认' }}
+              </span>
+            </div>
+            <div class="mt-4 grid grid-cols-4 gap-2 text-center">
+              <div>
+                <p class="text-[10px] text-on-surface-variant">初始流量</p>
+                <p class="mt-1 text-base font-black text-lime-700">{{ item.suggestedTrafficPercent || 5 }}%</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-on-surface-variant">上限</p>
+                <p class="mt-1 text-base font-black text-on-surface">{{ item.maxTrafficPercent || 20 }}%</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-on-surface-variant">观察期</p>
+                <p class="mt-1 text-base font-black text-on-surface">{{ item.minObservationDays || 7 }}天</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-on-surface-variant">回退阈值</p>
+                <p class="mt-1 text-base font-black text-red-600">{{ item.rollbackNegativeRateThreshold || 35 }}%</p>
+              </div>
+            </div>
+            <p class="mt-3 text-xs leading-6 text-on-surface-variant">{{ item.rolloutReason }}</p>
+            <div class="mt-3 rounded-2xl bg-lime-50/80 border border-lime-100 p-3">
+              <p class="text-[10px] font-black tracking-widest text-lime-800 uppercase">审批与回退</p>
+              <p class="mt-2 text-[11px] leading-5 text-on-surface-variant">审批角色：{{ item.approvalRequiredRole }}</p>
+              <p class="mt-1 text-[11px] leading-5 text-on-surface-variant">{{ item.rollbackRule }}</p>
+            </div>
+            <div v-if="item.manualChecklist?.length" class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <p
+                v-for="check in item.manualChecklist"
+                :key="check"
+                class="rounded-xl bg-white border border-lime-100 px-3 py-2 text-[11px] leading-5 text-on-surface-variant"
+              >
+                {{ check }}
+              </p>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <div v-if="evolutionReport.categories?.length" class="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <article
+          v-for="item in evolutionReport.categories.slice(0, 8)"
+          :key="item.category"
+          class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-black text-on-surface">{{ categoryTitle(item.category) }}</p>
+              <p class="mt-1 text-[11px] text-on-surface-variant">反馈覆盖 {{ item.feedbackCoverageRate || 0 }}%</p>
+            </div>
+            <span class="px-2 py-1 rounded-full text-[10px] font-black" :class="evolutionStageClass(item.learningStage)">
+              {{ item.qualityScore || 0 }}
+            </span>
+          </div>
+          <p class="mt-3 text-xs leading-6 text-on-surface-variant">{{ item.sampleQuality }}</p>
+          <p class="mt-2 text-[11px] leading-5 font-bold text-primary">{{ item.rolloutAction }}</p>
+        </article>
+      </div>
+
+      <div v-if="evolutionReport.shadowComparisons?.length" class="mt-5 rounded-3xl bg-[#0f172a] text-white p-4 md:p-5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+          <div>
+            <p class="text-xs font-black tracking-[0.22em] uppercase text-white/45">Shadow Compare</p>
+            <h3 class="mt-2 text-lg font-black">影子策略对比</h3>
+          </div>
+          <p class="text-xs text-white/55">只比较，不替换线上规则</p>
+        </div>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+          <article
+            v-for="item in evolutionReport.shadowComparisons.slice(0, 8)"
+            :key="`${item.category}-${item.candidateStrategyVersion}`"
+            class="rounded-2xl bg-white/8 border border-white/10 p-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-sm font-black text-white">{{ categoryTitle(item.category) }}</p>
+                <p class="mt-1 text-[11px] text-white/50">{{ item.currentStrategyVersion }} → {{ item.candidateStrategyVersion }}</p>
+              </div>
+              <span class="px-2 py-1 rounded-full text-[10px] font-black" :class="shadowDecisionClass(item.decision)">
+                {{ item.decision }}
+              </span>
+            </div>
+            <div class="mt-4 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p class="text-[10px] text-white/45">当前</p>
+                <p class="mt-1 text-lg font-black">{{ item.currentScore || 0 }}</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-white/45">候选</p>
+                <p class="mt-1 text-lg font-black">{{ item.candidateScore || 0 }}</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-white/45">差值</p>
+                <p class="mt-1 text-lg font-black" :class="shadowDeltaClass(item.delta)">{{ signedNumber(item.delta || 0) }}</p>
+              </div>
+            </div>
+            <p class="mt-3 text-xs leading-6 text-white/65">{{ item.reason }}</p>
+          </article>
+        </div>
+      </div>
+
+      <div v-if="evolutionReport.ruleShadowComparisons?.length" class="mt-5 rounded-3xl bg-white border border-outline-variant/20 p-4 md:p-5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+          <div>
+            <p class="text-xs font-black tracking-[0.22em] uppercase text-on-surface-variant">Rule Shadow</p>
+            <h3 class="mt-2 text-lg font-black text-on-surface">规则级升降权观察</h3>
+          </div>
+          <p class="text-xs text-on-surface-variant">只影响影子评估，不自动替换线上建议</p>
+        </div>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          <article
+            v-for="item in evolutionReport.ruleShadowComparisons.slice(0, 9)"
+            :key="`${item.category}-${item.ruleTitle}-${item.decision}`"
+            class="rounded-2xl bg-surface-container-low border border-outline-variant/20 p-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-[11px] font-black text-primary">{{ categoryTitle(item.category) }}</p>
+                <p class="mt-1 text-sm font-black text-on-surface line-clamp-2">{{ item.ruleTitle || '未命名建议' }}</p>
+              </div>
+              <span class="shrink-0 px-2 py-1 rounded-full text-[10px] font-black" :class="ruleShadowDecisionClass(item.decision)">
+                {{ item.decision }}
+              </span>
+            </div>
+            <div class="mt-4 grid grid-cols-4 gap-2 text-center">
+              <div>
+                <p class="text-[10px] text-on-surface-variant">样本</p>
+                <p class="mt-1 text-base font-black text-on-surface">{{ item.sampleCount || 0 }}</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-on-surface-variant">反馈</p>
+                <p class="mt-1 text-base font-black text-on-surface">{{ item.feedbackCount || 0 }}</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-on-surface-variant">负反馈</p>
+                <p class="mt-1 text-base font-black text-red-600">{{ item.negativeRate || 0 }}%</p>
+              </div>
+              <div>
+                <p class="text-[10px] text-on-surface-variant">差值</p>
+                <p class="mt-1 text-base font-black" :class="shadowDeltaClass(item.delta)">{{ signedNumber(item.delta || 0) }}</p>
+              </div>
+            </div>
+            <div class="mt-3 rounded-2xl bg-white/80 border border-outline-variant/20 p-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="px-2 py-1 rounded-full text-[10px] font-black" :class="promotionReadinessClass(item.promotionReadiness)">
+                  {{ item.promotionReadiness || '继续观察' }}
+                </span>
+                <span class="text-[11px] text-on-surface-variant">
+                  观察 {{ item.observationDays || 0 }} 天，胜出 {{ item.winDays || 0 }} 天，连续 {{ item.consecutiveWinDays || 0 }} 天
+                </span>
+              </div>
+              <p class="mt-2 text-[11px] leading-5 text-on-surface-variant">{{ item.promotionGuardrail }}</p>
+            </div>
+            <p class="mt-3 text-xs leading-6 text-on-surface-variant">{{ item.reason }}</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
     <section class="grid grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)] gap-6">
       <aside class="space-y-4 xl:sticky xl:top-4 h-fit">
         <div class="rounded-3xl bg-surface-container-lowest p-4 shadow-sm ring-1 ring-outline-variant/20">
@@ -119,6 +429,8 @@
               <div class="flex flex-wrap items-center gap-2">
                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-primary/10 text-primary">{{ categoryTitle(item.category) }}</span>
                 <span v-if="item.decisionType" class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-white/80 text-primary">{{ item.decisionType }}</span>
+                <span v-if="item.visibilityTier" class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-amber-100 text-amber-800">{{ item.visibilityTier }}</span>
+                <span v-if="item.ruleVersion" class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-white/70 text-on-surface-variant">{{ item.strategyVersion || 'local_rules' }} · {{ item.ruleVersion }}</span>
                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-surface-container-high text-on-surface-variant">{{ adviceLevelText(item.level) }}</span>
                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-white/70 text-on-surface-variant">{{ item.generatedAt || '实时生成' }}</span>
               </div>
@@ -162,6 +474,32 @@
               <div v-if="item.firstAction" class="mt-4 rounded-2xl bg-primary/10 border border-primary/20 p-4">
                 <p class="text-xs font-black text-primary tracking-widest uppercase mb-2">第一动作</p>
                 <p class="text-sm leading-7 font-bold text-on-surface">{{ item.firstAction }}</p>
+              </div>
+
+              <div
+                v-if="item.decisionQuestion || item.collaborationPath || item.escalationRule || item.preventionAction || item.meetingCadence"
+                class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-3"
+              >
+                <div v-if="item.decisionQuestion" class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
+                  <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">决策问题</p>
+                  <p class="mt-2 text-xs leading-6 font-bold text-on-surface">{{ item.decisionQuestion }}</p>
+                </div>
+                <div v-if="item.collaborationPath" class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
+                  <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">协同路径</p>
+                  <p class="mt-2 text-xs leading-6 font-bold text-on-surface">{{ item.collaborationPath }}</p>
+                </div>
+                <div v-if="item.escalationRule" class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
+                  <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">升级规则</p>
+                  <p class="mt-2 text-xs leading-6 font-bold text-on-surface">{{ item.escalationRule }}</p>
+                </div>
+                <div v-if="item.preventionAction" class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
+                  <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">预防动作</p>
+                  <p class="mt-2 text-xs leading-6 font-bold text-on-surface">{{ item.preventionAction }}</p>
+                </div>
+                <div v-if="item.meetingCadence" class="rounded-2xl bg-white/75 border border-outline-variant/20 p-4 lg:col-span-2">
+                  <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">会议节奏</p>
+                  <p class="mt-2 text-xs leading-6 font-bold text-on-surface">{{ item.meetingCadence }}</p>
+                </div>
               </div>
 
               <div class="mt-4 rounded-2xl bg-white/75 border border-outline-variant/20 p-4">
@@ -232,7 +570,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
-import { feedbackDashboardAiAdvice, getDashboardAiAdvices } from './api/dashboard.js'
+import { feedbackDashboardAiAdvice, getDashboardAiAdvices, getDashboardAiBrief, getDashboardAiEvolution } from './api/dashboard.js'
 import { trackBehavior } from '@/utils/behavior'
 
 defineOptions({ name: 'DashboardAiAdvice' })
@@ -240,6 +578,8 @@ defineOptions({ name: 'DashboardAiAdvice' })
 const router = useRouter()
 const loading = ref(false)
 const advices = ref([])
+const dailyBrief = ref(null)
+const evolutionReport = ref(null)
 const activeCategory = ref('all')
 const activePriority = ref('all')
 
@@ -292,10 +632,28 @@ async function fetchAdvices(refresh = false) {
   try {
     advices.value = await getDashboardAiAdvices(refresh ? { refresh: true } : {})
     trackAdviceExposure()
+    fetchDailyBrief(refresh)
+    fetchEvolutionReport()
   } catch (error) {
     ElMessage.error(error?.msg || 'AI 建议加载失败')
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchDailyBrief(refresh = false) {
+  try {
+    dailyBrief.value = await getDashboardAiBrief(refresh ? { refresh: true } : {})
+  } catch (error) {
+    dailyBrief.value = null
+  }
+}
+
+async function fetchEvolutionReport() {
+  try {
+    evolutionReport.value = await getDashboardAiEvolution()
+  } catch (error) {
+    evolutionReport.value = null
   }
 }
 
@@ -463,5 +821,67 @@ function countByPriority(priority) {
 function sourceText(sourceType) {
   if (sourceType === 'llm') return '大模型增强'
   return '本地规则分析'
+}
+
+function evolutionStageText(stage) {
+  const map = {
+    PROMOTION_CANDIDATE_READY: '可灰度候选',
+    RULE_SHADOW_EVALUATING: '规则影子评估中',
+    SHADOW_READY: '可影子评估',
+    ADAPTIVE_RANKING: '反馈加权中',
+    LEARNING: '学习中',
+    NEED_REVIEW: '需复盘',
+    NEED_MORE_FEEDBACK: '需更多反馈',
+    COLLECTING: '样本积累中'
+  }
+  return map[stage] || '样本积累中'
+}
+
+function evolutionStageClass(stage) {
+  if (stage === 'PROMOTION_CANDIDATE_READY') return 'bg-lime-100 text-lime-800'
+  if (stage === 'RULE_SHADOW_EVALUATING') return 'bg-cyan-100 text-cyan-800'
+  if (stage === 'SHADOW_READY') return 'bg-emerald-100 text-emerald-800'
+  if (stage === 'ADAPTIVE_RANKING') return 'bg-teal-100 text-teal-800'
+  if (stage === 'NEED_REVIEW') return 'bg-red-100 text-red-800'
+  if (stage === 'LEARNING') return 'bg-sky-100 text-sky-800'
+  if (stage === 'NEED_MORE_FEEDBACK') return 'bg-amber-100 text-amber-800'
+  return 'bg-surface-container-high text-on-surface-variant'
+}
+
+function signedNumber(value) {
+  const numericValue = Number(value || 0)
+  return numericValue > 0 ? `+${numericValue}` : `${numericValue}`
+}
+
+function shadowDeltaClass(value) {
+  const numericValue = Number(value || 0)
+  if (numericValue >= 8) return 'text-emerald-600'
+  if (numericValue <= -8) return 'text-red-600'
+  return 'text-amber-600'
+}
+
+function shadowDecisionClass(decision) {
+  if (decision === '候选优先') return 'bg-emerald-500/20 text-emerald-100'
+  if (decision === '保持当前') return 'bg-sky-500/20 text-sky-100'
+  if (decision === '暂停晋级') return 'bg-red-500/20 text-red-100'
+  if (decision === '样本不足') return 'bg-white/10 text-white/70'
+  return 'bg-amber-500/20 text-amber-100'
+}
+
+function ruleShadowDecisionClass(decision) {
+  if (decision === '建议升权') return 'bg-emerald-100 text-emerald-800'
+  if (decision === '建议降权') return 'bg-red-100 text-red-800'
+  if (decision === '候选优先') return 'bg-cyan-100 text-cyan-800'
+  if (decision === '保持当前') return 'bg-sky-100 text-sky-800'
+  if (decision === '样本不足') return 'bg-surface-container-high text-on-surface-variant'
+  return 'bg-amber-100 text-amber-800'
+}
+
+function promotionReadinessClass(readiness) {
+  if (readiness === '可进入灰度候选') return 'bg-lime-100 text-lime-800'
+  if (readiness === '降权保护') return 'bg-red-100 text-red-800'
+  if (readiness === '存在回撤') return 'bg-orange-100 text-orange-800'
+  if (readiness === '观察不足') return 'bg-surface-container-high text-on-surface-variant'
+  return 'bg-amber-100 text-amber-800'
 }
 </script>

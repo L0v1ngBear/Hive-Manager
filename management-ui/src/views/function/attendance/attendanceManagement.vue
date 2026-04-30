@@ -14,6 +14,7 @@
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <button
+              v-permission="'attendance:*'"
               class="function-action-dark"
               @click="openRuleDrawer"
           >
@@ -27,6 +28,7 @@
             <span class="material-symbols-outlined text-[20px]">refresh</span>刷新数据
           </button>
           <button
+              v-permission="'attendance:record:list'"
               class="function-action-secondary"
               @click="exportExcel"
           >
@@ -366,7 +368,7 @@ const ruleForm = reactive({
   lateToleranceMinutes: 0,
   earlyToleranceMinutes: 0,
   workDays: [1, 2, 3, 4, 5],
-  enableGps: true,
+  enableGps: false,
   latitude: undefined,
   longitude: undefined,
   radius: 200,

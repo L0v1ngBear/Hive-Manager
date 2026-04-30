@@ -10,7 +10,7 @@
           <h1 class="function-page-title">角色权限管理</h1>
           <p class="function-page-desc">配置组织职能角色，定义操作权限范围。</p>
         </div>
-        <button @click="openCreateRole" class="function-action-primary">
+        <button v-permission="'role:create'" @click="openCreateRole" class="function-action-primary">
           <span class="material-symbols-outlined text-[20px]">add</span>新建角色
         </button>
       </header>
@@ -46,7 +46,7 @@
                 </td>
                 <td class="px-6 py-4 text-sm text-on-surface-variant">{{ formatTime(role.createTime) }}</td>
                 <td class="px-6 py-4 text-right">
-                  <button @click="openPermission(role)" class="text-primary hover:bg-primary/10 px-4 py-2 rounded-lg text-sm font-bold transition-colors">配置权限</button>
+                  <button v-permission="'role:update'" @click="openPermission(role)" class="text-primary hover:bg-primary/10 px-4 py-2 rounded-lg text-sm font-bold transition-colors">配置权限</button>
                 </td>
               </tr>
               <tr v-if="!loading && roles.length === 0">

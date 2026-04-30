@@ -7,6 +7,7 @@ import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
 import my.hive.common.privacy.PrivacyProtectionUtil;
+import my.hive.common.redis.HiveRedisKeyBuilder;
 import my.management.common.utils.ExcelUtil;
 import my.management.module.attendance.mapper.AttendanceManageMapper;
 import my.management.module.attendance.mapper.TenantAttendanceRuleManageMapper;
@@ -36,7 +37,7 @@ import java.util.stream.Collectors;
 public class AttendanceManageService {
 
     private static final DateTimeFormatter PUNCH_DAY_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final String ATTENDANCE_RULE_CACHE_KEY = "companyAttendanceRule";
+    private static final String LEGACY_ATTENDANCE_RULE_CACHE_KEY = "companyAttendanceRule";
     private static final List<Integer> DEFAULT_WORK_DAYS = List.of(1, 2, 3, 4, 5);
     private static final long DEFAULT_PAGE_NUM = 1L;
     private static final long DEFAULT_PAGE_SIZE = 10L;
@@ -57,6 +58,9 @@ public class AttendanceManageService {
 
     @Resource
     private PrivacyProtectionUtil privacyProtectionUtil;
+
+    @Resource
+    private HiveRedisKeyBuilder redisKeyBuilder;
 
     public AttendanceSummaryVO summary(LocalDate date) {
         String tenantCode = TenantPermissionContext.getTenantCode();
@@ -143,8 +147,15 @@ public class AttendanceManageService {
             tenantAttendanceRuleManageMapper.updateById(rule);
         }
 
-        // 小程序后端打卡规则会缓存到 Redis，管理端保存后必须清理，避免继续使用旧规则。
-        stringRedisTemplate.opsForHash().delete(ATTENDANCE_RULE_CACHE_KEY, tenantCode);
+        clearAttendanceRuleCache(tenantCode);
+    }
+
+    private void clearAttendanceRuleCache(String tenantCode) {
+        try {
+            stringRedisTemplate.delete(redisKeyBuilder.cache("tenant", "attendance-rule", tenantCode));
+            stringRedisTemplate.opsForHash().delete(LEGACY_ATTENDANCE_RULE_CACHE_KEY, tenantCode);
+        } catch (Exception ignored) {
+        }
     }
 
     public void exportExcel(AttendancePageRequest request, HttpServletResponse response) {
@@ -199,7 +210,8 @@ public class AttendanceManageService {
         vo.setLateToleranceMinutes(0);
         vo.setEarlyToleranceMinutes(0);
         vo.setWorkDays(DEFAULT_WORK_DAYS);
-        vo.setEnableGps(Boolean.TRUE);
+        // 没有真实经纬度时不能默认开启 GPS，避免小程序打卡被空坐标误拦截。
+        vo.setEnableGps(Boolean.FALSE);
         vo.setRadius(200D);
         vo.setEnableWifi(Boolean.FALSE);
         return vo;

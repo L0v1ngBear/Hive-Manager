@@ -18,30 +18,35 @@
             <span class="material-symbols-outlined text-[20px]">account_tree</span>组织架构
           </button>
           <button
+              v-permission="'employee:export'"
               @click="handleTemplateDownload"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">description</span>导入模板
           </button>
           <button
+              v-permission="'employee:create'"
               @click="triggerImport"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">file_upload</span>导入员工
           </button>
           <button
+              v-permission="'employee:export'"
               @click="handleExport"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">download</span>导出 Excel
           </button>
           <button
+              v-permission="'employee:update'"
               @click="showBatchTip"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">edit_square</span>批量编辑
           </button>
           <button
+              v-permission="'employee:create'"
               @click="openCreateDrawer"
               class="px-5 py-2 bg-primary text-white font-bold rounded-lg flex items-center gap-2 shadow-md hover:bg-primary/90 transition-all text-sm active:scale-95"
           >
@@ -180,7 +185,7 @@
                   <button @click.stop="showEmployeeDetail(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="查看">
                     <span class="material-symbols-outlined text-[18px]">visibility</span>
                   </button>
-                  <button @click.stop="openEditDrawer(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="编辑">
+                  <button v-permission="'employee:update'" @click.stop="openEditDrawer(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="编辑">
                     <span class="material-symbols-outlined text-[18px]">edit</span>
                   </button>
                 </div>

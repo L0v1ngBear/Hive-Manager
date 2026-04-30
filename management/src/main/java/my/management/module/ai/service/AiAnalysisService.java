@@ -8,7 +8,9 @@ import my.management.module.behavior.mapper.BehaviorEventMapper;
 import my.management.module.behavior.model.vo.BehaviorModulePreferenceVO;
 import my.management.module.ai.mapper.AiAnalysisMapper;
 import my.management.module.ai.model.entity.AiAdviceTrainingSample;
+import my.management.module.ai.model.vo.AiAdviceDailyBriefVO;
 import my.management.module.ai.model.vo.AiAdviceLearningStatVO;
+import my.management.module.ai.model.vo.AiAdviceRuleLearningStatVO;
 import my.management.module.ai.model.vo.BadProductTypeSummaryRowVO;
 import my.management.module.ai.model.vo.AiBusinessSnapshotVO;
 import my.management.module.ai.model.vo.CustomerOrderDigestRowVO;
@@ -48,6 +50,12 @@ public class AiAnalysisService {
     private static final BigDecimal INVENTORY_WARNING_THRESHOLD = new BigDecimal("100");
     private static final DateTimeFormatter ADVICE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final DateTimeFormatter DAY_PREFIX_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final String ONLINE_STRATEGY_VERSION = "feedback_weighted_v1_online";
+    private static final String CURRENT_RULE_VERSION = "2026.04.29.3";
+    private static final String ONLINE_EVALUATION_MODE = "ONLINE";
+    private static final String DAILY_BRIEF_VERSION = "daily_brief_v1";
+    private static final int LEARNING_WINDOW_DAYS = 90;
+    private static final int MAX_RULE_LEARNING_PATTERNS = 200;
 
     @Resource
     private AiAnalysisMapper aiAnalysisMapper;
@@ -118,14 +126,69 @@ public class AiAnalysisService {
         Map<String, BehaviorModulePreferenceVO> behaviorPreferences = loadTenantBehaviorPreferences(tenantCode);
         applyTenantBehaviorPersonalization(behaviorPreferences, advices);
         Map<String, AiAdviceLearningStatVO> learningStats = loadTenantLearningStats(tenantCode);
-        applyTenantFeedbackPersonalization(learningStats, advices);
+        Map<String, AiAdviceRuleLearningStatVO> ruleLearningStats = loadTenantRuleLearningStats(tenantCode);
+        applyTenantFeedbackPersonalization(learningStats, ruleLearningStats, advices);
 
         if (advices.isEmpty()) {
             advices.add(buildStableAdvice());
         }
 
+        applyGovernanceMetadata(advices);
         persistTrainingSamples(tenantCode, snapshot, behaviorPreferences, advices);
         return advices;
+    }
+
+    public AiAdviceDailyBriefVO buildDailyBrief(List<DashboardAiAdviceVO> advices) {
+        AiAdviceDailyBriefVO brief = new AiAdviceDailyBriefVO();
+        brief.setGeneratedAt(LocalDateTime.now());
+        brief.setBriefVersion(DAILY_BRIEF_VERSION);
+
+        List<DashboardAiAdviceVO> safeAdvices = advices == null
+                ? List.of()
+                : advices.stream().filter(Objects::nonNull).toList();
+        if (safeAdvices.isEmpty()) {
+            brief.setTitle("今日经营简报");
+            brief.setExecutiveSummary("当前暂无可见 AI 建议。请继续沉淀订单、库存、客户、员工和审批数据，系统会在识别到有效信号后生成简报。");
+            brief.setTopRiskTitle("暂无重点风险");
+            brief.setTopRiskSummary("当前没有可见的高优先级经营风险。");
+            brief.setFirstAction("保持日常数据录入和巡检节奏。");
+            return brief;
+        }
+
+        List<DashboardAiAdviceVO> sorted = safeAdvices.stream()
+                .sorted((left, right) -> {
+                    int priorityCompare = Integer.compare(priorityOrder(left.getPriority()), priorityOrder(right.getPriority()));
+                    if (priorityCompare != 0) {
+                        return priorityCompare;
+                    }
+                    return Integer.compare(nvlInt(right.getRiskScore()), nvlInt(left.getRiskScore()));
+                })
+                .toList();
+        List<DashboardAiAdviceVO> risks = sorted.stream()
+                .filter(this::isBriefRisk)
+                .toList();
+        List<DashboardAiAdviceVO> watchItems = sorted.stream()
+                .filter(advice -> !isBriefRisk(advice))
+                .toList();
+
+        DashboardAiAdviceVO top = risks.isEmpty() ? sorted.get(0) : risks.get(0);
+        brief.setTitle(resolveBriefTitle(risks.size(), sorted.size()));
+        brief.setExecutiveSummary(resolveBriefSummary(risks, watchItems, top));
+        brief.setTopRiskTitle(defaultText(top.getTitle(), "重点经营事项"));
+        brief.setTopRiskSummary(defaultText(top.getSummary(), top.getSuggestion()));
+        brief.setFirstAction(defaultText(top.getFirstAction(), defaultText(top.getSuggestion(), "明确责任人、截止时间和复盘指标。")));
+        brief.setRiskCount(risks.size());
+        brief.setUrgentActionCount(Math.min(risks.size(), 5));
+        brief.setWatchCount(watchItems.size());
+
+        risks.stream().limit(5).map(this::toBriefItem).forEach(brief.getUrgentActions()::add);
+        watchItems.stream().limit(5).map(this::toBriefItem).forEach(brief.getWatchItems()::add);
+        sorted.stream()
+                .filter(advice -> !isBlank(advice.getReviewMetric()))
+                .limit(5)
+                .map(this::toBriefItem)
+                .forEach(brief.getReviewItems()::add);
+        return brief;
     }
 
     /**
@@ -169,6 +232,13 @@ public class AiAnalysisService {
                 && Boolean.TRUE.equals(visibility.getTrendVisible())
                 && Boolean.TRUE.equals(visibility.getAttendanceVisible())
                 && Boolean.TRUE.equals(visibility.getAiAdviceVisible());
+    }
+
+    private boolean isOperationVisibility(DashboardOverviewVO.Visibility visibility) {
+        return visibility != null
+                && (Boolean.TRUE.equals(visibility.getApprovalVisible())
+                || Boolean.TRUE.equals(visibility.getReceiptVisible())
+                || isFullAiVisibility(visibility));
     }
 
     /**
@@ -261,7 +331,7 @@ public class AiAnalysisService {
             return statMap;
         }
         try {
-            List<AiAdviceLearningStatVO> stats = aiAdviceTrainingSampleMapper.selectLearningStats(tenantCode, 90);
+            List<AiAdviceLearningStatVO> stats = aiAdviceTrainingSampleMapper.selectLearningStats(tenantCode, LEARNING_WINDOW_DAYS);
             for (AiAdviceLearningStatVO stat : stats) {
                 if (stat != null && !isBlank(stat.getCategory())) {
                     statMap.put(stat.getCategory(), stat);
@@ -274,32 +344,71 @@ public class AiAnalysisService {
     }
 
     /**
+     * 读取具体建议模式的反馈画像。
+     *
+     * <p>规则级画像比维度级画像更细：同样是质量建议，只有被多次证明不合适的标题会降权，
+     * 其它质量治理建议仍然可以正常出现。</p>
+     */
+    private Map<String, AiAdviceRuleLearningStatVO> loadTenantRuleLearningStats(String tenantCode) {
+        Map<String, AiAdviceRuleLearningStatVO> statMap = new LinkedHashMap<>();
+        if (tenantCode == null || tenantCode.isBlank()) {
+            return statMap;
+        }
+        try {
+            List<AiAdviceRuleLearningStatVO> stats = aiAdviceTrainingSampleMapper.selectRuleLearningStats(
+                    tenantCode,
+                    LEARNING_WINDOW_DAYS,
+                    MAX_RULE_LEARNING_PATTERNS
+            );
+            for (AiAdviceRuleLearningStatVO stat : stats) {
+                if (stat != null && !isBlank(stat.getTitle())) {
+                    statMap.put(ruleLearningKey(stat.getCategory(), stat.getTitle(), stat.getSourceType()), stat);
+                }
+            }
+        } catch (Exception ignored) {
+            // 规则级画像是增强能力，查询失败时继续使用维度级学习。
+        }
+        return statMap;
+    }
+
+    /**
      * 根据历史反馈调整建议权重。
      *
      * <p>“有价值/已处理”的维度会小幅提升置信度和排序；“不准确/暂不采纳”的维度会降权。
      * 这里不把学习过程暴露到页面，只让建议结果逐步贴近租户真实偏好。</p>
      */
     private void applyTenantFeedbackPersonalization(Map<String, AiAdviceLearningStatVO> learningStats,
+                                                   Map<String, AiAdviceRuleLearningStatVO> ruleLearningStats,
                                                    List<DashboardAiAdviceVO> advices) {
-        if (learningStats == null || learningStats.isEmpty() || advices == null || advices.isEmpty()) {
+        boolean hasCategoryLearning = learningStats != null && !learningStats.isEmpty();
+        boolean hasRuleLearning = ruleLearningStats != null && !ruleLearningStats.isEmpty();
+        if ((!hasCategoryLearning && !hasRuleLearning) || advices == null || advices.isEmpty()) {
             return;
         }
 
         for (DashboardAiAdviceVO advice : advices) {
-            AiAdviceLearningStatVO stat = learningStats.get(defaultText(advice.getCategory(), "overview"));
-            if (stat == null || nvl(stat.getFeedbackCount()) <= 0) {
+            if (advice == null) {
+                continue;
+            }
+            AiAdviceLearningStatVO categoryStat = hasCategoryLearning
+                    ? learningStats.get(defaultText(advice.getCategory(), "overview"))
+                    : null;
+            AiAdviceRuleLearningStatVO ruleStat = hasRuleLearning
+                    ? ruleLearningStats.get(ruleLearningKey(advice.getCategory(), advice.getTitle(), advice.getSourceType()))
+                    : null;
+            int feedbackSignal = combinedFeedbackSignal(categoryStat, ruleStat);
+            if (feedbackSignal == 0) {
                 continue;
             }
 
-            int feedbackScore = feedbackScore(stat);
             int confidence = advice.getConfidence() == null ? resolveConfidence(advice.getLevel()) : advice.getConfidence();
-            if (feedbackScore > 0) {
-                advice.setConfidence(Math.min(confidence + Math.min(feedbackScore * 2, 12), 98));
-                if ("P2".equals(advice.getPriority()) && feedbackScore >= 4) {
+            if (feedbackSignal > 0) {
+                advice.setConfidence(Math.min(confidence + Math.min(feedbackSignal * 2, 14), 98));
+                if ("P2".equals(advice.getPriority()) && feedbackSignal >= 4 && nvlInt(advice.getRiskScore()) >= 55) {
                     advice.setPriority("P1");
                 }
-            } else if (feedbackScore < 0) {
-                advice.setConfidence(Math.max(confidence + Math.max(feedbackScore * 3, -18), 45));
+            } else {
+                advice.setConfidence(Math.max(confidence + Math.max(feedbackSignal * 3, -21), 42));
                 if (!"warning".equals(advice.getLevel()) && !"P3".equals(advice.getPriority())) {
                     advice.setPriority("P3");
                 }
@@ -307,13 +416,30 @@ public class AiAnalysisService {
         }
 
         advices.sort((left, right) -> {
+            if (left == right) {
+                return 0;
+            }
+            if (left == null) {
+                return 1;
+            }
+            if (right == null) {
+                return -1;
+            }
             int priorityCompare = Integer.compare(priorityOrder(left.getPriority()), priorityOrder(right.getPriority()));
             if (priorityCompare != 0) {
                 return priorityCompare;
             }
             int learnedCompare = Integer.compare(
-                    learnedAdviceScore(learningStats.get(defaultText(right.getCategory(), "overview")), right),
-                    learnedAdviceScore(learningStats.get(defaultText(left.getCategory(), "overview")), left)
+                    learnedAdviceScore(
+                            hasCategoryLearning ? learningStats.get(defaultText(right.getCategory(), "overview")) : null,
+                            hasRuleLearning ? ruleLearningStats.get(ruleLearningKey(right.getCategory(), right.getTitle(), right.getSourceType())) : null,
+                            right
+                    ),
+                    learnedAdviceScore(
+                            hasCategoryLearning ? learningStats.get(defaultText(left.getCategory(), "overview")) : null,
+                            hasRuleLearning ? ruleLearningStats.get(ruleLearningKey(left.getCategory(), left.getTitle(), left.getSourceType())) : null,
+                            left
+                    )
             );
             if (learnedCompare != 0) {
                 return learnedCompare;
@@ -322,20 +448,283 @@ public class AiAnalysisService {
         });
     }
 
-    private int learnedAdviceScore(AiAdviceLearningStatVO stat, DashboardAiAdviceVO advice) {
+    private int learnedAdviceScore(AiAdviceLearningStatVO categoryStat,
+                                   AiAdviceRuleLearningStatVO ruleStat,
+                                   DashboardAiAdviceVO advice) {
         int score = nvlInt(advice.getConfidence()) + nvlInt(advice.getRiskScore()) / 2;
-        return score + feedbackScore(stat) * 4;
+        return score + combinedFeedbackSignal(categoryStat, ruleStat) * 5;
     }
 
-    private int feedbackScore(AiAdviceLearningStatVO stat) {
+    private int combinedFeedbackSignal(AiAdviceLearningStatVO categoryStat, AiAdviceRuleLearningStatVO ruleStat) {
+        int categorySignal = categoryFeedbackSignal(categoryStat);
+        int ruleSignal = ruleFeedbackSignal(ruleStat);
+        if (ruleSignal == 0) {
+            return categorySignal;
+        }
+        if (categorySignal == 0) {
+            return ruleSignal;
+        }
+        return boundSignal(Math.round(ruleSignal * 0.7F + categorySignal * 0.3F));
+    }
+
+    private int categoryFeedbackSignal(AiAdviceLearningStatVO stat) {
         if (stat == null) {
             return 0;
         }
-        long positive = nvl(stat.getPositiveCount());
-        long resolved = nvl(stat.getResolvedCount());
-        long negative = nvl(stat.getNegativeCount());
-        long ignored = nvl(stat.getIgnoredCount());
-        return (int) Math.max(Math.min(positive * 2 + resolved * 3 - negative * 3 - ignored, 10), -10);
+        return feedbackSignal(
+                nvl(stat.getSampleCount()),
+                nvl(stat.getFeedbackCount()),
+                nvl(stat.getPositiveCount()),
+                nvl(stat.getResolvedCount()),
+                nvl(stat.getNegativeCount()),
+                nvl(stat.getIgnoredCount()),
+                stat.getLatestFeedbackTime(),
+                20,
+                5
+        );
+    }
+
+    private int ruleFeedbackSignal(AiAdviceRuleLearningStatVO stat) {
+        if (stat == null) {
+            return 0;
+        }
+        return feedbackSignal(
+                nvl(stat.getSampleCount()),
+                nvl(stat.getFeedbackCount()),
+                nvl(stat.getPositiveCount()),
+                nvl(stat.getResolvedCount()),
+                nvl(stat.getNegativeCount()),
+                nvl(stat.getIgnoredCount()),
+                stat.getLatestFeedbackTime(),
+                6,
+                2
+        );
+    }
+
+    private int feedbackSignal(long sampleCount,
+                               long feedbackCount,
+                               long positiveCount,
+                               long resolvedCount,
+                               long negativeCount,
+                               long ignoredCount,
+                               LocalDateTime latestFeedbackTime,
+                               int minSampleCount,
+                               int minFeedbackCount) {
+        if (sampleCount < minSampleCount || feedbackCount < minFeedbackCount) {
+            return 0;
+        }
+        long effectiveFeedbackCount = Math.max(feedbackCount, 1);
+        long positiveTotal = positiveCount + resolvedCount;
+        long negativeTotal = negativeCount + ignoredCount;
+        int positiveRate = (int) Math.round(positiveTotal * 100D / effectiveFeedbackCount);
+        int negativeRate = (int) Math.round(negativeTotal * 100D / effectiveFeedbackCount);
+        int raw = (int) Math.round((positiveCount * 2D + resolvedCount * 3D - negativeCount * 4D - ignoredCount * 2D) * 10D / effectiveFeedbackCount);
+        int coverageRate = (int) Math.round(feedbackCount * 100D / Math.max(sampleCount, 1));
+
+        if (negativeRate >= 60 && feedbackCount >= minFeedbackCount + 1) {
+            raw = Math.min(raw, -8);
+        } else if (positiveRate >= 70 && coverageRate >= 10) {
+            raw = Math.max(raw, 5);
+        }
+        if (coverageRate < 8) {
+            raw = Math.round(raw * 0.6F);
+        }
+        if (latestFeedbackTime != null && ChronoUnit.DAYS.between(latestFeedbackTime, LocalDateTime.now()) > 45) {
+            raw = Math.round(raw * 0.7F);
+        }
+        return boundSignal(raw);
+    }
+
+    private int boundSignal(int value) {
+        return Math.max(-10, Math.min(value, 10));
+    }
+
+    private String ruleLearningKey(String category, String title, String sourceType) {
+        return String.join("|",
+                defaultText(category, "overview").trim().toLowerCase(),
+                defaultText(title, "untitled").trim(),
+                defaultText(sourceType, "local_rules").trim().toLowerCase()
+        );
+    }
+
+    private boolean isBriefRisk(DashboardAiAdviceVO advice) {
+        if (advice == null) {
+            return false;
+        }
+        String priority = defaultText(advice.getPriority(), resolvePriority(advice.getLevel()));
+        return "P0".equals(priority)
+                || "P1".equals(priority)
+                || "warning".equals(advice.getLevel())
+                || nvlInt(advice.getRiskScore()) >= 75;
+    }
+
+    private String resolveBriefTitle(int riskCount, int totalCount) {
+        if (riskCount <= 0) {
+            return "今日经营简报：整体平稳";
+        }
+        if (riskCount >= 3) {
+            return "今日经营简报：多维风险需联动处理";
+        }
+        return "今日经营简报：重点事项需跟进";
+    }
+
+    private String resolveBriefSummary(List<DashboardAiAdviceVO> risks,
+                                       List<DashboardAiAdviceVO> watchItems,
+                                       DashboardAiAdviceVO top) {
+        int riskCount = risks == null ? 0 : risks.size();
+        int watchCount = watchItems == null ? 0 : watchItems.size();
+        String topTitle = defaultText(top == null ? null : top.getTitle(), "重点事项");
+        if (riskCount <= 0) {
+            return String.format("当前共识别 %d 条观察类建议，暂无高优先级风险。建议保持日常巡检，并重点关注“%s”。", watchCount, topTitle);
+        }
+        return String.format(
+                "当前共识别 %d 条重点风险、%d 条观察事项。今日优先处理“%s”，先明确责任人、处理窗口和复盘指标。",
+                riskCount,
+                watchCount,
+                topTitle
+        );
+    }
+
+    private AiAdviceDailyBriefVO.BriefItem toBriefItem(DashboardAiAdviceVO advice) {
+        AiAdviceDailyBriefVO.BriefItem item = new AiAdviceDailyBriefVO.BriefItem();
+        item.setCategory(defaultText(advice.getCategory(), "overview"));
+        item.setTitle(defaultText(advice.getTitle(), "未命名建议"));
+        item.setPriority(defaultText(advice.getPriority(), resolvePriority(advice.getLevel())));
+        item.setRiskScore(advice.getRiskScore());
+        item.setAction(defaultText(advice.getFirstAction(), advice.getSuggestion()));
+        item.setRoute(advice.getRoute());
+        item.setOwnerDepartment(advice.getOwnerDepartment());
+        item.setReviewMetric(advice.getReviewMetric());
+        return item;
+    }
+
+    private void applyGovernanceMetadata(List<DashboardAiAdviceVO> advices) {
+        if (advices == null || advices.isEmpty()) {
+            return;
+        }
+        for (DashboardAiAdviceVO advice : advices) {
+            if (advice == null) {
+                continue;
+            }
+            if (isBlank(advice.getDecisionQuestion())) {
+                advice.setDecisionQuestion(resolveDecisionQuestion(advice.getCategory()));
+            }
+            if (isBlank(advice.getCollaborationPath())) {
+                advice.setCollaborationPath(resolveCollaborationPath(advice.getCategory()));
+            }
+            if (isBlank(advice.getEscalationRule())) {
+                advice.setEscalationRule(resolveEscalationRule(advice));
+            }
+            if (isBlank(advice.getPreventionAction())) {
+                advice.setPreventionAction(resolvePreventionAction(advice.getCategory()));
+            }
+            if (isBlank(advice.getMeetingCadence())) {
+                advice.setMeetingCadence(resolveMeetingCadence(advice));
+            }
+            if (isBlank(advice.getVisibilityTier())) {
+                advice.setVisibilityTier(resolveVisibilityTier(advice));
+            }
+            if (isBlank(advice.getRuleCode())) {
+                advice.setRuleCode(resolveRuleCode(advice));
+            }
+            if (isBlank(advice.getRuleVersion())) {
+                advice.setRuleVersion(CURRENT_RULE_VERSION);
+            }
+            if (isBlank(advice.getStrategyVersion())) {
+                advice.setStrategyVersion(ONLINE_STRATEGY_VERSION);
+            }
+            if (isBlank(advice.getEvaluationMode())) {
+                advice.setEvaluationMode(ONLINE_EVALUATION_MODE);
+            }
+        }
+    }
+
+    private String resolveDecisionQuestion(String category) {
+        return switch (defaultText(category, "overview")) {
+            case "inventory" -> "当前库存风险会影响哪些订单承诺，是否需要调整补货优先级？";
+            case "order", "delivery" -> "当前交付风险是流程卡点、产能不足，还是客户沟通不充分？";
+            case "customer" -> "客户变化是短期波动，还是复购信任和增长来源正在变弱？";
+            case "employee" -> "员工异常是规则配置问题、班次变化，还是关键岗位承接风险？";
+            case "quality" -> "质量问题是偶发损耗，还是已经指向工艺、供应商或班组的重复风险？";
+            case "finance" -> "当前资金和审批压力是否会影响采购、交付或供应商协作？";
+            case "operation" -> "多个业务异常之间是否已经形成连锁风险，需要管理层统一调度？";
+            default -> "当前数据变化最可能影响哪一个经营结果，谁需要负责关闭？";
+        };
+    }
+
+    private String resolveCollaborationPath(String category) {
+        return switch (defaultText(category, "overview")) {
+            case "inventory" -> "仓库核实库存，销售确认订单消耗，采购或生产确认补货与排产。";
+            case "order", "delivery" -> "销售确认客户承诺，生产确认排程，仓库确认出库，必要时财务确认款项状态。";
+            case "customer" -> "销售牵头客户沟通，客服或跟单同步交付体验，生产仓库反馈可承诺时间。";
+            case "employee" -> "人事核实规则和异常，部门负责人确认班次与岗位承接，必要时运营协调替岗。";
+            case "quality" -> "质检定位问题，生产复盘工艺，财务量化损失，销售同步客户影响。";
+            case "finance" -> "财务梳理金额和审批，业务负责人确认影响范围，老板或授权人处理高金额事项。";
+            case "operation" -> "运营负责人牵头，销售、生产、仓库、质检、人事、财务按风险清单逐项确认。";
+            default -> "先明确责任人，再把处理动作同步到相关部门并设置复盘时间。";
+        };
+    }
+
+    private String resolveEscalationRule(DashboardAiAdviceVO advice) {
+        int riskScore = nvlInt(advice.getRiskScore());
+        String priority = defaultText(advice.getPriority(), "P2");
+        if ("P0".equals(priority) || riskScore >= 90) {
+            return "今日未关闭必须升级到老板或经营负责人，并记录责任人、截止时间和阻塞原因。";
+        }
+        if ("P1".equals(priority) || riskScore >= 75 || "warning".equals(advice.getLevel())) {
+            return "超过一个工作日仍未关闭，升级到部门负责人；涉及核心客户或大额资金时立即升级。";
+        }
+        return "若连续两次复盘仍未改善，升级到部门负责人确认流程或规则是否需要调整。";
+    }
+
+    private String resolvePreventionAction(String category) {
+        return switch (defaultText(category, "overview")) {
+            case "inventory" -> "把低库存型号从事后提醒升级为安全库存和预计可用天数双阈值。";
+            case "order", "delivery" -> "建立临期订单 T-3 巡检机制，提前确认生产、出库和客户沟通状态。";
+            case "customer" -> "维护客户分层和跟进记录，让沉睡客户、核心客户和新客户开发形成固定节奏。";
+            case "employee" -> "定期校验考勤规则、班次和直属上级关系，避免组织数据影响真实管理判断。";
+            case "quality" -> "把重复次品原因沉淀为工艺检查项、供应商复盘项或班组培训项。";
+            case "finance" -> "设置高金额审批优先级和超时提醒，避免资金事项卡住采购或交付。";
+            case "operation" -> "把跨部门风险雷达固定到晨会和周会，跟踪未关闭事项和复发原因。";
+            default -> "将处理结果沉淀为规则、清单或复盘模板，避免同类问题重复靠人工发现。";
+        };
+    }
+
+    private String resolveMeetingCadence(DashboardAiAdviceVO advice) {
+        int riskScore = nvlInt(advice.getRiskScore());
+        String priority = defaultText(advice.getPriority(), "P2");
+        if ("P0".equals(priority) || riskScore >= 90) {
+            return "今日经营会确认，关闭前每日追踪";
+        }
+        if ("P1".equals(priority) || riskScore >= 75 || "warning".equals(advice.getLevel())) {
+            return "每日晨会跟进，关闭后周会复盘";
+        }
+        if ("success".equals(advice.getLevel())) {
+            return "周会观察，月度复盘趋势";
+        }
+        return "本周例会确认责任人和下一步";
+    }
+
+    private String resolveVisibilityTier(DashboardAiAdviceVO advice) {
+        String category = defaultText(advice.getCategory(), "overview");
+        int riskScore = nvlInt(advice.getRiskScore());
+        if ("operation".equals(category) || "P0".equals(advice.getPriority()) || riskScore >= 85) {
+            return "老板 / 经营负责人";
+        }
+        return switch (category) {
+            case "finance" -> "老板 / 财务负责人";
+            case "employee" -> "老板 / 人事与部门负责人";
+            case "customer" -> "老板 / 销售负责人";
+            case "quality" -> "老板 / 质检与生产负责人";
+            default -> "部门负责人 / 相关执行人";
+        };
+    }
+
+    private String resolveRuleCode(DashboardAiAdviceVO advice) {
+        String category = defaultText(advice.getCategory(), "overview").trim().toLowerCase();
+        String title = defaultText(advice.getTitle(), "untitled");
+        int hash = title.hashCode() & 0x7fffffff;
+        return "AI_RULE_" + category.toUpperCase() + "_" + Integer.toHexString(hash).toUpperCase();
     }
 
     /**
@@ -619,9 +1008,13 @@ public class AiAnalysisService {
             addIfNotNull(advices, buildCoreCustomerDeliveryAdvice(snapshot));
             if (Boolean.TRUE.equals(visibility.getAttendanceVisible())) {
                 addIfNotNull(advices, buildEmployeeDeliveryCapacityAdvice(snapshot));
+                addIfNotNull(advices, buildCustomerEmployeeServiceReliabilityAdvice(snapshot));
             }
         }
 
+        if (isOperationVisibility(visibility)) {
+            addIfNotNull(advices, buildExecutiveRiskRadarAdvice(snapshot));
+        }
         addIfNotNull(advices, buildQualityFinanceDragAdvice(snapshot));
         addIfNotNull(advices, buildCustomerGrowthPipelineAdvice(snapshot));
         return advices;
@@ -1257,6 +1650,166 @@ public class AiAnalysisService {
                 snapshot.getEmployee().getLeaveRequestCount30d()
         ));
         advice.setRoute(missingManagerCount > 0 ? "/function/employee" : "/function/approval");
+        return advice;
+    }
+
+    private DashboardAiAdviceVO buildCustomerEmployeeServiceReliabilityAdvice(AiBusinessSnapshotVO snapshot) {
+        long dueSoon = snapshot.getOrder().getUnshippedDueSoonCount();
+        long activeEmployeeCount = snapshot.getEmployee().getActiveEmployeeCount();
+        long attendanceExceptionCount = snapshot.getEmployee().getAttendanceExceptionCountToday();
+        long missingManagerCount = snapshot.getEmployee().getMissingManagerCount();
+        if (dueSoon <= 0 || activeEmployeeCount <= 0 || (attendanceExceptionCount <= 0 && missingManagerCount <= 0)) {
+            return null;
+        }
+
+        BigDecimal exceptionRatio = BigDecimal.valueOf(attendanceExceptionCount)
+                .multiply(new BigDecimal("100"))
+                .divide(BigDecimal.valueOf(activeEmployeeCount), 2, RoundingMode.HALF_UP);
+        BigDecimal customerConcentrationRatio = BigDecimal.ZERO;
+        BigDecimal topCustomerAmount = snapshot.getCustomer().getTopCustomerAmount30d();
+        BigDecimal salesAmount = snapshot.getOrder().getSalesAmount30d();
+        if (topCustomerAmount.compareTo(BigDecimal.ZERO) > 0 && salesAmount.compareTo(BigDecimal.ZERO) > 0) {
+            customerConcentrationRatio = topCustomerAmount.multiply(new BigDecimal("100"))
+                    .divide(salesAmount, 2, RoundingMode.HALF_UP);
+        }
+
+        if (dueSoon < 2
+                && exceptionRatio.compareTo(new BigDecimal("5")) < 0
+                && missingManagerCount <= 0
+                && customerConcentrationRatio.compareTo(new BigDecimal("35")) < 0) {
+            return null;
+        }
+
+        int concentrationScore = customerConcentrationRatio.compareTo(new BigDecimal("35")) >= 0 ? 12 : 0;
+        int riskScore = boundedRiskScore(58
+                + (int) Math.min(dueSoon * 5, 20)
+                + Math.min(exceptionRatio.intValue(), 18)
+                + (int) Math.min(missingManagerCount * 3, 12)
+                + concentrationScore);
+        DashboardAiAdviceVO advice = baseAdvice("customer", riskScore >= 82 ? "warning" : "info", "support_agent");
+        String topCustomerName = defaultText(snapshot.getCustomer().getTopCustomerName30d(), "核心客户");
+        advice.setTitle("客户服务可靠性联动评估");
+        advice.setSummary(String.format(
+                "未来 3 天有 %d 张销售订单尚未发货，今日考勤异常 %d 人次，缺少直属上级配置 %d 人；核心客户 %s 近 30 天贡献占比约 %s%%。",
+                dueSoon,
+                attendanceExceptionCount,
+                missingManagerCount,
+                topCustomerName,
+                formatNumber(customerConcentrationRatio)
+        ));
+        advice.setSuggestion("建议不要只按订单催发货，而是把核心客户订单、关键岗位到岗、负责人链路放在一起处理：销售先统一客户沟通口径，生产和仓库确认排程与出库条件，人事同步核对异常人员是否影响关键岗位。");
+        advice.setReasoning(String.format(
+                "经营快照显示：临期未发货=%d，考勤异常=%d，异常率=%s%%，缺少直属上级=%d，核心客户金额占比=%s%%。该建议由客户价值、交付压力和组织执行稳定性共同生成。",
+                dueSoon,
+                attendanceExceptionCount,
+                formatNumber(exceptionRatio),
+                missingManagerCount,
+                formatNumber(customerConcentrationRatio)
+        ));
+        advice.setRoute("/function/order");
+        enrichDecisionMetadata(
+                advice,
+                "服务可靠性",
+                riskScore,
+                "可能影响核心客户体验、复购信任和订单准时交付",
+                "今日内完成跨部门确认",
+                "先列出临期订单中的核心客户订单，并确认每单的生产、仓库、人员到岗状态。",
+                "核心客户准时发货率、关键岗位到岗率、客户提前沟通完成率"
+        );
+        advice.setDecisionQuestion("当前风险是单个订单延期，还是核心客户体验与内部执行稳定性同时变弱？");
+        advice.setCollaborationPath("销售统一客户口径，生产确认排程，仓库确认出库条件，人事确认关键岗位到岗。");
+        advice.setEscalationRule("若核心客户订单今日仍无法给出明确发货时间，由租户负责人介入协调资源。");
+        advice.setPreventionAction("建立核心客户订单每日巡检清单，把客户价值、交付日期和关键岗位到岗状态放在同一张表里复盘。");
+        return advice;
+    }
+
+    private DashboardAiAdviceVO buildExecutiveRiskRadarAdvice(AiBusinessSnapshotVO snapshot) {
+        long dueSoon = snapshot.getOrder().getUnshippedDueSoonCount();
+        long lowStock = snapshot.getInventory().getLowStockModelCount();
+        long badCount = snapshot.getQuality().getBadProductCount30d();
+        long pendingBad = snapshot.getQuality().getPendingBadProductCount();
+        long attendanceException = snapshot.getEmployee().getAttendanceExceptionCountToday();
+        long missingManager = snapshot.getEmployee().getMissingManagerCount();
+        long inactiveCustomers = snapshot.getCustomer().getInactiveCustomerCount90d();
+        long customerCount = snapshot.getCustomer().getCustomerCount();
+        BigDecimal qualityLoss = snapshot.getQuality().getBadProductLoss30d();
+        BigDecimal pendingFinanceAmount = snapshot.getFinance().getPendingFinanceAmount();
+
+        int signalCount = 0;
+        signalCount += dueSoon > 0 ? 1 : 0;
+        signalCount += lowStock > 0 ? 1 : 0;
+        signalCount += badCount > 0 || pendingBad > 0 || qualityLoss.compareTo(BigDecimal.ZERO) > 0 ? 1 : 0;
+        signalCount += pendingFinanceAmount.compareTo(new BigDecimal("5000")) >= 0 ? 1 : 0;
+        signalCount += attendanceException > 0 || missingManager > 0 ? 1 : 0;
+        signalCount += customerCount > 0 && inactiveCustomers > Math.max(3, customerCount / 2) ? 1 : 0;
+        if (signalCount < 2) {
+            return null;
+        }
+
+        int qualityScore = (int) Math.min(badCount * 3L + pendingBad * 4L, 16L);
+        if (qualityLoss.compareTo(new BigDecimal("5000")) >= 0) {
+            qualityScore += 8;
+        }
+        int financeScore = pendingFinanceAmount.compareTo(new BigDecimal("20000")) >= 0
+                ? 14
+                : pendingFinanceAmount.compareTo(new BigDecimal("5000")) >= 0 ? 8 : 0;
+        int customerScore = customerCount <= 0
+                ? 0
+                : (inactiveCustomers > Math.max(3, customerCount / 2) ? 10 : 0);
+        int riskScore = boundedRiskScore(38
+                + (int) Math.min(dueSoon * 7, 21)
+                + (int) Math.min(lowStock * 6, 18)
+                + qualityScore
+                + financeScore
+                + (int) Math.min(attendanceException * 4 + missingManager * 2, 16)
+                + customerScore);
+        if (riskScore < 68) {
+            return null;
+        }
+
+        DashboardAiAdviceVO advice = baseAdvice("operation", riskScore >= 85 ? "warning" : "info", "radar");
+        advice.setTitle("经营风险雷达");
+        advice.setSummary(String.format(
+                "当前同时出现 %d 类经营信号：临期未发货 %d 单、低库存型号 %d 个、次品记录 %d 条、待处理次品 %d 条、考勤异常 %d 人次、待审批金额约 ￥%s。",
+                signalCount,
+                dueSoon,
+                lowStock,
+                badCount,
+                pendingBad,
+                attendanceException,
+                formatNumber(pendingFinanceAmount)
+        ));
+        advice.setSuggestion("建议管理层用一张风险雷达做早会决策：先判定今天必须关闭的交付风险，再确认库存和人员是否支撑交付，最后把质量损耗和财务审批列入周会复盘，避免各部门只处理自己看到的单点异常。");
+        advice.setReasoning(String.format(
+                "经营快照显示：临期未发货=%d，低库存型号=%d，次品记录=%d，待处理次品=%d，质量损失=￥%s，待审批金额=￥%s，考勤异常=%d，缺少直属上级=%d，沉睡客户=%d/%d。该建议由多域信号累计生成。",
+                dueSoon,
+                lowStock,
+                badCount,
+                pendingBad,
+                formatNumber(qualityLoss),
+                formatNumber(pendingFinanceAmount),
+                attendanceException,
+                missingManager,
+                inactiveCustomers,
+                customerCount
+        ));
+        advice.setRoute("/dashboard");
+        enrichDecisionMetadata(
+                advice,
+                "高层风险雷达",
+                riskScore,
+                "可能同时影响交付承诺、库存可用、人员承接、客户复购和经营成本",
+                riskScore >= 85 ? "今日经营会确认" : "本周经营会复盘",
+                "把交付、库存、质量、员工、财务五类异常按风险分排序，先处理会影响客户承诺的事项。",
+                "P0/P1 风险关闭率、跨部门责任人确认率、同类风险复发率"
+        );
+        advice.setDecisionQuestion("这些异常是各部门独立波动，还是已经形成会影响客户承诺的连锁风险？");
+        advice.setCollaborationPath("老板或运营负责人牵头，销售、生产、仓库、质检、人事、财务按风险清单逐项确认责任人。");
+        advice.setEscalationRule("若同一天出现交付、库存、人员三类以上风险，或风险分达到 85 分，直接升级到经营负责人处理。");
+        advice.setPreventionAction("将风险雷达固定为每日早会第一项，按红黄绿状态复盘昨日未关闭事项。");
+        if (riskScore >= 92) {
+            advice.setPriority("P0");
+        }
         return advice;
     }
 

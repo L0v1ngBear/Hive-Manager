@@ -15,9 +15,24 @@ export function getDashboardAiAdvices(params = {}) {
   })
 }
 
+export function getDashboardAiBrief(params = {}) {
+  return request({
+    url: '/dashboard/ai-brief',
+    method: 'get',
+    params
+  })
+}
+
 export function getDashboardAiSnapshot() {
   return request({
     url: '/dashboard/ai-snapshot',
+    method: 'get'
+  })
+}
+
+export function getDashboardAiEvolution() {
+  return request({
+    url: '/dashboard/ai-evolution',
     method: 'get'
   })
 }

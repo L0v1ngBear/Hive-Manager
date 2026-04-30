@@ -3,12 +3,14 @@ package my.management.common.utils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
+import my.hive.common.redis.HiveRedisKeyBuilder;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 /**
  * PermissionCacheUtil 属于管理端后端通用能力层，提供可复用的工具方法。
@@ -16,7 +18,6 @@ import java.util.Set;
 @Component
 public class PermissionCacheUtil {
 
-    private static final String CACHE_KEY_PREFIX = "management:perm:";
     private static final Duration CACHE_TTL = Duration.ofMinutes(30);
 
     @Resource
@@ -24,6 +25,9 @@ public class PermissionCacheUtil {
 
     @Resource
     private ObjectMapper objectMapper;
+
+    @Resource
+    private HiveRedisKeyBuilder redisKeyBuilder;
 
     public Set<String> get(String tenantCode, Long userId) {
         try {
@@ -47,10 +51,24 @@ public class PermissionCacheUtil {
     }
 
     public void evict(String tenantCode, Long userId) {
-        stringRedisTemplate.delete(buildKey(tenantCode, userId));
+        try {
+            stringRedisTemplate.delete(List.of(
+                    buildManagementKey(tenantCode, userId),
+                    buildMiniKey(tenantCode, userId)
+            ));
+        } catch (Exception ignored) {
+        }
     }
 
     private String buildKey(String tenantCode, Long userId) {
-        return CACHE_KEY_PREFIX + tenantCode + ":" + userId;
+        return buildManagementKey(tenantCode, userId);
+    }
+
+    private String buildManagementKey(String tenantCode, Long userId) {
+        return redisKeyBuilder.cache("management", "perm", tenantCode, String.valueOf(userId));
+    }
+
+    private String buildMiniKey(String tenantCode, Long userId) {
+        return redisKeyBuilder.cache("mini", "perm", tenantCode, String.valueOf(userId));
     }
 }

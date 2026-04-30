@@ -2,6 +2,7 @@ package my.management.common.utils;
 
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
+import my.hive.common.redis.HiveRedisKeyBuilder;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
@@ -16,6 +17,9 @@ public class CodeGeneratorUtil {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+    @Resource
+    private HiveRedisKeyBuilder redisKeyBuilder;
+
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final String DEFAULT_TENANT = "0000"; // 更规范的默认租户
     private static final long DEFAULT_EXPIRE_HOURS = 25;
@@ -29,7 +33,7 @@ public class CodeGeneratorUtil {
             String dateStr = LocalDateTime.now().format(DATE_FORMATTER);
 
             // 3. Redis Key
-            String redisKey = String.format("sys:seq:%s:%s:%s", tenantCode, prefix, dateStr);
+            String redisKey = redisKeyBuilder.sequence(tenantCode == null ? DEFAULT_TENANT : tenantCode, prefix, dateStr);
 
             // 4. 原子自增 + 过期时间（原子操作，无并发问题）
             Long increment = stringRedisTemplate.opsForValue().increment(redisKey, 1);

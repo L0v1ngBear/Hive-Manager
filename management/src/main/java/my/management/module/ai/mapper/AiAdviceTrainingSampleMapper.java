@@ -3,6 +3,8 @@ package my.management.module.ai.mapper;
 import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import my.management.module.ai.model.entity.AiAdviceTrainingSample;
 import my.management.module.ai.model.vo.AiAdviceLearningStatVO;
+import my.management.module.ai.model.vo.AiAdviceRuleDailyLearningStatVO;
+import my.management.module.ai.model.vo.AiAdviceRuleLearningStatVO;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -103,4 +105,64 @@ public interface AiAdviceTrainingSampleMapper {
             """)
     List<AiAdviceLearningStatVO> selectLearningStats(@Param("tenantCode") String tenantCode,
                                                      @Param("days") Integer days);
+
+    /**
+     * 按具体建议模式聚合反馈，避免整类维度被单条低质量建议误伤。
+     */
+    @Select("""
+            SELECT
+                COALESCE(category, 'overview') AS category,
+                COALESCE(NULLIF(TRIM(title), ''), 'untitled') AS title,
+                COALESCE(source_type, 'local_rules') AS sourceType,
+                COUNT(1) AS sampleCount,
+                SUM(CASE WHEN feedback_type IS NOT NULL THEN 1 ELSE 0 END) AS feedbackCount,
+                SUM(CASE WHEN feedback_type = 'useful' THEN 1 ELSE 0 END) AS positiveCount,
+                SUM(CASE WHEN feedback_type = 'resolved' THEN 1 ELSE 0 END) AS resolvedCount,
+                SUM(CASE WHEN feedback_type = 'irrelevant' THEN 1 ELSE 0 END) AS negativeCount,
+                SUM(CASE WHEN feedback_type = 'ignored' THEN 1 ELSE 0 END) AS ignoredCount,
+                COALESCE(AVG(confidence), 0) AS avgConfidence,
+                MAX(feedback_time) AS latestFeedbackTime
+            FROM ai_advice_training_sample
+            WHERE tenant_code = #{tenantCode}
+              AND update_time >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+            GROUP BY
+                COALESCE(category, 'overview'),
+                COALESCE(NULLIF(TRIM(title), ''), 'untitled'),
+                COALESCE(source_type, 'local_rules')
+            ORDER BY feedbackCount DESC, sampleCount DESC
+            LIMIT #{limit}
+            """)
+    List<AiAdviceRuleLearningStatVO> selectRuleLearningStats(@Param("tenantCode") String tenantCode,
+                                                             @Param("days") Integer days,
+                                                             @Param("limit") Integer limit);
+
+    /**
+     * 按天聚合具体建议模式反馈，用于判断候选策略是否稳定胜出。
+     */
+    @Select("""
+            SELECT
+                DATE_FORMAT(update_time, '%Y-%m-%d') AS sampleDay,
+                COALESCE(category, 'overview') AS category,
+                COALESCE(NULLIF(TRIM(title), ''), 'untitled') AS title,
+                COALESCE(source_type, 'local_rules') AS sourceType,
+                COUNT(1) AS sampleCount,
+                SUM(CASE WHEN feedback_type IS NOT NULL THEN 1 ELSE 0 END) AS feedbackCount,
+                SUM(CASE WHEN feedback_type = 'useful' THEN 1 ELSE 0 END) AS positiveCount,
+                SUM(CASE WHEN feedback_type = 'resolved' THEN 1 ELSE 0 END) AS resolvedCount,
+                SUM(CASE WHEN feedback_type = 'irrelevant' THEN 1 ELSE 0 END) AS negativeCount,
+                SUM(CASE WHEN feedback_type = 'ignored' THEN 1 ELSE 0 END) AS ignoredCount
+            FROM ai_advice_training_sample
+            WHERE tenant_code = #{tenantCode}
+              AND update_time >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+            GROUP BY
+                DATE_FORMAT(update_time, '%Y-%m-%d'),
+                COALESCE(category, 'overview'),
+                COALESCE(NULLIF(TRIM(title), ''), 'untitled'),
+                COALESCE(source_type, 'local_rules')
+            ORDER BY sampleDay DESC, feedbackCount DESC, sampleCount DESC
+            LIMIT #{limit}
+            """)
+    List<AiAdviceRuleDailyLearningStatVO> selectRuleDailyLearningStats(@Param("tenantCode") String tenantCode,
+                                                                       @Param("days") Integer days,
+                                                                       @Param("limit") Integer limit);
 }

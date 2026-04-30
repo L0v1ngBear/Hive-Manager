@@ -9,10 +9,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-/**
- * 平台访问范围拦截器。
- * super 账号只用于平台租户管理，不进入租户内业务；普通租户也不能访问平台接口。
- */
 @Component
 public class PlatformScopeInterceptor implements HandlerInterceptor {
 
@@ -29,10 +25,12 @@ public class PlatformScopeInterceptor implements HandlerInterceptor {
         String tenantCode = TenantPermissionContext.getTenantCode();
         boolean superTenant = SUPER_TENANT_CODE.equalsIgnoreCase(tenantCode);
         boolean tenantManagePath = path.startsWith("/platform/tenant");
+        boolean platformOpsPath = path.startsWith("/platform/operation-log")
+                || path.startsWith("/platform/system-event");
         boolean platformPath = path.startsWith("/platform/");
 
-        if (superTenant && !tenantManagePath) {
-            writeErrorResponse(response, "平台超管仅允许访问租户管理");
+        if (superTenant && !tenantManagePath && !platformOpsPath) {
+            writeErrorResponse(response, "平台超管仅允许访问租户管理和平台运维接口");
             return false;
         }
         if (!superTenant && platformPath) {

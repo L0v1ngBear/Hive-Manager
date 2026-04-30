@@ -7,6 +7,7 @@ import my.hive.common.annotation.CollectLog;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
+import my.hive.common.redis.HiveRedisKeyBuilder;
 import my.hive.common.utils.RedisCacheHelper;
 import my.management.module.inventory.mapper.ClothMapper;
 import my.management.module.inventory.mapper.ClothModelSpecMapper;
@@ -42,8 +43,6 @@ public class InventoryService {
 
     private static final BigDecimal WARNING_THRESHOLD = new BigDecimal("100");
     private static final DateTimeFormatter BARCODE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-    private static final String DASHBOARD_OVERVIEW_CACHE_PREFIX = "management:dashboard:overview:";
-    private static final String DASHBOARD_AI_CACHE_PREFIX = "management:dashboard:ai-advice:";
     private static final long DEFAULT_PAGE_NUM = 1L;
     private static final long DEFAULT_PAGE_SIZE = 10L;
     private static final long MAX_PAGE_SIZE = 200L;
@@ -59,6 +58,9 @@ public class InventoryService {
 
     @Resource
     private RedisCacheHelper redisCacheHelper;
+
+    @Resource
+    private HiveRedisKeyBuilder redisKeyBuilder;
 
     public InventorySummaryVO summary() {
         String tenantCode = TenantPermissionContext.getTenantCode();
@@ -287,8 +289,8 @@ public class InventoryService {
     }
 
     private void invalidateDashboardCache(String tenantCode) {
-        deleteCacheByPattern(DASHBOARD_OVERVIEW_CACHE_PREFIX + tenantCode + ":*");
-        deleteCacheByPattern(DASHBOARD_AI_CACHE_PREFIX + tenantCode + ":*");
+        deleteCacheByPattern(redisKeyBuilder.cachePattern("management", "dashboard", "overview", tenantCode, "*"));
+        deleteCacheByPattern(redisKeyBuilder.cachePattern("management", "dashboard", "ai-advice", tenantCode, "*"));
     }
 
     private void deleteCacheByPattern(String pattern) {

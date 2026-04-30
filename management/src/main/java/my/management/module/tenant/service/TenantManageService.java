@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
+import my.hive.common.redis.HiveRedisKeyBuilder;
 import my.management.common.service.DeveloperAccessService;
 import my.hive.common.utils.EncryptUtil;
 import my.management.module.attendance.mapper.TenantAttendanceRuleManageMapper;
@@ -54,7 +55,6 @@ import java.util.concurrent.TimeUnit;
 public class TenantManageService {
 
     private static final String TENANT_OWNER_ROLE_CODE = "TENANT_OWNER";
-    private static final String TENANT_CREATE_LOCK_PREFIX = "tenant:create:lock:";
     private static final long DEFAULT_PAGE_NUM = 1L;
     private static final long DEFAULT_PAGE_SIZE = 10L;
     private static final long MAX_PAGE_SIZE = 200L;
@@ -113,6 +113,12 @@ public class TenantManageService {
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private HiveRedisKeyBuilder redisKeyBuilder;
+
+    @Resource
+    private TiandituGeocodeService tiandituGeocodeService;
 
     /**
      * 新租户负责人初始密码从配置读取，线上可通过环境变量单独轮换。
@@ -174,7 +180,7 @@ public class TenantManageService {
         if (!tenantCode.matches("^[A-Z0-9_]+$")) {
             throw new BusinessException("租户编码仅支持大写字母、数字和下划线");
         }
-        String lockKey = TENANT_CREATE_LOCK_PREFIX + tenantCode;
+        String lockKey = redisKeyBuilder.lock("tenant", "create", tenantCode);
         String lockValue = UUID.randomUUID().toString();
         Boolean locked = stringRedisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, 30, TimeUnit.SECONDS);
         if (!Boolean.TRUE.equals(locked)) {
@@ -212,9 +218,21 @@ public class TenantManageService {
         initTenantModuleRoles(tenantCode);
         Long ownerUserId = initTenantOwnerUser(tenantCode, request, ownerRoleId);
         initTenantOrgDefaults(tenantCode);
-        initTenantAttendanceRule(tenantCode, request.getTenantName().trim());
+        initTenantAttendanceRule(tenantCode, request);
         labelTemplateService.ensureDefaultsForTenant(tenantCode, ownerUserId);
+        clearTenantRuntimeCache(tenantCode);
         return tenant.getId();
+    }
+
+    private void clearTenantRuntimeCache(String tenantCode) {
+        try {
+            stringRedisTemplate.delete(List.of(
+                    redisKeyBuilder.cache("tenant", "status", tenantCode),
+                    redisKeyBuilder.cache("tenant", "attendance-rule", tenantCode)
+            ));
+            stringRedisTemplate.opsForHash().delete("companyAttendanceRule", tenantCode);
+        } catch (Exception ignored) {
+        }
     }
 
     private void releaseTenantCreateLock(String lockKey, String lockValue) {
@@ -387,19 +405,31 @@ public class TenantManageService {
         positionMapper.insert(position);
     }
 
-    private void initTenantAttendanceRule(String tenantCode, String tenantName) {
+    private void initTenantAttendanceRule(String tenantCode, TenantCreateRequest request) {
         TenantAttendanceRule existed = tenantAttendanceRuleManageMapper.selectByTenantCode(tenantCode);
         if (existed != null) {
             return;
         }
+        String companyAddress = clean(request.getCompanyAddress());
+        Double latitude = request.getCompanyLatitude();
+        Double longitude = request.getCompanyLongitude();
+        if (!hasValidLocation(latitude, longitude) && companyAddress != null) {
+            TiandituGeocodeService.GeocodeResult geocodeResult = tiandituGeocodeService.resolve(request);
+            if (geocodeResult.isValid()) {
+                latitude = geocodeResult.latitude();
+                longitude = geocodeResult.longitude();
+            }
+        }
+        boolean hasValidCompanyLocation = hasValidLocation(latitude, longitude);
+
         TenantAttendanceRule rule = new TenantAttendanceRule();
         rule.setTenantCode(tenantCode);
-        rule.setTenantName(tenantName);
+        rule.setTenantName(request.getTenantName().trim());
         rule.setStatus(1);
-        rule.setLatitude(0D);
-        rule.setLongitude(0D);
-        rule.setAddress("请在考勤管理中配置打卡地址");
-        rule.setRadius(300D);
+        rule.setLatitude(hasValidCompanyLocation ? latitude : null);
+        rule.setLongitude(hasValidCompanyLocation ? longitude : null);
+        rule.setRadius(safeAttendanceRadius(request.getAttendanceRadius()));
+        rule.setAddress(defaultText(companyAddress, "请在考勤管理中配置打卡地址"));
         rule.setWorkStartTime(LocalTime.of(8, 30));
         rule.setWorkEndTime(LocalTime.of(9, 30));
         rule.setOffWorkStartTime(LocalTime.of(17, 30));
@@ -409,7 +439,8 @@ public class TenantManageService {
         rule.setLateToleranceMinutes(5);
         rule.setEarlyToleranceMinutes(5);
         rule.setWorkDays("1,2,3,4,5,6");
-        rule.setEnableGps(1);
+        // 只有拿到真实公司坐标时才默认启用 GPS，避免空坐标或 0,0 占位导致新租户无法打卡。
+        rule.setEnableGps(hasValidCompanyLocation ? 1 : 0);
         rule.setEnableWifi(0);
         tenantAttendanceRuleManageMapper.insert(rule);
     }
@@ -431,6 +462,29 @@ public class TenantManageService {
 
     private String defaultText(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value.trim();
+    }
+
+    private String clean(String value) {
+        return value == null || value.trim().isEmpty() ? null : value.trim();
+    }
+
+    private boolean isValidLatitude(Double value) {
+        return value != null && value >= -90D && value <= 90D;
+    }
+
+    private boolean isValidLongitude(Double value) {
+        return value != null && value >= -180D && value <= 180D;
+    }
+
+    private boolean hasValidLocation(Double latitude, Double longitude) {
+        return isValidLatitude(latitude) && isValidLongitude(longitude);
+    }
+
+    private Double safeAttendanceRadius(Double value) {
+        if (value == null || value <= 0D) {
+            return 300D;
+        }
+        return Math.min(value, 10000D);
     }
 
     private static DefaultRedisScript<Long> buildReleaseLockScript() {

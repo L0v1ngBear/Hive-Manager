@@ -3,6 +3,7 @@ package my.management.controller;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
@@ -58,7 +59,8 @@ public class AttendanceManageController {
     }
 
     @PostMapping("/rule/save")
-    @RequirePermission(value = "attendance:record:list", message = "您没有权限保存考勤规则")
+    @RequirePermission(value = "attendance:*", message = "您没有权限保存考勤规则")
+    @CollectLog(module = "attendance", action = "save_rule", bizType = "tenant_attendance_rule", description = "save tenant attendance rule")
     public Result<Void> saveRule(@Valid @RequestBody AttendanceRuleSaveRequest request) {
         attendanceManageService.saveRule(request);
         return Result.success(null);

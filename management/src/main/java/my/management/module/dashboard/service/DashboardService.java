@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
+import my.hive.common.redis.HiveRedisKeyBuilder;
+import my.management.module.ai.model.vo.AiAdviceDailyBriefVO;
 import my.management.module.ai.model.vo.AiBusinessSnapshotVO;
 import my.management.module.ai.model.vo.DashboardAiAdviceVO;
 import my.management.module.ai.service.AiAdvicePermissionService;
@@ -37,8 +39,6 @@ import java.util.stream.Collectors;
 @Service
 public class DashboardService {
 
-    private static final String OVERVIEW_CACHE_KEY_PREFIX = "management:dashboard:overview:";
-    private static final String AI_ADVICE_CACHE_KEY_PREFIX = "management:dashboard:ai-advice:";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("MM-dd");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("MM-dd HH:mm");
     private static final DateTimeFormatter DAY_PREFIX_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -61,10 +61,13 @@ public class DashboardService {
     @Resource
     private ObjectMapper objectMapper;
 
+    @Resource
+    private HiveRedisKeyBuilder redisKeyBuilder;
+
     public DashboardOverviewVO overview() {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
-        String cacheKey = buildScopedCacheKey(OVERVIEW_CACHE_KEY_PREFIX, tenantCode, userId);
+        String cacheKey = buildScopedCacheKey("overview", tenantCode, userId);
 
         DashboardOverviewVO cached = getCachedOverview(cacheKey);
         if (cached != null) {
@@ -96,7 +99,7 @@ public class DashboardService {
         aiAdvicePermissionService.requireAnyView();
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
-        String cacheKey = buildScopedCacheKey(AI_ADVICE_CACHE_KEY_PREFIX, tenantCode, userId);
+        String cacheKey = buildScopedCacheKey("ai-advice", tenantCode, userId);
 
         if (refresh) {
             stringRedisTemplate.delete(cacheKey);
@@ -111,6 +114,10 @@ public class DashboardService {
         List<DashboardAiAdviceVO> advices = aiAdvicePermissionService.filterVisible(aiAnalysisService.buildAllDashboardAdvices(tenantCode, aiVisibility));
         cacheAiAdvices(cacheKey, advices);
         return advices;
+    }
+
+    public AiAdviceDailyBriefVO aiBrief(boolean refresh) {
+        return aiAnalysisService.buildDailyBrief(aiAdvices(refresh));
     }
 
     public AiBusinessSnapshotVO aiSnapshot() {
@@ -294,10 +301,11 @@ public class DashboardService {
         return currentPermCodes.contains("*") || currentPermCodes.contains("*:*");
     }
 
-    private String buildScopedCacheKey(String prefix, String tenantCode, Long userId) {
+    private String buildScopedCacheKey(String cacheName, String tenantCode, Long userId) {
         Set<String> permCodes = TenantPermissionContext.getPermCodes();
         String permSignature = permCodes == null ? "" : String.join(",", new TreeSet<>(permCodes));
-        return prefix + tenantCode + ":" + userId + ":" + Integer.toHexString(permSignature.hashCode());
+        return redisKeyBuilder.cache("management", "dashboard", cacheName, tenantCode, String.valueOf(userId),
+                Integer.toHexString(permSignature.hashCode()));
     }
 
     private long nvl(Long value) {

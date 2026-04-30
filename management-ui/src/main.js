@@ -1,10 +1,11 @@
-import { createApp } from 'vue';
-import App from './App.vue';
-import { createPinia } from 'pinia' // 如果你用了 Pinia
-import router from './router' // 引入路由实例
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import App from './App.vue'
+import router from './router'
 import '@fontsource/material-symbols-outlined/400.css'
-import './style.css' // Tailwind CSS 的全局样式
+import './style.css'
 import 'element-plus/dist/index.css'
+import permissionDirective from '@/directives/permission'
 import { flushBehavior, trackPageView } from '@/utils/behavior'
 
 router.afterEach((to) => {
@@ -20,6 +21,7 @@ window.addEventListener('beforeunload', () => {
 const app = createApp(App)
 
 app.use(createPinia())
-app.use(router) // 👈 挂载路由实例
+app.use(router)
+app.directive('permission', permissionDirective)
 
 app.mount('#app')

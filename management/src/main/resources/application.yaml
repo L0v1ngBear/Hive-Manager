@@ -47,3 +47,49 @@ ai:
     max-advices: ${AI_LLM_MAX_ADVICES:3}
     timeout-seconds: ${AI_LLM_TIMEOUT_SECONDS:30}
     temperature: ${AI_LLM_TEMPERATURE:0.2}
+
+map:
+  tianditu:
+    geocode:
+      enabled: ${TIANDITU_GEOCODE_ENABLED:false}
+      endpoint: ${TIANDITU_GEOCODE_ENDPOINT:https://api.tianditu.gov.cn/geocoder}
+      key: ${TIANDITU_GEOCODE_KEY:}
+      timeout-seconds: ${TIANDITU_GEOCODE_TIMEOUT_SECONDS:5}
+
+xxl:
+  job:
+    enabled: ${XXL_JOB_ENABLED:false}
+    admin-addresses: ${XXL_JOB_ADMIN_ADDRESSES:http://127.0.0.1:8088/xxl-job-admin}
+    access-token: ${XXL_JOB_ACCESS_TOKEN:}
+    executor:
+      app-name: ${XXL_JOB_EXECUTOR_APP_NAME:hive-management}
+      address: ${XXL_JOB_EXECUTOR_ADDRESS:}
+      ip: ${XXL_JOB_EXECUTOR_IP:}
+      port: ${XXL_JOB_EXECUTOR_PORT:9999}
+      log-path: ${XXL_JOB_EXECUTOR_LOG_PATH:logs/xxl-job}
+      log-retention-days: ${XXL_JOB_EXECUTOR_LOG_RETENTION_DAYS:30}
+
+maintenance:
+  database:
+    enabled: ${DB_MAINTENANCE_ENABLED:true}
+    cleanup-enabled: ${DB_MAINTENANCE_CLEANUP_ENABLED:true}
+    batch-size: ${DB_CLEANUP_BATCH_SIZE:5000}
+    capacity-warn-mb: ${DB_CAPACITY_WARN_MB:32768}
+    operation-log-retention-days: ${OPERATION_LOG_RETENTION_DAYS:90}
+    behavior-event-retention-days: ${BEHAVIOR_EVENT_RETENTION_DAYS:90}
+    ai-sample-retention-days: ${AI_SAMPLE_RETENTION_DAYS:365}
+    notification-retention-days: ${NOTIFICATION_RETENTION_DAYS:180}
+    print-task-retention-days: ${PRINT_TASK_RETENTION_DAYS:180}
+    order-status-log-retention-days: ${ORDER_STATUS_LOG_RETENTION_DAYS:730}
+    system-event-retention-days: ${SYSTEM_EVENT_RETENTION_DAYS:180}
+
+hive:
+  redis:
+    namespace: ${HIVE_REDIS_NAMESPACE:hive}
+    environment: ${HIVE_REDIS_ENV:${spring.profiles.active:dev}}
+  system-event:
+    enabled: ${SYSTEM_EVENT_ENABLED:true}
+    source-app: ${SYSTEM_EVENT_SOURCE_APP:hive-management}
+    max-title-length: ${SYSTEM_EVENT_MAX_TITLE_LENGTH:180}
+    max-content-length: ${SYSTEM_EVENT_MAX_CONTENT_LENGTH:1000}
+    max-json-length: ${SYSTEM_EVENT_MAX_JSON_LENGTH:4000}

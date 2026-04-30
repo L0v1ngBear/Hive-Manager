@@ -11,6 +11,7 @@ import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
 import my.hive.common.privacy.PrivacyProtectionUtil;
+import my.hive.common.redis.HiveRedisKeyBuilder;
 import my.hive.common.utils.EncryptUtil;
 import my.hive.common.utils.ResponseEncryptUtil;
 import my.hive.common.utils.TokenUtil;
@@ -42,9 +43,6 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class AuthService {
 
-    private static final String WEB_SCAN_LOGIN_KEY_PREFIX = "auth:web-scan-login:";
-    private static final String LOGIN_FAIL_ACCOUNT_KEY_PREFIX = "auth:management-login:fail:account:";
-    private static final String LOGIN_FAIL_IP_KEY_PREFIX = "auth:management-login:fail:ip:";
     private static final long WEB_SCAN_LOGIN_EXPIRE_SECONDS = 180L;
 
     @Resource
@@ -68,6 +66,9 @@ public class AuthService {
     @Resource
     private ObjectMapper objectMapper;
 
+    @Resource
+    private HiveRedisKeyBuilder redisKeyBuilder;
+
     @Value("${auth.login.max-fail-count:5}")
     private Long maxFailCount;
 
@@ -80,8 +81,9 @@ public class AuthService {
     public LoginVO login(LoginRequest request, String clientIp) {
         String username = request.getUsername().trim();
         String usernamePhoneHash = privacyProtectionUtil.mayBePhoneKeyword(username) ? privacyProtectionUtil.hashPhone(username) : null;
-        String accountFailKey = LOGIN_FAIL_ACCOUNT_KEY_PREFIX + accountFailKeySegment(username, usernamePhoneHash);
-        String ipFailKey = LOGIN_FAIL_IP_KEY_PREFIX + normalizeClientIp(clientIp);
+        String accountFailKey = redisKeyBuilder.counter("auth", "management-login", "fail", "account",
+                accountFailKeySegment(username, usernamePhoneHash));
+        String ipFailKey = redisKeyBuilder.counter("auth", "management-login", "fail", "ip", normalizeClientIp(clientIp));
         ensureLoginNotLocked(accountFailKey, maxFailCount, "登录失败次数过多，请稍后再试");
         ensureLoginNotLocked(ipFailKey, maxIpFailCount, "当前访问过于频繁，请稍后再试");
 
@@ -237,7 +239,7 @@ public class AuthService {
     }
 
     private WebScanLoginRedisPayload getWebScanPayload(String sceneKey) {
-        String payloadJson = stringRedisTemplate.opsForValue().get(WEB_SCAN_LOGIN_KEY_PREFIX + sceneKey);
+        String payloadJson = stringRedisTemplate.opsForValue().get(webScanLoginKey(sceneKey));
         if (payloadJson == null || payloadJson.isBlank()) {
             return null;
         }
@@ -251,7 +253,7 @@ public class AuthService {
     private void saveWebScanPayload(String sceneKey, WebScanLoginRedisPayload payload, long ttlSeconds) {
         try {
             stringRedisTemplate.opsForValue().set(
-                    WEB_SCAN_LOGIN_KEY_PREFIX + sceneKey,
+                    webScanLoginKey(sceneKey),
                     objectMapper.writeValueAsString(payload),
                     ttlSeconds,
                     TimeUnit.SECONDS
@@ -272,5 +274,9 @@ public class AuthService {
         } catch (Exception exception) {
             throw new BusinessException(500, "网页扫码二维码生成失败");
         }
+    }
+
+    private String webScanLoginKey(String sceneKey) {
+        return redisKeyBuilder.cache("auth", "web-scan-login", sceneKey);
     }
 }
