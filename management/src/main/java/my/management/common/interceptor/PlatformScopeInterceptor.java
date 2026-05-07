@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.Result;
+import my.management.common.enums.PlatformTenantEnum;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -12,7 +13,6 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @Component
 public class PlatformScopeInterceptor implements HandlerInterceptor {
 
-    private static final String SUPER_TENANT_CODE = "super";
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -23,7 +23,7 @@ public class PlatformScopeInterceptor implements HandlerInterceptor {
 
         String path = request.getServletPath();
         String tenantCode = TenantPermissionContext.getTenantCode();
-        boolean superTenant = SUPER_TENANT_CODE.equalsIgnoreCase(tenantCode);
+        boolean superTenant = PlatformTenantEnum.isSuper(tenantCode);
         boolean tenantManagePath = path.startsWith("/platform/tenant");
         boolean platformOpsPath = path.startsWith("/platform/operation-log")
                 || path.startsWith("/platform/system-event");

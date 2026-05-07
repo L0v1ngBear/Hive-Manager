@@ -3,8 +3,10 @@ package my.management.controller;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import my.hive.common.annotation.RequirePermission;
+import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
+import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.organization.model.dto.OrganizationDepartmentSaveRequest;
 import my.management.module.organization.model.vo.OrganizationEmployeeVO;
 import my.management.module.organization.model.vo.OrganizationOverviewVO;
@@ -24,32 +26,32 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/organization")
-@RequireTenantFeature("module.employee")
+@RequireTenantFeature(TenantFeatureEnum.CODE_EMPLOYEE)
 public class OrganizationController {
 
     @Resource
     private OrganizationService organizationService;
 
     @GetMapping("/overview")
-    @RequirePermission(value = "employee:list", message = "您没有权限查看组织架构")
+    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_LIST, message = "您没有权限查看组织架构")
     public Result<OrganizationOverviewVO> overview() {
         return Result.success(organizationService.overview());
     }
 
     @GetMapping("/department/{departmentId}/employees")
-    @RequirePermission(value = "employee:list", message = "您没有权限查看部门员工")
+    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_LIST, message = "您没有权限查看部门员工")
     public Result<List<OrganizationEmployeeVO>> employees(@PathVariable Long departmentId) {
         return Result.success(organizationService.employees(departmentId));
     }
 
     @PostMapping("/department/save")
-    @RequirePermission(value = "employee:update", message = "您没有权限维护组织架构")
+    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_UPDATE, message = "您没有权限维护组织架构")
     public Result<Long> saveDepartment(@Valid @RequestBody OrganizationDepartmentSaveRequest request) {
         return Result.success(organizationService.save(request));
     }
 
     @DeleteMapping("/department/{departmentId}")
-    @RequirePermission(value = "employee:delete", message = "您没有权限删除部门")
+    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_DELETE, message = "您没有权限删除部门")
     public Result<Void> deleteDepartment(@PathVariable Long departmentId) {
         organizationService.delete(departmentId);
         return Result.success(null);

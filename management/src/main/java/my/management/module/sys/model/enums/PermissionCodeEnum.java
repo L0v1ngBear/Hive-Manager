@@ -1,0 +1,144 @@
+package my.management.module.sys.model.enums;
+
+/**
+ * ??????????????????????????? CODE_* ???
+ */
+public enum PermissionCodeEnum {
+    APPROVAL_FINANCE("approval:finance"),
+    APPROVAL_FINANCE_AUDIT("approval:finance:audit"),
+    APPROVAL_FINANCE_DETAIL("approval:finance:detail"),
+    APPROVAL_FINANCE_SUBMIT("approval:finance:submit"),
+    APPROVAL_LEAVE("approval:leave"),
+    APPROVAL_LEAVE_AUDIT("approval:leave:audit"),
+    APPROVAL_LEAVE_DETAIL("approval:leave:detail"),
+    ATTENDANCE_ALL("attendance:*"),
+    ATTENDANCE_RECORD_LIST("attendance:record:list"),
+    BADPRODUCT_LIST("badproduct:list"),
+    BADPRODUCT_PROCESS("badproduct:process"),
+    BADPRODUCT_SAVE("badproduct:save"),
+    CUSTOMER_ADD("customer:add"),
+    CUSTOMER_DETAIL("customer:detail"),
+    CUSTOMER_PAGE("customer:page"),
+    CUSTOMER_UPDATE("customer:update"),
+    DASHBOARD_AI_VIEW("dashboard:ai:view"),
+    DOCUMENT_BREADCRUMBS("document:breadcrumbs"),
+    DOCUMENT_FILE_UPLOAD("document:file:upload"),
+    DOCUMENT_FOLDER_CREATE("document:folder:create"),
+    DOCUMENT_LIST("document:list"),
+    DOCUMENT_MOVE("document:move"),
+    DOCUMENT_RENAME("document:rename"),
+    EMPLOYEE_CREATE("employee:create"),
+    EMPLOYEE_DELETE("employee:delete"),
+    EMPLOYEE_DETAIL("employee:detail"),
+    EMPLOYEE_EXPORT("employee:export"),
+    EMPLOYEE_LIST("employee:list"),
+    EMPLOYEE_STATUS("employee:status"),
+    EMPLOYEE_UPDATE("employee:update"),
+    INVENTORY_CLOTH_IN("inventory:cloth:in"),
+    INVENTORY_CLOTH_OUT("inventory:cloth:out"),
+    INVENTORY_RECORD_RECENT("inventory:record:recent"),
+    INVENTORY_TREND("inventory:trend"),
+    INVENTORY_WARNING_LIST("inventory:warning:list"),
+    LABEL_TEMPLATE_DEFAULT("label:template:default"),
+    LABEL_TEMPLATE_DETAIL("label:template:detail"),
+    LABEL_TEMPLATE_DISABLE("label:template:disable"),
+    LABEL_TEMPLATE_LIST("label:template:list"),
+    LABEL_TEMPLATE_SAVE("label:template:save"),
+    LABEL_TEMPLATE_UPLOAD("label:template:upload"),
+    PLATFORM_TENANT_CREATE("platform:tenant:create"),
+    PLATFORM_TENANT_LICENSE("platform:tenant:license"),
+    PLATFORM_TENANT_VIEW("platform:tenant:view"),
+    PRICE_DELETE("price:delete"),
+    PRICE_DETAIL("price:detail"),
+    PRICE_LIST("price:list"),
+    PRICE_PUBLISH("price:publish"),
+    PRODUCTION_ORDER_DETAIL("production:order:detail"),
+    PRODUCTION_ORDER_LIST("production:order:list"),
+    PRODUCTION_ORDER_LOG("production:order:log"),
+    PRODUCTION_ORDER_STATUS("production:order:status"),
+    RECEIPT_PRINT_CANCEL("receipt:print:cancel"),
+    RECEIPT_PRINT_DETAIL("receipt:print:detail"),
+    RECEIPT_PRINT_LIST("receipt:print:list"),
+    RECEIPT_PRINT_MARK("receipt:print:mark"),
+    ROLE_CREATE("role:create"),
+    ROLE_LIST("role:list"),
+    ROLE_PERMISSION_LIST("role:permission:list"),
+    ROLE_UPDATE("role:update"),
+    SALES_ORDER_DETAIL("sales:order:detail"),
+    SALES_ORDER_LIST("sales:order:list"),
+    SALES_ORDER_STATUS("sales:order:status");
+
+    public static final String CODE_APPROVAL_FINANCE = "approval:finance";
+    public static final String CODE_APPROVAL_FINANCE_AUDIT = "approval:finance:audit";
+    public static final String CODE_APPROVAL_FINANCE_DETAIL = "approval:finance:detail";
+    public static final String CODE_APPROVAL_FINANCE_SUBMIT = "approval:finance:submit";
+    public static final String CODE_APPROVAL_LEAVE = "approval:leave";
+    public static final String CODE_APPROVAL_LEAVE_AUDIT = "approval:leave:audit";
+    public static final String CODE_APPROVAL_LEAVE_DETAIL = "approval:leave:detail";
+    public static final String CODE_ATTENDANCE_ALL = "attendance:*";
+    public static final String CODE_ATTENDANCE_RECORD_LIST = "attendance:record:list";
+    public static final String CODE_BADPRODUCT_LIST = "badproduct:list";
+    public static final String CODE_BADPRODUCT_PROCESS = "badproduct:process";
+    public static final String CODE_BADPRODUCT_SAVE = "badproduct:save";
+    public static final String CODE_CUSTOMER_ADD = "customer:add";
+    public static final String CODE_CUSTOMER_DETAIL = "customer:detail";
+    public static final String CODE_CUSTOMER_PAGE = "customer:page";
+    public static final String CODE_CUSTOMER_UPDATE = "customer:update";
+    public static final String CODE_DASHBOARD_AI_VIEW = "dashboard:ai:view";
+    public static final String CODE_DOCUMENT_BREADCRUMBS = "document:breadcrumbs";
+    public static final String CODE_DOCUMENT_FILE_UPLOAD = "document:file:upload";
+    public static final String CODE_DOCUMENT_FOLDER_CREATE = "document:folder:create";
+    public static final String CODE_DOCUMENT_LIST = "document:list";
+    public static final String CODE_DOCUMENT_MOVE = "document:move";
+    public static final String CODE_DOCUMENT_RENAME = "document:rename";
+    public static final String CODE_EMPLOYEE_CREATE = "employee:create";
+    public static final String CODE_EMPLOYEE_DELETE = "employee:delete";
+    public static final String CODE_EMPLOYEE_DETAIL = "employee:detail";
+    public static final String CODE_EMPLOYEE_EXPORT = "employee:export";
+    public static final String CODE_EMPLOYEE_LIST = "employee:list";
+    public static final String CODE_EMPLOYEE_STATUS = "employee:status";
+    public static final String CODE_EMPLOYEE_UPDATE = "employee:update";
+    public static final String CODE_INVENTORY_CLOTH_IN = "inventory:cloth:in";
+    public static final String CODE_INVENTORY_CLOTH_OUT = "inventory:cloth:out";
+    public static final String CODE_INVENTORY_RECORD_RECENT = "inventory:record:recent";
+    public static final String CODE_INVENTORY_TREND = "inventory:trend";
+    public static final String CODE_INVENTORY_WARNING_LIST = "inventory:warning:list";
+    public static final String CODE_LABEL_TEMPLATE_DEFAULT = "label:template:default";
+    public static final String CODE_LABEL_TEMPLATE_DETAIL = "label:template:detail";
+    public static final String CODE_LABEL_TEMPLATE_DISABLE = "label:template:disable";
+    public static final String CODE_LABEL_TEMPLATE_LIST = "label:template:list";
+    public static final String CODE_LABEL_TEMPLATE_SAVE = "label:template:save";
+    public static final String CODE_LABEL_TEMPLATE_UPLOAD = "label:template:upload";
+    public static final String CODE_PLATFORM_TENANT_CREATE = "platform:tenant:create";
+    public static final String CODE_PLATFORM_TENANT_LICENSE = "platform:tenant:license";
+    public static final String CODE_PLATFORM_TENANT_VIEW = "platform:tenant:view";
+    public static final String CODE_PRICE_DELETE = "price:delete";
+    public static final String CODE_PRICE_DETAIL = "price:detail";
+    public static final String CODE_PRICE_LIST = "price:list";
+    public static final String CODE_PRICE_PUBLISH = "price:publish";
+    public static final String CODE_PRODUCTION_ORDER_DETAIL = "production:order:detail";
+    public static final String CODE_PRODUCTION_ORDER_LIST = "production:order:list";
+    public static final String CODE_PRODUCTION_ORDER_LOG = "production:order:log";
+    public static final String CODE_PRODUCTION_ORDER_STATUS = "production:order:status";
+    public static final String CODE_RECEIPT_PRINT_CANCEL = "receipt:print:cancel";
+    public static final String CODE_RECEIPT_PRINT_DETAIL = "receipt:print:detail";
+    public static final String CODE_RECEIPT_PRINT_LIST = "receipt:print:list";
+    public static final String CODE_RECEIPT_PRINT_MARK = "receipt:print:mark";
+    public static final String CODE_ROLE_CREATE = "role:create";
+    public static final String CODE_ROLE_LIST = "role:list";
+    public static final String CODE_ROLE_PERMISSION_LIST = "role:permission:list";
+    public static final String CODE_ROLE_UPDATE = "role:update";
+    public static final String CODE_SALES_ORDER_DETAIL = "sales:order:detail";
+    public static final String CODE_SALES_ORDER_LIST = "sales:order:list";
+    public static final String CODE_SALES_ORDER_STATUS = "sales:order:status";
+
+    private final String code;
+
+    PermissionCodeEnum(String code) {
+        this.code = code;
+    }
+
+    public String getCode() {
+        return code;
+    }
+}

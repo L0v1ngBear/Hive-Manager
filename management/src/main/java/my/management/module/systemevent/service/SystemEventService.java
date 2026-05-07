@@ -4,6 +4,7 @@ import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
+import my.management.common.enums.PlatformTenantEnum;
 import my.management.module.systemevent.model.dto.SystemEventPageRequest;
 import my.management.module.systemevent.model.vo.SystemEventVO;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
@@ -64,7 +65,7 @@ public class SystemEventService {
             throw new BusinessException(400, "事件ID不合法");
         }
         String handler = TenantPermissionContext.getUserId() == null
-                ? "super"
+                ? PlatformTenantEnum.SUPER.getCode()
                 : String.valueOf(TenantPermissionContext.getUserId());
         jdbcTemplate.update("""
                 UPDATE system_event
@@ -133,7 +134,7 @@ public class SystemEventService {
 
     private void ensureSuper() {
         String tenantCode = TenantPermissionContext.getTenantCode();
-        if (!"super".equalsIgnoreCase(tenantCode)) {
+        if (!PlatformTenantEnum.isSuper(tenantCode)) {
             throw new BusinessException(403, "仅平台超管可查看系统重要事件");
         }
     }

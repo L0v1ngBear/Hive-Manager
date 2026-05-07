@@ -4,8 +4,10 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import my.hive.common.annotation.RequirePermission;
+import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
+import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.approval.model.dto.FinanceAuditRequest;
 import my.management.module.approval.model.dto.FinanceSubmitRequest;
 import my.management.module.approval.model.dto.LeaveAuditRequest;
@@ -28,7 +30,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/approval")
-@RequireTenantFeature("module.approval")
+@RequireTenantFeature(TenantFeatureEnum.CODE_APPROVAL)
 @Validated
 public class ApprovalController {
 
@@ -36,45 +38,45 @@ public class ApprovalController {
     private ApprovalService approvalService;
 
     @GetMapping("/leave/list")
-    @RequirePermission(value = "approval:leave", message = "您没有权限查看请假审批列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_LEAVE, message = "您没有权限查看请假审批列表")
     public Result<List<LeaveApprovalListVO>> listLeaveApprovals() {
         return Result.success(approvalService.listLeaveApprovals());
     }
 
     @GetMapping("/leave/{leaveCode}")
-    @RequirePermission(value = "approval:leave:detail", message = "您没有权限查看请假详情")
+    @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_LEAVE_DETAIL, message = "您没有权限查看请假详情")
     public Result<LeaveDetailVO> getLeaveDetail(@NotBlank @PathVariable String leaveCode) {
         return Result.success(approvalService.getLeaveDetail(leaveCode));
     }
 
     @PostMapping("/leave/audit")
-    @RequirePermission(value = "approval:leave:audit", message = "您没有权限审批请假单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_LEAVE_AUDIT, message = "您没有权限审批请假单")
     public Result<Void> auditLeave(@Valid @RequestBody LeaveAuditRequest request) {
         approvalService.auditLeave(request);
         return Result.success(null);
     }
 
     @GetMapping("/finance/list")
-    @RequirePermission(value = "approval:finance", message = "您没有权限查看财务审批列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_FINANCE, message = "您没有权限查看财务审批列表")
     public Result<List<FinanceApprovalVO>> listFinanceApprovals() {
         return Result.success(approvalService.listFinanceApprovals());
     }
 
     @GetMapping("/finance/{approvalCode}")
-    @RequirePermission(value = "approval:finance:detail", message = "您没有权限查看财务审批详情")
+    @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_FINANCE_DETAIL, message = "您没有权限查看财务审批详情")
     public Result<FinanceApprovalVO> getFinanceDetail(@PathVariable String approvalCode) {
         return Result.success(approvalService.getFinanceDetail(approvalCode));
     }
 
     @PostMapping("/finance/audit")
-    @RequirePermission(value = "approval:finance:audit", message = "您没有权限审批财务单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_FINANCE_AUDIT, message = "您没有权限审批财务单")
     public Result<Void> auditFinance(@Valid @RequestBody FinanceAuditRequest request) {
         approvalService.auditFinance(request);
         return Result.success(null);
     }
 
     @PostMapping("/finance/submit")
-    @RequirePermission(value = "approval:finance:submit", message = "您没有权限提交财务审批")
+    @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_FINANCE_SUBMIT, message = "您没有权限提交财务审批")
     public Result<String> submitFinance(@Valid @RequestBody FinanceSubmitRequest request) {
         return Result.success(approvalService.submitFinance(request));
     }

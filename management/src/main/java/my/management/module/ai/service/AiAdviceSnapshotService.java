@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import my.hive.common.event.SystemEvent;
 import my.hive.common.event.SystemEventPublisher;
 import my.hive.common.redis.HiveRedisKeyBuilder;
+import my.management.common.enums.CommonStatusEnum;
+import my.management.common.enums.DeleteFlagEnum;
 import my.management.module.ai.mapper.AiAdviceSnapshotMapper;
 import my.management.module.ai.model.entity.AiAdviceSnapshot;
 import my.management.module.ai.model.vo.DashboardAiAdviceVO;
@@ -158,8 +160,8 @@ public class AiAdviceSnapshotService {
         return tenant != null
                 && tenant.getTenantCode() != null
                 && !tenant.getTenantCode().isBlank()
-                && !Integer.valueOf(1).equals(tenant.getDeleted())
-                && (tenant.getStatus() == null || tenant.getStatus() == 1);
+                && !DeleteFlagEnum.isDeleted(tenant.getDeleted())
+                && (tenant.getStatus() == null || CommonStatusEnum.isEnabled(tenant.getStatus()));
     }
 
     private DashboardOverviewVO.Visibility fullVisibility() {

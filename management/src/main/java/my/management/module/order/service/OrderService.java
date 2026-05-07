@@ -5,11 +5,13 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
+import my.management.common.enums.BinaryFlagEnum;
 import my.management.common.utils.CodeGeneratorUtil;
 import my.management.module.customer.mapper.CustomerMapper;
 import my.management.module.customer.mapper.CustomerProjectMapper;
 import my.management.module.customer.model.entity.Customer;
 import my.management.module.customer.model.entity.CustomerProject;
+import my.management.module.customer.model.enums.CustomerTypeEnum;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.employee.model.entity.Employee;
 import my.management.module.order.mapper.ProductionOrderMapper;
@@ -28,6 +30,8 @@ import my.management.module.order.model.entity.ProductionOrderStatusLog;
 import my.management.module.order.model.entity.SalesOrder;
 import my.management.module.order.model.entity.SalesOrderDetail;
 import my.management.module.order.model.entity.SalesOrderStatusLog;
+import my.management.module.order.model.enums.OrderLogOperateTypeEnum;
+import my.management.module.order.model.enums.OrderStatusEnum;
 import my.management.module.order.model.vo.ProductionOrderDetailVO;
 import my.management.module.order.model.vo.ProductionOrderPageVO;
 import my.management.module.order.model.vo.ProductionOrderStatusLogVO;
@@ -68,12 +72,6 @@ import java.util.stream.Collectors;
 @Service
 public class OrderService {
 
-    private static final String DEFAULT_SALES_STATUS = "pending_confirm";
-    private static final String DEFAULT_PRODUCTION_STATUS = "pending_confirm";
-    private static final String STATUS_SHIPPED = "shipped";
-    private static final String STATUS_COMPLETED = "completed";
-    private static final String STATUS_PENDING_CONFIRM = "pending_confirm";
-    private static final String STATUS_PENDING_SHIP = "pending_ship";
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter ATTACHMENT_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final long MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024L;
@@ -257,9 +255,9 @@ public class OrderService {
         applySalesOrderContent(order, request, true);
         salesOrderMapper.insert(order);
         replaceSalesOrderItems(order.getOrderId(), request.getItems());
-        insertSalesLog(order, null, "create", "创建销售订单");
+        insertSalesLog(order, null, OrderLogOperateTypeEnum.CREATE.getCode(), "创建销售订单");
 
-        if (Objects.equals(request.getCreateProductionOrder(), 1)) {
+        if (BinaryFlagEnum.isYes(request.getCreateProductionOrder())) {
             createProductionOrdersFromSales(order, request.getItems());
         }
         return order.getOrderId();
@@ -273,7 +271,7 @@ public class OrderService {
         salesOrderMapper.updateById(order);
         replaceSalesOrderItems(orderId, request.getItems());
         if (!Objects.equals(oldStatus, order.getStatus()) || StringUtils.hasText(request.getRemark())) {
-            insertSalesLog(order, oldStatus, "status_change", blankToNull(request.getRemark()));
+            insertSalesLog(order, oldStatus, OrderLogOperateTypeEnum.STATUS_CHANGE.getCode(), blankToNull(request.getRemark()));
         }
         syncLinkedProductionOrders(order, oldStatus);
     }
@@ -306,7 +304,7 @@ public class OrderService {
         validateShippingInfo(order.getStatus(), order.getExpressCompany(), order.getExpressNo());
         salesOrderMapper.updateById(order);
         if (!Objects.equals(oldStatus, order.getStatus()) || StringUtils.hasText(request.getRemark())) {
-            insertSalesLog(order, oldStatus, "status_change", blankToNull(request.getRemark()));
+            insertSalesLog(order, oldStatus, OrderLogOperateTypeEnum.STATUS_CHANGE.getCode(), blankToNull(request.getRemark()));
         }
         syncLinkedProductionOrders(order, oldStatus);
     }
@@ -459,7 +457,7 @@ public class OrderService {
     }
 
     private Integer normalizeInvoiceFlag(Integer value) {
-        return Objects.equals(value, 1) ? 1 : 0;
+        return BinaryFlagEnum.isYes(value) ? BinaryFlagEnum.YES.getCode() : BinaryFlagEnum.NO.getCode();
     }
 
     private void replaceSalesOrderItems(String orderId, List<SalesOrderSaveRequest.ItemDTO> items) {
@@ -486,7 +484,7 @@ public class OrderService {
             productionOrder.setTenantCode(TenantPermissionContext.getTenantCode());
             productionOrder.setOrderId(codeGeneratorUtil.generateProductionOrderCode());
             productionOrder.setSalesOrderId(order.getOrderId());
-            productionOrder.setStatus(DEFAULT_PRODUCTION_STATUS);
+            productionOrder.setStatus(OrderStatusEnum.PENDING_CONFIRM.getCode());
             productionOrder.setModelCode(item.getModelCode().trim());
             productionOrder.setWeight(toBigDecimal(item.getWeight()));
             productionOrder.setWidth(toBigDecimal(item.getSpec()));
@@ -524,7 +522,9 @@ public class OrderService {
         log.setOrderId(order.getOrderId());
         log.setOldStatus(oldStatusText);
         log.setNewStatus(buildProductionStateText(order.getStatus(), order.getProcess()));
-        log.setOperateType(order.getProcess() != null ? "process_change" : "status_change");
+        log.setOperateType(order.getProcess() != null
+                ? OrderLogOperateTypeEnum.PROCESS_CHANGE.getCode()
+                : OrderLogOperateTypeEnum.STATUS_CHANGE.getCode());
         log.setRemark(StringUtils.hasText(remark) ? remark : "管理端更新订单信息");
         log.setOperator(resolveCurrentUser());
         log.setOperatorName(resolveCurrentUserName());
@@ -558,7 +558,7 @@ public class OrderService {
             customer = new Customer();
             customer.setTenantCode(tenantCode);
             customer.setCustomerName(customerName);
-            customer.setCustomerType(1);
+            customer.setCustomerType(CustomerTypeEnum.DEFAULT.getCode());
             customerMapper.insert(customer);
         }
 
@@ -578,7 +578,7 @@ public class OrderService {
      * 销售订单发货由物流驱动，所以只有变更为已发货时才强制校验物流信息。
      */
     private void validateShippingInfo(String status, String expressCompany, String expressNo) {
-        if (!STATUS_SHIPPED.equals(status)) {
+        if (!OrderStatusEnum.SHIPPED.matches(status)) {
             return;
         }
         if (!StringUtils.hasText(expressCompany) || !StringUtils.hasText(expressNo)) {
@@ -601,7 +601,7 @@ public class OrderService {
             }
             String oldStatusText = buildProductionStateText(linkedOrder.getStatus(), linkedOrder.getProcess());
             linkedOrder.setStatus(salesOrder.getStatus());
-            if (!STATUS_PENDING_CONFIRM.equals(salesOrder.getStatus()) && !STATUS_PENDING_SHIP.equals(salesOrder.getStatus())) {
+            if (!OrderStatusEnum.PENDING_CONFIRM.matches(salesOrder.getStatus()) && !OrderStatusEnum.PENDING_SHIP.matches(salesOrder.getStatus())) {
                 linkedOrder.setProcess(null);
             }
             productionOrderMapper.updateById(linkedOrder);
@@ -630,21 +630,15 @@ public class OrderService {
         linkedSalesOrder.setStatus(productionOrder.getStatus());
         validateShippingInfo(linkedSalesOrder.getStatus(), linkedSalesOrder.getExpressCompany(), linkedSalesOrder.getExpressNo());
         salesOrderMapper.updateById(linkedSalesOrder);
-        insertSalesLog(linkedSalesOrder, oldSalesStatus, "sync", "生产订单状态同步更新");
+        insertSalesLog(linkedSalesOrder, oldSalesStatus, OrderLogOperateTypeEnum.SYNC.getCode(), "生产订单状态同步更新");
     }
 
     private boolean supportsProductionStatusSync(String status) {
-        return STATUS_PENDING_CONFIRM.equals(status)
-                || STATUS_PENDING_SHIP.equals(status)
-                || STATUS_SHIPPED.equals(status)
-                || STATUS_COMPLETED.equals(status);
+        return OrderStatusEnum.supportsSalesProductionSync(status);
     }
 
     private boolean supportsSalesStatusSync(String status) {
-        return STATUS_PENDING_CONFIRM.equals(status)
-                || STATUS_PENDING_SHIP.equals(status)
-                || STATUS_SHIPPED.equals(status)
-                || STATUS_COMPLETED.equals(status);
+        return OrderStatusEnum.supportsSalesProductionSync(status);
     }
 
     private SalesOrder findSalesOrder(String orderId) {
@@ -693,18 +687,18 @@ public class OrderService {
     }
 
     private Integer resolveProcess(String status, Integer process) {
-        if (!StringUtils.hasText(status) || !"producing".equals(status)) {
+        if (!StringUtils.hasText(status) || !OrderStatusEnum.PRODUCING.matches(status)) {
             return null;
         }
         return process;
     }
 
     private String defaultSalesStatus(String currentStatus) {
-        return StringUtils.hasText(currentStatus) ? currentStatus : DEFAULT_SALES_STATUS;
+        return OrderStatusEnum.defaultIfBlank(currentStatus, OrderStatusEnum.PENDING_CONFIRM);
     }
 
     private String defaultProductionStatus(String currentStatus) {
-        return StringUtils.hasText(currentStatus) ? currentStatus : DEFAULT_PRODUCTION_STATUS;
+        return OrderStatusEnum.defaultIfBlank(currentStatus, OrderStatusEnum.PENDING_CONFIRM);
     }
 
     private String buildProductionStateText(String status, Integer process) {

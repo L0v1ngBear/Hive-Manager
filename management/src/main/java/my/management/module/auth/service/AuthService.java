@@ -15,6 +15,7 @@ import my.hive.common.redis.HiveRedisKeyBuilder;
 import my.hive.common.utils.EncryptUtil;
 import my.hive.common.utils.ResponseEncryptUtil;
 import my.hive.common.utils.TokenUtil;
+import my.management.common.enums.PlatformTenantEnum;
 import my.management.common.service.DeveloperAccessService;
 import my.management.module.auth.mapper.AuthMapper;
 import my.management.module.auth.model.dto.LoginRequest;
@@ -236,7 +237,7 @@ public class AuthService {
         loginVO.setUserId(loginUser.getUserId());
         loginVO.setUserName(loginUser.getUserName());
         loginVO.setTenantCode(loginUser.getTenantCode());
-        loginVO.setDeveloper("super".equalsIgnoreCase(loginUser.getTenantCode()));
+        loginVO.setDeveloper(PlatformTenantEnum.isSuper(loginUser.getTenantCode()));
         loginVO.setResponseKey(responseEncryptUtil.buildResponseKey(token));
         loginVO.setPermissions(List.copyOf(permCodes));
         loginVO.setFeatures(tenantLicenseService.enabledFeatureKeys(loginUser.getTenantCode()));

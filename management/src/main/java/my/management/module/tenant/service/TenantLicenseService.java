@@ -8,12 +8,19 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import my.hive.common.exception.BusinessException;
 import my.hive.common.redis.HiveRedisKeyBuilder;
+import my.management.common.enums.CommonStatusEnum;
+import my.management.common.enums.DeleteFlagEnum;
+import my.management.common.enums.PlatformTenantEnum;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.tenant.mapper.TenantMapper;
 import my.management.module.tenant.mapper.TenantUsageMeterMapper;
 import my.management.module.tenant.model.dto.TenantLicenseUpdateRequest;
 import my.management.module.tenant.model.entity.Tenant;
 import my.management.module.tenant.model.entity.TenantUsageMeter;
+import my.management.module.tenant.model.enums.TenantFeatureEnum;
+import my.management.module.tenant.model.enums.TenantPlanEnum;
+import my.management.module.tenant.model.enums.TenantSubscriptionStatusEnum;
+import my.management.module.tenant.model.enums.TenantUsageMeterEnum;
 import my.management.module.tenant.model.vo.TenantFeatureOptionVO;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -35,51 +42,13 @@ import java.util.regex.Pattern;
 @Slf4j
 public class TenantLicenseService {
 
-    public static final String PLAN_TRIAL = "TRIAL";
-    public static final String PLAN_STARTER = "STARTER";
-    public static final String PLAN_STANDARD = "STANDARD";
-    public static final String PLAN_PROFESSIONAL = "PROFESSIONAL";
-    public static final String PLAN_PRIVATE = "PRIVATE";
-
-    private static final String STATUS_TRIAL = "TRIAL";
-    private static final String STATUS_ACTIVE = "ACTIVE";
-    private static final String STATUS_EXPIRED = "EXPIRED";
-    private static final String STATUS_SUSPENDED = "SUSPENDED";
-    private static final String SUPER_TENANT_CODE = "super";
-    private static final String FEATURE_AI_ADVICE = "aiAdvice";
-    private static final String FEATURE_ADVANCED_AI = "advancedAi";
-    private static final String FEATURE_PLATFORM_SUPER = "platform.super";
-    private static final String METER_AI_ADVICE = "AI_ADVICE";
     private static final int MAX_FEATURE_FLAGS_LENGTH = 2000;
 
-    private static final Set<String> ALLOWED_STATUSES = Set.of(STATUS_TRIAL, STATUS_ACTIVE, STATUS_EXPIRED, STATUS_SUSPENDED);
-    private static final Set<String> ALLOWED_PLANS = Set.of(PLAN_TRIAL, PLAN_STARTER, PLAN_STANDARD, PLAN_PROFESSIONAL, PLAN_PRIVATE);
-    private static final Set<String> BASE_MODULE_FEATURES = Set.of(
-            "module.dashboard",
-            "module.order",
-            "module.inventory",
-            "module.badProduct",
-            "module.customer",
-            "module.price",
-            "module.receipt",
-            "module.approval",
-            "module.attendance",
-            "module.employee",
-            "module.role",
-            "module.label",
-            "module.document",
-            "module.manual"
-    );
+    private static final Set<String> ALLOWED_STATUSES = TenantSubscriptionStatusEnum.allowedCodes();
+    private static final Set<String> ALLOWED_PLANS = TenantPlanEnum.allowedCodes();
+    private static final Set<String> BASE_MODULE_FEATURES = Set.copyOf(TenantFeatureEnum.baseModuleCodes());
     private static final Pattern FEATURE_KEY_PATTERN = Pattern.compile("^[A-Za-z][A-Za-z0-9_.:\\-]{0,100}$");
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    private static final Map<String, PlanLimit> PLAN_LIMITS = Map.of(
-            PLAN_TRIAL, new PlanLimit("试用版", 5, 30, 512),
-            PLAN_STARTER, new PlanLimit("入门版", 10, 80, 1024),
-            PLAN_STANDARD, new PlanLimit("标准版", 30, 300, 5120),
-            PLAN_PROFESSIONAL, new PlanLimit("专业版", 80, 1000, 20480),
-            PLAN_PRIVATE, new PlanLimit("私有部署版", 9999, 100000, 102400)
-    );
 
     @Resource
     private TenantMapper tenantMapper;
@@ -100,35 +69,35 @@ public class TenantLicenseService {
         if (tenant == null) {
             return;
         }
-        PlanLimit limit = PLAN_LIMITS.get(PLAN_TRIAL);
-        tenant.setPackageCode(PLAN_TRIAL);
-        tenant.setPackageName(limit.name());
-        tenant.setSubscriptionStatus(STATUS_TRIAL);
+        TenantPlanEnum plan = TenantPlanEnum.TRIAL;
+        tenant.setPackageCode(plan.getCode());
+        tenant.setPackageName(plan.getLabel());
+        tenant.setSubscriptionStatus(TenantSubscriptionStatusEnum.TRIAL.getCode());
         tenant.setSubscriptionStartTime(LocalDateTime.now());
         tenant.setSubscriptionEndTime(LocalDateTime.now().plusDays(30));
-        tenant.setMaxUsers(limit.maxUsers());
-        tenant.setMaxAiAdvicePerMonth(limit.maxAiAdvicePerMonth());
-        tenant.setMaxStorageMb(limit.maxStorageMb());
-        tenant.setFeatureFlags(defaultFeatureFlags(PLAN_TRIAL));
+        tenant.setMaxUsers(plan.getMaxUsers());
+        tenant.setMaxAiAdvicePerMonth(plan.getMaxAiAdvicePerMonth());
+        tenant.setMaxStorageMb(plan.getStorageQuotaMb());
+        tenant.setFeatureFlags(defaultFeatureFlags(plan.getCode()));
     }
 
     public void applyLicenseUpdate(Tenant tenant, TenantLicenseUpdateRequest request) {
         if (tenant == null || request == null) {
             throw new BusinessException("租户授权参数不能为空");
         }
-        String planCode = normalizePlanCode(request.getPackageCode(), defaultText(tenant.getPackageCode(), PLAN_TRIAL));
-        PlanLimit limit = PLAN_LIMITS.get(planCode);
+        String planCode = normalizePlanCode(request.getPackageCode(), defaultText(tenant.getPackageCode(), TenantPlanEnum.TRIAL.getCode()));
+        TenantPlanEnum plan = TenantPlanEnum.of(planCode);
 
         tenant.setPackageCode(planCode);
-        tenant.setPackageName(limit.name());
+        tenant.setPackageName(plan.getLabel());
         tenant.setSubscriptionStatus(normalizeSubscriptionStatus(request.getSubscriptionStatus(), planCode, request.getSubscriptionEndTime()));
         tenant.setSubscriptionStartTime(request.getSubscriptionStartTime() == null
                 ? defaultStartTime(tenant.getSubscriptionStartTime())
                 : request.getSubscriptionStartTime());
         tenant.setSubscriptionEndTime(request.getSubscriptionEndTime());
-        tenant.setMaxUsers(resolveLimit(request.getMaxUsers(), limit.maxUsers(), 9999));
-        tenant.setMaxAiAdvicePerMonth(resolveLimit(request.getMaxAiAdvicePerMonth(), limit.maxAiAdvicePerMonth(), 100000));
-        tenant.setMaxStorageMb(resolveLimit(request.getMaxStorageMb(), limit.maxStorageMb(), 102400));
+        tenant.setMaxUsers(resolveLimit(request.getMaxUsers(), plan.getMaxUsers(), 9999));
+        tenant.setMaxAiAdvicePerMonth(resolveLimit(request.getMaxAiAdvicePerMonth(), plan.getMaxAiAdvicePerMonth(), 100000));
+        tenant.setMaxStorageMb(resolveLimit(request.getMaxStorageMb(), plan.getStorageQuotaMb(), 102400));
         tenant.setFeatureFlags(normalizeFeatureFlags(request.getFeatureFlags(), planCode));
     }
 
@@ -187,9 +156,9 @@ public class TenantLicenseService {
         }
         if (isSuperTenant(tenantCode)) {
             LinkedHashSet<String> superFeatures = new LinkedHashSet<>(BASE_MODULE_FEATURES);
-            superFeatures.add(FEATURE_AI_ADVICE);
-            superFeatures.add(FEATURE_ADVANCED_AI);
-            superFeatures.add(FEATURE_PLATFORM_SUPER);
+            superFeatures.add(TenantFeatureEnum.CODE_AI_ADVICE);
+            superFeatures.add(TenantFeatureEnum.CODE_ADVANCED_AI);
+            superFeatures.add(TenantFeatureEnum.CODE_PLATFORM_SUPER);
             return List.copyOf(superFeatures);
         }
         Tenant tenant = requireTenant(tenantCode);
@@ -201,22 +170,12 @@ public class TenantLicenseService {
 
     public List<TenantFeatureOptionVO> featureCatalog() {
         List<TenantFeatureOptionVO> features = new ArrayList<>();
-        features.add(feature("module.dashboard", "总览大盘", "基础模块", "经营总览、关键指标和待办提醒", true, true));
-        features.add(feature("module.order", "订单管理", "基础模块", "销售订单、生产订单和订单流转", true, true));
-        features.add(feature("module.inventory", "库存管理", "基础模块", "库存流水、库存预警和出入库", true, true));
-        features.add(feature("module.badProduct", "次品管理", "基础模块", "次品登记、处理闭环和损失跟踪", true, true));
-        features.add(feature("module.customer", "客户管理", "基础模块", "客户档案、联系人和合作信息", true, true));
-        features.add(feature("module.price", "价格管理", "基础模块", "SKU 价格、客户等级价和特价", true, true));
-        features.add(feature("module.receipt", "出库单打印", "基础模块", "出库单模板、打印确认和回执", true, true));
-        features.add(feature("module.approval", "审批中心", "基础模块", "请假、财务等审批流程", true, true));
-        features.add(feature("module.attendance", "考勤管理", "基础模块", "小程序打卡、规则和统计", true, true));
-        features.add(feature("module.employee", "员工管理", "基础模块", "员工档案、组织和状态", true, true));
-        features.add(feature("module.role", "角色管理", "基础模块", "角色权限和人员授权", true, true));
-        features.add(feature("module.label", "标签打印", "基础模块", "标签模板和小程序打印联动", true, true));
-        features.add(feature("module.document", "文档管理", "基础模块", "企业目录、文件和 OSS 存储", true, true));
-        features.add(feature("module.manual", "使用手册", "基础模块", "网页端用户使用说明", true, true));
-        features.add(feature(FEATURE_AI_ADVICE, "AI 建议", "智能能力", "经营、员工、客户和风险建议", false, true));
-        features.add(feature(FEATURE_ADVANCED_AI, "高级 AI", "智能能力", "高维建议、闭环进化和高级分析", false, false));
+        for (TenantFeatureEnum item : TenantFeatureEnum.values()) {
+            if (item == TenantFeatureEnum.PLATFORM_SUPER) {
+                continue;
+            }
+            features.add(feature(item));
+        }
         return features;
     }
 
@@ -225,7 +184,7 @@ public class TenantLicenseService {
             return true;
         }
         Tenant tenant = requireTenant(tenantCode);
-        if (!isTenantUsable(tenant) || !isFeatureEnabled(tenant, FEATURE_AI_ADVICE)) {
+        if (!isTenantUsable(tenant) || !isFeatureEnabled(tenant, TenantFeatureEnum.CODE_AI_ADVICE)) {
             return false;
         }
         Integer maxAiAdvicePerMonth = tenant.getMaxAiAdvicePerMonth();
@@ -235,7 +194,7 @@ public class TenantLicenseService {
         if (maxAiAdvicePerMonth <= 0) {
             return false;
         }
-        return tryConsumeUsageMeter(tenantCode, METER_AI_ADVICE, currentMonthKey(), maxAiAdvicePerMonth);
+        return tryConsumeUsageMeter(tenantCode, TenantUsageMeterEnum.AI_ADVICE.getCode(), currentMonthKey(), maxAiAdvicePerMonth);
     }
 
     private boolean tryConsumeUsageMeter(String tenantCode, String meterType, String periodKey, int limitCount) {
@@ -276,8 +235,15 @@ public class TenantLicenseService {
         }
     }
 
-    private TenantFeatureOptionVO feature(String code, String name, String category, String description, boolean baseModule, boolean defaultEnabled) {
-        return new TenantFeatureOptionVO(code, name, category, description, baseModule, defaultEnabled);
+    private TenantFeatureOptionVO feature(TenantFeatureEnum feature) {
+        return new TenantFeatureOptionVO(
+                feature.getCode(),
+                feature.getName(),
+                feature.getCategory(),
+                feature.getDescription(),
+                feature.isBaseModule(),
+                feature.isDefaultEnabled()
+        );
     }
 
     public void clearTenantRuntimeCache(String tenantCode) {
@@ -297,11 +263,11 @@ public class TenantLicenseService {
     }
 
     public boolean isTenantUsable(Tenant tenant) {
-        if (tenant == null || Integer.valueOf(1).equals(tenant.getDeleted()) || !Integer.valueOf(1).equals(tenant.getStatus())) {
+        if (tenant == null || DeleteFlagEnum.isDeleted(tenant.getDeleted()) || !CommonStatusEnum.isEnabled(tenant.getStatus())) {
             return false;
         }
         String subscriptionStatus = normalizeStatusOnly(tenant.getSubscriptionStatus());
-        if (STATUS_SUSPENDED.equals(subscriptionStatus) || STATUS_EXPIRED.equals(subscriptionStatus)) {
+        if (TenantSubscriptionStatusEnum.isUnavailable(subscriptionStatus)) {
             return false;
         }
         LocalDateTime endTime = tenant.getSubscriptionEndTime();
@@ -309,7 +275,7 @@ public class TenantLicenseService {
     }
 
     public boolean isSuperTenant(String tenantCode) {
-        return StringUtils.hasText(tenantCode) && SUPER_TENANT_CODE.equalsIgnoreCase(tenantCode.trim());
+        return PlatformTenantEnum.isSuper(tenantCode);
     }
 
     private Tenant requireTenant(String tenantCode) {
@@ -342,14 +308,16 @@ public class TenantLicenseService {
             return normalized;
         }
         if (endTime != null && endTime.isBefore(LocalDateTime.now())) {
-            return STATUS_EXPIRED;
+            return TenantSubscriptionStatusEnum.EXPIRED.getCode();
         }
-        return PLAN_TRIAL.equals(planCode) ? STATUS_TRIAL : STATUS_ACTIVE;
+        return TenantPlanEnum.TRIAL.getCode().equals(planCode)
+                ? TenantSubscriptionStatusEnum.TRIAL.getCode()
+                : TenantSubscriptionStatusEnum.ACTIVE.getCode();
     }
 
     private String normalizeStatusOnly(String value) {
         if (!StringUtils.hasText(value)) {
-            return STATUS_ACTIVE;
+            return TenantSubscriptionStatusEnum.ACTIVE.getCode();
         }
         return value.trim().toUpperCase(Locale.ROOT);
     }
@@ -375,7 +343,7 @@ public class TenantLicenseService {
             if (!root.isObject()) {
                 throw new BusinessException("功能开关必须是 JSON 对象");
             }
-            buildFeatureKeys(defaultText(planCode, PLAN_TRIAL), trimmed, true, null);
+            buildFeatureKeys(defaultText(planCode, TenantPlanEnum.TRIAL.getCode()), trimmed, true, null);
         } catch (JsonProcessingException ex) {
             throw new BusinessException("功能开关必须是合法 JSON");
         }
@@ -383,7 +351,7 @@ public class TenantLicenseService {
     }
 
     private String defaultFeatureFlags(String planCode) {
-        boolean advancedAi = PLAN_PROFESSIONAL.equals(planCode) || PLAN_PRIVATE.equals(planCode);
+        boolean advancedAi = TenantPlanEnum.of(planCode).isAdvancedAiIncluded();
         return "{"
                 + "\"modules\":{"
                 + "\"dashboard\":true,"
@@ -416,7 +384,7 @@ public class TenantLicenseService {
     }
 
     private Set<String> buildFeatureKeys(Tenant tenant, boolean strict) {
-        String planCode = defaultText(tenant.getPackageCode(), PLAN_TRIAL);
+        String planCode = defaultText(tenant.getPackageCode(), TenantPlanEnum.TRIAL.getCode());
         String featureFlags = tenant.getFeatureFlags();
         return buildFeatureKeys(planCode, featureFlags, strict, tenant.getTenantCode());
     }
@@ -449,9 +417,9 @@ public class TenantLicenseService {
 
     private Set<String> baseFeatureKeys(String planCode) {
         LinkedHashSet<String> features = new LinkedHashSet<>(BASE_MODULE_FEATURES);
-        features.add(FEATURE_AI_ADVICE);
-        if (PLAN_PROFESSIONAL.equals(planCode) || PLAN_PRIVATE.equals(planCode)) {
-            features.add(FEATURE_ADVANCED_AI);
+        features.add(TenantFeatureEnum.CODE_AI_ADVICE);
+        if (TenantPlanEnum.of(planCode).isAdvancedAiIncluded()) {
+            features.add(TenantFeatureEnum.CODE_ADVANCED_AI);
         }
         return features;
     }
@@ -541,6 +509,4 @@ public class TenantLicenseService {
         return StringUtils.hasText(value) ? value : fallback;
     }
 
-    private record PlanLimit(String name, Integer maxUsers, Integer maxAiAdvicePerMonth, Integer maxStorageMb) {
-    }
 }

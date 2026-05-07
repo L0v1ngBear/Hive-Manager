@@ -9,6 +9,7 @@ import my.management.common.storage.FileUploadResult;
 import my.management.common.storage.OssStorageService;
 import my.management.module.document.DocumentTypeEnum;
 import my.management.module.document.mapper.DocumentMapper;
+import my.management.module.document.model.enums.DocumentUploadStatusEnum;
 import my.management.module.document.model.dto.DocumentAddRequest;
 import my.management.module.document.model.entity.Document;
 import my.management.module.document.model.vo.DocumentVO;
@@ -30,7 +31,6 @@ public class DocumentService {
 
     private static final int MAX_TREE_DEPTH = 20;
     private static final int MAX_NAME_LENGTH = 180;
-    private static final String UPLOAD_STATUS_UPLOADED = "UPLOADED";
 
     @Resource
     private DocumentMapper documentMapper;
@@ -99,7 +99,7 @@ public class DocumentService {
         document.setMimeType(uploadResult.getMimeType());
         document.setFileHash(uploadResult.getFileHash());
         document.setEtag(uploadResult.getEtag());
-        document.setUploadStatus(UPLOAD_STATUS_UPLOADED);
+        document.setUploadStatus(DocumentUploadStatusEnum.UPLOADED.getCode());
         document.setCreatorId(TenantPermissionContext.getUserId());
 
         try {

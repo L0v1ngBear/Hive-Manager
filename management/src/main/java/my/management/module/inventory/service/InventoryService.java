@@ -21,6 +21,10 @@ import my.management.module.inventory.model.dto.InventoryPageRequest;
 import my.management.module.inventory.model.entity.Cloth;
 import my.management.module.inventory.model.entity.ClothModelSpec;
 import my.management.module.inventory.model.entity.InventoryRecord;
+import my.management.module.inventory.model.enums.ClothInventoryStatusEnum;
+import my.management.module.inventory.model.enums.ClothQualityFlagEnum;
+import my.management.module.inventory.model.enums.InventoryInTypeEnum;
+import my.management.module.inventory.model.enums.InventoryOperateTypeEnum;
 import my.management.module.inventory.model.vo.ClothInventoryVO;
 import my.management.module.inventory.model.vo.InventoryModelOptionVO;
 import my.management.module.inventory.model.vo.InventoryRecordVO;
@@ -71,6 +75,7 @@ public class InventoryService {
     private static final int MAX_IMPORT_ROWS = 5000;
     private static final long MAX_IMPORT_BYTES = 10L * 1024 * 1024;
     private static final BigDecimal MAX_IMPORT_METERS = new BigDecimal("999999999.99");
+    private static final int INITIAL_VERSION = 0;
     private static final List<String> IMPORT_TEMPLATE_HEADERS = List.of("条码", "型号", "规格", "总米数", "剩余米数", "入库时间", "状态");
     private static final Map<String, Set<String>> IMPORT_HEADER_ALIASES = buildImportHeaderAliases();
     private static final List<DateTimeFormatter> IMPORT_TIME_FORMATTERS = List.of(
@@ -132,8 +137,8 @@ public class InventoryService {
         LocalDateTime startTime = today.atStartOfDay();
         LocalDateTime endTime = today.plusDays(1).atStartOfDay();
         summary.setWarningCount(nvl(clothMapper.countWarningModels(tenantCode, WARNING_THRESHOLD)));
-        summary.setTodayInMeters(nvl(inventoryRecordMapper.sumOperateMeters(tenantCode, 0, startTime, endTime)));
-        summary.setTodayOutMeters(nvl(inventoryRecordMapper.sumOperateMeters(tenantCode, 1, startTime, endTime)));
+        summary.setTodayInMeters(nvl(inventoryRecordMapper.sumOperateMeters(tenantCode, InventoryOperateTypeEnum.IN.getCode(), startTime, endTime)));
+        summary.setTodayOutMeters(nvl(inventoryRecordMapper.sumOperateMeters(tenantCode, InventoryOperateTypeEnum.OUT.getCode(), startTime, endTime)));
         summary.setTotalMeters(nvl(summary.getTotalMeters()));
         summary.setClothCount(nvl(summary.getClothCount()));
         return summary;
@@ -188,13 +193,7 @@ public class InventoryService {
     }
 
     private String recordOperateTypeName(Integer operateType) {
-        if (operateType != null && operateType == 1) {
-            return "出库";
-        }
-        if (operateType != null && operateType == 2) {
-            return "外部导入";
-        }
-        return "入库";
+        return InventoryOperateTypeEnum.of(operateType).getLabel();
     }
 
     public List<InventoryTrendVO> trend() {
@@ -244,15 +243,15 @@ public class InventoryService {
         cloth.setMeters(request.getMeters());
         cloth.setTotalMeters(request.getMeters());
         cloth.setRemainingMeters(request.getMeters());
-        cloth.setStatus(0);
+        cloth.setStatus(ClothInventoryStatusEnum.IN_STOCK.getCode());
         cloth.setInTime(now);
         cloth.setInOperatorId(userId);
-        cloth.setInType(request.getInType() == null || request.getInType().isBlank() ? "manual" : request.getInType().trim());
-        cloth.setIsBad(0);
-        cloth.setVersion(0);
+        cloth.setInType(InventoryInTypeEnum.normalizeManual(request.getInType()));
+        cloth.setIsBad(ClothQualityFlagEnum.NORMAL.getCode());
+        cloth.setVersion(INITIAL_VERSION);
         clothMapper.insert(cloth);
 
-        saveRecord(cloth, 0, request.getMeters(), userId, now);
+        saveRecord(cloth, InventoryOperateTypeEnum.IN.getCode(), request.getMeters(), userId, now);
         saveModelSpecIfAbsent(tenantCode, cloth.getModelCode(), cloth.getSpec());
         invalidateDashboardCache(tenantCode);
     }
@@ -276,13 +275,13 @@ public class InventoryService {
 
         BigDecimal remaining = cloth.getRemainingMeters().subtract(request.getMeters());
         cloth.setRemainingMeters(remaining);
-        cloth.setStatus(remaining.compareTo(BigDecimal.ZERO) == 0 ? 1 : 2);
+        cloth.setStatus(ClothInventoryStatusEnum.fromStock(cloth.getTotalMeters(), remaining).getCode());
         cloth.setOutTime(now);
         cloth.setOutOperatorId(userId);
         cloth.setUpdateTime(now);
         clothMapper.updateById(cloth);
 
-        saveRecord(cloth, 1, request.getMeters(), userId, now);
+        saveRecord(cloth, InventoryOperateTypeEnum.OUT.getCode(), request.getMeters(), userId, now);
         invalidateDashboardCache(tenantCode);
     }
 
@@ -379,9 +378,9 @@ public class InventoryService {
             cloth.setBarcode(barcode);
             cloth.setCreateTime(now);
             cloth.setInOperatorId(userId);
-            cloth.setInType("import_snapshot");
-            cloth.setIsBad(0);
-            cloth.setVersion(0);
+            cloth.setInType(InventoryInTypeEnum.IMPORT_SNAPSHOT.getCode());
+            cloth.setIsBad(ClothQualityFlagEnum.NORMAL.getCode());
+            cloth.setVersion(INITIAL_VERSION);
         }
 
         cloth.setUpdateTime(now);
@@ -392,7 +391,7 @@ public class InventoryService {
         cloth.setRemainingMeters(row.remainingMeters());
         cloth.setStatus(row.status());
         cloth.setInTime(row.inTime() == null ? now : row.inTime());
-        if (row.status() == 1) {
+        if (ClothInventoryStatusEnum.of(row.status()).isOutStock()) {
             cloth.setOutTime(now);
             cloth.setOutOperatorId(userId);
         }
@@ -402,7 +401,7 @@ public class InventoryService {
         } else {
             clothMapper.updateById(cloth);
         }
-        saveRecord(cloth, 2, row.remainingMeters(), userId, now);
+        saveRecord(cloth, InventoryOperateTypeEnum.EXTERNAL_IMPORT.getCode(), row.remainingMeters(), userId, now);
         saveModelSpecIfAbsent(tenantCode, row.modelCode(), row.spec());
     }
 
@@ -665,19 +664,16 @@ public class InventoryService {
         if (cleaned != null) {
             String normalized = cleaned.toLowerCase(Locale.ROOT);
             if ("0".equals(normalized) || normalized.contains("在库") || normalized.contains("正常")) {
-                return 0;
+                return ClothInventoryStatusEnum.IN_STOCK.getCode();
             }
             if ("1".equals(normalized) || normalized.contains("已出") || normalized.contains("出库完成")) {
-                return 1;
+                return ClothInventoryStatusEnum.OUT_STOCK.getCode();
             }
             if ("2".equals(normalized) || normalized.contains("部分")) {
-                return 2;
+                return ClothInventoryStatusEnum.PARTIAL_OUT.getCode();
             }
         }
-        if (remainingMeters.compareTo(BigDecimal.ZERO) == 0) {
-            return 1;
-        }
-        return remainingMeters.compareTo(totalMeters) < 0 ? 2 : 0;
+        return ClothInventoryStatusEnum.fromStock(totalMeters, remainingMeters).getCode();
     }
 
     private String getCell(List<String> row, Integer index) {
@@ -774,16 +770,7 @@ public class InventoryService {
     }
 
     private String statusName(Integer status) {
-        if (status == null || status == 0) {
-            return "在库";
-        }
-        if (status == 1) {
-            return "已出库";
-        }
-        if (status == 2) {
-            return "部分出库";
-        }
-        return "未知";
+        return ClothInventoryStatusEnum.of(status).getLabel();
     }
 
     private BigDecimal nvl(BigDecimal value) {

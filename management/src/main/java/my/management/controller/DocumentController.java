@@ -2,8 +2,10 @@ package my.management.controller;
 
 import jakarta.annotation.Resource;
 import my.hive.common.annotation.RequirePermission;
+import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
+import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.document.model.dto.DocumentAddRequest;
 import my.management.module.document.model.entity.Document;
 import my.management.module.document.model.vo.DocumentVO;
@@ -30,7 +32,7 @@ import java.util.stream.Collectors;
 @org.springframework.web.bind.annotation.ResponseBody
 @RestController
 @RequestMapping("/document")
-@RequireTenantFeature("module.document")
+@RequireTenantFeature(TenantFeatureEnum.CODE_DOCUMENT)
 @Validated
 public class DocumentController {
 
@@ -38,7 +40,7 @@ public class DocumentController {
     private DocumentService documentService;
 
     @GetMapping("/list/{parentId}")
-    @RequirePermission(value = "document:list", message = "您没有权限查看文档列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_LIST, message = "您没有权限查看文档列表")
     public Result<List<DocumentVO>> list(@PathVariable Long parentId) {
         List<Document> documentList = documentService.selectDocumentByParentId(parentId);
         List<DocumentVO> documentVOList = documentList.stream().map(doc -> {
@@ -50,35 +52,35 @@ public class DocumentController {
     }
 
     @PostMapping("/folder/create")
-    @RequirePermission(value = "document:folder:create", message = "您没有权限创建文件夹")
+    @RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_FOLDER_CREATE, message = "您没有权限创建文件夹")
     public Result<Void> createFolder(@RequestBody DocumentAddRequest request) {
         documentService.addFolder(request);
         return Result.success(null);
     }
 
     @PostMapping("/file/upload")
-    @RequirePermission(value = "document:file:upload", message = "您没有权限上传文件")
+    @RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_FILE_UPLOAD, message = "您没有权限上传文件")
     public Result<DocumentVO> uploadFile(@RequestParam("file") MultipartFile file,
                                          @RequestParam(value = "parentId", required = false, defaultValue = "0") Long parentId) {
         return Result.success(documentService.uploadFile(file, parentId));
     }
 
     @PutMapping("/rename")
-    @RequirePermission(value = "document:rename", message = "您没有权限重命名文档")
+    @RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_RENAME, message = "您没有权限重命名文档")
     public Result<Void> renameDocument(@RequestParam Long documentId, @RequestParam String newName) {
         documentService.renameDocument(documentId, newName);
         return Result.success(null);
     }
 
     @PutMapping("/move")
-    @RequirePermission(value = "document:move", message = "您没有权限移动文档")
+    @RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_MOVE, message = "您没有权限移动文档")
     public Result<Void> moveDocument(@RequestParam Long documentId, @RequestParam Long newParentId) {
         documentService.moveDocument(documentId, newParentId);
         return Result.success(null);
     }
 
     @GetMapping("/breadcrumbs")
-    @RequirePermission(value = "document:breadcrumbs", message = "您没有权限查看文档面包屑")
+    @RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_BREADCRUMBS, message = "您没有权限查看文档面包屑")
     public Result<List<DocumentVO>> breadcrumbs(@RequestParam Long documentId) {
         return Result.success(documentService.getBreadcrumbs(documentId));
     }

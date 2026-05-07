@@ -5,9 +5,11 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import my.hive.common.annotation.RequirePermission;
+import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
+import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.common.vo.ImportResultVO;
 import my.management.module.price.model.dto.PricePageRequest;
 import my.management.module.price.model.dto.PricePublishRequest;
@@ -34,7 +36,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/price")
-@RequireTenantFeature("module.price")
+@RequireTenantFeature(TenantFeatureEnum.CODE_PRICE)
 @Validated
 public class PriceController {
 
@@ -42,7 +44,7 @@ public class PriceController {
     private PriceService priceService;
 
     @GetMapping("/page")
-    @RequirePermission(value = "price:list", message = "您没有权限查看价格列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_LIST, message = "您没有权限查看价格列表")
     public Result<PageResult<PriceSkuVO>> page(@Valid PricePageRequest request) {
         Page<PriceSkuVO> page = priceService.page(request);
         PageResult<PriceSkuVO> result = new PageResult<>();
@@ -55,56 +57,56 @@ public class PriceController {
     }
 
     @GetMapping("/stats")
-    @RequirePermission(value = "price:list", message = "您没有权限查看价格统计")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_LIST, message = "您没有权限查看价格统计")
     public Result<PriceStatsVO> stats() {
         return Result.success(priceService.stats());
     }
 
     @PostMapping("/publish")
-    @RequirePermission(value = "price:publish", message = "您没有权限发布价格")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_PUBLISH, message = "您没有权限发布价格")
     public Result<Long> publish(@Valid @RequestBody PricePublishRequest request) {
         return Result.success(priceService.publish(request));
     }
 
     @GetMapping("/detail/{id}")
-    @RequirePermission(value = "price:detail", message = "您没有权限查看价格详情")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_DETAIL, message = "您没有权限查看价格详情")
     public Result<PriceDetailVO> detail(@PathVariable Long id) {
         return Result.success(priceService.detail(id));
     }
 
     @DeleteMapping("/{id}")
-    @RequirePermission(value = "price:delete", message = "您没有权限删除价格")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_DELETE, message = "您没有权限删除价格")
     public Result<Void> delete(@PathVariable Long id) {
         priceService.delete(id);
         return Result.success(null);
     }
 
     @GetMapping("/customers")
-    @RequirePermission(value = "price:list", message = "您没有权限查看客户选项")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_LIST, message = "您没有权限查看客户选项")
     public Result<List<CustomerOptionVO>> customers(String keyword) {
         return Result.success(priceService.customerOptions(keyword));
     }
 
     @GetMapping("/models")
-    @RequirePermission(value = "price:list", message = "您没有权限查看型号选项")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_LIST, message = "您没有权限查看型号选项")
     public Result<List<ModelSpecOptionVO>> models(String keyword) {
         return Result.success(priceService.modelOptions(keyword));
     }
 
     @GetMapping("/export-excel")
-    @RequirePermission(value = "price:list", message = "您没有权限导出价格数据")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_LIST, message = "您没有权限导出价格数据")
     public void exportExcel(@Valid PricePageRequest request, HttpServletResponse response) {
         priceService.exportExcel(request, response);
     }
 
     @GetMapping("/import-template")
-    @RequirePermission(value = "price:list", message = "您没有权限下载价格导入模板")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_LIST, message = "您没有权限下载价格导入模板")
     public void downloadImportTemplate(HttpServletResponse response) {
         priceService.downloadImportTemplate(response);
     }
 
     @PostMapping("/import")
-    @RequirePermission(value = "price:publish", message = "您没有权限导入价格数据")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_PUBLISH, message = "您没有权限导入价格数据")
     public Result<ImportResultVO> importPrices(@RequestParam("file") MultipartFile file) {
         return Result.success(priceService.importPrices(file));
     }

@@ -8,12 +8,15 @@ import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
 import my.hive.common.privacy.PrivacyProtectionUtil;
 import my.hive.common.redis.HiveRedisKeyBuilder;
+import my.management.common.enums.BinaryFlagEnum;
+import my.management.common.enums.CommonStatusEnum;
 import my.management.common.utils.ExcelUtil;
 import my.management.module.attendance.mapper.AttendanceManageMapper;
 import my.management.module.attendance.mapper.TenantAttendanceRuleManageMapper;
 import my.management.module.attendance.model.dto.AttendancePageRequest;
 import my.management.module.attendance.model.dto.AttendanceRuleSaveRequest;
 import my.management.module.attendance.model.entity.TenantAttendanceRule;
+import my.management.module.attendance.model.enums.AttendancePunchStatusEnum;
 import my.management.module.attendance.model.vo.AttendanceDepartmentVO;
 import my.management.module.attendance.model.vo.AttendanceRecordManageVO;
 import my.management.module.attendance.model.vo.AttendanceRuleVO;
@@ -121,7 +124,7 @@ public class AttendanceManageService {
             rule = new TenantAttendanceRule();
             rule.setTenantCode(tenantCode);
             rule.setTenantName(tenantCode);
-            rule.setStatus(1);
+            rule.setStatus(CommonStatusEnum.ENABLED.getCode());
         }
 
         rule.setWorkStartTime(parseTime(request.getWorkStartTime(), "第一次上班时间"));
@@ -133,12 +136,12 @@ public class AttendanceManageService {
         rule.setLateToleranceMinutes(nonNegative(request.getLateToleranceMinutes()));
         rule.setEarlyToleranceMinutes(nonNegative(request.getEarlyToleranceMinutes()));
         rule.setWorkDays(toWorkDays(request.getWorkDays()));
-        rule.setEnableGps(Boolean.TRUE.equals(request.getEnableGps()) ? 1 : 0);
+        rule.setEnableGps(BinaryFlagEnum.codeOf(request.getEnableGps()));
         rule.setLatitude(request.getLatitude());
         rule.setLongitude(request.getLongitude());
         rule.setRadius(request.getRadius());
         rule.setAddress(clean(request.getAddress()));
-        rule.setEnableWifi(Boolean.TRUE.equals(request.getEnableWifi()) ? 1 : 0);
+        rule.setEnableWifi(BinaryFlagEnum.codeOf(request.getEnableWifi()));
         rule.setWifiSsid(clean(request.getWifiSsid()));
 
         if (rule.getId() == null) {
@@ -230,12 +233,12 @@ public class AttendanceManageService {
         vo.setLateToleranceMinutes(nonNegative(rule.getLateToleranceMinutes()));
         vo.setEarlyToleranceMinutes(nonNegative(rule.getEarlyToleranceMinutes()));
         vo.setWorkDays(parseWorkDays(rule.getWorkDays()));
-        vo.setEnableGps(rule.getEnableGps() == null || rule.getEnableGps() == 1);
+        vo.setEnableGps(rule.getEnableGps() == null || BinaryFlagEnum.isYes(rule.getEnableGps()));
         vo.setLatitude(rule.getLatitude());
         vo.setLongitude(rule.getLongitude());
         vo.setRadius(rule.getRadius());
         vo.setAddress(rule.getAddress());
-        vo.setEnableWifi(rule.getEnableWifi() != null && rule.getEnableWifi() == 1);
+        vo.setEnableWifi(BinaryFlagEnum.isYes(rule.getEnableWifi()));
         vo.setWifiSsid(rule.getWifiSsid());
         return vo;
     }
@@ -301,52 +304,12 @@ public class AttendanceManageService {
 
     private void fillStatus(AttendanceRecordManageVO row) {
         row.setPhone(privacyProtectionUtil.maskPhone(row.getPhone()));
-        if (row.getSignInStatus() != null) {
-            if (row.getSignInStatus() == 1) {
-                row.setStatus("late");
-                row.setStatusText("迟到");
-                return;
-            }
-            if (row.getSignInStatus() == 3) {
-                row.setStatus("missing");
-                row.setStatusText("缺勤");
-                return;
-            }
-            if (row.getSignInStatus() == 5) {
-                row.setStatus("leave");
-                row.setStatusText("请假");
-                return;
-            }
-            if (row.getSignInStatus() == 6) {
-                row.setStatus("missing");
-                row.setStatusText("缺卡");
-                return;
-            }
-        }
-        if (row.getSignOutStatus() != null) {
-            if (row.getSignOutStatus() == 2) {
-                row.setStatus("early");
-                row.setStatusText("早退");
-                return;
-            }
-            if (row.getSignOutStatus() == 3 || row.getSignOutStatus() == 6) {
-                row.setStatus("missing");
-                row.setStatusText("缺卡");
-                return;
-            }
-            if (row.getSignOutStatus() == 4) {
-                row.setStatus("overtime");
-                row.setStatusText("加班");
-                return;
-            }
-            if (row.getSignOutStatus() == 5) {
-                row.setStatus("leave");
-                row.setStatusText("请假");
-                return;
-            }
-        }
-        row.setStatus("normal");
-        row.setStatusText("正常");
+        AttendancePunchStatusEnum.ResolvedStatus status = AttendancePunchStatusEnum.resolveManageStatus(
+                row.getSignInStatus(),
+                row.getSignOutStatus()
+        );
+        row.setStatus(status.viewKey());
+        row.setStatusText(status.label());
     }
 
     private String dayPrefix(LocalDate date) {

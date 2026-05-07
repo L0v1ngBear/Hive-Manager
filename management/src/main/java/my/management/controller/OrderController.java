@@ -3,9 +3,11 @@ package my.management.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import my.hive.common.annotation.RequirePermission;
+import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
+import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.order.model.dto.ProductionOrderPageRequest;
 import my.management.module.order.model.dto.ProductionOrderSaveRequest;
 import my.management.module.order.model.dto.ProductionOrderUpdateRequest;
@@ -44,7 +46,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/order")
-@RequireTenantFeature("module.order")
+@RequireTenantFeature(TenantFeatureEnum.CODE_ORDER)
 @Validated
 public class OrderController {
 
@@ -52,31 +54,31 @@ public class OrderController {
     private OrderService orderService;
 
     @GetMapping("/sales/page")
-    @RequirePermission(value = "sales:order:list", message = "您没有权限查看销售订单列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限查看销售订单列表")
     public Result<PageResult<SalesOrderPageVO>> salesPage(SalesOrderPageRequest request) {
         return Result.success(toPageResult(orderService.pageSalesOrders(request)));
     }
 
     @GetMapping("/sales/detail/{orderId}")
-    @RequirePermission(value = "sales:order:detail", message = "您没有权限查看销售订单详情")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_DETAIL, message = "您没有权限查看销售订单详情")
     public Result<SalesOrderDetailVO> salesDetail(@PathVariable String orderId) {
         return Result.success(orderService.getSalesOrderDetail(orderId));
     }
 
     @PostMapping("/sales/create")
-    @RequirePermission(value = "sales:order:status", message = "您没有权限创建销售订单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_STATUS, message = "您没有权限创建销售订单")
     public Result<String> createSales(@RequestBody @Valid SalesOrderSaveRequest request) {
         return Result.success(orderService.createSalesOrder(request));
     }
 
     @PostMapping("/sales/attachment/upload")
-    @RequirePermission(value = "sales:order:status", message = "您没有权限上传销售订单附件")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_STATUS, message = "您没有权限上传销售订单附件")
     public Result<SalesOrderAttachmentVO> uploadSalesAttachment(@RequestParam("file") MultipartFile file) {
         return Result.success(orderService.uploadSalesAttachment(file));
     }
 
     @GetMapping("/sales/attachment/download")
-    @RequirePermission(value = "sales:order:detail", message = "您没有权限下载销售订单附件")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_DETAIL, message = "您没有权限下载销售订单附件")
     public ResponseEntity<org.springframework.core.io.Resource> downloadSalesAttachment(@RequestParam String url,
                                                                                        @RequestParam(required = false) String name) {
         org.springframework.core.io.Resource resource = orderService.loadSalesAttachment(url);
@@ -90,65 +92,65 @@ public class OrderController {
     }
 
     @PostMapping("/sales/save/{orderId}")
-    @RequirePermission(value = "sales:order:status", message = "您没有权限编辑销售订单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_STATUS, message = "您没有权限编辑销售订单")
     public Result<Void> saveSales(@PathVariable String orderId, @RequestBody @Valid SalesOrderSaveRequest request) {
         orderService.saveSalesOrder(orderId, request);
         return Result.success(null);
     }
 
     @PostMapping("/sales/update/{orderId}")
-    @RequirePermission(value = "sales:order:status", message = "您没有权限更新销售订单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_STATUS, message = "您没有权限更新销售订单")
     public Result<Void> updateSales(@PathVariable String orderId, @RequestBody SalesOrderUpdateRequest request) {
         orderService.updateSalesOrder(orderId, request);
         return Result.success(null);
     }
 
     @GetMapping("/sales/log/{orderId}")
-    @RequirePermission(value = "sales:order:detail", message = "您没有权限查看销售订单日志")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_DETAIL, message = "您没有权限查看销售订单日志")
     public Result<List<SalesOrderStatusLogVO>> salesLog(@PathVariable String orderId) {
         return Result.success(orderService.listSalesLogs(orderId));
     }
 
     @GetMapping("/production/page")
-    @RequirePermission(value = "production:order:list", message = "您没有权限查看生产订单列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_LIST, message = "您没有权限查看生产订单列表")
     public Result<PageResult<ProductionOrderPageVO>> productionPage(ProductionOrderPageRequest request) {
         return Result.success(toPageResult(orderService.pageProductionOrders(request)));
     }
 
     @GetMapping("/production/detail/{orderId}")
-    @RequirePermission(value = "production:order:detail", message = "您没有权限查看生产订单详情")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_DETAIL, message = "您没有权限查看生产订单详情")
     public Result<ProductionOrderDetailVO> productionDetail(@PathVariable String orderId) {
         return Result.success(orderService.getProductionOrderDetail(orderId));
     }
 
     @PostMapping("/production/create")
-    @RequirePermission(value = "production:order:status", message = "您没有权限创建生产订单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_STATUS, message = "您没有权限创建生产订单")
     public Result<String> createProduction(@RequestBody @Valid ProductionOrderSaveRequest request) {
         return Result.success(orderService.createProductionOrder(request));
     }
 
     @PostMapping("/production/save/{orderId}")
-    @RequirePermission(value = "production:order:status", message = "您没有权限编辑生产订单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_STATUS, message = "您没有权限编辑生产订单")
     public Result<Void> saveProduction(@PathVariable String orderId, @RequestBody @Valid ProductionOrderSaveRequest request) {
         orderService.saveProductionOrder(orderId, request);
         return Result.success(null);
     }
 
     @GetMapping("/production/log/{orderId}")
-    @RequirePermission(value = "production:order:log", message = "您没有权限查看生产订单日志")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_LOG, message = "您没有权限查看生产订单日志")
     public Result<List<ProductionOrderStatusLogVO>> productionLog(@PathVariable String orderId) {
         return Result.success(orderService.listProductionLogs(orderId));
     }
 
     @PostMapping("/production/update/{orderId}")
-    @RequirePermission(value = "production:order:status", message = "您没有权限更新生产订单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_STATUS, message = "您没有权限更新生产订单")
     public Result<Void> updateProduction(@PathVariable String orderId, @RequestBody ProductionOrderUpdateRequest request) {
         orderService.updateProductionOrder(orderId, request);
         return Result.success(null);
     }
 
     @GetMapping("/health")
-    @RequirePermission(value = "sales:order:list", message = "您没有权限查看订单模块检查结果")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限查看订单模块检查结果")
     public Result<Map<String, Object>> health() {
         return Result.success(orderService.checkOrderTables());
     }

@@ -4,6 +4,8 @@ import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
+import my.management.common.enums.BinaryFlagEnum;
+import my.management.common.enums.CommonStatusEnum;
 import my.management.module.ai.service.AiAdviceFeedbackService;
 import my.management.module.ai.model.vo.DashboardAiAdviceVO;
 import my.management.module.ai.service.AiAdvicePermissionService;
@@ -13,6 +15,8 @@ import my.management.module.notification.mapper.NotificationMapper;
 import my.management.module.notification.model.dto.NotificationPageRequest;
 import my.management.module.notification.model.dto.NotificationTaskCloseRequest;
 import my.management.module.notification.model.entity.NotificationRecord;
+import my.management.module.notification.model.enums.NotificationSendStatusEnum;
+import my.management.module.notification.model.enums.NotificationTaskStatusEnum;
 import my.management.module.notification.model.vo.NotificationReceiverVO;
 import my.management.module.notification.model.vo.NotificationVO;
 import my.management.module.notification.sms.SmsMessage;
@@ -105,7 +109,7 @@ public class NotificationService {
 
         String taskStatus = normalizeTaskStatus(request == null ? null : request.getTaskStatus());
         String closeNote = limit(request == null ? null : request.getCloseNote(), 500);
-        String closeResult = "DONE".equals(taskStatus) ? "resolved" : "ignored";
+        String closeResult = NotificationTaskStatusEnum.DONE.matches(taskStatus) ? "resolved" : "ignored";
         int updated = notificationMapper.closeTask(tenantCode, userId, id, taskStatus, closeResult, closeNote);
         if (updated > 0 && AI_ADVICE_BIZ_TYPE.equals(record.getBizType()) && record.getBizId() != null && record.getBizId().startsWith("AI_SAMPLE:")) {
             try {
@@ -190,10 +194,10 @@ public class NotificationService {
             record.setReceiverUserId(receiver.getUserId());
             record.setReceiverName(receiver.getUserName());
         }
-        record.setStatus(1);
-        record.setReadFlag(0);
-        record.setSendStatus("PENDING");
-        record.setTaskStatus("PENDING");
+        record.setStatus(CommonStatusEnum.ENABLED.getCode());
+        record.setReadFlag(BinaryFlagEnum.NO.getCode());
+        record.setSendStatus(NotificationSendStatusEnum.PENDING.getCode());
+        record.setTaskStatus(NotificationTaskStatusEnum.PENDING.getCode());
         record.setSourceType(advice.getSourceType() == null ? "local_rules" : advice.getSourceType());
         return record;
     }
@@ -255,10 +259,7 @@ public class NotificationService {
     }
 
     private String normalizeTaskStatus(String taskStatus) {
-        if ("IGNORED".equalsIgnoreCase(taskStatus)) {
-            return "IGNORED";
-        }
-        return "DONE";
+        return NotificationTaskStatusEnum.normalizeCloseStatus(taskStatus).getCode();
     }
 
     private String limit(String value, int maxLength) {

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
+import my.management.common.enums.DeleteFlagEnum;
 import my.management.common.utils.ExcelUtil;
 import my.management.common.vo.ImportResultVO;
 import my.management.module.customer.mapper.CustomerMapper;
@@ -24,6 +25,7 @@ import my.management.module.price.model.entity.PriceChangeLog;
 import my.management.module.price.model.entity.PriceCustomerOverride;
 import my.management.module.price.model.entity.PriceSku;
 import my.management.module.price.model.entity.PriceTierPrice;
+import my.management.module.price.model.enums.PriceSkuStatusEnum;
 import my.management.module.price.model.vo.CustomerOptionVO;
 import my.management.module.price.model.vo.CustomerOverrideVO;
 import my.management.module.price.model.vo.ModelSpecOptionVO;
@@ -58,9 +60,6 @@ import java.util.Set;
 @Service
 public class PriceService {
 
-    private static final int STATUS_EXPIRED = 0;
-    private static final int STATUS_ACTIVE = 1;
-    private static final int STATUS_SCHEDULED = 2;
     private static final int PRICE_IMPORT_COLUMN_COUNT = 7;
     private static final int MAX_PRICE_IMPORT_ROWS = 10000;
     private static final long MAX_IMPORT_FILE_SIZE_BYTES = 20L * 1024L * 1024L;
@@ -124,7 +123,7 @@ public class PriceService {
             sku = priceSkuMapper.selectOne(new LambdaQueryWrapper<PriceSku>()
                     .eq(PriceSku::getTenantCode, tenantCode)
                     .eq(PriceSku::getModelCode, request.getModelCode())
-                    .eq(PriceSku::getIsDeleted, 0)
+                    .eq(PriceSku::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                     .last("LIMIT 1"));
         }
 
@@ -133,7 +132,7 @@ public class PriceService {
         if (created) {
             sku = new PriceSku();
             sku.setTenantCode(tenantCode);
-            sku.setIsDeleted(0);
+            sku.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         } else if (!Objects.equals(sku.getTenantCode(), tenantCode)) {
             throw new BusinessException("价格记录不存在");
         }
@@ -168,14 +167,14 @@ public class PriceService {
         BeanUtils.copyProperties(toSkuVO(sku), detail);
         detail.setTierPrices(priceTierPriceMapper.selectList(new LambdaQueryWrapper<PriceTierPrice>()
                         .eq(PriceTierPrice::getSkuId, id)
-                        .eq(PriceTierPrice::getIsDeleted, 0)
+                        .eq(PriceTierPrice::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                         .orderByAsc(PriceTierPrice::getTierCode))
                 .stream()
                 .map(item -> toTierVO(item, sku.getBasePrice()))
                 .toList());
         detail.setOverrides(priceCustomerOverrideMapper.selectList(new LambdaQueryWrapper<PriceCustomerOverride>()
                         .eq(PriceCustomerOverride::getSkuId, id)
-                        .eq(PriceCustomerOverride::getIsDeleted, 0)
+                        .eq(PriceCustomerOverride::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                         .orderByDesc(PriceCustomerOverride::getId))
                 .stream()
                 .map(this::toOverrideVO)
@@ -193,7 +192,7 @@ public class PriceService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         PriceSku sku = requireSku(id);
-        sku.setIsDeleted(1);
+        sku.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
         priceSkuMapper.updateById(sku);
     }
 
@@ -310,7 +309,7 @@ public class PriceService {
             entity.setTierName(row.getTierName());
             entity.setFixedPrice(row.getFixedPrice());
             entity.setDiscountRate(row.getDiscountRate() == null ? BigDecimal.valueOf(100) : row.getDiscountRate());
-            entity.setIsDeleted(0);
+            entity.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
             if (entity.getFixedPrice() == null && basePrice != null && entity.getDiscountRate() != null) {
                 entity.setFixedPrice(basePrice.multiply(entity.getDiscountRate()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
             }
@@ -333,7 +332,7 @@ public class PriceService {
             entity.setCustomerId(row.getCustomerId());
             entity.setCustomerName(customer == null ? row.getCustomerName() : customer.getCustomerName());
             entity.setPrice(row.getPrice());
-            entity.setIsDeleted(0);
+            entity.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
             priceCustomerOverrideMapper.insert(entity);
         }
     }
@@ -357,7 +356,7 @@ public class PriceService {
 
     private PriceSku requireSku(Long id) {
         PriceSku sku = priceSkuMapper.selectById(id);
-        if (sku == null || !Objects.equals(sku.getTenantCode(), TenantPermissionContext.getTenantCode()) || Integer.valueOf(1).equals(sku.getIsDeleted())) {
+        if (sku == null || !Objects.equals(sku.getTenantCode(), TenantPermissionContext.getTenantCode()) || DeleteFlagEnum.isDeleted(sku.getIsDeleted())) {
             throw new BusinessException("价格记录不存在");
         }
         return sku;
@@ -390,20 +389,14 @@ public class PriceService {
     }
 
     private int calcStatus(LocalDate effectiveDate) {
-        return effectiveDate != null && effectiveDate.isAfter(LocalDate.now()) ? STATUS_SCHEDULED : STATUS_ACTIVE;
+        return PriceSkuStatusEnum.fromEffectiveDate(effectiveDate).getCode();
     }
 
     private String statusLabel(Integer status) {
-        if (Integer.valueOf(STATUS_ACTIVE).equals(status)) {
-            return "生效中";
-        }
-        if (Integer.valueOf(STATUS_SCHEDULED).equals(status)) {
+        if (PriceSkuStatusEnum.SCHEDULED.getCode().equals(status)) {
             return "计划中";
         }
-        if (Integer.valueOf(STATUS_EXPIRED).equals(status)) {
-            return "已过期";
-        }
-        return "未知";
+        return PriceSkuStatusEnum.of(status).getLabel();
     }
 
     private List<TierPriceRequest> defaultTiers() {

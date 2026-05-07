@@ -12,6 +12,9 @@ import my.management.module.approval.model.dto.FinanceSubmitRequest;
 import my.management.module.approval.model.dto.LeaveAuditRequest;
 import my.management.module.approval.model.entity.FinanceApproval;
 import my.management.module.approval.model.entity.UserLeave;
+import my.management.module.approval.model.enums.ApprovalActionEnum;
+import my.management.module.approval.model.enums.ApprovalStatusEnum;
+import my.management.module.approval.model.enums.LeaveTypeEnum;
 import my.management.module.approval.model.vo.FinanceApprovalVO;
 import my.management.module.approval.model.vo.LeaveApprovalListVO;
 import my.management.module.approval.model.vo.LeaveDetailVO;
@@ -19,6 +22,7 @@ import my.management.module.attendance.mapper.AttendanceRecordMapper;
 import my.management.module.attendance.mapper.TenantAttendanceRuleManageMapper;
 import my.management.module.attendance.model.entity.AttendanceRecord;
 import my.management.module.attendance.model.entity.TenantAttendanceRule;
+import my.management.module.attendance.model.enums.AttendancePunchStatusEnum;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.employee.model.entity.Employee;
 import org.springframework.beans.BeanUtils;
@@ -35,11 +39,6 @@ import java.util.List;
  */
 @Service
 public class ApprovalService {
-
-    private static final int STATUS_PENDING = 1;
-    private static final int STATUS_APPROVED = 2;
-    private static final int STATUS_REJECTED = 3;
-    private static final int ACTION_APPROVE = 1;
 
     @Resource
     private LeaveMapper leaveMapper;
@@ -87,21 +86,21 @@ public class ApprovalService {
         if (userLeave.getAuditorId() == null || !currentUserId.equals(userLeave.getAuditorId())) {
             throw new BusinessException("您不是请假单的当前审批人");
         }
-        if (!STATUS_PENDING_EQUALS(userLeave.getStatus())) {
+        if (!ApprovalStatusEnum.isPending(userLeave.getStatus())) {
             throw new BusinessException("该请假单已处理，请勿重复审批");
         }
         userLeave.setAuditComment(trimToNull(request.getComment()));
-        if (ACTION_APPROVE == request.getAction()) {
+        if (ApprovalActionEnum.isApprove(request.getAction())) {
             Long nextManagerId = getManagerId(currentUserId);
             Integer roleLevel = getRoleLevel(currentUserId);
             if ((roleLevel != null && roleLevel >= 2) || nextManagerId == null) {
-                userLeave.setStatus(STATUS_APPROVED);
+                userLeave.setStatus(ApprovalStatusEnum.APPROVED.getCode());
                 syncLeaveToAttendance(userLeave);
             } else {
                 userLeave.setAuditorId(nextManagerId);
             }
         } else {
-            userLeave.setStatus(STATUS_REJECTED);
+            userLeave.setStatus(ApprovalStatusEnum.REJECTED.getCode());
         }
         leaveMapper.updateById(userLeave);
     }
@@ -136,10 +135,10 @@ public class ApprovalService {
                 record.setTenantCode(leave.getTenantCode());
                 record.setUserId(leave.getApplyUserId());
                 if (coverSignIn) {
-                    record.setSignInStatus(5);
+                    record.setSignInStatus(AttendancePunchStatusEnum.LEAVE.getCode());
                 }
                 if (coverSignOut) {
-                    record.setSignOutStatus(5);
+                    record.setSignOutStatus(AttendancePunchStatusEnum.LEAVE.getCode());
                 }
                 attendanceRecordMapper.insert(record);
             } else if (fillLeaveStatus(record, coverSignIn, coverSignOut)) {
@@ -154,17 +153,12 @@ public class ApprovalService {
      */
     private boolean fillLeaveStatus(AttendanceRecord record, boolean coverSignIn, boolean coverSignOut) {
         boolean changed = false;
-        if (coverSignIn && (record.getSignInStatus() == null
-                || record.getSignInStatus() == 3
-                || record.getSignInStatus() == 6)) {
-            record.setSignInStatus(5);
+        if (coverSignIn && AttendancePunchStatusEnum.canBeCoveredByLeaveForSignIn(record.getSignInStatus())) {
+            record.setSignInStatus(AttendancePunchStatusEnum.LEAVE.getCode());
             changed = true;
         }
-        if (coverSignOut && (record.getSignOutStatus() == null
-                || record.getSignOutStatus() == 2
-                || record.getSignOutStatus() == 3
-                || record.getSignOutStatus() == 6)) {
-            record.setSignOutStatus(5);
+        if (coverSignOut && AttendancePunchStatusEnum.canBeCoveredByLeaveForSignOut(record.getSignOutStatus())) {
+            record.setSignOutStatus(AttendancePunchStatusEnum.LEAVE.getCode());
             changed = true;
         }
         return changed;
@@ -213,7 +207,7 @@ public class ApprovalService {
         approval.setAmount(request.getAmount());
         approval.setReason(request.getReason().trim());
         approval.setAttachmentUrl(trimToNull(request.getAttachmentUrl()));
-        approval.setStatus(STATUS_PENDING);
+        approval.setStatus(ApprovalStatusEnum.PENDING.getCode());
         approval.setAuditorId(managerId);
         financeApprovalMapper.insert(approval);
         return approval.getApprovalCode();
@@ -226,21 +220,21 @@ public class ApprovalService {
         if (approval.getAuditorId() == null || !currentUserId.equals(approval.getAuditorId())) {
             throw new BusinessException("您不是该财务审批单当前审批人");
         }
-        if (!STATUS_PENDING_EQUALS(approval.getStatus())) {
+        if (!ApprovalStatusEnum.isPending(approval.getStatus())) {
             throw new BusinessException("该财务审批单已处理，请勿重复审批");
         }
 
         approval.setAuditComment(trimToNull(request.getComment()));
-        if (ACTION_APPROVE == request.getAction()) {
+        if (ApprovalActionEnum.isApprove(request.getAction())) {
             Long nextManagerId = getManagerId(currentUserId);
             Integer roleLevel = getRoleLevel(currentUserId);
             if ((roleLevel != null && roleLevel >= 2) || nextManagerId == null) {
-                approval.setStatus(STATUS_APPROVED);
+                approval.setStatus(ApprovalStatusEnum.APPROVED.getCode());
             } else {
                 approval.setAuditorId(nextManagerId);
             }
         } else {
-            approval.setStatus(STATUS_REJECTED);
+            approval.setStatus(ApprovalStatusEnum.REJECTED.getCode());
         }
         financeApprovalMapper.updateById(approval);
     }
@@ -310,33 +304,12 @@ public class ApprovalService {
         return employee == null ? null : employee.getRoleLevel();
     }
 
-    private boolean STATUS_PENDING_EQUALS(Integer status) {
-        return status != null && status == STATUS_PENDING;
-    }
-
     private String leaveTypeText(Integer leaveType) {
-        if (leaveType == null) {
-            return "未填写";
-        }
-        return switch (leaveType) {
-            case 1 -> "事假";
-            case 2 -> "病假";
-            case 3 -> "年假";
-            case 4 -> "调休";
-            default -> "其他";
-        };
+        return LeaveTypeEnum.of(leaveType).getLabel();
     }
 
     private String statusText(Integer status) {
-        if (status == null) {
-            return "未知";
-        }
-        return switch (status) {
-            case STATUS_PENDING -> "待审批";
-            case STATUS_APPROVED -> "已通过";
-            case STATUS_REJECTED -> "已拒绝";
-            default -> "未知";
-        };
+        return ApprovalStatusEnum.of(status).getLabel();
     }
 
     private String trimToNull(String value) {

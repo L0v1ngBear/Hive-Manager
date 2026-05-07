@@ -8,6 +8,8 @@ import my.hive.common.event.SystemEvent;
 import my.hive.common.event.SystemEventPublisher;
 import my.management.module.tenant.mapper.TenantMapper;
 import my.management.module.tenant.model.entity.Tenant;
+import my.management.common.enums.CommonStatusEnum;
+import my.management.common.enums.DeleteFlagEnum;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -45,10 +47,10 @@ public class NotificationClosedLoopScheduler {
             }
 
             for (Tenant tenant : tenants) {
-                if (tenant == null || tenant.getTenantCode() == null || Integer.valueOf(1).equals(tenant.getDeleted())) {
+                if (tenant == null || tenant.getTenantCode() == null || DeleteFlagEnum.isDeleted(tenant.getDeleted())) {
                     continue;
                 }
-                if (tenant.getStatus() != null && tenant.getStatus() != 1) {
+                if (tenant.getStatus() != null && !CommonStatusEnum.isEnabled(tenant.getStatus())) {
                     continue;
                 }
                 try {

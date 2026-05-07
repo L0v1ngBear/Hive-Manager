@@ -12,12 +12,14 @@ import my.management.module.ai.model.vo.DashboardAiAdviceVO;
 import my.management.module.ai.service.AiAdvicePermissionService;
 import my.management.module.ai.service.AiAdviceSnapshotService;
 import my.management.module.ai.service.AiAnalysisService;
+import my.management.module.attendance.model.enums.AttendancePunchStatusEnum;
 import my.management.module.dashboard.mapper.DashboardMapper;
 import my.management.module.dashboard.model.vo.DashboardAttendanceAlertRowVO;
 import my.management.module.dashboard.model.vo.DashboardInventoryTrendRowVO;
 import my.management.module.dashboard.model.vo.DashboardInventoryWarningRowVO;
 import my.management.module.dashboard.model.vo.DashboardOverviewVO;
 import my.management.module.dashboard.model.vo.DashboardPendingPrintRowVO;
+import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.tenant.service.TenantLicenseService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -115,7 +117,7 @@ public class DashboardService {
         long startNanos = System.nanoTime();
         aiAdvicePermissionService.requireAnyView();
         String tenantCode = TenantPermissionContext.getTenantCode();
-        tenantLicenseService.requireFeatureEnabled(tenantCode, "aiAdvice", "当前套餐暂未开放 AI 建议，请联系平台管理员开通");
+        tenantLicenseService.requireFeatureEnabled(tenantCode, TenantFeatureEnum.CODE_AI_ADVICE, "当前套餐暂未开放 AI 建议，请联系平台管理员开通");
         Long userId = TenantPermissionContext.getUserId();
         String cacheKey = buildScopedCacheKey("ai-advice", tenantCode, userId);
 
@@ -145,7 +147,7 @@ public class DashboardService {
 
     public AiBusinessSnapshotVO aiSnapshot() {
         String tenantCode = TenantPermissionContext.getTenantCode();
-        tenantLicenseService.requireFeatureEnabled(tenantCode, "aiAdvice", "当前套餐暂未开放 AI 经营快照，请联系平台管理员开通");
+        tenantLicenseService.requireFeatureEnabled(tenantCode, TenantFeatureEnum.CODE_AI_ADVICE, "当前套餐暂未开放 AI 经营快照，请联系平台管理员开通");
         return aiAnalysisService.buildBusinessSnapshot(tenantCode);
     }
 
@@ -159,7 +161,7 @@ public class DashboardService {
         visibility.setAttendanceVisible(hasAnyPermission("employee:list", "attendance:*", "attendance:record:list"));
         boolean aiFeatureEnabled = false;
         try {
-            tenantLicenseService.requireFeatureEnabled(TenantPermissionContext.getTenantCode(), "aiAdvice", null);
+            tenantLicenseService.requireFeatureEnabled(TenantPermissionContext.getTenantCode(), TenantFeatureEnum.CODE_AI_ADVICE, null);
             aiFeatureEnabled = true;
         } catch (Exception ignored) {
         }
@@ -400,23 +402,7 @@ public class DashboardService {
     }
 
     private String resolveAttendanceStatus(DashboardAttendanceAlertRowVO row) {
-        if (row.getSignInStatus() != null) {
-            if (row.getSignInStatus() == 1) {
-                return "迟到";
-            }
-            if (row.getSignInStatus() == 3 || row.getSignInStatus() == 6) {
-                return "缺勤";
-            }
-        }
-        if (row.getSignOutStatus() != null) {
-            if (row.getSignOutStatus() == 2) {
-                return "早退";
-            }
-            if (row.getSignOutStatus() == 3 || row.getSignOutStatus() == 6) {
-                return "缺卡";
-            }
-        }
-        return "考勤异常";
+        return AttendancePunchStatusEnum.resolveDashboardText(row.getSignInStatus(), row.getSignOutStatus());
     }
 
     private DashboardOverviewVO getCachedOverview(String cacheKey) {

@@ -3,8 +3,10 @@ package my.management.controller;
 import jakarta.annotation.Resource;
 import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
+import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
+import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.ai.model.dto.AiAdviceFeedbackRequest;
 import my.management.module.ai.model.vo.AiAdviceDailyBriefVO;
 import my.management.module.ai.model.vo.AiAdviceEvolutionReportVO;
@@ -27,7 +29,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/dashboard")
-@RequireTenantFeature("module.dashboard")
+@RequireTenantFeature(TenantFeatureEnum.CODE_DASHBOARD)
 public class DashboardController {
 
     @Resource
@@ -56,13 +58,13 @@ public class DashboardController {
     }
 
     @GetMapping("/ai-snapshot")
-    @RequirePermission(value = "dashboard:ai:view", message = "您没有权限查看 AI 经营快照")
+    @RequirePermission(value = PermissionCodeEnum.CODE_DASHBOARD_AI_VIEW, message = "您没有权限查看 AI 经营快照")
     public Result<AiBusinessSnapshotVO> aiSnapshot() {
         return Result.success(dashboardService.aiSnapshot());
     }
 
     @GetMapping("/ai-evolution")
-    @RequirePermission(value = "dashboard:ai:view", message = "您没有权限查看 AI 自进化评估")
+    @RequirePermission(value = PermissionCodeEnum.CODE_DASHBOARD_AI_VIEW, message = "您没有权限查看 AI 自进化评估")
     public Result<AiAdviceEvolutionReportVO> aiEvolution() {
         return Result.success(aiAdviceEvolutionService.report());
     }

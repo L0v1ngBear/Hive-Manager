@@ -5,6 +5,7 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
+import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
 import my.management.module.tenant.model.dto.TenantCreateRequest;
@@ -37,7 +38,7 @@ public class TenantManageController {
     private TenantLicenseService tenantLicenseService;
 
     @GetMapping("/page")
-    @RequirePermission(value = "platform:tenant:view", message = "您没有权限查看租户列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PLATFORM_TENANT_VIEW, message = "您没有权限查看租户列表")
     public Result<PageResult<TenantPageVO>> page(@Valid TenantPageRequest request) {
         Page<TenantPageVO> page = tenantManageService.page(request);
         PageResult<TenantPageVO> result = new PageResult<>();
@@ -50,26 +51,26 @@ public class TenantManageController {
     }
 
     @GetMapping("/{id}")
-    @RequirePermission(value = "platform:tenant:view", message = "您没有权限查看租户详情")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PLATFORM_TENANT_VIEW, message = "您没有权限查看租户详情")
     public Result<TenantDetailVO> detail(@PathVariable Long id) {
         return Result.success(tenantManageService.detail(id));
     }
 
     @GetMapping("/features/catalog")
-    @RequirePermission(value = "platform:tenant:license", message = "您没有权限查看租户功能清单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PLATFORM_TENANT_LICENSE, message = "您没有权限查看租户功能清单")
     public Result<List<TenantFeatureOptionVO>> featureCatalog() {
         return Result.success(tenantLicenseService.featureCatalog());
     }
 
     @PostMapping("/create")
-    @RequirePermission(value = "platform:tenant:create", message = "您没有权限创建租户")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PLATFORM_TENANT_CREATE, message = "您没有权限创建租户")
     @CollectLog(module = "platform_tenant", action = "create", bizType = "tenant", bizNo = "#request.tenantCode", description = "create tenant and initialize defaults")
     public Result<Long> create(@Valid @RequestBody TenantCreateRequest request) {
         return Result.success(tenantManageService.createTenant(request));
     }
 
     @PostMapping("/license")
-    @RequirePermission(value = "platform:tenant:license", message = "您没有权限调整租户授权")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PLATFORM_TENANT_LICENSE, message = "您没有权限调整租户授权")
     @CollectLog(module = "platform_tenant", action = "license", bizType = "tenant", bizNo = "#request.id", description = "update tenant license")
     public Result<Void> updateLicense(@Valid @RequestBody TenantLicenseUpdateRequest request) {
         tenantManageService.updateLicense(request);

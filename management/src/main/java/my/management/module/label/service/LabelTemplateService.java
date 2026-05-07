@@ -6,6 +6,9 @@ import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
+import my.management.common.enums.BinaryFlagEnum;
+import my.management.common.enums.CommonStatusEnum;
+import my.management.common.enums.DeleteFlagEnum;
 import my.management.module.label.mapper.LabelTemplateMapper;
 import my.management.module.label.model.dto.LabelTemplateSaveRequest;
 import my.management.module.label.model.entity.LabelTemplate;
@@ -146,7 +149,7 @@ public class LabelTemplateService {
             throw new BusinessException("暂无可用标签模板，请先在管理端上传");
         }
         return templates.stream()
-                .filter(item -> Integer.valueOf(1).equals(item.getIsDefault()))
+                .filter(item -> BinaryFlagEnum.isYes(item.getIsDefault()))
                 .findFirst()
                 .orElse(templates.get(0));
     }
@@ -173,9 +176,9 @@ public class LabelTemplateService {
         template.setWidthMm(request.getWidthMm() == null ? DEFAULT_WIDTH_MM : request.getWidthMm());
         template.setHeightMm(request.getHeightMm() == null ? DEFAULT_HEIGHT_MM : request.getHeightMm());
         template.setVariables(String.join(",", extractVariables(request.getContent())));
-        template.setIsDefault(Integer.valueOf(1).equals(request.getIsDefault()) ? 1 : 0);
-        template.setStatus(1);
-        template.setIsDeleted(0);
+        template.setIsDefault(BinaryFlagEnum.isYes(request.getIsDefault()) ? BinaryFlagEnum.YES.getCode() : BinaryFlagEnum.NO.getCode());
+        template.setStatus(CommonStatusEnum.ENABLED.getCode());
+        template.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
 
         if (template.getId() == null) {
             template.setTenantCode(TenantPermissionContext.getTenantCode());
@@ -185,7 +188,7 @@ public class LabelTemplateService {
             labelTemplateMapper.updateById(template);
         }
 
-        if (Integer.valueOf(1).equals(template.getIsDefault())) {
+        if (BinaryFlagEnum.isYes(template.getIsDefault())) {
             clearOtherDefault(template);
         }
         return toVO(template);
@@ -240,7 +243,7 @@ public class LabelTemplateService {
         if (template == null) {
             throw new BusinessException("标签模板不存在");
         }
-        template.setIsDefault(1);
+        template.setIsDefault(BinaryFlagEnum.YES.getCode());
         labelTemplateMapper.updateById(template);
         clearOtherDefault(template);
     }
@@ -303,9 +306,9 @@ public class LabelTemplateService {
         template.setVariables(String.join(",", extractVariables(DEFAULT_LABEL_TEMPLATE)));
         template.setFileName("system-default.prn");
         template.setFileSize((long) DEFAULT_LABEL_TEMPLATE.getBytes(StandardCharsets.UTF_8).length);
-        template.setIsDefault(1);
-        template.setStatus(1);
-        template.setIsDeleted(0);
+        template.setIsDefault(BinaryFlagEnum.YES.getCode());
+        template.setStatus(CommonStatusEnum.ENABLED.getCode());
+        template.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         template.setCreatorId(creatorId);
         labelTemplateMapper.insert(template);
         return template;
@@ -327,9 +330,9 @@ public class LabelTemplateService {
         template.setVariables(String.join(",", RECEIPT_VARIABLES.stream().map(LabelTemplateVariableVO::getField).toList()));
         template.setFileName("system-default-receipt.json");
         template.setFileSize((long) DEFAULT_RECEIPT_TEMPLATE.getBytes(StandardCharsets.UTF_8).length);
-        template.setIsDefault(1);
-        template.setStatus(1);
-        template.setIsDeleted(0);
+        template.setIsDefault(BinaryFlagEnum.YES.getCode());
+        template.setStatus(CommonStatusEnum.ENABLED.getCode());
+        template.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         template.setCreatorId(creatorId);
         labelTemplateMapper.insert(template);
         return template;

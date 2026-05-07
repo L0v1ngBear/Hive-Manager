@@ -2,8 +2,10 @@ package my.management.controller;
 
 import jakarta.annotation.Resource;
 import my.hive.common.annotation.RequirePermission;
+import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
+import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.receipt.model.dto.OutboundPrintUpdateRequest;
 import my.management.module.receipt.model.vo.OutboundPrintCommandVO;
 import my.management.module.receipt.model.vo.OutboundPrintDetailVO;
@@ -27,7 +29,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/receipt")
-@RequireTenantFeature("module.receipt")
+@RequireTenantFeature(TenantFeatureEnum.CODE_RECEIPT)
 public class ReceiptPrintController {
 
     @Resource
@@ -37,64 +39,64 @@ public class ReceiptPrintController {
     private LabelTemplateService labelTemplateService;
 
     @GetMapping("/print/pending")
-    @RequirePermission(value = "receipt:print:list", message = "您没有权限查看待打印出库单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_LIST, message = "您没有权限查看待打印出库单")
     public Result<List<OutboundPrintOrderVO>> pendingList() {
         return Result.success(receiptPrintService.pendingList());
     }
 
     @GetMapping("/print/detail")
-    @RequirePermission(value = "receipt:print:detail", message = "您没有权限查看出库单详情")
+    @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_DETAIL, message = "您没有权限查看出库单详情")
     public Result<OutboundPrintDetailVO> detail(@RequestParam String orderNo) {
         return Result.success(receiptPrintService.detail(orderNo));
     }
 
     @GetMapping("/print/raw-command")
-    @RequirePermission(value = "receipt:print:detail", message = "您没有权限生成打印指令")
+    @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_DETAIL, message = "您没有权限生成打印指令")
     public Result<OutboundPrintCommandVO> rawCommand(@RequestParam String orderNo) {
         return Result.success(receiptPrintService.rawCommand(orderNo));
     }
 
     @PostMapping("/print/update")
-    @RequirePermission(value = "receipt:print:mark", message = "您没有权限修正出库单打印内容")
+    @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_MARK, message = "您没有权限修正出库单打印内容")
     public Result<OutboundPrintDetailVO> updatePrintDetail(@RequestBody OutboundPrintUpdateRequest request) {
         return Result.success(receiptPrintService.updatePrintDetail(request));
     }
 
     @PostMapping("/print/mark-printed")
-    @RequirePermission(value = "receipt:print:mark", message = "您没有权限标记打印完成")
+    @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_MARK, message = "您没有权限标记打印完成")
     public Result<Void> markPrinted(@RequestParam String orderNo) {
         receiptPrintService.markPrinted(orderNo);
         return Result.success(null);
     }
 
     @PostMapping("/print/cancel")
-    @RequirePermission(value = "receipt:print:cancel", message = "您没有权限作废出库单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_CANCEL, message = "您没有权限作废出库单")
     public Result<Void> cancel(@RequestParam String orderNo) {
         receiptPrintService.cancel(orderNo);
         return Result.success(null);
     }
 
     @GetMapping("/template/variables")
-    @RequirePermission(value = "receipt:print:list", message = "您没有权限查看出库单模板变量")
+    @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_LIST, message = "您没有权限查看出库单模板变量")
     public Result<List<LabelTemplateVariableVO>> templateVariables() {
         return Result.success(labelTemplateService.variables("receipt"));
     }
 
     @GetMapping("/template/list")
-    @RequirePermission(value = "receipt:print:list", message = "您没有权限查看出库单模板")
+    @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_LIST, message = "您没有权限查看出库单模板")
     public Result<List<LabelTemplateVO>> templateList() {
         return Result.success(labelTemplateService.list("receipt"));
     }
 
     @PostMapping("/template/save")
-    @RequirePermission(value = "receipt:print:mark", message = "您没有权限保存出库单模板")
+    @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_MARK, message = "您没有权限保存出库单模板")
     public Result<LabelTemplateVO> saveTemplate(@RequestBody LabelTemplateSaveRequest request) {
         request.setPrintType("receipt");
         return Result.success(labelTemplateService.save(request));
     }
 
     @PostMapping("/template/{id}/default")
-    @RequirePermission(value = "receipt:print:mark", message = "您没有权限设置默认出库单模板")
+    @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_MARK, message = "您没有权限设置默认出库单模板")
     public Result<Void> setDefaultTemplate(@PathVariable Long id) {
         labelTemplateService.setDefault(id);
         return Result.success(null);

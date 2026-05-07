@@ -6,6 +6,9 @@ import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
 import my.hive.common.redis.HiveRedisKeyBuilder;
+import my.management.common.enums.BinaryFlagEnum;
+import my.management.common.enums.CommonStatusEnum;
+import my.management.common.enums.DeleteFlagEnum;
 import my.management.common.service.DeveloperAccessService;
 import my.hive.common.utils.EncryptUtil;
 import my.management.module.attendance.mapper.TenantAttendanceRuleManageMapper;
@@ -26,6 +29,7 @@ import my.management.module.tenant.model.dto.TenantLicenseUpdateRequest;
 import my.management.module.tenant.model.dto.TenantPageRequest;
 import my.management.module.tenant.model.entity.Tenant;
 import my.management.module.tenant.model.entity.TenantUsageMeter;
+import my.management.module.tenant.model.enums.TenantUsageMeterEnum;
 import my.management.module.tenant.model.vo.TenantDetailVO;
 import my.management.module.tenant.model.vo.TenantPageVO;
 import my.management.module.sys.mapper.SysPermissionMapper;
@@ -63,7 +67,6 @@ public class TenantManageService {
     private static final long DEFAULT_PAGE_SIZE = 10L;
     private static final long MAX_PAGE_SIZE = 200L;
     private static final DefaultRedisScript<Long> RELEASE_LOCK_SCRIPT = buildReleaseLockScript();
-    private static final String METER_AI_ADVICE = "AI_ADVICE";
 
     private static final Map<String, String> MODULE_ROLE_NAME_MAP = Map.of(
             "document:*", "文档管理员",
@@ -177,7 +180,7 @@ public class TenantManageService {
     public TenantDetailVO detail(Long id) {
         ensureDeveloperAccess();
         Tenant tenant = tenantMapper.selectById(id);
-        if (tenant == null || Integer.valueOf(1).equals(tenant.getDeleted())) {
+        if (tenant == null || DeleteFlagEnum.isDeleted(tenant.getDeleted())) {
             throw new BusinessException("租户不存在");
         }
         TenantDetailVO vo = new TenantDetailVO();
@@ -221,8 +224,8 @@ public class TenantManageService {
         tenant.setPassword(encryptUtil.encode(request.getPassword() == null || request.getPassword().isBlank()
                 ? defaultTenantPassword
                 : request.getPassword().trim()));
-        tenant.setStatus(1);
-        tenant.setDeleted(0);
+        tenant.setStatus(CommonStatusEnum.ENABLED.getCode());
+        tenant.setDeleted(DeleteFlagEnum.NORMAL.getCode());
         tenant.setCreator(TenantPermissionContext.getUserId());
         tenantLicenseService.applyDefaultTrial(tenant);
         tenantMapper.insert(tenant);
@@ -244,7 +247,7 @@ public class TenantManageService {
             throw new BusinessException("租户授权参数不完整");
         }
         Tenant tenant = tenantMapper.selectById(request.getId());
-        if (tenant == null || Integer.valueOf(1).equals(tenant.getDeleted())) {
+        if (tenant == null || DeleteFlagEnum.isDeleted(tenant.getDeleted())) {
             throw new BusinessException("租户不存在");
         }
         tenantLicenseService.applyLicenseUpdate(tenant, request);
@@ -281,7 +284,7 @@ public class TenantManageService {
         String periodKey = YearMonth.now().toString().replace("-", "");
         List<TenantUsageMeter> meters = tenantUsageMeterMapper.selectList(new LambdaQueryWrapper<TenantUsageMeter>()
                 .in(TenantUsageMeter::getTenantCode, tenantCodes)
-                .eq(TenantUsageMeter::getMeterType, METER_AI_ADVICE)
+                .eq(TenantUsageMeter::getMeterType, TenantUsageMeterEnum.AI_ADVICE.getCode())
                 .eq(TenantUsageMeter::getPeriodKey, periodKey));
         Map<String, Integer> usedMap = meters == null ? Map.of() : meters.stream()
                 .collect(Collectors.toMap(
@@ -294,7 +297,7 @@ public class TenantManageService {
 
     private void initTenantModuleRoles(String tenantCode) {
         List<SysPermission> topPermissions = sysPermissionMapper.selectList(new LambdaQueryWrapper<SysPermission>()
-                .eq(SysPermission::getIsDeleted, 0)
+                .eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .in(SysPermission::getPermCode, MODULE_ROLE_NAME_MAP.keySet()));
 
         for (SysPermission permission : topPermissions) {
@@ -302,8 +305,8 @@ public class TenantManageService {
             role.setTenantCode(tenantCode);
             role.setRoleCode(buildRoleCode(permission.getPermCode()));
             role.setRoleName(MODULE_ROLE_NAME_MAP.get(permission.getPermCode()));
-            role.setIsSystem(1);
-            role.setIsDeleted(0);
+            role.setIsSystem(BinaryFlagEnum.YES.getCode());
+            role.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
             sysRoleMapper.insert(role);
 
             List<SysPermission> allModulePermissions = collectModulePermissions(permission.getPermCode());
@@ -312,7 +315,7 @@ public class TenantManageService {
                 SysRolePermission relation = new SysRolePermission();
                 relation.setRoleId(role.getId());
                 relation.setPermissionId(modulePermission.getId());
-                relation.setIsDeleted(0);
+                relation.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
                 mappings.add(relation);
             }
             if (!mappings.isEmpty()) {
@@ -334,18 +337,18 @@ public class TenantManageService {
         role.setTenantCode(tenantCode);
         role.setRoleCode(TENANT_OWNER_ROLE_CODE);
         role.setRoleName("租户负责人");
-        role.setIsSystem(1);
-        role.setIsDeleted(0);
+        role.setIsSystem(BinaryFlagEnum.YES.getCode());
+        role.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         sysRoleMapper.insert(role);
 
         List<SysPermission> permissions = sysPermissionMapper.selectList(new LambdaQueryWrapper<SysPermission>()
-                .eq(SysPermission::getIsDeleted, 0));
+                .eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
         List<SysRolePermission> mappings = permissions.stream()
                 .map(permission -> {
                     SysRolePermission relation = new SysRolePermission();
                     relation.setRoleId(role.getId());
                     relation.setPermissionId(permission.getId());
-                    relation.setIsDeleted(0);
+                    relation.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
                     return relation;
                 })
                 .toList();
@@ -376,7 +379,7 @@ public class TenantManageService {
                     : request.getPassword().trim()));
             owner.setDepartmentName("管理部");
             owner.setPosition("负责人");
-            owner.setStatus(1);
+            owner.setStatus(CommonStatusEnum.ENABLED.getCode());
             owner.setRoleLevel(1);
             employeeMapper.insert(owner);
 
@@ -387,14 +390,14 @@ public class TenantManageService {
             ext.setEmployeeType("formal");
             ext.setEntryDate(LocalDate.now());
             ext.setRemark("系统创建的租户初始化账号");
-            ext.setIsDeleted(0);
+            ext.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
             employeeExtMapper.insert(ext);
 
             my.management.module.sys.model.entity.SysUserRole userRole = new my.management.module.sys.model.entity.SysUserRole();
             userRole.setTenantCode(tenantCode);
             userRole.setUserId(owner.getId());
             userRole.setRoleId(ownerRoleId);
-            userRole.setIsDeleted(0);
+            userRole.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
             sysUserRoleMapper.insert(userRole);
             return owner.getId();
         });
@@ -428,8 +431,8 @@ public class TenantManageService {
         department.setDeptCode(code);
         department.setParentId(0L);
         department.setSortNo(sortNo);
-        department.setStatus(1);
-        department.setIsDeleted(0);
+        department.setStatus(CommonStatusEnum.ENABLED.getCode());
+        department.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         departmentMapper.insert(department);
         return department;
     }
@@ -447,8 +450,8 @@ public class TenantManageService {
         position.setPositionName(name);
         position.setPositionCode(code);
         position.setSortNo(sortNo);
-        position.setStatus(1);
-        position.setIsDeleted(0);
+        position.setStatus(CommonStatusEnum.ENABLED.getCode());
+        position.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         positionMapper.insert(position);
     }
 
@@ -472,7 +475,7 @@ public class TenantManageService {
         TenantAttendanceRule rule = new TenantAttendanceRule();
         rule.setTenantCode(tenantCode);
         rule.setTenantName(request.getTenantName().trim());
-        rule.setStatus(1);
+        rule.setStatus(CommonStatusEnum.ENABLED.getCode());
         rule.setLatitude(hasValidCompanyLocation ? latitude : null);
         rule.setLongitude(hasValidCompanyLocation ? longitude : null);
         rule.setRadius(safeAttendanceRadius(request.getAttendanceRadius()));
@@ -487,15 +490,15 @@ public class TenantManageService {
         rule.setEarlyToleranceMinutes(5);
         rule.setWorkDays("1,2,3,4,5,6");
         // 只有拿到真实公司坐标时才默认启用 GPS，避免空坐标或 0,0 占位导致新租户无法打卡。
-        rule.setEnableGps(hasValidCompanyLocation ? 1 : 0);
-        rule.setEnableWifi(0);
+        rule.setEnableGps(BinaryFlagEnum.codeOf(hasValidCompanyLocation));
+        rule.setEnableWifi(BinaryFlagEnum.NO.getCode());
         tenantAttendanceRuleManageMapper.insert(rule);
     }
 
     private List<SysPermission> collectModulePermissions(String modulePermCode) {
         String prefix = modulePermCode.substring(0, modulePermCode.length() - 1);
         return sysPermissionMapper.selectList(new LambdaQueryWrapper<SysPermission>()
-                .eq(SysPermission::getIsDeleted, 0)
+                .eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .and(wrapper -> wrapper.eq(SysPermission::getPermCode, modulePermCode)
                         .or()
                         .likeRight(SysPermission::getPermCode, prefix)))

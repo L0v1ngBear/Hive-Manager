@@ -5,6 +5,8 @@ import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
 import my.hive.common.privacy.PrivacyProtectionUtil;
+import my.management.common.enums.CommonStatusEnum;
+import my.management.common.enums.DeleteFlagEnum;
 import my.management.common.utils.CodeGeneratorUtil;
 import my.management.module.employee.mapper.DepartmentMapper;
 import my.management.module.employee.mapper.EmployeeMapper;
@@ -82,7 +84,7 @@ public class OrganizationService {
             department = new Department();
             department.setTenantCode(tenantCode);
             department.setDeptCode(resolveDeptCode(request.getDeptCode()));
-            department.setIsDeleted(0);
+            department.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         } else {
             department = requireDepartment(request.getId());
             oldName = department.getDeptName();
@@ -122,7 +124,7 @@ public class OrganizationService {
         if (employeeCount > 0) {
             throw new BusinessException("该部门下仍有员工，请先调整员工部门后再删除");
         }
-        department.setIsDeleted(1);
+        department.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
         departmentMapper.updateById(department);
     }
 
@@ -167,7 +169,7 @@ public class OrganizationService {
         OrganizationStatsVO stats = new OrganizationStatsVO();
         stats.setDepartmentCount((long) nodes.size());
         stats.setEmployeeCount(employeeMapper.countAvailableEmployees(TenantPermissionContext.getTenantCode()));
-        stats.setEnabledDepartmentCount(nodes.stream().filter(node -> Integer.valueOf(1).equals(node.getStatus())).count());
+        stats.setEnabledDepartmentCount(nodes.stream().filter(node -> CommonStatusEnum.isEnabled(node.getStatus())).count());
         stats.setEmptyDepartmentCount(nodes.stream().filter(node -> node.getEmployeeCount() == null || node.getEmployeeCount() == 0).count());
         return stats;
     }

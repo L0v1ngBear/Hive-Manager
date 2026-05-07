@@ -4,6 +4,7 @@ import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
+import my.management.common.enums.PlatformTenantEnum;
 import my.management.module.operationlog.model.dto.OperationLogPageRequest;
 import my.management.module.operationlog.model.vo.OperationLogVO;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
@@ -95,7 +96,7 @@ public class OperationLogService {
 
     private void ensureSuper() {
         String tenantCode = TenantPermissionContext.getTenantCode();
-        if (!"super".equalsIgnoreCase(tenantCode)) {
+        if (!PlatformTenantEnum.isSuper(tenantCode)) {
             throw new BusinessException(403, "仅平台超管可查看运维日志");
         }
     }

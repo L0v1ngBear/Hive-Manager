@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
 import my.hive.common.privacy.PrivacyProtectionUtil;
+import my.management.common.enums.CommonStatusEnum;
+import my.management.common.enums.DeleteFlagEnum;
 import my.management.common.utils.CodeGeneratorUtil;
 import my.management.common.utils.ExcelUtil;
 import my.hive.common.utils.EncryptUtil;
@@ -29,6 +31,8 @@ import my.management.module.employee.model.entity.Employee;
 import my.management.module.employee.model.entity.EmployeeChangeLog;
 import my.management.module.employee.model.entity.EmployeeExt;
 import my.management.module.employee.model.entity.Position;
+import my.management.module.employee.model.enums.EmployeeStatusEnum;
+import my.management.module.employee.model.enums.EmployeeTypeEnum;
 import my.management.module.employee.model.vo.DepartmentOptionVO;
 import my.management.module.employee.model.vo.EmployeeDetailVO;
 import my.management.module.employee.model.vo.EmployeeFormOptionsVO;
@@ -70,10 +74,7 @@ import java.util.regex.Pattern;
 @Service
 public class EmployeeService {
 
-    private static final int STATUS_RESIGNED = 0;
-    private static final int STATUS_ACTIVE = 1;
-    private static final int STATUS_PROBATION = 2;
-    private static final String DEFAULT_EMPLOYEE_TYPE = "FULL_TIME";
+    private static final String DEFAULT_EMPLOYEE_TYPE = EmployeeTypeEnum.FULL_TIME.getCode();
     private static final int DEFAULT_PAGE_NUM = 1;
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final int MAX_PAGE_SIZE = 200;
@@ -193,7 +194,6 @@ public class EmployeeService {
         Position position = requirePosition(request.getPositionId());
         String leaderName = normalizeLeaderName(request.getLeaderName());
 
-        // The create form no longer submits employeeType, so the service owns the default.
         String employeeType = normalizeEmployeeType(request.getEmployeeType(), DEFAULT_EMPLOYEE_TYPE);
         String normalizedPhone = requireNormalizedPhone(request.getPhone());
         ensurePhoneNotExists(normalizedPhone);
@@ -224,7 +224,7 @@ public class EmployeeService {
         ext.setEmployeeType(employeeType);
         ext.setEntryDate(request.getEntryDate());
         ext.setRemark(request.getRemark());
-        ext.setIsDeleted(0);
+        ext.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         employeeExtMapper.insert(ext);
         syncUserRoles(employee.getId(), request.getRoleIds());
 
@@ -343,9 +343,11 @@ public class EmployeeService {
     public void delete(Long id) {
         requireEmployee(id);
         EmployeeExt ext = getOrCreateExt(id);
-        ext.setIsDeleted(1);
+        ext.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
         saveOrUpdateExt(ext);
-        insertChangeLog(id, "DELETE", Map.of("isDeleted", 0), Map.of("isDeleted", 1));
+        insertChangeLog(id, "DELETE",
+                Map.of("isDeleted", DeleteFlagEnum.NORMAL.getCode()),
+                Map.of("isDeleted", DeleteFlagEnum.DELETED.getCode()));
     }
 
     public List<EmployeeLeaderOptionVO> searchLeaders(String keyword, Integer limit) {
@@ -356,34 +358,34 @@ public class EmployeeService {
     public EmployeeFormOptionsVO initFormOptions() {
         EmployeeFormOptionsVO vo = new EmployeeFormOptionsVO();
         vo.setDepartments(departmentMapper.selectList(new LambdaQueryWrapper<Department>()
-                        .eq(Department::getStatus, 1)
+                        .eq(Department::getStatus, CommonStatusEnum.ENABLED.getCode())
                         .orderByAsc(Department::getSortNo))
                 .stream()
                 .map(this::toDepartmentOption)
                 .toList());
         vo.setPositions(positionMapper.selectList(new LambdaQueryWrapper<Position>()
-                        .eq(Position::getStatus, 1)
+                        .eq(Position::getStatus, CommonStatusEnum.ENABLED.getCode())
                         .orderByAsc(Position::getSortNo))
                 .stream()
                 .map(this::toPositionOption)
                 .toList());
         vo.setRoles(sysRoleMapper.selectList(new LambdaQueryWrapper<SysRole>()
                         .eq(SysRole::getTenantCode, TenantPermissionContext.getTenantCode())
-                        .eq(SysRole::getIsDeleted, 0)
+                        .eq(SysRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                         .orderByDesc(SysRole::getIsSystem)
                         .orderByAsc(SysRole::getId))
                 .stream()
                 .map(this::toRoleOption)
                 .toList());
         vo.setEmployeeTypes(List.of(
-                new OptionVO("Full Time", "FULL_TIME"),
-                new OptionVO("Contract", "CONTRACT"),
-                new OptionVO("Probation", "PROBATION")
+                new OptionVO("Full Time", EmployeeTypeEnum.FULL_TIME.getCode()),
+                new OptionVO("Contract", EmployeeTypeEnum.CONTRACT.getCode()),
+                new OptionVO("Probation", EmployeeTypeEnum.PROBATION.getCode())
         ));
         vo.setEmploymentStatuses(List.of(
-                new OptionVO("Resigned", String.valueOf(STATUS_RESIGNED)),
-                new OptionVO("Active", String.valueOf(STATUS_ACTIVE)),
-                new OptionVO("Probation", String.valueOf(STATUS_PROBATION))
+                new OptionVO("Resigned", String.valueOf(EmployeeStatusEnum.RESIGNED.getCode())),
+                new OptionVO("Active", String.valueOf(EmployeeStatusEnum.ACTIVE.getCode())),
+                new OptionVO("Probation", String.valueOf(EmployeeStatusEnum.PROBATION.getCode()))
         ));
         return vo;
     }
@@ -501,7 +503,7 @@ public class EmployeeService {
         EmployeeExt ext = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>()
                 .eq(EmployeeExt::getUserId, id)
                 .last("LIMIT 1"));
-        if (ext != null && Integer.valueOf(1).equals(ext.getIsDeleted())) {
+        if (ext != null && DeleteFlagEnum.isDeleted(ext.getIsDeleted())) {
             throw new BusinessException("employee has been deleted");
         }
         return employee;
@@ -509,7 +511,7 @@ public class EmployeeService {
 
     private Department requireDepartment(Long id) {
         Department department = departmentMapper.selectById(id);
-        if (department == null || Integer.valueOf(1).equals(department.getIsDeleted()) || !Integer.valueOf(1).equals(department.getStatus())) {
+        if (department == null || DeleteFlagEnum.isDeleted(department.getIsDeleted()) || !CommonStatusEnum.isEnabled(department.getStatus())) {
             throw new BusinessException("department is invalid");
         }
         return department;
@@ -517,7 +519,7 @@ public class EmployeeService {
 
     private Position requirePosition(Long id) {
         Position position = positionMapper.selectById(id);
-        if (position == null || Integer.valueOf(1).equals(position.getIsDeleted()) || !Integer.valueOf(1).equals(position.getStatus())) {
+        if (position == null || DeleteFlagEnum.isDeleted(position.getIsDeleted()) || !CommonStatusEnum.isEnabled(position.getStatus())) {
             throw new BusinessException("position is invalid");
         }
         return position;
@@ -554,7 +556,7 @@ public class EmployeeService {
         EmployeeExt created = new EmployeeExt();
         created.setUserId(userId);
         created.setTenantCode(TenantPermissionContext.getTenantCode());
-        created.setIsDeleted(0);
+        created.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         return created;
     }
 
@@ -619,15 +621,7 @@ public class EmployeeService {
     }
 
     private String statusLabel(Integer status) {
-        if (status == null) {
-            return "UNKNOWN";
-        }
-        return switch (status) {
-            case STATUS_RESIGNED -> "RESIGNED";
-            case STATUS_ACTIVE -> "ACTIVE";
-            case STATUS_PROBATION -> "PROBATION";
-            default -> "UNKNOWN";
-        };
+        return EmployeeStatusEnum.of(status).getLabel();
     }
 
     private void insertChangeLog(Long employeeId, String changeType, Object before, Object after) {
@@ -688,9 +682,9 @@ public class EmployeeService {
         List<SysUserRole> existed = sysUserRoleMapper.selectList(new LambdaQueryWrapper<SysUserRole>()
                 .eq(SysUserRole::getUserId, userId)
                 .eq(SysUserRole::getTenantCode, tenantCode)
-                .eq(SysUserRole::getIsDeleted, 0));
+                .eq(SysUserRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
         for (SysUserRole item : existed) {
-            item.setIsDeleted(1);
+            item.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
             sysUserRoleMapper.updateById(item);
         }
 
@@ -703,7 +697,7 @@ public class EmployeeService {
             userRole.setUserId(userId);
             userRole.setTenantCode(tenantCode);
             userRole.setRoleId(roleId);
-            userRole.setIsDeleted(0);
+            userRole.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
             sysUserRoleMapper.insert(userRole);
         }
     }
@@ -731,7 +725,7 @@ public class EmployeeService {
         }
         List<SysRole> roles = sysRoleMapper.selectList(new LambdaQueryWrapper<SysRole>()
                 .eq(SysRole::getTenantCode, tenantCode)
-                .eq(SysRole::getIsDeleted, 0)
+                .eq(SysRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .in(SysRole::getId, roleIds));
         Set<Long> validRoleIds = new HashSet<>(roles.stream().map(SysRole::getId).toList());
         if (validRoleIds.size() != roleIds.size()) {
@@ -807,8 +801,8 @@ public class EmployeeService {
         Department department = departmentMapper.selectOne(new LambdaQueryWrapper<Department>()
                 .eq(Department::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Department::getDeptName, departmentName)
-                .eq(Department::getStatus, 1)
-                .eq(Department::getIsDeleted, 0)
+                .eq(Department::getStatus, CommonStatusEnum.ENABLED.getCode())
+                .eq(Department::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .last("LIMIT 1"));
         if (department != null) {
             return department;
@@ -818,8 +812,8 @@ public class EmployeeService {
         created.setDeptName(departmentName);
         created.setDeptCode(codeGeneratorUtil.generateCode("DPT", 4));
         created.setSortNo(99);
-        created.setStatus(1);
-        created.setIsDeleted(0);
+        created.setStatus(CommonStatusEnum.ENABLED.getCode());
+        created.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         departmentMapper.insert(created);
         return created;
     }
@@ -829,8 +823,8 @@ public class EmployeeService {
                 .eq(Position::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Position::getPositionName, positionName)
                 .eq(Position::getDepartmentId, departmentId)
-                .eq(Position::getStatus, 1)
-                .eq(Position::getIsDeleted, 0)
+                .eq(Position::getStatus, CommonStatusEnum.ENABLED.getCode())
+                .eq(Position::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .last("LIMIT 1"));
         if (position != null) {
             return position;
@@ -841,8 +835,8 @@ public class EmployeeService {
         created.setPositionCode(codeGeneratorUtil.generateCode("POS", 4));
         created.setDepartmentId(departmentId);
         created.setSortNo(99);
-        created.setStatus(1);
-        created.setIsDeleted(0);
+        created.setStatus(CommonStatusEnum.ENABLED.getCode());
+        created.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         positionMapper.insert(created);
         return created;
     }
@@ -892,7 +886,7 @@ public class EmployeeService {
                 .toList();
         List<SysRole> roles = sysRoleMapper.selectList(new LambdaQueryWrapper<SysRole>()
                 .eq(SysRole::getTenantCode, TenantPermissionContext.getTenantCode())
-                .eq(SysRole::getIsDeleted, 0)
+                .eq(SysRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .in(SysRole::getRoleName, names));
         if (roles.size() != names.size()) {
             List<String> existed = roles.stream().map(SysRole::getRoleName).toList();
@@ -903,55 +897,19 @@ public class EmployeeService {
     }
 
     private Integer parseStatus(String statusText) {
-        if (!StringUtils.hasText(statusText) || "在职".equals(statusText)) {
-            return STATUS_ACTIVE;
-        }
-        if ("试用".equals(statusText)) {
-            return STATUS_PROBATION;
-        }
-        if ("离职".equals(statusText)) {
-            return STATUS_RESIGNED;
-        }
-        throw new BusinessException("状态仅支持：在职、试用、离职");
+        return EmployeeStatusEnum.parseCn(statusText).getCode();
     }
 
     private String parseEmployeeType(String employeeType) {
-        if (!StringUtils.hasText(employeeType) || "全职".equals(employeeType)) {
-            return "FULL_TIME";
-        }
-        if ("合同工".equals(employeeType)) {
-            return "CONTRACT";
-        }
-        if ("试用期".equals(employeeType)) {
-            return "PROBATION";
-        }
-        throw new BusinessException("员工类型仅支持：全职、合同工、试用期");
+        return EmployeeTypeEnum.parseCn(employeeType).getCode();
     }
 
     private String employeeTypeLabel(String employeeType) {
-        if ("FULL_TIME".equals(employeeType)) {
-            return "全职";
-        }
-        if ("CONTRACT".equals(employeeType)) {
-            return "合同工";
-        }
-        if ("PROBATION".equals(employeeType)) {
-            return "试用期";
-        }
-        return employeeType == null ? "" : employeeType;
+        return EmployeeTypeEnum.of(employeeType).getLabel();
     }
 
     private String statusLabelCn(Integer status) {
-        if (Integer.valueOf(STATUS_ACTIVE).equals(status)) {
-            return "在职";
-        }
-        if (Integer.valueOf(STATUS_PROBATION).equals(status)) {
-            return "试用";
-        }
-        if (Integer.valueOf(STATUS_RESIGNED).equals(status)) {
-            return "离职";
-        }
-        return "未知";
+        return EmployeeStatusEnum.of(status).getCnLabel();
     }
 
     private String blankToNull(String value) {

@@ -6,6 +6,7 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
+import my.management.common.enums.BinaryFlagEnum;
 import my.management.common.utils.CodeGeneratorUtil;
 import my.management.common.utils.PermissionCacheUtil;
 import my.management.module.sys.mapper.SysPermissionMapper;
@@ -138,7 +139,7 @@ public class RoleService {
         role.setRoleCode(codeGeneratorUtil.generateRoleCode());
         role.setRoleName(request.getRoleName());
         role.setTenantCode(TenantPermissionContext.getTenantCode());
-        role.setIsSystem(0);
+        role.setIsSystem(BinaryFlagEnum.NO.getCode());
         sysRoleMapper.insert(role);
 
         if (CollectionUtils.isEmpty(request.getPermissionIds())) {

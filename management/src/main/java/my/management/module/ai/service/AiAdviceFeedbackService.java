@@ -7,9 +7,8 @@ import my.hive.common.redis.HiveRedisKeyBuilder;
 import my.hive.common.utils.RedisCacheHelper;
 import my.management.module.ai.mapper.AiAdviceTrainingSampleMapper;
 import my.management.module.ai.model.dto.AiAdviceFeedbackRequest;
+import my.management.module.ai.model.enums.AiFeedbackTypeEnum;
 import org.springframework.stereotype.Service;
-
-import java.util.Map;
 
 /**
  * AI 建议反馈服务。
@@ -20,12 +19,6 @@ import java.util.Map;
 public class AiAdviceFeedbackService {
 
     private static final int MAX_FEEDBACK_TEXT_LENGTH = 500;
-    private static final Map<String, String> LABEL_STATUS_MAP = Map.of(
-            "useful", "positive",
-            "resolved", "resolved",
-            "irrelevant", "negative",
-            "ignored", "ignored"
-    );
 
     @Resource
     private AiAdviceTrainingSampleMapper aiAdviceTrainingSampleMapper;
@@ -66,10 +59,11 @@ public class AiAdviceFeedbackService {
         }
 
         String normalizedFeedbackType = normalizeFeedbackType(feedbackType);
+        AiFeedbackTypeEnum feedback = AiFeedbackTypeEnum.of(normalizedFeedbackType);
         aiAdviceTrainingSampleMapper.updateFeedback(
                 tenantCode,
                 normalizedSampleKey,
-                LABEL_STATUS_MAP.get(normalizedFeedbackType),
+                feedback.getLabelStatus(),
                 normalizedFeedbackType,
                 limit(feedbackText, MAX_FEEDBACK_TEXT_LENGTH),
                 userId
@@ -86,10 +80,8 @@ public class AiAdviceFeedbackService {
     }
 
     private String normalizeFeedbackType(String feedbackType) {
-        if (feedbackType != null && LABEL_STATUS_MAP.containsKey(feedbackType.trim())) {
-            return feedbackType.trim();
-        }
-        return "useful";
+        AiFeedbackTypeEnum feedback = AiFeedbackTypeEnum.of(feedbackType);
+        return feedback == null ? AiFeedbackTypeEnum.USEFUL.getCode() : feedback.getCode();
     }
 
     private String limit(String value, int maxLength) {

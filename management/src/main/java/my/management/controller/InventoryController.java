@@ -4,10 +4,12 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import my.hive.common.annotation.RequirePermission;
+import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
 import my.management.common.vo.ImportResultVO;
 import my.management.common.tenant.RequireTenantFeature;
+import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.inventory.model.dto.InventoryInRequest;
 import my.management.module.inventory.model.dto.InventoryOutRequest;
 import my.management.module.inventory.model.dto.InventoryPageRequest;
@@ -33,76 +35,76 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/inventory")
-@RequireTenantFeature("module.inventory")
+@RequireTenantFeature(TenantFeatureEnum.CODE_INVENTORY)
 public class InventoryController {
 
     @Resource
     private InventoryService inventoryService;
 
     @GetMapping("/summary")
-    @RequirePermission(value = "inventory:warning:list", message = "您没有权限查看库存概览")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存概览")
     public Result<InventorySummaryVO> summary() {
         return Result.success(inventoryService.summary());
     }
 
     @GetMapping("/page")
-    @RequirePermission(value = "inventory:warning:list", message = "您没有权限查看库存列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存列表")
     public Result<PageResult<ClothInventoryVO>> page(InventoryPageRequest request) {
         return Result.success(inventoryService.page(request));
     }
 
     @GetMapping("/warning/list")
-    @RequirePermission(value = "inventory:warning:list", message = "您没有权限查看库存预警")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存预警")
     public Result<List<InventoryWarningVO>> warnings() {
         return Result.success(inventoryService.warnings());
     }
 
     @GetMapping("/record/recent")
-    @RequirePermission(value = "inventory:record:recent", message = "您没有权限查看库存流水")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_RECORD_RECENT, message = "您没有权限查看库存流水")
     public Result<List<InventoryRecordVO>> recentRecords() {
         return Result.success(inventoryService.recentRecords());
     }
 
     @GetMapping("/trend")
-    @RequirePermission(value = "inventory:trend", message = "您没有权限查看库存趋势")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_TREND, message = "您没有权限查看库存趋势")
     public Result<List<InventoryTrendVO>> trend() {
         return Result.success(inventoryService.trend());
     }
 
     @GetMapping("/model/search")
-    @RequirePermission(value = "inventory:warning:list", message = "您没有权限搜索库存型号")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限搜索库存型号")
     public Result<List<InventoryModelOptionVO>> searchModels(@RequestParam(required = false) String keyword) {
         return Result.success(inventoryService.searchModels(keyword));
     }
 
     @GetMapping("/barCode/search")
-    @RequirePermission(value = "inventory:warning:list", message = "您没有权限搜索库存条码")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限搜索库存条码")
     public Result<ClothInventoryVO> searchByBarcode(@RequestParam String barCode) {
         return Result.success(inventoryService.searchByBarcode(barCode));
     }
 
     @PostMapping("/cloth/in")
-    @RequirePermission(value = "inventory:cloth:in", message = "您没有权限执行入库")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_CLOTH_IN, message = "您没有权限执行入库")
     public Result<Void> in(@Valid @RequestBody InventoryInRequest request) {
         inventoryService.in(request);
         return Result.success(null);
     }
 
     @PostMapping("/cloth/out")
-    @RequirePermission(value = "inventory:cloth:out", message = "您没有权限执行出库")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_CLOTH_OUT, message = "您没有权限执行出库")
     public Result<Void> out(@Valid @RequestBody InventoryOutRequest request) {
         inventoryService.out(request);
         return Result.success(null);
     }
 
     @GetMapping("/import-template")
-    @RequirePermission(value = "inventory:cloth:in", message = "您没有权限下载库存导入模板")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_CLOTH_IN, message = "您没有权限下载库存导入模板")
     public void downloadImportTemplate(HttpServletResponse response) {
         inventoryService.downloadImportTemplate(response);
     }
 
     @PostMapping("/import")
-    @RequirePermission(value = "inventory:cloth:in", message = "您没有权限导入库存数据")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_CLOTH_IN, message = "您没有权限导入库存数据")
     public Result<ImportResultVO> importInventory(@RequestParam("file") MultipartFile file) {
         return Result.success(inventoryService.importInventory(file));
     }
