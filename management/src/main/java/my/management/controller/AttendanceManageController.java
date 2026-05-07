@@ -7,6 +7,7 @@ import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
+import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.attendance.model.dto.AttendancePageRequest;
 import my.management.module.attendance.model.dto.AttendanceRuleSaveRequest;
 import my.management.module.attendance.model.vo.AttendanceDepartmentVO;
@@ -29,6 +30,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/attendance")
+@RequireTenantFeature("module.attendance")
 public class AttendanceManageController {
 
     @Resource

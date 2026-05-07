@@ -1,20 +1,14 @@
 package my.management.common.utils;
 
+import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.ExcelWriter;
+import com.alibaba.excel.write.metadata.WriteSheet;
+import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.DateUtil;
-import org.apache.poi.ss.usermodel.FillPatternType;
-import org.apache.poi.ss.usermodel.HorizontalAlignment;
-import org.apache.poi.ss.usermodel.IndexedColors;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFCellStyle;
-import org.apache.poi.xssf.usermodel.XSSFFont;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -24,11 +18,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-/**
- * ExcelUtil 属于管理端后端通用能力层，提供可复用的工具方法。
- */
+
 @Component
 public class ExcelUtil {
 
@@ -36,67 +29,46 @@ public class ExcelUtil {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public XSSFWorkbook createWorkbook(String sheetName, List<String> headers, List<List<String>> rows) {
-        XSSFWorkbook workbook = new XSSFWorkbook();
-        Sheet sheet = workbook.createSheet(sheetName);
-        XSSFCellStyle headerStyle = buildHeaderStyle(workbook);
-        XSSFCellStyle bodyStyle = buildBodyStyle(workbook);
-
-        Row headerRow = sheet.createRow(0);
-        for (int i = 0; i < headers.size(); i++) {
-            Cell cell = headerRow.createCell(i);
-            cell.setCellValue(headers.get(i));
-            cell.setCellStyle(headerStyle);
-        }
-
-        for (int i = 0; i < rows.size(); i++) {
-            Row row = sheet.createRow(i + 1);
-            List<String> values = rows.get(i);
-            for (int j = 0; j < values.size(); j++) {
-                Cell cell = row.createCell(j);
-                cell.setCellValue(values.get(j));
-                cell.setCellStyle(bodyStyle);
-            }
-        }
-
-        autoSize(sheet, headers.size());
-        return workbook;
-    }
-
-    public XSSFWorkbook createTemplateWorkbook(String sheetName,
-                                               List<String> headers,
-                                               List<List<String>> exampleRows,
-                                               List<String> notes) {
-        XSSFWorkbook workbook = createWorkbook(sheetName, headers, exampleRows);
-        Sheet noteSheet = workbook.createSheet("填写说明");
-        XSSFCellStyle headerStyle = buildHeaderStyle(workbook);
-        XSSFCellStyle bodyStyle = buildBodyStyle(workbook);
-
-        Row titleRow = noteSheet.createRow(0);
-        Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue("说明");
-        titleCell.setCellStyle(headerStyle);
-
-        for (int i = 0; i < notes.size(); i++) {
-            Row row = noteSheet.createRow(i + 1);
-            Cell cell = row.createCell(0);
-            cell.setCellValue(notes.get(i));
-            cell.setCellStyle(bodyStyle);
-        }
-
-        autoSize(noteSheet, 1);
-        return workbook;
-    }
-
-    public void writeToResponse(HttpServletResponse response, Workbook workbook, String fileName) {
-        try (workbook) {
-            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-            String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
-            response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encoded);
-            workbook.write(response.getOutputStream());
+    public void writeRowsToResponse(HttpServletResponse response,
+                                    String sheetName,
+                                    List<String> headers,
+                                    List<List<String>> rows,
+                                    String fileName) {
+        prepareDownloadResponse(response, fileName);
+        try {
+            EasyExcel.write(response.getOutputStream())
+                    .head(toEasyExcelHead(headers))
+                    .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+                    .sheet(safeSheetName(sheetName))
+                    .doWrite(normalizeRows(rows, headerCount(headers)));
             response.flushBuffer();
         } catch (IOException e) {
             throw new RuntimeException("导出 Excel 失败", e);
+        }
+    }
+
+    public void writeTemplateToResponse(HttpServletResponse response,
+                                        String sheetName,
+                                        List<String> headers,
+                                        List<List<String>> exampleRows,
+                                        List<String> notes,
+                                        String fileName) {
+        prepareDownloadResponse(response, fileName);
+        try (ExcelWriter writer = EasyExcel.write(response.getOutputStream())
+                .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+                .build()) {
+            WriteSheet dataSheet = EasyExcel.writerSheet(0, safeSheetName(sheetName))
+                    .head(toEasyExcelHead(headers))
+                    .build();
+            writer.write(normalizeRows(exampleRows, headerCount(headers)), dataSheet);
+
+            WriteSheet noteSheet = EasyExcel.writerSheet(1, "填写说明")
+                    .head(toEasyExcelHead(List.of("说明")))
+                    .build();
+            writer.write(toSingleColumnRows(notes), noteSheet);
+            response.flushBuffer();
+        } catch (IOException e) {
+            throw new RuntimeException("导出 Excel 模板失败", e);
         }
     }
 
@@ -135,30 +107,58 @@ public class ExcelUtil {
         return String.valueOf(value);
     }
 
-    private XSSFCellStyle buildHeaderStyle(XSSFWorkbook workbook) {
-        XSSFFont font = workbook.createFont();
-        font.setBold(true);
-        font.setColor(IndexedColors.WHITE.getIndex());
-
-        XSSFCellStyle style = workbook.createCellStyle();
-        style.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
-        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        style.setAlignment(HorizontalAlignment.CENTER);
-        style.setFont(font);
-        return style;
+    private void prepareDownloadResponse(HttpServletResponse response, String fileName) {
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        String safeFileName = fileName == null || fileName.isBlank() ? "export.xlsx" : fileName.trim();
+        String encoded = URLEncoder.encode(safeFileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
+        response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encoded);
     }
 
-    private XSSFCellStyle buildBodyStyle(XSSFWorkbook workbook) {
-        XSSFCellStyle style = workbook.createCellStyle();
-        style.setWrapText(true);
-        return style;
-    }
-
-    private void autoSize(Sheet sheet, int columnCount) {
-        for (int i = 0; i < columnCount; i++) {
-            sheet.autoSizeColumn(i);
-            int width = Math.min(sheet.getColumnWidth(i) + 1024, 256 * 40);
-            sheet.setColumnWidth(i, width);
+    private List<List<String>> toEasyExcelHead(List<String> headers) {
+        List<List<String>> head = new ArrayList<>();
+        if (headers == null || headers.isEmpty()) {
+            head.add(List.of("数据"));
+            return head;
         }
+        for (String header : headers) {
+            head.add(List.of(stringify(header)));
+        }
+        return head;
+    }
+
+    private List<List<String>> normalizeRows(List<List<String>> rows, int columnCount) {
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        List<List<String>> normalizedRows = new ArrayList<>(rows.size());
+        for (List<String> row : rows) {
+            int actualColumnCount = columnCount > 0 ? columnCount : (row == null ? 0 : row.size());
+            List<String> normalizedRow = new ArrayList<>(actualColumnCount);
+            for (int i = 0; i < actualColumnCount; i++) {
+                normalizedRow.add(row != null && i < row.size() ? stringify(row.get(i)) : "");
+            }
+            normalizedRows.add(normalizedRow);
+        }
+        return normalizedRows;
+    }
+
+    private List<List<String>> toSingleColumnRows(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        return values.stream()
+                .map(value -> List.of(stringify(value)))
+                .toList();
+    }
+
+    private String safeSheetName(String sheetName) {
+        String normalized = sheetName == null || sheetName.isBlank() ? "Sheet1" : sheetName.trim();
+        normalized = normalized.replaceAll("[\\\\/?*\\[\\]:]", "_");
+        return normalized.length() <= 31 ? normalized : normalized.substring(0, 31);
+    }
+
+    private int headerCount(List<String> headers) {
+        return headers == null ? 0 : headers.size();
     }
 }

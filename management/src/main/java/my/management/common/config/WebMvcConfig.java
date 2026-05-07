@@ -1,6 +1,7 @@
 package my.management.common.config;
 
 import jakarta.annotation.Resource;
+import my.hive.common.utils.TokenUtil;
 import my.management.common.interceptor.AuthTokenInterceptor;
 import my.management.common.interceptor.PlatformScopeInterceptor;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,7 +63,12 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .allowedOriginPatterns(resolveAllowedOrigins())
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
-                .exposedHeaders("Authorization")
+                .exposedHeaders(
+                        "Authorization",
+                        TokenUtil.HEADER_RENEWED_TOKEN,
+                        TokenUtil.HEADER_RENEWED_EXPIRE_AT,
+                        TokenUtil.HEADER_RENEWED_RESPONSE_KEY
+                )
                 .allowCredentials(false)
                 .maxAge(3600);
     }

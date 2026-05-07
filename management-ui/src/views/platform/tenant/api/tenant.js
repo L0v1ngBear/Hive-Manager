@@ -15,3 +15,18 @@ export function createTenant(data) {
     data
   })
 }
+
+export function updateTenantLicense(data) {
+  return request({
+    url: '/platform/tenant/license',
+    method: 'post',
+    data
+  })
+}
+
+export function getTenantFeatureCatalog() {
+  return request({
+    url: '/platform/tenant/features/catalog',
+    method: 'get'
+  })
+}

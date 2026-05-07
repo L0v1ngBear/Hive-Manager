@@ -114,7 +114,26 @@ interface MenuItem {
   path: string
   icon: string
   permissions?: string[]
+  features?: string[]
   developerOnly?: boolean
+}
+
+const menuFeatureMap: Record<string, string> = {
+  '/dashboard': 'module.dashboard',
+  '/dashboard/ai-advices': 'aiAdvice',
+  '/function/order': 'module.order',
+  '/function/inventory': 'module.inventory',
+  '/function/bad-product': 'module.badProduct',
+  '/function/customer': 'module.customer',
+  '/function/price': 'module.price',
+  '/function/receipt': 'module.receipt',
+  '/function/approval': 'module.approval',
+  '/function/attendance': 'module.attendance',
+  '/function/employee': 'module.employee',
+  '/function/role': 'module.role',
+  '/function/label': 'module.label',
+  '/function/document': 'module.document',
+  '/manual': 'module.manual'
 }
 
 const platformSuperMenus: MenuItem[] = [
@@ -182,6 +201,10 @@ const secondaryMenus = computed<MenuItem[]>(() => {
 function filterMenus(menus: MenuItem[]) {
   return menus.filter((item) => {
     if (item.developerOnly && !userStore.isDeveloper) {
+      return false
+    }
+    const requiredFeatures = item.features || (menuFeatureMap[item.path] ? [menuFeatureMap[item.path]] : [])
+    if (requiredFeatures.length && !userStore.hasAnyFeature(requiredFeatures)) {
       return false
     }
     return !item.permissions || userStore.hasAnyPermission(item.permissions)

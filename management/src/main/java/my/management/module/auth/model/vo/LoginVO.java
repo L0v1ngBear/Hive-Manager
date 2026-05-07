@@ -23,4 +23,6 @@ public class LoginVO {
     private String responseKey;
 
     private List<String> permissions = new ArrayList<>();
+
+    private List<String> features = new ArrayList<>();
 }

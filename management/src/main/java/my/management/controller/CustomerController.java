@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
+import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.customer.model.dto.CustomerAddRequest;
 import my.management.module.customer.model.dto.CustomerPageRequest;
 import my.management.module.customer.model.dto.CustomerUpdateRequest;
@@ -28,6 +29,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/customer")
+@RequireTenantFeature("module.customer")
 @Validated
 public class CustomerController {
 

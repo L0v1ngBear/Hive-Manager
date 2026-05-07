@@ -4,6 +4,7 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.Result;
+import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.label.model.dto.LabelTemplateSaveRequest;
 import my.management.module.label.model.vo.LabelTemplateVO;
 import my.management.module.label.model.vo.LabelTemplateVariableVO;
@@ -27,6 +28,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/label-template")
+@RequireTenantFeature("module.label")
 @Validated
 public class LabelTemplateController {
 

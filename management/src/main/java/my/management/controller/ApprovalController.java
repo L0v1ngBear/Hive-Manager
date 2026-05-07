@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.Result;
+import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.approval.model.dto.FinanceAuditRequest;
 import my.management.module.approval.model.dto.FinanceSubmitRequest;
 import my.management.module.approval.model.dto.LeaveAuditRequest;
@@ -27,6 +28,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/approval")
+@RequireTenantFeature("module.approval")
 @Validated
 public class ApprovalController {
 

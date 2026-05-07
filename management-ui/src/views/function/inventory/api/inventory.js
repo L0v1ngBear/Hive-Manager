@@ -35,3 +35,24 @@ export function inCloth(data) {
 export function outCloth(data) {
   return request({ url: '/inventory/cloth/out', method: 'post', data })
 }
+
+export function downloadInventoryImportTemplate() {
+  return request({
+    url: '/inventory/import-template',
+    method: 'get',
+    responseType: 'blob'
+  })
+}
+
+export function importInventory(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request({
+    url: '/inventory/import',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}

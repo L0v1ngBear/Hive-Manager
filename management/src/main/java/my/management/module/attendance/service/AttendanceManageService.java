@@ -177,8 +177,10 @@ public class AttendanceManageService {
                 ))
                 .toList();
 
-        excelUtil.writeToResponse(response,
-                excelUtil.createWorkbook("考勤记录", headers, rows),
+        excelUtil.writeRowsToResponse(response,
+                "考勤记录",
+                headers,
+                rows,
                 "考勤记录_" + (request.getDate() == null ? LocalDate.now() : request.getDate()) + ".xlsx");
     }
 

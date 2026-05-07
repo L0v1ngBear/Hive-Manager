@@ -3,6 +3,7 @@ package my.management.controller;
 import jakarta.annotation.Resource;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.Result;
+import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.document.model.dto.DocumentAddRequest;
 import my.management.module.document.model.entity.Document;
 import my.management.module.document.model.vo.DocumentVO;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,8 +26,11 @@ import java.util.stream.Collectors;
  * DocumentController 是管理端后端请求入口控制类，负责接收请求并调用对应服务。
  */
     // 文件内容存储已预留扩展点，后续接入 OSS 时保持当前接口契约不变。
+@org.springframework.stereotype.Controller
+@org.springframework.web.bind.annotation.ResponseBody
 @RestController
 @RequestMapping("/document")
+@RequireTenantFeature("module.document")
 @Validated
 public class DocumentController {
 
@@ -49,6 +54,13 @@ public class DocumentController {
     public Result<Void> createFolder(@RequestBody DocumentAddRequest request) {
         documentService.addFolder(request);
         return Result.success(null);
+    }
+
+    @PostMapping("/file/upload")
+    @RequirePermission(value = "document:file:upload", message = "您没有权限上传文件")
+    public Result<DocumentVO> uploadFile(@RequestParam("file") MultipartFile file,
+                                         @RequestParam(value = "parentId", required = false, defaultValue = "0") Long parentId) {
+        return Result.success(documentService.uploadFile(file, parentId));
     }
 
     @PutMapping("/rename")

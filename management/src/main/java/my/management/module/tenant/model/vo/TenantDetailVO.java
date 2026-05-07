@@ -23,6 +23,24 @@ public class TenantDetailVO {
 
     private Integer status;
 
+    private String packageCode;
+
+    private String packageName;
+
+    private String subscriptionStatus;
+
+    private LocalDateTime subscriptionStartTime;
+
+    private LocalDateTime subscriptionEndTime;
+
+    private Integer maxUsers;
+
+    private Integer maxAiAdvicePerMonth;
+
+    private Integer maxStorageMb;
+
+    private String featureFlags;
+
     private Long creator;
 
     private LocalDateTime createTime;

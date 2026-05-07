@@ -3,6 +3,8 @@ package my.management.controller;
 import jakarta.annotation.Resource;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.Result;
+import my.management.common.tenant.RequireTenantFeature;
+import my.management.module.receipt.model.dto.OutboundPrintUpdateRequest;
 import my.management.module.receipt.model.vo.OutboundPrintCommandVO;
 import my.management.module.receipt.model.vo.OutboundPrintDetailVO;
 import my.management.module.receipt.model.vo.OutboundPrintOrderVO;
@@ -25,6 +27,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/receipt")
+@RequireTenantFeature("module.receipt")
 public class ReceiptPrintController {
 
     @Resource
@@ -49,6 +52,12 @@ public class ReceiptPrintController {
     @RequirePermission(value = "receipt:print:detail", message = "您没有权限生成打印指令")
     public Result<OutboundPrintCommandVO> rawCommand(@RequestParam String orderNo) {
         return Result.success(receiptPrintService.rawCommand(orderNo));
+    }
+
+    @PostMapping("/print/update")
+    @RequirePermission(value = "receipt:print:mark", message = "您没有权限修正出库单打印内容")
+    public Result<OutboundPrintDetailVO> updatePrintDetail(@RequestBody OutboundPrintUpdateRequest request) {
+        return Result.success(receiptPrintService.updatePrintDetail(request));
     }
 
     @PostMapping("/print/mark-printed")

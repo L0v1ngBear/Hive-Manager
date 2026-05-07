@@ -110,13 +110,13 @@
 
             <section class="receipt-info">
               <div class="customer-line">
-                <div>客户名称：<span>{{ printableText(selectedOrder.customerName) }}</span></div>
-                <div>单据编号：<span>{{ selectedOrder.orderNo || '--' }}</span></div>
+                <div>客户名称：<span>{{ printableText(printDraft.customerName) }}</span></div>
+                <div>单据编号：<span>{{ printDraft.orderNo || '--' }}</span></div>
               </div>
               <div class="order-line">
-                <span>项目名称：<b>{{ printableText(selectedOrder.projectName) }}</b></span>
-                <span>录单日期：<b>{{ formatDateOnly(selectedOrder.createTime) }}</b></span>
-                <span>制单人：<b>{{ selectedOrder.operator || '--' }}</b></span>
+                <span>项目名称：<b>{{ printableText(printDraft.projectName) }}</b></span>
+                <span>录单日期：<b>{{ formatDateOnly(printDraft.printDate || printDraft.createTime) }}</b></span>
+                <span>制单人：<b>{{ printDraft.operator || '--' }}</b></span>
                 <span>第 {{ page.pageNo }} 页 / 共 {{ page.totalPages }} 页</span>
               </div>
             </section>
@@ -152,9 +152,9 @@
             <footer class="receipt-bottom">
               <div v-if="templateConfig.showLogistics" class="logistics-row">
                 <span>物流公司：</span>
-                <b></b>
+                <b>{{ printableText(printDraft.logisticsCompany) }}</b>
                 <span>物流单号：</span>
-                <b></b>
+                <b>{{ printableText(printDraft.logisticsNo) }}</b>
               </div>
               <p v-if="templateConfig.notice" class="notice">{{ templateConfig.notice }}</p>
               <div v-if="templateConfig.showSignature" class="signature-row">
@@ -166,21 +166,114 @@
           </article>
         </div>
 
-        <aside v-if="selectedOrder && printableRows.length" class="remark-editor">
-          <div class="remark-editor-head">
-            <strong>打印备注</strong>
-            <span>每行可单独填写，不填则打印为空</span>
+        <aside v-if="selectedOrder" class="print-editor">
+          <div class="print-editor-head">
+            <div>
+              <strong>打印内容修正</strong>
+              <span>保存后会回写出库单，并记录修改前后快照</span>
+            </div>
+            <div class="print-editor-actions">
+              <button type="button" class="editor-save-btn" :disabled="isSubmitting" @click="savePrintRevision()">保存修正</button>
+              <button type="button" class="editor-reset-btn" @click="resetPrintDraft">恢复系统内容</button>
+            </div>
           </div>
-          <div class="remark-editor-list">
-            <label v-for="row in printableRows" :key="getRowKey(row)" class="remark-editor-row">
-              <span>{{ row.modelCode || row.barcode || '未命名货物' }}</span>
-              <input
-                :value="printRemarkMap[getRowKey(row)] || ''"
-                maxlength="30"
-                placeholder="本行备注"
-                @input="setRowRemark(row, $event.target.value)"
-              />
+
+          <div class="print-editor-grid">
+            <label>
+              <span>客户名称</span>
+              <input v-model.trim="printDraft.customerName" maxlength="80" placeholder="客户名称" />
             </label>
+            <label>
+              <span>打印单号</span>
+              <input v-model.trim="printDraft.orderNo" maxlength="60" placeholder="打印显示单号" />
+            </label>
+            <label>
+              <span>项目名称</span>
+              <input v-model.trim="printDraft.projectName" maxlength="80" placeholder="项目名称，可留空" />
+            </label>
+            <label>
+              <span>录单日期</span>
+              <input v-model.trim="printDraft.printDate" maxlength="10" placeholder="yyyy-MM-dd" />
+            </label>
+            <label>
+              <span>制单人</span>
+              <input v-model.trim="printDraft.operator" maxlength="30" placeholder="制单人" />
+            </label>
+            <label>
+              <span>收货仓库</span>
+              <input v-model.trim="templateConfig.warehouse" maxlength="20" placeholder="收货仓库" />
+            </label>
+            <label>
+              <span>物流公司</span>
+              <input v-model.trim="printDraft.logisticsCompany" maxlength="40" placeholder="物流公司，可留空" />
+            </label>
+            <label>
+              <span>物流单号</span>
+              <input v-model.trim="printDraft.logisticsNo" maxlength="60" placeholder="物流单号，可留空" />
+            </label>
+          </div>
+
+          <div class="print-editor-table-wrap">
+            <div class="print-editor-table-head">
+              <strong>明细行修正</strong>
+              <button type="button" class="editor-add-btn" @click="addPrintRow">新增打印行</button>
+            </div>
+            <div class="print-editor-table">
+              <div class="print-editor-row print-editor-row-head">
+                <span>货物名称</span>
+                <span>规格</span>
+                <span>米数</span>
+                <span>单价</span>
+                <span>金额</span>
+                <span>备注</span>
+                <span>操作</span>
+              </div>
+              <div v-for="(row, index) in printableRows" :key="getRowKey(row)" class="print-editor-row">
+                <input
+                  :value="row.modelCode || row.barcode || ''"
+                  maxlength="80"
+                  placeholder="货物名称"
+                  @input="updatePrintRow(index, 'modelCode', $event.target.value)"
+                />
+                <input
+                  :value="row.spec || ''"
+                  maxlength="30"
+                  placeholder="规格"
+                  @input="updatePrintRow(index, 'spec', $event.target.value)"
+                />
+                <input
+                  :value="row.meters ?? ''"
+                  inputmode="decimal"
+                  maxlength="12"
+                  placeholder="米数"
+                  @input="updatePrintRow(index, 'meters', $event.target.value)"
+                />
+                <input
+                  :value="row.price ?? ''"
+                  inputmode="decimal"
+                  maxlength="12"
+                  placeholder="单价"
+                  @input="updatePrintRow(index, 'price', $event.target.value)"
+                />
+                <input
+                  :value="row.totalAmount ?? ''"
+                  inputmode="decimal"
+                  maxlength="14"
+                  placeholder="金额"
+                  @input="updatePrintRow(index, 'totalAmount', $event.target.value)"
+                />
+                <input
+                  :value="row.remark || ''"
+                  maxlength="30"
+                  placeholder="备注"
+                  @input="updatePrintRow(index, 'remark', $event.target.value)"
+                />
+                <button type="button" class="editor-remove-btn" @click="removePrintRow(index)">移除</button>
+              </div>
+            </div>
+          </div>
+          <div v-if="!printableRows.length" class="print-editor-empty">
+            当前没有可打印明细，可点击“新增打印行”补充本次打印内容。
           </div>
         </aside>
       </div>
@@ -352,7 +445,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   cancelPrint,
@@ -362,7 +455,8 @@ import {
   listReceiptTemplates,
   markPrinted,
   saveReceiptTemplate,
-  setDefaultReceiptTemplate
+  setDefaultReceiptTemplate,
+  updatePrintDetail
 } from './receipt/api/receipt.js'
 
 const isFetchingList = ref(false)
@@ -374,7 +468,7 @@ const activeMode = ref('print')
 const pendingOrders = ref([])
 const selectedOrder = ref(null)
 const tableData = ref([])
-const printRemarkMap = ref({})
+const printDraft = ref(createEmptyPrintDraft())
 const receiptTemplates = ref([])
 const receiptVariables = ref([])
 const selectedTemplateId = ref(null)
@@ -389,6 +483,7 @@ async function fetchPendingList() {
   isFetchingList.value = true
   selectedOrder.value = null
   tableData.value = []
+  printDraft.value = createEmptyPrintDraft()
   try {
     pendingOrders.value = await getPendingPrintOrders()
   } finally {
@@ -402,8 +497,8 @@ async function selectOrder(order) {
   try {
     const detail = await getPrintDetail({ orderNo: order.orderNo })
     selectedOrder.value = detail
-    tableData.value = detail.items || []
-    printRemarkMap.value = {}
+    tableData.value = normalizeEditableRows(detail.items || [])
+    printDraft.value = createPrintDraft(detail)
   } finally {
     isLoadingDetail.value = false
   }
@@ -476,6 +571,140 @@ function createNewReceiptTemplate() {
   templateConfig.value = defaultTemplateConfig()
 }
 
+async function savePrintRevision(options = {}) {
+  if (!selectedOrder.value) return null
+  const payload = buildPrintRevisionPayload()
+  if (!payload.items.length) {
+    ElMessage.warning('出库单至少需要一条明细')
+    throw new Error('empty receipt items')
+  }
+  const saved = await updatePrintDetail(payload)
+  selectedOrder.value = saved
+  tableData.value = normalizeEditableRows(saved.items || [])
+  printDraft.value = createPrintDraft(saved)
+  if (!options.silent) {
+    ElMessage.success('打印内容已保存，可追溯')
+  }
+  return saved
+}
+
+function buildPrintRevisionPayload() {
+  const rows = printableRows.value.map((row) => ({
+    id: row.id || undefined,
+    barcode: trimOrNull(row.barcode),
+    modelCode: trimOrNull(row.modelCode || row.barcode),
+    spec: decimalOrNull(row.spec),
+    meters: decimalOrNull(row.meters),
+    price: decimalOrNull(row.price),
+    totalAmount: decimalOrNull(row.totalAmount),
+    remark: trimOrNull(row.remark)
+  }))
+  return {
+    id: selectedOrder.value.id,
+    orderNo: trimOrNull(printDraft.value.orderNo),
+    customerName: trimOrNull(printDraft.value.customerName),
+    projectName: trimOrNull(printDraft.value.projectName),
+    printDate: normalizeDateText(printDraft.value.printDate || printDraft.value.createTime),
+    operator: trimOrNull(printDraft.value.operator),
+    logisticsCompany: trimOrNull(printDraft.value.logisticsCompany),
+    logisticsNo: trimOrNull(printDraft.value.logisticsNo),
+    editReason: '出库单打印前人工修正',
+    items: rows
+  }
+}
+
+function createEmptyPrintDraft() {
+  return {
+    orderNo: '',
+    customerName: '',
+    projectName: '',
+    createTime: '',
+    printDate: '',
+    operator: '',
+    logisticsCompany: '',
+    logisticsNo: ''
+  }
+}
+
+function createPrintDraft(detail) {
+  return {
+    orderNo: detail?.orderNo || '',
+    customerName: detail?.customerName || '',
+    projectName: detail?.projectName || '',
+    createTime: formatDateOnly(detail?.createTime),
+    printDate: detail?.printDate || formatDateOnly(detail?.createTime),
+    operator: detail?.operator || '',
+    logisticsCompany: detail?.logisticsCompany || '',
+    logisticsNo: detail?.logisticsNo || ''
+  }
+}
+
+function resetPrintDraft() {
+  if (!selectedOrder.value) return
+  printDraft.value = createPrintDraft(selectedOrder.value)
+  tableData.value = normalizeEditableRows(selectedOrder.value.items || [])
+}
+
+function normalizeEditableRows(rows) {
+  return (Array.isArray(rows) ? rows : []).map((row, index) => ({
+    ...row,
+    _key: row.id ? `id-${row.id}` : `manual-${Date.now()}-${index}`,
+    spec: row.spec ?? '',
+    meters: row.meters ?? '',
+    price: row.price ?? '',
+    totalAmount: row.totalAmount ?? '',
+    remark: row.remark || ''
+  }))
+}
+
+function addPrintRow() {
+  tableData.value = [
+    ...tableData.value,
+    {
+      _key: `manual-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      id: null,
+      barcode: '',
+      modelCode: '',
+      spec: '',
+      meters: '',
+      price: '',
+      totalAmount: '',
+      remark: ''
+    }
+  ]
+}
+
+function removePrintRow(index) {
+  tableData.value = tableData.value.filter((_, rowIndex) => rowIndex !== index)
+}
+
+function updatePrintRow(index, field, value) {
+  const rows = [...tableData.value]
+  const row = { ...(rows[index] || {}) }
+  row[field] = ['meters', 'price', 'totalAmount', 'spec'].includes(field) ? sanitizeDecimalText(value) : value
+  if (field === 'totalAmount') {
+    row._amountManual = true
+  }
+  if (['meters', 'price'].includes(field) && !row._amountManual) {
+    row.totalAmount = calcRowAmount(row.meters, row.price)
+  }
+  rows[index] = row
+  tableData.value = rows
+}
+
+function isPrintableRow(row) {
+  if (!row) return false
+  return Boolean(
+    row.id ||
+    trimOrNull(row.modelCode) ||
+    trimOrNull(row.barcode) ||
+    decimalOrNull(row.meters) ||
+    decimalOrNull(row.price) ||
+    decimalOrNull(row.totalAmount) ||
+    trimOrNull(row.remark)
+  )
+}
+
 const summary = computed(() => ({
   totalMeters: tableData.value.reduce((sum, item) => sum + Number(item.meters || 0), 0),
   totalAmount: tableData.value.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0)
@@ -505,7 +734,7 @@ const printPages = computed(() => {
   }))
 })
 
-const printableRows = computed(() => tableData.value.filter((row) => row.id))
+const printableRows = computed(() => tableData.value.filter((row) => isPrintableRow(row)))
 const visibleColumns = computed(() => {
   const columns = Array.isArray(templateConfig.value.columns) ? templateConfig.value.columns : defaultReceiptColumns()
   const visible = columns.filter((column) => column.visible !== false)
@@ -532,6 +761,8 @@ async function openBrowserPrint() {
   if (!selectedOrder.value) return
   isPrinting.value = true
   try {
+    await savePrintRevision({ silent: true })
+    await nextTick()
     const printable = document.getElementById('print-paper-area')
     if (!printable) {
       ElMessage.error('未找到打印内容')
@@ -564,6 +795,7 @@ async function confirmPrinted() {
   })
   isSubmitting.value = true
   try {
+    await savePrintRevision({ silent: true })
     await markPrinted({ orderNo: selectedOrder.value.orderNo })
     ElMessage.success('已标记为打印完成')
     await fetchPendingList()
@@ -629,7 +861,7 @@ function printCss() {
     .total-line { display: flex; justify-content: space-between; gap: 6mm; }
     .receipt-bottom { margin-top: 3mm; font-size: 12px; color: #000; font-weight: 700; }
     .logistics-row { display: flex; align-items: center; gap: 6mm; margin-bottom: 2.2mm; }
-    .logistics-row b { width: 31mm; border-bottom: 1.2px solid #000; height: 4mm; display: inline-block; }
+    .logistics-row b { width: 31mm; border-bottom: 1.2px solid #000; min-height: 4mm; display: inline-block; text-align: center; }
     .notice { margin: 0 0 3mm; line-height: 1.5; letter-spacing: .8px; }
     .signature-row { display: flex; justify-content: space-between; font-size: 13px; }
     @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
@@ -713,7 +945,7 @@ function renderReceiptCell(row, key) {
     totalMeters: formatNumber(row.meters),
     price: money(row.price),
     amount: money(row.totalAmount),
-    remark: getRowRemark(row)
+    remark: row.remark || ''
   }
   return map[key] ?? ''
 }
@@ -735,18 +967,7 @@ function renderPreviewCell(row, key) {
 }
 
 function getRowKey(row) {
-  return String(row.id || row.barcode || row.modelCode || '')
-}
-
-function getRowRemark(row) {
-  return printRemarkMap.value[getRowKey(row)] || ''
-}
-
-function setRowRemark(row, value) {
-  printRemarkMap.value = {
-    ...printRemarkMap.value,
-    [getRowKey(row)]: value.trim()
-  }
+  return String(row._key || row.id || row.barcode || row.modelCode || '')
 }
 
 function formatDate(value) {
@@ -765,6 +986,39 @@ function formatNumber(value) {
 
 function money(value) {
   return Number(value || 0).toFixed(2)
+}
+
+function trimOrNull(value) {
+  const text = String(value ?? '').trim()
+  return text ? text : null
+}
+
+function sanitizeDecimalText(value) {
+  return String(value ?? '')
+    .replace(/[^\d.]/g, '')
+    .replace(/^(\d*\.?\d{0,2}).*$/, '$1')
+}
+
+function decimalOrNull(value) {
+  if (value === null || value === undefined || value === '') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? Number(number.toFixed(2)) : null
+}
+
+function calcRowAmount(meters, price) {
+  const meterNumber = decimalOrNull(meters)
+  const priceNumber = decimalOrNull(price)
+  if (meterNumber === null || priceNumber === null) return ''
+  return (meterNumber * priceNumber).toFixed(2)
+}
+
+function normalizeDateText(value) {
+  const text = formatDateOnly(value)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return text
+  }
+  ElMessage.warning('录单日期格式必须为 yyyy-MM-dd')
+  throw new Error('invalid print date')
 }
 
 function amountUpper(value) {
@@ -1171,6 +1425,154 @@ function buildReceiptTemplateContent(config) {
   border-radius: 1rem;
   background: rgb(255 255 255 / 94%);
   box-shadow: 0 10px 28px rgb(15 23 42 / 10%);
+}
+
+.print-editor {
+  width: min(215.9mm, 100%);
+  margin: 1rem auto 0;
+  padding: 1rem;
+  border: 1px solid #dbe3ef;
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 10px 28px rgb(15 23 42 / 10%);
+}
+
+.print-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.print-editor-head strong,
+.print-editor-table-head strong {
+  color: #1f2937;
+  font-size: .95rem;
+  font-weight: 900;
+}
+
+.print-editor-head span {
+  display: block;
+  margin-top: .2rem;
+  color: #64748b;
+  font-size: .75rem;
+}
+
+.print-editor-actions {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.editor-save-btn,
+.editor-reset-btn,
+.editor-add-btn,
+.editor-remove-btn {
+  border: 1px solid #dbe3ef;
+  border-radius: .65rem;
+  padding: .45rem .75rem;
+  font-size: .75rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.editor-save-btn {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+
+.editor-save-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.editor-reset-btn,
+.editor-add-btn {
+  background: #fff7e6;
+  color: #b56f00;
+}
+
+.editor-remove-btn {
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.print-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.print-editor-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+
+.print-editor-grid span {
+  color: #64748b;
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.print-editor input {
+  width: 100%;
+  height: 2.25rem;
+  border: 1px solid #dbe3ef;
+  border-radius: .65rem;
+  padding: 0 .65rem;
+  color: #1f2937;
+  outline: none;
+}
+
+.print-editor input:focus {
+  border-color: #f5a400;
+  box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
+}
+
+.print-editor-table-wrap {
+  margin-top: 1rem;
+  border-top: 1px dashed #dbe3ef;
+  padding-top: 1rem;
+}
+
+.print-editor-table-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: .75rem;
+}
+
+.print-editor-table {
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  overflow-x: auto;
+}
+
+.print-editor-row {
+  min-width: 920px;
+  display: grid;
+  grid-template-columns: 1.45fr .7fr .7fr .7fr .8fr 1fr 70px;
+  gap: .45rem;
+  align-items: center;
+}
+
+.print-editor-row-head {
+  color: #64748b;
+  font-size: .72rem;
+  font-weight: 900;
+  padding: 0 .25rem;
+}
+
+.print-editor-empty {
+  margin-top: .85rem;
+  color: #94a3b8;
+  font-size: .8rem;
+  font-weight: 800;
 }
 
 .template-editor {
@@ -1591,8 +1993,9 @@ function buildReceiptTemplateContent(config) {
 .logistics-row b {
   width: 31mm;
   border-bottom: 1.2px solid #000;
-  height: 4mm;
+  min-height: 4mm;
   display: inline-block;
+  text-align: center;
 }
 
 .notice {
@@ -1619,6 +2022,10 @@ function buildReceiptTemplateContent(config) {
 
   .remark-editor-list {
     grid-template-columns: 1fr;
+  }
+
+  .print-editor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .template-grid {

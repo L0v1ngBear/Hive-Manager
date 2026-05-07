@@ -46,8 +46,12 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 /**
  * PriceService 属于管理端后端价格模块，实现核心业务编排与规则逻辑。
  */
@@ -57,6 +61,16 @@ public class PriceService {
     private static final int STATUS_EXPIRED = 0;
     private static final int STATUS_ACTIVE = 1;
     private static final int STATUS_SCHEDULED = 2;
+    private static final int PRICE_IMPORT_COLUMN_COUNT = 7;
+    private static final int MAX_PRICE_IMPORT_ROWS = 10000;
+    private static final long MAX_IMPORT_FILE_SIZE_BYTES = 20L * 1024L * 1024L;
+    private static final int MAX_MODEL_CODE_LENGTH = 128;
+    private static final int MAX_BATCH_NO_LENGTH = 64;
+    private static final int MAX_SPEC_LENGTH = 255;
+    private static final int MAX_CURRENCY_LENGTH = 16;
+    private static final int MAX_REMARK_LENGTH = 500;
+    private static final BigDecimal MAX_BASE_PRICE = new BigDecimal("9999999999.99");
+    private static final List<String> PRICE_IMPORT_HEADERS = List.of("面料型号", "批号", "规格", "基准价", "币种", "生效日期", "备注");
 
     @Resource
     private PriceSkuMapper priceSkuMapper;
@@ -96,6 +110,7 @@ public class PriceService {
         stats.setAveragePrice(nvl(stats.getAveragePrice()));
         stats.setPendingCount(nvl(stats.getPendingCount()));
         Long overrideCount = priceCustomerOverrideMapper.selectCount(new LambdaQueryWrapper<PriceCustomerOverride>()
+                .eq(PriceCustomerOverride::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(PriceCustomerOverride::getIsDeleted, 0));
         stats.setOverrideCount(nvl(overrideCount));
         return stats;
@@ -107,6 +122,7 @@ public class PriceService {
         PriceSku sku = request.getId() == null ? null : priceSkuMapper.selectById(request.getId());
         if (sku == null) {
             sku = priceSkuMapper.selectOne(new LambdaQueryWrapper<PriceSku>()
+                    .eq(PriceSku::getTenantCode, tenantCode)
                     .eq(PriceSku::getModelCode, request.getModelCode())
                     .eq(PriceSku::getIsDeleted, 0)
                     .last("LIMIT 1"));
@@ -183,6 +199,7 @@ public class PriceService {
 
     public List<CustomerOptionVO> customerOptions(String keyword) {
         LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<Customer>()
+                .eq(Customer::getTenantCode, TenantPermissionContext.getTenantCode())
                 .orderByDesc(Customer::getId)
                 .last("LIMIT 50");
         if (StringUtils.hasText(keyword)) {
@@ -215,8 +232,10 @@ public class PriceService {
                         excelUtil.stringify(item.getRemark())
                 ))
                 .toList();
-        excelUtil.writeToResponse(response,
-                excelUtil.createWorkbook("价格列表", headers, rows),
+        excelUtil.writeRowsToResponse(response,
+                "价格列表",
+                headers,
+                rows,
                 "价格列表.xlsx");
     }
 
@@ -234,27 +253,35 @@ public class PriceService {
                 "导入时会复用价格发布逻辑，同型号将自动更新当前有效价格。",
                 "客户特价、等级价暂不在批量导入模板内，后续由业务自行补充。"
         );
-        excelUtil.writeToResponse(response,
-                excelUtil.createTemplateWorkbook("价格导入模板", headers, examples, notes),
+        excelUtil.writeTemplateToResponse(response,
+                "价格导入模板",
+                headers,
+                examples,
+                notes,
                 "价格导入模板.xlsx");
     }
 
     @Transactional(rollbackFor = Exception.class)
     public ImportResultVO importPrices(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new BusinessException("请先选择要导入的 Excel 文件");
-        }
+        validateImportFile(file);
         ImportResultVO result = new ImportResultVO();
+        Set<String> importedModelCodes = new HashSet<>();
         try (var inputStream = file.getInputStream(); var workbook = WorkbookFactory.create(inputStream)) {
             Sheet sheet = workbook.getSheetAt(0);
+            validateImportHeader(sheet.getRow(0), PRICE_IMPORT_HEADERS);
+            validateImportDataRows(sheet, PRICE_IMPORT_COLUMN_COUNT, MAX_PRICE_IMPORT_ROWS);
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
-                if (row == null || isEmptyRow(row, 7)) {
+                if (row == null || isEmptyRow(row, PRICE_IMPORT_COLUMN_COUNT)) {
                     continue;
                 }
                 result.setTotalCount(result.getTotalCount() + 1);
                 try {
-                    publish(buildImportRequest(row));
+                    PricePublishRequest request = buildImportRequest(row);
+                    if (!importedModelCodes.add(request.getModelCode())) {
+                        throw new BusinessException("面料型号在导入文件中重复：" + request.getModelCode());
+                    }
+                    publish(request);
                     result.setSuccessCount(result.getSuccessCount() + 1);
                 } catch (Exception ex) {
                     result.setFailCount(result.getFailCount() + 1);
@@ -263,8 +290,12 @@ public class PriceService {
                     }
                 }
             }
+        } catch (BusinessException e) {
+            throw e;
         } catch (IOException e) {
             throw new BusinessException("读取价格导入文件失败");
+        } catch (Exception e) {
+            throw new BusinessException("价格导入文件格式不正确，请使用系统下载的 .xlsx 模板");
         }
         return result;
     }
@@ -411,7 +442,8 @@ public class PriceService {
 
     private LambdaQueryWrapper<PriceSku> buildQueryWrapper(PricePageRequest request) {
         LambdaQueryWrapper<PriceSku> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PriceSku::getIsDeleted, 0)
+        wrapper.eq(PriceSku::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(PriceSku::getIsDeleted, 0)
                 .orderByDesc(PriceSku::getUpdateTime);
         // 分类字段已下线，这里只保留关键词和状态两个有效筛选入口。
         if (StringUtils.hasText(request.getKeyword())) {
@@ -437,30 +469,127 @@ public class PriceService {
     }
 
     private PricePublishRequest buildImportRequest(Row row) {
-        String modelCode = excelUtil.readString(row.getCell(0));
-        String batchNo = excelUtil.readString(row.getCell(1));
-        String spec = excelUtil.readString(row.getCell(2));
-        String basePriceText = excelUtil.readString(row.getCell(3));
-        String currency = excelUtil.readString(row.getCell(4));
-        LocalDate effectiveDate = excelUtil.readLocalDate(row.getCell(5));
-        String remark = excelUtil.readString(row.getCell(6));
-
-        if (!StringUtils.hasText(modelCode) || !StringUtils.hasText(basePriceText)) {
-            throw new BusinessException("面料型号、基准价不能为空");
-        }
+        String modelCode = requireImportText("面料型号", excelUtil.readString(row.getCell(0)), MAX_MODEL_CODE_LENGTH);
+        String batchNo = optionalImportText("批号", excelUtil.readString(row.getCell(1)), MAX_BATCH_NO_LENGTH);
+        String spec = optionalImportText("规格", excelUtil.readString(row.getCell(2)), MAX_SPEC_LENGTH);
+        BigDecimal basePrice = parseImportPrice(excelUtil.readString(row.getCell(3)));
+        String currency = normalizeImportCurrency(excelUtil.readString(row.getCell(4)));
+        LocalDate effectiveDate = readImportDate(row, 5, "生效日期", LocalDate.now());
+        String remark = optionalImportText("备注", excelUtil.readString(row.getCell(6)), MAX_REMARK_LENGTH);
 
         PricePublishRequest request = new PricePublishRequest();
-        request.setModelCode(modelCode.trim());
-        request.setBatchNo(blankToNull(batchNo));
-        request.setSpec(blankToNull(spec));
-        request.setBasePrice(new BigDecimal(basePriceText.trim()));
-        request.setCurrency(StringUtils.hasText(currency) ? currency.trim() : "CNY");
-        request.setEffectiveDate(effectiveDate == null ? LocalDate.now() : effectiveDate);
-        request.setRemark(blankToNull(remark));
+        request.setModelCode(modelCode);
+        request.setBatchNo(batchNo);
+        request.setSpec(spec);
+        request.setBasePrice(basePrice);
+        request.setCurrency(currency);
+        request.setEffectiveDate(effectiveDate);
+        request.setRemark(remark);
         return request;
     }
 
-    private String blankToNull(String value) {
-        return StringUtils.hasText(value) ? value.trim() : null;
+    private void validateImportFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("请先选择要导入的 Excel 文件");
+        }
+        if (file.getSize() > MAX_IMPORT_FILE_SIZE_BYTES) {
+            throw new BusinessException("导入文件不能超过 20MB");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (!StringUtils.hasText(originalFilename) || !originalFilename.trim().toLowerCase().endsWith(".xlsx")) {
+            throw new BusinessException("仅支持 .xlsx 格式，请先下载系统导入模板");
+        }
+    }
+
+    private void validateImportHeader(Row headerRow, List<String> expectedHeaders) {
+        if (headerRow == null) {
+            throw new BusinessException("导入文件缺少表头，请下载最新模板");
+        }
+        for (int i = 0; i < expectedHeaders.size(); i++) {
+            String actual = excelUtil.readString(headerRow.getCell(i));
+            String expected = expectedHeaders.get(i);
+            if (!expected.equals(actual)) {
+                throw new BusinessException("导入表头不匹配，第 " + (i + 1) + " 列应为：" + expected);
+            }
+        }
+    }
+
+    private void validateImportDataRows(Sheet sheet, int cellCount, int maxRows) {
+        if (sheet == null) {
+            throw new BusinessException("导入文件没有工作表");
+        }
+        int dataRows = 0;
+        for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+            Row row = sheet.getRow(i);
+            if (row == null || isEmptyRow(row, cellCount)) {
+                continue;
+            }
+            dataRows++;
+            if (dataRows > maxRows) {
+                throw new BusinessException("单次最多导入 " + maxRows + " 行，请拆分文件后重试");
+            }
+        }
+        if (dataRows == 0) {
+            throw new BusinessException("导入文件没有有效数据行");
+        }
+    }
+
+    private String requireImportText(String fieldName, String value, int maxLength) {
+        String normalized = optionalImportText(fieldName, value, maxLength);
+        if (!StringUtils.hasText(normalized)) {
+            throw new BusinessException(fieldName + "不能为空");
+        }
+        return normalized;
+    }
+
+    private String optionalImportText(String fieldName, String value, int maxLength) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new BusinessException(fieldName + "不能超过 " + maxLength + " 个字符");
+        }
+        return normalized;
+    }
+
+    private BigDecimal parseImportPrice(String value) {
+        String normalized = requireImportText("基准价", value, 32);
+        BigDecimal price;
+        try {
+            price = new BigDecimal(normalized);
+        } catch (NumberFormatException ex) {
+            throw new BusinessException("基准价必须是合法数字");
+        }
+        if (price.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("基准价必须大于 0");
+        }
+        if (price.compareTo(MAX_BASE_PRICE) > 0) {
+            throw new BusinessException("基准价不能超过 " + MAX_BASE_PRICE);
+        }
+        if (price.stripTrailingZeros().scale() > 2) {
+            throw new BusinessException("基准价最多保留 2 位小数");
+        }
+        return price.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private String normalizeImportCurrency(String currency) {
+        if (!StringUtils.hasText(currency)) {
+            return "CNY";
+        }
+        String normalized = optionalImportText("币种", currency, MAX_CURRENCY_LENGTH).toUpperCase(Locale.ROOT);
+        if (!normalized.matches("[A-Z]{3}")) {
+            throw new BusinessException("币种必须是 3 位大写字母，例如 CNY");
+        }
+        return normalized;
+    }
+
+    private LocalDate readImportDate(Row row, int cellIndex, String fieldName, LocalDate fallback) {
+        try {
+            LocalDate value = excelUtil.readLocalDate(row.getCell(cellIndex));
+            return value == null ? fallback : value;
+        } catch (DateTimeParseException ex) {
+            throw new BusinessException(fieldName + "格式必须为 yyyy-MM-dd");
+        }
     }
 }

@@ -14,6 +14,20 @@
           </p>
         </div>
         <div class="flex items-center gap-3">
+          <button
+              v-permission="'inventory:cloth:in'"
+              @click="handleTemplateDownload"
+              class="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl flex items-center gap-2 hover:bg-slate-50 transition-colors text-sm"
+          >
+            <span class="material-symbols-outlined text-[20px]">description</span>字段说明
+          </button>
+          <button
+              v-permission="'inventory:cloth:in'"
+              @click="triggerImport"
+              class="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl flex items-center gap-2 hover:bg-slate-50 transition-colors text-sm"
+          >
+            <span class="material-symbols-outlined text-[20px]">file_upload</span>导入外部库存
+          </button>
           <button @click="openInDrawer" class="function-action-primary">
             <span class="material-symbols-outlined text-[20px]">add_circle</span>新增入库
           </button>
@@ -258,6 +272,8 @@
       <div v-if="detailVisible || inVisible || outVisible" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity" @click="closePanels"></div>
     </transition>
 
+    <input ref="importInputRef" type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="handleImportChange" />
+
     <aside class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out" :class="detailVisible ? 'translate-x-0' : 'translate-x-full'">
       <div class="h-1.5 bg-blue-600 w-full"></div>
       <div class="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
@@ -406,13 +422,15 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
 import {
+  downloadInventoryImportTemplate,
   getInventoryPage,
   getInventorySummary,
   getInventoryTrend,
   getInventoryWarnings,
+  importInventory,
   getRecentInventoryRecords,
   inCloth,
   outCloth,
@@ -435,6 +453,7 @@ const inVisible = ref(false)
 const outVisible = ref(false)
 const detailRecord = ref(null)
 const outPreview = ref(null)
+const importInputRef = ref(null)
 const inForm = reactive({ barcode: '', modelCode: '', spec: '', meters: '' })
 const outForm = reactive({ barcode: '', meters: '' })
 
@@ -587,6 +606,40 @@ async function submitOut() {
   ElMessage.success('出库成功')
   outVisible.value = false
   await refreshAll()
+}
+
+async function handleTemplateDownload() {
+  const blob = await downloadInventoryImportTemplate()
+  downloadBlob(blob, '外部库存导入字段说明.xlsx')
+}
+
+function triggerImport() {
+  importInputRef.value?.click()
+}
+
+async function handleImportChange(event) {
+  const [file] = event.target.files || []
+  if (!file) return
+  try {
+    const result = await importInventory(file)
+    const failText = (result.failMessages || []).slice(0, 8).join('\n')
+    await ElMessageBox.alert(
+        `外部库存导入结果：成功 ${result.successCount} 条，失败 ${result.failCount} 条。${failText ? `\n\n部分失败原因：\n${failText}` : ''}`,
+        '外部库存导入结果'
+    )
+    await refreshAll()
+  } finally {
+    event.target.value = ''
+  }
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 function trendWidth(value) {

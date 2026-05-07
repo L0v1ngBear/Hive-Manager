@@ -3,7 +3,8 @@ import request from '@/utils/request.js'
 export function getDashboardOverview() {
   return request({
     url: '/dashboard/overview',
-    method: 'get'
+    method: 'get',
+    cacheTtl: 5000
   })
 }
 
@@ -11,7 +12,8 @@ export function getDashboardAiAdvices(params = {}) {
   return request({
     url: '/dashboard/ai-advices',
     method: 'get',
-    params
+    params,
+    cacheTtl: 5000
   })
 }
 

@@ -20,9 +20,12 @@ import my.management.module.employee.model.entity.EmployeeExt;
 import my.management.module.employee.model.entity.Position;
 import my.management.module.label.service.LabelTemplateService;
 import my.management.module.tenant.mapper.TenantMapper;
+import my.management.module.tenant.mapper.TenantUsageMeterMapper;
 import my.management.module.tenant.model.dto.TenantCreateRequest;
+import my.management.module.tenant.model.dto.TenantLicenseUpdateRequest;
 import my.management.module.tenant.model.dto.TenantPageRequest;
 import my.management.module.tenant.model.entity.Tenant;
+import my.management.module.tenant.model.entity.TenantUsageMeter;
 import my.management.module.tenant.model.vo.TenantDetailVO;
 import my.management.module.tenant.model.vo.TenantPageVO;
 import my.management.module.sys.mapper.SysPermissionMapper;
@@ -46,6 +49,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 /**
@@ -59,6 +63,7 @@ public class TenantManageService {
     private static final long DEFAULT_PAGE_SIZE = 10L;
     private static final long MAX_PAGE_SIZE = 200L;
     private static final DefaultRedisScript<Long> RELEASE_LOCK_SCRIPT = buildReleaseLockScript();
+    private static final String METER_AI_ADVICE = "AI_ADVICE";
 
     private static final Map<String, String> MODULE_ROLE_NAME_MAP = Map.of(
             "document:*", "文档管理员",
@@ -74,6 +79,9 @@ public class TenantManageService {
 
     @Resource
     private TenantMapper tenantMapper;
+
+    @Resource
+    private TenantUsageMeterMapper tenantUsageMeterMapper;
 
     @Resource
     private SysRoleMapper sysRoleMapper;
@@ -120,6 +128,9 @@ public class TenantManageService {
     @Resource
     private TiandituGeocodeService tiandituGeocodeService;
 
+    @Resource
+    private TenantLicenseService tenantLicenseService;
+
     /**
      * 新租户负责人初始密码从配置读取，线上可通过环境变量单独轮换。
      */
@@ -147,6 +158,7 @@ public class TenantManageService {
         Page<Tenant> tenantPage = tenantMapper.selectPage(page, wrapper);
         Page<TenantPageVO> result = new Page<>(tenantPage.getCurrent(), tenantPage.getSize(), tenantPage.getTotal());
         List<TenantPageVO> records = tenantPage.getRecords().stream().map(this::toPageVO).toList();
+        fillCurrentMonthUsage(records);
         result.setRecords(records);
         return result;
     }
@@ -212,6 +224,7 @@ public class TenantManageService {
         tenant.setStatus(1);
         tenant.setDeleted(0);
         tenant.setCreator(TenantPermissionContext.getUserId());
+        tenantLicenseService.applyDefaultTrial(tenant);
         tenantMapper.insert(tenant);
 
         Long ownerRoleId = initTenantOwnerRole(tenantCode);
@@ -224,15 +237,23 @@ public class TenantManageService {
         return tenant.getId();
     }
 
-    private void clearTenantRuntimeCache(String tenantCode) {
-        try {
-            stringRedisTemplate.delete(List.of(
-                    redisKeyBuilder.cache("tenant", "status", tenantCode),
-                    redisKeyBuilder.cache("tenant", "attendance-rule", tenantCode)
-            ));
-            stringRedisTemplate.opsForHash().delete("companyAttendanceRule", tenantCode);
-        } catch (Exception ignored) {
+    @Transactional(rollbackFor = Exception.class)
+    public void updateLicense(TenantLicenseUpdateRequest request) {
+        ensureDeveloperAccess();
+        if (request == null || request.getId() == null || request.getId() <= 0) {
+            throw new BusinessException("租户授权参数不完整");
         }
+        Tenant tenant = tenantMapper.selectById(request.getId());
+        if (tenant == null || Integer.valueOf(1).equals(tenant.getDeleted())) {
+            throw new BusinessException("租户不存在");
+        }
+        tenantLicenseService.applyLicenseUpdate(tenant, request);
+        tenantMapper.updateById(tenant);
+        clearTenantRuntimeCache(tenant.getTenantCode());
+    }
+
+    private void clearTenantRuntimeCache(String tenantCode) {
+        tenantLicenseService.clearTenantRuntimeCache(tenantCode);
     }
 
     private void releaseTenantCreateLock(String lockKey, String lockValue) {
@@ -243,6 +264,32 @@ public class TenantManageService {
         TenantPageVO vo = new TenantPageVO();
         BeanUtils.copyProperties(tenant, vo);
         return vo;
+    }
+
+    private void fillCurrentMonthUsage(List<TenantPageVO> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        List<String> tenantCodes = records.stream()
+                .map(TenantPageVO::getTenantCode)
+                .filter(code -> code != null && !code.isBlank())
+                .distinct()
+                .toList();
+        if (tenantCodes.isEmpty()) {
+            return;
+        }
+        String periodKey = YearMonth.now().toString().replace("-", "");
+        List<TenantUsageMeter> meters = tenantUsageMeterMapper.selectList(new LambdaQueryWrapper<TenantUsageMeter>()
+                .in(TenantUsageMeter::getTenantCode, tenantCodes)
+                .eq(TenantUsageMeter::getMeterType, METER_AI_ADVICE)
+                .eq(TenantUsageMeter::getPeriodKey, periodKey));
+        Map<String, Integer> usedMap = meters == null ? Map.of() : meters.stream()
+                .collect(Collectors.toMap(
+                        TenantUsageMeter::getTenantCode,
+                        meter -> meter.getUsedCount() == null ? 0 : meter.getUsedCount(),
+                        Math::max
+                ));
+        records.forEach(record -> record.setAiAdviceUsedThisMonth(usedMap.getOrDefault(record.getTenantCode(), 0)));
     }
 
     private void initTenantModuleRoles(String tenantCode) {

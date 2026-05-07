@@ -5,6 +5,7 @@ import jakarta.annotation.Resource;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
+import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.order.model.dto.ProductionOrderPageRequest;
 import my.management.module.order.model.dto.ProductionOrderSaveRequest;
 import my.management.module.order.model.dto.ProductionOrderUpdateRequest;
@@ -43,6 +44,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/order")
+@RequireTenantFeature("module.order")
 @Validated
 public class OrderController {
 

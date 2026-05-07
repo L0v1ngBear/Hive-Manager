@@ -31,4 +31,8 @@ public class OutboundItem {
     private BigDecimal price;
 
     private BigDecimal totalAmount;
+
+    private String remark;
+
+    private String requestId;
 }

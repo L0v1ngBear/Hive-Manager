@@ -12,6 +12,10 @@ export function getRawPrintCommand(params) {
   return request({ url: '/receipt/print/raw-command', method: 'get', params })
 }
 
+export function updatePrintDetail(data) {
+  return request({ url: '/receipt/print/update', method: 'post', data })
+}
+
 export function markPrinted(params) {
   return request({ url: '/receipt/print/mark-printed', method: 'post', params })
 }

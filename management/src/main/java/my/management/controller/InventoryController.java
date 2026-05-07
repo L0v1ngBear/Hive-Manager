@@ -1,10 +1,13 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
+import my.management.common.vo.ImportResultVO;
+import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.inventory.model.dto.InventoryInRequest;
 import my.management.module.inventory.model.dto.InventoryOutRequest;
 import my.management.module.inventory.model.dto.InventoryPageRequest;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -29,6 +33,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/inventory")
+@RequireTenantFeature("module.inventory")
 public class InventoryController {
 
     @Resource
@@ -88,5 +93,17 @@ public class InventoryController {
     public Result<Void> out(@Valid @RequestBody InventoryOutRequest request) {
         inventoryService.out(request);
         return Result.success(null);
+    }
+
+    @GetMapping("/import-template")
+    @RequirePermission(value = "inventory:cloth:in", message = "您没有权限下载库存导入模板")
+    public void downloadImportTemplate(HttpServletResponse response) {
+        inventoryService.downloadImportTemplate(response);
+    }
+
+    @PostMapping("/import")
+    @RequirePermission(value = "inventory:cloth:in", message = "您没有权限导入库存数据")
+    public Result<ImportResultVO> importInventory(@RequestParam("file") MultipartFile file) {
+        return Result.success(inventoryService.importInventory(file));
     }
 }

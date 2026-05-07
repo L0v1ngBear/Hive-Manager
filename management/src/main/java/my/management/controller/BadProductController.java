@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
+import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.badproduct.model.dto.BadProductPageRequest;
 import my.management.module.badproduct.model.dto.BadProductProcessRequest;
 import my.management.module.badproduct.model.dto.BadProductSaveRequest;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/bad-product")
+@RequireTenantFeature("module.badProduct")
 public class BadProductController {
 
     @Resource

@@ -42,6 +42,7 @@ import my.management.module.sys.mapper.SysRoleMapper;
 import my.management.module.sys.mapper.SysUserRoleMapper;
 import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.model.entity.SysUserRole;
+import my.management.module.tenant.service.TenantLicenseService;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
@@ -53,6 +54,7 @@ import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -61,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 /**
  * EmployeeService 属于管理端后端员工模块，实现核心业务编排与规则逻辑。
  */
@@ -74,6 +77,20 @@ public class EmployeeService {
     private static final int DEFAULT_PAGE_NUM = 1;
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final int MAX_PAGE_SIZE = 200;
+    private static final int EMPLOYEE_IMPORT_COLUMN_COUNT = 11;
+    private static final int MAX_EMPLOYEE_IMPORT_ROWS = 5000;
+    private static final long MAX_IMPORT_FILE_SIZE_BYTES = 20L * 1024L * 1024L;
+    private static final int MAX_NAME_LENGTH = 50;
+    private static final int MAX_PHONE_LENGTH = 20;
+    private static final int MAX_DEPARTMENT_LENGTH = 64;
+    private static final int MAX_POSITION_LENGTH = 50;
+    private static final int MAX_EMAIL_LENGTH = 128;
+    private static final int MAX_LEADER_NAME_LENGTH = 64;
+    private static final int MAX_ROLE_NAMES_LENGTH = 500;
+    private static final int MAX_REMARK_LENGTH = 500;
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
+    private static final List<String> EMPLOYEE_IMPORT_HEADERS = List.of(
+            "姓名", "手机号", "部门", "职位", "状态", "员工类型", "入职日期", "邮箱", "直属领导姓名", "角色名称", "备注");
 
     @Resource
     private EmployeeMapper employeeMapper;
@@ -110,6 +127,9 @@ public class EmployeeService {
 
     @Resource
     private PrivacyProtectionUtil privacyProtectionUtil;
+
+    @Resource
+    private TenantLicenseService tenantLicenseService;
 
     /**
      * 新员工初始密码从配置读取，避免敏感默认值固定写死在代码中。
@@ -168,6 +188,7 @@ public class EmployeeService {
 
     @Transactional(rollbackFor = Exception.class)
     public Long create(@Valid EmployeeCreateRequest request) {
+        tenantLicenseService.ensureUserQuotaAvailable(TenantPermissionContext.getTenantCode());
         Department department = requireDepartment(request.getDepartmentId());
         Position position = requirePosition(request.getPositionId());
         String leaderName = normalizeLeaderName(request.getLeaderName());
@@ -398,8 +419,10 @@ public class EmployeeService {
                         excelUtil.stringify(item.getEntryDate())
                 ))
                 .toList();
-        excelUtil.writeToResponse(response,
-                excelUtil.createWorkbook("员工列表", headers, rows),
+        excelUtil.writeRowsToResponse(response,
+                "员工列表",
+                headers,
+                rows,
                 "员工列表.xlsx");
     }
 
@@ -419,27 +442,36 @@ public class EmployeeService {
                 "角色名称可填多个，使用英文逗号、中文逗号或顿号分隔；角色必须已存在。",
                 "若部门或职位不存在，系统会自动创建启用中的部门和职位。"
         );
-        excelUtil.writeToResponse(response,
-                excelUtil.createTemplateWorkbook("员工导入模板", headers, examples, notes),
+        excelUtil.writeTemplateToResponse(response,
+                "员工导入模板",
+                headers,
+                examples,
+                notes,
                 "员工导入模板.xlsx");
     }
 
     @Transactional(rollbackFor = Exception.class)
     public ImportResultVO importEmployees(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new BusinessException("请先选择要导入的 Excel 文件");
-        }
+        validateImportFile(file);
         ImportResultVO result = new ImportResultVO();
+        Set<String> importedPhones = new HashSet<>();
         try (var inputStream = file.getInputStream(); var workbook = WorkbookFactory.create(inputStream)) {
             Sheet sheet = workbook.getSheetAt(0);
+            validateImportHeader(sheet.getRow(0), EMPLOYEE_IMPORT_HEADERS);
+            validateImportDataRows(sheet, EMPLOYEE_IMPORT_COLUMN_COUNT, MAX_EMPLOYEE_IMPORT_ROWS);
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
-                if (row == null || isEmptyRow(row, 11)) {
+                if (row == null || isEmptyRow(row, EMPLOYEE_IMPORT_COLUMN_COUNT)) {
                     continue;
                 }
                 result.setTotalCount(result.getTotalCount() + 1);
                 try {
-                    create(buildImportRequest(row));
+                    EmployeeCreateRequest request = buildImportRequest(row);
+                    String normalizedPhone = requireNormalizedPhone(request.getPhone());
+                    if (!importedPhones.add(normalizedPhone)) {
+                        throw new BusinessException("手机号在导入文件中重复：" + privacyProtectionUtil.maskPhone(normalizedPhone));
+                    }
+                    create(request);
                     result.setSuccessCount(result.getSuccessCount() + 1);
                 } catch (Exception ex) {
                     result.setFailCount(result.getFailCount() + 1);
@@ -448,8 +480,12 @@ public class EmployeeService {
                     }
                 }
             }
+        } catch (BusinessException e) {
+            throw e;
         } catch (IOException e) {
             throw new BusinessException("读取员工导入文件失败");
+        } catch (Exception e) {
+            throw new BusinessException("员工导入文件格式不正确，请使用系统下载的 .xlsx 模板");
         }
         return result;
     }
@@ -704,14 +740,18 @@ public class EmployeeService {
     }
 
     private EmployeeCreateRequest buildImportRequest(Row row) {
-        String name = excelUtil.readString(row.getCell(0));
-        String phone = excelUtil.readString(row.getCell(1));
-        String departmentName = excelUtil.readString(row.getCell(2));
-        String positionName = excelUtil.readString(row.getCell(3));
-        if (!StringUtils.hasText(name) || !StringUtils.hasText(phone) || !StringUtils.hasText(departmentName) || !StringUtils.hasText(positionName)) {
-            throw new BusinessException("姓名、手机号、部门、职位不能为空");
-        }
-        ensurePhoneNotExists(phone);
+        String name = requireImportText("姓名", excelUtil.readString(row.getCell(0)), MAX_NAME_LENGTH);
+        String phone = requireNormalizedImportPhone(excelUtil.readString(row.getCell(1)));
+        String departmentName = requireImportText("部门", excelUtil.readString(row.getCell(2)), MAX_DEPARTMENT_LENGTH);
+        String positionName = requireImportText("职位", excelUtil.readString(row.getCell(3)), MAX_POSITION_LENGTH);
+        String statusText = optionalImportText("状态", excelUtil.readString(row.getCell(4)), 10);
+        String employeeTypeText = optionalImportText("员工类型", excelUtil.readString(row.getCell(5)), 20);
+        LocalDate entryDate = readImportDate(row, 6, "入职日期", LocalDate.now());
+        String email = optionalImportText("邮箱", excelUtil.readString(row.getCell(7)), MAX_EMAIL_LENGTH);
+        validateImportEmail(email);
+        String leaderName = optionalImportText("直属领导姓名", excelUtil.readString(row.getCell(8)), MAX_LEADER_NAME_LENGTH);
+        String roleNames = optionalImportText("角色名称", excelUtil.readString(row.getCell(9)), MAX_ROLE_NAMES_LENGTH);
+        String remark = optionalImportText("备注", excelUtil.readString(row.getCell(10)), MAX_REMARK_LENGTH);
 
         Department department = getOrCreateDepartment(departmentName);
         Position position = getOrCreatePosition(positionName, department.getId());
@@ -721,13 +761,13 @@ public class EmployeeService {
         request.setPhone(phone);
         request.setDepartmentId(department.getId());
         request.setPositionId(position.getId());
-        request.setStatus(parseStatus(excelUtil.readString(row.getCell(4))));
-        request.setEmployeeType(parseEmployeeType(excelUtil.readString(row.getCell(5))));
-        request.setEntryDate(Objects.requireNonNullElse(excelUtil.readLocalDate(row.getCell(6)), LocalDate.now()));
-        request.setEmail(blankToNull(excelUtil.readString(row.getCell(7))));
-        request.setLeaderName(blankToNull(excelUtil.readString(row.getCell(8))));
-        request.setRoleIds(findRoleIdsByNames(blankToNull(excelUtil.readString(row.getCell(9)))));
-        request.setRemark(blankToNull(excelUtil.readString(row.getCell(10))));
+        request.setStatus(parseStatus(statusText));
+        request.setEmployeeType(parseEmployeeType(employeeTypeText));
+        request.setEntryDate(entryDate);
+        request.setEmail(email);
+        request.setLeaderName(leaderName);
+        request.setRoleIds(findRoleIdsByNames(roleNames));
+        request.setRemark(remark);
         return request;
     }
 
@@ -765,7 +805,10 @@ public class EmployeeService {
 
     private Department getOrCreateDepartment(String departmentName) {
         Department department = departmentMapper.selectOne(new LambdaQueryWrapper<Department>()
+                .eq(Department::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Department::getDeptName, departmentName)
+                .eq(Department::getStatus, 1)
+                .eq(Department::getIsDeleted, 0)
                 .last("LIMIT 1"));
         if (department != null) {
             return department;
@@ -783,7 +826,11 @@ public class EmployeeService {
 
     private Position getOrCreatePosition(String positionName, Long departmentId) {
         Position position = positionMapper.selectOne(new LambdaQueryWrapper<Position>()
+                .eq(Position::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Position::getPositionName, positionName)
+                .eq(Position::getDepartmentId, departmentId)
+                .eq(Position::getStatus, 1)
+                .eq(Position::getIsDeleted, 0)
                 .last("LIMIT 1"));
         if (position != null) {
             return position;
@@ -821,7 +868,7 @@ public class EmployeeService {
             throw new BusinessException("请填写完整手机号后再保存");
         }
         String normalizedPhone = privacyProtectionUtil.normalizePhone(phone);
-        if (!StringUtils.hasText(normalizedPhone) || normalizedPhone.length() < 7) {
+        if (!StringUtils.hasText(normalizedPhone) || normalizedPhone.length() < 7 || normalizedPhone.length() > MAX_PHONE_LENGTH) {
             throw new BusinessException("手机号格式不正确");
         }
         return normalizedPhone;
@@ -909,5 +956,96 @@ public class EmployeeService {
 
     private String blankToNull(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private void validateImportFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("请先选择要导入的 Excel 文件");
+        }
+        if (file.getSize() > MAX_IMPORT_FILE_SIZE_BYTES) {
+            throw new BusinessException("导入文件不能超过 20MB");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (!StringUtils.hasText(originalFilename) || !originalFilename.trim().toLowerCase().endsWith(".xlsx")) {
+            throw new BusinessException("仅支持 .xlsx 格式，请先下载系统导入模板");
+        }
+    }
+
+    private void validateImportHeader(Row headerRow, List<String> expectedHeaders) {
+        if (headerRow == null) {
+            throw new BusinessException("导入文件缺少表头，请下载最新模板");
+        }
+        for (int i = 0; i < expectedHeaders.size(); i++) {
+            String actual = excelUtil.readString(headerRow.getCell(i));
+            String expected = expectedHeaders.get(i);
+            if (!expected.equals(actual)) {
+                throw new BusinessException("导入表头不匹配，第 " + (i + 1) + " 列应为：" + expected);
+            }
+        }
+    }
+
+    private void validateImportDataRows(Sheet sheet, int cellCount, int maxRows) {
+        if (sheet == null) {
+            throw new BusinessException("导入文件没有工作表");
+        }
+        int dataRows = 0;
+        for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+            Row row = sheet.getRow(i);
+            if (row == null || isEmptyRow(row, cellCount)) {
+                continue;
+            }
+            dataRows++;
+            if (dataRows > maxRows) {
+                throw new BusinessException("单次最多导入 " + maxRows + " 行，请拆分文件后重试");
+            }
+        }
+        if (dataRows == 0) {
+            throw new BusinessException("导入文件没有有效数据行");
+        }
+    }
+
+    private String requireImportText(String fieldName, String value, int maxLength) {
+        String normalized = optionalImportText(fieldName, value, maxLength);
+        if (!StringUtils.hasText(normalized)) {
+            throw new BusinessException(fieldName + "不能为空");
+        }
+        return normalized;
+    }
+
+    private String optionalImportText(String fieldName, String value, int maxLength) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) {
+            throw new BusinessException(fieldName + "不能超过 " + maxLength + " 个字符");
+        }
+        return normalized;
+    }
+
+    private String requireNormalizedImportPhone(String phone) {
+        String normalizedPhone = requireNormalizedPhone(phone);
+        if (normalizedPhone.length() > MAX_PHONE_LENGTH) {
+            throw new BusinessException("手机号不能超过 " + MAX_PHONE_LENGTH + " 位");
+        }
+        return normalizedPhone;
+    }
+
+    private void validateImportEmail(String email) {
+        if (!StringUtils.hasText(email)) {
+            return;
+        }
+        if (!EMAIL_PATTERN.matcher(email).matches()) {
+            throw new BusinessException("邮箱格式不正确");
+        }
+    }
+
+    private LocalDate readImportDate(Row row, int cellIndex, String fieldName, LocalDate fallback) {
+        try {
+            LocalDate value = excelUtil.readLocalDate(row.getCell(cellIndex));
+            return value == null ? fallback : value;
+        } catch (DateTimeParseException ex) {
+            throw new BusinessException(fieldName + "格式必须为 yyyy-MM-dd");
+        }
     }
 }

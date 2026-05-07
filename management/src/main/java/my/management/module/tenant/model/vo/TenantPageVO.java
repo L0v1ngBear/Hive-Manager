@@ -23,5 +23,25 @@ public class TenantPageVO {
 
     private Integer status;
 
+    private String packageCode;
+
+    private String packageName;
+
+    private String subscriptionStatus;
+
+    private LocalDateTime subscriptionStartTime;
+
+    private LocalDateTime subscriptionEndTime;
+
+    private Integer maxUsers;
+
+    private Integer maxAiAdvicePerMonth;
+
+    private Integer aiAdviceUsedThisMonth;
+
+    private Integer maxStorageMb;
+
+    private String featureFlags;
+
     private LocalDateTime createTime;
 }

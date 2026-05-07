@@ -3,6 +3,7 @@ package my.management.module.receipt.model.vo;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +19,17 @@ public class OutboundPrintDetailVO {
 
     private String customerName;
 
+    private String projectName;
+
     private String operator;
+
+    private LocalDate printDate;
+
+    private String logisticsCompany;
+
+    private String logisticsNo;
+
+    private Integer printEditCount;
 
     private LocalDateTime createTime;
 

@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
+import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.sys.model.dto.SysRoleAddRequest;
 import my.management.module.sys.model.dto.SysRoleUpdateRequest;
 import my.management.module.sys.model.entity.SysRole;
@@ -28,6 +29,7 @@ import java.util.Set;
  */
 @RestController
 @RequestMapping("/sys/role")
+@RequireTenantFeature("module.role")
 @Validated
 public class RoleController {
 

@@ -103,6 +103,19 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div
+              v-if="aiAdviceLoading && !aiAdvices.length"
+              class="lg:col-span-2 rounded-2xl border border-dashed border-primary/25 bg-primary/5 px-4 py-6 text-sm font-bold text-primary flex items-center justify-center gap-2"
+          >
+            <span class="material-symbols-outlined animate-spin text-[22px]">progress_activity</span>
+            AI 洞察正在后台加载，不影响大盘数据查看
+          </div>
+          <div
+              v-else-if="!aiAdvices.length"
+              class="lg:col-span-2 rounded-2xl border border-dashed border-outline-variant/40 bg-surface-container-low px-4 py-6 text-sm font-bold text-on-surface-variant text-center"
+          >
+            暂无可展示的 AI 洞察，系统会在数据沉淀后自动生成
+          </div>
+          <div
               v-for="(item, index) in aiAdvices"
               :key="`${item.category}-${index}`"
               class="rounded-2xl p-4 border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
@@ -282,7 +295,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { getDashboardOverview } from './api/dashboard.js'
+import { getDashboardAiAdvices, getDashboardOverview } from './api/dashboard.js'
 import { trackBehavior } from '@/utils/behavior'
 
 defineOptions({ name: 'DashboardOverview' })
@@ -291,6 +304,7 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const loading = ref(false)
+const aiAdviceLoading = ref(false)
 const summary = ref({
   monthOrderCount: 0,
   totalInventoryMeters: 0,
@@ -358,12 +372,34 @@ const fetchOverview = async () => {
     quickActions.value = Array.isArray(data?.quickActions) ? data.quickActions : []
     aiAdvices.value = visibility.value.aiAdviceVisible && Array.isArray(data?.aiAdvices) ? data.aiAdvices : []
     if (visibility.value.aiAdviceVisible) {
-      trackDashboardAdviceExposure()
+      if (aiAdvices.value.length) {
+        trackDashboardAdviceExposure()
+      } else {
+        fetchDashboardAiAdvices()
+      }
     }
   } catch (error) {
     ElMessage.error(error?.msg || '总览数据加载失败，请稍后重试')
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchDashboardAiAdvices() {
+  if (!visibility.value.aiAdviceVisible || aiAdviceLoading.value) {
+    return
+  }
+  aiAdviceLoading.value = true
+  try {
+    const data = await getDashboardAiAdvices({ limit: 4 })
+    aiAdvices.value = Array.isArray(data) ? data : []
+    if (aiAdvices.value.length) {
+      trackDashboardAdviceExposure()
+    }
+  } catch (error) {
+    aiAdvices.value = []
+  } finally {
+    aiAdviceLoading.value = false
   }
 }
 

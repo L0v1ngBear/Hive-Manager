@@ -4,6 +4,7 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.Result;
+import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.organization.model.dto.OrganizationDepartmentSaveRequest;
 import my.management.module.organization.model.vo.OrganizationEmployeeVO;
 import my.management.module.organization.model.vo.OrganizationOverviewVO;
@@ -23,6 +24,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/organization")
+@RequireTenantFeature("module.employee")
 public class OrganizationController {
 
     @Resource

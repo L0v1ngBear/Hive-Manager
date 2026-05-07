@@ -8,9 +8,12 @@ import my.hive.common.auth.AuthUserInfo;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.Result;
 import my.hive.common.tenant.TenantIsolationSupport;
+import my.hive.common.utils.ResponseEncryptUtil;
 import my.management.common.utils.PermissionCacheUtil;
 import my.hive.common.utils.TokenUtil;
 import my.management.module.auth.mapper.AuthMapper;
+import my.management.module.tenant.service.TenantLicenseService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -35,6 +38,18 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
     @Resource
     private TenantIsolationSupport tenantIsolationSupport;
 
+    @Resource
+    private ResponseEncryptUtil responseEncryptUtil;
+
+    @Resource
+    private TenantLicenseService tenantLicenseService;
+
+    @Value("${auth.token.renew-enabled:true}")
+    private boolean tokenRenewEnabled;
+
+    @Value("${auth.token.renew-before-minutes:120}")
+    private long tokenRenewBeforeMinutes;
+
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
@@ -56,6 +71,13 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
         // FIELD 模式下这里是空操作；未来 DATABASE 模式会先切到租户库，再查询租户内权限。
         tenantIsolationSupport.bindTenantDatasource(authUserInfo.getTenantCode());
 
+        try {
+            tenantLicenseService.ensureTenantUsable(authUserInfo.getTenantCode());
+        } catch (my.hive.common.exception.BusinessException ex) {
+            writeErrorResponse(response, HttpStatus.FORBIDDEN, ex.getCode(), ex.getMsg());
+            return false;
+        }
+
         Set<String> permCodes = permissionCacheUtil.get(authUserInfo.getTenantCode(), authUserInfo.getUserId());
         if (permCodes == null) {
             List<String> permissionList = authMapper.selectPermCodesByUserIdAndTenantCode(authUserInfo.getUserId(), authUserInfo.getTenantCode());
@@ -63,6 +85,7 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
             permissionCacheUtil.put(authUserInfo.getTenantCode(), authUserInfo.getUserId(), permCodes);
         }
         TenantPermissionContext.init(authUserInfo.getTenantCode(), authUserInfo.getUserId(), permCodes);
+        maybeRenewToken(response, authUserInfo);
         return true;
     }
 
@@ -81,5 +104,20 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
             objectMapper.writeValue(writer, errorResult);
             writer.flush();
         }
+    }
+
+    private void maybeRenewToken(HttpServletResponse response, AuthUserInfo authUserInfo) {
+        if (!tokenRenewEnabled || response.isCommitted() || !TokenUtil.shouldRenew(authUserInfo, tokenRenewBeforeMinutes)) {
+            return;
+        }
+        String renewedToken = TokenUtil.createToken(authUserInfo.getUserId(), authUserInfo.getTenantCode());
+        AuthUserInfo renewedUserInfo = TokenUtil.parseToken(renewedToken);
+        if (renewedUserInfo == null || renewedUserInfo.getExpireAt() == null) {
+            return;
+        }
+        String renewedResponseKey = responseEncryptUtil.buildResponseKey(renewedToken);
+        response.setHeader(TokenUtil.HEADER_RENEWED_TOKEN, renewedToken);
+        response.setHeader(TokenUtil.HEADER_RENEWED_EXPIRE_AT, String.valueOf(renewedUserInfo.getExpireAt()));
+        response.setHeader(TokenUtil.HEADER_RENEWED_RESPONSE_KEY, renewedResponseKey);
     }
 }

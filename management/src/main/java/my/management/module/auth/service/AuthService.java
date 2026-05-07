@@ -23,6 +23,7 @@ import my.management.module.auth.model.vo.LoginUserRow;
 import my.management.module.auth.model.vo.LoginVO;
 import my.management.module.auth.model.vo.WebScanSessionVO;
 import my.management.module.auth.model.vo.WebScanStatusVO;
+import my.management.module.tenant.service.TenantLicenseService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -68,6 +69,9 @@ public class AuthService {
 
     @Resource
     private HiveRedisKeyBuilder redisKeyBuilder;
+
+    @Resource
+    private TenantLicenseService tenantLicenseService;
 
     @Value("${auth.login.max-fail-count:5}")
     private Long maxFailCount;
@@ -235,6 +239,7 @@ public class AuthService {
         loginVO.setDeveloper("super".equalsIgnoreCase(loginUser.getTenantCode()));
         loginVO.setResponseKey(responseEncryptUtil.buildResponseKey(token));
         loginVO.setPermissions(List.copyOf(permCodes));
+        loginVO.setFeatures(tenantLicenseService.enabledFeatureKeys(loginUser.getTenantCode()));
         return loginVO;
     }
 

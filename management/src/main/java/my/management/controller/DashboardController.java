@@ -4,6 +4,7 @@ import jakarta.annotation.Resource;
 import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.Result;
+import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.ai.model.dto.AiAdviceFeedbackRequest;
 import my.management.module.ai.model.vo.AiAdviceDailyBriefVO;
 import my.management.module.ai.model.vo.AiAdviceEvolutionReportVO;
@@ -26,6 +27,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/dashboard")
+@RequireTenantFeature("module.dashboard")
 public class DashboardController {
 
     @Resource
@@ -43,8 +45,9 @@ public class DashboardController {
     }
 
     @GetMapping("/ai-advices")
-    public Result<List<DashboardAiAdviceVO>> aiAdvices(@RequestParam(defaultValue = "false") Boolean refresh) {
-        return Result.success(dashboardService.aiAdvices(Boolean.TRUE.equals(refresh)));
+    public Result<List<DashboardAiAdviceVO>> aiAdvices(@RequestParam(defaultValue = "false") Boolean refresh,
+                                                       @RequestParam(required = false) Integer limit) {
+        return Result.success(dashboardService.aiAdvices(Boolean.TRUE.equals(refresh), limit));
     }
 
     @GetMapping("/ai-brief")

@@ -31,11 +31,23 @@ public class Document implements Serializable {
     @TableField("name")
     private String name;
 
+    @TableField("original_name")
+    private String originalName;
+
     @TableField("type")
     private Integer type;
 
     @TableField("file_url")
     private String fileUrl;
+
+    @TableField("storage_provider")
+    private String storageProvider;
+
+    @TableField("storage_bucket")
+    private String storageBucket;
+
+    @TableField("storage_object_key")
+    private String storageObjectKey;
 
     @TableField("file_size")
     private Long fileSize;
@@ -45,6 +57,15 @@ public class Document implements Serializable {
 
     @TableField("mime_type")
     private String mimeType;
+
+    @TableField("file_hash")
+    private String fileHash;
+
+    @TableField("etag")
+    private String etag;
+
+    @TableField("upload_status")
+    private String uploadStatus;
 
     @TableField("creator_id")
     private Long creatorId;

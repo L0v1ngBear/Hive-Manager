@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import my.hive.common.annotation.RequirePermission;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
+import my.management.common.tenant.RequireTenantFeature;
 import my.management.common.vo.ImportResultVO;
 import my.management.module.employee.model.dto.EmployeeBatchUpdateRequest;
 import my.management.module.employee.model.dto.EmployeeCreateRequest;
@@ -37,6 +38,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/emp/employee")
+@RequireTenantFeature("module.employee")
 @Validated
 public class EmployeeController {
 

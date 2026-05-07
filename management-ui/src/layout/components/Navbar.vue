@@ -124,16 +124,16 @@
             <p class="text-sm font-black text-on-surface">{{ displayName }}</p>
             <p class="mt-1 text-xs text-on-surface-variant">租户：{{ tenantCode }}</p>
           </div>
-          <button v-if="!isPlatformSuper" class="navbar-menu-item" @click="goRoute('/dashboard')">
+          <button v-if="!isPlatformSuper && canAccessSearchTarget('/dashboard')" class="navbar-menu-item" @click="goRoute('/dashboard')">
             <span class="material-symbols-outlined">dashboard</span>回到总览大盘
           </button>
-          <button v-if="!isPlatformSuper" class="navbar-menu-item" @click="goApproval">
+          <button v-if="!isPlatformSuper && canAccessSearchTarget('/function/approval')" class="navbar-menu-item" @click="goApproval">
             <span class="material-symbols-outlined">approval</span>查看审批中心
           </button>
           <button v-if="isPlatformSuper" class="navbar-menu-item" @click="goRoute('/platform/tenant')">
             <span class="material-symbols-outlined">apartment</span>租户管理
           </button>
-          <button v-if="!isPlatformSuper" class="navbar-menu-item" @click="goRoute('/manual')">
+          <button v-if="!isPlatformSuper && canAccessSearchTarget('/manual')" class="navbar-menu-item" @click="goRoute('/manual')">
             <span class="material-symbols-outlined">menu_book</span>使用手册
           </button>
           <button class="navbar-menu-item text-error" @click="handleLogout">
@@ -207,6 +207,23 @@ const AI_ADVICE_PERMISSIONS = [
   'dashboard:ai:employee',
   'dashboard:ai:operation'
 ]
+const menuFeatureMap: Record<string, string> = {
+  '/dashboard': 'module.dashboard',
+  '/dashboard/ai-advices': 'aiAdvice',
+  '/function/order': 'module.order',
+  '/function/inventory': 'module.inventory',
+  '/function/bad-product': 'module.badProduct',
+  '/function/customer': 'module.customer',
+  '/function/price': 'module.price',
+  '/function/receipt': 'module.receipt',
+  '/function/approval': 'module.approval',
+  '/function/attendance': 'module.attendance',
+  '/function/employee': 'module.employee',
+  '/function/role': 'module.role',
+  '/function/label': 'module.label',
+  '/function/document': 'module.document',
+  '/manual': 'module.manual'
+}
 const keyword = ref('')
 const searchPanelOpen = ref(false)
 const mobileSearchOpen = ref(false)
@@ -276,9 +293,13 @@ const filteredMenus = computed(() => {
     .slice(0, 8)
 })
 
-function filterMenus(menus: Array<{ name: string; path: string; icon: string; desc: string; permissions?: string[]; developerOnly?: boolean }>) {
+function filterMenus(menus: Array<{ name: string; path: string; icon: string; desc: string; permissions?: string[]; features?: string[]; developerOnly?: boolean }>) {
   return menus.filter((item) => {
     if (item.developerOnly && !userStore.isDeveloper) {
+      return false
+    }
+    const requiredFeatures = item.features || (menuFeatureMap[item.path] ? [menuFeatureMap[item.path]] : [])
+    if (requiredFeatures.length && !userStore.hasAnyFeature(requiredFeatures)) {
       return false
     }
     return !item.permissions || userStore.hasAnyPermission(item.permissions)
