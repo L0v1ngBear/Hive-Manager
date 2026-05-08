@@ -116,7 +116,7 @@
             <div class="space-y-2">
               <div class="flex justify-between items-center">
                 <label class="text-sm font-bold text-slate-700 block" for="password">密码</label>
-                <a href="#" class="text-sm font-semibold text-primary hover:text-primary/80 transition-colors">忘记密码?</a>
+                <a href="#" class="text-sm font-semibold text-primary hover:text-primary/80 transition-colors" @click.prevent="openResetPasswordDialog">忘记密码?</a>
               </div>
               <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -155,16 +155,104 @@
       </div>
     </section>
 
+    <section
+      v-if="resetDialogVisible"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm"
+      @click.self="closeResetPasswordDialog"
+    >
+      <div class="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl border border-white/70">
+        <div class="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-2xl font-extrabold text-slate-900">重置密码</h2>
+            <p class="mt-2 text-sm text-slate-500">通过绑定手机号接收短信验证码后修改登录密码。</p>
+          </div>
+          <button
+            type="button"
+            class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            @click="closeResetPasswordDialog"
+          >
+            <span class="material-symbols-outlined text-xl">close</span>
+          </button>
+        </div>
+
+        <form class="space-y-4" @submit.prevent="handleResetPassword">
+          <label class="block">
+            <span class="mb-2 block text-sm font-bold text-slate-700">绑定手机号</span>
+            <input
+              v-model.trim="resetForm.phone"
+              type="tel"
+              maxlength="11"
+              placeholder="请输入绑定手机号"
+              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+            />
+          </label>
+
+          <label class="block">
+            <span class="mb-2 block text-sm font-bold text-slate-700">短信验证码</span>
+            <div class="flex gap-3">
+              <input
+                v-model.trim="resetForm.code"
+                type="text"
+                maxlength="6"
+                placeholder="6位验证码"
+                class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+              />
+              <button
+                type="button"
+                class="w-32 rounded-xl border border-primary/30 bg-primary/10 px-3 py-3 text-sm font-bold text-primary disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                :disabled="codeSending || codeCountdown > 0"
+                @click="handleSendResetCode"
+              >
+                {{ codeCountdown > 0 ? `${codeCountdown}s` : (codeSending ? '发送中' : '获取验证码') }}
+              </button>
+            </div>
+          </label>
+
+          <label class="block">
+            <span class="mb-2 block text-sm font-bold text-slate-700">新密码</span>
+            <input
+              v-model="resetForm.newPassword"
+              type="password"
+              minlength="8"
+              maxlength="64"
+              placeholder="至少8位，包含字母和数字"
+              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+            />
+          </label>
+
+          <label class="block">
+            <span class="mb-2 block text-sm font-bold text-slate-700">确认新密码</span>
+            <input
+              v-model="resetForm.confirmPassword"
+              type="password"
+              minlength="8"
+              maxlength="64"
+              placeholder="请再次输入新密码"
+              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+            />
+          </label>
+
+          <button
+            type="submit"
+            class="mt-2 flex w-full items-center justify-center rounded-xl bg-primary py-3.5 text-base font-bold text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-slate-300"
+            :disabled="resetSubmitting"
+          >
+            {{ resetSubmitting ? '提交中...' : '确认修改密码' }}
+          </button>
+        </form>
+      </div>
+    </section>
+
   </main>
 </template>
 
 <script setup>
-// [此处脚本逻辑与你的原版代码完全一致，未作任何修改]
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { createScanLoginSession, getScanLoginStatus, login } from '@/api/auth'
+import { createScanLoginSession, getScanLoginStatus, login, resetPassword, sendPasswordResetCode } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 import { normalizeLoginRedirect } from '@/utils/redirect'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
@@ -175,6 +263,13 @@ const loginForm = reactive({
   password: ''
 })
 
+const resetForm = reactive({
+  phone: '',
+  code: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
 const scanSession = reactive({
   sceneKey: '',
   qrCodeDataUrl: '',
@@ -182,6 +277,10 @@ const scanSession = reactive({
 })
 
 const isLoading = ref(false)
+const resetDialogVisible = ref(false)
+const codeSending = ref(false)
+const resetSubmitting = ref(false)
+const codeCountdown = ref(0)
 const isRefreshingScan = ref(false)
 const isError = ref(false)
 const errorMessage = ref('')
@@ -197,6 +296,7 @@ const mouth2Path = ref('M40 65 H60')
 
 let pollTimer = null
 let refreshTimer = null
+let codeCountdownTimer = null
 
 const scanStatusText = computed(() => {
   if (scanStatus.value === 'CONFIRMED') {
@@ -229,6 +329,117 @@ async function handleLogin() {
   } finally {
     isLoading.value = false
   }
+}
+
+function openResetPasswordDialog() {
+  resetDialogVisible.value = true
+}
+
+function closeResetPasswordDialog() {
+  resetDialogVisible.value = false
+  resetForm.phone = ''
+  resetForm.code = ''
+  resetForm.newPassword = ''
+  resetForm.confirmPassword = ''
+  stopCodeCountdown()
+}
+
+async function handleSendResetCode() {
+  if (codeSending.value || codeCountdown.value > 0) {
+    return
+  }
+  const phone = normalizePhone(resetForm.phone)
+  if (!phone) {
+    ElMessage.warning('请输入有效的11位手机号')
+    return
+  }
+
+  codeSending.value = true
+  try {
+    await sendPasswordResetCode({ phone })
+    resetForm.phone = phone
+    ElMessage.success('验证码已发送，请查收短信')
+    startCodeCountdown()
+  } catch (error) {
+    ElMessage.error(error?.msg || error?.message || '验证码发送失败')
+  } finally {
+    codeSending.value = false
+  }
+}
+
+async function handleResetPassword() {
+  if (resetSubmitting.value) {
+    return
+  }
+  const phone = normalizePhone(resetForm.phone)
+  if (!phone) {
+    ElMessage.warning('请输入有效的11位手机号')
+    return
+  }
+  if (!/^\d{6}$/.test(resetForm.code)) {
+    ElMessage.warning('请输入6位短信验证码')
+    return
+  }
+  const passwordError = validateResetPassword()
+  if (passwordError) {
+    ElMessage.warning(passwordError)
+    return
+  }
+
+  resetSubmitting.value = true
+  try {
+    await resetPassword({
+      phone,
+      code: resetForm.code,
+      newPassword: resetForm.newPassword,
+      confirmPassword: resetForm.confirmPassword
+    })
+    ElMessage.success('密码已修改，请使用新密码登录')
+    closeResetPasswordDialog()
+    loginForm.username = phone
+    loginForm.password = ''
+  } catch (error) {
+    ElMessage.error(error?.msg || error?.message || '密码修改失败')
+  } finally {
+    resetSubmitting.value = false
+  }
+}
+
+function normalizePhone(value) {
+  const digits = String(value || '').replace(/\D/g, '')
+  return digits.length === 11 ? digits : ''
+}
+
+function validateResetPassword() {
+  const password = resetForm.newPassword || ''
+  const confirmPassword = resetForm.confirmPassword || ''
+  if (password.length < 8 || password.length > 64) {
+    return '新密码长度需为8-64位'
+  }
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    return '新密码需同时包含字母和数字'
+  }
+  if (password !== confirmPassword) {
+    return '两次输入的新密码不一致'
+  }
+  return ''
+}
+
+function startCodeCountdown() {
+  stopCodeCountdown()
+  codeCountdown.value = 60
+  codeCountdownTimer = window.setInterval(() => {
+    codeCountdown.value -= 1
+    if (codeCountdown.value <= 0) {
+      stopCodeCountdown()
+    }
+  }, 1000)
+}
+
+function stopCodeCountdown() {
+  window.clearInterval(codeCountdownTimer)
+  codeCountdownTimer = null
+  codeCountdown.value = 0
 }
 
 async function refreshScanSession() {
@@ -365,6 +576,7 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('mousemove', onMouseMove)
   clearPolling()
+  stopCodeCountdown()
 })
 </script>
 

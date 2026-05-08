@@ -19,17 +19,21 @@ import my.management.common.enums.PlatformTenantEnum;
 import my.management.common.service.DeveloperAccessService;
 import my.management.module.auth.mapper.AuthMapper;
 import my.management.module.auth.model.dto.LoginRequest;
+import my.management.module.auth.model.dto.PasswordResetCodeRequest;
+import my.management.module.auth.model.dto.PasswordResetRequest;
 import my.management.module.auth.model.dto.WebScanConfirmRequest;
 import my.management.module.auth.model.vo.LoginUserRow;
 import my.management.module.auth.model.vo.LoginVO;
 import my.management.module.auth.model.vo.WebScanSessionVO;
 import my.management.module.auth.model.vo.WebScanStatusVO;
+import my.management.module.notification.sms.SmsVerificationService;
 import my.management.module.tenant.service.TenantLicenseService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
+import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
@@ -46,6 +50,10 @@ import java.util.concurrent.TimeUnit;
 public class AuthService {
 
     private static final long WEB_SCAN_LOGIN_EXPIRE_SECONDS = 180L;
+    private static final long PASSWORD_RESET_CODE_EXPIRE_MINUTES = 5L;
+    private static final long PASSWORD_RESET_SEND_INTERVAL_SECONDS = 60L;
+    private static final long PASSWORD_RESET_MAX_VERIFY_FAIL = 5L;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @Resource
     private AuthMapper authMapper;
@@ -74,6 +82,9 @@ public class AuthService {
     @Resource
     private TenantLicenseService tenantLicenseService;
 
+    @Resource
+    private SmsVerificationService smsVerificationService;
+
     @Value("${auth.login.max-fail-count:5}")
     private Long maxFailCount;
 
@@ -82,6 +93,68 @@ public class AuthService {
 
     @Value("${auth.login.lock-minutes:15}")
     private Long lockMinutes;
+
+    public void sendPasswordResetCode(PasswordResetCodeRequest request) {
+        String phone = normalizeResetPhone(request.getPhone());
+        String phoneHash = privacyProtectionUtil.hashPhone(phone);
+        LoginUserRow loginUser = authMapper.selectLoginUserByPhone(phone, phoneHash);
+        if (loginUser == null || !Objects.equals(loginUser.getUserStatus(), 1)) {
+            throw new BusinessException(404, "该手机号未绑定可用管理端账号");
+        }
+
+        String sendLockKey = passwordResetSendLockKey(phoneHash);
+        if (Boolean.TRUE.equals(stringRedisTemplate.hasKey(sendLockKey))) {
+            throw new BusinessException(429, "验证码发送过于频繁，请稍后再试");
+        }
+
+        String code = generateSmsCode();
+        boolean sent = smsVerificationService.sendCode(phone, "Hive 管理端密码重置", code, PASSWORD_RESET_CODE_EXPIRE_MINUTES);
+        if (!sent) {
+            throw new BusinessException(503, "短信服务未配置或发送失败，请联系管理员");
+        }
+
+        String codeValue = loginUser.getUserId() + ":" + code;
+        stringRedisTemplate.opsForValue().set(
+                passwordResetCodeKey(phoneHash),
+                codeValue,
+                PASSWORD_RESET_CODE_EXPIRE_MINUTES,
+                TimeUnit.MINUTES
+        );
+        stringRedisTemplate.opsForValue().set(sendLockKey, "1", PASSWORD_RESET_SEND_INTERVAL_SECONDS, TimeUnit.SECONDS);
+        stringRedisTemplate.delete(passwordResetFailKey(phoneHash));
+    }
+
+    public void resetPasswordBySmsCode(PasswordResetRequest request) {
+        String phone = normalizeResetPhone(request.getPhone());
+        String phoneHash = privacyProtectionUtil.hashPhone(phone);
+        validateNewPassword(request.getNewPassword(), request.getConfirmPassword(), phone);
+
+        LoginUserRow loginUser = authMapper.selectLoginUserByPhone(phone, phoneHash);
+        if (loginUser == null || !Objects.equals(loginUser.getUserStatus(), 1)) {
+            throw new BusinessException(404, "该手机号未绑定可用管理端账号");
+        }
+
+        ensurePasswordResetNotLocked(phoneHash);
+        String storedValue = stringRedisTemplate.opsForValue().get(passwordResetCodeKey(phoneHash));
+        if (storedValue == null || storedValue.isBlank()) {
+            recordPasswordResetFail(phoneHash);
+            throw new BusinessException(400, "验证码已过期，请重新获取");
+        }
+
+        String expectedPrefix = loginUser.getUserId() + ":";
+        String expectedCode = storedValue.startsWith(expectedPrefix) ? storedValue.substring(expectedPrefix.length()) : "";
+        if (!Objects.equals(expectedCode, request.getCode().trim())) {
+            recordPasswordResetFail(phoneHash);
+            throw new BusinessException(400, "验证码错误");
+        }
+
+        authMapper.updatePasswordByUserId(loginUser.getUserId(), encryptUtil.encode(request.getNewPassword().trim()));
+        stringRedisTemplate.delete(List.of(
+                passwordResetCodeKey(phoneHash),
+                passwordResetSendLockKey(phoneHash),
+                passwordResetFailKey(phoneHash)
+        ));
+    }
 
     public LoginVO login(LoginRequest request, String clientIp) {
         String username = request.getUsername().trim();
@@ -223,6 +296,54 @@ public class AuthService {
         return username;
     }
 
+    private String normalizeResetPhone(String phone) {
+        String normalizedPhone = privacyProtectionUtil.normalizePhone(phone);
+        if (normalizedPhone == null || normalizedPhone.length() != 11) {
+            throw new BusinessException(400, "请输入有效的11位手机号");
+        }
+        return normalizedPhone;
+    }
+
+    private void validateNewPassword(String newPassword, String confirmPassword, String phone) {
+        String password = newPassword == null ? "" : newPassword.trim();
+        if (!Objects.equals(password, confirmPassword == null ? "" : confirmPassword.trim())) {
+            throw new BusinessException(400, "两次输入的新密码不一致");
+        }
+        if (password.length() < 8 || password.length() > 64) {
+            throw new BusinessException(400, "新密码长度需为8-64位");
+        }
+        if (!password.matches(".*[A-Za-z].*") || !password.matches(".*\\d.*")) {
+            throw new BusinessException(400, "新密码需同时包含字母和数字");
+        }
+        if (Objects.equals(password, phone)) {
+            throw new BusinessException(400, "新密码不能与手机号相同");
+        }
+    }
+
+    private String generateSmsCode() {
+        return String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
+    }
+
+    private void ensurePasswordResetNotLocked(String phoneHash) {
+        String failCountValue = stringRedisTemplate.opsForValue().get(passwordResetFailKey(phoneHash));
+        if (failCountValue == null || failCountValue.isBlank()) {
+            return;
+        }
+        try {
+            if (Long.parseLong(failCountValue) >= PASSWORD_RESET_MAX_VERIFY_FAIL) {
+                throw new BusinessException(429, "验证码错误次数过多，请重新获取验证码");
+            }
+        } catch (NumberFormatException ignored) {
+        }
+    }
+
+    private void recordPasswordResetFail(String phoneHash) {
+        Long failCount = stringRedisTemplate.opsForValue().increment(passwordResetFailKey(phoneHash));
+        if (failCount != null && failCount == 1L) {
+            stringRedisTemplate.expire(passwordResetFailKey(phoneHash), PASSWORD_RESET_CODE_EXPIRE_MINUTES, TimeUnit.MINUTES);
+        }
+    }
+
     private LoginVO buildLoginVO(LoginUserRow loginUser, String rawPassword) {
         if (rawPassword != null && !encryptUtil.isBcryptHash(loginUser.getPassword())) {
             authMapper.updatePasswordByUserId(loginUser.getUserId(), encryptUtil.encode(rawPassword));
@@ -284,5 +405,17 @@ public class AuthService {
 
     private String webScanLoginKey(String sceneKey) {
         return redisKeyBuilder.cache("auth", "web-scan-login", sceneKey);
+    }
+
+    private String passwordResetCodeKey(String phoneHash) {
+        return redisKeyBuilder.cache("auth", "password-reset", "code", phoneHash);
+    }
+
+    private String passwordResetSendLockKey(String phoneHash) {
+        return redisKeyBuilder.counter("auth", "password-reset", "send-lock", phoneHash);
+    }
+
+    private String passwordResetFailKey(String phoneHash) {
+        return redisKeyBuilder.counter("auth", "password-reset", "fail", phoneHash);
     }
 }

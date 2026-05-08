@@ -5,6 +5,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import my.hive.common.dto.Result;
 import my.management.module.auth.model.dto.LoginRequest;
+import my.management.module.auth.model.dto.PasswordResetCodeRequest;
+import my.management.module.auth.model.dto.PasswordResetRequest;
 import my.management.module.auth.model.dto.WebScanConfirmRequest;
 import my.management.module.auth.model.vo.LoginVO;
 import my.management.module.auth.model.vo.WebScanSessionVO;
@@ -29,6 +31,18 @@ public class AuthController {
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
         return Result.success(authService.login(request, resolveClientIp(servletRequest)));
+    }
+
+    @PostMapping("/password-reset/code")
+    public Result<Void> sendPasswordResetCode(@Valid @RequestBody PasswordResetCodeRequest request) {
+        authService.sendPasswordResetCode(request);
+        return Result.success(null);
+    }
+
+    @PostMapping("/password-reset")
+    public Result<Void> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
+        authService.resetPasswordBySmsCode(request);
+        return Result.success(null);
     }
 
     @PostMapping("/scan-login/session")

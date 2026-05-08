@@ -610,7 +610,7 @@ async function submitOut() {
 
 async function handleTemplateDownload() {
   const blob = await downloadInventoryImportTemplate()
-  downloadBlob(blob, '外部库存导入字段说明.xlsx')
+  await downloadBlob(blob, '外部库存导入字段说明.xlsx')
 }
 
 function triggerImport() {
@@ -633,13 +633,38 @@ async function handleImportChange(event) {
   }
 }
 
-function downloadBlob(blob, fileName) {
+async function downloadBlob(blob, fileName) {
+  if (!blob || blob.size === 0) {
+    ElMessage.error('下载失败：文件内容为空')
+    return
+  }
+  const contentType = String(blob.type || '').toLowerCase()
+  if (contentType.includes('application/json') || contentType.includes('text/plain')) {
+    const text = await blob.text()
+    let message = text || '下载失败'
+    try {
+      const parsed = JSON.parse(text)
+      message = parsed.msg || parsed.message || parsed.error || message
+    } catch (ignored) {
+      // Non-JSON text response; keep the original message for troubleshooting.
+    }
+    ElMessage.error(message)
+    return
+  }
+  if (fileName.endsWith('.xlsx')) {
+    const header = new Uint8Array(await blob.slice(0, 4).arrayBuffer())
+    const isZipBasedExcel = header.length >= 2 && header[0] === 0x50 && header[1] === 0x4B
+    if (!isZipBasedExcel) {
+      ElMessage.error('下载失败：接口没有返回有效的 Excel 文件')
+      return
+    }
+  }
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.download = fileName
   link.click()
-  URL.revokeObjectURL(url)
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 function trendWidth(value) {

@@ -39,13 +39,6 @@
             <span class="material-symbols-outlined text-[20px]">download</span>导出 Excel
           </button>
           <button
-              v-permission="'employee:update'"
-              @click="showBatchTip"
-              class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
-          >
-            <span class="material-symbols-outlined text-[20px]">edit_square</span>批量编辑
-          </button>
-          <button
               v-permission="'employee:create'"
               @click="openCreateDrawer"
               class="px-5 py-2 bg-primary text-white font-bold rounded-lg flex items-center gap-2 shadow-md hover:bg-primary/90 transition-all text-sm active:scale-95"
@@ -485,10 +478,6 @@ const changePage = (page) => {
 const handleCreateSuccess = async () => {
   closeDrawer()
   await Promise.all([fetchEmployees(), fetchStats()])
-}
-
-const showBatchTip = () => {
-  ElMessage.info('批量编辑功能开发中...')
 }
 
 const showEmployeeDetail = async (id) => {

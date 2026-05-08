@@ -30,6 +30,15 @@ public interface AuthMapper {
             "SELECT u.id AS userId, u.tenant_code AS tenantCode, u.name AS userName, u.login_name AS loginName, ",
             "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, u.status AS userStatus ",
             "FROM user u ",
+            "WHERE (u.phone_hash = #{phoneHash} OR u.phone = #{phone}) ",
+            "LIMIT 1"
+    })
+    LoginUserRow selectLoginUserByPhone(@Param("phone") String phone, @Param("phoneHash") String phoneHash);
+
+    @Select({
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, u.name AS userName, u.login_name AS loginName, ",
+            "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, u.status AS userStatus ",
+            "FROM user u ",
             "WHERE u.id = #{userId} AND u.tenant_code = #{tenantCode} ",
             "LIMIT 1"
     })

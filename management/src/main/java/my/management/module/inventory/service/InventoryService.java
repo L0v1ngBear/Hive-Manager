@@ -294,7 +294,7 @@ public class InventoryService {
                 "这是外部系统库存快照导入，不要求客户按 Hive 模板重新整理。",
                 "支持 .xlsx、.xls、.csv 文件导入，单次最多 " + MAX_IMPORT_ROWS + " 行；Excel 会自动扫描多个工作表。",
                 "必填：型号，以及总米数/剩余米数/库存米数/数量中的任意一列。",
-                "条码可为空，系统会自动生成；如果条码已存在，会按导入文件更新该条库存快照。",
+                "一行代表一匹布；条码可为空，系统会自动生成；如果条码已存在，该行会导入失败，不会覆盖旧库存。",
                 "剩余米数为空时默认等于总米数；状态为空时系统按剩余米数自动判断。",
                 "可适配客户旧系统导出列名：货号、面料型号、物料编码、库存数量、现存米数、可用数量、卷号、匹号、批号、缸号等。",
                 "导入是现有库存快照，不要求和系统模板完全一致；不能识别的列会自动忽略。"
@@ -344,7 +344,7 @@ public class InventoryService {
                 if (importRow.barcode() != null && !fileBarcodes.add(importRow.barcode())) {
                     throw new BusinessException("条码在导入文件中重复：" + importRow.barcode());
                 }
-                upsertInventorySnapshot(importRow);
+                createInventorySnapshot(importRow);
                 result.setSuccessCount(result.getSuccessCount() + 1);
             } catch (Exception ex) {
                 result.setFailCount(result.getFailCount() + 1);
@@ -361,29 +361,25 @@ public class InventoryService {
         return result;
     }
 
-    private void upsertInventorySnapshot(InventoryImportRow row) {
+    private void createInventorySnapshot(InventoryImportRow row) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
         LocalDateTime now = LocalDateTime.now();
         String barcode = row.barcode() == null ? generateBarcode(tenantCode) : row.barcode();
 
-        Cloth cloth = clothMapper.selectOne(new LambdaQueryWrapper<Cloth>()
-                .eq(Cloth::getTenantCode, tenantCode)
-                .eq(Cloth::getBarcode, barcode)
-                .last("LIMIT 1"));
-        boolean created = cloth == null;
-        if (created) {
-            cloth = new Cloth();
-            cloth.setTenantCode(tenantCode);
-            cloth.setBarcode(barcode);
-            cloth.setCreateTime(now);
-            cloth.setInOperatorId(userId);
-            cloth.setInType(InventoryInTypeEnum.IMPORT_SNAPSHOT.getCode());
-            cloth.setIsBad(ClothQualityFlagEnum.NORMAL.getCode());
-            cloth.setVersion(INITIAL_VERSION);
+        if (existsBarcode(tenantCode, barcode)) {
+            throw new BusinessException("条码已存在，外部库存导入按一行一匹布新增，不会覆盖旧库存：" + barcode);
         }
 
+        Cloth cloth = new Cloth();
+        cloth.setTenantCode(tenantCode);
+        cloth.setBarcode(barcode);
+        cloth.setCreateTime(now);
         cloth.setUpdateTime(now);
+        cloth.setInOperatorId(userId);
+        cloth.setInType(InventoryInTypeEnum.IMPORT_SNAPSHOT.getCode());
+        cloth.setIsBad(ClothQualityFlagEnum.NORMAL.getCode());
+        cloth.setVersion(INITIAL_VERSION);
         cloth.setModelCode(row.modelCode());
         cloth.setSpec(row.spec());
         cloth.setMeters(row.totalMeters());
@@ -396,11 +392,7 @@ public class InventoryService {
             cloth.setOutOperatorId(userId);
         }
 
-        if (created) {
-            clothMapper.insert(cloth);
-        } else {
-            clothMapper.updateById(cloth);
-        }
+        clothMapper.insert(cloth);
         saveRecord(cloth, InventoryOperateTypeEnum.EXTERNAL_IMPORT.getCode(), row.remainingMeters(), userId, now);
         saveModelSpecIfAbsent(tenantCode, row.modelCode(), row.spec());
     }

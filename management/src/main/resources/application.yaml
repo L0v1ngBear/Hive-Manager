@@ -71,6 +71,15 @@ storage:
     allowed-extensions: ${ALIYUN_OSS_ALLOWED_EXTENSIONS:jpg,jpeg,png,pdf,doc,docx,xls,xlsx}
     allowed-content-types: ${ALIYUN_OSS_ALLOWED_CONTENT_TYPES:image/jpeg,image/png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet}
 
+notification:
+  sms:
+    enabled: ${NOTIFICATION_SMS_ENABLED:false}
+    provider: ${NOTIFICATION_SMS_PROVIDER:noop}
+    access-key: ${NOTIFICATION_SMS_ACCESS_KEY:}
+    access-secret: ${NOTIFICATION_SMS_ACCESS_SECRET:}
+    sign-name: ${NOTIFICATION_SMS_SIGN_NAME:}
+    template-code: ${NOTIFICATION_SMS_TEMPLATE_CODE:}
+
 xxl:
   job:
     enabled: ${XXL_JOB_ENABLED:true}

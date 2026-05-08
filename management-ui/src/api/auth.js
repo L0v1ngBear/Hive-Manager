@@ -8,6 +8,22 @@ export function login(data) {
   })
 }
 
+export function sendPasswordResetCode(data) {
+  return request({
+    url: '/auth/password-reset/code',
+    method: 'post',
+    data
+  })
+}
+
+export function resetPassword(data) {
+  return request({
+    url: '/auth/password-reset',
+    method: 'post',
+    data
+  })
+}
+
 export function createScanLoginSession() {
   return request({
     url: '/auth/scan-login/session',

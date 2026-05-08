@@ -20,9 +20,13 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private static final String[] PUBLIC_PATHS = {
             "/auth/login",
+            "/auth/password-reset/code",
+            "/auth/password-reset",
             "/auth/scan-login/session",
             "/auth/scan-login/status",
             "/web/auth/login",
+            "/web/auth/password-reset/code",
+            "/web/auth/password-reset",
             "/web/auth/scan-login/session",
             "/web/auth/scan-login/status",
             "/v3/api-docs",

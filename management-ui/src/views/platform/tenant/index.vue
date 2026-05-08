@@ -307,7 +307,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElDialog } from 'element-plus'
 import { createTenant, getTenantFeatureCatalog, getTenantPage, updateTenantLicense } from './api/tenant'
 
 const packageOptions = [
