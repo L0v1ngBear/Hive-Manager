@@ -15,9 +15,10 @@ public interface AuthMapper {
 
     @Select({
             "<script>",
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, CASE WHEN LOWER(u.tenant_code) = 'super' THEN '平台管理' ELSE u.tenant_code END) AS tenantName, u.name AS userName, u.login_name AS loginName, ",
             "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, u.status AS userStatus ",
             "FROM user u ",
+            "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
             "WHERE (u.login_name = #{username} ",
             "<if test='phoneHash != null and phoneHash != \"\"'>OR u.phone_hash = #{phoneHash} </if>",
             "OR u.phone = #{username}) ",
@@ -27,18 +28,37 @@ public interface AuthMapper {
     LoginUserRow selectLoginUser(@Param("username") String username, @Param("phoneHash") String phoneHash);
 
     @Select({
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, CASE WHEN LOWER(u.tenant_code) = 'super' THEN '平台管理' ELSE u.tenant_code END) AS tenantName, u.name AS userName, u.login_name AS loginName, ",
             "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, u.status AS userStatus ",
             "FROM user u ",
+            "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
             "WHERE (u.phone_hash = #{phoneHash} OR u.phone = #{phone}) ",
             "LIMIT 1"
     })
     LoginUserRow selectLoginUserByPhone(@Param("phone") String phone, @Param("phoneHash") String phoneHash);
 
     @Select({
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, u.name AS userName, u.login_name AS loginName, ",
+            "<script>",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, CASE WHEN LOWER(u.tenant_code) = 'super' THEN '平台管理' ELSE u.tenant_code END) AS tenantName, u.name AS userName, u.login_name AS loginName, ",
             "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, u.status AS userStatus ",
             "FROM user u ",
+            "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
+            "WHERE (u.phone_hash = #{phoneHash} OR u.phone = #{phone}) ",
+            "<if test='account != null and account != \"\"'>",
+            "AND (u.login_name = #{account} OR u.tenant_code = #{account}) ",
+            "</if>",
+            "ORDER BY u.id ASC",
+            "</script>"
+    })
+    List<LoginUserRow> selectLoginUsersByPhone(@Param("phone") String phone,
+                                               @Param("phoneHash") String phoneHash,
+                                               @Param("account") String account);
+
+    @Select({
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, CASE WHEN LOWER(u.tenant_code) = 'super' THEN '平台管理' ELSE u.tenant_code END) AS tenantName, u.name AS userName, u.login_name AS loginName, ",
+            "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, u.status AS userStatus ",
+            "FROM user u ",
+            "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
             "WHERE u.id = #{userId} AND u.tenant_code = #{tenantCode} ",
             "LIMIT 1"
     })
@@ -59,6 +79,11 @@ public interface AuthMapper {
 
     @Update("UPDATE user SET password = #{password} WHERE id = #{userId}")
     int updatePasswordByUserId(@Param("userId") Long userId, @Param("password") String password);
+
+    @Update("UPDATE user SET password = #{password} WHERE id = #{userId} AND tenant_code = #{tenantCode}")
+    int updatePasswordByUserIdAndTenantCode(@Param("userId") Long userId,
+                                            @Param("tenantCode") String tenantCode,
+                                            @Param("password") String password);
 
     @Select("SELECT login_name FROM user WHERE id = #{userId} AND tenant_code = #{tenantCode} LIMIT 1")
     String selectLoginNameByUserId(@Param("userId") Long userId, @Param("tenantCode") String tenantCode);

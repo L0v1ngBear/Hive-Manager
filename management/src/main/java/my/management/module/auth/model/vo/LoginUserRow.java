@@ -11,6 +11,8 @@ public class LoginUserRow {
 
     private String tenantCode;
 
+    private String tenantName;
+
     private String userName;
 
     private String loginName;

@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import my.management.module.ai.config.AiLlmProperties;
+import my.management.module.ai.model.entity.AiAdviceTrainingSample;
 import my.management.module.ai.model.vo.AiBusinessSnapshotVO;
 import my.management.module.ai.model.vo.DashboardAiAdviceVO;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -20,13 +22,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 兼容 OpenAI 协议的大模型建议生成服务实现类
- * 支持接入 DeepSeek / Qwen / OpenAI 等所有兼容 Chat Completions 接口的大模型
- * 通过配置 endpoint、model、apiKey 即可快速切换不同的大模型服务
- * 核心职责：根据业务经营快照数据，调用AI接口生成Dashboard展示的智能经营建议
+ * DeepSeek 建议推理服务。
+ *
+ * <p>DeepSeek 兼容 OpenAI Chat Completions 协议，作为当前阶段推荐的商用推理入口。
+ * 未来自训练 Transformer 上线后，由 SelfTrainedTransformerInsightProvider 优先承接。</p>
  * @since 1.0.0
  */
 @Service
+@Order(20)
 public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
 
     /**
@@ -48,7 +51,7 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
      */
     @Override
     public boolean enabled() {
-        return properties.isReady();
+        return properties.deepseekReady();
     }
 
     /**
@@ -58,12 +61,15 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
      * 3. 调用远程大模型接口
      * 4. 解析响应并提取JSON格式建议列表
      *
-     * @param snapshot        业务经营快照数据
-     * @param baselineAdvices 本地规则建议（用于去重）
+     * @param snapshot         业务经营快照数据
+     * @param referenceAdvices 兼容保留参数，不作为本地规则基线使用
+     * @param trainingExamples 本租户近期反馈样本，用于自训练模型在线校准
      * @return 包装好的Dashboard展示建议列表
      */
     @Override
-    public List<DashboardAiAdviceVO> generate(AiBusinessSnapshotVO snapshot, List<DashboardAiAdviceVO> baselineAdvices) {
+    public List<DashboardAiAdviceVO> generate(AiBusinessSnapshotVO snapshot,
+                                              List<DashboardAiAdviceVO> referenceAdvices,
+                                              List<AiAdviceTrainingSample> trainingExamples) {
         // 服务未启用直接返回空列表
         if (!enabled()) {
             return List.of();
@@ -71,19 +77,20 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
 
         try {
             // 1. 构建AI接口请求体
-            String requestBody = objectMapper.writeValueAsString(buildRequest(snapshot, baselineAdvices));
+            AiLlmProperties.Provider config = properties.deepseekConfig();
+            String requestBody = objectMapper.writeValueAsString(buildRequest(config, snapshot, trainingExamples));
 
             // 2. 创建HTTP客户端
             HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
+                    .connectTimeout(Duration.ofSeconds(config.getTimeoutSeconds()))
                     .build();
 
             // 3. 构建POST请求
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(properties.getEndpoint()))
-                    .timeout(Duration.ofSeconds(properties.getTimeoutSeconds()))
+                    .uri(URI.create(config.getEndpoint()))
+                    .timeout(Duration.ofSeconds(config.getTimeoutSeconds()))
                     .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + properties.getApiKey())
+                    .header("Authorization", "Bearer " + config.getApiKey())
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
 
@@ -106,10 +113,11 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
             }
 
             // 8. 反序列化为前端VO并返回
-            return objectMapper.readValue(jsonArray, new TypeReference<List<DashboardAiAdviceVO>>() {
+            List<DashboardAiAdviceVO> advices = objectMapper.readValue(jsonArray, new TypeReference<List<DashboardAiAdviceVO>>() {
             });
+            return markSourceType(advices);
         } catch (Exception ignored) {
-            // 异常吞掉，保证服务不崩溃，返回空建议
+            // DeepSeek 推理异常不能拖垮业务大盘，失败时返回空建议。
             return List.of();
         }
     }
@@ -118,16 +126,17 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
      * 构建大模型API请求参数
      *
      * @param snapshot        经营快照
-     * @param baselineAdvices 本地规则建议
      * @return 符合OpenAI格式的请求参数Map
      */
-    private Map<String, Object> buildRequest(AiBusinessSnapshotVO snapshot, List<DashboardAiAdviceVO> baselineAdvices) {
+    private Map<String, Object> buildRequest(AiLlmProperties.Provider config,
+                                             AiBusinessSnapshotVO snapshot,
+                                             List<AiAdviceTrainingSample> trainingExamples) {
         Map<String, Object> request = new LinkedHashMap<>();
-        request.put("model", properties.getModel());
-        request.put("temperature", properties.getTemperature());
+        request.put("model", config.getModel());
+        request.put("temperature", config.getTemperature());
         request.put("messages", List.of(
                 Map.of("role", "system", "content", systemPrompt()),
-                Map.of("role", "user", "content", userPrompt(snapshot, baselineAdvices))
+                Map.of("role", "user", "content", userPrompt(config, snapshot, trainingExamples))
         ));
         return request;
     }
@@ -146,17 +155,19 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
      */
     private String systemPrompt() {
         return """
-                你是 Hive 蜂巢数字化工厂系统的纺织行业经营分析顾问。
-                你必须基于用户提供的经营快照和本地规则基线进行分析，不要编造不存在的数据。
+                你是 Hive 蜂巢数字化工厂系统的 DeepSeek 经营建议模型。
+                你必须基于用户提供的经营快照和历史反馈样本进行分析，不要编造不存在的数据。
+                不允许套用本地规则模板，不允许输出与经营快照无关的泛泛建议。
                 输出必须是 JSON 数组，不要 Markdown，不要解释性前后缀。
                 每条建议字段必须包含：
                 category, level, icon, title, summary, suggestion, route, priority,
                 ownerDepartment, actionLabel, metricText, trackingHint, sourceType, confidence, reasoning,
                 decisionType, riskScore, impactText, timeWindow, firstAction, reviewMetric。
                 category 只能使用 inventory/order/delivery/customer/employee/quality/finance/operation/overview。
-                level 只能使用 warning/info/success。sourceType 固定为 llm。
+                level 只能使用 warning/info/success。sourceType 固定为 deepseek。
                 riskScore 必须是 0-100 的整数，firstAction 必须是能立刻执行的一句话。
                 建议必须面向老板和管理层，强调业务洞察、决策辅助、影响范围和行动闭环。
+                历史反馈中 useful/resolved 代表可学习的正样本，irrelevant/ignored 代表需要降噪的负样本。
                 """;
     }
 
@@ -164,26 +175,59 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
      * 用户提示词（传入业务数据，要求AI生成建议）
      *
      * @param snapshot        经营快照
-     * @param baselineAdvices 本地规则建议（用于去重）
+     * @param trainingExamples 近期已反馈训练样本
      * @return 用户提示词
      */
-    private String userPrompt(AiBusinessSnapshotVO snapshot, List<DashboardAiAdviceVO> baselineAdvices) {
+    private String userPrompt(AiLlmProperties.Provider config,
+                              AiBusinessSnapshotVO snapshot,
+                              List<AiAdviceTrainingSample> trainingExamples) {
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("maxAdvices", properties.getMaxAdvices());
+            payload.put("maxAdvices", config.getMaxAdvices());
+            payload.put("modelProvider", "deepseek");
+            payload.put("futureTrainingTarget", "self_trained_transformer");
             payload.put("businessSnapshot", sanitizeSnapshot(snapshot));
-            payload.put("baselineAdviceTitles", baselineAdvices.stream()
-                    .map(DashboardAiAdviceVO::getTitle)
-                    .filter(title -> title != null && !title.isBlank())
-                    .limit(8)
-                    .toList());
+            payload.put("recentFeedbackExamples", sanitizeTrainingExamples(trainingExamples));
 
-            return "请基于以下全局经营快照生成最多 " + properties.getMaxAdvices()
-                    + " 条额外的高价值决策建议，重点观察经营、客户、员工、质量和财务之间的交叉影响，避免与 baselineAdviceTitles 重复：\n"
+            return "请基于以下全局经营快照生成最多 " + config.getMaxAdvices()
+                    + " 条高价值决策建议。重点观察经营、客户、员工、质量和财务之间的交叉影响；"
+                    + "结合 recentFeedbackExamples 学习本租户偏好，减少被忽略或判定无关的建议类型：\n"
                     + objectMapper.writeValueAsString(payload);
         } catch (Exception ignored) {
-            return "请基于当前全局经营快照生成决策建议。";
+            return "请基于当前全局经营快照和历史反馈样本生成 DeepSeek 决策建议。";
         }
+    }
+
+    private List<Map<String, Object>> sanitizeTrainingExamples(List<AiAdviceTrainingSample> trainingExamples) {
+        if (trainingExamples == null || trainingExamples.isEmpty()) {
+            return List.of();
+        }
+        List<Map<String, Object>> examples = new ArrayList<>();
+        for (AiAdviceTrainingSample sample : trainingExamples.stream().limit(12).toList()) {
+            if (sample == null || sample.getFeedbackType() == null || sample.getFeedbackType().isBlank()) {
+                continue;
+            }
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("category", sample.getCategory());
+            item.put("title", sample.getTitle());
+            item.put("priority", sample.getPriority());
+            item.put("confidence", sample.getConfidence());
+            item.put("feedbackType", sample.getFeedbackType());
+            item.put("feedbackText", sample.getFeedbackText());
+            item.put("occurrenceCount", sample.getOccurrenceCount());
+            examples.add(item);
+        }
+        return examples;
+    }
+
+    private List<DashboardAiAdviceVO> markSourceType(List<DashboardAiAdviceVO> advices) {
+        if (advices == null || advices.isEmpty()) {
+            return List.of();
+        }
+        return advices.stream()
+                .filter(advice -> advice != null)
+                .peek(advice -> advice.setSourceType("deepseek"))
+                .toList();
     }
 
     /**

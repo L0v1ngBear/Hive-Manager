@@ -2,16 +2,20 @@ package my.management.module.inventory.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import my.hive.common.annotation.CollectLog;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
+import my.hive.common.print.PrintTaskService;
 import my.hive.common.redis.HiveRedisKeyBuilder;
 import my.hive.common.utils.RedisCacheHelper;
 import my.management.common.utils.ExcelUtil;
-import my.management.common.vo.ImportResultVO;
+import my.management.module.tenant.service.TenantFieldConfigService;
+import my.management.module.tenant.model.vo.TenantFieldConfigVO;
 import my.management.module.inventory.mapper.ClothMapper;
 import my.management.module.inventory.mapper.ClothModelSpecMapper;
 import my.management.module.inventory.mapper.InventoryRecordMapper;
@@ -26,6 +30,10 @@ import my.management.module.inventory.model.enums.ClothQualityFlagEnum;
 import my.management.module.inventory.model.enums.InventoryInTypeEnum;
 import my.management.module.inventory.model.enums.InventoryOperateTypeEnum;
 import my.management.module.inventory.model.vo.ClothInventoryVO;
+import my.management.module.inventory.model.vo.InventoryImportResultVO;
+import my.management.module.inventory.model.vo.InventoryInResultVO;
+import my.management.module.inventory.model.vo.InventoryLabelTaskVO;
+import my.management.module.inventory.model.vo.InventoryModelSummaryVO;
 import my.management.module.inventory.model.vo.InventoryModelOptionVO;
 import my.management.module.inventory.model.vo.InventoryRecordVO;
 import my.management.module.inventory.model.vo.InventorySummaryVO;
@@ -76,7 +84,8 @@ public class InventoryService {
     private static final long MAX_IMPORT_BYTES = 10L * 1024 * 1024;
     private static final BigDecimal MAX_IMPORT_METERS = new BigDecimal("999999999.99");
     private static final int INITIAL_VERSION = 0;
-    private static final List<String> IMPORT_TEMPLATE_HEADERS = List.of("条码", "型号", "规格", "总米数", "剩余米数", "入库时间", "状态");
+    private static final int MAX_CUSTOM_FIELD_VALUE_LENGTH = 500;
+    private static final TypeReference<Map<String, Object>> CUSTOM_FIELD_TYPE_REFERENCE = new TypeReference<>() {};
     private static final Map<String, Set<String>> IMPORT_HEADER_ALIASES = buildImportHeaderAliases();
     private static final List<DateTimeFormatter> IMPORT_TIME_FORMATTERS = List.of(
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
@@ -106,6 +115,15 @@ public class InventoryService {
     @Resource
     private ExcelUtil excelUtil;
 
+    @Resource
+    private PrintTaskService printTaskService;
+
+    @Resource
+    private TenantFieldConfigService tenantFieldConfigService;
+
+    @Resource
+    private ObjectMapper objectMapper;
+
     private static Map<String, Set<String>> buildImportHeaderAliases() {
         Map<String, Set<String>> aliases = new LinkedHashMap<>();
         aliases.put("barcode", aliasSet("条码", "库存条码", "布匹条码", "卷号", "匹号", "码单号", "编号", "库存编号", "批号", "缸号", "barcode", "bar code"));
@@ -124,6 +142,69 @@ public class InventoryService {
             normalized.add(normalizeHeader(value));
         }
         return normalized;
+    }
+
+    private List<String> inventoryImportTemplateHeaders(Map<String, String> fieldLabels) {
+        List<String> headers = new ArrayList<>(List.of(
+                fieldLabel(fieldLabels, "barCode", "条码"),
+                fieldLabel(fieldLabels, "modelCode", "型号"),
+                fieldLabel(fieldLabels, "spec", "规格"),
+                fieldLabel(fieldLabels, "totalMeters", "总米数"),
+                fieldLabel(fieldLabels, "remainingMeters", "剩余米数"),
+                "入库时间",
+                fieldLabel(fieldLabels, "status", "状态")
+        ));
+        if (fieldLabels != null) {
+            fieldLabels.entrySet().stream()
+                    .filter(entry -> entry.getKey() != null && entry.getKey().startsWith("custom_"))
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(Map.Entry::getValue)
+                    .filter(label -> label != null && !label.trim().isBlank())
+                    .forEach(headers::add);
+        }
+        return headers;
+    }
+
+    private String fieldLabel(Map<String, String> fieldLabels, String fieldKey, String fallback) {
+        if (fieldLabels == null || fieldKey == null || fieldKey.isBlank()) {
+            return fallback;
+        }
+        String label = fieldLabels.get(fieldKey);
+        return label == null || label.trim().isBlank() ? fallback : label.trim();
+    }
+
+    private Map<String, String> currentTenantFieldLabels(String moduleCode) {
+        try {
+            return tenantFieldConfigService.currentFieldLabelMap(moduleCode);
+        } catch (BusinessException ignored) {
+            return Map.of();
+        }
+    }
+
+    private Map<String, Set<String>> tenantAwareImportHeaderAliases() {
+        Map<String, Set<String>> aliases = new LinkedHashMap<>();
+        IMPORT_HEADER_ALIASES.forEach((column, values) -> aliases.put(column, new HashSet<>(values)));
+        Map<String, String> labels = currentTenantFieldLabels("inventory");
+        addTenantAlias(aliases, "barcode", labels.get("barCode"));
+        addTenantAlias(aliases, "modelCode", labels.get("modelCode"));
+        addTenantAlias(aliases, "spec", labels.get("spec"));
+        addTenantAlias(aliases, "totalMeters", labels.get("totalMeters"));
+        addTenantAlias(aliases, "remainingMeters", labels.get("remainingMeters"));
+        addTenantAlias(aliases, "status", labels.get("status"));
+        labels.forEach((fieldKey, label) -> {
+            if (fieldKey != null && fieldKey.startsWith("custom_")) {
+                addTenantAlias(aliases, fieldKey, label);
+                addTenantAlias(aliases, fieldKey, fieldKey);
+            }
+        });
+        return aliases;
+    }
+
+    private void addTenantAlias(Map<String, Set<String>> aliases, String column, String label) {
+        if (label == null || label.trim().isBlank()) {
+            return;
+        }
+        aliases.computeIfAbsent(column, key -> new HashSet<>()).add(normalizeHeader(label));
     }
 
     public InventorySummaryVO summary() {
@@ -168,6 +249,40 @@ public class InventoryService {
         result.setPages(page.getPages());
         result.setData(records);
         return result;
+    }
+
+    public PageResult<InventoryModelSummaryVO> modelPage(InventoryPageRequest request) {
+        String keyword = request.getKeyword() == null || request.getKeyword().isBlank() ? null : request.getKeyword().trim();
+        Integer status = request.getStatus();
+        Page<InventoryModelSummaryVO> page = clothMapper.selectModelSummaryPage(
+                new Page<>(safePageNum(request.getPageNum()), safePageSize(request.getPageSize())),
+                TenantPermissionContext.getTenantCode(),
+                keyword,
+                status
+        );
+        PageResult<InventoryModelSummaryVO> result = new PageResult<>();
+        result.setCurrent(page.getCurrent());
+        result.setSize(page.getSize());
+        result.setTotal(page.getTotal());
+        result.setPages(page.getPages());
+        result.setData(page.getRecords());
+        return result;
+    }
+
+    public List<ClothInventoryVO> modelDetail(String modelCode, BigDecimal spec, Integer status) {
+        String safeModelCode = cleanText(modelCode);
+        if (safeModelCode == null) {
+            throw new BusinessException("型号不能为空");
+        }
+        LambdaQueryWrapper<Cloth> wrapper = new LambdaQueryWrapper<Cloth>()
+                .eq(Cloth::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(Cloth::getModelCode, safeModelCode)
+                .eq(spec != null, Cloth::getSpec, spec)
+                .eq(status != null, Cloth::getStatus, status)
+                .gt(status == null, Cloth::getRemainingMeters, BigDecimal.ZERO)
+                .orderByDesc(Cloth::getUpdateTime)
+                .orderByDesc(Cloth::getId);
+        return clothMapper.selectList(wrapper).stream().map(this::toClothVO).toList();
     }
 
     private long safePageNum(Long pageNum) {
@@ -221,7 +336,7 @@ public class InventoryService {
 
     @Transactional(rollbackFor = Exception.class)
     @CollectLog(module = "inventory", action = "cloth_in", bizType = "cloth", bizNo = "#p0.barcode", description = "网页端布匹入库")
-    public void in(InventoryInRequest request) {
+    public InventoryInResultVO in(InventoryInRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
         LocalDateTime now = LocalDateTime.now();
@@ -248,12 +363,19 @@ public class InventoryService {
         cloth.setInOperatorId(userId);
         cloth.setInType(InventoryInTypeEnum.normalizeManual(request.getInType()));
         cloth.setIsBad(ClothQualityFlagEnum.NORMAL.getCode());
+        cloth.setCustomFieldsJson(writeCustomFields(validateInventoryCustomFields(request.getCustomFields())));
         cloth.setVersion(INITIAL_VERSION);
         clothMapper.insert(cloth);
 
         saveRecord(cloth, InventoryOperateTypeEnum.IN.getCode(), request.getMeters(), userId, now);
         saveModelSpecIfAbsent(tenantCode, cloth.getModelCode(), cloth.getSpec());
+        InventoryLabelTaskVO labelTask = createLabelTask(cloth, "网页端新增入库，请在小程序端蓝牙打印并粘贴布匹标签");
         invalidateDashboardCache(tenantCode);
+
+        InventoryInResultVO result = new InventoryInResultVO();
+        result.setCloth(toClothVO(cloth));
+        result.setLabelTask(labelTask);
+        return result;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -301,7 +423,7 @@ public class InventoryService {
         );
         excelUtil.writeTemplateToResponse(response,
                 "外部库存导入字段说明",
-                IMPORT_TEMPLATE_HEADERS,
+                inventoryImportTemplateHeaders(currentTenantFieldLabels("inventory")),
                 examples,
                 notes,
                 "外部库存导入字段说明.xlsx");
@@ -309,15 +431,16 @@ public class InventoryService {
 
     @Transactional(rollbackFor = Exception.class)
     @CollectLog(module = "inventory", action = "inventory_import", bizType = "cloth", description = "网页端库存快照导入")
-    public ImportResultVO importInventory(MultipartFile file) {
+    public InventoryImportResultVO importInventory(MultipartFile file) {
         validateImportFile(file);
         List<List<String>> rows = readImportRows(file);
-        int headerRowIndex = findHeaderRowIndex(rows);
+        Map<String, Set<String>> importHeaderAliases = tenantAwareImportHeaderAliases();
+        int headerRowIndex = findHeaderRowIndex(rows, importHeaderAliases);
         if (headerRowIndex < 0) {
             throw new BusinessException("未识别到库存表头，请至少包含型号和库存米数/数量相关列");
         }
 
-        Map<String, Integer> headerIndex = buildHeaderIndex(rows.get(headerRowIndex));
+        Map<String, Integer> headerIndex = buildHeaderIndex(rows.get(headerRowIndex), importHeaderAliases);
         if (!headerIndex.containsKey("modelCode")) {
             throw new BusinessException("导入文件缺少型号列，可使用：型号、货号、面料型号、物料编码");
         }
@@ -325,14 +448,14 @@ public class InventoryService {
             throw new BusinessException("导入文件缺少米数列，可使用：总米数、库存米数、现存米数、数量、剩余米数");
         }
 
-        ImportResultVO result = new ImportResultVO();
+        InventoryImportResultVO result = new InventoryImportResultVO();
         Set<String> fileBarcodes = new HashSet<>();
         for (int i = headerRowIndex + 1; i < rows.size(); i++) {
             List<String> row = rows.get(i);
             if (isEmptyRow(row)) {
                 continue;
             }
-            if (isRecognizableHeaderRow(row)) {
+            if (isRecognizableHeaderRow(row, importHeaderAliases)) {
                 continue;
             }
             if (result.getTotalCount() >= MAX_IMPORT_ROWS) {
@@ -344,7 +467,11 @@ public class InventoryService {
                 if (importRow.barcode() != null && !fileBarcodes.add(importRow.barcode())) {
                     throw new BusinessException("条码在导入文件中重复：" + importRow.barcode());
                 }
-                createInventorySnapshot(importRow);
+                InventoryLabelTaskVO labelTask = createInventorySnapshot(importRow);
+                if (labelTask != null && labelTask.getPrintTaskNo() != null) {
+                    result.getLabelTasks().add(labelTask);
+                    result.setPrintTaskCount(result.getLabelTasks().size());
+                }
                 result.setSuccessCount(result.getSuccessCount() + 1);
             } catch (Exception ex) {
                 result.setFailCount(result.getFailCount() + 1);
@@ -361,7 +488,7 @@ public class InventoryService {
         return result;
     }
 
-    private void createInventorySnapshot(InventoryImportRow row) {
+    private InventoryLabelTaskVO createInventorySnapshot(InventoryImportRow row) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
         LocalDateTime now = LocalDateTime.now();
@@ -387,6 +514,7 @@ public class InventoryService {
         cloth.setRemainingMeters(row.remainingMeters());
         cloth.setStatus(row.status());
         cloth.setInTime(row.inTime() == null ? now : row.inTime());
+        cloth.setCustomFieldsJson(writeCustomFields(validateInventoryCustomFields(row.customFields())));
         if (ClothInventoryStatusEnum.of(row.status()).isOutStock()) {
             cloth.setOutTime(now);
             cloth.setOutOperatorId(userId);
@@ -395,12 +523,26 @@ public class InventoryService {
         clothMapper.insert(cloth);
         saveRecord(cloth, InventoryOperateTypeEnum.EXTERNAL_IMPORT.getCode(), row.remainingMeters(), userId, now);
         saveModelSpecIfAbsent(tenantCode, row.modelCode(), row.spec());
+        return createLabelTask(cloth, "网页端外部库存导入，请在小程序端蓝牙打印并粘贴布匹标签");
+    }
+
+    private InventoryLabelTaskVO createLabelTask(Cloth cloth, String reason) {
+        InventoryLabelTaskVO labelTask = new InventoryLabelTaskVO();
+        labelTask.setBarcode(cloth.getBarcode());
+        labelTask.setModelCode(cloth.getModelCode());
+        labelTask.setSpec(cloth.getSpec());
+        labelTask.setMeters(cloth.getRemainingMeters());
+        labelTask.setPrintReason(reason);
+        String taskNo = printTaskService.createLabelTask(cloth.getBarcode(), labelTask, null, null, reason);
+        labelTask.setPrintTaskNo(taskNo);
+        return labelTask;
     }
 
     private ClothInventoryVO toClothVO(Cloth cloth) {
         ClothInventoryVO vo = new ClothInventoryVO();
         BeanUtils.copyProperties(cloth, vo);
         vo.setStatusName(statusName(cloth.getStatus()));
+        vo.setCustomFields(readCustomFields(cloth.getCustomFieldsJson()));
         return vo;
     }
 
@@ -519,10 +661,10 @@ public class InventoryService {
         return values;
     }
 
-    private int findHeaderRowIndex(List<List<String>> rows) {
+    private int findHeaderRowIndex(List<List<String>> rows, Map<String, Set<String>> importHeaderAliases) {
         int limit = Math.min(rows.size(), 100);
         for (int i = 0; i < limit; i++) {
-            Map<String, Integer> headerIndex = buildHeaderIndex(rows.get(i));
+            Map<String, Integer> headerIndex = buildHeaderIndex(rows.get(i), importHeaderAliases);
             boolean hasModel = headerIndex.containsKey("modelCode");
             boolean hasMeters = headerIndex.containsKey("totalMeters") || headerIndex.containsKey("remainingMeters");
             if (hasModel && hasMeters) {
@@ -532,20 +674,20 @@ public class InventoryService {
         return -1;
     }
 
-    private boolean isRecognizableHeaderRow(List<String> row) {
-        Map<String, Integer> headerIndex = buildHeaderIndex(row);
+    private boolean isRecognizableHeaderRow(List<String> row, Map<String, Set<String>> importHeaderAliases) {
+        Map<String, Integer> headerIndex = buildHeaderIndex(row, importHeaderAliases);
         boolean hasModel = headerIndex.containsKey("modelCode");
         boolean hasMeters = headerIndex.containsKey("totalMeters") || headerIndex.containsKey("remainingMeters");
         return hasModel && hasMeters;
     }
 
-    private Map<String, Integer> buildHeaderIndex(List<String> headerRow) {
+    private Map<String, Integer> buildHeaderIndex(List<String> headerRow, Map<String, Set<String>> importHeaderAliases) {
         Map<String, Integer> index = new HashMap<>();
         if (headerRow == null) {
             return index;
         }
         for (int i = 0; i < headerRow.size(); i++) {
-            String column = resolveImportColumn(headerRow.get(i));
+            String column = resolveImportColumn(headerRow.get(i), importHeaderAliases);
             if (column != null) {
                 index.putIfAbsent(column, i);
             }
@@ -553,12 +695,13 @@ public class InventoryService {
         return index;
     }
 
-    private String resolveImportColumn(String header) {
+    private String resolveImportColumn(String header, Map<String, Set<String>> importHeaderAliases) {
         String normalized = normalizeHeader(header);
         if (normalized.isBlank()) {
             return null;
         }
-        for (Map.Entry<String, Set<String>> entry : IMPORT_HEADER_ALIASES.entrySet()) {
+        Map<String, Set<String>> aliases = importHeaderAliases == null ? IMPORT_HEADER_ALIASES : importHeaderAliases;
+        for (Map.Entry<String, Set<String>> entry : aliases.entrySet()) {
             if (entry.getValue().contains(normalized)) {
                 return entry.getKey();
             }
@@ -607,8 +750,26 @@ public class InventoryService {
                 totalMeters,
                 remainingMeters,
                 inTime,
-                status
+                status,
+                parseImportCustomFields(row, headerIndex)
         );
+    }
+
+    private Map<String, Object> parseImportCustomFields(List<String> row, Map<String, Integer> headerIndex) {
+        if (headerIndex == null || headerIndex.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> customFields = new LinkedHashMap<>();
+        headerIndex.forEach((fieldKey, index) -> {
+            if (fieldKey == null || !fieldKey.startsWith("custom_")) {
+                return;
+            }
+            String value = cleanText(getCell(row, index));
+            if (value != null) {
+                customFields.put(fieldKey, value);
+            }
+        });
+        return customFields;
     }
 
     private BigDecimal parseNonNegativeDecimal(String value, String fieldName, boolean nullable) {
@@ -765,6 +926,94 @@ public class InventoryService {
         return ClothInventoryStatusEnum.of(status).getLabel();
     }
 
+    private Map<String, Object> validateInventoryCustomFields(Map<String, Object> input) {
+        List<TenantFieldConfigVO> fieldConfigs = currentInventoryCustomFieldConfigs();
+        Map<String, Object> source = input == null ? Map.of() : input;
+        if (fieldConfigs.isEmpty()) {
+            boolean hasCustomInput = source.entrySet().stream()
+                    .anyMatch(entry -> entry.getKey() != null
+                            && entry.getKey().startsWith("custom_")
+                            && cleanText(String.valueOf(entry.getValue())) != null);
+            if (hasCustomInput) {
+                throw new BusinessException("当前租户未配置库存自定义字段，不能提交自定义字段");
+            }
+            return Map.of();
+        }
+        Map<String, TenantFieldConfigVO> configMap = new LinkedHashMap<>();
+        for (TenantFieldConfigVO config : fieldConfigs) {
+            if (config != null && config.getFieldKey() != null) {
+                configMap.put(config.getFieldKey(), config);
+            }
+        }
+
+        Map<String, Object> safeValues = new LinkedHashMap<>();
+        for (TenantFieldConfigVO config : fieldConfigs) {
+            String fieldKey = config.getFieldKey();
+            Object rawValue = source.get(fieldKey);
+            String value = rawValue == null ? null : cleanText(String.valueOf(rawValue));
+            if (Boolean.TRUE.equals(config.getRequired()) && value == null) {
+                throw new BusinessException("自定义字段不能为空：" + config.getFieldLabel());
+            }
+            if (value == null) {
+                continue;
+            }
+            if (value.length() > MAX_CUSTOM_FIELD_VALUE_LENGTH) {
+                throw new BusinessException("自定义字段内容过长：" + config.getFieldLabel());
+            }
+            safeValues.put(fieldKey, normalizeCustomFieldValue(config, value));
+        }
+
+        for (String key : source.keySet()) {
+            if (key != null && key.startsWith("custom_") && !configMap.containsKey(key)) {
+                throw new BusinessException("未配置的自定义字段不能提交：" + key);
+            }
+        }
+        return safeValues;
+    }
+
+    private Object normalizeCustomFieldValue(TenantFieldConfigVO config, String value) {
+        String fieldType = config.getFieldType() == null ? "text" : config.getFieldType();
+        if ("number".equals(fieldType)) {
+            try {
+                return new BigDecimal(value);
+            } catch (NumberFormatException exception) {
+                throw new BusinessException("自定义字段必须是数字：" + config.getFieldLabel());
+            }
+        }
+        return value;
+    }
+
+    private List<TenantFieldConfigVO> currentInventoryCustomFieldConfigs() {
+        try {
+            return tenantFieldConfigService.currentCustomFieldConfigs("inventory");
+        } catch (BusinessException ignored) {
+            return List.of();
+        }
+    }
+
+    private String writeCustomFields(Map<String, Object> customFields) {
+        if (customFields == null || customFields.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(customFields);
+        } catch (Exception exception) {
+            throw new BusinessException("自定义字段保存失败，请检查字段内容");
+        }
+    }
+
+    private Map<String, Object> readCustomFields(String json) {
+        if (json == null || json.isBlank()) {
+            return Map.of();
+        }
+        try {
+            Map<String, Object> values = objectMapper.readValue(json, CUSTOM_FIELD_TYPE_REFERENCE);
+            return values == null ? Map.of() : values;
+        } catch (Exception exception) {
+            return Map.of();
+        }
+    }
+
     private BigDecimal nvl(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
     }
@@ -789,7 +1038,8 @@ public class InventoryService {
             BigDecimal totalMeters,
             BigDecimal remainingMeters,
             LocalDateTime inTime,
-            Integer status
+            Integer status,
+            Map<String, Object> customFields
     ) {
     }
 }

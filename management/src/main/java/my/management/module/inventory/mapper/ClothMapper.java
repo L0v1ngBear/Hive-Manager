@@ -2,7 +2,9 @@ package my.management.module.inventory.mapper;
 
 import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import my.management.module.inventory.model.entity.Cloth;
+import my.management.module.inventory.model.vo.InventoryModelSummaryVO;
 import my.management.module.inventory.model.vo.InventorySummaryVO;
 import my.management.module.inventory.model.vo.InventoryTrendVO;
 import my.management.module.inventory.model.vo.InventoryWarningVO;
@@ -66,4 +68,27 @@ public interface ClothMapper extends BaseMapper<Cloth> {
     List<InventoryTrendVO> selectTrend(@Param("tenantCode") String tenantCode,
                                        @Param("startTime") LocalDateTime startTime,
                                        @Param("endTime") LocalDateTime endTime);
+
+    @InterceptorIgnore(tenantLine = "true")
+    @Select({
+            "<script>",
+            "SELECT model_code AS modelCode, spec AS spec, COUNT(1) AS rollCount,",
+            "       COALESCE(SUM(total_meters), 0) AS totalMeters,",
+            "       COALESCE(SUM(remaining_meters), 0) AS remainingMeters,",
+            "       MAX(update_time) AS latestTime",
+            "FROM cloth",
+            "WHERE tenant_code = #{tenantCode}",
+            "<if test='status != null'> AND status = #{status}</if>",
+            "<if test='status == null'> AND remaining_meters &gt; 0</if>",
+            "<if test='keyword != null and keyword != \"\"'>",
+            "  AND (model_code LIKE CONCAT('%', #{keyword}, '%') OR barcode LIKE CONCAT('%', #{keyword}, '%'))",
+            "</if>",
+            "GROUP BY model_code, spec",
+            "ORDER BY latestTime DESC, model_code ASC",
+            "</script>"
+    })
+    Page<InventoryModelSummaryVO> selectModelSummaryPage(Page<InventoryModelSummaryVO> page,
+                                                         @Param("tenantCode") String tenantCode,
+                                                         @Param("keyword") String keyword,
+                                                         @Param("status") Integer status);
 }

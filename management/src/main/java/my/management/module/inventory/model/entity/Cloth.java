@@ -67,6 +67,9 @@ public class Cloth {
     @TableField("is_bad")
     private Integer isBad;
 
+    @TableField("custom_fields_json")
+    private String customFieldsJson;
+
     @Version
     private Integer version;
 }

@@ -30,3 +30,19 @@ export function getTenantFeatureCatalog() {
     method: 'get'
   })
 }
+
+export function getTenantFieldConfig(tenantCode, moduleCode) {
+  return request({
+    url: `/platform/tenant/${tenantCode}/field-config`,
+    method: 'get',
+    params: { moduleCode }
+  })
+}
+
+export function saveTenantFieldConfig(tenantCode, data) {
+  return request({
+    url: `/platform/tenant/${tenantCode}/field-config`,
+    method: 'post',
+    data
+  })
+}

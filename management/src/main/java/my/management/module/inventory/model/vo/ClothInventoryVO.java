@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * 布匹库存列表出参。
@@ -34,4 +35,6 @@ public class ClothInventoryVO {
     private LocalDateTime outTime;
 
     private LocalDateTime updateTime;
+
+    private Map<String, Object> customFields;
 }

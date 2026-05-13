@@ -260,7 +260,7 @@
               <h3 class="text-sm font-bold text-slate-800">工作日设置</h3>
             </div>
             <div class="flex flex-wrap gap-2">
-              <label v-for="(day, index) in weekDays" :key="day.value" class="cursor-pointer">
+              <label v-for="day in weekDays" :key="day.value" class="cursor-pointer">
                 <input v-model="ruleForm.workDays" type="checkbox" :value="day.value" class="peer sr-only"/>
                 <div class="px-4 py-2 text-xs font-bold rounded-lg bg-slate-100 border border-slate-200/50 text-slate-500 peer-checked:bg-blue-100 peer-checked:text-blue-700 peer-checked:border-blue-300 transition-all select-none">
                   {{ day.label }}

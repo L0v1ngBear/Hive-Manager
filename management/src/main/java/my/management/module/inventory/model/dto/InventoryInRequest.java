@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 /**
  * 布匹入库入参。
@@ -27,4 +28,6 @@ public class InventoryInRequest {
     private BigDecimal meters;
 
     private String inType;
+
+    private Map<String, Object> customFields;
 }

@@ -29,6 +29,7 @@
         <easyexcel.version>4.0.3</easyexcel.version>
         <xxl-job.version>2.4.1</xxl-job.version>
         <aliyun-oss.version>3.18.5</aliyun-oss.version>
+        <aliyun-sms.version>4.5.1</aliyun-sms.version>
     </properties>
 
     <dependencyManagement>
@@ -126,6 +127,11 @@
                 <artifactId>aliyun-sdk-oss</artifactId>
                 <version>${aliyun-oss.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.aliyun</groupId>
+                <artifactId>dysmsapi20170525</artifactId>
+                <version>${aliyun-sms.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -220,6 +226,10 @@
         <dependency>
             <groupId>com.aliyun.oss</groupId>
             <artifactId>aliyun-sdk-oss</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.aliyun</groupId>
+            <artifactId>dysmsapi20170525</artifactId>
         </dependency>
     </dependencies>
 

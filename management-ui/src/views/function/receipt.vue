@@ -122,6 +122,13 @@
             </section>
 
             <table class="receipt-print-table">
+              <colgroup>
+                <col
+                  v-for="column in visibleColumns"
+                  :key="`col-${column.key}`"
+                  :style="{ width: columnWidth(column) }"
+                />
+              </colgroup>
               <thead>
                 <tr>
                   <th v-for="column in visibleColumns" :key="column.key">{{ column.label }}</th>
@@ -357,6 +364,17 @@
                   </label>
                   <span class="column-field">{{ getColumnFieldName(column.key) }}</span>
                   <input v-model.trim="column.label" maxlength="12" />
+                  <label class="column-width-input">
+                    <span>列宽mm</span>
+                    <input
+                      v-model.number="column.widthMm"
+                      type="number"
+                      min="10"
+                      max="80"
+                      step="1"
+                      @change="normalizeColumnWidth(column)"
+                    />
+                  </label>
                   <div class="column-move-actions">
                     <button :disabled="index === 0" @click="moveColumn(index, -1)">上移</button>
                     <button :disabled="index === templateConfig.columns.length - 1" @click="moveColumn(index, 1)">下移</button>
@@ -394,6 +412,13 @@
                 </section>
 
                 <table class="receipt-print-table">
+                  <colgroup>
+                    <col
+                      v-for="column in visibleColumns"
+                      :key="`preview-col-${column.key}`"
+                      :style="{ width: columnWidth(column) }"
+                    />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th v-for="column in visibleColumns" :key="column.key">{{ column.label }}</th>
@@ -680,7 +705,7 @@ function removePrintRow(index) {
 
 function updatePrintRow(index, field, value) {
   const rows = [...tableData.value]
-  const row = { ...(rows[index] || {}) }
+  const row = rows[index] ? { ...rows[index] } : {}
   row[field] = ['meters', 'price', 'totalAmount', 'spec'].includes(field) ? sanitizeDecimalText(value) : value
   if (field === 'totalAmount') {
     row._amountManual = true
@@ -874,16 +899,16 @@ function createBlankRow() {
 
 function defaultReceiptColumns() {
   return [
-    { key: 'modelCode', label: '货物名称', visible: true },
-    { key: 'spec', label: '规格', visible: true },
-    { key: 'meters', label: '数量/米', visible: true },
-    { key: 'blank1', label: '数量/米', visible: true },
-    { key: 'blank2', label: '数量/米', visible: true },
-    { key: 'blank3', label: '数量/米', visible: true },
-    { key: 'totalMeters', label: '总米数', visible: true },
-    { key: 'price', label: '单价', visible: true },
-    { key: 'amount', label: '金额', visible: true },
-    { key: 'remark', label: '备注', visible: true }
+    { key: 'modelCode', label: '货物名称', visible: true, widthMm: 30 },
+    { key: 'spec', label: '规格', visible: true, widthMm: 18 },
+    { key: 'meters', label: '数量/米', visible: true, widthMm: 18 },
+    { key: 'blank1', label: '数量/米', visible: true, widthMm: 16 },
+    { key: 'blank2', label: '数量/米', visible: true, widthMm: 16 },
+    { key: 'blank3', label: '数量/米', visible: true, widthMm: 16 },
+    { key: 'totalMeters', label: '总米数', visible: true, widthMm: 18 },
+    { key: 'price', label: '单价', visible: true, widthMm: 18 },
+    { key: 'amount', label: '金额', visible: true, widthMm: 20 },
+    { key: 'remark', label: '备注', visible: true, widthMm: 36 }
   ]
 }
 
@@ -899,9 +924,28 @@ function normalizeColumns(columns) {
     return {
       key,
       label: source.label || fallback.label,
-      visible: source.visible !== false
+      visible: source.visible !== false,
+      widthMm: normalizeWidthValue(source.widthMm, fallback.widthMm)
     }
   })
+}
+
+function normalizeWidthValue(value, fallback = 18) {
+  const numeric = Number(value)
+  const safeFallback = Number.isFinite(Number(fallback)) ? Number(fallback) : 18
+  if (!Number.isFinite(numeric)) return safeFallback
+  return Math.max(10, Math.min(80, Math.round(numeric)))
+}
+
+function normalizeColumnWidth(column) {
+  if (!column) return
+  const fallback = defaultReceiptColumns().find((item) => item.key === column.key)?.widthMm || 18
+  column.widthMm = normalizeWidthValue(column.widthMm, fallback)
+}
+
+function columnWidth(column) {
+  const fallback = defaultReceiptColumns().find((item) => item.key === column?.key)?.widthMm || 18
+  return `${normalizeWidthValue(column?.widthMm, fallback)}mm`
 }
 
 function moveColumn(index, direction) {
@@ -1696,7 +1740,7 @@ function buildReceiptTemplateContent(config) {
 
 .column-editor-row {
   display: grid;
-  grid-template-columns: 28px minmax(90px, 1fr) minmax(120px, 1.2fr) auto;
+  grid-template-columns: 28px minmax(90px, 1fr) minmax(120px, 1.2fr) 96px auto;
   gap: .5rem;
   align-items: center;
   padding: .5rem;
@@ -1732,6 +1776,30 @@ function buildReceiptTemplateContent(config) {
 }
 
 .column-editor-row > input:focus {
+  border-color: #f5a400;
+  box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
+}
+
+.column-width-input {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  color: #64748b;
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.column-width-input input {
+  width: 56px;
+  height: 2rem;
+  border: 1px solid #dbe3ef;
+  border-radius: .6rem;
+  padding: 0 .4rem;
+  color: #1f2937;
+  outline: none;
+}
+
+.column-width-input input:focus {
   border-color: #f5a400;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }

@@ -430,6 +430,14 @@
                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-primary/10 text-primary">{{ categoryTitle(item.category) }}</span>
                 <span v-if="item.decisionType" class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-white/80 text-primary">{{ item.decisionType }}</span>
                 <span v-if="item.visibilityTier" class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-amber-100 text-amber-800">{{ item.visibilityTier }}</span>
+                <span v-if="item.capabilityMaturity" class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-emerald-100 text-emerald-800">{{ item.capabilityMaturity }}</span>
+                <span
+                  v-for="tag in item.stakeholderTags?.slice(0, 3) || []"
+                  :key="`${item.sampleKey || item.title}-stakeholder-${tag}`"
+                  class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-white/70 text-on-surface-variant"
+                >
+                  {{ tag }}
+                </span>
                 <span v-if="item.ruleVersion" class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-white/70 text-on-surface-variant">{{ item.strategyVersion || 'local_rules' }} · {{ item.ruleVersion }}</span>
                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-surface-container-high text-on-surface-variant">{{ adviceLevelText(item.level) }}</span>
                 <span class="px-2 py-0.5 rounded-md text-[10px] font-black tracking-widest bg-white/70 text-on-surface-variant">{{ item.generatedAt || '实时生成' }}</span>
@@ -474,6 +482,52 @@
               <div v-if="item.firstAction" class="mt-4 rounded-2xl bg-primary/10 border border-primary/20 p-4">
                 <p class="text-xs font-black text-primary tracking-widest uppercase mb-2">第一动作</p>
                 <p class="text-sm leading-7 font-bold text-on-surface">{{ item.firstAction }}</p>
+              </div>
+
+              <div v-if="hasExecutionPlan(item)" class="mt-3 grid grid-cols-1 xl:grid-cols-3 gap-3">
+                <div v-if="item.actionSteps?.length" class="rounded-2xl bg-white/80 border border-outline-variant/20 p-4">
+                  <p class="text-[10px] font-black tracking-widest text-on-surface-variant uppercase">执行清单</p>
+                  <ol class="mt-3 space-y-2">
+                    <li
+                      v-for="(step, stepIndex) in item.actionSteps.slice(0, 5)"
+                      :key="`${item.sampleKey || item.title}-step-${stepIndex}`"
+                      class="flex gap-2 text-xs leading-6 text-on-surface"
+                    >
+                      <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-black text-primary">
+                        {{ stepIndex + 1 }}
+                      </span>
+                      <span>{{ step }}</span>
+                    </li>
+                  </ol>
+                </div>
+                <div v-if="item.successCriteria?.length" class="rounded-2xl bg-emerald-50/80 border border-emerald-100 p-4">
+                  <p class="text-[10px] font-black tracking-widest text-emerald-700 uppercase">验收标准</p>
+                  <div class="mt-3 space-y-2">
+                    <p
+                      v-for="(criteria, criteriaIndex) in item.successCriteria.slice(0, 4)"
+                      :key="`${item.sampleKey || item.title}-criteria-${criteriaIndex}`"
+                      class="flex items-start gap-2 text-xs leading-6 text-emerald-950"
+                    >
+                      <span class="material-symbols-outlined mt-0.5 text-[16px] leading-none text-emerald-600">check_circle</span>
+                      <span>{{ criteria }}</span>
+                    </p>
+                  </div>
+                </div>
+                <div class="rounded-2xl bg-amber-50/80 border border-amber-100 p-4">
+                  <p class="text-[10px] font-black tracking-widest text-amber-700 uppercase">复盘护栏</p>
+                  <p v-if="item.reviewDeadline" class="mt-3 text-xs leading-6 font-bold text-amber-950">截止：{{ item.reviewDeadline }}</p>
+                  <p v-if="item.expectedOutcome" class="mt-2 text-xs leading-6 text-amber-950/80">结果：{{ item.expectedOutcome }}</p>
+                  <p v-if="item.riskGuardrail" class="mt-2 text-xs leading-6 text-amber-950/80">护栏：{{ item.riskGuardrail }}</p>
+                  <div v-if="item.dataCheckpoints?.length" class="mt-3 flex flex-wrap gap-2">
+                    <span
+                      v-for="checkpoint in item.dataCheckpoints.slice(0, 6)"
+                      :key="checkpoint"
+                      class="rounded-full bg-white/75 px-2.5 py-1 text-[10px] font-bold text-amber-800"
+                    >
+                      {{ checkpoint }}
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div
@@ -624,6 +678,18 @@ const filteredAdvices = computed(() => {
 const warningCount = computed(() => advices.value.filter((item) => item.level === 'warning').length)
 const successCount = computed(() => advices.value.filter((item) => item.level === 'success').length)
 const activeModuleCount = computed(() => categoryStats.value.filter((item) => item.count > 0).length)
+
+function hasExecutionPlan(item) {
+  if (!item) return false
+  return Boolean(
+    item.actionSteps?.length ||
+    item.successCriteria?.length ||
+    item.dataCheckpoints?.length ||
+    item.expectedOutcome ||
+    item.reviewDeadline ||
+    item.riskGuardrail
+  )
+}
 
 onMounted(() => fetchAdvices(false))
 

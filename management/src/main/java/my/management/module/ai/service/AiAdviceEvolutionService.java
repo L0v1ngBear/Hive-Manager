@@ -360,7 +360,7 @@ public class AiAdviceEvolutionService {
         comparison.setGranularity("rule");
         comparison.setCategory(defaultText(stat.getCategory(), "overview"));
         comparison.setRuleTitle(defaultText(stat.getTitle(), "未命名建议"));
-        comparison.setSourceType(defaultText(stat.getSourceType(), "local_rules"));
+        comparison.setSourceType(defaultText(stat.getSourceType(), "transformer"));
         comparison.setCurrentStrategyVersion(CURRENT_STRATEGY_VERSION);
         comparison.setCandidateStrategyVersion(CANDIDATE_STRATEGY_VERSION);
         comparison.setCurrentScore(currentScore);
@@ -422,7 +422,7 @@ public class AiAdviceEvolutionService {
         AiAdviceEvolutionReportVO.RolloutCandidate candidate = new AiAdviceEvolutionReportVO.RolloutCandidate();
         candidate.setCategory(defaultText(comparison.getCategory(), "overview"));
         candidate.setRuleTitle(defaultText(comparison.getRuleTitle(), "未命名建议"));
-        candidate.setSourceType(defaultText(comparison.getSourceType(), "local_rules"));
+        candidate.setSourceType(defaultText(comparison.getSourceType(), "transformer"));
         candidate.setCurrentStrategyVersion(defaultText(comparison.getCurrentStrategyVersion(), CURRENT_STRATEGY_VERSION));
         candidate.setCandidateStrategyVersion(defaultText(comparison.getCandidateStrategyVersion(), CANDIDATE_STRATEGY_VERSION));
         candidate.setSuggestedTrafficPercent(resolveSuggestedTrafficPercent(comparison));
@@ -691,7 +691,7 @@ public class AiAdviceEvolutionService {
         return String.join("|",
                 defaultText(category, "overview").trim().toLowerCase(),
                 defaultText(title, "untitled").trim(),
-                defaultText(sourceType, "local_rules").trim().toLowerCase()
+                defaultText(sourceType, "transformer").trim().toLowerCase()
         );
     }
 

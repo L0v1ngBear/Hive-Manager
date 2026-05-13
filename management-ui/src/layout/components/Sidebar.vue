@@ -10,6 +10,16 @@
       </div>
     </div>
 
+    <div
+      v-if="!isCollapsed"
+      class="mx-4 mb-2 rounded-2xl border border-primary/10 bg-white/70 px-4 py-3 shadow-sm shadow-primary/5"
+      :title="userStore.currentTenantLabel"
+    >
+      <p class="text-[10px] font-black uppercase tracking-[0.24em] text-primary/55">当前租户</p>
+      <p class="mt-1 truncate text-sm font-black text-slate-900">{{ userStore.currentTenantName }}</p>
+      <p class="mt-0.5 truncate text-[11px] font-bold text-slate-500">{{ userStore.currentTenantCode || '--' }}</p>
+    </div>
+
     <nav class="flex-1 py-4 overflow-y-auto scrollbar-hide" :class="isCollapsed ? 'px-2' : 'px-4'">
       <div class="space-y-2">
         <router-link

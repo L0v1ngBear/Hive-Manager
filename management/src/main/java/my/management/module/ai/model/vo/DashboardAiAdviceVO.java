@@ -2,6 +2,9 @@ package my.management.module.ai.model.vo;
 
 import lombok.Data;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 总览大盘 AI 建议展示对象，承载规则分析后的建议文本。
  */
@@ -58,7 +61,7 @@ public class DashboardAiAdviceVO {
     private String trackingHint;
 
     /**
-     * 建议来源：local_rules 表示本地规则分析，llm 表示大模型分析。
+     * 建议来源：deepseek 表示 DeepSeek 推理，transformer 表示未来自训练模型推理。
      */
     private String sourceType;
 
@@ -126,6 +129,46 @@ public class DashboardAiAdviceVO {
      * 建议复盘节奏，例如日会、周会或月度经营会。
      */
     private String meetingCadence;
+
+    /**
+     * 建议关联的业务角色标签，用于前端快速判断谁需要参与闭环。
+     */
+    private List<String> stakeholderTags = new ArrayList<>();
+
+    /**
+     * 可执行步骤，避免建议停留在“应该关注”的提醒层。
+     */
+    private List<String> actionSteps = new ArrayList<>();
+
+    /**
+     * 验收标准，用于判断该建议是否真正处理完成。
+     */
+    private List<String> successCriteria = new ArrayList<>();
+
+    /**
+     * 数据核对点，提示用户需要补齐或校验哪些数据后再决策。
+     */
+    private List<String> dataCheckpoints = new ArrayList<>();
+
+    /**
+     * 预期经营结果，帮助管理层判断投入处理是否值得。
+     */
+    private String expectedOutcome;
+
+    /**
+     * 复盘截止时间描述，例如今日下班前、本周五前、下次周会前。
+     */
+    private String reviewDeadline;
+
+    /**
+     * 风险护栏，说明执行建议时不能破坏的业务底线。
+     */
+    private String riskGuardrail;
+
+    /**
+     * 能力成熟度，用于判断建议属于临时处置、流程固化还是制度优化。
+     */
+    private String capabilityMaturity;
 
     /**
      * 建议可见层级，用于前端区分一线提醒和高层经营建议。

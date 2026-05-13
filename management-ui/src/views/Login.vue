@@ -188,6 +188,17 @@
           </label>
 
           <label class="block">
+            <span class="mb-2 block text-sm font-bold text-slate-700">账号或组织码（可选）</span>
+            <input
+              v-model.trim="resetForm.account"
+              type="text"
+              maxlength="64"
+              placeholder="手机号唯一时可不填"
+              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+            />
+          </label>
+
+          <label class="block">
             <span class="mb-2 block text-sm font-bold text-slate-700">短信验证码</span>
             <div class="flex gap-3">
               <input
@@ -265,6 +276,7 @@ const loginForm = reactive({
 
 const resetForm = reactive({
   phone: '',
+  account: '',
   code: '',
   newPassword: '',
   confirmPassword: ''
@@ -338,6 +350,7 @@ function openResetPasswordDialog() {
 function closeResetPasswordDialog() {
   resetDialogVisible.value = false
   resetForm.phone = ''
+  resetForm.account = ''
   resetForm.code = ''
   resetForm.newPassword = ''
   resetForm.confirmPassword = ''
@@ -356,7 +369,7 @@ async function handleSendResetCode() {
 
   codeSending.value = true
   try {
-    await sendPasswordResetCode({ phone })
+    await sendPasswordResetCode({ phone, account: normalizeResetAccount(resetForm.account) })
     resetForm.phone = phone
     ElMessage.success('验证码已发送，请查收短信')
     startCodeCountdown()
@@ -390,6 +403,7 @@ async function handleResetPassword() {
   try {
     await resetPassword({
       phone,
+      account: normalizeResetAccount(resetForm.account),
       code: resetForm.code,
       newPassword: resetForm.newPassword,
       confirmPassword: resetForm.confirmPassword
@@ -408,6 +422,11 @@ async function handleResetPassword() {
 function normalizePhone(value) {
   const digits = String(value || '').replace(/\D/g, '')
   return digits.length === 11 ? digits : ''
+}
+
+function normalizeResetAccount(value) {
+  const account = String(value || '').trim()
+  return account.length > 64 ? account.slice(0, 64) : account
 }
 
 function validateResetPassword() {

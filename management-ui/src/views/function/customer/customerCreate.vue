@@ -36,7 +36,7 @@
 
             <div>
               <label class="ml-1 mb-1.5 block text-xs font-bold text-on-surface-variant">
-                公司名称 <span class="text-error">*</span>
+                {{ fieldLabel('customerName', '客户名称') }} <span v-if="fieldRequired('customerName')" class="text-error">*</span>
               </label>
               <input
                 v-model="formData.customerName"
@@ -46,21 +46,10 @@
               />
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="ml-1 mb-1.5 block text-xs font-bold text-on-surface-variant">客户级别</label>
-                <select
-                  v-model="formData.customerLevel"
-                  class="w-full cursor-pointer rounded-lg bg-surface-container-low px-3 py-2.5 text-sm font-bold text-primary focus:ring-2 focus:ring-primary"
-                >
-                  <option value="T3">T3 标准客户</option>
-                  <option value="T2">T2 大宗客户</option>
-                  <option value="T1">T1 战略客户</option>
-                </select>
-              </div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label class="ml-1 mb-1.5 block text-xs font-bold text-on-surface-variant">
-                  客户类型 <span class="text-error">*</span>
+                  {{ fieldLabel('customerType', '客户类型') }} <span v-if="fieldRequired('customerType')" class="text-error">*</span>
                 </label>
                 <select
                   v-model="formData.customerType"
@@ -74,10 +63,10 @@
             </div>
           </section>
 
-          <section class="space-y-3">
+          <section v-if="fieldVisible('contactName') || fieldVisible('contactPhone')" class="space-y-3">
             <div class="mb-2 flex items-end justify-between">
               <h3 class="flex items-center gap-2 text-sm font-bold text-primary">
-                <span class="h-4 w-1 rounded-full bg-primary"></span>联系人列表
+                <span class="h-4 w-1 rounded-full bg-primary"></span>{{ fieldLabel('contactName', '联系人列表') }}
               </h3>
               <button
                 class="flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-primary transition-colors hover:bg-primary/10"
@@ -94,15 +83,17 @@
             >
               <div class="grid flex-1 grid-cols-2 gap-3">
                 <input
+                  v-if="fieldVisible('contactName')"
                   v-model="contact.contactName"
                   class="w-full rounded border border-outline-variant/20 bg-white px-3 py-2 text-xs font-bold text-primary focus:ring-1 focus:ring-primary"
-                  placeholder="联系人姓名"
+                  :placeholder="fieldLabel('contactName', '联系人姓名')"
                   type="text"
                 />
                 <input
+                  v-if="fieldVisible('contactPhone')"
                   v-model="contact.contactPhone"
                   class="w-full rounded border border-outline-variant/20 bg-white px-3 py-2 text-xs font-bold text-primary focus:ring-1 focus:ring-primary"
-                  placeholder="联系电话"
+                  :placeholder="fieldLabel('contactPhone', '联系电话')"
                   type="text"
                 />
               </div>
@@ -123,10 +114,10 @@
             </div>
           </section>
 
-          <section class="space-y-3">
+          <section v-if="fieldVisible('projectName')" class="space-y-3">
             <div class="mb-2 flex items-end justify-between">
               <h3 class="flex items-center gap-2 text-sm font-bold text-tertiary">
-                <span class="h-4 w-1 rounded-full bg-tertiary"></span>合作项目列表
+                <span class="h-4 w-1 rounded-full bg-tertiary"></span>{{ fieldLabel('projectName', '合作项目列表') }}
               </h3>
               <button
                 class="flex items-center gap-1 rounded px-2 py-1 text-xs font-bold text-tertiary transition-colors hover:bg-tertiary/10"
@@ -144,15 +135,17 @@
               <div class="flex items-start gap-3">
                 <div class="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
                   <input
+                    v-if="fieldVisible('projectName')"
                     v-model="project.projectName"
                     class="w-full rounded border border-outline-variant/20 bg-white px-3 py-2 text-xs font-bold text-tertiary focus:ring-1 focus:ring-tertiary"
-                    placeholder="输入合作项目名称"
+                    :placeholder="fieldLabel('projectName', '输入合作项目名称')"
                     type="text"
                   />
                   <input
+                    v-if="fieldVisible('constructionArea')"
                     v-model="project.constructionArea"
                     class="w-full rounded border border-outline-variant/20 bg-white px-3 py-2 text-xs font-bold text-tertiary focus:ring-1 focus:ring-tertiary"
-                    placeholder="输入该项目的施工区域"
+                    :placeholder="fieldLabel('constructionArea', '输入该项目的施工区域')"
                     type="text"
                   />
                 </div>
@@ -198,6 +191,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useTenantFieldConfig } from '@/composables/useTenantFieldConfig'
 import { createCustomer, getCustomerDetail, updateCustomer } from './api/customer'
 
 const props = defineProps({
@@ -212,6 +206,15 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:visible', 'success'])
+const {
+  loadFieldConfig,
+  fieldLabel,
+  fieldRequired,
+  fieldVisible
+} = useTenantFieldConfig('customer', {
+  backendRequiredFields: ['customerName', 'customerType'],
+  fallbackKey: 'customerName'
+})
 const submitting = ref(false)
 const loadingDetail = ref(false)
 const formData = reactive(createDefaultForm())
@@ -235,6 +238,7 @@ watch(
       return
     }
     resetForm()
+    await loadFieldConfig()
     if (isEditMode.value) {
       await loadCustomerDetail()
     }
@@ -326,7 +330,6 @@ function resetForm() {
 function createDefaultForm() {
   return {
     customerName: '',
-    customerLevel: 'T3',
     customerType: 1,
     contacts: [{ contactName: '', contactPhone: '' }],
     projects: []

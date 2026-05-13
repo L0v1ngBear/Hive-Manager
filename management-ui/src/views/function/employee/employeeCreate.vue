@@ -45,7 +45,9 @@
         </div>
         <div class="grid grid-cols-2 gap-6">
           <div class="col-span-2">
-            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">姓名</label>
+            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
+              {{ fieldLabel('name', '姓名') }} <span v-if="fieldRequired('name')" class="text-error">*</span>
+            </label>
             <input
                 v-model.trim="form.name"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
@@ -53,8 +55,8 @@
                 type="text"
             />
           </div>
-          <div>
-            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">工号</label>
+          <div v-if="fieldVisible('empNo')">
+            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">{{ fieldLabel('empNo', '工号') }}</label>
             <input
                 class="w-full cursor-not-allowed rounded-sm border-b-2 border-transparent bg-surface-container-highest/50 px-3 py-2.5 text-sm italic text-on-surface-variant"
                 readonly
@@ -63,7 +65,9 @@
             />
           </div>
           <div>
-            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">电话</label>
+            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
+              {{ fieldLabel('phone', '电话') }} <span v-if="fieldRequired('phone')" class="text-error">*</span>
+            </label>
             <input
                 v-model.trim="form.phone"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
@@ -71,8 +75,8 @@
                 type="tel"
             />
           </div>
-          <div class="col-span-2">
-            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">邮箱</label>
+          <div v-if="fieldVisible('email')" class="col-span-2">
+            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">{{ fieldLabel('email', '邮箱') }}</label>
             <input
                 v-model.trim="form.email"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
@@ -90,7 +94,9 @@
         </div>
         <div class="grid grid-cols-2 gap-6">
           <div>
-            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">部门</label>
+            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
+              {{ fieldLabel('departmentName', '部门') }} <span v-if="fieldRequired('departmentName')" class="text-error">*</span>
+            </label>
             <select
                 v-model="form.departmentId"
                 class="w-full appearance-none rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
@@ -106,7 +112,9 @@
             </select>
           </div>
           <div>
-            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">入职日期</label>
+            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
+              {{ fieldLabel('entryDate', '入职日期') }} <span v-if="fieldRequired('entryDate')" class="text-error">*</span>
+            </label>
             <input
                 v-model="form.entryDate"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
@@ -114,7 +122,9 @@
             />
           </div>
           <div class="col-span-2">
-            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">职位</label>
+            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
+              {{ fieldLabel('positionName', '职位') }} <span v-if="fieldRequired('positionName')" class="text-error">*</span>
+            </label>
             <select
                 v-model="form.positionId"
                 class="w-full appearance-none rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
@@ -167,8 +177,8 @@
             </div>
           </div>
 
-          <div class="relative col-span-2">
-            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">直属领导</label>
+          <div v-if="fieldVisible('leaderName')" class="relative col-span-2">
+            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">{{ fieldLabel('leaderName', '直属领导') }}</label>
             <div class="group relative">
               <span class="material-symbols-outlined absolute top-2.5 left-3 text-lg text-on-surface-variant">
                 person_search
@@ -203,8 +213,8 @@
             </p>
           </div>
 
-          <div class="col-span-2">
-            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">补充备注</label>
+          <div v-if="fieldVisible('remark')" class="col-span-2">
+            <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">{{ fieldLabel('remark', '补充备注') }}</label>
             <textarea
                 v-model.trim="form.remark"
                 class="w-full resize-none rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
@@ -218,7 +228,9 @@
       <section>
         <div class="mb-4 flex items-center gap-2">
           <span class="h-4 w-1 rounded-full bg-primary"></span>
-          <h3 class="text-xs font-bold uppercase tracking-widest text-on-primary-container">雇佣状态</h3>
+          <h3 class="text-xs font-bold uppercase tracking-widest text-on-primary-container">
+            {{ fieldLabel('status', '雇佣状态') }} <span v-if="fieldRequired('status')" class="text-error">*</span>
+          </h3>
         </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <label
@@ -274,6 +286,7 @@
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useTenantFieldConfig } from '@/composables/useTenantFieldConfig'
 import {
   createEmployee,
   getEmployeeDetail,
@@ -295,6 +308,15 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'success'])
 
+const {
+  loadFieldConfig,
+  fieldLabel,
+  fieldRequired,
+  fieldVisible
+} = useTenantFieldConfig('employee', {
+  backendRequiredFields: ['name', 'phone', 'departmentName', 'positionName', 'entryDate', 'status'],
+  fallbackKey: 'name'
+})
 const submitting = ref(false)
 const initialized = ref(false)
 const departments = ref([])
@@ -330,6 +352,7 @@ watch(
         return
       }
       resetForm()
+      await loadFieldConfig()
       if (!initialized.value) {
         await loadOptions()
         initialized.value = true

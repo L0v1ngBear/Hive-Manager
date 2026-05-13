@@ -12,6 +12,13 @@
         </div>
         <div class="flex gap-3">
           <button
+              v-permission="'employee:create'"
+              @click="handleGenerateJoinCode"
+              class="px-4 py-2 bg-blue-50 text-primary font-bold rounded-lg flex items-center gap-2 hover:bg-blue-100 transition-colors text-sm"
+          >
+            <span class="material-symbols-outlined text-[20px]">vpn_key</span>生成组织码
+          </button>
+          <button
               @click="openOrganizationDrawer"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
@@ -137,42 +144,44 @@
           <table class="w-full text-left border-collapse">
             <thead>
             <tr class="bg-surface-container/30 text-on-surface-variant border-b border-surface-variant/50">
-              <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap">员工</th>
-              <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap">工号</th>
-              <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap">部门</th>
-              <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap">职位</th>
-              <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap">联系方式</th>
-              <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap">状态</th>
-              <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap">入职日期</th>
+              <th
+                  v-for="field in visibleEmployeeColumns"
+                  :key="field.key"
+                  class="px-6 py-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap"
+              >
+                {{ field.label }}
+              </th>
               <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-right whitespace-nowrap">操作</th>
             </tr>
             </thead>
             <tbody class="divide-y divide-surface-variant/50">
             <tr v-for="emp in employees" :key="emp.id" class="cursor-pointer hover:bg-surface-container-high/50 transition-colors group" @click="showEmployeeDetail(emp.id)">
-              <td class="px-6 py-3">
+              <td
+                  v-for="field in visibleEmployeeColumns"
+                  :key="field.key"
+                  :class="employeeCellClass(field.key)"
+              >
+                <template v-if="field.key === 'name'">
                 <div>
                   <p class="font-bold text-primary leading-none whitespace-nowrap">{{ emp.name }}</p>
-                  <p class="text-[10px] text-on-surface-variant uppercase mt-1">{{ formatEmployeeType(emp.employeeType) }}</p>
+                  <p v-if="isEmployeeFieldVisible('employeeType')" class="text-[10px] text-on-surface-variant uppercase mt-1">{{ formatEmployeeType(emp.employeeType) }}</p>
                 </div>
-              </td>
-              <td class="px-6 py-3 font-mono text-sm text-secondary whitespace-nowrap">{{ emp.empNo || '--' }}</td>
-              <td class="px-6 py-3 whitespace-nowrap">
+                </template>
+                <template v-else-if="field.key === 'departmentName'">
                   <span :class="`px-2 py-0.5 rounded text-[11px] font-bold border ${departmentBadge(emp.departmentName)}`">
                     {{ emp.departmentName || '--' }}
                   </span>
+                </template>
+                <template v-else-if="field.key === 'status'">
+                  <div :class="`flex items-center gap-1.5 font-bold text-xs ${statusMeta(emp.status).text}`">
+                    <span :class="`w-1.5 h-1.5 rounded-full ${statusMeta(emp.status).dot}`"></span>
+                    {{ statusMeta(emp.status).label }}
+                  </div>
+                </template>
+                <template v-else>
+                  {{ employeeColumnText(emp, field.key) }}
+                </template>
               </td>
-              <td class="px-6 py-3 text-sm font-bold text-primary whitespace-nowrap">{{ emp.positionName || '--' }}</td>
-              <td class="px-6 py-3 whitespace-nowrap">
-                <div class="text-xs font-medium text-primary">{{ emp.email || '--' }}</div>
-                <div class="text-xs text-on-surface-variant mt-0.5">{{ emp.phone || '--' }}</div>
-              </td>
-              <td class="px-6 py-3 whitespace-nowrap">
-                <div :class="`flex items-center gap-1.5 font-bold text-xs ${statusMeta(emp.status).text}`">
-                  <span :class="`w-1.5 h-1.5 rounded-full ${statusMeta(emp.status).dot}`"></span>
-                  {{ statusMeta(emp.status).label }}
-                </div>
-              </td>
-              <td class="px-6 py-3 text-sm text-on-surface-variant font-medium whitespace-nowrap">{{ emp.entryDate || '--' }}</td>
               <td class="px-6 py-3 text-right">
                 <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button @click.stop="showEmployeeDetail(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="查看">
@@ -185,7 +194,7 @@
               </td>
             </tr>
             <tr v-if="!loading && employees.length === 0">
-              <td colspan="8" class="px-6 py-12 text-center text-sm text-on-surface-variant">未找到员工记录。</td>
+              <td :colspan="employeeTableColumnCount" class="px-6 py-12 text-center text-sm text-on-surface-variant">未找到员工记录。</td>
             </tr>
             </tbody>
           </table>
@@ -323,10 +332,19 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { Vue3TreeOrg } from 'vue3-tree-org'
 import 'vue3-tree-org/lib/vue3-tree-org.css'
+import { getCurrentTenantFieldConfig } from '@/api/tenantFieldConfig'
+import {
+  defaultTenantFieldConfig,
+  mergeTenantFieldConfig,
+  tenantFieldLabel,
+  tenantFieldVisible,
+  visibleTenantFields
+} from '@/utils/tenantFieldConfig'
 import EmployeeCreate from './employeeCreate.vue'
 import {
   downloadEmployeeImportTemplate,
   exportEmployeesExcel,
+  generateOrganizationJoinCode,
   getEmployeeDetail,
   getEmployeeFormOptions,
   getEmployeePage,
@@ -346,6 +364,7 @@ const organizationEmployees = ref([])
 const employees = ref([])
 const departments = ref([])
 const statusOptions = ref([])
+const employeeFieldConfig = ref(defaultTenantFieldConfig('employee'))
 const stats = reactive({
   totalEmployees: 0,
   todayAttendanceRate: 0,
@@ -368,6 +387,9 @@ const query = reactive({
 const totalPages = computed(() => Math.max(pagination.pages || 1, 1))
 const pageStart = computed(() => (pagination.total === 0 ? 0 : (query.page - 1) * query.size + 1))
 const pageEnd = computed(() => Math.min(query.page * query.size, pagination.total || 0))
+const employeeColumnRenderers = new Set(['name', 'empNo', 'departmentName', 'positionName', 'phone', 'email', 'leaderName', 'entryDate', 'status'])
+const visibleEmployeeColumns = computed(() => visibleTenantFields(employeeFieldConfig.value, 'name').filter((field) => employeeColumnRenderers.has(field.key)))
+const employeeTableColumnCount = computed(() => visibleEmployeeColumns.value.length + 1)
 
 // 核心逻辑：构建层级结构
 const employeeHierarchy = computed(() => buildEmployeeHierarchy(organizationEmployees.value))
@@ -433,6 +455,15 @@ const buildEmployeeHierarchy = (source) => {
   return roots
 }
 
+const fetchEmployeeFieldConfig = async () => {
+  try {
+    const rows = await getCurrentTenantFieldConfig('employee')
+    employeeFieldConfig.value = mergeTenantFieldConfig('employee', rows)
+  } catch (error) {
+    employeeFieldConfig.value = defaultTenantFieldConfig('employee')
+  }
+}
+
 const fetchEmployees = async () => {
   loading.value = true
   try {
@@ -480,11 +511,39 @@ const handleCreateSuccess = async () => {
   await Promise.all([fetchEmployees(), fetchStats()])
 }
 
+const isEmployeeFieldVisible = (key) => tenantFieldVisible(employeeFieldConfig.value, key)
+
+const employeeColumnText = (emp, key) => {
+  if (!emp) return '--'
+  if (key === 'empNo') return emp.empNo || '--'
+  if (key === 'positionName') return emp.positionName || '--'
+  if (key === 'phone') return emp.phone || '--'
+  if (key === 'email') return emp.email || '--'
+  if (key === 'leaderName') return emp.leaderName || '--'
+  if (key === 'entryDate') return emp.entryDate || '--'
+  if (key === 'employeeType') return formatEmployeeType(emp.employeeType)
+  if (key === 'remark') return emp.remark || '--'
+  return emp[key] || '--'
+}
+
+const employeeCellClass = (key) => {
+  const base = 'px-6 py-3 whitespace-nowrap'
+  if (key === 'empNo') return `${base} font-mono text-sm text-secondary`
+  if (key === 'positionName') return `${base} text-sm font-bold text-primary`
+  if (key === 'entryDate') return `${base} text-sm text-on-surface-variant font-medium`
+  return base
+}
+
+const employeeDetailLines = (detail) => visibleEmployeeColumns.value
+    .filter((field) => field.key !== 'name')
+    .map((field) => `${field.label}: ${field.key === 'status' ? statusMeta(detail.status).label : employeeColumnText(detail, field.key)}`)
+
 const showEmployeeDetail = async (id) => {
   const detail = await getEmployeeDetail(id)
+  const detailLines = employeeDetailLines(detail)
   ElMessageBox.alert(
-      `工号: ${detail.empNo || '--'}\n部门: ${detail.departmentName || '--'}\n职位: ${detail.positionName || '--'}\n直属领导: ${detail.leaderName || '--'}\n状态: ${statusMeta(detail.status).label}`,
-      detail.name,
+      detailLines.length ? detailLines.join('\n') : '暂无可展示字段',
+      detail.name || tenantFieldLabel(employeeFieldConfig.value, 'name', '员工详情'),
       { confirmButtonText: '关闭' }
   )
 }
@@ -548,6 +607,34 @@ const handleTemplateDownload = async () => {
 
 const triggerImport = () => {
   importInputRef.value?.click()
+}
+
+const handleGenerateJoinCode = async () => {
+  const data = await generateOrganizationJoinCode()
+  const lines = [
+    `组织码：${data.joinCode}`,
+    `所属组织：${data.tenantName || data.tenantCode || '--'}`,
+    `有效期至：${data.expireAt || '15 分钟后'}`,
+    '',
+    '员工在小程序首页输入该组织码后即可加入组织，加入后会获得系统默认基础权限。'
+  ]
+  await copyText(data.joinCode)
+  ElMessageBox.alert(lines.join('\n'), '小程序加入组织码', {
+    confirmButtonText: '知道了'
+  })
+}
+
+const copyText = async (text) => {
+  if (!text) return
+  try {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error('clipboard unavailable')
+    }
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('组织码已复制，15 分钟内有效。')
+  } catch (error) {
+    ElMessage.success('组织码已生成，15 分钟内有效。')
+  }
 }
 
 const handleImportChange = async (event) => {
@@ -617,7 +704,7 @@ function applyRouteKeyword() {
 
 onMounted(async () => {
   applyRouteKeyword()
-  await Promise.all([fetchEmployees(), fetchStats(), fetchFormOptions()])
+  await Promise.all([fetchEmployeeFieldConfig(), fetchEmployees(), fetchStats(), fetchFormOptions()])
 })
 
 watch(

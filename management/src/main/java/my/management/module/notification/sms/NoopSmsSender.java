@@ -2,6 +2,7 @@ package my.management.module.notification.sms;
 
 import jakarta.annotation.Resource;
 import my.management.module.notification.config.SmsProperties;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
  * 后续新增供应商时实现 SmsSender 并按 provider 条件启用即可。</p>
  */
 @Component
+@ConditionalOnProperty(prefix = "notification.sms", name = "provider", havingValue = "noop", matchIfMissing = true)
 public class NoopSmsSender implements SmsSender {
 
     @Resource

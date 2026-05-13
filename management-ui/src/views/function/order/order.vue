@@ -743,12 +743,20 @@ function switchTab(tabId) {
 
 async function refreshCurrentTab() {
   currentState.value.page = 1
-  currentTab.value === 'sales' ? await loadSalesOrders() : await loadProductionOrders()
+  if (currentTab.value === 'sales') {
+    await loadSalesOrders()
+  } else {
+    await loadProductionOrders()
+  }
 }
 
 async function changePage(page) {
   currentState.value.page = page
-  currentTab.value === 'sales' ? await loadSalesOrders() : await loadProductionOrders()
+  if (currentTab.value === 'sales') {
+    await loadSalesOrders()
+  } else {
+    await loadProductionOrders()
+  }
 }
 
 async function loadSalesOrders() {
@@ -808,7 +816,11 @@ function closeDetail() {
 function openCreate() {
   formMode.value = 'create'
   editingOrderId.value = ''
-  currentTab.value === 'sales' ? resetSalesForm() : resetProductionForm()
+  if (currentTab.value === 'sales') {
+    resetSalesForm()
+  } else {
+    resetProductionForm()
+  }
   formVisible.value = true
 }
 
@@ -939,7 +951,11 @@ async function submitForm() {
     if (currentTab.value === 'sales') {
       validateSalesForm()
       const payload = buildSalesPayload()
-      formMode.value === 'create' ? await createSalesOrder(payload) : await saveSalesOrder(editingOrderId.value, payload)
+      if (formMode.value === 'create') {
+        await createSalesOrder(payload)
+      } else {
+        await saveSalesOrder(editingOrderId.value, payload)
+      }
       ElMessage.success(formMode.value === 'create' ? '销售订单创建成功' : '销售订单保存成功')
       closeForm()
       await loadSalesOrders()
@@ -949,7 +965,11 @@ async function submitForm() {
 
     validateProductionForm()
     const payload = buildProductionPayload()
-    formMode.value === 'create' ? await createProductionOrder(payload) : await saveProductionOrder(editingOrderId.value, payload)
+    if (formMode.value === 'create') {
+      await createProductionOrder(payload)
+    } else {
+      await saveProductionOrder(editingOrderId.value, payload)
+    }
     ElMessage.success(formMode.value === 'create' ? '生产订单创建成功' : '生产订单保存成功')
     closeForm()
     await loadProductionOrders()

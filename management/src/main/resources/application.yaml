@@ -41,7 +41,7 @@ platform:
 
 ai:
   llm:
-    # 默认关闭：未配置模型时仍使用本地规则分析，保证总览大盘稳定可用。
+    # 兼容旧配置：等价于 deepseek 配置；新部署建议使用 ai.llm.deepseek。
     enabled: ${AI_LLM_ENABLED:false}
     endpoint: ${AI_LLM_ENDPOINT:}
     api-key: ${AI_LLM_API_KEY:}
@@ -49,6 +49,22 @@ ai:
     max-advices: ${AI_LLM_MAX_ADVICES:3}
     timeout-seconds: ${AI_LLM_TIMEOUT_SECONDS:30}
     temperature: ${AI_LLM_TEMPERATURE:0.2}
+    deepseek:
+      enabled: ${AI_DEEPSEEK_ENABLED:${AI_LLM_ENABLED:false}}
+      endpoint: ${AI_DEEPSEEK_ENDPOINT:https://api.deepseek.com/chat/completions}
+      api-key: ${AI_DEEPSEEK_API_KEY:${AI_LLM_API_KEY:}}
+      model: ${AI_DEEPSEEK_MODEL:deepseek-chat}
+      max-advices: ${AI_DEEPSEEK_MAX_ADVICES:4}
+      timeout-seconds: ${AI_DEEPSEEK_TIMEOUT_SECONDS:45}
+      temperature: ${AI_DEEPSEEK_TEMPERATURE:0.2}
+    self-trained:
+      enabled: ${AI_SELF_TRAINED_ENABLED:false}
+      endpoint: ${AI_SELF_TRAINED_ENDPOINT:}
+      api-key: ${AI_SELF_TRAINED_API_KEY:}
+      model: ${AI_SELF_TRAINED_MODEL:hive-transformer-advice}
+      max-advices: ${AI_SELF_TRAINED_MAX_ADVICES:4}
+      timeout-seconds: ${AI_SELF_TRAINED_TIMEOUT_SECONDS:45}
+      temperature: ${AI_SELF_TRAINED_TEMPERATURE:0.15}
 
 map:
   tianditu:
@@ -77,6 +93,7 @@ notification:
     provider: ${NOTIFICATION_SMS_PROVIDER:noop}
     access-key: ${NOTIFICATION_SMS_ACCESS_KEY:}
     access-secret: ${NOTIFICATION_SMS_ACCESS_SECRET:}
+    endpoint: ${NOTIFICATION_SMS_ENDPOINT:dysmsapi.aliyuncs.com}
     sign-name: ${NOTIFICATION_SMS_SIGN_NAME:}
     template-code: ${NOTIFICATION_SMS_TEMPLATE_CODE:}
 

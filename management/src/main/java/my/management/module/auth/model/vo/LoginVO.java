@@ -18,6 +18,8 @@ public class LoginVO {
 
     private String tenantCode;
 
+    private String tenantName;
+
     private Boolean developer = false;
 
     private String responseKey;

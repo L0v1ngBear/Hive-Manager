@@ -16,6 +16,11 @@ spring:
     username: guest
     password: guest
 
+notification:
+  sms:
+    enabled: ${NOTIFICATION_SMS_ENABLED:true}
+    provider: ${NOTIFICATION_SMS_PROVIDER:console}
+
 app:
   default-password:
     employee: ${EMPLOYEE_DEFAULT_PASSWORD:Test@123456}

@@ -51,6 +51,24 @@ public interface DashboardMapper {
                                                             @Param("endDate") LocalDateTime endDate);
 
     @Select({
+            "SELECT CAST(CONCAT(DATE(create_time), ' 00:00:00') AS DATETIME) AS statDate, ",
+            "COALESCE(SUM(CASE WHEN operate_type IN (#{inType}, #{externalImportType}) THEN operate_meters ELSE 0 END), 0) AS dayInMeters, ",
+            "COALESCE(SUM(CASE WHEN operate_type = #{outType} THEN operate_meters ELSE 0 END), 0) AS dayOutMeters ",
+            "FROM inventory_record ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND create_time >= #{startDate} ",
+            "AND create_time <= #{endDate} ",
+            "GROUP BY DATE(create_time) ",
+            "ORDER BY DATE(create_time) ASC"
+    })
+    List<DashboardInventoryTrendRowVO> selectInventoryRecordTrend(@Param("tenantCode") String tenantCode,
+                                                                  @Param("startDate") LocalDateTime startDate,
+                                                                  @Param("endDate") LocalDateTime endDate,
+                                                                  @Param("inType") Integer inType,
+                                                                  @Param("externalImportType") Integer externalImportType,
+                                                                  @Param("outType") Integer outType);
+
+    @Select({
             "SELECT COUNT(1) FROM (",
             "SELECT model_code ",
             "FROM cloth ",

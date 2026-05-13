@@ -7,13 +7,15 @@ import my.hive.common.annotation.RequirePermission;
 import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
-import my.management.common.vo.ImportResultVO;
 import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.inventory.model.dto.InventoryInRequest;
 import my.management.module.inventory.model.dto.InventoryOutRequest;
 import my.management.module.inventory.model.dto.InventoryPageRequest;
 import my.management.module.inventory.model.vo.ClothInventoryVO;
+import my.management.module.inventory.model.vo.InventoryImportResultVO;
+import my.management.module.inventory.model.vo.InventoryInResultVO;
+import my.management.module.inventory.model.vo.InventoryModelSummaryVO;
 import my.management.module.inventory.model.vo.InventoryModelOptionVO;
 import my.management.module.inventory.model.vo.InventoryRecordVO;
 import my.management.module.inventory.model.vo.InventorySummaryVO;
@@ -53,6 +55,20 @@ public class InventoryController {
         return Result.success(inventoryService.page(request));
     }
 
+    @GetMapping("/model/page")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存聚合列表")
+    public Result<PageResult<InventoryModelSummaryVO>> modelPage(InventoryPageRequest request) {
+        return Result.success(inventoryService.modelPage(request));
+    }
+
+    @GetMapping("/model/detail")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存明细")
+    public Result<List<ClothInventoryVO>> modelDetail(@RequestParam String modelCode,
+                                                      @RequestParam(required = false) java.math.BigDecimal spec,
+                                                      @RequestParam(required = false) Integer status) {
+        return Result.success(inventoryService.modelDetail(modelCode, spec, status));
+    }
+
     @GetMapping("/warning/list")
     @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存预警")
     public Result<List<InventoryWarningVO>> warnings() {
@@ -85,9 +101,8 @@ public class InventoryController {
 
     @PostMapping("/cloth/in")
     @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_CLOTH_IN, message = "您没有权限执行入库")
-    public Result<Void> in(@Valid @RequestBody InventoryInRequest request) {
-        inventoryService.in(request);
-        return Result.success(null);
+    public Result<InventoryInResultVO> in(@Valid @RequestBody InventoryInRequest request) {
+        return Result.success(inventoryService.in(request));
     }
 
     @PostMapping("/cloth/out")
@@ -105,7 +120,7 @@ public class InventoryController {
 
     @PostMapping("/import")
     @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_CLOTH_IN, message = "您没有权限导入库存数据")
-    public Result<ImportResultVO> importInventory(@RequestParam("file") MultipartFile file) {
+    public Result<InventoryImportResultVO> importInventory(@RequestParam("file") MultipartFile file) {
         return Result.success(inventoryService.importInventory(file));
     }
 }

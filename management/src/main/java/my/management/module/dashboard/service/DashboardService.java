@@ -19,6 +19,7 @@ import my.management.module.dashboard.model.vo.DashboardInventoryTrendRowVO;
 import my.management.module.dashboard.model.vo.DashboardInventoryWarningRowVO;
 import my.management.module.dashboard.model.vo.DashboardOverviewVO;
 import my.management.module.dashboard.model.vo.DashboardPendingPrintRowVO;
+import my.management.module.inventory.model.enums.InventoryOperateTypeEnum;
 import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.tenant.service.TenantLicenseService;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -204,10 +205,13 @@ public class DashboardService {
 
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.minusDays(6);
-        List<DashboardInventoryTrendRowVO> rows = dashboardMapper.selectInventoryTrend(
+        List<DashboardInventoryTrendRowVO> rows = dashboardMapper.selectInventoryRecordTrend(
                 tenantCode,
                 startDate.atStartOfDay(),
-                today.plusDays(1).atStartOfDay().minusSeconds(1)
+                today.plusDays(1).atStartOfDay().minusSeconds(1),
+                InventoryOperateTypeEnum.IN.getCode(),
+                InventoryOperateTypeEnum.EXTERNAL_IMPORT.getCode(),
+                InventoryOperateTypeEnum.OUT.getCode()
         );
         Map<LocalDate, DashboardInventoryTrendRowVO> trendMap = rows.stream()
                 .collect(Collectors.toMap(item -> item.getStatDate().toLocalDate(), item -> item, (a, b) -> a));

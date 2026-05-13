@@ -66,10 +66,13 @@
           <table class="min-w-[1000px] w-full border-collapse text-left">
             <thead class="bg-surface-container-low/50">
               <tr>
-                <th class="px-6 py-4 text-xs font-black tracking-wider text-on-surface-variant uppercase">客户名称</th>
-                <th class="px-6 py-4 text-xs font-black tracking-wider text-on-surface-variant uppercase">客户类型</th>
-                <th class="px-6 py-4 text-xs font-black tracking-wider text-on-surface-variant uppercase">首要联系人</th>
-                <th class="px-6 py-4 text-xs font-black tracking-wider text-on-surface-variant uppercase">合作项目</th>
+                <th
+                  v-for="field in visibleCustomerColumns"
+                  :key="field.key"
+                  class="px-6 py-4 text-xs font-black tracking-wider text-on-surface-variant uppercase"
+                >
+                  {{ field.label }}
+                </th>
                 <th class="px-6 py-4 text-right text-xs font-black tracking-wider text-on-surface-variant uppercase">操作</th>
               </tr>
             </thead>
@@ -80,7 +83,12 @@
                 class="group cursor-pointer transition-colors hover:bg-surface-container-high/30"
                 @click="openDetail(customer.id)"
               >
-                <td class="px-6 py-4">
+                <td
+                  v-for="field in visibleCustomerColumns"
+                  :key="field.key"
+                  class="px-6 py-4"
+                >
+                  <template v-if="field.key === 'customerName'">
                   <div class="flex items-center gap-3">
                     <div class="min-w-0">
                       <div class="truncate leading-tight font-bold text-primary">
@@ -88,39 +96,27 @@
                       </div>
                       <div class="mt-1 flex items-center gap-2 text-xs text-on-surface-variant">
                         <span>客户编号 #{{ customer.id }}</span>
-                        <span class="inline-flex items-center rounded bg-primary/10 px-2 py-0.5 font-bold text-primary">
-                          项目 {{ customer.projects?.length || customer.projectCount || 0 }} 个
-                        </span>
                       </div>
                     </div>
                   </div>
-                </td>
-
-                <td class="px-6 py-4 text-sm font-bold text-secondary">
-                  {{ getTypeLabel(customer.customerType) }}
-                </td>
-
-                <td class="px-6 py-4">
-                  <div v-if="customer.contacts?.length">
-                    <div class="text-sm font-bold text-primary">{{ customer.contacts[0].contactName || '未命名联系人' }}</div>
-                    <div class="mt-0.5 text-xs text-on-surface-variant">{{ customer.contacts[0].contactPhone || '未填写电话' }}</div>
-                  </div>
-                  <span v-else class="text-xs text-on-surface-variant/50">暂无联系人</span>
-                </td>
-
-                <td class="px-6 py-4">
-                  <div v-if="customer.projects?.length">
+                  </template>
+                  <template v-else-if="field.key === 'customerType'">
+                    <span class="text-sm font-bold text-secondary">{{ getTypeLabel(customer.customerType) }}</span>
+                  </template>
+                  <template v-else-if="field.key === 'projectName'">
+                    <div v-if="customer.projects?.length">
                     <div
                       class="max-w-[180px] truncate text-sm font-bold text-primary"
                       :title="customer.projects[0].projectName"
                     >
                       {{ customer.projects[0].projectName }}
                     </div>
-                    <div class="mt-1 text-xs text-on-surface-variant">
-                      {{ customer.projects[0].constructionArea || '未填写施工区域' }}
-                    </div>
                   </div>
-                  <span v-else class="text-xs text-on-surface-variant/50">暂无项目</span>
+                    <span v-else class="text-xs text-on-surface-variant/50">暂无项目</span>
+                  </template>
+                  <template v-else>
+                    {{ customerColumnText(customer, field.key) }}
+                  </template>
                 </td>
 
                 <td class="px-6 py-4 text-right">
@@ -143,7 +139,7 @@
                 </td>
               </tr>
               <tr v-if="!loading && customerList.length === 0">
-                <td colspan="5" class="px-6 py-12 text-center text-sm text-on-surface-variant">暂无客户数据</td>
+                <td :colspan="customerTableColumnCount" class="px-6 py-12 text-center text-sm text-on-surface-variant">暂无客户数据</td>
               </tr>
             </tbody>
           </table>
@@ -206,42 +202,42 @@
 
             <div v-else-if="detailData" class="space-y-6">
               <section class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div class="rounded-xl bg-surface-container-low p-4">
-                  <div class="text-xs text-on-surface-variant">客户名称</div>
+                <div v-if="isCustomerFieldVisible('customerName')" class="rounded-xl bg-surface-container-low p-4">
+                  <div class="text-xs text-on-surface-variant">{{ fieldLabel('customerName', '客户名称') }}</div>
                   <div class="mt-2 text-base font-bold text-primary">{{ detailData.customerName }}</div>
                 </div>
-                <div class="rounded-xl bg-surface-container-low p-4">
-                  <div class="text-xs text-on-surface-variant">客户类型</div>
+                <div v-if="isCustomerFieldVisible('customerType')" class="rounded-xl bg-surface-container-low p-4">
+                  <div class="text-xs text-on-surface-variant">{{ fieldLabel('customerType', '客户类型') }}</div>
                   <div class="mt-2 text-base font-bold text-secondary">{{ getTypeLabel(detailData.customerType) }}</div>
                 </div>
               </section>
 
-              <section>
-                <h4 class="mb-3 text-sm font-bold text-primary">联系人</h4>
+              <section v-if="isCustomerFieldVisible('contactName') || isCustomerFieldVisible('contactPhone')">
+                <h4 class="mb-3 text-sm font-bold text-primary">{{ fieldLabel('contactName', '联系人') }}</h4>
                 <div v-if="detailData.contacts?.length" class="space-y-3">
                   <div
                     v-for="(contact, index) in detailData.contacts"
                     :key="index"
                     class="rounded-xl border border-outline-variant/15 bg-surface-container-lowest p-4"
                   >
-                    <div class="font-bold text-primary">{{ contact.contactName || '未命名联系人' }}</div>
-                    <div class="mt-1 text-sm text-on-surface-variant">{{ contact.contactPhone || '未填写电话' }}</div>
+                    <div v-if="isCustomerFieldVisible('contactName')" class="font-bold text-primary">{{ contact.contactName || '未命名联系人' }}</div>
+                    <div v-if="isCustomerFieldVisible('contactPhone')" class="mt-1 text-sm text-on-surface-variant">{{ contact.contactPhone || '未填写电话' }}</div>
                   </div>
                 </div>
                 <div v-else class="text-sm text-on-surface-variant">暂无联系人</div>
               </section>
 
-              <section>
-                <h4 class="mb-3 text-sm font-bold text-primary">合作项目</h4>
+              <section v-if="isCustomerFieldVisible('projectName') || isCustomerFieldVisible('constructionArea')">
+                <h4 class="mb-3 text-sm font-bold text-primary">{{ fieldLabel('projectName', '合作项目') }}</h4>
                 <div v-if="detailData.projects?.length" class="space-y-3">
                   <div
                     v-for="(project, index) in detailData.projects"
                     :key="index"
                     class="rounded-xl border border-outline-variant/15 bg-surface-container-lowest p-4"
                   >
-                    <div class="font-bold text-primary">{{ project.projectName || '未命名项目' }}</div>
-                    <div class="mt-1 text-sm text-on-surface-variant">
-                      施工区域：{{ project.constructionArea || '未填写' }}
+                    <div v-if="isCustomerFieldVisible('projectName')" class="font-bold text-primary">{{ project.projectName || '未命名项目' }}</div>
+                    <div v-if="isCustomerFieldVisible('constructionArea')" class="mt-1 text-sm text-on-surface-variant">
+                      {{ fieldLabel('constructionArea', '施工区域') }}：{{ project.constructionArea || '未填写' }}
                     </div>
                   </div>
                 </div>
@@ -256,9 +252,17 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
+import { getCurrentTenantFieldConfig } from '@/api/tenantFieldConfig'
+import {
+  defaultTenantFieldConfig,
+  mergeTenantFieldConfig,
+  tenantFieldLabel,
+  tenantFieldVisible,
+  visibleTenantFields
+} from '@/utils/tenantFieldConfig'
 import CustomerCreateDrawer from './customerCreate.vue'
 import { getCustomerDetail, getCustomerPage } from './api/customer'
 
@@ -275,10 +279,37 @@ const total = ref(0)
 const totalPages = ref(1)
 const pageNum = ref(1)
 const pageSize = ref(10)
+const customerFieldConfig = ref(defaultTenantFieldConfig('customer'))
+
+const customerColumnRenderers = new Set(['customerName', 'customerType', 'contactName', 'contactPhone', 'projectName', 'projectCount', 'constructionArea'])
+const visibleCustomerColumns = computed(() => visibleTenantFields(customerFieldConfig.value, 'customerName').filter((field) => customerColumnRenderers.has(field.key)))
+const customerTableColumnCount = computed(() => visibleCustomerColumns.value.length + 1)
 
 const getTypeLabel = (type) => {
   const map = { 1: '直客（甲方）', 2: '总包方', 3: '分包方' }
   return map[type] || '未知类型'
+}
+
+const firstContact = (customer) => Array.isArray(customer?.contacts) && customer.contacts.length > 0 ? customer.contacts[0] : null
+const firstProject = (customer) => Array.isArray(customer?.projects) && customer.projects.length > 0 ? customer.projects[0] : null
+const isCustomerFieldVisible = (key) => tenantFieldVisible(customerFieldConfig.value, key)
+const fieldLabel = (key, fallback) => tenantFieldLabel(customerFieldConfig.value, key, fallback)
+
+function customerColumnText(customer, key) {
+  if (key === 'contactName') return firstContact(customer)?.contactName || '--'
+  if (key === 'contactPhone') return firstContact(customer)?.contactPhone || '--'
+  if (key === 'projectCount') return `${customer?.projects?.length || customer?.projectCount || 0} 个`
+  if (key === 'constructionArea') return firstProject(customer)?.constructionArea || customer?.constructionArea || '--'
+  return customer?.[key] || '--'
+}
+
+async function fetchCustomerFieldConfig() {
+  try {
+    const rows = await getCurrentTenantFieldConfig('customer')
+    customerFieldConfig.value = mergeTenantFieldConfig('customer', rows)
+  } catch (error) {
+    customerFieldConfig.value = defaultTenantFieldConfig('customer')
+  }
 }
 
 async function fetchCustomerList() {
@@ -342,9 +373,9 @@ function applyRouteKeyword() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   applyRouteKeyword()
-  fetchCustomerList()
+  await Promise.all([fetchCustomerFieldConfig(), fetchCustomerList()])
 })
 
 watch(

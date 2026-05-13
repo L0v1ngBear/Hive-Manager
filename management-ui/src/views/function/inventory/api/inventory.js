@@ -8,6 +8,14 @@ export function getInventoryPage(params) {
   return request({ url: '/inventory/page', method: 'get', params })
 }
 
+export function getInventoryModelPage(params) {
+  return request({ url: '/inventory/model/page', method: 'get', params })
+}
+
+export function getInventoryModelDetail(params) {
+  return request({ url: '/inventory/model/detail', method: 'get', params })
+}
+
 export function getInventoryWarnings() {
   return request({ url: '/inventory/warning/list', method: 'get' })
 }

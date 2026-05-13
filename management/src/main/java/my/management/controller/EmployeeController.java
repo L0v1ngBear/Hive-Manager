@@ -21,7 +21,9 @@ import my.management.module.employee.model.vo.EmployeeFormOptionsVO;
 import my.management.module.employee.model.vo.EmployeeLeaderOptionVO;
 import my.management.module.employee.model.vo.EmployeePageVO;
 import my.management.module.employee.model.vo.EmployeeStatsVO;
+import my.management.module.employee.model.vo.OrganizationJoinCodeVO;
 import my.management.module.employee.service.EmployeeService;
+import my.management.module.employee.service.OrganizationJoinCodeService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -46,6 +48,9 @@ public class EmployeeController {
 
     @Resource
     private EmployeeService employeeService;
+
+    @Resource
+    private OrganizationJoinCodeService organizationJoinCodeService;
 
     @GetMapping("/page")
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_LIST, message = "您没有权限查看员工列表")
@@ -138,5 +143,11 @@ public class EmployeeController {
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_CREATE, message = "您没有权限导入员工数据")
     public Result<ImportResultVO> importEmployees(@RequestParam("file") MultipartFile file) {
         return Result.success(employeeService.importEmployees(file));
+    }
+
+    @PostMapping("/join-code")
+    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_CREATE, message = "您没有权限生成组织邀请码")
+    public Result<OrganizationJoinCodeVO> generateJoinCode() {
+        return Result.success(organizationJoinCodeService.generateCurrentTenantJoinCode());
     }
 }

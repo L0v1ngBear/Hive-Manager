@@ -3,6 +3,8 @@ package my.management.module.notification.sms;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+
 @Service
 public class SmsVerificationService {
 
@@ -14,6 +16,6 @@ public class SmsVerificationService {
             return false;
         }
         String content = "您的验证码是 " + code + "，" + expireMinutes + " 分钟内有效。如非本人操作，请忽略。";
-        return smsSender.send(new SmsMessage(phone.trim(), sceneTitle, content));
+        return smsSender.send(new SmsMessage(phone.trim(), sceneTitle, content, Map.of("code", code)));
     }
 }

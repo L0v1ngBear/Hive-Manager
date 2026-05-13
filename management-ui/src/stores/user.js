@@ -10,7 +10,7 @@ const readStorageItem = (key, fallback = '') => authStorage.getItem(key) || lega
 const readJsonStorageItem = (key, fallback) => {
   try {
     return JSON.parse(readStorageItem(key, JSON.stringify(fallback)))
-  } catch (error) {
+  } catch {
     return fallback
   }
 }
@@ -27,9 +27,24 @@ export const useUserStore = defineStore('user', () => {
   const userInfo = ref(readJsonStorageItem('userInfo', null))
   const permissions = ref(readJsonStorageItem('permissions', []))
   const features = ref(readJsonStorageItem('features', []))
+  const currentTenantCode = computed(() => String(userInfo.value?.tenantCode || '').trim())
   const isDeveloper = computed(() => {
-    const tenantCode = userInfo.value?.tenantCode
+    const tenantCode = currentTenantCode.value
     return typeof tenantCode === 'string' && tenantCode.toLowerCase() === 'super'
+  })
+  const currentTenantName = computed(() => {
+    const tenantName = String(userInfo.value?.tenantName || '').trim()
+    if (tenantName) {
+      return tenantName
+    }
+    if (isDeveloper.value) {
+      return '平台管理'
+    }
+    return currentTenantCode.value || '未识别租户'
+  })
+  const currentTenantLabel = computed(() => {
+    const code = currentTenantCode.value
+    return code ? `${currentTenantName.value}（${code}）` : currentTenantName.value
   })
   const responseKey = ref(readStorageItem('responseKey'))
   const expireAt = ref(readStorageItem('expireAt'))
@@ -40,7 +55,8 @@ export const useUserStore = defineStore('user', () => {
       ? {
           userId: loginData.userId,
           userName: loginData.userName,
-          tenantCode: loginData.tenantCode
+          tenantCode: loginData.tenantCode,
+          tenantName: loginData.tenantName
         }
       : null
     permissions.value = loginData?.permissions || []
@@ -115,6 +131,9 @@ export const useUserStore = defineStore('user', () => {
     userInfo,
     permissions,
     features,
+    currentTenantCode,
+    currentTenantName,
+    currentTenantLabel,
     isDeveloper,
     responseKey,
     expireAt,

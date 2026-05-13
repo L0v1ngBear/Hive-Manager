@@ -293,6 +293,109 @@
         </label>
       </section>
 
+      <section class="mt-5 rounded-3xl bg-surface-container-low p-4 ring-1 ring-outline-variant/15">
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 class="text-base font-black text-primary">字段级定制</h3>
+            <p class="mt-1 text-xs leading-5 text-on-surface-variant">
+              用于不同租户的页面字段名称、显隐、必填和顺序控制；保存后业务页面逐步读取同一套配置。
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select v-model="fieldConfigModule" class="tenant-input h-10 w-44" @change="handleFieldModuleChange">
+              <option v-for="module in fieldModuleOptions" :key="module.code" :value="module.code">{{ module.name }}</option>
+            </select>
+            <button
+              class="rounded-xl bg-white px-4 py-2 text-xs font-black text-primary ring-1 ring-primary/20 transition-all hover:bg-primary/5 disabled:opacity-60"
+              :disabled="fieldConfigSaving || fieldConfigLoading"
+              @click="addCustomFieldRow"
+            >
+              新增自定义字段
+            </button>
+            <button
+              class="rounded-xl bg-surface-container px-4 py-2 text-xs font-black text-on-surface-variant ring-1 ring-outline-variant/20 transition-all hover:bg-surface-container-high disabled:opacity-60"
+              :disabled="fieldConfigSaving || fieldConfigLoading"
+              @click="restoreFieldConfigDefaults"
+            >
+              恢复默认
+            </button>
+            <button
+              class="rounded-xl bg-primary px-4 py-2 text-xs font-black text-white disabled:opacity-60"
+              :disabled="fieldConfigSaving || fieldConfigLoading"
+              @click="submitFieldConfig"
+            >
+              {{ fieldConfigSaving ? '保存中...' : '保存字段' }}
+            </button>
+          </div>
+        </div>
+
+        <div v-loading="fieldConfigLoading" class="mt-4 overflow-auto rounded-2xl bg-white/75 ring-1 ring-outline-variant/20">
+          <table class="w-full min-w-[940px] text-left text-xs">
+            <thead class="bg-surface-container-low text-on-surface-variant">
+              <tr>
+                <th class="field-config-th">显示</th>
+                <th class="field-config-th">必填</th>
+                <th class="field-config-th">字段编码</th>
+                <th class="field-config-th">租户显示名</th>
+                <th class="field-config-th">字段类型</th>
+                <th class="field-config-th">排序</th>
+                <th class="field-config-th">备注</th>
+                <th class="field-config-th">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-outline-variant/10">
+              <tr v-for="field in fieldConfigRows" :key="field.fieldKey">
+                <td class="px-3 py-2">
+                  <input v-model="field.visible" type="checkbox" class="h-4 w-4 accent-primary" @change="handleFieldVisibleChange(field)" />
+                </td>
+                <td class="px-3 py-2">
+                  <input v-model="field.required" type="checkbox" class="h-4 w-4 accent-primary disabled:opacity-40" :disabled="field.visible === false" />
+                </td>
+                <td class="px-3 py-2">
+                  <input
+                    v-if="field.custom"
+                    v-model.trim="field.fieldKey"
+                    class="tenant-input h-9 font-mono"
+                    maxlength="80"
+                    placeholder="custom_color"
+                  />
+                  <span v-else class="font-mono font-bold text-on-surface-variant">{{ field.fieldKey }}</span>
+                </td>
+                <td class="px-3 py-2">
+                  <input v-model.trim="field.fieldLabel" class="tenant-input h-9" maxlength="80" />
+                </td>
+                <td class="px-3 py-2">
+                  <select v-model="field.fieldType" class="tenant-input h-9" :disabled="!field.custom">
+                    <option value="text">文本</option>
+                    <option value="number">数字</option>
+                    <option value="date">日期</option>
+                    <option value="datetime">日期时间</option>
+                    <option value="select">选项</option>
+                  </select>
+                </td>
+                <td class="px-3 py-2">
+                  <input v-model.number="field.sortNo" class="tenant-input h-9 w-20" min="0" max="9999" type="number" />
+                </td>
+                <td class="px-3 py-2">
+                  <input v-model.trim="field.remark" class="tenant-input h-9" maxlength="300" placeholder="客户字段说明，可选" />
+                </td>
+                <td class="px-3 py-2">
+                  <button
+                    v-if="field.custom"
+                    class="rounded-lg px-3 py-1.5 text-xs font-black text-rose-600 hover:bg-rose-50"
+                    type="button"
+                    @click="removeCustomFieldRow(field)"
+                  >
+                    删除
+                  </button>
+                  <span v-else class="text-on-surface-variant/50">系统字段</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <template #footer>
         <button class="rounded-xl px-4 py-2 text-sm font-black text-on-surface-variant hover:bg-surface-container-low" @click="licenseDialogVisible = false">
           取消
@@ -307,8 +410,16 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElDialog } from 'element-plus'
-import { createTenant, getTenantFeatureCatalog, getTenantPage, updateTenantLicense } from './api/tenant'
+import { ElMessage, ElMessageBox, ElDialog } from 'element-plus'
+import {
+  createTenant,
+  getTenantFeatureCatalog,
+  getTenantFieldConfig,
+  getTenantPage,
+  saveTenantFieldConfig,
+  updateTenantLicense
+} from './api/tenant'
+import { isCustomTenantFieldKey, tenantFieldCatalog } from '@/utils/tenantFieldConfig'
 
 const packageOptions = [
   { code: 'TRIAL', name: '试用版', maxUsers: 5, aiQuota: 30, storageMb: 512 },
@@ -344,6 +455,13 @@ const fallbackFeatureCatalog = [
   { code: 'advancedAi', name: '高级 AI', category: '智能能力', description: '高维建议、闭环进化和高级分析', defaultEnabled: false }
 ]
 
+const fieldModuleOptions = [
+  { code: 'inventory', name: '库存字段' },
+  { code: 'receipt', name: '出库单字段' },
+  { code: 'employee', name: '员工字段' },
+  { code: 'customer', name: '客户字段' }
+]
+
 const featureKeyPattern = /^[A-Za-z][A-Za-z0-9_.:-]{0,100}$/
 const customFeaturePattern = /^custom\.[A-Za-z0-9_.:-]{1,90}$/
 
@@ -366,6 +484,11 @@ const licensing = ref(false)
 const featureCatalog = ref([...fallbackFeatureCatalog])
 const selectedFeatureCodes = ref([])
 const customFeatureInput = ref('')
+const currentLicenseTenantCode = ref('')
+const fieldConfigModule = ref('inventory')
+const fieldConfigRows = ref([])
+const fieldConfigLoading = ref(false)
+const fieldConfigSaving = ref(false)
 const createForm = reactive(defaultCreateForm())
 const licenseForm = reactive(defaultLicenseForm())
 
@@ -519,6 +642,7 @@ async function submitCreateTenant() {
 
 function openLicenseDialog(tenant) {
   const selectedPackage = findPackage(tenant.packageCode)
+  currentLicenseTenantCode.value = tenant.tenantCode || ''
   Object.assign(licenseForm, {
     id: tenant.id,
     tenantName: tenant.tenantName || '',
@@ -533,7 +657,233 @@ function openLicenseDialog(tenant) {
   })
   selectedFeatureCodes.value = parseFeatureFlagsToCodes(licenseForm.featureFlags)
   syncFeatureFlagsFromSelection()
+  resetFieldConfigRows()
+  if (currentLicenseTenantCode.value) {
+    loadTenantFieldConfig()
+  }
   licenseDialogVisible.value = true
+}
+
+function handleFieldModuleChange() {
+  loadTenantFieldConfig()
+}
+
+function handleFieldVisibleChange(field) {
+  if (field?.visible === false) {
+    field.required = false
+  }
+}
+
+function resetFieldConfigRows() {
+  fieldConfigRows.value = getDefaultFieldRows(fieldConfigModule.value)
+}
+
+async function restoreFieldConfigDefaults() {
+  if (fieldConfigLoading.value || fieldConfigSaving.value) {
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      '将当前模块字段恢复为系统默认显示名、显隐、必填和排序。恢复后仍需要点击“保存字段”才会写入数据库。',
+      '恢复默认字段配置',
+      {
+        confirmButtonText: '恢复默认',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    resetFieldConfigRows()
+    ElMessage.success('已恢复为默认配置，请确认后保存')
+  } catch (error) {
+    // 用户取消恢复时不需要提示，避免打断配置流程。
+  }
+}
+
+function getDefaultFieldRows(moduleCode) {
+  return (tenantFieldCatalog[moduleCode] || []).map((field) => ({
+    ...field,
+    fieldLabel: field.fieldLabel || field.label || field.fieldKey,
+    visible: field.visible !== false,
+    required: field.required === true,
+    sortNo: Number(field.sortNo || 0),
+    fieldType: field.fieldType || 'text',
+    custom: field.custom === true,
+    optionsJson: field.optionsJson || '',
+    remark: field.remark || ''
+  }))
+}
+
+async function loadTenantFieldConfig() {
+  if (!currentLicenseTenantCode.value || fieldConfigLoading.value) {
+    return
+  }
+  fieldConfigLoading.value = true
+  try {
+    const remoteRows = await getTenantFieldConfig(currentLicenseTenantCode.value, fieldConfigModule.value)
+    fieldConfigRows.value = mergeFieldConfigRows(fieldConfigModule.value, Array.isArray(remoteRows) ? remoteRows : [])
+  } catch (error) {
+    console.error('字段配置加载失败', error)
+    resetFieldConfigRows()
+  } finally {
+    fieldConfigLoading.value = false
+  }
+}
+
+function mergeFieldConfigRows(moduleCode, remoteRows) {
+  const defaults = getDefaultFieldRows(moduleCode)
+  const remoteMap = new Map(remoteRows.map((row) => [row.fieldKey, row]))
+  const merged = defaults.map((field) => {
+    const remote = remoteMap.get(field.fieldKey)
+    if (!remote) return field
+    return {
+      ...field,
+      fieldLabel: remote.fieldLabel || field.fieldLabel,
+      visible: remote.visible !== false,
+      required: remote.required === true,
+      sortNo: Number.isFinite(Number(remote.sortNo)) ? Number(remote.sortNo) : field.sortNo,
+      fieldType: remote.fieldType || field.fieldType || 'text',
+      custom: false,
+      optionsJson: remote.optionsJson || '',
+      remark: remote.remark || ''
+    }
+  })
+  remoteRows
+    .filter((row) => row && isCustomTenantFieldKey(row.fieldKey))
+    .forEach((row) => {
+      merged.push({
+        fieldKey: String(row.fieldKey || '').trim(),
+        fieldLabel: row.fieldLabel || row.fieldKey,
+        visible: row.visible !== false,
+        required: row.required === true,
+        sortNo: Number.isFinite(Number(row.sortNo)) ? Number(row.sortNo) : 999,
+        fieldType: row.fieldType || 'text',
+        custom: true,
+        optionsJson: row.optionsJson || '',
+        remark: row.remark || ''
+      })
+    })
+  return merged.sort((a, b) => Number(a.sortNo || 0) - Number(b.sortNo || 0))
+}
+
+function addCustomFieldRow() {
+  const currentKeys = new Set(fieldConfigRows.value.map((field) => field.fieldKey))
+  let index = fieldConfigRows.value.filter((field) => field.custom).length + 1
+  let fieldKey = `custom_field_${index}`
+  while (currentKeys.has(fieldKey)) {
+    index += 1
+    fieldKey = `custom_field_${index}`
+  }
+  const maxSortNo = Math.max(0, ...fieldConfigRows.value.map((field) => Number(field.sortNo || 0)))
+  fieldConfigRows.value.push({
+    fieldKey,
+    fieldLabel: '自定义字段',
+    visible: true,
+    required: false,
+    sortNo: maxSortNo + 10,
+    fieldType: 'text',
+    custom: true,
+    optionsJson: '',
+    remark: ''
+  })
+}
+
+function removeCustomFieldRow(field) {
+  fieldConfigRows.value = fieldConfigRows.value.filter((item) => item !== field)
+}
+
+async function submitFieldConfig() {
+  if (!currentLicenseTenantCode.value || fieldConfigSaving.value) {
+    return
+  }
+  if (!validateFieldConfigRows()) {
+    return
+  }
+  fieldConfigSaving.value = true
+  try {
+    const savedRows = await saveTenantFieldConfig(currentLicenseTenantCode.value, {
+      moduleCode: fieldConfigModule.value,
+      fields: fieldConfigRows.value.map((field, index) => ({
+        fieldKey: field.fieldKey,
+        fieldLabel: field.fieldLabel,
+        visible: field.visible !== false,
+        required: field.required === true,
+        sortNo: Number.isFinite(Number(field.sortNo)) ? Number(field.sortNo) : index + 1,
+        fieldType: field.fieldType || 'text',
+        optionsJson: field.optionsJson || null,
+        remark: field.remark || null
+      }))
+    })
+    fieldConfigRows.value = mergeFieldConfigRows(fieldConfigModule.value, Array.isArray(savedRows) ? savedRows : [])
+    ElMessage.success('字段配置已保存')
+  } catch (error) {
+    console.error('字段配置保存失败', error)
+  } finally {
+    fieldConfigSaving.value = false
+  }
+}
+
+function validateFieldConfigRows() {
+  const keySet = new Set()
+  const labelSet = new Set()
+  for (const field of fieldConfigRows.value) {
+    field.fieldKey = String(field.fieldKey || '').trim()
+    if (!field.fieldKey) {
+      ElMessage.warning('字段编码不能为空')
+      return false
+    }
+    if (field.custom && !isCustomTenantFieldKey(field.fieldKey)) {
+      ElMessage.warning('自定义字段编码必须以 custom_ 开头，只能包含字母、数字和下划线')
+      return false
+    }
+    if (keySet.has(field.fieldKey)) {
+      ElMessage.warning(`字段编码重复：${field.fieldKey}`)
+      return false
+    }
+    keySet.add(field.fieldKey)
+    const fieldLabel = String(field.fieldLabel || '').trim()
+    if (!fieldLabel) {
+      ElMessage.warning(`字段 ${field.fieldKey} 的显示名不能为空`)
+      return false
+    }
+    if (hasControlCharacter(fieldLabel)) {
+      ElMessage.warning(`字段 ${field.fieldKey} 的显示名不能包含控制字符`)
+      return false
+    }
+    const labelKey = fieldLabel.toLowerCase()
+    if (labelSet.has(labelKey)) {
+      ElMessage.warning(`字段显示名重复：${fieldLabel}`)
+      return false
+    }
+    labelSet.add(labelKey)
+    if (field.visible === false && field.required === true) {
+      ElMessage.warning(`字段 ${fieldLabel} 已隐藏，不能同时设为必填`)
+      return false
+    }
+    if (!Number.isFinite(Number(field.sortNo)) || Number(field.sortNo) < 0) {
+      ElMessage.warning(`字段 ${field.fieldKey} 的排序值不正确`)
+      return false
+    }
+    if (field.custom && !['text', 'number', 'date', 'datetime', 'select'].includes(field.fieldType || 'text')) {
+      ElMessage.warning(`字段 ${field.fieldKey} 的字段类型不正确`)
+      return false
+    }
+    if (field.optionsJson) {
+      try {
+        JSON.parse(field.optionsJson)
+      } catch (error) {
+        ElMessage.warning(`字段 ${field.fieldKey} 的选项 JSON 不合法`)
+        return false
+      }
+    }
+  }
+  return true
+}
+
+function hasControlCharacter(value) {
+  return Array.from(String(value || '')).some((char) => {
+    const code = char.charCodeAt(0)
+    return code <= 31 || code === 127
+  })
 }
 
 function applyPackageDefaults() {
@@ -818,6 +1168,14 @@ function isExpiringSoon(value) {
   font-weight: 900;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+  color: rgb(var(--color-on-surface-variant, 100 116 139));
+}
+
+.field-config-th {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
   color: rgb(var(--color-on-surface-variant, 100 116 139));
 }
 

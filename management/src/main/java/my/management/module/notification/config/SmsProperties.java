@@ -23,6 +23,8 @@ public class SmsProperties {
 
     private String accessSecret;
 
+    private String endpoint = "dysmsapi.aliyuncs.com";
+
     private String signName;
 
     private String templateCode;

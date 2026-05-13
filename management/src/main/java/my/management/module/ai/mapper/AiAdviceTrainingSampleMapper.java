@@ -85,6 +85,40 @@ public interface AiAdviceTrainingSampleMapper {
                                      @Param("sampleKey") String sampleKey);
 
     /**
+     * 读取近期已反馈样本，作为自训练 Transformer 的轻量在线学习上下文。
+     *
+     * <p>这里只取样本元数据和反馈结果，不取 input_snapshot_json，避免把原始经营快照重复外发到推理服务。</p>
+     */
+    @Select("""
+            SELECT
+                id,
+                tenant_code AS tenantCode,
+                sample_key AS sampleKey,
+                category,
+                title,
+                source_type AS sourceType,
+                priority,
+                confidence,
+                label_status AS labelStatus,
+                feedback_type AS feedbackType,
+                feedback_text AS feedbackText,
+                feedback_user_id AS feedbackUserId,
+                feedback_time AS feedbackTime,
+                occurrence_count AS occurrenceCount,
+                create_time AS createTime,
+                update_time AS updateTime
+            FROM ai_advice_training_sample
+            WHERE tenant_code = #{tenantCode}
+              AND feedback_type IS NOT NULL
+              AND update_time >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+            ORDER BY feedback_time DESC, update_time DESC
+            LIMIT #{limit}
+            """)
+    List<AiAdviceTrainingSample> selectRecentFeedbackSamples(@Param("tenantCode") String tenantCode,
+                                                             @Param("days") Integer days,
+                                                             @Param("limit") Integer limit);
+
+    /**
      * 按业务维度聚合租户反馈，用于后续建议的个性化排序和置信度校准。
      */
     @Select("""
@@ -113,7 +147,7 @@ public interface AiAdviceTrainingSampleMapper {
             SELECT
                 COALESCE(category, 'overview') AS category,
                 COALESCE(NULLIF(TRIM(title), ''), 'untitled') AS title,
-                COALESCE(source_type, 'local_rules') AS sourceType,
+                COALESCE(source_type, 'transformer') AS sourceType,
                 COUNT(1) AS sampleCount,
                 SUM(CASE WHEN feedback_type IS NOT NULL THEN 1 ELSE 0 END) AS feedbackCount,
                 SUM(CASE WHEN feedback_type = 'useful' THEN 1 ELSE 0 END) AS positiveCount,
@@ -128,7 +162,7 @@ public interface AiAdviceTrainingSampleMapper {
             GROUP BY
                 COALESCE(category, 'overview'),
                 COALESCE(NULLIF(TRIM(title), ''), 'untitled'),
-                COALESCE(source_type, 'local_rules')
+                COALESCE(source_type, 'transformer')
             ORDER BY feedbackCount DESC, sampleCount DESC
             LIMIT #{limit}
             """)
@@ -144,7 +178,7 @@ public interface AiAdviceTrainingSampleMapper {
                 DATE_FORMAT(update_time, '%Y-%m-%d') AS sampleDay,
                 COALESCE(category, 'overview') AS category,
                 COALESCE(NULLIF(TRIM(title), ''), 'untitled') AS title,
-                COALESCE(source_type, 'local_rules') AS sourceType,
+                COALESCE(source_type, 'transformer') AS sourceType,
                 COUNT(1) AS sampleCount,
                 SUM(CASE WHEN feedback_type IS NOT NULL THEN 1 ELSE 0 END) AS feedbackCount,
                 SUM(CASE WHEN feedback_type = 'useful' THEN 1 ELSE 0 END) AS positiveCount,
@@ -158,7 +192,7 @@ public interface AiAdviceTrainingSampleMapper {
                 DATE_FORMAT(update_time, '%Y-%m-%d'),
                 COALESCE(category, 'overview'),
                 COALESCE(NULLIF(TRIM(title), ''), 'untitled'),
-                COALESCE(source_type, 'local_rules')
+                COALESCE(source_type, 'transformer')
             ORDER BY sampleDay DESC, feedbackCount DESC, sampleCount DESC
             LIMIT #{limit}
             """)

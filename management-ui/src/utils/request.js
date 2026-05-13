@@ -168,7 +168,7 @@ function normalizeRequestConfig(configOrUrl, extraConfig) {
     if (typeof configOrUrl === 'string') {
         return { ...extraConfig, url: configOrUrl }
     }
-    return { ...(configOrUrl || {}) }
+    return configOrUrl ? { ...configOrUrl } : {}
 }
 
 function normalizeMethod(method) {

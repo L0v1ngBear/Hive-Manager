@@ -46,6 +46,7 @@ import my.management.module.sys.mapper.SysRoleMapper;
 import my.management.module.sys.mapper.SysUserRoleMapper;
 import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.model.entity.SysUserRole;
+import my.management.module.tenant.service.TenantFieldConfigService;
 import my.management.module.tenant.service.TenantLicenseService;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -132,6 +133,9 @@ public class EmployeeService {
     @Resource
     private TenantLicenseService tenantLicenseService;
 
+    @Resource
+    private TenantFieldConfigService tenantFieldConfigService;
+
     /**
      * 新员工初始密码从配置读取，避免敏感默认值固定写死在代码中。
      */
@@ -196,17 +200,21 @@ public class EmployeeService {
 
         String employeeType = normalizeEmployeeType(request.getEmployeeType(), DEFAULT_EMPLOYEE_TYPE);
         String normalizedPhone = requireNormalizedPhone(request.getPhone());
-        ensurePhoneNotExists(normalizedPhone);
+        String phoneHash = privacyProtectionUtil.hashPhone(normalizedPhone);
+        Employee employee = findReusableJoinedEmployee(normalizedPhone, phoneHash);
+        boolean reuseJoinedUser = employee != null;
         String phoneMask = privacyProtectionUtil.maskPhone(normalizedPhone);
         String empNo = codeGeneratorUtil.generateEmployeeNo();
 
-        Employee employee = new Employee();
-        employee.setTenantCode(TenantPermissionContext.getTenantCode());
+        if (!reuseJoinedUser) {
+            employee = new Employee();
+            employee.setTenantCode(TenantPermissionContext.getTenantCode());
+        }
         employee.setName(request.getName());
         // 登录账号使用工号，手机号只以不可逆哈希参与登录和查重，避免明文落库。
         employee.setLoginName(empNo);
         employee.setPhone(phoneMask);
-        employee.setPhoneHash(privacyProtectionUtil.hashPhone(normalizedPhone));
+        employee.setPhoneHash(phoneHash);
         employee.setPhoneMask(phoneMask);
         employee.setPassword(encryptUtil.encode(defaultPassword));
         employee.setDepartmentName(department.getDeptName());
@@ -214,7 +222,11 @@ public class EmployeeService {
         employee.setManagerId(null);
         employee.setManagerName(leaderName);
         employee.setStatus(request.getStatus());
-        employeeMapper.insert(employee);
+        if (reuseJoinedUser) {
+            employeeMapper.updateById(employee);
+        } else {
+            employeeMapper.insert(employee);
+        }
 
         EmployeeExt ext = new EmployeeExt();
         ext.setUserId(employee.getId());
@@ -228,7 +240,7 @@ public class EmployeeService {
         employeeExtMapper.insert(ext);
         syncUserRoles(employee.getId(), request.getRoleIds());
 
-        insertChangeLog(employee.getId(), "CREATE", null, Map.of(
+        insertChangeLog(employee.getId(), reuseJoinedUser ? "COMPLETE_JOINED_USER_PROFILE" : "CREATE", null, Map.of(
                 "name", employee.getName(),
                 "loginName", employee.getLoginName(),
                 "phone", phoneMask,
@@ -405,7 +417,8 @@ public class EmployeeService {
     }
 
     public void exportExcel(EmployeePageQuery query, HttpServletResponse response) {
-        List<String> headers = List.of("姓名", "工号", "部门", "职位", "邮箱", "电话", "状态", "员工类型", "直属领导", "角色", "入职日期");
+        Map<String, String> fieldLabels = currentTenantFieldLabels("employee");
+        List<String> headers = employeeExportHeaders(fieldLabels);
         List<List<String>> rows = export(query).stream()
                 .map(item -> List.of(
                         excelUtil.stringify(item.getName()),
@@ -429,7 +442,7 @@ public class EmployeeService {
     }
 
     public void downloadImportTemplate(HttpServletResponse response) {
-        List<String> headers = List.of("姓名", "手机号", "部门", "职位", "状态", "员工类型", "入职日期", "邮箱", "直属领导姓名", "角色名称", "备注");
+        List<String> headers = employeeImportHeaders(currentTenantFieldLabels("employee"));
         List<List<String>> examples = List.of(
                 List.of("张三", "13900030001", "仓储部", "仓库专员", "在职", "全职", LocalDate.now().toString(), "zhangsan@example.com", "王主管", "普通员工", "示例数据"),
                 List.of("李四", "13900030002", "业务部", "销售专员", "试用", "试用期", LocalDate.now().toString(), "lisi@example.com", "刘经理", "业务测试管理员,普通员工", "")
@@ -459,7 +472,7 @@ public class EmployeeService {
         Set<String> importedPhones = new HashSet<>();
         try (var inputStream = file.getInputStream(); var workbook = WorkbookFactory.create(inputStream)) {
             Sheet sheet = workbook.getSheetAt(0);
-            validateImportHeader(sheet.getRow(0), EMPLOYEE_IMPORT_HEADERS);
+            validateImportHeader(sheet.getRow(0), List.of(EMPLOYEE_IMPORT_HEADERS, employeeImportHeaders(currentTenantFieldLabels("employee"))));
             validateImportDataRows(sheet, EMPLOYEE_IMPORT_COLUMN_COUNT, MAX_EMPLOYEE_IMPORT_ROWS);
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
@@ -774,15 +787,32 @@ public class EmployeeService {
         return true;
     }
 
-    private void ensurePhoneNotExists(String phone) {
-        String normalizedPhone = requireNormalizedPhone(phone);
-        String phoneHash = privacyProtectionUtil.hashPhone(normalizedPhone);
-        Long count = employeeMapper.selectCount(new LambdaQueryWrapper<Employee>()
+    /**
+     * 小程序自助加入组织后会先产生一条没有 emp_employee_ext 档案的 user。
+     * 管理端新增/导入同手机号员工时应补全这条记录，而不是再新建一条或直接报重复。
+     */
+    private Employee findReusableJoinedEmployee(String normalizedPhone, String phoneHash) {
+        List<Employee> matchedUsers = employeeMapper.selectList(new LambdaQueryWrapper<Employee>()
                 .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
-                .and(wrapper -> wrapper.eq(Employee::getPhoneHash, phoneHash).or().eq(Employee::getPhone, normalizedPhone)));
-        if (count != null && count > 0) {
+                .and(wrapper -> wrapper.eq(Employee::getPhoneHash, phoneHash).or().eq(Employee::getPhone, normalizedPhone))
+                .last("LIMIT 2"));
+        if (matchedUsers == null || matchedUsers.isEmpty()) {
+            return null;
+        }
+        if (matchedUsers.size() > 1) {
+            throw new BusinessException("手机号 " + privacyProtectionUtil.maskPhone(normalizedPhone) + " 存在多条账号，请先合并用户后再导入");
+        }
+
+        Employee matchedUser = matchedUsers.get(0);
+        EmployeeExt activeExt = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>()
+                .eq(EmployeeExt::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(EmployeeExt::getUserId, matchedUser.getId())
+                .eq(EmployeeExt::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
+                .last("LIMIT 1"));
+        if (activeExt != null) {
             throw new BusinessException("手机号 " + privacyProtectionUtil.maskPhone(normalizedPhone) + " 已存在");
         }
+        return matchedUser;
     }
 
     private void ensurePhoneNotExistsForUpdate(Long employeeId, String phone) {
@@ -916,6 +946,54 @@ public class EmployeeService {
         return StringUtils.hasText(value) ? value.trim() : null;
     }
 
+    private List<String> employeeExportHeaders(Map<String, String> fieldLabels) {
+        return List.of(
+                fieldLabel(fieldLabels, "name", "姓名"),
+                fieldLabel(fieldLabels, "empNo", "工号"),
+                fieldLabel(fieldLabels, "departmentName", "部门"),
+                fieldLabel(fieldLabels, "positionName", "职位"),
+                fieldLabel(fieldLabels, "email", "邮箱"),
+                fieldLabel(fieldLabels, "phone", "电话"),
+                fieldLabel(fieldLabels, "status", "状态"),
+                fieldLabel(fieldLabels, "employeeType", "员工类型"),
+                fieldLabel(fieldLabels, "leaderName", "直属领导"),
+                "角色",
+                fieldLabel(fieldLabels, "entryDate", "入职日期")
+        );
+    }
+
+    private List<String> employeeImportHeaders(Map<String, String> fieldLabels) {
+        return List.of(
+                fieldLabel(fieldLabels, "name", EMPLOYEE_IMPORT_HEADERS.get(0)),
+                fieldLabel(fieldLabels, "phone", EMPLOYEE_IMPORT_HEADERS.get(1)),
+                fieldLabel(fieldLabels, "departmentName", EMPLOYEE_IMPORT_HEADERS.get(2)),
+                fieldLabel(fieldLabels, "positionName", EMPLOYEE_IMPORT_HEADERS.get(3)),
+                fieldLabel(fieldLabels, "status", EMPLOYEE_IMPORT_HEADERS.get(4)),
+                fieldLabel(fieldLabels, "employeeType", EMPLOYEE_IMPORT_HEADERS.get(5)),
+                fieldLabel(fieldLabels, "entryDate", EMPLOYEE_IMPORT_HEADERS.get(6)),
+                fieldLabel(fieldLabels, "email", EMPLOYEE_IMPORT_HEADERS.get(7)),
+                fieldLabel(fieldLabels, "leaderName", EMPLOYEE_IMPORT_HEADERS.get(8)),
+                EMPLOYEE_IMPORT_HEADERS.get(9),
+                fieldLabel(fieldLabels, "remark", EMPLOYEE_IMPORT_HEADERS.get(10))
+        );
+    }
+
+    private String fieldLabel(Map<String, String> fieldLabels, String fieldKey, String fallback) {
+        if (fieldLabels == null || !StringUtils.hasText(fieldKey)) {
+            return fallback;
+        }
+        String label = fieldLabels.get(fieldKey);
+        return StringUtils.hasText(label) ? label.trim() : fallback;
+    }
+
+    private Map<String, String> currentTenantFieldLabels(String moduleCode) {
+        try {
+            return tenantFieldConfigService.currentFieldLabelMap(moduleCode);
+        } catch (BusinessException ignored) {
+            return Collections.emptyMap();
+        }
+    }
+
     private void validateImportFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException("请先选择要导入的 Excel 文件");
@@ -929,17 +1007,44 @@ public class EmployeeService {
         }
     }
 
-    private void validateImportHeader(Row headerRow, List<String> expectedHeaders) {
+    private void validateImportHeader(Row headerRow, List<List<String>> acceptedHeaders) {
         if (headerRow == null) {
             throw new BusinessException("导入文件缺少表头，请下载最新模板");
         }
-        for (int i = 0; i < expectedHeaders.size(); i++) {
-            String actual = excelUtil.readString(headerRow.getCell(i));
-            String expected = expectedHeaders.get(i);
-            if (!expected.equals(actual)) {
-                throw new BusinessException("导入表头不匹配，第 " + (i + 1) + " 列应为：" + expected);
+        if (acceptedHeaders == null || acceptedHeaders.isEmpty()) {
+            acceptedHeaders = List.of(EMPLOYEE_IMPORT_HEADERS);
+        }
+        for (List<String> expectedHeaders : acceptedHeaders) {
+            if (matchesImportHeader(headerRow, expectedHeaders)) {
+                return;
             }
         }
+        List<String> expectedHeaders = acceptedHeaders.get(acceptedHeaders.size() - 1);
+        for (int i = 0; i < expectedHeaders.size(); i++) {
+            String actual = normalizeImportHeaderText(excelUtil.readString(headerRow.getCell(i)));
+            String expected = normalizeImportHeaderText(expectedHeaders.get(i));
+            if (!Objects.equals(expected, actual)) {
+                throw new BusinessException("导入表头不匹配，第 " + (i + 1) + " 列应为：" + expectedHeaders.get(i));
+            }
+        }
+    }
+
+    private boolean matchesImportHeader(Row headerRow, List<String> expectedHeaders) {
+        if (headerRow == null || expectedHeaders == null || expectedHeaders.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < expectedHeaders.size(); i++) {
+            String actual = normalizeImportHeaderText(excelUtil.readString(headerRow.getCell(i)));
+            String expected = normalizeImportHeaderText(expectedHeaders.get(i));
+            if (!Objects.equals(expected, actual)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String normalizeImportHeaderText(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private void validateImportDataRows(Sheet sheet, int cellCount, int maxRows) {

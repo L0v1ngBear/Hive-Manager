@@ -37,6 +37,9 @@ import java.util.Set;
 public class NotificationService {
 
     private static final String AI_ADVICE_BIZ_TYPE = "AI_ADVICE";
+    private static final int NOTIFICATION_CONTENT_LIMIT = 950;
+    private static final int NOTIFICATION_LIST_ITEM_LIMIT = 3;
+    private static final int NOTIFICATION_ITEM_TEXT_LIMIT = 90;
 
     @Resource
     private NotificationMapper notificationMapper;
@@ -198,20 +201,55 @@ public class NotificationService {
         record.setReadFlag(BinaryFlagEnum.NO.getCode());
         record.setSendStatus(NotificationSendStatusEnum.PENDING.getCode());
         record.setTaskStatus(NotificationTaskStatusEnum.PENDING.getCode());
-        record.setSourceType(advice.getSourceType() == null ? "local_rules" : advice.getSourceType());
+        record.setSourceType(advice.getSourceType() == null ? "transformer" : advice.getSourceType());
         return record;
     }
 
     private String buildAdviceContent(DashboardAiAdviceVO advice) {
         StringBuilder builder = new StringBuilder();
-        builder.append(advice.getSummary());
-        if (advice.getSuggestion() != null && !advice.getSuggestion().isBlank()) {
-            builder.append(" 建议：").append(advice.getSuggestion());
+        appendSection(builder, "概况", advice.getSummary());
+        appendSection(builder, "建议", advice.getSuggestion());
+        appendSection(builder, "预期结果", advice.getExpectedOutcome());
+        appendSection(builder, "第一步", advice.getFirstAction());
+        appendListSection(builder, "执行清单", advice.getActionSteps());
+        appendListSection(builder, "验收标准", advice.getSuccessCriteria());
+        appendSection(builder, "复盘时间", advice.getReviewDeadline());
+        appendSection(builder, "风控护栏", advice.getRiskGuardrail());
+        appendListSection(builder, "数据核验", advice.getDataCheckpoints());
+        appendSection(builder, "闭环", advice.getTrackingHint());
+        return limit(builder.toString(), NOTIFICATION_CONTENT_LIMIT);
+    }
+
+    private void appendSection(StringBuilder builder, String label, String value) {
+        String text = normalizeText(value);
+        if (text == null) {
+            return;
         }
-        if (advice.getTrackingHint() != null && !advice.getTrackingHint().isBlank()) {
-            builder.append(" 闭环：").append(advice.getTrackingHint());
+        appendSeparator(builder);
+        builder.append(label).append("：").append(text);
+    }
+
+    private void appendListSection(StringBuilder builder, String label, List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return;
         }
-        return builder.toString();
+        List<String> items = values.stream()
+                .map(this::normalizeText)
+                .filter(value -> value != null && !value.isBlank())
+                .limit(NOTIFICATION_LIST_ITEM_LIMIT)
+                .map(value -> limit(value, NOTIFICATION_ITEM_TEXT_LIMIT))
+                .toList();
+        if (items.isEmpty()) {
+            return;
+        }
+        appendSeparator(builder);
+        builder.append(label).append("：").append(String.join("；", items));
+    }
+
+    private void appendSeparator(StringBuilder builder) {
+        if (!builder.isEmpty()) {
+            builder.append(" ");
+        }
     }
 
     private String resolveLevel(String level, String priority) {
@@ -256,6 +294,14 @@ public class NotificationService {
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isBlank() ? null : trimmed;
     }
 
     private String normalizeTaskStatus(String taskStatus) {

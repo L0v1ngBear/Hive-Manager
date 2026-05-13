@@ -32,7 +32,7 @@ export function normalizeLoginRedirect(value, fallback = DEFAULT_HOME_PATH) {
       }
 
       return `${url.pathname}${url.search}${url.hash}` || fallback
-    } catch (error) {
+    } catch {
       return fallback
     }
   }
@@ -47,7 +47,7 @@ export function isLoginPath(value) {
 
   try {
     return new URL(value, window.location.origin).pathname === LOGIN_PATH
-  } catch (error) {
+  } catch {
     return value === LOGIN_PATH
   }
 }

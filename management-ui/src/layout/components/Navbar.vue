@@ -42,6 +42,13 @@
     </div>
 
     <div class="flex items-center gap-2 md:gap-4">
+      <div class="tenant-chip" :class="{ 'tenant-chip--super': isPlatformSuper }" :title="tenantTooltip">
+        <span class="material-symbols-outlined">apartment</span>
+        <span class="tenant-chip__label">当前租户</span>
+        <span class="tenant-chip__name">{{ tenantName }}</span>
+        <span v-if="tenantCode !== '--'" class="tenant-chip__code">{{ tenantCode }}</span>
+      </div>
+
       <button
         v-if="!isPlatformSuper"
         class="md:hidden w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors"
@@ -82,7 +89,7 @@
                   <strong class="text-sm text-on-surface">{{ item.title }}</strong>
                   <span class="rounded-full bg-primary-container px-2 py-0.5 text-[10px] font-bold text-primary">{{ item.type }}</span>
                 </div>
-                <p class="mt-1 line-clamp-2 text-xs leading-5 text-on-surface-variant">{{ item.desc }}</p>
+                <p class="mt-1 line-clamp-4 text-xs leading-5 text-on-surface-variant">{{ item.desc }}</p>
               </button>
               <div class="mt-2 flex items-center gap-2">
                 <button
@@ -122,7 +129,7 @@
         >
           <div class="border-b border-outline-variant/30 px-4 py-4">
             <p class="text-sm font-black text-on-surface">{{ displayName }}</p>
-            <p class="mt-1 text-xs text-on-surface-variant">租户：{{ tenantCode }}</p>
+            <p class="mt-1 text-xs text-on-surface-variant">租户：{{ tenantName }}（{{ tenantCode }}）</p>
           </div>
           <button v-if="!isPlatformSuper && canAccessSearchTarget('/dashboard')" class="navbar-menu-item" @click="goRoute('/dashboard')">
             <span class="material-symbols-outlined">dashboard</span>回到总览大盘
@@ -245,8 +252,10 @@ const pendingNotifications = ref<PendingNotification[]>([])
 // 动态获取路由元信息中的中文标题
 const pageTitle = computed<string>(() => (route.meta.title as string) || '高管总览大盘')
 const displayName = computed(() => userStore.userInfo?.userName || '当前用户')
-const tenantCode = computed(() => userStore.userInfo?.tenantCode || '--')
+const tenantCode = computed(() => userStore.currentTenantCode || '--')
 const isPlatformSuper = computed(() => userStore.isDeveloper)
+const tenantName = computed(() => userStore.currentTenantName)
+const tenantTooltip = computed(() => `当前租户：${userStore.currentTenantLabel}`)
 const canViewAiAdvice = computed(() => userStore.hasAnyPermission(AI_ADVICE_PERMISSIONS))
 const roleLabel = computed(() => (userStore.isDeveloper ? '平台超管' : '运营管理'))
 const avatarText = computed(() => {
@@ -482,7 +491,10 @@ async function openNotification(item: PendingNotification) {
 
 async function closeNotification(item: PendingNotification, taskStatus: 'DONE' | 'IGNORED') {
   try {
-    await closeNotificationTask(item.id, { taskStatus })
+    const closeNote = taskStatus === 'DONE'
+      ? '已在待办入口标记完成，进入 AI 建议闭环样本。'
+      : '已在待办入口标记跳过，进入 AI 建议反馈样本。'
+    await closeNotificationTask(item.id, { taskStatus, closeNote })
     trackBehavior({
       eventType: 'notification_close',
       pagePath: route.fullPath,
@@ -494,7 +506,8 @@ async function closeNotification(item: PendingNotification, taskStatus: 'DONE' |
       metadata: {
         title: item.title,
         type: item.type,
-        route: item.route || '/dashboard'
+        route: item.route || '/dashboard',
+        closeNote
       }
     })
     ElMessage.success(taskStatus === 'DONE' ? '已完成，AI 建议会同步记录处理结果' : '已跳过，后续会减少类似提醒')
@@ -588,6 +601,78 @@ onBeforeUnmount(() => {
   font-size: 1rem;
   font-weight: 900;
   box-shadow: 0 12px 24px rgba(245, 164, 0, 0.24);
+}
+
+.tenant-chip {
+  display: inline-flex;
+  max-width: min(20rem, 36vw);
+  align-items: center;
+  gap: 0.45rem;
+  overflow: hidden;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.92), rgba(255, 255, 255, 0.86));
+  padding: 0.45rem 0.7rem;
+  color: #0f2f6f;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.08);
+}
+
+.tenant-chip .material-symbols-outlined {
+  font-size: 1rem;
+  color: #2563eb;
+}
+
+.tenant-chip--super {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.96), rgba(255, 255, 255, 0.88));
+  color: #8a4b00;
+}
+
+.tenant-chip--super .material-symbols-outlined {
+  color: #f59e0b;
+}
+
+.tenant-chip__label {
+  flex: 0 0 auto;
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: rgba(15, 47, 111, 0.58);
+}
+
+.tenant-chip__name {
+  min-width: 0;
+  max-width: 8.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.tenant-chip__code {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  padding: 0.08rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  color: rgba(15, 47, 111, 0.7);
+}
+
+@media (max-width: 767px) {
+  .tenant-chip {
+    max-width: calc(100vw - 12rem);
+    padding: 0.4rem 0.55rem;
+  }
+
+  .tenant-chip__label,
+  .tenant-chip__code {
+    display: none;
+  }
+
+  .tenant-chip__name {
+    max-width: 6.5rem;
+  }
 }
 
 .line-clamp-2 {

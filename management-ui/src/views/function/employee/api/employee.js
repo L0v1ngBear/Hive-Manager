@@ -1,4 +1,4 @@
-﻿import request from '@/utils/request.js'
+import request from '@/utils/request.js'
 
 export function getEmployeePage(params) {
   return request({
@@ -111,5 +111,12 @@ export function importEmployees(file) {
     headers: {
       'Content-Type': 'multipart/form-data'
     }
+  })
+}
+
+export function generateOrganizationJoinCode() {
+  return request({
+    url: '/emp/employee/join-code',
+    method: 'post'
   })
 }

@@ -26,6 +26,7 @@ import my.management.module.auth.model.vo.LoginUserRow;
 import my.management.module.auth.model.vo.LoginVO;
 import my.management.module.auth.model.vo.WebScanSessionVO;
 import my.management.module.auth.model.vo.WebScanStatusVO;
+import my.management.module.employee.model.enums.EmployeeStatusEnum;
 import my.management.module.notification.sms.SmsVerificationService;
 import my.management.module.tenant.service.TenantLicenseService;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -97,10 +98,7 @@ public class AuthService {
     public void sendPasswordResetCode(PasswordResetCodeRequest request) {
         String phone = normalizeResetPhone(request.getPhone());
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
-        LoginUserRow loginUser = authMapper.selectLoginUserByPhone(phone, phoneHash);
-        if (loginUser == null || !Objects.equals(loginUser.getUserStatus(), 1)) {
-            throw new BusinessException(404, "该手机号未绑定可用管理端账号");
-        }
+        LoginUserRow loginUser = resolvePasswordResetUser(phone, phoneHash, request.getAccount());
 
         String sendLockKey = passwordResetSendLockKey(phoneHash);
         if (Boolean.TRUE.equals(stringRedisTemplate.hasKey(sendLockKey))) {
@@ -129,10 +127,7 @@ public class AuthService {
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
         validateNewPassword(request.getNewPassword(), request.getConfirmPassword(), phone);
 
-        LoginUserRow loginUser = authMapper.selectLoginUserByPhone(phone, phoneHash);
-        if (loginUser == null || !Objects.equals(loginUser.getUserStatus(), 1)) {
-            throw new BusinessException(404, "该手机号未绑定可用管理端账号");
-        }
+        LoginUserRow loginUser = resolvePasswordResetUser(phone, phoneHash, request.getAccount());
 
         ensurePasswordResetNotLocked(phoneHash);
         String storedValue = stringRedisTemplate.opsForValue().get(passwordResetCodeKey(phoneHash));
@@ -148,7 +143,14 @@ public class AuthService {
             throw new BusinessException(400, "验证码错误");
         }
 
-        authMapper.updatePasswordByUserId(loginUser.getUserId(), encryptUtil.encode(request.getNewPassword().trim()));
+        int updated = authMapper.updatePasswordByUserIdAndTenantCode(
+                loginUser.getUserId(),
+                loginUser.getTenantCode(),
+                encryptUtil.encode(request.getNewPassword().trim())
+        );
+        if (updated <= 0) {
+            throw new BusinessException(500, "密码修改失败，请稍后重试");
+        }
         stringRedisTemplate.delete(List.of(
                 passwordResetCodeKey(phoneHash),
                 passwordResetSendLockKey(phoneHash),
@@ -250,10 +252,10 @@ public class AuthService {
             recordLoginFail(ipFailKey);
             throw new BusinessException(401, "账号或密码错误");
         }
-        if (!Objects.equals(loginUser.getUserStatus(), 1)) {
+        if (!isUsableEmployeeStatus(loginUser.getUserStatus())) {
             recordLoginFail(accountFailKey);
             recordLoginFail(ipFailKey);
-            throw new BusinessException(403, "该员工账号已禁用");
+            throw new BusinessException(403, employeeStatusMessage(loginUser.getUserStatus()));
         }
         if (password == null || !encryptUtil.matches(password, loginUser.getPassword())) {
             recordLoginFail(accountFailKey);
@@ -320,6 +322,43 @@ public class AuthService {
         }
     }
 
+    private LoginUserRow resolvePasswordResetUser(String phone, String phoneHash, String account) {
+        String normalizedAccount = normalizeResetAccount(account);
+        List<LoginUserRow> users = authMapper.selectLoginUsersByPhone(phone, phoneHash, normalizedAccount);
+        if (users == null || users.isEmpty()) {
+            throw new BusinessException(404, "该手机号未绑定可用管理端账号");
+        }
+        List<LoginUserRow> usableUsers = users.stream()
+                .filter(user -> user != null && isUsableEmployeeStatus(user.getUserStatus()))
+                .toList();
+        if (usableUsers.size() > 1) {
+            throw new BusinessException(409, "该手机号存在多个组织账号，请输入登录账号或组织码后再获取验证码");
+        }
+        if (usableUsers.isEmpty()) {
+            throw new BusinessException(403, "该手机号对应员工账号已离职或停用，请联系管理员重新启用后再重置密码");
+        }
+        return usableUsers.get(0);
+    }
+
+    private String normalizeResetAccount(String account) {
+        if (account == null || account.trim().isEmpty()) {
+            return null;
+        }
+        return account.trim();
+    }
+
+    private boolean isUsableEmployeeStatus(Integer status) {
+        return Objects.equals(status, EmployeeStatusEnum.ACTIVE.getCode())
+                || Objects.equals(status, EmployeeStatusEnum.PROBATION.getCode());
+    }
+
+    private String employeeStatusMessage(Integer status) {
+        if (Objects.equals(status, EmployeeStatusEnum.RESIGNED.getCode())) {
+            return "该员工账号已离职，请联系管理员重新启用";
+        }
+        return "该员工账号已禁用";
+    }
+
     private String generateSmsCode() {
         return String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
     }
@@ -358,6 +397,7 @@ public class AuthService {
         loginVO.setUserId(loginUser.getUserId());
         loginVO.setUserName(loginUser.getUserName());
         loginVO.setTenantCode(loginUser.getTenantCode());
+        loginVO.setTenantName(loginUser.getTenantName());
         loginVO.setDeveloper(PlatformTenantEnum.isSuper(loginUser.getTenantCode()));
         loginVO.setResponseKey(responseEncryptUtil.buildResponseKey(token));
         loginVO.setPermissions(List.copyOf(permCodes));
