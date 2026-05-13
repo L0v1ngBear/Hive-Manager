@@ -7,9 +7,11 @@ import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
 import my.management.common.enums.BinaryFlagEnum;
 import my.management.common.utils.CodeGeneratorUtil;
+import my.management.module.customer.mapper.CustomerContactMapper;
 import my.management.module.customer.mapper.CustomerMapper;
 import my.management.module.customer.mapper.CustomerProjectMapper;
 import my.management.module.customer.model.entity.Customer;
+import my.management.module.customer.model.entity.CustomerContact;
 import my.management.module.customer.model.entity.CustomerProject;
 import my.management.module.customer.model.enums.CustomerTypeEnum;
 import my.management.module.employee.mapper.EmployeeMapper;
@@ -104,6 +106,9 @@ public class OrderService {
 
     @Resource
     private CustomerProjectMapper customerProjectMapper;
+
+    @Resource
+    private CustomerContactMapper customerContactMapper;
 
     @Resource
     private EmployeeMapper employeeMapper;
@@ -448,7 +453,7 @@ public class OrderService {
         order.setAttachmentSize(request.getAttachmentSize());
         order.setStatus(StringUtils.hasText(request.getStatus()) ? request.getStatus().trim() : defaultSalesStatus(order.getStatus()));
         validateShippingInfo(order.getStatus(), order.getExpressCompany(), order.getExpressNo());
-        ensureCustomerProjectExists(order.getCustomerName(), order.getProjectName());
+        ensureCustomerProjectExists(order.getCustomerName(), order.getCustomerPhone(), order.getProjectName());
         order.setGoodsDesc(buildSalesGoodsDesc(request.getItems()));
         order.setTotalQuantity(sumSalesQuantity(request.getItems()));
         if (createMode && order.getTotalAmount() == null) {
@@ -514,6 +519,7 @@ public class OrderService {
         order.setContactPhone(blankToNull(request.getContactPhone()));
         order.setDeliveryDate(parseDateTime(request.getDeliveryDate()));
         order.setProcess(resolveProcess(order.getStatus(), request.getProcess()));
+        ensureCustomerProjectExists(order.getCustomerName(), order.getContactPhone(), order.getProjectName());
     }
 
     private void insertProductionLog(ProductionOrder order, String oldStatusText, String remark) {
@@ -549,29 +555,61 @@ public class OrderService {
     /**
      * 订单页允许先录业务，再自动把客户基础档案补入客户管理，减少人工来回切页维护。
      */
-    private void ensureCustomerProjectExists(String customerName, String projectName) {
+    private void ensureCustomerProjectExists(String customerName, String customerPhone, String projectName) {
         String tenantCode = TenantPermissionContext.getTenantCode();
+        String normalizedCustomerName = blankToNull(customerName);
+        if (!StringUtils.hasText(normalizedCustomerName)) {
+            return;
+        }
         Customer customer = customerMapper.selectOne(new LambdaQueryWrapper<Customer>()
-                .eq(Customer::getCustomerName, customerName)
+                .eq(Customer::getTenantCode, tenantCode)
+                .eq(Customer::getCustomerName, normalizedCustomerName)
                 .last("LIMIT 1"));
         if (customer == null) {
             customer = new Customer();
             customer.setTenantCode(tenantCode);
-            customer.setCustomerName(customerName);
+            customer.setCustomerName(normalizedCustomerName);
             customer.setCustomerType(CustomerTypeEnum.DEFAULT.getCode());
             customerMapper.insert(customer);
         }
 
+        ensureCustomerContactExists(tenantCode, customer.getId(), normalizedCustomerName, customerPhone);
+
+        String normalizedProjectName = blankToNull(projectName);
+        if (!StringUtils.hasText(normalizedProjectName)) {
+            return;
+        }
         Long projectCount = customerProjectMapper.selectCount(new LambdaQueryWrapper<CustomerProject>()
+                .eq(CustomerProject::getTenantCode, tenantCode)
                 .eq(CustomerProject::getCustomerId, customer.getId())
-                .eq(CustomerProject::getProjectName, projectName));
+                .eq(CustomerProject::getProjectName, normalizedProjectName));
         if (projectCount == null || projectCount == 0) {
             CustomerProject project = new CustomerProject();
             project.setTenantCode(tenantCode);
             project.setCustomerId(customer.getId());
-            project.setProjectName(projectName);
+            project.setProjectName(normalizedProjectName);
             customerProjectMapper.insert(project);
         }
+    }
+
+    private void ensureCustomerContactExists(String tenantCode, Long customerId, String customerName, String customerPhone) {
+        String normalizedPhone = blankToNull(customerPhone);
+        if (!StringUtils.hasText(normalizedPhone)) {
+            return;
+        }
+        Long contactCount = customerContactMapper.selectCount(new LambdaQueryWrapper<CustomerContact>()
+                .eq(CustomerContact::getTenantCode, tenantCode)
+                .eq(CustomerContact::getCustomerId, customerId)
+                .eq(CustomerContact::getContactPhone, normalizedPhone));
+        if (contactCount != null && contactCount > 0) {
+            return;
+        }
+        CustomerContact contact = new CustomerContact();
+        contact.setTenantCode(tenantCode);
+        contact.setCustomerId(customerId);
+        contact.setContactName(customerName);
+        contact.setContactPhone(normalizedPhone);
+        customerContactMapper.insert(contact);
     }
 
     /**

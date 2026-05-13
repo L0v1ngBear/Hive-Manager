@@ -1,5 +1,5 @@
 <template>
-  <header ref="navbarRef" class="ys-navbar min-h-16 md:h-20 bg-surface flex flex-wrap md:flex-nowrap items-center justify-between gap-3 px-3 py-3 md:px-8 md:py-0 shrink-0 relative z-10">
+  <header ref="navbarRef" class="ys-navbar min-h-16 md:h-20 bg-surface flex flex-wrap md:flex-nowrap items-center justify-between gap-3 px-3 py-3 md:px-8 md:py-0 shrink-0 relative z-[1000] isolate overflow-visible">
     <button
       class="md:hidden p-2 text-on-surface-variant rounded-full hover:bg-surface-container-highest"
       @click="emit('toggle-mobile-menu')"
@@ -22,7 +22,7 @@
         >
         <div
           v-if="searchPanelOpen && filteredMenus.length"
-          class="absolute left-0 right-0 top-[calc(100%+10px)] z-40 overflow-hidden rounded-2xl border border-outline-variant/40 bg-white/95 shadow-xl shadow-primary/10 backdrop-blur-xl"
+          class="absolute left-0 right-0 top-[calc(100%+10px)] z-[1200] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/10"
         >
           <button
             v-for="item in filteredMenus"
@@ -57,7 +57,7 @@
         <span class="material-symbols-outlined">search</span>
       </button>
 
-      <div v-if="!isPlatformSuper" class="relative">
+      <div v-if="!isPlatformSuper" class="relative z-[1100]">
       <button
         class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors relative"
         @click="toggleNotifications"
@@ -67,7 +67,7 @@
       </button>
         <div
           v-if="notificationOpen"
-          class="absolute right-0 top-[calc(100%+12px)] w-[min(320px,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white/95 shadow-xl shadow-primary/10 backdrop-blur-xl"
+          class="absolute right-0 top-[calc(100%+12px)] z-[1300] w-[min(320px,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/20"
         >
           <div class="flex items-center justify-between border-b border-outline-variant/30 px-4 py-3">
             <div>
@@ -125,7 +125,7 @@
         </button>
         <div
           v-if="userMenuOpen"
-          class="absolute right-0 top-[calc(100%+12px)] w-[min(16rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white/95 shadow-xl shadow-primary/10 backdrop-blur-xl"
+          class="absolute right-0 top-[calc(100%+12px)] z-[1200] w-[min(16rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/10"
         >
           <div class="border-b border-outline-variant/30 px-4 py-4">
             <p class="text-sm font-black text-on-surface">{{ displayName }}</p>
@@ -163,7 +163,7 @@
         >
         <div
           v-if="searchPanelOpen && filteredMenus.length"
-          class="absolute left-0 right-0 top-[calc(100%+10px)] z-40 max-h-[60vh] overflow-y-auto rounded-2xl border border-outline-variant/40 bg-white/95 shadow-xl shadow-primary/10 backdrop-blur-xl"
+          class="absolute left-0 right-0 top-[calc(100%+10px)] z-[1200] max-h-[60vh] overflow-y-auto rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/10"
         >
           <button
             v-for="item in filteredMenus"

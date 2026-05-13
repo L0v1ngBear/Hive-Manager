@@ -1,466 +1,505 @@
 <template>
   <div class="function-page-shell h-full min-h-0 font-sans">
     <div class="function-page-container space-y-6 p-2 md:p-4">
-
       <header class="function-page-header">
         <div>
           <div class="function-page-eyebrow">
             <span class="material-symbols-outlined text-[16px]">inventory_2</span>
-            浠撳簱璋冨害涓績
+            仓库调度中心
           </div>
-          <h1 class="function-page-title">搴撳瓨瀹炴椂绠＄悊</h1>
+          <h1 class="function-page-title">库存实时管理</h1>
           <p class="function-page-desc">
-            绠＄悊甯冨尮鍏ュ簱銆佸嚭搴撳拰搴撳瓨棰勮锛岀綉椤电宸叉帴鍏ョ湡瀹炲簱瀛樻帴鍙ｏ紝鏂逛究浠撳簱浜哄憳蹇€熸煡鏉＄爜鍜岀湅娴佹按銆?          </p>
+            管理布匹入库、出库、库存预警和库存流水，支持按型号聚合查看总米数，并可展开查看每匹布明细。
+          </p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
           <button
-              v-permission="'inventory:cloth:in'"
-              @click="handleTemplateDownload"
-              class="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl flex items-center gap-2 hover:bg-slate-50 transition-colors text-sm"
+            v-permission="'inventory:cloth:in'"
+            @click="handleTemplateDownload"
+            class="inventory-secondary-btn"
           >
-            <span class="material-symbols-outlined text-[20px]">description</span>瀛楁璇存槑
+            <span class="material-symbols-outlined text-[20px]">description</span>
+            字段说明
           </button>
           <button
-              v-permission="'inventory:cloth:in'"
-              @click="triggerImport"
-              class="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl flex items-center gap-2 hover:bg-slate-50 transition-colors text-sm"
+            v-permission="'inventory:cloth:in'"
+            @click="triggerImport"
+            class="inventory-secondary-btn"
           >
-            <span class="material-symbols-outlined text-[20px]">file_upload</span>瀵煎叆澶栭儴搴撳瓨
+            <span class="material-symbols-outlined text-[20px]">file_upload</span>
+            导入外部库存
           </button>
-          <button @click="openInDrawer" class="function-action-primary">
-            <span class="material-symbols-outlined text-[20px]">add_circle</span>鏂板鍏ュ簱
+          <button v-permission="'inventory:cloth:in'" @click="openInDrawer" class="function-action-primary">
+            <span class="material-symbols-outlined text-[20px]">add_circle</span>
+            新增入库
           </button>
-          <button @click="openOutDrawer()" class="function-action-dark">
-            <span class="material-symbols-outlined text-[20px]">outbox</span>鎵爜鍑哄簱
+          <button v-permission="'inventory:cloth:out'" @click="openOutDrawer()" class="function-action-dark">
+            <span class="material-symbols-outlined text-[20px]">outbox</span>
+            扫码出库
           </button>
         </div>
       </header>
 
-      <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div class="relative overflow-hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-100 group hover:shadow-md transition-all">
-          <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-[100px] text-blue-50 opacity-50 group-hover:scale-110 transition-transform">all_inbox</span>
-          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest relative z-10">鍙敤鎬诲簱瀛</p>
-          <div class="mt-3 flex items-baseline gap-1 relative z-10 min-w-0">
-            <h3 class="text-3xl xl:text-4xl font-black text-blue-600 truncate" :title="meter(summary.totalMeters)">
+      <section class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div class="inventory-stat-card">
+          <span class="material-symbols-outlined inventory-stat-bg text-blue-50">all_inbox</span>
+          <p class="inventory-stat-label">可用总库存</p>
+          <div class="inventory-stat-value-wrap">
+            <h3 class="inventory-stat-value text-blue-600" :title="meter(summary.totalMeters)">
               {{ formatBigNumber(summary.totalMeters) }}
             </h3>
-            <span class="text-xs text-slate-400 font-medium whitespace-nowrap">{{ getUnit(summary.totalMeters, 'm') }}</span>
+            <span class="inventory-stat-unit">{{ getUnit(summary.totalMeters, '米') }}</span>
           </div>
         </div>
 
-        <div class="relative overflow-hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-100 group hover:shadow-md transition-all">
-          <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-[100px] text-slate-50 opacity-50 group-hover:scale-110 transition-transform">layers</span>
-          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest relative z-10">鍦ㄥ簱甯冨尮</p>
-          <div class="mt-3 flex items-baseline gap-1 relative z-10 min-w-0">
-            <h3 class="text-3xl xl:text-4xl font-black text-slate-800 truncate" :title="summary.clothCount">
+        <div class="inventory-stat-card">
+          <span class="material-symbols-outlined inventory-stat-bg text-slate-50">layers</span>
+          <p class="inventory-stat-label">在库布匹</p>
+          <div class="inventory-stat-value-wrap">
+            <h3 class="inventory-stat-value text-slate-800" :title="summary.clothCount">
               {{ formatBigNumber(summary.clothCount) }}
             </h3>
-            <span class="text-xs text-slate-400 font-medium whitespace-nowrap">{{ getUnit(summary.clothCount, 'rolls') }}</span>
+            <span class="inventory-stat-unit">{{ getUnit(summary.clothCount, '匹') }}</span>
           </div>
         </div>
 
-        <div class="relative overflow-hidden bg-white p-6 rounded-2xl shadow-sm border border-amber-100 group hover:shadow-md transition-all">
-          <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-[100px] text-amber-50 opacity-50 group-hover:scale-110 transition-transform">warning</span>
-          <p class="text-xs font-bold text-amber-600/80 uppercase tracking-widest relative z-10">浣庡簱瀛橀璀</p>
-          <div class="mt-3 flex items-baseline gap-1 relative z-10 min-w-0">
-            <h3 class="text-3xl xl:text-4xl font-black text-amber-600 truncate" :title="summary.warningCount">
+        <div class="inventory-stat-card border-amber-100">
+          <span class="material-symbols-outlined inventory-stat-bg text-amber-50">warning</span>
+          <p class="inventory-stat-label text-amber-600/80">低库存预警</p>
+          <div class="inventory-stat-value-wrap">
+            <h3 class="inventory-stat-value text-amber-600" :title="summary.warningCount">
               {{ summary.warningCount }}
             </h3>
-            <span class="text-xs text-amber-500/70 font-medium whitespace-nowrap">浣庝簬 100 绫</span>
+            <span class="text-xs font-medium text-amber-500/70">低于 100 米</span>
           </div>
         </div>
 
-        <div class="relative overflow-hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-100 group hover:shadow-md transition-all">
-          <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-[100px] text-emerald-50 opacity-50 group-hover:scale-110 transition-transform">move_to_inbox</span>
-          <p class="text-xs font-bold text-slate-500 uppercase tracking-widest relative z-10">浠婃棩鍏ュ簱</p>
-          <div class="mt-3 flex items-baseline gap-1 relative z-10 min-w-0">
-            <h3 class="text-3xl xl:text-4xl font-black text-emerald-500 truncate" :title="meter(summary.todayInMeters)">
+        <div class="inventory-stat-card">
+          <span class="material-symbols-outlined inventory-stat-bg text-emerald-50">move_to_inbox</span>
+          <p class="inventory-stat-label">今日入库</p>
+          <div class="inventory-stat-value-wrap">
+            <h3 class="inventory-stat-value text-emerald-500" :title="meter(summary.todayInMeters)">
               {{ formatBigNumber(summary.todayInMeters) }}
             </h3>
-            <span class="text-xs text-slate-400 font-medium whitespace-nowrap">{{ getUnit(summary.todayInMeters, 'm') }}</span>
+            <span class="inventory-stat-unit">{{ getUnit(summary.todayInMeters, '米') }}</span>
           </div>
         </div>
 
-        <div class="relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 text-white p-6 rounded-2xl shadow-lg shadow-slate-900/20 group hover:-translate-y-0.5 transition-all">
-          <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-[100px] text-white/5 group-hover:scale-110 transition-transform">outbox</span>
-          <p class="text-xs font-bold text-slate-300 uppercase tracking-widest relative z-10">浠婃棩鍑哄簱</p>
-          <div class="mt-3 flex items-baseline gap-1 relative z-10 min-w-0">
-            <h3 class="text-3xl xl:text-4xl font-black truncate" :title="meter(summary.todayOutMeters)">
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 p-6 text-white shadow-lg shadow-slate-900/20 transition-all hover:-translate-y-0.5">
+          <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-[100px] text-white/5 transition-transform">outbox</span>
+          <p class="relative z-10 text-xs font-bold uppercase tracking-widest text-slate-300">今日出库</p>
+          <div class="relative z-10 mt-3 flex min-w-0 items-baseline gap-1">
+            <h3 class="truncate text-3xl font-black xl:text-4xl" :title="meter(summary.todayOutMeters)">
               {{ formatBigNumber(summary.todayOutMeters) }}
             </h3>
-            <span class="text-xs text-slate-400 font-medium whitespace-nowrap">{{ getUnit(summary.todayOutMeters, 'm') }}</span>
+            <span class="whitespace-nowrap text-xs font-medium text-slate-400">{{ getUnit(summary.todayOutMeters, '米') }}</span>
           </div>
         </div>
       </section>
 
-      <section class="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
-
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[500px]">
-          <div class="px-6 py-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
+      <section class="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_340px]">
+        <div class="flex min-h-[500px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/50 px-6 py-5">
             <div class="flex flex-wrap items-center gap-3">
               <div class="relative">
-                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-slate-400">search</span>
                 <input
-                    v-model.trim="query.keyword"
-                    @keyup.enter="handleFilter"
-                    class="w-64 max-w-full pl-10 pr-4 py-2.5 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500 transition-all"
-                    placeholder="Search barcode or model"
+                  v-model.trim="query.keyword"
+                  @keyup.enter="handleFilter"
+                  class="w-64 max-w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10"
+                  placeholder="搜索条码、型号或规格"
                 />
               </div>
               <div class="relative">
-                <select v-model="query.status" class="appearance-none pl-4 pr-10 py-2.5 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500 transition-all cursor-pointer min-w-[120px]">
-                  <option value="">鍏ㄩ儴鐘舵€</option>
-                  <option value="0">鍦ㄥ簱</option>
-                  <option value="2">閮ㄥ垎鍑哄簱</option>
-                  <option value="1">宸插嚭搴</option>
+                <select v-model="query.status" class="min-w-[120px] cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-4 pr-10 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10">
+                  <option value="">全部状态</option>
+                  <option value="0">在库</option>
+                  <option value="2">部分出库</option>
+                  <option value="1">已出库</option>
                 </select>
-                <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">expand_more</span>
+                <span class="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">expand_more</span>
               </div>
-              <button @click="handleFilter" class="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors">鏌ヨ</button>
-              <button @click="resetFilter" class="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors">閲嶇疆</button>
+              <button @click="handleFilter" class="rounded-xl bg-blue-50 px-5 py-2.5 text-sm font-bold text-blue-600 transition-colors hover:bg-blue-100">查询</button>
+              <button @click="resetFilter" class="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50">重置</button>
             </div>
-            <span class="text-xs font-medium text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-100 shadow-sm">鍏?<b class="text-slate-800">{{ pagination.total }}</b> 鏉¤褰</span>
+            <span class="rounded-lg border border-slate-100 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm">
+              共 <b class="text-slate-800">{{ pagination.total }}</b> 条记录
+            </span>
           </div>
 
-          <div class="overflow-x-auto relative flex-1">
-            <div v-if="loading" class="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-3">
-              <span class="material-symbols-outlined text-blue-600 text-4xl animate-spin">progress_activity</span>
-              <span class="text-sm font-medium text-blue-600">鍔犺浇鏁版嵁涓?..</span>
+          <div class="relative flex-1 overflow-x-auto">
+            <div v-if="loading" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-[2px]">
+              <span class="material-symbols-outlined animate-spin text-4xl text-blue-600">progress_activity</span>
+              <span class="text-sm font-medium text-blue-600">正在加载库存数据...</span>
             </div>
-            <table class="w-full text-left border-collapse min-w-[1040px]">
-              <thead class="bg-slate-50/80 sticky top-0 z-0">
-              <tr>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{{ fieldLabel('modelCode', '型号') }}</th>
-                <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{{ fieldLabel('spec', '规格') }}</th>
-                <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{{ fieldLabel('totalMeters', '总米数') }}</th>
-                <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">{{ fieldLabel('remainingMeters', '剩余米数') }}</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{{ fieldLabel('status', '库存状态') }}</th>
-                <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">{{ fieldLabel('updateTime', '更新时间') }}</th>
-                <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">鎿嶄綔</th>
-              </tr>
+            <table class="w-full min-w-[1040px] border-collapse text-left">
+              <thead class="sticky top-0 z-0 bg-slate-50/80">
+                <tr>
+                  <th class="inventory-th">{{ fieldLabel('modelCode', '型号') }}</th>
+                  <th class="inventory-th text-right">{{ fieldLabel('spec', '规格') }}</th>
+                  <th class="inventory-th text-right">{{ fieldLabel('totalMeters', '总米数') }}</th>
+                  <th class="inventory-th text-right">{{ fieldLabel('remainingMeters', '剩余米数') }}</th>
+                  <th class="inventory-th">{{ fieldLabel('status', '库存状态') }}</th>
+                  <th class="inventory-th">{{ fieldLabel('updateTime', '更新时间') }}</th>
+                  <th class="inventory-th text-right">操作</th>
+                </tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
-              <tr v-for="item in rows" :key="`${item.modelCode}-${item.spec}`" class="cursor-pointer hover:bg-blue-50/40 transition-colors group" @click="openDetail(item)">
-                <td class="px-6 py-4 text-sm font-bold text-slate-700">{{ item.modelCode }}</td>
-                <td class="px-6 py-4 text-right text-sm text-slate-600">{{ meter(item.spec) }}</td>
-                <td class="px-6 py-4 text-right text-sm text-slate-600">{{ meter(item.totalMeters) }}</td>
-                <td class="px-6 py-4 text-right text-sm font-black text-blue-600">{{ meter(item.remainingMeters) }}</td>
-                <td class="px-6 py-4">
-                    <span :class="statusClass(item.status)" class="inline-flex px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider">
+                <tr v-for="item in rows" :key="`${item.modelCode}-${item.spec}`" class="group cursor-pointer transition-colors hover:bg-blue-50/40" @click="openDetail(item)">
+                  <td class="px-6 py-4 text-sm font-bold text-slate-700">{{ item.modelCode }}</td>
+                  <td class="px-6 py-4 text-right text-sm text-slate-600">{{ meter(item.spec) }}</td>
+                  <td class="px-6 py-4 text-right text-sm text-slate-600">{{ meter(item.totalMeters) }}</td>
+                  <td class="px-6 py-4 text-right text-sm font-black text-blue-600">{{ meter(item.remainingMeters) }}</td>
+                  <td class="px-6 py-4">
+                    <span :class="statusClass(item.status)" class="inline-flex rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wider">
                       {{ item.statusName || statusLabel(item.status) }}
                     </span>
-                </td>
-                <td class="px-6 py-4 text-xs text-slate-500">{{ formatDateTime(item.latestTime || item.updateTime) }}</td>
-                <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
-                  <button @click.stop="openDetail(item)" class="text-blue-600 hover:bg-blue-100/50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">璇︽儏</button>
-                  <button
-                      v-if="item.barcode"
-                      @click.stop="openOutDrawer(item)"
-                      :disabled="Number(item.remainingMeters || 0) <= 0"
-                      class="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-40 disabled:hover:bg-emerald-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                  >
-                    鍑哄簱
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="!loading && rows.length === 0">
-                <td colspan="8" class="px-6 py-16 text-center">
-                  <div class="flex flex-col items-center justify-center text-slate-400">
-                    <span class="material-symbols-outlined text-5xl mb-2 opacity-50">search_off</span>
-                    <p class="text-sm">鏆傛棤绗﹀悎鏉′欢鐨勫簱瀛樿褰</p>
-                  </div>
-                </td>
-              </tr>
+                  </td>
+                  <td class="px-6 py-4 text-xs text-slate-500">{{ formatDateTime(item.latestTime || item.updateTime) }}</td>
+                  <td class="space-x-2 whitespace-nowrap px-6 py-4 text-right">
+                    <button @click.stop="openDetail(item)" class="rounded-lg px-3 py-1.5 text-xs font-bold text-blue-600 transition-colors hover:bg-blue-100/50">详情</button>
+                  </td>
+                </tr>
+                <tr v-if="!loading && rows.length === 0">
+                  <td colspan="7" class="px-6 py-16 text-center">
+                    <div class="flex flex-col items-center justify-center text-slate-400">
+                      <span class="material-symbols-outlined mb-2 text-5xl opacity-50">search_off</span>
+                      <p class="text-sm">暂无符合条件的库存记录</p>
+                    </div>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
 
-          <div class="p-4 bg-slate-50 flex items-center justify-between text-sm text-slate-500 border-t border-slate-100">
-            <span>绗?<b class="text-slate-800">{{ query.pageNum }}</b> / {{ totalPages }} 椤</span>
+          <div class="flex items-center justify-between border-t border-slate-100 bg-slate-50 p-4 text-sm text-slate-500">
+            <span>第 <b class="text-slate-800">{{ query.pageNum }}</b> / {{ totalPages }} 页</span>
             <div class="flex gap-2">
-              <button @click="changePage(query.pageNum - 1)" :disabled="query.pageNum <= 1" class="px-4 py-2 rounded-xl bg-white border border-slate-200 disabled:opacity-50 hover:bg-slate-50 transition-colors font-medium text-slate-700">涓婁竴椤</button>
-              <button @click="changePage(query.pageNum + 1)" :disabled="query.pageNum >= totalPages" class="px-4 py-2 rounded-xl bg-white border border-slate-200 disabled:opacity-50 hover:bg-slate-50 transition-colors font-medium text-slate-700">涓嬩竴椤</button>
+              <button @click="changePage(query.pageNum - 1)" :disabled="query.pageNum <= 1" class="inventory-page-btn">上一页</button>
+              <button @click="changePage(query.pageNum + 1)" :disabled="query.pageNum >= totalPages" class="inventory-page-btn">下一页</button>
             </div>
           </div>
         </div>
 
         <aside class="space-y-6">
-
-          <section class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <div class="flex items-center justify-between mb-5">
-              <h2 class="text-base font-black text-slate-800 flex items-center gap-2">
-                <span class="material-symbols-outlined text-blue-600 text-[20px]">monitoring</span>
-                7 澶╁嚭鍏ュ簱瓒嬪娍
+          <section class="inventory-side-card">
+            <div class="mb-5 flex items-center justify-between">
+              <h2 class="flex items-center gap-2 text-base font-black text-slate-800">
+                <span class="material-symbols-outlined text-[20px] text-blue-600">monitoring</span>
+                7 天出入库趋势
               </h2>
             </div>
             <div class="space-y-4">
               <div v-for="item in trendRows" :key="item.statDate" class="group">
-                <div class="flex justify-between text-xs text-slate-500 mb-1.5 font-medium">
+                <div class="mb-1.5 flex justify-between text-xs font-medium text-slate-500">
                   <span>{{ item.statDate }}</span>
                   <span class="text-slate-400">
-                    <span class="text-emerald-600 font-bold">鍏?{{ meter(item.inMeters) }}</span> /
-                    <span class="text-slate-800 font-bold">鍑?{{ meter(item.outMeters) }}</span>
+                    <span class="font-bold text-emerald-600">入 {{ meter(item.inMeters) }}</span> /
+                    <span class="font-bold text-slate-800">出 {{ meter(item.outMeters) }}</span>
                   </span>
                 </div>
-                <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden flex ring-1 ring-inset ring-slate-200/50">
+                <div class="flex h-2.5 overflow-hidden rounded-full bg-slate-100 ring-1 ring-inset ring-slate-200/50">
                   <div class="bg-emerald-400 transition-all duration-500" :style="{ width: trendWidth(item.inMeters) }"></div>
                   <div class="bg-slate-800 transition-all duration-500" :style="{ width: trendWidth(item.outMeters) }"></div>
                 </div>
               </div>
-              <div v-if="trendRows.length === 0" class="py-4 flex flex-col items-center justify-center text-slate-400 text-sm">
-                <span class="material-symbols-outlined mb-1 opacity-50">bar_chart</span>鏆傛棤瓒嬪娍鏁版嵁
+              <div v-if="trendRows.length === 0" class="flex flex-col items-center justify-center py-4 text-sm text-slate-400">
+                <span class="material-symbols-outlined mb-1 opacity-50">bar_chart</span>
+                暂无趋势数据
               </div>
             </div>
           </section>
 
-          <section class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <h2 class="text-base font-black text-slate-800 mb-5 flex items-center gap-2">
-              <span class="material-symbols-outlined text-amber-500 text-[20px]">error</span>
-              浣庡簱瀛橀璀?            </h2>
+          <section class="inventory-side-card">
+            <h2 class="mb-5 flex items-center gap-2 text-base font-black text-slate-800">
+              <span class="material-symbols-outlined text-[20px] text-amber-500">error</span>
+              低库存预警
+            </h2>
             <div class="space-y-3">
-              <div v-for="item in warningRows" :key="item.modelCode" class="p-4 rounded-xl bg-amber-50/50 border border-amber-100/80 hover:bg-amber-50 transition-colors">
+              <div v-for="item in warningRows" :key="`${item.modelCode}-${item.spec}`" class="rounded-xl border border-amber-100/80 bg-amber-50/50 p-4 transition-colors hover:bg-amber-50">
                 <div class="flex items-center justify-between">
                   <p class="text-sm font-black text-amber-900">{{ item.modelCode }}</p>
-                  <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">闇€琛ヨ揣</span>
+                  <span class="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">需关注</span>
                 </div>
-                <p class="text-xs text-amber-700/80 mt-2 flex items-center gap-1">
-                  浠呭墿 <b class="text-amber-600 text-sm">{{ meter(item.totalMeters) }}</b> 绫?                </p>
+                <p class="mt-2 flex items-center gap-1 text-xs text-amber-700/80">
+                  剩余 <b class="text-sm text-amber-600">{{ meter(item.totalMeters ?? item.remainingMeters) }}</b> 米
+                </p>
               </div>
-              <div v-if="warningRows.length === 0" class="py-6 flex flex-col items-center justify-center text-slate-400 text-sm bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                <span class="material-symbols-outlined mb-1 opacity-50 text-emerald-500">check_circle</span>
-                搴撲綅鍏呰冻锛屾殏鏃犻璀?              </div>
+              <div v-if="warningRows.length === 0" class="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 py-6 text-sm text-slate-400">
+                <span class="material-symbols-outlined mb-1 text-emerald-500 opacity-50">check_circle</span>
+                库位充足，暂无预警
+              </div>
             </div>
           </section>
 
-          <section class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <h2 class="text-base font-black text-slate-800 mb-5 flex items-center gap-2">
-              <span class="material-symbols-outlined text-slate-400 text-[20px]">history</span>
-              鏈€杩戞祦姘?            </h2>
-            <div class="space-y-4 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
-              <div v-for="item in recordRows" :key="item.id" class="flex gap-4 group">
-                <div class="relative flex flex-col items-center mt-1">
-                  <div :class="item.operateType === 1 ? 'bg-slate-800 ring-slate-200' : 'bg-emerald-500 ring-emerald-100'" class="w-2.5 h-2.5 rounded-full ring-4 z-10"></div>
-                  <div class="w-px h-full bg-slate-100 absolute top-3 group-last:hidden"></div>
+          <section class="inventory-side-card">
+            <h2 class="mb-5 flex items-center gap-2 text-base font-black text-slate-800">
+              <span class="material-symbols-outlined text-[20px] text-slate-400">history</span>
+              最近操作记录
+            </h2>
+            <div class="custom-scrollbar max-h-[320px] space-y-4 overflow-y-auto pr-2">
+              <div v-for="item in recordRows" :key="item.id" class="group flex gap-4">
+                <div class="relative mt-1 flex flex-col items-center">
+                  <div :class="Number(item.operateType) === 1 ? 'bg-slate-800 ring-slate-200' : 'bg-emerald-500 ring-emerald-100'" class="z-10 h-2.5 w-2.5 rounded-full ring-4"></div>
+                  <div class="absolute top-3 h-full w-px bg-slate-100 group-last:hidden"></div>
                 </div>
                 <div class="flex-1 pb-1">
                   <div class="flex items-center justify-between">
-                    <p class="text-sm font-bold text-slate-800">{{ item.operateTypeName }} <span :class="item.operateType === 1 ? 'text-slate-600' : 'text-emerald-600'">{{ meter(item.operateMeters) }}</span> 绫</p>
+                    <p class="text-sm font-bold text-slate-800">
+                      {{ item.operateTypeName || operateTypeLabel(item.operateType) }}
+                      <span :class="Number(item.operateType) === 1 ? 'text-slate-600' : 'text-emerald-600'">
+                        {{ meter(item.operateMeters) }}
+                      </span>
+                      米
+                    </p>
                   </div>
-                  <p class="text-xs text-slate-500 mt-1 font-medium">鍨嬪彿锛歿{ item.modelCode || '--' }}</p>
-                  <p class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-                    <span class="material-symbols-outlined text-[12px]">person</span> {{ item.operatorName || '绯荤粺' }}
-                    <span class="mx-1 opacity-50">路</span>
+                  <p class="mt-1 text-xs font-medium text-slate-500">型号：{{ item.modelCode || '--' }}</p>
+                  <p class="mt-1 flex items-center gap-1 text-[11px] text-slate-400">
+                    <span class="material-symbols-outlined text-[12px]">person</span>
+                    {{ item.operatorName || '系统' }}
+                    <span class="mx-1 opacity-50">·</span>
                     {{ formatDateTime(item.createTime) }}
                   </p>
                 </div>
               </div>
-              <div v-if="recordRows.length === 0" class="py-4 flex flex-col items-center justify-center text-slate-400 text-sm">
-                鏆傛棤搴撳瓨娴佹按
+              <div v-if="recordRows.length === 0" class="flex flex-col items-center justify-center py-4 text-sm text-slate-400">
+                暂无库存操作记录
               </div>
             </div>
           </section>
-
         </aside>
       </section>
     </div>
 
     <transition name="fade">
-      <div v-if="detailVisible || inVisible || outVisible" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity" @click="closePanels"></div>
+      <div v-if="detailVisible || inVisible || outVisible" class="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm transition-opacity" @click="closePanels"></div>
     </transition>
 
     <input ref="importInputRef" type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="handleImportChange" />
 
-    <aside class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out" :class="detailVisible ? 'translate-x-0' : 'translate-x-full'">
-      <div class="h-1.5 bg-blue-600 w-full"></div>
-      <div class="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
+    <aside class="inventory-drawer" :class="detailVisible ? 'translate-x-0' : 'translate-x-full'">
+      <div class="h-1.5 w-full bg-blue-600"></div>
+      <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
         <div>
-          <h3 class="font-black text-slate-900 text-xl">搴撳瓨璇︽儏</h3>
-          <p class="text-xs text-slate-500 mt-1.5 font-medium font-mono bg-slate-200/50 inline-block px-2 py-0.5 rounded">{{ detailRecord?.modelCode || '--' }} / {{ meter(detailRecord?.spec) }}</p>
+          <h3 class="text-xl font-black text-slate-900">库存详情</h3>
+          <p class="mt-1.5 inline-block rounded bg-slate-200/50 px-2 py-0.5 font-mono text-xs font-medium text-slate-500">
+            {{ detailRecord?.modelCode || '--' }} / {{ meter(detailRecord?.spec) }}
+          </p>
         </div>
-        <button @click="detailVisible = false" class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined">close</span></button>
+        <button @click="detailVisible = false" class="inventory-close-btn">
+          <span class="material-symbols-outlined">close</span>
+        </button>
       </div>
-      <div class="flex-1 p-6 space-y-6 overflow-y-auto" v-if="detailRecord">
+      <div v-if="detailRecord" class="flex-1 space-y-6 overflow-y-auto p-6">
         <div class="grid grid-cols-2 gap-4">
-          <div class="bg-blue-50/50 border border-blue-100 p-5 rounded-2xl">
-            <span class="text-[11px] text-blue-600/80 font-bold uppercase tracking-wider">鍓╀綑绫虫暟</span>
-            <p class="text-3xl font-black text-blue-600 mt-1">{{ meter(detailRecord.remainingMeters) }}</p>
+          <div class="rounded-2xl border border-blue-100 bg-blue-50/50 p-5">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-blue-600/80">剩余可用米数</span>
+            <p class="mt-1 text-3xl font-black text-blue-600">{{ meter(detailRecord.remainingMeters) }}</p>
           </div>
-          <div class="bg-slate-50 border border-slate-100 p-5 rounded-2xl">
-            <span class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">布匹数</span>
-            <div class="mt-2">
-              <span class="text-3xl font-black text-slate-800">{{ detailRecord.rollCount || detailRows.length || 0 }}</span>
-            </div>
+          <div class="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">布匹数</span>
+            <p class="mt-2 text-3xl font-black text-slate-800">{{ detailRecord.rollCount || detailRows.length || 0 }}</p>
           </div>
         </div>
-        <div class="rounded-2xl border border-slate-100 divide-y divide-slate-100">
-          <div class="p-4 flex items-center justify-between text-sm">
-            <span class="text-slate-500">{{ fieldLabel('modelCode', '型号') }}</span>
-            <span class="font-bold text-slate-800">{{ detailRecord.modelCode }}</span>
+
+        <div class="divide-y divide-slate-100 rounded-2xl border border-slate-100">
+          <div class="inventory-detail-row">
+            <span>{{ fieldLabel('modelCode', '型号') }}</span>
+            <b>{{ detailRecord.modelCode }}</b>
           </div>
-          <div class="p-4 flex items-center justify-between text-sm">
-            <span class="text-slate-500">{{ fieldLabel('spec', '规格') }}</span>
-            <span class="font-bold text-slate-800">{{ meter(detailRecord.spec) }} 绫</span>
+          <div class="inventory-detail-row">
+            <span>{{ fieldLabel('spec', '规格') }}</span>
+            <b>{{ meter(detailRecord.spec) }}</b>
           </div>
-          <div class="p-4 flex items-center justify-between text-sm">
-            <span class="text-slate-500">{{ fieldLabel('totalMeters', '总米数') }}</span>
-            <span class="font-bold text-slate-800">{{ meter(detailRecord.totalMeters) }} 绫</span>
+          <div class="inventory-detail-row">
+            <span>{{ fieldLabel('totalMeters', '总米数') }}</span>
+            <b>{{ meter(detailRecord.totalMeters) }} 米</b>
           </div>
-          <div class="p-4 flex items-center justify-between text-sm">
-            <span class="text-slate-500">棣栨鍏ュ簱鏃堕棿</span>
-            <span class="font-medium text-slate-800">{{ formatDateTime(detailRecord.inTime) }}</span>
+          <div class="inventory-detail-row">
+            <span>首次入库时间</span>
+            <b>{{ formatDateTime(detailRecord.inTime) }}</b>
           </div>
-          <div class="p-4 flex items-center justify-between text-sm">
-            <span class="text-slate-500">鏈€杩戝嚭搴撴椂闂</span>
-            <span class="font-medium text-slate-800">{{ formatDateTime(detailRecord.outTime) || '--' }}</span>
+          <div class="inventory-detail-row">
+            <span>最近出库时间</span>
+            <b>{{ formatDateTime(detailRecord.outTime) || '--' }}</b>
           </div>
         </div>
-        <div class="rounded-2xl border border-slate-100 overflow-hidden">
-          <div class="px-4 py-3 bg-slate-50 flex items-center justify-between">
+
+        <div class="overflow-hidden rounded-2xl border border-slate-100">
+          <div class="flex items-center justify-between bg-slate-50 px-4 py-3">
             <span class="text-sm font-black text-slate-800">单匹布明细</span>
-            <span v-if="detailLoading" class="text-xs text-blue-600">loading...</span>
+            <span v-if="detailLoading" class="text-xs text-blue-600">加载中...</span>
           </div>
-          <div class="divide-y divide-slate-100 max-h-[360px] overflow-y-auto">
-            <div v-for="cloth in detailRows" :key="cloth.id" class="p-4 text-sm space-y-2">
+          <div class="max-h-[360px] divide-y divide-slate-100 overflow-y-auto">
+            <div v-for="cloth in detailRows" :key="cloth.id" class="space-y-2 p-4 text-sm">
               <div class="flex items-center justify-between gap-3">
-                <span class="font-mono font-bold text-slate-800 break-all">{{ cloth.barcode }}</span>
-                <span :class="statusClass(cloth.status)" class="shrink-0 inline-flex px-2 py-0.5 rounded text-[11px] font-bold">{{ cloth.statusName || statusLabel(cloth.status) }}</span>
+                <span class="break-all font-mono font-bold text-slate-800">{{ cloth.barcode }}</span>
+                <span :class="statusClass(cloth.status)" class="shrink-0 rounded px-2 py-0.5 text-[11px] font-bold">
+                  {{ cloth.statusName || statusLabel(cloth.status) }}
+                </span>
               </div>
               <div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
-                <span>{{ fieldLabel('totalMeters', '总米数') }}: <b class="text-slate-700">{{ meter(cloth.totalMeters) }}</b></span>
-                <span>{{ fieldLabel('remainingMeters', '剩余米数') }}: <b class="text-blue-600">{{ meter(cloth.remainingMeters) }}</b></span>
-                <span>入库: {{ formatDateTime(cloth.inTime) }}</span>
-                <span>更新: {{ formatDateTime(cloth.updateTime) }}</span>
+                <span>{{ fieldLabel('totalMeters', '总米数') }}：<b class="text-slate-700">{{ meter(cloth.totalMeters) }}</b></span>
+                <span>{{ fieldLabel('remainingMeters', '剩余米数') }}：<b class="text-blue-600">{{ meter(cloth.remainingMeters) }}</b></span>
+                <span>入库：{{ formatDateTime(cloth.inTime) }}</span>
+                <span>更新：{{ formatDateTime(cloth.updateTime) }}</span>
               </div>
               <div v-if="customInventoryFields.length" class="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
                 <span v-for="field in customInventoryFields" :key="`${cloth.id}-${field.key}`">
-                  {{ field.label }}:
+                  {{ field.label }}：
                   <b class="text-slate-700">{{ customFieldValue(cloth, field) }}</b>
                 </span>
               </div>
               <button
-                  @click="openOutDrawer(cloth)"
-                  :disabled="Number(cloth.remainingMeters || 0) <= 0"
-                  class="w-full mt-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-40 px-3 py-2 rounded-lg text-xs font-bold transition-colors"
+                v-permission="'inventory:cloth:out'"
+                @click="openOutDrawer(cloth)"
+                :disabled="Number(cloth.remainingMeters || 0) <= 0"
+                class="mt-2 w-full rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-40"
               >
                 扫码出库
               </button>
             </div>
-            <div v-if="!detailLoading && detailRows.length === 0" class="p-8 text-center text-sm text-slate-400">暂无单匹布明细</div>
+            <div v-if="!detailLoading && detailRows.length === 0" class="p-8 text-center text-sm text-slate-400">
+              暂无单匹布明细
+            </div>
           </div>
         </div>
       </div>
     </aside>
 
-    <aside class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out" :class="inVisible ? 'translate-x-0' : 'translate-x-full'">
-      <div class="h-1.5 bg-emerald-500 w-full"></div>
-      <div class="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
+    <aside class="inventory-drawer" :class="inVisible ? 'translate-x-0' : 'translate-x-full'">
+      <div class="h-1.5 w-full bg-emerald-500"></div>
+      <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
         <div>
-          <h3 class="font-black text-slate-900 text-xl flex items-center gap-2">
-            <span class="material-symbols-outlined text-emerald-500">add_circle</span>鏂板鍏ュ簱
+          <h3 class="flex items-center gap-2 text-xl font-black text-slate-900">
+            <span class="material-symbols-outlined text-emerald-500">add_circle</span>
+            新增入库
           </h3>
-          <p class="text-xs text-slate-500 mt-1.5">鏉＄爜涓嶅～鏃剁郴缁熶細鑷姩鐢熸垚鍞竴鐨勬爣璇嗗彿銆</p>
+          <p class="mt-1.5 text-xs text-slate-500">条码不填时系统会自动生成唯一标识号，打印标签请在小程序端完成。</p>
         </div>
-        <button @click="inVisible = false" class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined">close</span></button>
+        <button @click="inVisible = false" class="inventory-close-btn">
+          <span class="material-symbols-outlined">close</span>
+        </button>
       </div>
-      <div class="flex-1 p-6 space-y-6 overflow-y-auto">
+      <div class="flex-1 space-y-6 overflow-y-auto p-6">
         <label class="block">
-          <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1 mb-2">
-            <span class="material-symbols-outlined text-[16px] text-slate-400">qr_code</span> {{ fieldLabel('barCode', '条码') }}
+          <span class="inventory-field-label">
+            <span class="material-symbols-outlined text-[16px] text-slate-400">qr_code</span>
+            {{ fieldLabel('barCode', '条码') }}
           </span>
-          <input v-model.trim="inForm.barcode" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder:text-slate-300 bg-slate-50/50 focus:bg-white" placeholder="Leave empty to auto-generate" />
+          <input v-model.trim="inForm.barcode" class="inventory-input" placeholder="留空则自动生成" />
         </label>
 
         <label class="block">
-          <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1 mb-2">
-            <span class="material-symbols-outlined text-[16px] text-slate-400">category</span> {{ fieldLabel('modelCode', '型号') }} <span v-if="fieldRequired('modelCode')" class="text-rose-500">*</span>
+          <span class="inventory-field-label">
+            <span class="material-symbols-outlined text-[16px] text-slate-400">category</span>
+            {{ fieldLabel('modelCode', '型号') }}
+            <span v-if="fieldRequired('modelCode')" class="text-rose-500">*</span>
           </span>
-          <input v-model.trim="inForm.modelCode" @input="loadModelOptions" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder:text-slate-300 bg-slate-50/50 focus:bg-white" placeholder="Search model" />
-          <div v-if="modelOptions.length" class="mt-3 flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-100 rounded-xl">
-            <button v-for="item in modelOptions" :key="`${item.modelCode}-${item.spec}`" @click="pickModel(item)" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-emerald-400 hover:text-emerald-700 text-xs font-bold text-slate-600 transition-colors shadow-sm">
-              {{ item.modelCode }} <span class="text-slate-300 mx-1">|</span> {{ meter(item.spec) }}
+          <input v-model.trim="inForm.modelCode" @input="loadModelOptions" class="inventory-input" placeholder="搜索或输入型号" />
+          <div v-if="modelOptions.length" class="mt-3 flex flex-wrap gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <button v-for="item in modelOptions" :key="`${item.modelCode}-${item.spec}`" @click="pickModel(item)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-700">
+              {{ item.modelCode }} <span class="mx-1 text-slate-300">|</span> {{ meter(item.spec) }}
             </button>
           </div>
         </label>
 
         <div class="grid grid-cols-2 gap-4">
           <label class="block">
-            <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1 mb-2">
-              <span class="material-symbols-outlined text-[16px] text-slate-400">straighten</span> {{ fieldLabel('spec', '规格') }} <span v-if="fieldRequired('spec')" class="text-rose-500">*</span>
+            <span class="inventory-field-label">
+              <span class="material-symbols-outlined text-[16px] text-slate-400">straighten</span>
+              {{ fieldLabel('spec', '规格') }}
+              <span v-if="fieldRequired('spec')" class="text-rose-500">*</span>
             </span>
-            <input v-model.trim="inForm.spec" type="number" min="0" step="0.01" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder:text-slate-300 bg-slate-50/50 focus:bg-white" placeholder="0.00" />
+            <input v-model.trim="inForm.spec" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
           </label>
           <label class="block">
-            <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1 mb-2">
-              <span class="material-symbols-outlined text-[16px] text-slate-400">input</span> {{ fieldLabel('totalMeters', '入库米数') }} <span v-if="fieldRequired('totalMeters')" class="text-rose-500">*</span>
+            <span class="inventory-field-label">
+              <span class="material-symbols-outlined text-[16px] text-slate-400">input</span>
+              {{ fieldLabel('totalMeters', '入库米数') }}
+              <span v-if="fieldRequired('totalMeters')" class="text-rose-500">*</span>
             </span>
-            <input v-model.trim="inForm.meters" type="number" min="0" step="0.01" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder:text-slate-300 bg-slate-50/50 focus:bg-white" placeholder="0.00" />
+            <input v-model.trim="inForm.meters" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
           </label>
         </div>
 
-        <div v-if="customInventoryFields.length" class="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 space-y-4">
+        <div v-if="customInventoryFields.length" class="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
           <div>
             <h4 class="text-sm font-black text-slate-800">租户自定义字段</h4>
             <p class="mt-1 text-xs text-slate-500">这些字段只属于当前租户，用于适配客户原有库存台账。</p>
           </div>
           <label v-for="field in customInventoryFields" :key="field.key" class="block">
-            <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1 mb-2">
-              {{ field.label }} <span v-if="field.required" class="text-rose-500">*</span>
+            <span class="inventory-field-label">
+              {{ field.label }}
+              <span v-if="field.required" class="text-rose-500">*</span>
             </span>
             <input
               v-model.trim="inForm.customFields[field.key]"
               :type="customFieldInputType(field)"
-              class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all placeholder:text-slate-300 bg-white"
+              class="inventory-input bg-white"
               :placeholder="`请输入${field.label}`"
             />
           </label>
         </div>
       </div>
-      <div class="p-6 border-t border-slate-100 flex gap-3 bg-slate-50">
-        <button @click="inVisible = false" class="flex-1 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-100 transition-colors">鍙栨秷</button>
-        <button @click="submitIn" class="flex-1 px-4 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm shadow-md shadow-emerald-500/20 transition-all active:scale-95">纭鍏ュ簱</button>
+      <div class="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
+        <button @click="inVisible = false" class="inventory-cancel-btn">取消</button>
+        <button @click="submitIn" class="inventory-confirm-btn bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600">确认入库</button>
       </div>
     </aside>
 
-    <aside class="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out" :class="outVisible ? 'translate-x-0' : 'translate-x-full'">
-      <div class="h-1.5 bg-slate-800 w-full"></div>
-      <div class="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
+    <aside class="inventory-drawer" :class="outVisible ? 'translate-x-0' : 'translate-x-full'">
+      <div class="h-1.5 w-full bg-slate-800"></div>
+      <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
         <div>
-          <h3 class="font-black text-slate-900 text-xl flex items-center gap-2">
-            <span class="material-symbols-outlined text-slate-700">outbox</span>鎵爜鍑哄簱
+          <h3 class="flex items-center gap-2 text-xl font-black text-slate-900">
+            <span class="material-symbols-outlined text-slate-700">outbox</span>
+            扫码出库
           </h3>
-          <p class="text-xs text-slate-500 mt-1.5">鎵弿鏉″舰鐮佷互鎵ｅ噺瀵瑰簲鐨勫簱瀛樼背鏁般€</p>
+          <p class="mt-1.5 text-xs text-slate-500">请扫描或输入布匹条码，系统会校验剩余可出库米数。</p>
         </div>
-        <button @click="outVisible = false" class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><span class="material-symbols-outlined">close</span></button>
+        <button @click="outVisible = false" class="inventory-close-btn">
+          <span class="material-symbols-outlined">close</span>
+        </button>
       </div>
-      <div class="flex-1 p-6 space-y-6 overflow-y-auto">
+      <div class="flex-1 space-y-6 overflow-y-auto p-6">
         <label class="block">
-          <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1 mb-2">
-            <span class="material-symbols-outlined text-[16px] text-slate-400">barcode_scanner</span> 鎵弿鏉＄爜 <span class="text-rose-500">*</span>
+          <span class="inventory-field-label">
+            <span class="material-symbols-outlined text-[16px] text-slate-400">barcode_scanner</span>
+            布匹条码 <span class="text-rose-500">*</span>
           </span>
           <div class="relative">
-            <input v-model.trim="outForm.barcode" @change="lookupBarcode" class="w-full rounded-xl border border-slate-200 pl-4 pr-12 py-3 text-sm font-mono outline-none focus:ring-4 focus:ring-slate-800/10 focus:border-slate-800 transition-all placeholder:text-slate-300 bg-slate-50/50 focus:bg-white" placeholder="璇峰皢鍏夋爣缃簬姝ゅ鎵爜" autofocus />
+            <input v-model.trim="outForm.barcode" @change="lookupBarcode" class="inventory-input pr-12 font-mono" placeholder="请将光标放在此处扫码" autofocus />
             <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-300">qr_code_scanner</span>
           </div>
         </label>
 
-        <div v-if="outPreview" class="rounded-xl bg-slate-50 border border-slate-200 p-4 relative overflow-hidden">
-          <div class="absolute right-0 top-0 w-1 h-full bg-blue-500"></div>
+        <div v-if="outPreview" class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div class="absolute right-0 top-0 h-full w-1 bg-blue-500"></div>
           <div class="flex flex-col gap-2">
-            <p class="text-sm flex justify-between"><span class="text-slate-500">{{ fieldLabel('modelCode', '型号') }}</span><span class="font-bold text-slate-800">{{ outPreview.modelCode }}</span></p>
-            <p class="text-sm flex justify-between"><span class="text-slate-500">{{ fieldLabel('remainingMeters', '当前可出') }}</span><span class="font-bold text-blue-600">{{ meter(outPreview.remainingMeters) }} 绫</span></p>
+            <p class="flex justify-between text-sm">
+              <span class="text-slate-500">{{ fieldLabel('modelCode', '型号') }}</span>
+              <span class="font-bold text-slate-800">{{ outPreview.modelCode }}</span>
+            </p>
+            <p class="flex justify-between text-sm">
+              <span class="text-slate-500">{{ fieldLabel('remainingMeters', '当前可出') }}</span>
+              <span class="font-bold text-blue-600">{{ meter(outPreview.remainingMeters) }} 米</span>
+            </p>
           </div>
         </div>
 
         <label class="block">
-          <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1 mb-2">
-              <span class="material-symbols-outlined text-[16px] text-slate-400">output</span> {{ fieldLabel('remainingMeters', '出库米数') }} <span class="text-rose-500">*</span>
+          <span class="inventory-field-label">
+            <span class="material-symbols-outlined text-[16px] text-slate-400">output</span>
+            {{ fieldLabel('remainingMeters', '出库米数') }}
+            <span class="text-rose-500">*</span>
           </span>
-          <input v-model.trim="outForm.meters" type="number" min="0" step="0.01" class="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-slate-800/10 focus:border-slate-800 transition-all placeholder:text-slate-300 bg-slate-50/50 focus:bg-white" placeholder="璇疯緭鍏ユ湰娆″嚭搴撶殑鏁伴噺" />
+          <input v-model.trim="outForm.meters" type="number" min="0" step="0.01" class="inventory-input" placeholder="请输入本次出库米数" />
         </label>
       </div>
-      <div class="p-6 border-t border-slate-100 flex gap-3 bg-slate-50">
-        <button @click="outVisible = false" class="flex-1 px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold text-sm hover:bg-slate-100 transition-colors">鍙栨秷</button>
-        <button @click="submitOut" class="flex-1 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm shadow-md shadow-slate-800/20 transition-all active:scale-95">纭鍑哄簱</button>
+      <div class="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
+        <button @click="outVisible = false" class="inventory-cancel-btn">取消</button>
+        <button @click="submitOut" class="inventory-confirm-btn bg-slate-800 text-white shadow-slate-800/20 hover:bg-slate-900">确认出库</button>
       </div>
     </aside>
   </div>
@@ -479,8 +518,8 @@ import {
   getInventorySummary,
   getInventoryTrend,
   getInventoryWarnings,
-  importInventory,
   getRecentInventoryRecords,
+  importInventory,
   inCloth,
   outCloth,
   searchInventoryBarcode,
@@ -575,8 +614,8 @@ async function refreshAll() {
 
 async function fetchFieldConfig() {
   try {
-    const rows = await getCurrentTenantFieldConfig('inventory')
-    inventoryFieldConfig.value = mergeInventoryFieldConfig(Array.isArray(rows) ? rows : [])
+    const configRows = await getCurrentTenantFieldConfig('inventory')
+    inventoryFieldConfig.value = mergeInventoryFieldConfig(Array.isArray(configRows) ? configRows : [])
   } catch (error) {
     inventoryFieldConfig.value = defaultInventoryFieldConfig()
   }
@@ -635,6 +674,7 @@ function changePage(pageNum) {
 }
 
 async function openDetail(record) {
+  if (!record) return
   detailRecord.value = record
   detailVisible.value = true
   detailRows.value = []
@@ -693,7 +733,7 @@ async function lookupBarcode() {
 
 async function submitIn() {
   if (!inForm.modelCode || Number(inForm.spec) <= 0 || Number(inForm.meters) <= 0) {
-    ElMessage.warning('璇峰～鍐欏瀷鍙枫€佽鏍煎拰鏈夋晥鍏ュ簱绫虫暟')
+    ElMessage.warning('请填写型号、规格和有效入库米数')
     return
   }
   for (const field of customInventoryFields.value) {
@@ -721,28 +761,25 @@ async function submitIn() {
     customFields
   })
   const taskNo = result?.labelTask?.printTaskNo
-  if (taskNo) {
-    ElMessage.success('In stock success, mini-program label task: ' + taskNo)
-  }
-  if (!taskNo) { ElMessage.success('In stock success') }
+  ElMessage.success(taskNo ? `入库成功，已生成小程序标签打印任务：${taskNo}` : '入库成功')
   inVisible.value = false
   await refreshAll()
 }
 
 async function submitOut() {
   if (!outForm.barcode || Number(outForm.meters) <= 0) {
-    ElMessage.warning('璇峰～鍐欐潯鐮佸拰鏈夋晥鍑哄簱绫虫暟')
+    ElMessage.warning('请填写条码和有效出库米数')
     return
   }
   await outCloth({ barcode: outForm.barcode, meters: Number(outForm.meters) })
-  ElMessage.success('鍑哄簱鎴愬姛')
+  ElMessage.success('出库成功')
   outVisible.value = false
   await refreshAll()
 }
 
 async function handleTemplateDownload() {
   const blob = await downloadInventoryImportTemplate()
-  await downloadBlob(blob, '澶栭儴搴撳瓨瀵煎叆瀛楁璇存槑.xlsx')
+  await downloadBlob(blob, '外部库存导入字段说明.xlsx')
 }
 
 function triggerImport() {
@@ -756,8 +793,8 @@ async function handleImportChange(event) {
     const result = await importInventory(file)
     const failText = (result.failMessages || []).slice(0, 8).join('\n')
     await ElMessageBox.alert(
-        'Import result: success ' + (result.successCount || 0) + ', failed ' + (result.failCount || 0) + ', label tasks ' + (result.printTaskCount || 0) + '.' + (failText ? '\n\nFailed rows:\n' + failText : ''),
-        'Inventory import result'
+      `导入完成：成功 ${result.successCount || 0} 条，失败 ${result.failCount || 0} 条，生成标签任务 ${result.printTaskCount || 0} 条。${failText ? `\n\n失败明细：\n${failText}` : ''}`,
+      '库存导入结果'
     )
     await refreshAll()
   } finally {
@@ -767,13 +804,13 @@ async function handleImportChange(event) {
 
 async function downloadBlob(blob, fileName) {
   if (!blob || blob.size === 0) {
-    ElMessage.error('Download failed: empty file')
+    ElMessage.error('下载失败：文件为空')
     return
   }
   const contentType = String(blob.type || '').toLowerCase()
   if (contentType.includes('application/json') || contentType.includes('text/plain')) {
     const text = await blob.text()
-    let message = text || '涓嬭浇澶辫触'
+    let message = text || '下载失败'
     try {
       const parsed = JSON.parse(text)
       message = parsed.msg || parsed.message || parsed.error || message
@@ -785,9 +822,9 @@ async function downloadBlob(blob, fileName) {
   }
   if (fileName.endsWith('.xlsx')) {
     const header = new Uint8Array(await blob.slice(0, 4).arrayBuffer())
-    const isZipBasedExcel = header.length >= 2 && header[0] === 0x50 && header[1] === 0x4B
+    const isZipBasedExcel = header.length >= 2 && header[0] === 0x50 && header[1] === 0x4b
     if (!isZipBasedExcel) {
-      ElMessage.error('涓嬭浇澶辫触锛氭帴鍙ｆ病鏈夎繑鍥炴湁鏁堢殑 Excel 鏂囦欢')
+      ElMessage.error('下载失败：服务端返回的不是有效 Excel 文件')
       return
     }
   }
@@ -804,9 +841,13 @@ function trendWidth(value) {
 }
 
 function statusLabel(value) {
-  if (Number(value) === 1) return 'Out'
-  if (Number(value) === 2) return 'Partial out'
-  return 'In stock'
+  if (Number(value) === 1) return '已出库'
+  if (Number(value) === 2) return '部分出库'
+  return '在库'
+}
+
+function operateTypeLabel(value) {
+  return Number(value) === 1 ? '出库' : '入库'
 }
 
 function statusClass(value) {
@@ -831,9 +872,9 @@ function formatBigNumber(value) {
   return Number.isInteger(num) ? String(num) : num.toFixed(2)
 }
 
-function getUnit(value, defaultUnit = 'm') {
+function getUnit(value, defaultUnit = '米') {
   const num = Number(value || 0)
-  return num >= 10000 ? '10k ' + defaultUnit : defaultUnit
+  return num >= 10000 ? `万${defaultUnit}` : defaultUnit
 }
 </script>
 
@@ -848,13 +889,247 @@ function getUnit(value, defaultUnit = 'm') {
   opacity: 0;
 }
 
-/* 鑷畾涔夋粴鍔ㄦ潯缇庡寲 */
+.inventory-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: #fff;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: rgb(51 65 85);
+  transition: background-color 0.2s ease;
+}
+
+.inventory-secondary-btn:hover {
+  background: rgb(248 250 252);
+}
+
+.inventory-stat-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgb(241 245 249);
+  background: #fff;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  transition: box-shadow 0.2s ease;
+}
+
+.inventory-stat-card:hover {
+  box-shadow: 0 8px 20px rgb(15 23 42 / 0.08);
+}
+
+.inventory-stat-bg {
+  position: absolute;
+  right: -1rem;
+  bottom: -1rem;
+  font-size: 100px;
+  opacity: 0.5;
+  transition: transform 0.2s ease;
+}
+
+.inventory-stat-card:hover .inventory-stat-bg {
+  transform: scale(1.1);
+}
+
+.inventory-stat-label {
+  position: relative;
+  z-index: 1;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(100 116 139);
+}
+
+.inventory-stat-value-wrap {
+  position: relative;
+  z-index: 1;
+  margin-top: 0.75rem;
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.inventory-stat-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.875rem;
+  font-weight: 900;
+}
+
+@media (min-width: 1280px) {
+  .inventory-stat-value {
+    font-size: 2.25rem;
+  }
+}
+
+.inventory-stat-unit {
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgb(148 163 184);
+}
+
+.inventory-th {
+  padding: 1rem 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(100 116 139);
+}
+
+.inventory-page-btn {
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: #fff;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  color: rgb(51 65 85);
+  transition: background-color 0.2s ease;
+}
+
+.inventory-page-btn:hover:not(:disabled) {
+  background: rgb(248 250 252);
+}
+
+.inventory-page-btn:disabled {
+  opacity: 0.5;
+}
+
+.inventory-side-card {
+  border-radius: 1rem;
+  border: 1px solid rgb(241 245 249);
+  background: #fff;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.inventory-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+  background: #fff;
+  box-shadow: 0 25px 50px -12px rgb(15 23 42 / 0.25);
+  transition: transform 0.3s ease-in-out;
+}
+
+@media (min-width: 640px) {
+  .inventory-drawer {
+    width: 420px;
+  }
+}
+
+.inventory-close-btn {
+  border-radius: 9999px;
+  padding: 0.375rem;
+  color: rgb(148 163 184);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.inventory-close-btn:hover {
+  background: rgb(241 245 249);
+  color: rgb(71 85 105);
+}
+
+.inventory-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  font-size: 0.875rem;
+}
+
+.inventory-detail-row span {
+  color: rgb(100 116 139);
+}
+
+.inventory-detail-row b {
+  font-weight: 700;
+  color: rgb(30 41 59);
+}
+
+.inventory-field-label {
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(51 65 85);
+}
+
+.inventory-input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252 / 0.5);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.inventory-input::placeholder {
+  color: rgb(203 213 225);
+}
+
+.inventory-input:focus {
+  border-color: rgb(16 185 129);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(16 185 129 / 0.1);
+}
+
+.inventory-cancel-btn,
+.inventory-confirm-btn {
+  flex: 1;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: transform 0.15s ease, background-color 0.2s ease;
+}
+
+.inventory-cancel-btn {
+  border: 1px solid rgb(226 232 240);
+  background: #fff;
+  color: rgb(51 65 85);
+}
+
+.inventory-cancel-btn:hover {
+  background: rgb(241 245 249);
+}
+
+.inventory-confirm-btn {
+  box-shadow: 0 10px 18px rgb(15 23 42 / 0.12);
+}
+
+.inventory-confirm-btn:active {
+  transform: scale(0.95);
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background-color: #cbd5e1;
   border-radius: 10px;

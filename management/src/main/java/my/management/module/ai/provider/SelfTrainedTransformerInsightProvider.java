@@ -4,10 +4,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
+import my.hive.common.external.ExternalApiGuardService;
 import my.management.module.ai.config.AiLlmProperties;
 import my.management.module.ai.model.entity.AiAdviceTrainingSample;
 import my.management.module.ai.model.vo.AiBusinessSnapshotVO;
 import my.management.module.ai.model.vo.DashboardAiAdviceVO;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 
@@ -20,15 +22,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 未来自训练 Transformer 远程推理服务入口。
- *
- * <p>当前不要求本地部署模型；该 Provider 默认关闭，只在未来配置远程推理 endpoint 后启用。
- * 预期由 Python/FastAPI/Triton 等服务承接训练后的模型，Java 只传入经营快照和反馈样本摘要。
- * 响应既支持原生 {"advices": [...]}，也兼容 OpenAI choices.message.content 返回 JSON 数组。</p>
- */
 @Service
-@Order(10)
+@Order(20)
 public class SelfTrainedTransformerInsightProvider implements AiInsightProvider {
 
     @Resource
@@ -36,6 +31,18 @@ public class SelfTrainedTransformerInsightProvider implements AiInsightProvider 
 
     @Resource
     private ObjectMapper objectMapper;
+
+    @Resource
+    private ExternalApiGuardService externalApiGuardService;
+
+    @Value("${external-api.guard.self-trained.max-calls-per-window:60}")
+    private Integer selfTrainedMaxCallsPerWindow;
+
+    @Value("${external-api.guard.self-trained.window-seconds:60}")
+    private Integer selfTrainedWindowSeconds;
+
+    @Value("${external-api.guard.self-trained.cache-seconds:300}")
+    private Integer selfTrainedCacheSeconds;
 
     @Override
     public boolean enabled() {
@@ -52,6 +59,19 @@ public class SelfTrainedTransformerInsightProvider implements AiInsightProvider 
         AiLlmProperties.Provider config = properties.getSelfTrained();
         try {
             String requestBody = objectMapper.writeValueAsString(buildRequest(config, snapshot, trainingExamples));
+            String cacheKey = externalApiGuardService.fingerprint(requestBody);
+            String cachedResponse = externalApiGuardService.getCachedResponse("self-trained-transformer", "advice", cacheKey);
+            if (cachedResponse != null && !cachedResponse.isBlank()) {
+                return parseAdvices(cachedResponse);
+            }
+            externalApiGuardService.checkRateLimit(
+                    "self-trained-transformer",
+                    "advice",
+                    snapshot == null || snapshot.getTenantCode() == null ? "global" : snapshot.getTenantCode(),
+                    selfTrainedMaxCallsPerWindow == null ? 60 : selfTrainedMaxCallsPerWindow,
+                    Duration.ofSeconds(selfTrainedWindowSeconds == null ? 60 : Math.max(1, selfTrainedWindowSeconds))
+            );
+
             HttpClient client = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(config.getTimeoutSeconds()))
                     .build();
@@ -66,6 +86,13 @@ public class SelfTrainedTransformerInsightProvider implements AiInsightProvider 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 return List.of();
             }
+            externalApiGuardService.cacheResponse(
+                    "self-trained-transformer",
+                    "advice",
+                    cacheKey,
+                    response.body(),
+                    Duration.ofSeconds(selfTrainedCacheSeconds == null ? 300 : Math.max(0, selfTrainedCacheSeconds))
+            );
             return parseAdvices(response.body());
         } catch (Exception ignored) {
             return List.of();

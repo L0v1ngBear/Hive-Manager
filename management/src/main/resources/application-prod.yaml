@@ -75,11 +75,3 @@ app:
     tenant-owner: ${TENANT_OWNER_DEFAULT_PASSWORD}
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGINS:https://*.your-domain.com}
-
-map:
-  tianditu:
-    geocode:
-      enabled: ${TIANDITU_GEOCODE_ENABLED:false}
-      endpoint: ${TIANDITU_GEOCODE_ENDPOINT:https://api.tianditu.gov.cn/geocoder}
-      key: ${TIANDITU_GEOCODE_KEY:}
-      timeout-seconds: ${TIANDITU_GEOCODE_TIMEOUT_SECONDS:5}

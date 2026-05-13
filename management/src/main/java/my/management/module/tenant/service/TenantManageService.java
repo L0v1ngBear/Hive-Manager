@@ -129,9 +129,6 @@ public class TenantManageService {
     private HiveRedisKeyBuilder redisKeyBuilder;
 
     @Resource
-    private TiandituGeocodeService tiandituGeocodeService;
-
-    @Resource
     private TenantLicenseService tenantLicenseService;
 
     /**
@@ -463,12 +460,8 @@ public class TenantManageService {
         String companyAddress = clean(request.getCompanyAddress());
         Double latitude = request.getCompanyLatitude();
         Double longitude = request.getCompanyLongitude();
-        if (!hasValidLocation(latitude, longitude) && companyAddress != null) {
-            TiandituGeocodeService.GeocodeResult geocodeResult = tiandituGeocodeService.resolve(request);
-            if (geocodeResult.isValid()) {
-                latitude = geocodeResult.latitude();
-                longitude = geocodeResult.longitude();
-            }
+        if (hasLocationInput(latitude, longitude) && !hasValidLocation(latitude, longitude)) {
+            throw new BusinessException("请填写有效的公司经纬度：纬度范围 -90~90，经度范围 -180~180，且不能为 0,0");
         }
         boolean hasValidCompanyLocation = hasValidLocation(latitude, longitude);
 
@@ -489,7 +482,7 @@ public class TenantManageService {
         rule.setLateToleranceMinutes(5);
         rule.setEarlyToleranceMinutes(5);
         rule.setWorkDays("1,2,3,4,5,6");
-        // 只有拿到真实公司坐标时才默认启用 GPS，避免空坐标或 0,0 占位导致新租户无法打卡。
+        // Only manually confirmed coordinates enable GPS by default.
         rule.setEnableGps(BinaryFlagEnum.codeOf(hasValidCompanyLocation));
         rule.setEnableWifi(BinaryFlagEnum.NO.getCode());
         tenantAttendanceRuleManageMapper.insert(rule);
@@ -519,15 +512,20 @@ public class TenantManageService {
     }
 
     private boolean isValidLatitude(Double value) {
-        return value != null && value >= -90D && value <= 90D;
+        return value != null && Double.isFinite(value) && value >= -90D && value <= 90D;
     }
 
     private boolean isValidLongitude(Double value) {
-        return value != null && value >= -180D && value <= 180D;
+        return value != null && Double.isFinite(value) && value >= -180D && value <= 180D;
     }
 
     private boolean hasValidLocation(Double latitude, Double longitude) {
-        return isValidLatitude(latitude) && isValidLongitude(longitude);
+        return isValidLatitude(latitude) && isValidLongitude(longitude)
+                && !(Double.compare(latitude, 0D) == 0 && Double.compare(longitude, 0D) == 0);
+    }
+
+    private boolean hasLocationInput(Double latitude, Double longitude) {
+        return latitude != null || longitude != null;
     }
 
     private Double safeAttendanceRadius(Double value) {

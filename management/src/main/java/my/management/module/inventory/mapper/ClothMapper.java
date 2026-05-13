@@ -57,12 +57,15 @@ public interface ClothMapper extends BaseMapper<Cloth> {
 
     @InterceptorIgnore(tenantLine = "true")
     @Select({
-            "SELECT DATE(create_time) AS statDate, ",
-            "COALESCE(SUM(CASE WHEN operate_type = 0 THEN operate_meters ELSE 0 END), 0) AS inMeters, ",
-            "COALESCE(SUM(CASE WHEN operate_type = 1 THEN operate_meters ELSE 0 END), 0) AS outMeters ",
+            "SELECT statDate, ",
+            "COALESCE(SUM(CASE WHEN operateType = 0 THEN operateMeters ELSE 0 END), 0) AS inMeters, ",
+            "COALESCE(SUM(CASE WHEN operateType = 1 THEN operateMeters ELSE 0 END), 0) AS outMeters ",
+            "FROM (",
+            "SELECT DATE(create_time) AS statDate, operate_type AS operateType, operate_meters AS operateMeters ",
             "FROM inventory_record ",
             "WHERE tenant_code = #{tenantCode} AND create_time >= #{startTime} AND create_time < #{endTime} ",
-            "GROUP BY DATE(create_time) ",
+            ") dailyRecord ",
+            "GROUP BY statDate ",
             "ORDER BY statDate ASC"
     })
     List<InventoryTrendVO> selectTrend(@Param("tenantCode") String tenantCode,

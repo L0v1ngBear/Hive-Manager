@@ -206,12 +206,11 @@ router.beforeEach((to) => {
     }
   }
 
-  if (userStore.isDeveloper && to.path !== PLATFORM_SUPER_HOME) {
+  if (userStore.isDeveloper) {
+    if (to.meta?.developerOnly || to.path.startsWith('/platform/')) {
+      return true
+    }
     return PLATFORM_SUPER_HOME
-  }
-
-  if (userStore.isDeveloper && to.path === PLATFORM_SUPER_HOME) {
-    return true
   }
 
   if (Array.isArray(to.meta?.features) && to.meta.features.length && !userStore.hasAnyFeature(to.meta.features)) {

@@ -156,16 +156,24 @@ public class CustomerService {
     public List<CustomerOptionVO> listCustomerOptions(String keyword) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<Customer>()
+                .eq(Customer::getTenantCode, tenantCode)
                 .orderByDesc(Customer::getId);
         if (StringUtils.isNotBlank(keyword)) {
-            wrapper.like(Customer::getCustomerName, keyword.trim());
+            String safeKeyword = keyword.trim();
+            wrapper.and(w -> w
+                    .like(Customer::getCustomerName, safeKeyword)
+                    .or().apply("id IN (SELECT customer_id FROM customer_project WHERE tenant_code = {0} AND project_name LIKE CONCAT('%', {1}, '%'))", tenantCode, safeKeyword)
+                    .or().apply("id IN (SELECT customer_id FROM customer_contact WHERE tenant_code = {0} AND (contact_name LIKE CONCAT('%', {1}, '%') OR contact_phone LIKE CONCAT('%', {1}, '%')))", tenantCode, safeKeyword)
+            );
         }
+        wrapper.last("LIMIT 30");
         List<Customer> customers = customerMapper.selectList(wrapper);
         if (customers.isEmpty()) {
             return Collections.emptyList();
         }
         List<Long> customerIds = customers.stream().map(Customer::getId).toList();
         Map<Long, List<String>> projectNamesByCustomerId = customerProjectMapper.selectList(new LambdaQueryWrapper<CustomerProject>()
+                        .eq(CustomerProject::getTenantCode, tenantCode)
                         .in(CustomerProject::getCustomerId, customerIds)
                         .orderByDesc(CustomerProject::getId))
                 .stream()
@@ -174,11 +182,24 @@ public class CustomerService {
                         LinkedHashMap::new,
                         Collectors.mapping(CustomerProject::getProjectName, Collectors.toList())
                 ));
+        Map<Long, String> contactPhoneByCustomerId = customerContactMapper.selectList(new LambdaQueryWrapper<CustomerContact>()
+                        .eq(CustomerContact::getTenantCode, tenantCode)
+                        .in(CustomerContact::getCustomerId, customerIds)
+                        .orderByDesc(CustomerContact::getId))
+                .stream()
+                .filter(contact -> StringUtils.isNotBlank(contact.getContactPhone()))
+                .collect(Collectors.toMap(
+                        CustomerContact::getCustomerId,
+                        contact -> contact.getContactPhone().trim(),
+                        (existing, ignored) -> existing,
+                        LinkedHashMap::new
+                ));
 
         return customers.stream().map(customer -> {
             CustomerOptionVO vo = new CustomerOptionVO();
             vo.setId(customer.getId());
             vo.setCustomerName(customer.getCustomerName());
+            vo.setContactPhone(contactPhoneByCustomerId.get(customer.getId()));
             vo.setProjectNames(projectNamesByCustomerId.getOrDefault(customer.getId(), Collections.emptyList()));
             return vo;
         }).toList();

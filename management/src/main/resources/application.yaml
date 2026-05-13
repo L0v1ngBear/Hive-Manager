@@ -4,6 +4,8 @@ server:
     context-path: /web
 
 spring:
+  config:
+    import: optional:file:./.env[.properties]
   profiles:
     active: dev
 
@@ -53,7 +55,7 @@ ai:
       enabled: ${AI_DEEPSEEK_ENABLED:${AI_LLM_ENABLED:false}}
       endpoint: ${AI_DEEPSEEK_ENDPOINT:https://api.deepseek.com/chat/completions}
       api-key: ${AI_DEEPSEEK_API_KEY:${AI_LLM_API_KEY:}}
-      model: ${AI_DEEPSEEK_MODEL:deepseek-chat}
+      model: ${AI_DEEPSEEK_MODEL:deepseek-v4-pro}
       max-advices: ${AI_DEEPSEEK_MAX_ADVICES:4}
       timeout-seconds: ${AI_DEEPSEEK_TIMEOUT_SECONDS:45}
       temperature: ${AI_DEEPSEEK_TEMPERATURE:0.2}
@@ -66,13 +68,22 @@ ai:
       timeout-seconds: ${AI_SELF_TRAINED_TIMEOUT_SECONDS:45}
       temperature: ${AI_SELF_TRAINED_TEMPERATURE:0.15}
 
-map:
-  tianditu:
-    geocode:
-      enabled: ${TIANDITU_GEOCODE_ENABLED:false}
-      endpoint: ${TIANDITU_GEOCODE_ENDPOINT:https://api.tianditu.gov.cn/geocoder}
-      key: ${TIANDITU_GEOCODE_KEY:}
-      timeout-seconds: ${TIANDITU_GEOCODE_TIMEOUT_SECONDS:5}
+external-api:
+  guard:
+    deepseek:
+      max-calls-per-window: ${EXTERNAL_API_DEEPSEEK_MAX_CALLS_PER_WINDOW:30}
+      window-seconds: ${EXTERNAL_API_DEEPSEEK_WINDOW_SECONDS:60}
+      cache-seconds: ${EXTERNAL_API_DEEPSEEK_CACHE_SECONDS:300}
+    self-trained:
+      max-calls-per-window: ${EXTERNAL_API_SELF_TRAINED_MAX_CALLS_PER_WINDOW:60}
+      window-seconds: ${EXTERNAL_API_SELF_TRAINED_WINDOW_SECONDS:60}
+      cache-seconds: ${EXTERNAL_API_SELF_TRAINED_CACHE_SECONDS:300}
+    sms:
+      max-calls-per-phone-window: ${EXTERNAL_API_SMS_MAX_CALLS_PER_PHONE_WINDOW:5}
+      window-seconds: ${EXTERNAL_API_SMS_WINDOW_SECONDS:3600}
+    oss:
+      max-uploads-per-tenant-window: ${EXTERNAL_API_OSS_MAX_UPLOADS_PER_TENANT_WINDOW:120}
+      upload-window-seconds: ${EXTERNAL_API_OSS_UPLOAD_WINDOW_SECONDS:3600}
 
 storage:
   oss:

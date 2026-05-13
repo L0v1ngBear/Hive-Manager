@@ -361,26 +361,51 @@
           <div class="flex-1 space-y-6 overflow-y-auto p-6">
             <template v-if="currentTab === 'sales'">
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
+                <div class="relative">
                   <label class="field-label">客户名称 *</label>
-                  <input v-model.trim="salesForm.customerName" list="sales-customer-options" class="box-input"
-                         type="text" @input="handleSalesCustomerChange" @change="handleSalesCustomerChange"/>
-                  <datalist id="sales-customer-options">
-                    <option v-for="option in customerOptions" :key="option.id" :value="option.customerName"></option>
-                  </datalist>
+                  <input v-model.trim="salesForm.customerName" class="box-input pr-10" type="text"
+                         placeholder="输入或选择客户"
+                         autocomplete="off"
+                         @focus="handleSalesCustomerFocus"
+                         @input="handleSalesCustomerInput"
+                         @blur="handleSalesCustomerBlur"/>
+                  <span class="material-symbols-outlined combo-arrow">expand_more</span>
+                  <div v-if="showCustomerOptions" class="combo-panel">
+                    <button v-for="option in customerOptions" :key="option.id" type="button" class="combo-option"
+                            @mousedown.prevent="chooseCustomer(option)">
+                      <span class="font-bold text-on-surface">{{ option.customerName }}</span>
+                      <span class="text-xs text-on-surface-variant">{{ option.contactPhone || '未维护电话' }}</span>
+                      <span v-if="option.projectNames?.length" class="text-[11px] text-primary">
+                        项目：{{ option.projectNames.slice(0, 2).join('、') }}
+                      </span>
+                    </button>
+                  </div>
+                  <p v-if="customerCreateHintVisible" class="mt-1 text-[11px] text-on-surface-variant">
+                    未匹配到客户，保存后会自动归档到客户管理。
+                  </p>
                 </div>
                 <div>
                   <label class="field-label">联系电话</label>
                   <input v-model.trim="salesForm.customerPhone" class="box-input" type="text"/>
                 </div>
-                <div>
+                <div class="relative">
                   <label class="field-label">项目名称 *</label>
-                  <input v-model.trim="salesForm.projectName" list="sales-project-options" class="box-input"
-                         type="text"/>
-                  <datalist id="sales-project-options">
-                    <option v-for="projectName in selectedCustomerProjects" :key="projectName"
-                            :value="projectName"></option>
-                  </datalist>
+                  <input v-model.trim="salesForm.projectName" class="box-input pr-10" type="text"
+                         placeholder="选择客户后自动带出，也可输入新项目"
+                         autocomplete="off"
+                         @focus="handleProjectFocus"
+                         @input="handleProjectInput"
+                         @blur="handleProjectBlur"/>
+                  <span class="material-symbols-outlined combo-arrow">expand_more</span>
+                  <div v-if="showProjectOptions" class="combo-panel">
+                    <button v-for="projectName in selectedCustomerProjects" :key="projectName" type="button"
+                            class="combo-option" @mousedown.prevent="chooseProject(projectName)">
+                      <span class="font-bold text-on-surface">{{ projectName }}</span>
+                    </button>
+                  </div>
+                  <p v-if="projectCreateHintVisible" class="mt-1 text-[11px] text-on-surface-variant">
+                    新项目保存后会归档到该客户。
+                  </p>
                 </div>
                 <div>
                   <label class="field-label">交付日期 *</label>
@@ -622,6 +647,8 @@ const detailLoading = ref(false)
 const salesDetail = ref(null)
 const productionDetail = ref(null)
 const customerOptions = ref([])
+const customerDropdownVisible = ref(false)
+const projectDropdownVisible = ref(false)
 const formVisible = ref(false)
 const formMode = ref('create')
 const editingOrderId = ref('')
@@ -633,11 +660,18 @@ const salesAttachmentUploading = ref(false)
 
 const currentStatuses = computed(() => currentTab.value === 'sales' ? salesStatuses : productionStatuses)
 const currentState = computed(() => currentTab.value === 'sales' ? salesState : productionState)
-const selectedCustomerProjects = computed(() => {
-  const customerName = salesForm.customerName.trim()
-  if (!customerName) return []
-  const option = customerOptions.value.find(item => item.customerName === customerName)
-  return option?.projectNames || []
+const selectedCustomerOption = computed(() => {
+  const customerName = normalizeText(salesForm.customerName)
+  if (!customerName) return null
+  return customerOptions.value.find(item => normalizeText(item.customerName) === customerName) || null
+})
+const selectedCustomerProjects = computed(() => selectedCustomerOption.value?.projectNames || [])
+const showCustomerOptions = computed(() => customerDropdownVisible.value && customerOptions.value.length > 0)
+const showProjectOptions = computed(() => projectDropdownVisible.value && selectedCustomerProjects.value.length > 0)
+const customerCreateHintVisible = computed(() => Boolean(normalizeText(salesForm.customerName)) && !selectedCustomerOption.value)
+const projectCreateHintVisible = computed(() => {
+  const projectName = normalizeText(salesForm.projectName)
+  return Boolean(selectedCustomerOption.value && projectName && !selectedCustomerProjects.value.includes(projectName))
 })
 
 onMounted(async () => {
@@ -711,6 +745,8 @@ function defaultProductionForm() {
 
 function resetSalesForm() {
   Object.assign(salesForm, defaultSalesForm())
+  customerDropdownVisible.value = false
+  projectDropdownVisible.value = false
 }
 
 function resetProductionForm() {
@@ -718,19 +754,86 @@ function resetProductionForm() {
 }
 
 async function loadCustomerOptions(keyword) {
-  customerOptions.value = await getCustomerOptions(keyword ? {keyword} : undefined)
+  const result = await getCustomerOptions(keyword ? {keyword} : undefined)
+  customerOptions.value = Array.isArray(result) ? result : []
 }
 
-async function handleSalesCustomerChange() {
-  const keyword = salesForm.customerName.trim()
+async function handleSalesCustomerInput() {
+  customerDropdownVisible.value = true
+  const keyword = normalizeText(salesForm.customerName)
   await loadCustomerOptions(keyword || undefined)
   if (!keyword) {
     salesForm.projectName = ''
     return
   }
-  if (selectedCustomerProjects.value.length && !selectedCustomerProjects.value.includes(salesForm.projectName)) {
-    salesForm.projectName = ''
+  applyMatchedCustomer(false)
+}
+
+async function handleSalesCustomerFocus() {
+  customerDropdownVisible.value = true
+  if (!customerOptions.value.length) {
+    await loadCustomerOptions()
   }
+}
+
+function handleSalesCustomerBlur() {
+  setTimeout(() => {
+    customerDropdownVisible.value = false
+    applyMatchedCustomer(true)
+  }, 160)
+}
+
+function chooseCustomer(option) {
+  if (!option) {
+    return
+  }
+  salesForm.customerName = option.customerName || ''
+  if (option.contactPhone) {
+    salesForm.customerPhone = option.contactPhone
+  }
+  applyCustomerProject(option, true)
+  customerDropdownVisible.value = false
+  projectDropdownVisible.value = Boolean(option.projectNames?.length > 1)
+}
+
+function applyMatchedCustomer(autoFillProject) {
+  const option = selectedCustomerOption.value
+  if (!option) {
+    return
+  }
+  if (option.contactPhone && !salesForm.customerPhone) {
+    salesForm.customerPhone = option.contactPhone
+  }
+  applyCustomerProject(option, autoFillProject)
+}
+
+function applyCustomerProject(option, forceFill) {
+  const projectNames = Array.isArray(option?.projectNames) ? option.projectNames : []
+  if (!projectNames.length) {
+    return
+  }
+  if (forceFill || !salesForm.projectName || !projectNames.includes(salesForm.projectName)) {
+    salesForm.projectName = projectNames[0]
+  }
+}
+
+function handleProjectFocus() {
+  projectDropdownVisible.value = true
+}
+
+function handleProjectInput() {
+  projectDropdownVisible.value = true
+}
+
+function handleProjectBlur() {
+  setTimeout(() => {
+    projectDropdownVisible.value = false
+  }, 160)
+}
+
+function chooseProject(projectName) {
+  salesForm.projectName = projectName
+  projectDropdownVisible.value = false
 }
 
 function switchTab(tabId) {
@@ -876,6 +979,8 @@ async function openEdit(orderId) {
 
 function closeForm() {
   formVisible.value = false
+  customerDropdownVisible.value = false
+  projectDropdownVisible.value = false
 }
 
 function addSalesItem() {
@@ -1069,6 +1174,10 @@ function blank(value) {
   return text ? text : null
 }
 
+function normalizeText(value) {
+  return String(value || '').trim()
+}
+
 function toDateInput(value) {
   return value ? String(value).slice(0, 10) : ''
 }
@@ -1150,6 +1259,46 @@ function productionStatusClass(status) {
 
 .box-input:focus {
   box-shadow: 0 0 0 2px rgba(0, 82, 204, .2)
+}
+
+.combo-arrow {
+  pointer-events: none;
+  position: absolute;
+  right: .75rem;
+  top: 2.15rem;
+  font-size: 1.1rem;
+  color: rgb(var(--on-surface-variant))
+}
+
+.combo-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + .35rem);
+  z-index: 90;
+  max-height: 15rem;
+  overflow-y: auto;
+  border-radius: .875rem;
+  border: 1px solid rgba(31, 111, 255, .14);
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, .14);
+  padding: .35rem
+}
+
+.combo-option {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: .2rem;
+  border-radius: .65rem;
+  padding: .65rem .75rem;
+  text-align: left;
+  transition: background .16s ease, transform .16s ease
+}
+
+.combo-option:hover {
+  background: rgba(31, 111, 255, .08);
+  transform: translateY(-1px)
 }
 
 .attachment-uploader {

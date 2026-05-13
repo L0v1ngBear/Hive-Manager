@@ -167,7 +167,20 @@
         </label>
         <label class="space-y-1.5 md:col-span-2">
           <span class="form-label">公司详细地址</span>
-          <input v-model.trim="createForm.companyAddress" class="tenant-input" placeholder="配置天地图 key 后可自动解析为打卡坐标" />
+          <input v-model.trim="createForm.companyAddress" class="tenant-input" placeholder="用于考勤规则展示，坐标请在下方手动填写" />
+        </label>
+        <label class="space-y-1.5">
+          <span class="form-label">公司纬度</span>
+          <input v-model.trim="createForm.companyLatitude" class="tenant-input" inputmode="decimal" placeholder="例：30.274150，范围 -90~90" />
+        </label>
+        <label class="space-y-1.5">
+          <span class="form-label">公司经度</span>
+          <input v-model.trim="createForm.companyLongitude" class="tenant-input" inputmode="decimal" placeholder="例：120.155150，范围 -180~180" />
+        </label>
+        <label class="space-y-1.5 md:col-span-2">
+          <span class="form-label">考勤有效半径（米）</span>
+          <input v-model.trim="createForm.attendanceRadius" class="tenant-input" inputmode="decimal" placeholder="不填默认 300，最大 10000" />
+          <span class="text-xs text-on-surface-variant">填写合法经纬度后，新租户会自动启用 GPS 打卡围栏；不填坐标则保持关闭，后续可在考勤规则里配置。</span>
         </label>
       </div>
       <template #footer>
@@ -535,7 +548,10 @@ function defaultCreateForm() {
     contactPhone: '',
     password: '',
     companyCity: '',
-    companyAddress: ''
+    companyAddress: '',
+    companyLatitude: '',
+    companyLongitude: '',
+    attendanceRadius: ''
   }
 }
 
@@ -617,7 +633,51 @@ function validateCreateForm() {
     ElMessage.warning('租户编码仅支持字母、数字和下划线')
     return false
   }
+  const latitude = optionalNumber(createForm.companyLatitude)
+  const longitude = optionalNumber(createForm.companyLongitude)
+  const hasCoordinateInput = latitude !== null || longitude !== null
+  if (hasCoordinateInput) {
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+      ElMessage.warning('公司纬度必须在 -90 到 90 之间')
+      return false
+    }
+    if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      ElMessage.warning('公司经度必须在 -180 到 180 之间')
+      return false
+    }
+    if (latitude === 0 && longitude === 0) {
+      ElMessage.warning('公司经纬度不能填写为 0,0')
+      return false
+    }
+  }
+  const radius = optionalNumber(createForm.attendanceRadius)
+  if (radius !== null && (!Number.isFinite(radius) || radius <= 0 || radius > 10000)) {
+    ElMessage.warning('考勤有效半径必须大于 0 且不超过 10000 米')
+    return false
+  }
   return true
+}
+
+function optionalNumber(value) {
+  if (value === null || value === undefined) {
+    return null
+  }
+  const normalized = String(value).trim()
+  if (!normalized) {
+    return null
+  }
+  const numberValue = Number(normalized)
+  return Number.isFinite(numberValue) ? numberValue : NaN
+}
+
+function buildCreateTenantPayload() {
+  return {
+    ...createForm,
+    tenantCode: createForm.tenantCode.toUpperCase(),
+    companyLatitude: optionalNumber(createForm.companyLatitude),
+    companyLongitude: optionalNumber(createForm.companyLongitude),
+    attendanceRadius: optionalNumber(createForm.attendanceRadius)
+  }
 }
 
 async function submitCreateTenant() {
@@ -626,10 +686,7 @@ async function submitCreateTenant() {
   }
   creating.value = true
   try {
-    await createTenant({
-      ...createForm,
-      tenantCode: createForm.tenantCode.toUpperCase()
-    })
+    await createTenant(buildCreateTenantPayload())
     ElMessage.success('租户已创建，默认进入试用授权')
     createDialogVisible.value = false
     reloadTenants()

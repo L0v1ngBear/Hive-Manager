@@ -7,12 +7,15 @@ import com.aliyun.teaopenapi.models.Config;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
+import my.hive.common.external.ExternalApiGuardService;
 import my.management.module.notification.config.SmsProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.Map;
 
 /**
@@ -33,6 +36,15 @@ public class AliyunSmsSender implements SmsSender {
     @Resource
     private ObjectMapper objectMapper;
 
+    @Resource
+    private ExternalApiGuardService externalApiGuardService;
+
+    @Value("${external-api.guard.sms.max-calls-per-phone-window:5}")
+    private Integer smsMaxCallsPerPhoneWindow;
+
+    @Value("${external-api.guard.sms.window-seconds:3600}")
+    private Integer smsWindowSeconds;
+
     @Override
     public boolean send(SmsMessage message) {
         if (!isConfigured(message)) {
@@ -40,6 +52,13 @@ public class AliyunSmsSender implements SmsSender {
             return false;
         }
         try {
+            externalApiGuardService.checkRateLimit(
+                    "aliyun-sms",
+                    "send",
+                    externalApiGuardService.fingerprint(message.phone().trim()),
+                    smsMaxCallsPerPhoneWindow == null ? 5 : smsMaxCallsPerPhoneWindow,
+                    Duration.ofSeconds(smsWindowSeconds == null ? 3600 : Math.max(1, smsWindowSeconds))
+            );
             Client client = createClient();
             SendSmsRequest request = new SendSmsRequest()
                     .setPhoneNumbers(message.phone().trim())

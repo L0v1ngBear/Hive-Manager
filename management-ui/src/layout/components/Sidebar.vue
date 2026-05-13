@@ -152,6 +152,12 @@ const platformSuperMenus: MenuItem[] = [
     path: '/platform/tenant',
     icon: 'apartment',
     developerOnly: true
+  },
+  {
+    name: '运维日志',
+    path: '/platform/operation-log',
+    icon: 'plagiarism',
+    developerOnly: true
   }
 ]
 

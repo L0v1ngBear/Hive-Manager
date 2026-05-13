@@ -4,10 +4,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
+import my.hive.common.external.ExternalApiGuardService;
 import my.management.module.ai.config.AiLlmProperties;
 import my.management.module.ai.model.entity.AiAdviceTrainingSample;
 import my.management.module.ai.model.vo.AiBusinessSnapshotVO;
 import my.management.module.ai.model.vo.DashboardAiAdviceVO;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 
@@ -21,71 +23,61 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * DeepSeek 建议推理服务。
- *
- * <p>DeepSeek 兼容 OpenAI Chat Completions 协议，作为当前阶段推荐的商用推理入口。
- * 未来自训练 Transformer 上线后，由 SelfTrainedTransformerInsightProvider 优先承接。</p>
- * @since 1.0.0
- */
 @Service
-@Order(20)
+@Order(10)
 public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
 
-    /**
-     * AI大模型配置属性类
-     */
     @Resource
     private AiLlmProperties properties;
 
-    /**
-     * Jackson JSON序列化/反序列化工具
-     */
     @Resource
     private ObjectMapper objectMapper;
 
-    /**
-     * 判断当前大模型服务是否启用
-     *
-     * @return 已配置必要参数则返回true，否则false
-     */
+    @Resource
+    private ExternalApiGuardService externalApiGuardService;
+
+    @Value("${external-api.guard.deepseek.max-calls-per-window:30}")
+    private Integer deepseekMaxCallsPerWindow;
+
+    @Value("${external-api.guard.deepseek.window-seconds:60}")
+    private Integer deepseekWindowSeconds;
+
+    @Value("${external-api.guard.deepseek.cache-seconds:300}")
+    private Integer deepseekCacheSeconds;
+
     @Override
     public boolean enabled() {
         return properties.deepseekReady();
     }
 
-    /**
-     * 生成AI智能经营建议（核心业务方法）
-     * 1. 校验服务是否启用
-     * 2. 构建请求参数
-     * 3. 调用远程大模型接口
-     * 4. 解析响应并提取JSON格式建议列表
-     *
-     * @param snapshot         业务经营快照数据
-     * @param referenceAdvices 兼容保留参数，不作为本地规则基线使用
-     * @param trainingExamples 本租户近期反馈样本，用于自训练模型在线校准
-     * @return 包装好的Dashboard展示建议列表
-     */
     @Override
     public List<DashboardAiAdviceVO> generate(AiBusinessSnapshotVO snapshot,
                                               List<DashboardAiAdviceVO> referenceAdvices,
                                               List<AiAdviceTrainingSample> trainingExamples) {
-        // 服务未启用直接返回空列表
         if (!enabled()) {
             return List.of();
         }
 
         try {
-            // 1. 构建AI接口请求体
             AiLlmProperties.Provider config = properties.deepseekConfig();
             String requestBody = objectMapper.writeValueAsString(buildRequest(config, snapshot, trainingExamples));
+            String cacheKey = externalApiGuardService.fingerprint(requestBody);
+            String cachedResponse = externalApiGuardService.getCachedResponse("deepseek", "chat-completions", cacheKey);
+            if (cachedResponse != null && !cachedResponse.isBlank()) {
+                return parseResponseBody(cachedResponse);
+            }
 
-            // 2. 创建HTTP客户端
+            externalApiGuardService.checkRateLimit(
+                    "deepseek",
+                    "chat-completions",
+                    snapshot == null || snapshot.getTenantCode() == null ? "global" : snapshot.getTenantCode(),
+                    deepseekMaxCallsPerWindow == null ? 30 : deepseekMaxCallsPerWindow,
+                    Duration.ofSeconds(deepseekWindowSeconds == null ? 60 : Math.max(1, deepseekWindowSeconds))
+            );
+
             HttpClient client = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(config.getTimeoutSeconds()))
                     .build();
-
-            // 3. 构建POST请求
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(config.getEndpoint()))
                     .timeout(Duration.ofSeconds(config.getTimeoutSeconds()))
@@ -93,41 +85,53 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
                     .header("Authorization", "Bearer " + config.getApiKey())
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
-
-            // 4. 发送请求并获取响应
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-            // 5. 非200状态码直接返回空
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 return List.of();
             }
 
-            // 6. 解析响应JSON，提取AI返回内容
-            JsonNode root = objectMapper.readTree(response.body());
-            String content = root.path("choices").path(0).path("message").path("content").asText("");
-
-            // 7. 从返回内容中提取纯JSON数组字符串
-            String jsonArray = extractJsonArray(content);
-            if (jsonArray.isBlank()) {
-                return List.of();
-            }
-
-            // 8. 反序列化为前端VO并返回
-            List<DashboardAiAdviceVO> advices = objectMapper.readValue(jsonArray, new TypeReference<List<DashboardAiAdviceVO>>() {
-            });
-            return markSourceType(advices);
+            externalApiGuardService.cacheResponse(
+                    "deepseek",
+                    "chat-completions",
+                    cacheKey,
+                    response.body(),
+                    Duration.ofSeconds(deepseekCacheSeconds == null ? 300 : Math.max(0, deepseekCacheSeconds))
+            );
+            return parseResponseBody(response.body());
         } catch (Exception ignored) {
-            // DeepSeek 推理异常不能拖垮业务大盘，失败时返回空建议。
             return List.of();
         }
     }
 
-    /**
-     * 构建大模型API请求参数
-     *
-     * @param snapshot        经营快照
-     * @return 符合OpenAI格式的请求参数Map
-     */
+    private List<DashboardAiAdviceVO> parseResponseBody(String body) throws Exception {
+        JsonNode root = objectMapper.readTree(body);
+        String content = root.path("choices").path(0).path("message").path("content").asText("");
+        String cleaned = cleanJsonContent(content);
+        if (cleaned.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonNode contentNode = objectMapper.readTree(cleaned);
+            if (contentNode.isArray()) {
+                return markSourceType(objectMapper.readValue(contentNode.toString(), new TypeReference<List<DashboardAiAdviceVO>>() {
+                }));
+            }
+            JsonNode advicesNode = contentNode.path("advices");
+            if (advicesNode.isArray()) {
+                return markSourceType(objectMapper.readValue(advicesNode.toString(), new TypeReference<List<DashboardAiAdviceVO>>() {
+                }));
+            }
+        } catch (Exception ignored) {
+            // 兼容未开启 JSON 模式或模型偶发输出解释文本的情况，下面继续尝试截取数组。
+        }
+        String jsonArray = extractJsonArray(cleaned);
+        if (!jsonArray.isBlank()) {
+            return markSourceType(objectMapper.readValue(jsonArray, new TypeReference<List<DashboardAiAdviceVO>>() {
+            }));
+        }
+        return List.of();
+    }
+
     private Map<String, Object> buildRequest(AiLlmProperties.Provider config,
                                              AiBusinessSnapshotVO snapshot,
                                              List<AiAdviceTrainingSample> trainingExamples) {
@@ -138,27 +142,16 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
                 Map.of("role", "system", "content", systemPrompt()),
                 Map.of("role", "user", "content", userPrompt(config, snapshot, trainingExamples))
         ));
+        request.put("response_format", Map.of("type", "json_object"));
         return request;
     }
 
-    /**
-     * 系统提示词（定义AI角色、输出格式、约束规则）
-     * <p>
-     * 固定要求：
-     * 1. 必须输出纯JSON数组，无多余内容
-     * 2. 字段严格规范
-     * 3. 基于真实数据，不编造
-     * 4. 面向管理层提供业务洞察与决策建议
-     * </p>
-     *
-     * @return 系统提示词
-     */
     private String systemPrompt() {
         return """
                 你是 Hive 蜂巢数字化工厂系统的 DeepSeek 经营建议模型。
                 你必须基于用户提供的经营快照和历史反馈样本进行分析，不要编造不存在的数据。
                 不允许套用本地规则模板，不允许输出与经营快照无关的泛泛建议。
-                输出必须是 JSON 数组，不要 Markdown，不要解释性前后缀。
+                输出必须是 JSON 对象，不要 Markdown，不要解释性前后缀，格式固定为 {"advices":[...]}。
                 每条建议字段必须包含：
                 category, level, icon, title, summary, suggestion, route, priority,
                 ownerDepartment, actionLabel, metricText, trackingHint, sourceType, confidence, reasoning,
@@ -171,13 +164,6 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
                 """;
     }
 
-    /**
-     * 用户提示词（传入业务数据，要求AI生成建议）
-     *
-     * @param snapshot        经营快照
-     * @param trainingExamples 近期已反馈训练样本
-     * @return 用户提示词
-     */
     private String userPrompt(AiLlmProperties.Provider config,
                               AiBusinessSnapshotVO snapshot,
                               List<AiAdviceTrainingSample> trainingExamples) {
@@ -230,41 +216,32 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
                 .toList();
     }
 
-    /**
-     * 清洗经营快照数据（移除敏感/无用字段）
-     *
-     * @param snapshot 原始经营快照
-     * @return 清洗后的Map数据
-     */
     private Map<String, Object> sanitizeSnapshot(AiBusinessSnapshotVO snapshot) {
+        if (snapshot == null) {
+            return Map.of();
+        }
         Map<String, Object> map = objectMapper.convertValue(snapshot, new TypeReference<Map<String, Object>>() {
         });
-        // 移除租户编码，避免泄露
         map.remove("tenantCode");
         return map;
     }
 
-    /**
-     * 从AI返回内容中提取纯JSON数组
-     * 处理AI可能返回的Markdown代码块、前后缀文字等
-     *
-     * @param content AI返回的原始内容
-     * @return 纯JSON数组字符串，无则返回空
-     */
+    private String cleanJsonContent(String content) {
+        if (content == null || content.isBlank()) {
+            return "";
+        }
+        String cleaned = content.trim();
+        if (cleaned.startsWith("```")) {
+            cleaned = cleaned.replaceFirst("^```(?:json)?", "").replaceFirst("```$", "").trim();
+        }
+        return cleaned;
+    }
+
     private String extractJsonArray(String content) {
         if (content == null || content.isBlank()) {
             return "";
         }
-
-        // 去除首尾空格
-        String cleaned = content.trim();
-
-        // 移除Markdown代码块标记 ```json ... ```
-        if (cleaned.startsWith("```")) {
-            cleaned = cleaned.replaceFirst("^```(?:json)?", "").replaceFirst("```$", "").trim();
-        }
-
-        // 截取最外层 [] 之间的内容
+        String cleaned = cleanJsonContent(content);
         int start = cleaned.indexOf('[');
         int end = cleaned.lastIndexOf(']');
         if (start < 0 || end <= start) {

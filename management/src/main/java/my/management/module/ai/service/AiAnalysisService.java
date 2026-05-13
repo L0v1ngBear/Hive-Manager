@@ -164,7 +164,7 @@ public class AiAnalysisService {
     /**
      * 调用模型 Provider 生成建议。
      *
-     * <p>Provider 按优先级执行：自训练 Transformer 优先，DeepSeek 兜底。任一 Provider 成功返回建议后即停止，
+     * <p>Provider 按优先级执行：当前商用主链路优先走 DeepSeek，未来自训练 Transformer 仅在显式启用并调整优先级后接管。任一 Provider 成功返回建议后即停止，
      * 避免多模型同时输出导致重复建议和口径不一致。</p>
      */
     private List<DashboardAiAdviceVO> buildProviderAdvices(AiBusinessSnapshotVO snapshot,
