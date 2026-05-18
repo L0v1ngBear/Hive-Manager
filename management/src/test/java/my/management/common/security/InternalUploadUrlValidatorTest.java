@@ -1,0 +1,44 @@
+package my.management.common.security;
+
+import my.hive.common.exception.BusinessException;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+class InternalUploadUrlValidatorTest {
+
+    @Test
+    void storesOnlyCurrentTenantSalesOrderUploadUrls() {
+        String stored = InternalUploadUrlValidator.normalizeStoredUploadUrl(
+                "/web/uploads/sales-order/TENANT_001/20260515/a.xlsx",
+                "/web",
+                "TENANT_001",
+                "sales-order"
+        );
+
+        assertEquals("/web/uploads/sales-order/TENANT_001/20260515/a.xlsx", stored);
+    }
+
+    @Test
+    void rejectsExternalAndCrossTenantUploadUrls() {
+        assertThrows(BusinessException.class, () -> InternalUploadUrlValidator.normalizeStoredUploadUrl(
+                "https://evil.example.com/uploads/sales-order/TENANT_001/a.xlsx",
+                "/web",
+                "TENANT_001",
+                "sales-order"
+        ));
+        assertThrows(BusinessException.class, () -> InternalUploadUrlValidator.normalizeStoredUploadUrl(
+                "/web/uploads/sales-order/TENANT_002/a.xlsx",
+                "/web",
+                "TENANT_001",
+                "sales-order"
+        ));
+    }
+
+    @Test
+    void optionalFinanceAttachmentCanBeBlank() {
+        assertNull(InternalUploadUrlValidator.normalizeOptionalFinanceAttachment(" ", "TENANT_001"));
+    }
+}
