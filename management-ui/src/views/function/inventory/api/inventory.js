@@ -20,6 +20,14 @@ export function getInventoryWarnings() {
   return request({ url: '/inventory/warning/list', method: 'get' })
 }
 
+export function getInventoryWarningSetting() {
+  return request({ url: '/inventory/warning/setting', method: 'get' })
+}
+
+export function updateInventoryWarningSetting(data) {
+  return request({ url: '/inventory/warning/setting', method: 'post', data })
+}
+
 export function getRecentInventoryRecords() {
   return request({ url: '/inventory/record/recent', method: 'get' })
 }
@@ -59,6 +67,20 @@ export function importInventory(file) {
     url: '/inventory/import',
     method: 'post',
     data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+export function recognizeInventoryImage(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request({
+    url: '/inventory/cloth/image-recognition',
+    method: 'post',
+    data: formData,
+    timeout: 30000,
     headers: {
       'Content-Type': 'multipart/form-data'
     }

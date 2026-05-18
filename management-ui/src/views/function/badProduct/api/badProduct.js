@@ -16,6 +16,25 @@ export function saveBadProduct(data) {
   })
 }
 
+export function uploadBadProductAttachment(data) {
+  return request({
+    url: '/bad-product/attachment/upload',
+    method: 'post',
+    data,
+    timeout: 30000
+  })
+}
+
+export function downloadBadProductAttachment(params) {
+  return request({
+    url: '/bad-product/attachment/download',
+    method: 'get',
+    params,
+    responseType: 'blob',
+    timeout: 30000
+  })
+}
+
 export function processBadProduct(data) {
   return request({
     url: '/bad-product/process',

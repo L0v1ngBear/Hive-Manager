@@ -3,7 +3,7 @@ package my.management.module.badproduct.model.dto;
 import lombok.Data;
 
 /**
- * 次品列表分页查询入参。
+ * 质量记录列表分页查询入参。
  *
  * <p>该接口与小程序端保持同一套请求契约：
  * pageNum/pageSize/status/type/date，空筛选字段不参与查询。</p>
@@ -19,5 +19,16 @@ public class BadProductPageRequest {
 
     private String type;
 
+    /**
+     * 业务视图：quality=质量记录，afterSales=售后管理。
+     */
+    private String businessScope;
+
     private String date;
+
+    private String keyword;
+
+    private String startDate;
+
+    private String endDate;
 }

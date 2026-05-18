@@ -39,6 +39,17 @@ import java.util.stream.Collectors;
 @Service
 public class RoleService {
 
+    private static final Set<String> HIDDEN_ASSIGNABLE_PERMISSION_CODES = Set.of(
+            "*:*",
+            "developer:super",
+            "platform",
+            "platform:tenant",
+            "platform:tenant:*",
+            "platform:tenant:create",
+            "platform:tenant:license",
+            "platform:tenant:view"
+    );
+
     private static final int DEFAULT_PAGE_NUM = 1;
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final int MAX_PAGE_SIZE = 200;
@@ -96,6 +107,9 @@ public class RoleService {
         Map<Long, SysPermissionTreeVO> nodeMap = new LinkedHashMap<>();
         for (SysPermission permission : permissionList) {
             if (permission.getId() == null || nodeMap.containsKey(permission.getId())) {
+                continue;
+            }
+            if (HIDDEN_ASSIGNABLE_PERMISSION_CODES.contains(permission.getPermCode())) {
                 continue;
             }
             SysPermissionTreeVO node = new SysPermissionTreeVO();

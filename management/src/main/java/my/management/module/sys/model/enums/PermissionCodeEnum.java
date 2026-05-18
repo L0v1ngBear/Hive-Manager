@@ -11,6 +11,10 @@ public enum PermissionCodeEnum {
     APPROVAL_LEAVE("approval:leave"),
     APPROVAL_LEAVE_AUDIT("approval:leave:audit"),
     APPROVAL_LEAVE_DETAIL("approval:leave:detail"),
+    APPROVAL_RESIGNATION("approval:resignation"),
+    APPROVAL_RESIGNATION_AUDIT("approval:resignation:audit"),
+    APPROVAL_RESIGNATION_DETAIL("approval:resignation:detail"),
+    APPROVAL_RESIGNATION_SUBMIT("approval:resignation:submit"),
     ATTENDANCE_ALL("attendance:*"),
     ATTENDANCE_RECORD_LIST("attendance:record:list"),
     BADPRODUCT_LIST("badproduct:list"),
@@ -39,15 +43,16 @@ public enum PermissionCodeEnum {
     INVENTORY_RECORD_RECENT("inventory:record:recent"),
     INVENTORY_TREND("inventory:trend"),
     INVENTORY_WARNING_LIST("inventory:warning:list"),
+    INVENTORY_WARNING_SETTING("inventory:warning:setting"),
     LABEL_TEMPLATE_DEFAULT("label:template:default"),
     LABEL_TEMPLATE_DETAIL("label:template:detail"),
     LABEL_TEMPLATE_DISABLE("label:template:disable"),
     LABEL_TEMPLATE_LIST("label:template:list"),
     LABEL_TEMPLATE_SAVE("label:template:save"),
     LABEL_TEMPLATE_UPLOAD("label:template:upload"),
-    PLATFORM_TENANT_CREATE("platform:tenant:create"),
-    PLATFORM_TENANT_LICENSE("platform:tenant:license"),
-    PLATFORM_TENANT_VIEW("platform:tenant:view"),
+    NOTIFICATION_ANNOUNCEMENT_LIST("notification:announcement:list"),
+    NOTIFICATION_ANNOUNCEMENT_PUBLISH("notification:announcement:publish"),
+    ORDER_WARNING_SETTING("order:warning:setting"),
     PRICE_DELETE("price:delete"),
     PRICE_DETAIL("price:detail"),
     PRICE_LIST("price:list"),
@@ -75,6 +80,10 @@ public enum PermissionCodeEnum {
     public static final String CODE_APPROVAL_LEAVE = "approval:leave";
     public static final String CODE_APPROVAL_LEAVE_AUDIT = "approval:leave:audit";
     public static final String CODE_APPROVAL_LEAVE_DETAIL = "approval:leave:detail";
+    public static final String CODE_APPROVAL_RESIGNATION = "approval:resignation";
+    public static final String CODE_APPROVAL_RESIGNATION_AUDIT = "approval:resignation:audit";
+    public static final String CODE_APPROVAL_RESIGNATION_DETAIL = "approval:resignation:detail";
+    public static final String CODE_APPROVAL_RESIGNATION_SUBMIT = "approval:resignation:submit";
     public static final String CODE_ATTENDANCE_ALL = "attendance:*";
     public static final String CODE_ATTENDANCE_RECORD_LIST = "attendance:record:list";
     public static final String CODE_BADPRODUCT_LIST = "badproduct:list";
@@ -103,15 +112,16 @@ public enum PermissionCodeEnum {
     public static final String CODE_INVENTORY_RECORD_RECENT = "inventory:record:recent";
     public static final String CODE_INVENTORY_TREND = "inventory:trend";
     public static final String CODE_INVENTORY_WARNING_LIST = "inventory:warning:list";
+    public static final String CODE_INVENTORY_WARNING_SETTING = "inventory:warning:setting";
     public static final String CODE_LABEL_TEMPLATE_DEFAULT = "label:template:default";
     public static final String CODE_LABEL_TEMPLATE_DETAIL = "label:template:detail";
     public static final String CODE_LABEL_TEMPLATE_DISABLE = "label:template:disable";
     public static final String CODE_LABEL_TEMPLATE_LIST = "label:template:list";
     public static final String CODE_LABEL_TEMPLATE_SAVE = "label:template:save";
     public static final String CODE_LABEL_TEMPLATE_UPLOAD = "label:template:upload";
-    public static final String CODE_PLATFORM_TENANT_CREATE = "platform:tenant:create";
-    public static final String CODE_PLATFORM_TENANT_LICENSE = "platform:tenant:license";
-    public static final String CODE_PLATFORM_TENANT_VIEW = "platform:tenant:view";
+    public static final String CODE_NOTIFICATION_ANNOUNCEMENT_LIST = "notification:announcement:list";
+    public static final String CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH = "notification:announcement:publish";
+    public static final String CODE_ORDER_WARNING_SETTING = "order:warning:setting";
     public static final String CODE_PRICE_DELETE = "price:delete";
     public static final String CODE_PRICE_DETAIL = "price:detail";
     public static final String CODE_PRICE_LIST = "price:list";

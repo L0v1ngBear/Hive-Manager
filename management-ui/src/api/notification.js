@@ -14,6 +14,22 @@ export function getUnreadNotificationCount() {
   })
 }
 
+export function getAnnouncements(params = {}) {
+  return request({
+    url: '/notifications/announcements',
+    method: 'get',
+    params
+  })
+}
+
+export function publishAnnouncement(data) {
+  return request({
+    url: '/notifications/announcements',
+    method: 'post',
+    data
+  })
+}
+
 export function markNotificationRead(id) {
   return request({
     url: `/notifications/${id}/read`,

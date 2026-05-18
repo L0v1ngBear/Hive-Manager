@@ -6,6 +6,7 @@ import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
+import my.management.common.security.InternalUploadUrlValidator;
 import my.management.common.utils.CodeGeneratorUtil;
 import my.management.module.badproduct.mapper.BadProductMapper;
 import my.management.module.badproduct.model.dto.BadProductPageRequest;
@@ -16,16 +17,18 @@ import my.management.module.badproduct.model.vo.BadProductVO;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.employee.model.entity.Employee;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Set;
 import java.util.List;
 
 /**
- * 次品管理服务，复用小程序端同一张坏品表和处理规则。
+ * 质量管理服务，复用小程序端同一张坏品表和处理规则。
  */
 @Service
 public class BadProductService {
@@ -33,6 +36,16 @@ public class BadProductService {
     private static final int DEFAULT_PAGE_NUM = 1;
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 100;
+    private static final String BUSINESS_SCOPE_AFTER_SALES = "afterSales";
+    private static final Set<String> AFTER_SALES_TYPES = Set.of(
+            "after_sales",
+            "return_exchange",
+            "compensation",
+            "customer_complaint"
+    );
+
+    @Value("${server.servlet.context-path:}")
+    private String contextPath;
 
     @Resource
     private BadProductMapper badProductMapper;
@@ -44,22 +57,52 @@ public class BadProductService {
     private EmployeeMapper employeeMapper;
 
     public PageResult<BadProductVO> page(BadProductPageRequest request) {
-        LambdaQueryWrapper<BadProductRecord> wrapper = new LambdaQueryWrapper<>();
+        if (request == null) {
+            request = new BadProductPageRequest();
+        }
+        LambdaQueryWrapper<BadProductRecord> wrapper = new LambdaQueryWrapper<BadProductRecord>()
+                .eq(BadProductRecord::getTenantCode, TenantPermissionContext.getTenantCode());
 
         String status = normalizeQueryValue(request.getStatus());
         String type = normalizeQueryValue(request.getType());
+        String businessScope = normalizeQueryValue(request.getBusinessScope());
         String dateText = normalizeQueryValue(request.getDate());
+        String keyword = normalizeQueryValue(request.getKeyword());
+        String startDateText = normalizeQueryValue(request.getStartDate());
+        String endDateText = normalizeQueryValue(request.getEndDate());
 
+        boolean afterSalesScope = BUSINESS_SCOPE_AFTER_SALES.equalsIgnoreCase(businessScope);
         if (status != null && !"all".equals(status)) {
             wrapper.eq(BadProductRecord::getStatus, status);
         }
         if (type != null && !"all".equals(type)) {
-            wrapper.eq(BadProductRecord::getType, type);
+            if (afterSalesScope != AFTER_SALES_TYPES.contains(type)) {
+                wrapper.apply("1 = 0");
+            } else {
+                wrapper.eq(BadProductRecord::getType, type);
+            }
+        } else if (afterSalesScope) {
+            wrapper.in(BadProductRecord::getType, AFTER_SALES_TYPES);
+        } else {
+            wrapper.notIn(BadProductRecord::getType, AFTER_SALES_TYPES);
+        }
+        if (keyword != null) {
+            wrapper.and(w -> w.like(BadProductRecord::getDefectiveId, keyword)
+                    .or().like(BadProductRecord::getOrderId, keyword)
+                    .or().like(BadProductRecord::getDescription, keyword)
+                    .or().like(BadProductRecord::getResponsiblePerson, keyword));
         }
         if (dateText != null) {
-            LocalDate date = LocalDate.parse(dateText, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            LocalDate date = parseQueryDate(dateText, "登记日期");
             wrapper.ge(BadProductRecord::getCreateTime, date.atStartOfDay())
                     .lt(BadProductRecord::getCreateTime, date.plusDays(1).atStartOfDay());
+        } else {
+            if (startDateText != null) {
+                wrapper.ge(BadProductRecord::getCreateTime, parseQueryDate(startDateText, "开始日期").atStartOfDay());
+            }
+            if (endDateText != null) {
+                wrapper.lt(BadProductRecord::getCreateTime, parseQueryDate(endDateText, "结束日期").plusDays(1).atStartOfDay());
+            }
         }
 
         wrapper.orderByDesc(BadProductRecord::getCreateTime);
@@ -78,6 +121,14 @@ public class BadProductService {
         return result;
     }
 
+    private LocalDate parseQueryDate(String value, String fieldName) {
+        try {
+            return LocalDate.parse(value, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        } catch (RuntimeException ex) {
+            throw new BusinessException(fieldName + "格式不正确");
+        }
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public void save(BadProductSaveRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
@@ -89,7 +140,7 @@ public class BadProductService {
             entity = badProductMapper.selectOne(new LambdaQueryWrapper<BadProductRecord>()
                     .eq(BadProductRecord::getDefectiveId, request.getDefectiveId()));
             if (entity == null) {
-                throw new BusinessException("次品记录不存在");
+                throw new BusinessException("质量记录不存在");
             }
         } else {
             entity = new BadProductRecord();
@@ -109,6 +160,9 @@ public class BadProductService {
         entity.setResponsiblePerson(blankToNull(request.getResponsiblePerson()));
         entity.setProcessMeasure(blankToNull(request.getProcessMeasure()));
         entity.setImprovementPlan(blankToNull(request.getImprovementPlan()));
+        entity.setAttachmentName(normalizeAttachmentName(request.getAttachmentName(), request.getAttachmentUrl()));
+        entity.setAttachmentUrl(normalizeBadProductAttachmentUrl(request.getAttachmentUrl(), tenantCode));
+        entity.setAttachmentSize(normalizeAttachmentSize(request.getAttachmentSize(), entity.getAttachmentUrl()));
 
         if (entity.getId() == null) {
             badProductMapper.insert(entity);
@@ -122,7 +176,7 @@ public class BadProductService {
         BadProductRecord entity = badProductMapper.selectOne(new LambdaQueryWrapper<BadProductRecord>()
                 .eq(BadProductRecord::getDefectiveId, request.getDefectiveId()));
         if (entity == null) {
-            throw new BusinessException("次品记录不存在");
+            throw new BusinessException("质量记录不存在");
         }
         entity.setStatus("processed");
         entity.setProcessMethod(request.getMethod());
@@ -139,6 +193,46 @@ public class BadProductService {
 
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String normalizeAttachmentName(String attachmentName, String attachmentUrl) {
+        if (blankToNull(attachmentUrl) == null) {
+            return null;
+        }
+        String normalized = blankToNull(attachmentName);
+        if (normalized == null) {
+            return "quality-attachment";
+        }
+        return normalized.length() > 180 ? normalized.substring(0, 180) : normalized;
+    }
+
+    private String normalizeBadProductAttachmentUrl(String attachmentUrl, String tenantCode) {
+        if (blankToNull(attachmentUrl) == null) {
+            return null;
+        }
+        return InternalUploadUrlValidator.normalizeStoredUploadUrl(
+                attachmentUrl,
+                resolveContextPath(),
+                tenantCode,
+                "bad-product"
+        );
+    }
+
+    private Long normalizeAttachmentSize(Long attachmentSize, String attachmentUrl) {
+        if (blankToNull(attachmentUrl) == null) {
+            return null;
+        }
+        if (attachmentSize == null || attachmentSize < 0) {
+            return null;
+        }
+        return attachmentSize;
+    }
+
+    private String resolveContextPath() {
+        if (contextPath == null || contextPath.isBlank() || "/".equals(contextPath.trim())) {
+            return "";
+        }
+        return contextPath.trim();
     }
 
     private String normalizeQueryValue(String value) {

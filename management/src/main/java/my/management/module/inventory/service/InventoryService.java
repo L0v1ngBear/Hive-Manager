@@ -13,6 +13,8 @@ import my.hive.common.exception.BusinessException;
 import my.hive.common.print.PrintTaskService;
 import my.hive.common.redis.HiveRedisKeyBuilder;
 import my.hive.common.utils.RedisCacheHelper;
+import my.management.common.storage.BusinessAttachmentService;
+import my.management.common.storage.BusinessAttachmentVO;
 import my.management.common.utils.ExcelUtil;
 import my.management.module.tenant.service.TenantFieldConfigService;
 import my.management.module.tenant.model.vo.TenantFieldConfigVO;
@@ -31,6 +33,7 @@ import my.management.module.inventory.model.enums.InventoryInTypeEnum;
 import my.management.module.inventory.model.enums.InventoryOperateTypeEnum;
 import my.management.module.inventory.model.vo.ClothInventoryVO;
 import my.management.module.inventory.model.vo.InventoryImportResultVO;
+import my.management.module.inventory.model.vo.InventoryImageRecognitionVO;
 import my.management.module.inventory.model.vo.InventoryInResultVO;
 import my.management.module.inventory.model.vo.InventoryLabelTaskVO;
 import my.management.module.inventory.model.vo.InventoryModelSummaryVO;
@@ -48,6 +51,7 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
@@ -68,6 +72,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 网页端库存服务，负责布匹入库、出库扣减、库存查询和运营看板数据。
@@ -75,16 +81,22 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 public class InventoryService {
 
-    private static final BigDecimal WARNING_THRESHOLD = new BigDecimal("100");
     private static final DateTimeFormatter BARCODE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final long DEFAULT_PAGE_NUM = 1L;
     private static final long DEFAULT_PAGE_SIZE = 10L;
     private static final long MAX_PAGE_SIZE = 200L;
+    private static final String TIME_ORDER_FIFO = "fifo";
+    private static final String TIME_ORDER_LIFO = "lifo";
     private static final int MAX_IMPORT_ROWS = 5000;
     private static final long MAX_IMPORT_BYTES = 10L * 1024 * 1024;
+    private static final long MAX_IMAGE_RECOGNITION_BYTES = 5L * 1024 * 1024;
     private static final BigDecimal MAX_IMPORT_METERS = new BigDecimal("999999999.99");
     private static final int INITIAL_VERSION = 0;
     private static final int MAX_CUSTOM_FIELD_VALUE_LENGTH = 500;
+    private static final String IMAGE_RECOGNITION_MODULE = "inventory-recognition";
+    private static final Set<String> IMAGE_RECOGNITION_EXTENSIONS = Set.of("png", "jpg", "jpeg", "webp");
+    private static final Pattern METERS_FILENAME_PATTERN = Pattern.compile("(?i)(\\d+(?:\\.\\d{1,2})?)\\s*(?:m|meter|meters|米)");
+    private static final Pattern SPEC_FILENAME_PATTERN = Pattern.compile("(?i)(?:spec|规格|克重|门幅|幅宽|width)[-_\\s]*(\\d+(?:\\.\\d{1,2})?)");
     private static final TypeReference<Map<String, Object>> CUSTOM_FIELD_TYPE_REFERENCE = new TypeReference<>() {};
     private static final Map<String, Set<String>> IMPORT_HEADER_ALIASES = buildImportHeaderAliases();
     private static final List<DateTimeFormatter> IMPORT_TIME_FORMATTERS = List.of(
@@ -123,6 +135,15 @@ public class InventoryService {
 
     @Resource
     private ObjectMapper objectMapper;
+
+    @Resource
+    private InventorySettingService inventorySettingService;
+
+    @Resource
+    private InventoryWarningCacheService inventoryWarningCacheService;
+
+    @Resource
+    private BusinessAttachmentService businessAttachmentService;
 
     private static Map<String, Set<String>> buildImportHeaderAliases() {
         Map<String, Set<String>> aliases = new LinkedHashMap<>();
@@ -209,6 +230,7 @@ public class InventoryService {
 
     public InventorySummaryVO summary() {
         String tenantCode = TenantPermissionContext.getTenantCode();
+        BigDecimal warningThreshold = inventorySettingService.warningThreshold(tenantCode);
         InventorySummaryVO summary = clothMapper.selectSummary(tenantCode);
         if (summary == null) {
             summary = new InventorySummaryVO();
@@ -217,7 +239,8 @@ public class InventoryService {
         LocalDate today = LocalDate.now();
         LocalDateTime startTime = today.atStartOfDay();
         LocalDateTime endTime = today.plusDays(1).atStartOfDay();
-        summary.setWarningCount(nvl(clothMapper.countWarningModels(tenantCode, WARNING_THRESHOLD)));
+        summary.setWarningThresholdMeters(warningThreshold);
+        summary.setWarningCount(inventoryWarningCacheService.countWarningModels(tenantCode));
         summary.setTodayInMeters(nvl(inventoryRecordMapper.sumOperateMeters(tenantCode, InventoryOperateTypeEnum.IN.getCode(), startTime, endTime)));
         summary.setTodayOutMeters(nvl(inventoryRecordMapper.sumOperateMeters(tenantCode, InventoryOperateTypeEnum.OUT.getCode(), startTime, endTime)));
         summary.setTotalMeters(nvl(summary.getTotalMeters()));
@@ -226,15 +249,37 @@ public class InventoryService {
     }
 
     public PageResult<ClothInventoryVO> page(InventoryPageRequest request) {
-        LambdaQueryWrapper<Cloth> wrapper = new LambdaQueryWrapper<>();
+        if (request == null) {
+            request = new InventoryPageRequest();
+        }
+        LambdaQueryWrapper<Cloth> wrapper = new LambdaQueryWrapper<Cloth>()
+                .eq(Cloth::getTenantCode, TenantPermissionContext.getTenantCode());
         if (request.getStatus() != null) {
             wrapper.eq(Cloth::getStatus, request.getStatus());
+        }
+        if (request.getSpecMin() != null) {
+            wrapper.ge(Cloth::getSpec, request.getSpecMin());
+        }
+        if (request.getSpecMax() != null) {
+            wrapper.le(Cloth::getSpec, request.getSpecMax());
+        }
+        if (request.getRemainingMin() != null) {
+            wrapper.ge(Cloth::getRemainingMeters, request.getRemainingMin());
+        }
+        if (request.getRemainingMax() != null) {
+            wrapper.le(Cloth::getRemainingMeters, request.getRemainingMax());
+        }
+        if (request.getUpdatedStart() != null) {
+            wrapper.ge(Cloth::getUpdateTime, request.getUpdatedStart().atStartOfDay());
+        }
+        if (request.getUpdatedEnd() != null) {
+            wrapper.lt(Cloth::getUpdateTime, request.getUpdatedEnd().plusDays(1).atStartOfDay());
         }
         if (request.getKeyword() != null && !request.getKeyword().isBlank()) {
             String keyword = request.getKeyword().trim();
             wrapper.and(item -> item.like(Cloth::getBarcode, keyword).or().like(Cloth::getModelCode, keyword));
         }
-        wrapper.orderByDesc(Cloth::getUpdateTime).orderByDesc(Cloth::getId);
+        applyInventoryTimeOrder(wrapper, request.getTimeOrder());
 
         Page<Cloth> page = clothMapper.selectPage(
                 new Page<>(safePageNum(request.getPageNum()), safePageSize(request.getPageSize())),
@@ -252,13 +297,23 @@ public class InventoryService {
     }
 
     public PageResult<InventoryModelSummaryVO> modelPage(InventoryPageRequest request) {
+        if (request == null) {
+            request = new InventoryPageRequest();
+        }
         String keyword = request.getKeyword() == null || request.getKeyword().isBlank() ? null : request.getKeyword().trim();
         Integer status = request.getStatus();
         Page<InventoryModelSummaryVO> page = clothMapper.selectModelSummaryPage(
                 new Page<>(safePageNum(request.getPageNum()), safePageSize(request.getPageSize())),
                 TenantPermissionContext.getTenantCode(),
                 keyword,
-                status
+                status,
+                request.getSpecMin(),
+                request.getSpecMax(),
+                request.getRemainingMin(),
+                request.getRemainingMax(),
+                request.getUpdatedStart() == null ? null : request.getUpdatedStart().atStartOfDay(),
+                request.getUpdatedEnd() == null ? null : request.getUpdatedEnd().plusDays(1).atStartOfDay(),
+                normalizeTimeOrder(request.getTimeOrder())
         );
         PageResult<InventoryModelSummaryVO> result = new PageResult<>();
         result.setCurrent(page.getCurrent());
@@ -269,7 +324,7 @@ public class InventoryService {
         return result;
     }
 
-    public List<ClothInventoryVO> modelDetail(String modelCode, BigDecimal spec, Integer status) {
+    public List<ClothInventoryVO> modelDetail(String modelCode, BigDecimal spec, Integer status, String timeOrder) {
         String safeModelCode = cleanText(modelCode);
         if (safeModelCode == null) {
             throw new BusinessException("型号不能为空");
@@ -279,10 +334,26 @@ public class InventoryService {
                 .eq(Cloth::getModelCode, safeModelCode)
                 .eq(spec != null, Cloth::getSpec, spec)
                 .eq(status != null, Cloth::getStatus, status)
-                .gt(status == null, Cloth::getRemainingMeters, BigDecimal.ZERO)
-                .orderByDesc(Cloth::getUpdateTime)
-                .orderByDesc(Cloth::getId);
+                .gt(status == null, Cloth::getRemainingMeters, BigDecimal.ZERO);
+        applyInventoryTimeOrder(wrapper, timeOrder);
         return clothMapper.selectList(wrapper).stream().map(this::toClothVO).toList();
+    }
+
+    private void applyInventoryTimeOrder(LambdaQueryWrapper<Cloth> wrapper, String timeOrder) {
+        String normalized = normalizeTimeOrder(timeOrder);
+        if (TIME_ORDER_LIFO.equals(normalized)) {
+            wrapper.orderByDesc(Cloth::getInTime).orderByDesc(Cloth::getId);
+            return;
+        }
+        wrapper.orderByAsc(Cloth::getInTime).orderByAsc(Cloth::getId);
+    }
+
+    private String normalizeTimeOrder(String timeOrder) {
+        String normalized = cleanText(timeOrder);
+        if (TIME_ORDER_LIFO.equalsIgnoreCase(normalized)) {
+            return TIME_ORDER_LIFO;
+        }
+        return TIME_ORDER_FIFO;
     }
 
     private long safePageNum(Long pageNum) {
@@ -297,7 +368,8 @@ public class InventoryService {
     }
 
     public List<InventoryWarningVO> warnings() {
-        return clothMapper.selectWarnings(TenantPermissionContext.getTenantCode(), WARNING_THRESHOLD, 8);
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        return inventoryWarningCacheService.topWarnings(tenantCode, 8);
     }
 
     public List<InventoryRecordVO> recentRecords() {
@@ -334,6 +406,28 @@ public class InventoryService {
         return toClothVO(cloth);
     }
 
+    public InventoryImageRecognitionVO recognizeInboundImage(MultipartFile file) {
+        validateRecognitionImage(file);
+        BusinessAttachmentVO attachment = businessAttachmentService.upload(file, IMAGE_RECOGNITION_MODULE);
+        InventoryImageRecognitionVO.Candidate candidate = buildRecognitionCandidate(attachment.getFileName());
+        boolean hasCandidate = cleanText(candidate.getModelCode()) != null
+                || candidate.getSpec() != null
+                || candidate.getMeters() != null
+                || cleanText(candidate.getBarcode()) != null;
+
+        InventoryImageRecognitionVO vo = new InventoryImageRecognitionVO();
+        vo.setFileName(attachment.getFileName());
+        vo.setFileUrl(attachment.getFileUrl());
+        vo.setFileSize(attachment.getFileSize());
+        vo.setStatus("NEED_CONFIRM");
+        vo.setConfidence(candidate.getConfidence());
+        vo.setCandidates(List.of(candidate));
+        vo.setMessage(hasCandidate
+                ? "图片已上传，系统已带出可疑字段，请人工核对后确认入库。"
+                : "图片已上传。当前未接入正式 OCR，请人工补全型号、规格和米数后确认入库。");
+        return vo;
+    }
+
     @Transactional(rollbackFor = Exception.class)
     @CollectLog(module = "inventory", action = "cloth_in", bizType = "cloth", bizNo = "#p0.barcode", description = "网页端布匹入库")
     public InventoryInResultVO in(InventoryInRequest request) {
@@ -361,7 +455,7 @@ public class InventoryService {
         cloth.setStatus(ClothInventoryStatusEnum.IN_STOCK.getCode());
         cloth.setInTime(now);
         cloth.setInOperatorId(userId);
-        cloth.setInType(InventoryInTypeEnum.normalizeManual(request.getInType()));
+        cloth.setInType(InventoryInTypeEnum.normalizeInbound(request.getInType()));
         cloth.setIsBad(ClothQualityFlagEnum.NORMAL.getCode());
         cloth.setCustomFieldsJson(writeCustomFields(validateInventoryCustomFields(request.getCustomFields())));
         cloth.setVersion(INITIAL_VERSION);
@@ -829,6 +923,100 @@ public class InventoryService {
         return ClothInventoryStatusEnum.fromStock(totalMeters, remainingMeters).getCode();
     }
 
+    private void validateRecognitionImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("请选择需要识别的入库图片");
+        }
+        if (file.getSize() <= 0) {
+            throw new BusinessException("图片内容为空，无法识别");
+        }
+        if (file.getSize() > MAX_IMAGE_RECOGNITION_BYTES) {
+            throw new BusinessException("图片大小不能超过 5MB");
+        }
+        String extension = StringUtils.getFilenameExtension(file.getOriginalFilename());
+        String normalizedExtension = extension == null ? "" : extension.toLowerCase(Locale.ROOT);
+        if (!IMAGE_RECOGNITION_EXTENSIONS.contains(normalizedExtension)) {
+            throw new BusinessException("图片识别入库仅支持 PNG、JPG、JPEG、WEBP 格式");
+        }
+        String contentType = file.getContentType();
+        if (StringUtils.hasText(contentType) && !contentType.toLowerCase(Locale.ROOT).startsWith("image/")) {
+            throw new BusinessException("上传文件不是有效图片");
+        }
+    }
+
+    private InventoryImageRecognitionVO.Candidate buildRecognitionCandidate(String fileName) {
+        String sourceText = stripExtension(fileName);
+        InventoryImageRecognitionVO.Candidate candidate = new InventoryImageRecognitionVO.Candidate();
+        candidate.setSourceText(sourceText);
+        candidate.setBarcode(resolveBarcodeCandidate(sourceText));
+        candidate.setModelCode(resolveModelCandidate(sourceText));
+        candidate.setSpec(resolveDecimalCandidate(SPEC_FILENAME_PATTERN, sourceText));
+        candidate.setMeters(resolveDecimalCandidate(METERS_FILENAME_PATTERN, sourceText));
+        int recognizedFields = 0;
+        if (cleanText(candidate.getBarcode()) != null) recognizedFields++;
+        if (cleanText(candidate.getModelCode()) != null) recognizedFields++;
+        if (candidate.getSpec() != null) recognizedFields++;
+        if (candidate.getMeters() != null) recognizedFields++;
+        candidate.setConfidence(BigDecimal.valueOf(Math.min(0.85D, 0.08D + recognizedFields * 0.18D)));
+        return candidate;
+    }
+
+    private String stripExtension(String fileName) {
+        String safeName = cleanText(fileName);
+        if (safeName == null) {
+            return "";
+        }
+        int dotIndex = safeName.lastIndexOf('.');
+        return dotIndex > 0 ? safeName.substring(0, dotIndex) : safeName;
+    }
+
+    private String resolveBarcodeCandidate(String sourceText) {
+        if (sourceText == null) {
+            return null;
+        }
+        for (String token : sourceText.split("[\\s_\\-]+")) {
+            String cleaned = cleanText(token);
+            if (cleaned != null && cleaned.length() >= 8 && cleaned.matches("[A-Za-z0-9]+")) {
+                return cleaned;
+            }
+        }
+        return null;
+    }
+
+    private String resolveModelCandidate(String sourceText) {
+        if (sourceText == null) {
+            return null;
+        }
+        for (String token : sourceText.split("[\\s_\\-]+")) {
+            String cleaned = cleanText(token);
+            if (cleaned == null || cleaned.matches("\\d+(\\.\\d+)?")) {
+                continue;
+            }
+            String lower = cleaned.toLowerCase(Locale.ROOT);
+            if (lower.contains("入库") || lower.contains("库存") || lower.contains("image") || lower.contains("photo")) {
+                continue;
+            }
+            return cleaned.length() > 80 ? cleaned.substring(0, 80) : cleaned;
+        }
+        return null;
+    }
+
+    private BigDecimal resolveDecimalCandidate(Pattern pattern, String sourceText) {
+        if (sourceText == null) {
+            return null;
+        }
+        Matcher matcher = pattern.matcher(sourceText);
+        if (!matcher.find()) {
+            return null;
+        }
+        try {
+            BigDecimal value = new BigDecimal(matcher.group(1));
+            return value.compareTo(BigDecimal.ZERO) > 0 ? value : null;
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
     private String getCell(List<String> row, Integer index) {
         if (row == null || index == null || index < 0 || index >= row.size()) {
             return "";
@@ -1023,6 +1211,7 @@ public class InventoryService {
     }
 
     private void invalidateDashboardCache(String tenantCode) {
+        inventoryWarningCacheService.invalidate(tenantCode);
         deleteCacheByPattern(redisKeyBuilder.cachePattern("management", "dashboard", "overview", tenantCode, "*"));
         deleteCacheByPattern(redisKeyBuilder.cachePattern("management", "dashboard", "ai-advice", tenantCode, "*"));
     }

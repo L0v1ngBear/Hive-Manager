@@ -40,4 +40,10 @@ public class ProductionOrderPageVO {
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;
+
+    private Boolean staleWarning = false;
+
+    private Long staleDays = 0L;
+
+    private Integer staleWarningDays;
 }

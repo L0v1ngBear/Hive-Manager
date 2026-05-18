@@ -3,6 +3,7 @@ package my.management.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
+import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
 import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.PageResult;
@@ -52,6 +53,7 @@ public class RoleController {
 
     @PostMapping("/create")
     @RequirePermission(value = PermissionCodeEnum.CODE_ROLE_CREATE, message = "您没有权限创建角色")
+    @CollectLog(module = "role", action = "create", bizType = "role", bizNo = "#request.roleName", description = "管理端创建角色")
     public Result<Void> create(@Valid @RequestBody SysRoleAddRequest request) {
         roleService.createNewRole(request);
         return Result.success(null);
@@ -71,6 +73,7 @@ public class RoleController {
 
     @PostMapping("/role/update")
     @RequirePermission(value = PermissionCodeEnum.CODE_ROLE_UPDATE, message = "您没有权限配置角色权限")
+    @CollectLog(module = "role", action = "update_permissions", bizType = "role", bizNo = "#request.roleId", description = "管理端更新角色权限")
     public Result<Void> update(@Valid @RequestBody SysRoleUpdateRequest request) {
         roleService.updateRole(request);
         return Result.success(null);

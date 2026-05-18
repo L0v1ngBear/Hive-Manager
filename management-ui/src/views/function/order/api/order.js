@@ -8,6 +8,13 @@ export function getSalesOrderPage(params) {
   })
 }
 
+export function getSalesOrderStatusSummary() {
+  return request({
+    url: '/order/sales/status-summary',
+    method: 'get'
+  })
+}
+
 export function getSalesOrderDetail(orderId) {
   return request({
     url: `/order/sales/detail/${orderId}`,
@@ -63,6 +70,35 @@ export function getProductionOrderPage(params) {
     url: '/order/production/page',
     method: 'get',
     params
+  })
+}
+
+export function getProductionOrderStatusSummary() {
+  return request({
+    url: '/order/production/status-summary',
+    method: 'get'
+  })
+}
+
+export function getOrderWarningSetting() {
+  return request({
+    url: '/order/warning/setting',
+    method: 'get'
+  })
+}
+
+export function updateOrderWarningSetting(data) {
+  return request({
+    url: '/order/warning/setting',
+    method: 'post',
+    data
+  })
+}
+
+export function getOrderWarningSummary() {
+  return request({
+    url: '/order/warning/summary',
+    method: 'get'
   })
 }
 

@@ -2,6 +2,7 @@ package my.management.controller;
 
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
+import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
 import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.Result;
@@ -63,12 +64,14 @@ public class LabelTemplateController {
 
     @PostMapping("/save")
     @RequirePermission(value = PermissionCodeEnum.CODE_LABEL_TEMPLATE_SAVE, message = "您没有权限保存标签模板")
+    @CollectLog(module = "label_template", action = "save", bizType = "label_template", bizNo = "#request.id", description = "管理端保存标签模板")
     public Result<LabelTemplateVO> save(@Valid @RequestBody LabelTemplateSaveRequest request) {
         return Result.success(labelTemplateService.save(request));
     }
 
     @PostMapping("/upload")
     @RequirePermission(value = PermissionCodeEnum.CODE_LABEL_TEMPLATE_UPLOAD, message = "您没有权限上传标签模板")
+    @CollectLog(module = "label_template", action = "upload", bizType = "label_template", description = "管理端上传标签模板")
     public Result<LabelTemplateVO> upload(@RequestParam("file") MultipartFile file,
                                           @RequestParam(required = false) String name,
                                           @RequestParam(required = false, defaultValue = "label") String printType,
@@ -78,6 +81,7 @@ public class LabelTemplateController {
 
     @PostMapping("/{id}/default")
     @RequirePermission(value = PermissionCodeEnum.CODE_LABEL_TEMPLATE_DEFAULT, message = "您没有权限设置默认标签模板")
+    @CollectLog(module = "label_template", action = "set_default", bizType = "label_template", bizNo = "#id", description = "管理端设置默认标签模板")
     public Result<Void> setDefault(@PathVariable Long id) {
         labelTemplateService.setDefault(id);
         return Result.success(null);
@@ -85,6 +89,7 @@ public class LabelTemplateController {
 
     @DeleteMapping("/{id}")
     @RequirePermission(value = PermissionCodeEnum.CODE_LABEL_TEMPLATE_DISABLE, message = "您没有权限停用标签模板")
+    @CollectLog(module = "label_template", action = "disable", bizType = "label_template", bizNo = "#id", description = "管理端停用标签模板")
     public Result<Void> disable(@PathVariable Long id) {
         labelTemplateService.disable(id);
         return Result.success(null);

@@ -16,7 +16,7 @@ const readJsonStorageItem = (key, fallback) => {
 }
 
 const removeLoginStorage = () => {
-  ;['token', 'userInfo', 'permissions', 'features', 'responseKey', 'expireAt'].forEach((key) => {
+  ;['token', 'userInfo', 'permissions', 'features', 'responseKey', 'expireAt', 'mustChangePassword'].forEach((key) => {
     authStorage.removeItem(key)
     legacyStorage.removeItem(key)
   })
@@ -28,26 +28,19 @@ export const useUserStore = defineStore('user', () => {
   const permissions = ref(readJsonStorageItem('permissions', []))
   const features = ref(readJsonStorageItem('features', []))
   const currentTenantCode = computed(() => String(userInfo.value?.tenantCode || '').trim())
-  const isDeveloper = computed(() => {
-    const tenantCode = currentTenantCode.value
-    return typeof tenantCode === 'string' && tenantCode.toLowerCase() === 'super'
-  })
   const currentTenantName = computed(() => {
     const tenantName = String(userInfo.value?.tenantName || '').trim()
     if (tenantName) {
       return tenantName
     }
-    if (isDeveloper.value) {
-      return '平台管理'
-    }
-    return currentTenantCode.value || '未识别租户'
+    return currentTenantCode.value || '当前组织'
   })
   const currentTenantLabel = computed(() => {
-    const code = currentTenantCode.value
-    return code ? `${currentTenantName.value}（${code}）` : currentTenantName.value
+    return currentTenantName.value
   })
   const responseKey = ref(readStorageItem('responseKey'))
   const expireAt = ref(readStorageItem('expireAt'))
+  const mustChangePassword = ref(readStorageItem('mustChangePassword') === '1')
 
   const setLoginInfo = (loginData) => {
     token.value = loginData?.token || ''
@@ -63,6 +56,7 @@ export const useUserStore = defineStore('user', () => {
     features.value = Array.isArray(loginData?.features) ? loginData.features : []
     responseKey.value = loginData?.responseKey || ''
     expireAt.value = loginData?.expireAt ? String(loginData.expireAt) : ''
+    mustChangePassword.value = Boolean(loginData?.mustChangePassword)
 
     legacyStorage.removeItem('token')
     legacyStorage.removeItem('userInfo')
@@ -70,12 +64,14 @@ export const useUserStore = defineStore('user', () => {
     legacyStorage.removeItem('features')
     legacyStorage.removeItem('responseKey')
     legacyStorage.removeItem('expireAt')
+    legacyStorage.removeItem('mustChangePassword')
     authStorage.setItem('token', token.value)
     authStorage.setItem('userInfo', JSON.stringify(userInfo.value))
     authStorage.setItem('permissions', JSON.stringify(permissions.value))
     authStorage.setItem('features', JSON.stringify(features.value))
     authStorage.setItem('responseKey', responseKey.value)
     authStorage.setItem('expireAt', expireAt.value)
+    authStorage.setItem('mustChangePassword', mustChangePassword.value ? '1' : '0')
   }
 
   const renewSession = ({ token: renewedToken, responseKey: renewedResponseKey, expireAt: renewedExpireAt } = {}) => {
@@ -101,16 +97,20 @@ export const useUserStore = defineStore('user', () => {
     features.value = []
     responseKey.value = ''
     expireAt.value = ''
+    mustChangePassword.value = false
     removeLoginStorage()
+  }
+
+  const markPasswordChanged = () => {
+    mustChangePassword.value = false
+    authStorage.setItem('mustChangePassword', '0')
+    legacyStorage.removeItem('mustChangePassword')
   }
 
   const hasPermission = (permCode) => matchPermission(permissions.value, permCode)
   const hasAnyPermission = (permCodes) => matchAnyPermission(permissions.value, permCodes)
   const hasFeature = (featureCode) => {
     if (!featureCode) {
-      return true
-    }
-    if (isDeveloper.value) {
       return true
     }
     // Old sessions do not have feature data yet. Keep base modules usable, but never expose custom modules without an explicit grant.
@@ -134,15 +134,16 @@ export const useUserStore = defineStore('user', () => {
     currentTenantCode,
     currentTenantName,
     currentTenantLabel,
-    isDeveloper,
     responseKey,
     expireAt,
+    mustChangePassword,
     hasPermission,
     hasAnyPermission,
     hasFeature,
     hasAnyFeature,
     setLoginInfo,
     renewSession,
+    markPasswordChanged,
     logout
   }
 })

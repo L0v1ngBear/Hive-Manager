@@ -851,6 +851,7 @@ function buildPrintHtml(content) {
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https:; font-src data:; base-uri 'none'; form-action 'none'; script-src 'none'" />
   <title>出库单打印</title>
   <style>${printCss()}</style>
 </head>
@@ -1138,7 +1139,9 @@ function buildReceiptTemplateContent(config) {
 
 <style scoped>
 .receipt-page-shell {
-  min-height: calc(100vh - 5rem);
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
   background:
     radial-gradient(circle at 8% 0%, rgba(255, 196, 41, 0.18), transparent 32%),
     linear-gradient(180deg, #fffdf8 0%, #fffaf0 100%);
@@ -1179,8 +1182,10 @@ function buildReceiptTemplateContent(config) {
 }
 
 .receipt-workspace {
-  height: calc(100vh - 16rem);
+  flex: 1;
+  min-height: 0;
   max-width: 1500px;
+  width: 100%;
   margin: 0 auto;
   padding: 1rem;
   display: flex;
@@ -2080,12 +2085,13 @@ function buildReceiptTemplateContent(config) {
 
 @media (max-width: 1100px) {
   .receipt-workspace {
-    height: auto;
+    min-height: auto;
     flex-direction: column;
   }
 
   .queue-panel {
     width: 100%;
+    max-height: 420px;
   }
 
   .remark-editor-list {

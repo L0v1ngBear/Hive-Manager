@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
 import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.PageResult;
@@ -64,6 +65,7 @@ public class PriceController {
 
     @PostMapping("/publish")
     @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_PUBLISH, message = "您没有权限发布价格")
+    @CollectLog(module = "price", action = "publish", bizType = "price", description = "管理端发布价格")
     public Result<Long> publish(@Valid @RequestBody PricePublishRequest request) {
         return Result.success(priceService.publish(request));
     }
@@ -76,6 +78,7 @@ public class PriceController {
 
     @DeleteMapping("/{id}")
     @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_DELETE, message = "您没有权限删除价格")
+    @CollectLog(module = "price", action = "delete", bizType = "price", bizNo = "#id", description = "管理端删除价格")
     public Result<Void> delete(@PathVariable Long id) {
         priceService.delete(id);
         return Result.success(null);
@@ -95,6 +98,7 @@ public class PriceController {
 
     @GetMapping("/export-excel")
     @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_LIST, message = "您没有权限导出价格数据")
+    @CollectLog(module = "price", action = "export_excel", bizType = "price", description = "管理端导出价格 Excel")
     public void exportExcel(@Valid PricePageRequest request, HttpServletResponse response) {
         priceService.exportExcel(request, response);
     }
@@ -107,6 +111,7 @@ public class PriceController {
 
     @PostMapping("/import")
     @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_PUBLISH, message = "您没有权限导入价格数据")
+    @CollectLog(module = "price", action = "import", bizType = "price", description = "管理端导入价格数据")
     public Result<ImportResultVO> importPrices(@RequestParam("file") MultipartFile file) {
         return Result.success(priceService.importPrices(file));
     }

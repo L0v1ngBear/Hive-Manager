@@ -111,6 +111,11 @@
             </label>
             <button class="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors" @click="handleFilter">查询</button>
             <button class="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors" @click="resetFilter">重置</button>
+            <TableColumnSettings
+                :columns="attendanceTableColumns"
+                @move="moveAttendanceTableColumn"
+                @reset="resetAttendanceTableColumns"
+            />
           </div>
         </div>
 
@@ -122,34 +127,41 @@
           <table class="w-full text-left border-collapse min-w-[980px]">
             <thead class="bg-slate-50/80 sticky top-0 z-0">
             <tr>
-              <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">员工</th>
-              <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">工号</th>
-              <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">部门</th>
-              <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">上班打卡</th>
-              <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">下班打卡</th>
-              <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">状态</th>
-              <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">更新时间</th>
+              <th
+                  v-for="column in attendanceTableColumns"
+                  :key="column.key"
+                  class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider"
+              >
+                {{ column.label }}
+              </th>
             </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
             <tr v-for="row in rows" :key="row.id" class="hover:bg-blue-50/40 transition-colors">
-              <td class="px-6 py-4">
-                <div class="font-bold text-slate-800">{{ row.employeeName || '未命名员工' }}</div>
-                <div class="text-xs text-slate-400 mt-0.5">{{ row.phone || '--' }}</div>
+              <td
+                  v-for="column in attendanceTableColumns"
+                  :key="column.key"
+                  class="px-6 py-4"
+                  :class="attendanceCellClass(column.key)"
+              >
+                <template v-if="column.key === 'employee'">
+                  <div class="font-bold text-slate-800">{{ row.employeeName || '未命名员工' }}</div>
+                  <div class="text-xs text-slate-400 mt-0.5">{{ row.phone || '--' }}</div>
+                </template>
+                <template v-else-if="column.key === 'empNo'">{{ row.empNo || `UID-${row.userId}` }}</template>
+                <template v-else-if="column.key === 'department'">{{ row.departmentName || '未分配部门' }}</template>
+                <template v-else-if="column.key === 'signIn'">{{ formatTime(row.signInTime) }}</template>
+                <template v-else-if="column.key === 'signOut'">{{ formatTime(row.signOutTime) }}</template>
+                <template v-else-if="column.key === 'status'">
+                  <span :class="statusClass(row.status)" class="inline-flex px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider">
+                    {{ row.statusText || '正常' }}
+                  </span>
+                </template>
+                <template v-else-if="column.key === 'updateTime'">{{ formatDateTime(row.updateTime || row.createTime) }}</template>
               </td>
-              <td class="px-6 py-4 text-sm font-mono text-slate-500">{{ row.empNo || `UID-${row.userId}` }}</td>
-              <td class="px-6 py-4 text-sm text-slate-600">{{ row.departmentName || '未分配部门' }}</td>
-              <td class="px-6 py-4 text-sm font-mono text-slate-700">{{ formatTime(row.signInTime) }}</td>
-              <td class="px-6 py-4 text-sm font-mono text-slate-700">{{ formatTime(row.signOutTime) }}</td>
-              <td class="px-6 py-4">
-                <span :class="statusClass(row.status)" class="inline-flex px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider">
-                  {{ row.statusText || '正常' }}
-                </span>
-              </td>
-              <td class="px-6 py-4 text-xs text-slate-500">{{ formatDateTime(row.updateTime || row.createTime) }}</td>
             </tr>
             <tr v-if="!loading && rows.length === 0">
-              <td colspan="7" class="px-6 py-16 text-center">
+              <td :colspan="attendanceTableColumns.length" class="px-6 py-16 text-center">
                 <div class="flex flex-col items-center justify-center text-slate-400">
                   <span class="material-symbols-outlined text-5xl mb-2 opacity-50">event_busy</span>
                   <p class="text-sm">当前筛选条件下暂无考勤记录</p>
@@ -337,6 +349,8 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElDrawer } from 'element-plus'
 import { useRoute } from 'vue-router'
+import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import {
   exportAttendanceExcel,
   getAttendanceDepartments,
@@ -347,6 +361,20 @@ import {
 } from './api/attendance.js'
 
 const route = useRoute()
+const defaultAttendanceTableColumns = [
+  { key: 'employee', label: '员工' },
+  { key: 'empNo', label: '工号' },
+  { key: 'department', label: '部门' },
+  { key: 'signIn', label: '上班打卡' },
+  { key: 'signOut', label: '下班打卡' },
+  { key: 'status', label: '状态' },
+  { key: 'updateTime', label: '更新时间' }
+]
+const {
+  orderedColumns: attendanceTableColumns,
+  moveColumn: moveAttendanceTableColumn,
+  resetColumns: resetAttendanceTableColumns
+} = useLocalTableColumns('attendance.record.list', defaultAttendanceTableColumns)
 // 控制抽屉显示隐藏的变量
 const ruleDrawerVisible = ref(false)
 const weekDays = [
@@ -393,6 +421,13 @@ const stats = computed(() => [
   { label: '早退', value: summary.earlyCount, unit: '人', desc: '下班打卡早于规则时间', icon: 'logout', iconClass: 'text-amber-50', valueClass: 'text-amber-600' },
   { label: '缺勤/缺卡', value: summary.missingCount, unit: '人', desc: '缺勤或缺少打卡记录', icon: 'error', iconClass: 'text-rose-50', valueClass: 'text-rose-600' }
 ])
+
+function attendanceCellClass(key) {
+  if (key === 'empNo' || key === 'signIn' || key === 'signOut') return 'text-sm font-mono text-slate-700'
+  if (key === 'department') return 'text-sm text-slate-600'
+  if (key === 'updateTime') return 'text-xs text-slate-500'
+  return ''
+}
 
 applyRouteKeyword()
 refreshAll()

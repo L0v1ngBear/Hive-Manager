@@ -4,12 +4,12 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 /**
- * 次品处理请求。
+ * 质量记录处理请求。
  */
 @Data
 public class BadProductProcessRequest {
 
-    @NotBlank(message = "次品编号不能为空")
+    @NotBlank(message = "质量编号不能为空")
     private String defectiveId;
 
     @NotBlank(message = "处理方式不能为空")

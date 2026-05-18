@@ -76,4 +76,8 @@ public class CodeGeneratorUtil {
     public String generateProductionOrderCode() {
         return generateCode("PO", 4);
     }
+
+    public String generateResignationApprovalCode() {
+        return generateCode("RS", 4);
+    }
 }

@@ -87,60 +87,54 @@
     </section>
 
     <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.2fr)_minmax(350px,1fr)] gap-5">
-      <article v-if="visibility.aiAdviceVisible" class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 xl:col-span-2">
+      <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 xl:col-span-2">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h2 class="text-lg font-black text-on-surface leading-tight">AI 全局洞察</h2>
-            <p class="text-xs text-on-surface-variant mt-1">基于经营、客户和员工数据生成关键异动诊断，辅助管理层快速判断优先级。</p>
+            <h2 class="text-lg font-black text-on-surface leading-tight">企业通知公告</h2>
+            <p class="text-xs text-on-surface-variant mt-1">展示公司最新通知、制度公告和业务提醒，帮助团队统一节奏。</p>
           </div>
           <div class="flex items-center gap-2">
-            <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary">{{ aiAdvices.length }} 条</span>
-            <button @click="openAiAdviceCenter" class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90">
-              查看更多
+            <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary">{{ announcements.length }} 条</span>
+            <button @click="openAnnouncementCenter" class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90">
+              发布通知
             </button>
           </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div
-              v-if="aiAdviceLoading && !aiAdvices.length"
+              v-if="announcementLoading && !announcements.length"
               class="lg:col-span-2 rounded-2xl border border-dashed border-primary/25 bg-primary/5 px-4 py-6 text-sm font-bold text-primary flex items-center justify-center gap-2"
           >
             <span class="material-symbols-outlined animate-spin text-[22px]">progress_activity</span>
-            AI 洞察正在后台加载，不影响大盘数据查看
+            正在同步企业通知公告
           </div>
           <div
-              v-else-if="!aiAdvices.length"
+              v-else-if="!announcements.length"
               class="lg:col-span-2 rounded-2xl border border-dashed border-outline-variant/40 bg-surface-container-low px-4 py-6 text-sm font-bold text-on-surface-variant text-center"
           >
-            暂无可展示的 AI 洞察，系统会在数据沉淀后自动生成
+            暂无企业通知公告
           </div>
           <div
-              v-for="(item, index) in aiAdvices"
-              :key="`${item.category}-${index}`"
+              v-for="item in announcements"
+              :key="item.id || `${item.title}-${item.updateTime}`"
               class="rounded-2xl p-4 border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
-              :class="adviceCardClass(item.level)"
-              @click="openDashboardAdvice(item)"
+              :class="announcementCardClass(item.level)"
+              @click="openAnnouncementCenter"
           >
             <div class="flex items-start gap-3">
-              <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" :class="adviceIconClass(item.level)">
+              <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" :class="announcementIconClass(item.level)">
                 <span class="material-symbols-outlined text-[26px] leading-none">
-                  {{ item.icon || 'tips_and_updates' }}
+                  campaign
                 </span>
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-center justify-between gap-2">
                   <p class="text-sm font-black truncate">{{ item.title }}</p>
-                  <span class="text-[10px] font-bold uppercase tracking-widest opacity-70 shrink-0">{{ adviceLevelText(item.level) }}</span>
+                  <span class="text-[10px] font-bold uppercase tracking-widest opacity-70 shrink-0">{{ announcementLevelText(item.level) }}</span>
                 </div>
-                <div v-if="item.riskScore !== undefined || item.decisionType" class="mt-2 flex flex-wrap items-center gap-2">
-                  <span class="px-2 py-0.5 rounded-md text-[10px] font-black bg-white/70 text-primary">{{ item.decisionType || '决策辅助' }}</span>
-                  <span class="px-2 py-0.5 rounded-md text-[10px] font-black bg-white/70" :class="riskScoreClass(item.riskScore)">
-                    {{ item.riskScore ?? '--' }}分
-                  </span>
-                </div>
-                <p class="mt-2 text-sm leading-6 opacity-90">{{ item.summary }}</p>
-                <p class="mt-3 text-xs leading-6 font-medium opacity-80">{{ item.suggestion }}</p>
+                <p class="mt-2 text-sm leading-6 opacity-90 line-clamp-2">{{ item.content }}</p>
+                <p class="mt-3 text-xs leading-6 font-medium opacity-70">{{ formatAnnouncementTime(item.updateTime) }}</p>
               </div>
             </div>
           </div>
@@ -246,8 +240,8 @@
         <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 flex flex-col">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-black text-on-surface">今日考勤异常</h2>
-            <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-rose-50 text-rose-700">
-              {{ attendanceAlerts.length }} 人
+            <span :class="attendanceBadgeClass" class="px-2.5 py-1 rounded-md text-xs font-bold">
+              {{ attendanceSummary.abnormalCount || 0 }} 人
             </span>
           </div>
 
@@ -271,8 +265,11 @@
               </div>
             </div>
           </div>
-          <div v-else class="flex-1 rounded-xl bg-surface-container-low flex items-center justify-center text-sm text-on-surface-variant min-h-[120px]">
-            {{ visibility.attendanceVisible ? '今日全员考勤正常' : '暂无查看权限' }}
+          <div v-else class="flex-1 rounded-xl bg-surface-container-low flex flex-col items-center justify-center text-sm text-on-surface-variant min-h-[120px] px-4 text-center">
+            <p class="font-bold text-on-surface">{{ attendanceStatusText }}</p>
+            <p v-if="visibility.attendanceVisible" class="mt-2 text-xs">
+              应考勤 {{ attendanceSummary.totalEmployeeCount || 0 }} 人，已打卡 {{ attendanceSummary.actualCount || 0 }} 人
+            </p>
           </div>
         </article>
       </div>
@@ -295,7 +292,8 @@ import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { getDashboardAiAdvices, getDashboardOverview } from './api/dashboard.js'
+import { getDashboardOverview } from './api/dashboard.js'
+import { getAnnouncements } from '@/api/notification.js'
 import { trackBehavior } from '@/utils/behavior'
 
 defineOptions({ name: 'DashboardOverview' })
@@ -304,7 +302,7 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const loading = ref(false)
-const aiAdviceLoading = ref(false)
+const announcementLoading = ref(false)
 const summary = ref({
   monthOrderCount: 0,
   totalInventoryMeters: 0,
@@ -326,8 +324,15 @@ const trendInMeters = ref([])
 const trendOutMeters = ref([])
 const businessAlerts = ref([])
 const attendanceAlerts = ref([])
+const attendanceSummary = ref({
+  totalEmployeeCount: 0,
+  actualCount: 0,
+  abnormalCount: 0,
+  statusText: '暂无考勤数据',
+  statusType: 'empty'
+})
 const quickActions = ref([])
-const aiAdvices = ref([])
+const announcements = ref([])
 
 const userName = computed(() => userStore.userInfo?.userName || '管理员')
 
@@ -358,6 +363,30 @@ const inLinePoints = computed(() => chartPoints.value.map((item) => `${item.x},$
 const outLinePoints = computed(() => chartPoints.value.map((item) => `${item.x},${item.outY}`).join(' '))
 const chartReady = computed(() => chartPoints.value.length > 1)
 
+const attendanceStatusText = computed(() => {
+  if (!visibility.value.attendanceVisible) {
+    return '暂无查看权限'
+  }
+  return attendanceSummary.value?.statusText || '暂无考勤数据'
+})
+
+const attendanceBadgeClass = computed(() => {
+  const statusType = attendanceSummary.value?.statusType
+  if (!visibility.value.attendanceVisible) {
+    return 'bg-slate-100 text-slate-500'
+  }
+  if (statusType === 'warning') {
+    return 'bg-rose-50 text-rose-700'
+  }
+  if (statusType === 'normal') {
+    return 'bg-emerald-50 text-emerald-700'
+  }
+  if (statusType === 'waiting') {
+    return 'bg-amber-50 text-amber-700'
+  }
+  return 'bg-slate-100 text-slate-500'
+})
+
 const fetchOverview = async () => {
   loading.value = true
   try {
@@ -369,15 +398,9 @@ const fetchOverview = async () => {
     trendOutMeters.value = Array.isArray(data?.trendOutMeters) ? data.trendOutMeters : []
     businessAlerts.value = Array.isArray(data?.businessAlerts) ? data.businessAlerts : []
     attendanceAlerts.value = Array.isArray(data?.attendanceAlerts) ? data.attendanceAlerts : []
+    attendanceSummary.value = data?.attendanceSummary || attendanceSummary.value
     quickActions.value = Array.isArray(data?.quickActions) ? data.quickActions : []
-    aiAdvices.value = visibility.value.aiAdviceVisible && Array.isArray(data?.aiAdvices) ? data.aiAdvices : []
-    if (visibility.value.aiAdviceVisible) {
-      if (aiAdvices.value.length) {
-        trackDashboardAdviceExposure()
-      } else {
-        fetchDashboardAiAdvices()
-      }
-    }
+    fetchAnnouncements()
   } catch (error) {
     ElMessage.error(error?.msg || '总览数据加载失败，请稍后重试')
   } finally {
@@ -385,21 +408,18 @@ const fetchOverview = async () => {
   }
 }
 
-async function fetchDashboardAiAdvices() {
-  if (!visibility.value.aiAdviceVisible || aiAdviceLoading.value) {
+async function fetchAnnouncements() {
+  if (announcementLoading.value) {
     return
   }
-  aiAdviceLoading.value = true
+  announcementLoading.value = true
   try {
-    const data = await getDashboardAiAdvices({ limit: 4 })
-    aiAdvices.value = Array.isArray(data) ? data : []
-    if (aiAdvices.value.length) {
-      trackDashboardAdviceExposure()
-    }
+    const data = await getAnnouncements({ limit: 4 })
+    announcements.value = Array.isArray(data) ? data : []
   } catch (error) {
-    aiAdvices.value = []
+    announcements.value = []
   } finally {
-    aiAdviceLoading.value = false
+    announcementLoading.value = false
   }
 }
 
@@ -420,59 +440,17 @@ function openQuickAction(action) {
   router.push(action.route)
 }
 
-function openAiAdviceCenter() {
+function openAnnouncementCenter() {
   trackBehavior({
-    eventType: 'ai_advice_more_click',
+    eventType: 'announcement_center_click',
     pagePath: '/dashboard',
-    module: 'ai_advice',
+    module: 'notification',
     targetType: 'route',
-    targetId: '/dashboard/ai-advices',
+    targetId: '/function/announcement',
     action: 'click',
     source: 'dashboard'
   })
-  router.push('/dashboard/ai-advices')
-}
-
-function trackDashboardAdviceExposure() {
-  aiAdvices.value.slice(0, 8).forEach((item) => {
-    trackBehavior({
-      eventType: 'ai_advice_view',
-      pagePath: '/dashboard',
-      module: 'ai_advice',
-      targetType: 'advice',
-      targetId: `${item.category || 'overview'}:${item.title || ''}`,
-      action: 'view',
-      source: 'dashboard',
-      metadata: {
-        category: item.category,
-        level: item.level,
-        priority: item.priority,
-        route: item.route
-      }
-    })
-  })
-}
-
-function openDashboardAdvice(item) {
-  if (!item.route) {
-    return
-  }
-  trackBehavior({
-    eventType: 'ai_advice_click',
-    pagePath: '/dashboard',
-    module: 'ai_advice',
-    targetType: 'advice',
-    targetId: `${item.category || 'overview'}:${item.title || ''}`,
-    action: 'click',
-    source: 'dashboard',
-    metadata: {
-      category: item.category,
-      level: item.level,
-      priority: item.priority,
-      route: item.route
-    }
-  })
-  router.push(item.route)
+  router.push('/function/announcement')
 }
 
 const formatTrendValue = (value) => {
@@ -491,37 +469,37 @@ const alertCardClass = (level) => {
   return 'bg-sky-50/50 border-sky-300 text-sky-900'
 }
 
-const adviceCardClass = (level) => {
+const announcementCardClass = (level) => {
   if (level === 'warning') {
     return 'border-amber-200 bg-amber-50/60 text-amber-950'
   }
-  if (level === 'success') {
-    return 'border-emerald-200 bg-emerald-50/60 text-emerald-950'
+  if (level === 'critical') {
+    return 'border-rose-200 bg-rose-50/60 text-rose-950'
   }
   return 'border-sky-200 bg-sky-50/60 text-sky-950'
 }
 
-const adviceIconClass = (level) => {
+const announcementIconClass = (level) => {
   if (level === 'warning') {
     return 'bg-amber-100 text-amber-700'
   }
-  if (level === 'success') {
-    return 'bg-emerald-100 text-emerald-700'
+  if (level === 'critical') {
+    return 'bg-rose-100 text-rose-700'
   }
   return 'bg-sky-100 text-sky-700'
 }
 
-const adviceLevelText = (level) => {
-  if (level === 'warning') return '重点关注'
-  if (level === 'success') return '运行平稳'
-  return '建议动作'
+const announcementLevelText = (level) => {
+  if (level === 'critical') return '重要'
+  if (level === 'warning') return '提醒'
+  return '公告'
 }
 
-const riskScoreClass = (score) => {
-  if (score >= 85) return 'text-red-600'
-  if (score >= 70) return 'text-amber-600'
-  if (score <= 35) return 'text-emerald-600'
-  return 'text-primary'
+const formatAnnouncementTime = (value) => {
+  if (!value) return '--'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value).replace('T', ' ').slice(0, 16)
+  return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
 onMounted(fetchOverview)

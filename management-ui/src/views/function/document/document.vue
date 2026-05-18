@@ -1,5 +1,5 @@
 <template>
-  <div class="h-screen bg-surface text-on-surface flex overflow-hidden font-sans">
+  <div class="document-page bg-surface text-on-surface flex overflow-hidden font-sans">
     <aside class="w-64 bg-surface-container-lowest border-r border-outline-variant/20 flex flex-col shrink-0">
       <div class="h-16 flex items-center px-6 border-b border-outline-variant/20 shrink-0">
         <span class="material-symbols-outlined text-primary text-2xl mr-2">corporate_fare</span>
@@ -30,6 +30,24 @@
             <span class="material-symbols-outlined text-[18px]">refresh</span>
             刷新
           </button>
+          <input
+            v-model.trim="filters.keyword"
+            class="w-56 rounded-lg border border-outline-variant/30 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            placeholder="搜索文件名或扩展名"
+          />
+          <select
+            v-model="filters.type"
+            class="rounded-lg border border-outline-variant/30 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            <option value="">全部类型</option>
+            <option value="folder">文件夹</option>
+            <option value="file">文件</option>
+          </select>
+          <TableColumnSettings
+            :columns="documentTableColumns"
+            @move="moveDocumentTableColumn"
+            @reset="resetDocumentTableColumns"
+          />
         </div>
       </header>
 
@@ -53,27 +71,38 @@
           <table class="w-full text-left text-sm whitespace-nowrap">
             <thead class="bg-surface-container-low text-on-surface-variant font-bold text-xs sticky top-0 z-10 shadow-sm">
               <tr>
-                <th class="px-4 py-3 w-1/2">名称</th>
-                <th class="px-4 py-3 w-1/6">创建时间</th>
-                <th class="px-4 py-3 w-1/6">类型</th>
-                <th class="px-4 py-3 w-1/6 text-right">大小</th>
+                <th
+                  v-for="column in documentTableColumns"
+                  :key="column.key"
+                  class="px-4 py-3"
+                  :class="[column.widthClass, column.align === 'right' ? 'text-right' : '']"
+                >
+                  {{ column.label }}
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-outline-variant/10">
-              <tr v-for="doc in documentList" :key="doc.id" @dblclick="handleDoubleClick(doc)" class="hover:bg-primary/5 transition-colors group select-none cursor-default">
-                <td class="px-4 py-3 flex items-center gap-3">
-                  <span v-if="isFolder(doc)" class="material-symbols-outlined text-3xl text-amber-400" style="font-variation-settings: 'FILL' 1;">folder</span>
-                  <div v-else class="w-8 h-8 rounded flex items-center justify-center font-black text-[10px] text-white" :class="getFileIconColor(doc.fileExt)">
-                    {{ (doc.fileExt || 'FILE').toUpperCase() }}
-                  </div>
-                  <span class="font-bold text-primary group-hover:text-primary-fixed cursor-pointer truncate max-w-[300px]">{{ doc.name }}</span>
+              <tr v-for="doc in filteredDocumentList" :key="doc.id" @dblclick="handleDoubleClick(doc)" class="hover:bg-primary/5 transition-colors group select-none cursor-default">
+                <td
+                  v-for="column in documentTableColumns"
+                  :key="column.key"
+                  class="px-4 py-3"
+                  :class="documentCellClass(column.key)"
+                >
+                  <template v-if="column.key === 'name'">
+                    <span v-if="isFolder(doc)" class="material-symbols-outlined text-3xl text-amber-400" style="font-variation-settings: 'FILL' 1;">folder</span>
+                    <div v-else class="w-8 h-8 rounded flex items-center justify-center font-black text-[10px] text-white" :class="getFileIconColor(doc.fileExt)">
+                      {{ (doc.fileExt || 'FILE').toUpperCase() }}
+                    </div>
+                    <span class="font-bold text-primary group-hover:text-primary-fixed cursor-pointer truncate max-w-[300px]">{{ doc.name }}</span>
+                  </template>
+                  <template v-else-if="column.key === 'createTime'">{{ formatTime(doc.createTime) }}</template>
+                  <template v-else-if="column.key === 'type'">{{ isFolder(doc) ? '文件夹' : `${(doc.fileExt || 'unknown').toUpperCase()} 文件` }}</template>
+                  <template v-else-if="column.key === 'size'">{{ isFolder(doc) ? '--' : formatBytes(doc.fileSize) }}</template>
                 </td>
-                <td class="px-4 py-3 text-on-surface-variant">{{ formatTime(doc.createTime) }}</td>
-                <td class="px-4 py-3 text-on-surface-variant">{{ isFolder(doc) ? '文件夹' : `${(doc.fileExt || 'unknown').toUpperCase()} 文件` }}</td>
-                <td class="px-4 py-3 text-right text-on-surface-variant font-mono">{{ isFolder(doc) ? '--' : formatBytes(doc.fileSize) }}</td>
               </tr>
-              <tr v-if="!loading && documentList.length === 0">
-                <td colspan="4" class="px-4 py-16 text-center text-on-surface-variant/50">
+              <tr v-if="!loading && filteredDocumentList.length === 0">
+                <td :colspan="documentTableColumns.length" class="px-4 py-16 text-center text-on-surface-variant/50">
                   <span class="material-symbols-outlined text-4xl mb-2 opacity-50">folder_open</span>
                   <p class="font-medium text-sm">当前目录为空</p>
                 </td>
@@ -87,16 +116,40 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createFolder, getBreadcrumbs, getDocumentList } from './api/document.js'
+import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 
+const defaultDocumentTableColumns = [
+  { key: 'name', label: '名称', widthClass: 'w-1/2' },
+  { key: 'createTime', label: '创建时间', widthClass: 'w-1/6' },
+  { key: 'type', label: '类型', widthClass: 'w-1/6' },
+  { key: 'size', label: '大小', widthClass: 'w-1/6', align: 'right' }
+]
+const {
+  orderedColumns: documentTableColumns,
+  moveColumn: moveDocumentTableColumn,
+  resetColumns: resetDocumentTableColumns
+} = useLocalTableColumns('document.list', defaultDocumentTableColumns)
 const loading = ref(false)
 const currentParentId = ref(0)
 const documentList = ref([])
 const breadcrumbs = ref([])
+const filters = reactive({ keyword: '', type: '' })
 
 const currentFolderName = computed(() => breadcrumbs.value.at(-1)?.name || '根目录')
+const filteredDocumentList = computed(() => {
+  const keyword = filters.keyword.trim().toLowerCase()
+  return documentList.value.filter((doc) => {
+    const typeMatched = !filters.type || (filters.type === 'folder' ? isFolder(doc) : !isFolder(doc))
+    const keywordMatched = !keyword
+        || String(doc.name || '').toLowerCase().includes(keyword)
+        || String(doc.fileExt || '').toLowerCase().includes(keyword)
+    return typeMatched && keywordMatched
+  })
+})
 
 const fetchDocuments = async (parentId = 0) => {
   loading.value = true
@@ -111,13 +164,35 @@ const fetchDocuments = async (parentId = 0) => {
 
 const isFolder = (doc) => Number(doc.type) === 0
 
+const documentCellClass = (key) => {
+  if (key === 'name') return 'flex items-center gap-3'
+  if (key === 'size') return 'text-right text-on-surface-variant font-mono'
+  return 'text-on-surface-variant'
+}
+
+const openDocumentUrl = (fileUrl) => {
+  try {
+    const targetUrl = new URL(fileUrl, window.location.origin)
+    if (!['http:', 'https:'].includes(targetUrl.protocol)) {
+      ElMessage.warning('文件链接格式不合法')
+      return
+    }
+    const opened = window.open(targetUrl.href, '_blank', 'noopener,noreferrer')
+    if (opened) {
+      opened.opener = null
+    }
+  } catch (error) {
+    ElMessage.warning('文件链接格式不合法')
+  }
+}
+
 const handleDoubleClick = async (doc) => {
   if (isFolder(doc)) {
     await fetchDocuments(doc.id)
     return
   }
   if (doc.fileUrl) {
-    window.open(doc.fileUrl, '_blank')
+    openDocumentUrl(doc.fileUrl)
   } else {
     ElMessage.info('当前文件还没有可访问链接')
   }
@@ -186,3 +261,27 @@ const getFileIconColor = (ext) => {
 
 fetchDocuments(0)
 </script>
+
+<style scoped>
+.document-page {
+  min-height: 100%;
+  height: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .document-page {
+    min-height: 100%;
+    height: auto;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .document-page > aside {
+    width: 100%;
+    max-height: 220px;
+    border-right: 0;
+    border-bottom: 1px solid rgb(219 217 209 / 0.6);
+  }
+}
+</style>

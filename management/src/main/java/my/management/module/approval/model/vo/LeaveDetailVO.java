@@ -29,5 +29,7 @@ public class LeaveDetailVO {
 
     private Long auditorId;
 
+    private String auditorIds;
+
     private String auditorName;
 }

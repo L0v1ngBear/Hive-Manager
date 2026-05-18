@@ -16,6 +16,8 @@ public class InventorySummaryVO {
 
     private Long warningCount = 0L;
 
+    private BigDecimal warningThresholdMeters = BigDecimal.ZERO;
+
     private BigDecimal todayInMeters = BigDecimal.ZERO;
 
     private BigDecimal todayOutMeters = BigDecimal.ZERO;

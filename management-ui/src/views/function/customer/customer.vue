@@ -20,20 +20,53 @@
               search
             </span>
             <input
-              v-model.trim="keyword"
+              v-model.trim="filters.keyword"
               class="w-full rounded-lg border border-outline-variant/20 bg-surface-container-low py-2.5 pr-4 pl-10 text-sm focus:ring-2 focus:ring-primary/30 focus:outline-none"
-              placeholder="搜索客户名称、联系人或项目"
+              placeholder="搜索客户名称、联系人、项目或负责人"
               type="text"
               @keyup.enter="fetchCustomerList"
             />
           </div>
+          <select
+            v-model="filters.customerType"
+            class="rounded-lg border border-outline-variant/20 bg-surface-container-low px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/30 focus:outline-none"
+          >
+            <option value="">全部客户类型</option>
+            <option value="1">直客（甲方）</option>
+            <option value="2">总包方</option>
+            <option value="3">分包方</option>
+          </select>
+          <input
+            v-model="filters.createStart"
+            type="date"
+            class="rounded-lg border border-outline-variant/20 bg-surface-container-low px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/30 focus:outline-none"
+            title="创建开始日期"
+          />
+          <input
+            v-model="filters.createEnd"
+            type="date"
+            class="rounded-lg border border-outline-variant/20 bg-surface-container-low px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/30 focus:outline-none"
+            title="创建结束日期"
+          />
 
           <button
             class="function-action-secondary"
-            @click="fetchCustomerList"
+            @click="handleFilter"
           >
             <span class="material-symbols-outlined text-[20px]">refresh</span>刷新
           </button>
+          <button
+            class="function-action-secondary"
+            @click="resetFilter"
+          >
+            <span class="material-symbols-outlined text-[20px]">restart_alt</span>重置
+          </button>
+
+          <TableColumnSettings
+            :columns="visibleCustomerColumns"
+            @move="moveCustomerTableColumn"
+            @reset="resetCustomerTableColumns"
+          />
 
           <button
             class="function-action-primary"
@@ -227,7 +260,7 @@
                 <div v-else class="text-sm text-on-surface-variant">暂无联系人</div>
               </section>
 
-              <section v-if="isCustomerFieldVisible('projectName') || isCustomerFieldVisible('constructionArea')">
+              <section v-if="isCustomerFieldVisible('projectName') || isCustomerFieldVisible('constructionArea') || isCustomerFieldVisible('projectOwner')">
                 <h4 class="mb-3 text-sm font-bold text-primary">{{ fieldLabel('projectName', '合作项目') }}</h4>
                 <div v-if="detailData.projects?.length" class="space-y-3">
                   <div
@@ -238,6 +271,9 @@
                     <div v-if="isCustomerFieldVisible('projectName')" class="font-bold text-primary">{{ project.projectName || '未命名项目' }}</div>
                     <div v-if="isCustomerFieldVisible('constructionArea')" class="mt-1 text-sm text-on-surface-variant">
                       {{ fieldLabel('constructionArea', '施工区域') }}：{{ project.constructionArea || '未填写' }}
+                    </div>
+                    <div v-if="isCustomerFieldVisible('projectOwner')" class="mt-1 text-sm text-on-surface-variant">
+                      {{ fieldLabel('projectOwner', '项目负责人') }}：{{ project.projectOwner || '未填写' }}
                     </div>
                   </div>
                 </div>
@@ -252,7 +288,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { getCurrentTenantFieldConfig } from '@/api/tenantFieldConfig'
@@ -263,6 +299,8 @@ import {
   tenantFieldVisible,
   visibleTenantFields
 } from '@/utils/tenantFieldConfig'
+import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import CustomerCreateDrawer from './customerCreate.vue'
 import { getCustomerDetail, getCustomerPage } from './api/customer'
 
@@ -273,7 +311,7 @@ const loading = ref(false)
 const detailLoading = ref(false)
 const detailVisible = ref(false)
 const detailData = ref(null)
-const keyword = ref('')
+const filters = reactive({ keyword: '', customerType: '', createStart: '', createEnd: '' })
 const customerList = ref([])
 const total = ref(0)
 const totalPages = ref(1)
@@ -281,8 +319,13 @@ const pageNum = ref(1)
 const pageSize = ref(10)
 const customerFieldConfig = ref(defaultTenantFieldConfig('customer'))
 
-const customerColumnRenderers = new Set(['customerName', 'customerType', 'contactName', 'contactPhone', 'projectName', 'projectCount', 'constructionArea'])
-const visibleCustomerColumns = computed(() => visibleTenantFields(customerFieldConfig.value, 'customerName').filter((field) => customerColumnRenderers.has(field.key)))
+const customerColumnRenderers = new Set(['customerName', 'customerType', 'contactName', 'contactPhone', 'projectName', 'projectOwner', 'projectCount', 'constructionArea'])
+const defaultCustomerColumns = computed(() => visibleTenantFields(customerFieldConfig.value, 'customerName').filter((field) => customerColumnRenderers.has(field.key)))
+const {
+  orderedColumns: visibleCustomerColumns,
+  moveColumn: moveCustomerTableColumn,
+  resetColumns: resetCustomerTableColumns
+} = useLocalTableColumns('customer.list', defaultCustomerColumns)
 const customerTableColumnCount = computed(() => visibleCustomerColumns.value.length + 1)
 
 const getTypeLabel = (type) => {
@@ -300,6 +343,7 @@ function customerColumnText(customer, key) {
   if (key === 'contactPhone') return firstContact(customer)?.contactPhone || '--'
   if (key === 'projectCount') return `${customer?.projects?.length || customer?.projectCount || 0} 个`
   if (key === 'constructionArea') return firstProject(customer)?.constructionArea || customer?.constructionArea || '--'
+  if (key === 'projectOwner') return firstProject(customer)?.projectOwner || '--'
   return customer?.[key] || '--'
 }
 
@@ -318,7 +362,10 @@ async function fetchCustomerList() {
     const page = await getCustomerPage({
       pageNum: pageNum.value,
       pageSize: pageSize.value,
-      keyword: keyword.value || undefined
+      keyword: filters.keyword || undefined,
+      customerType: filters.customerType === '' ? undefined : Number(filters.customerType),
+      createStart: filters.createStart || undefined,
+      createEnd: filters.createEnd || undefined
     })
 
     total.value = Number(page?.total || 0)
@@ -367,10 +414,24 @@ async function changePage(nextPage) {
 
 function applyRouteKeyword() {
   const routeKeyword = String(route.query.keyword || route.query.q || '').trim()
-  if (routeKeyword !== keyword.value) {
-    keyword.value = routeKeyword
+  if (routeKeyword !== filters.keyword) {
+    filters.keyword = routeKeyword
     pageNum.value = 1
   }
+}
+
+function handleFilter() {
+  pageNum.value = 1
+  fetchCustomerList()
+}
+
+function resetFilter() {
+  filters.keyword = ''
+  filters.customerType = ''
+  filters.createStart = ''
+  filters.createEnd = ''
+  pageNum.value = 1
+  fetchCustomerList()
 }
 
 onMounted(async () => {

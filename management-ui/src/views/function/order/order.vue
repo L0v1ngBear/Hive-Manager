@@ -1,5 +1,6 @@
 <template>
-  <div class="space-y-6">
+  <div class="function-page-shell h-full min-h-0 font-body">
+    <div class="function-page-container space-y-6">
     <header class="function-page-header">
       <div>
         <div class="function-page-eyebrow">
@@ -10,17 +11,29 @@
         <p class="function-page-desc">
           统一管理销售订单和生产订单，支持抽屉式新建、编辑、详情查看和状态流转追踪。</p>
       </div>
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div class="stat-card">
-            <div class="stat-label">销售订单数量</div>
-            <div class="stat-value">{{ salesState.total }}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">生产订单数量</div>
-            <div class="stat-value">{{ productionState.total }}</div>
-          </div>
+      <div class="flex flex-col gap-3 xl:flex-row xl:items-stretch">
+        <div class="order-summary-grid">
+          <button
+              v-for="card in summaryCards"
+              :key="card.key"
+              type="button"
+              class="stat-card text-left"
+              :class="isSummaryCardActive(card) ? 'stat-card-active' : ''"
+              @click="selectSummaryCard(card)"
+          >
+            <div class="stat-label">{{ card.label }}</div>
+            <div class="stat-value">{{ card.count }}</div>
+            <div class="stat-hint">{{ card.hint }}</div>
+          </button>
         </div>
+        <button
+            v-permission="'order:warning:setting'"
+            class="order-warning-setting-btn"
+            @click="openOrderWarningSetting"
+        >
+          <span class="material-symbols-outlined text-[20px]">notification_important</span>
+          预警设置
+        </button>
         <button class="function-action-primary px-6 py-4"
                 @click="openCreate">
           {{ currentTab === 'sales' ? '新建销售订单' : '新建生产订单' }}
@@ -42,36 +55,81 @@
         </button>
       </div>
       <div
-          class="grid grid-cols-1 gap-4 border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-5 md:grid-cols-[minmax(0,1fr)_220px_auto]">
+          class="grid grid-cols-1 gap-4 border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-5 xl:grid-cols-6">
         <input
             v-model.trim="filters.keyword"
             class="box-input"
             :placeholder="currentTab === 'sales' ? '搜索订单号、客户、项目或商品描述' : '搜索生产单号、销售单号、客户、项目或型号'"
             @keyup.enter="refreshCurrentTab"
         />
-        <select v-model="filters.status" class="box-input" @change="refreshCurrentTab">
-          <option value="">全部状态</option>
-          <option v-for="status in currentStatuses" :key="status.value" :value="status.value">{{
-              status.label
-            }}
-          </option>
+        <input
+            v-model.trim="filters.customerName"
+            class="box-input"
+            placeholder="客户名称"
+            @keyup.enter="refreshCurrentTab"
+        />
+        <select v-if="currentTab === 'sales'" v-model="filters.invoiceStatus" class="box-input">
+          <option value="">全部开票</option>
+          <option value="1">已开票</option>
+          <option value="0">未开票</option>
         </select>
-        <button class="rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-on-primary" @click="refreshCurrentTab">
-          查询
-        </button>
+        <select v-else v-model="filters.process" class="box-input">
+          <option value="">全部工序</option>
+          <option v-for="item in processOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+        </select>
+        <div class="flex flex-wrap items-center gap-2">
+          <button class="rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-on-primary" @click="refreshCurrentTab">
+            查询
+          </button>
+          <button class="rounded-lg border border-outline-variant/30 bg-white px-5 py-2.5 text-sm font-bold text-on-surface" @click="resetFilters">
+            重置
+          </button>
+          <TableColumnSettings
+              :columns="orderTableColumns"
+              @move="moveOrderTableColumn"
+              @reset="resetOrderTableColumns"
+          />
+        </div>
+        <div class="grid grid-cols-1 gap-3 xl:col-span-6 md:grid-cols-2">
+          <label class="flex items-center gap-2 text-xs font-bold text-on-surface-variant">
+            <span>创建时间</span>
+            <input v-model="filters.createStart" type="date" class="box-input min-w-0 flex-1" />
+            <span>至</span>
+            <input v-model="filters.createEnd" type="date" class="box-input min-w-0 flex-1" />
+          </label>
+          <label class="flex items-center gap-2 text-xs font-bold text-on-surface-variant">
+            <span>交付时间</span>
+            <input v-model="filters.deliveryStart" type="date" class="box-input min-w-0 flex-1" />
+            <span>至</span>
+            <input v-model="filters.deliveryEnd" type="date" class="box-input min-w-0 flex-1" />
+          </label>
+        </div>
+        <div class="status-chip-row xl:col-span-6">
+          <button
+              v-for="status in currentStatusTabs"
+              :key="status.value || 'all'"
+              type="button"
+              class="status-chip"
+              :class="!filters.staleOnly && filters.status === status.value ? 'status-chip-active' : ''"
+              @click="selectStatus(status.value)"
+          >
+            <span>{{ status.label }}</span>
+            <strong>{{ status.count }}</strong>
+          </button>
+        </div>
       </div>
 
       <div class="overflow-x-auto">
         <table class="min-w-[1220px] w-full text-left">
           <thead class="bg-surface-container-low/50">
           <tr>
-            <th class="th-cell">编号</th>
-            <th class="th-cell">客户 / 项目</th>
-            <th class="th-cell">核心信息</th>
-            <th class="th-cell">交付信息</th>
-            <th class="th-cell">开票</th>
-            <th class="th-cell">状态</th>
-            <th class="th-cell">时间</th>
+            <th
+                v-for="column in orderTableColumns"
+                :key="column.key"
+                class="th-cell"
+            >
+              {{ column.label }}
+            </th>
             <th class="th-cell text-right">操作</th>
           </tr>
           </thead>
@@ -79,69 +137,97 @@
           <tr
               v-for="row in currentState.rows"
               :key="row.orderId"
-              class="group cursor-pointer hover:bg-surface-container-high/30"
+              class="order-table-row group cursor-pointer"
+              :class="[orderRowClass(row.status), row.staleWarning ? 'order-row-stale-warning' : '']"
               @click="openDetail(row.orderId)"
           >
-            <td class="td-cell">
-              <div class="font-bold text-primary">{{ row.orderId }}</div>
-              <div class="mt-1 text-xs text-on-surface-variant">
-                {{ currentTab === 'sales' ? `明细 ${row.detailCount || 0} 项` : `数量 ${row.quantity || 0}` }}
-              </div>
-            </td>
-            <td class="td-cell">
-              <div class="font-bold text-primary">{{ row.customerName || '未填写客户' }}</div>
-              <div class="mt-1 text-xs text-on-surface-variant">{{ row.projectName || '未填写项目' }}</div>
-            </td>
-            <td class="td-cell">
-              <template v-if="currentTab === 'sales'">
-                <div class="max-w-[320px] truncate font-bold text-primary">{{ row.goodsDesc || '未填写商品信息' }}</div>
-                <div class="mt-1 text-xs text-on-surface-variant">总数量 {{ row.totalQuantity || 0 }} / 金额
-                  ￥{{ formatAmount(row.totalAmount) }}
-                </div>
-              </template>
-              <template v-else>
-                <div class="font-bold text-primary">{{ row.modelCode || '未填写型号' }}</div>
-                <div class="mt-1 text-xs text-on-surface-variant">{{ formatNumber(row.weight) }} 克 /
-                  {{ formatNumber(row.width) }} 规格
-                </div>
-              </template>
-            </td>
-            <td class="td-cell">
-              <template v-if="currentTab === 'sales'">
-                <div class="text-sm text-on-surface-variant">{{ row.deliveryDate || '未填写交付日期' }}</div>
+            <td
+                v-for="column in orderTableColumns"
+                :key="column.key"
+                class="td-cell"
+                :class="column.key === 'time' ? 'text-sm text-on-surface-variant' : ''"
+            >
+              <template v-if="column.key === 'orderNo'">
+                <div class="font-bold text-primary">{{ row.orderId }}</div>
                 <div class="mt-1 text-xs text-on-surface-variant">
-                  {{ row.expressCompany || '未发货' }}
-                  <template v-if="row.expressNo"> / {{ row.expressNo }}</template>
+                  {{ currentTab === 'sales' ? `明细 ${row.detailCount || 0} 项` : `数量 ${row.quantity || 0}` }}
+                </div>
+                <div v-if="row.staleWarning" class="order-stale-tag">
+                  <span class="material-symbols-outlined text-[14px]">warning</span>
+                  {{ row.staleDays || row.staleWarningDays || 0 }} 天未更新
                 </div>
               </template>
-              <template v-else>
-                <div class="text-sm text-on-surface-variant">{{ row.salesOrderId || '未关联销售单' }}</div>
-                <div class="mt-1 text-xs text-on-surface-variant">{{
-                    formatDateTime(row.deliveryDate || row.createTime)
-                  }}
-                </div>
+              <template v-else-if="column.key === 'customer'">
+                <div class="font-bold text-primary">{{ row.customerName || '未填写客户' }}</div>
+                <div class="mt-1 text-xs text-on-surface-variant">{{ row.projectName || '未填写项目' }}</div>
               </template>
-            </td>
-            <td class="td-cell">
-              <template v-if="currentTab === 'sales'">
-                  <span :class="invoiceClass(row.isInvoice)"
-                        class="inline-flex rounded-full px-3 py-1 text-xs font-bold">
-                    {{ invoiceLabel(row.isInvoice) }}
+              <template v-else-if="column.key === 'core'">
+                <template v-if="currentTab === 'sales'">
+                  <div class="max-w-[320px] truncate font-bold text-primary">{{ row.goodsDesc || '未填写商品信息' }}</div>
+                  <div class="mt-1 text-xs text-on-surface-variant">总数量 {{ row.totalQuantity || 0 }} / 金额
+                    ￥{{ formatAmount(row.totalAmount) }}
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="font-bold text-primary">{{ row.modelCode || '未填写型号' }}</div>
+                  <div class="mt-1 text-xs text-on-surface-variant">{{ formatNumber(row.weight) }} 克 /
+                    {{ formatNumber(row.width) }} 规格
+                  </div>
+                </template>
+              </template>
+              <template v-else-if="column.key === 'delivery'">
+                <template v-if="currentTab === 'sales'">
+                  <div class="text-sm text-on-surface-variant">{{ row.deliveryDate || '未填写交付日期' }}</div>
+                  <div class="mt-1 text-xs text-on-surface-variant">
+                    {{ row.expressCompany || '未发货' }}
+                    <template v-if="row.expressNo"> / {{ row.expressNo }}</template>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="text-sm text-on-surface-variant">{{ row.salesOrderId || '未关联销售单' }}</div>
+                  <div class="mt-1 text-xs text-on-surface-variant">{{
+                      formatDateTime(row.deliveryDate || row.createTime)
+                    }}
+                  </div>
+                </template>
+              </template>
+              <template v-else-if="column.key === 'invoice'">
+                <template v-if="currentTab === 'sales'">
+                    <span :class="invoiceClass(row.isInvoice)"
+                          class="order-status-pill">
+                      {{ invoiceLabel(row.isInvoice) }}
+                    </span>
+                </template>
+                <template v-else>
+                  <span class="text-xs text-on-surface-variant">--</span>
+                </template>
+              </template>
+              <template v-else-if="column.key === 'status'">
+                  <span
+                      class="order-status-pill"
+                      :class="currentTab === 'sales' ? salesStatusClass(row.status) : productionStatusClass(row.status)"
+                  >
+                    {{ currentTab === 'sales' ? salesStatusLabel(row.status) : productionStatusLabel(row.status) }}
                   </span>
               </template>
-              <template v-else>
-                <span class="text-xs text-on-surface-variant">--</span>
+              <template v-else-if="column.key === 'progress'">
+                <div class="order-progress-cell">
+                  <div class="order-progress-meta">
+                    <span>{{ orderProgress(row).label }}</span>
+                    <strong>{{ orderProgress(row).percent }}%</strong>
+                  </div>
+                  <div class="order-progress-track">
+                    <div
+                        class="order-progress-bar"
+                        :style="{ width: `${orderProgress(row).percent}%` }"
+                    ></div>
+                  </div>
+                </div>
+              </template>
+              <template v-else-if="column.key === 'time'">
+                {{ formatDateTime(row.createTime) }}
               </template>
             </td>
-            <td class="td-cell">
-                <span
-                    class="inline-flex rounded-full px-3 py-1 text-xs font-bold"
-                    :class="currentTab === 'sales' ? salesStatusClass(row.status) : productionStatusClass(row.status)"
-                >
-                  {{ currentTab === 'sales' ? salesStatusLabel(row.status) : productionStatusLabel(row.status) }}
-                </span>
-            </td>
-            <td class="td-cell text-sm text-on-surface-variant">{{ formatDateTime(row.createTime) }}</td>
             <td class="td-cell">
               <div class="flex justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                 <button class="icon-btn text-secondary" @click.stop="openDetail(row.orderId)">
@@ -154,7 +240,7 @@
             </td>
           </tr>
           <tr v-if="!currentState.loading && !currentState.rows.length">
-            <td colspan="8" class="px-6 py-14 text-center text-sm text-on-surface-variant">暂无订单数据</td>
+            <td :colspan="orderTableColumnCount" class="px-6 py-14 text-center text-sm text-on-surface-variant">暂无订单数据</td>
           </tr>
           </tbody>
         </table>
@@ -363,7 +449,7 @@
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="relative">
                   <label class="field-label">客户名称 *</label>
-                  <input v-model.trim="salesForm.customerName" class="box-input pr-10" type="text"
+                  <input v-model.trim="salesForm.customerName" data-field="sales.customerName" class="box-input pr-10" type="text"
                          placeholder="输入或选择客户"
                          autocomplete="off"
                          @focus="handleSalesCustomerFocus"
@@ -390,7 +476,7 @@
                 </div>
                 <div class="relative">
                   <label class="field-label">项目名称 *</label>
-                  <input v-model.trim="salesForm.projectName" class="box-input pr-10" type="text"
+                  <input v-model.trim="salesForm.projectName" data-field="sales.projectName" class="box-input pr-10" type="text"
                          placeholder="选择客户后自动带出，也可输入新项目"
                          autocomplete="off"
                          @focus="handleProjectFocus"
@@ -409,7 +495,7 @@
                 </div>
                 <div>
                   <label class="field-label">交付日期 *</label>
-                  <input v-model="salesForm.deliveryDate" class="box-input" type="date"/>
+                  <input v-model="salesForm.deliveryDate" data-field="sales.deliveryDate" class="box-input" type="date"/>
                 </div>
               </div>
 
@@ -420,12 +506,12 @@
                 </div>
                 <div v-for="(item, index) in salesForm.items" :key="index" class="detail-item">
                   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input v-model.trim="item.modelCode" class="box-input" placeholder="型号" type="text"/>
-                    <input v-model.number="item.quantity" class="box-input" placeholder="数量" type="number" min="0.01"
+                    <input v-model.trim="item.modelCode" :data-field="`sales.items.${index}.modelCode`" class="box-input" placeholder="型号" type="text"/>
+                    <input v-model.number="item.quantity" :data-field="`sales.items.${index}.quantity`" class="box-input" placeholder="数量" type="number" min="0.01"
                            step="0.01"/>
-                    <input v-model.number="item.weight" class="box-input" placeholder="克重" type="number" min="0.01"
+                    <input v-model.number="item.weight" :data-field="`sales.items.${index}.weight`" class="box-input" placeholder="克重" type="number" min="0.01"
                            step="0.01"/>
-                    <input v-model.number="item.spec" class="box-input" placeholder="规格" type="number" min="0.01"
+                    <input v-model.number="item.spec" :data-field="`sales.items.${index}.spec`" class="box-input" placeholder="规格" type="number" min="0.01"
                            step="0.01"/>
                   </div>
                   <div class="mt-2 flex justify-end">
@@ -460,11 +546,11 @@
                 </div>
                 <div v-if="salesForm.status === 'shipped'">
                   <label class="field-label">物流公司</label>
-                  <input v-model.trim="salesForm.expressCompany" class="box-input" type="text"/>
+                  <input v-model.trim="salesForm.expressCompany" data-field="sales.expressCompany" class="box-input" type="text"/>
                 </div>
                 <div v-if="salesForm.status === 'shipped'">
                   <label class="field-label">物流单号</label>
-                  <input v-model.trim="salesForm.expressNo" class="box-input" type="text"/>
+                  <input v-model.trim="salesForm.expressNo" data-field="sales.expressNo" class="box-input" type="text"/>
                 </div>
               </div>
               <div>
@@ -511,15 +597,49 @@
                 </div>
                 <div>
                   <label class="field-label">交付日期 *</label>
-                  <input v-model="productionForm.deliveryDate" class="box-input" type="date"/>
+                  <input v-model="productionForm.deliveryDate" data-field="production.deliveryDate" class="box-input" type="date"/>
                 </div>
-                <div>
+                <div class="relative">
                   <label class="field-label">客户名称</label>
-                  <input v-model.trim="productionForm.customerName" class="box-input" type="text"/>
+                  <input v-model.trim="productionForm.customerName" class="box-input pr-10" type="text"
+                         placeholder="输入或选择客户"
+                         autocomplete="off"
+                         @focus="handleProductionCustomerFocus"
+                         @input="handleProductionCustomerInput"
+                         @blur="handleProductionCustomerBlur"/>
+                  <span class="material-symbols-outlined combo-arrow">expand_more</span>
+                  <div v-if="showProductionCustomerOptions" class="combo-panel">
+                    <button v-for="option in customerOptions" :key="option.id" type="button" class="combo-option"
+                            @mousedown.prevent="chooseProductionCustomer(option)">
+                      <span class="font-bold text-on-surface">{{ option.customerName }}</span>
+                      <span class="text-xs text-on-surface-variant">{{ option.contactPhone || '未维护电话' }}</span>
+                      <span v-if="option.projectNames?.length" class="text-[11px] text-primary">
+                        项目：{{ option.projectNames.slice(0, 2).join('、') }}
+                      </span>
+                    </button>
+                  </div>
+                  <p v-if="productionCustomerCreateHintVisible" class="mt-1 text-[11px] text-on-surface-variant">
+                    未匹配到客户，保存后会自动归档到客户管理。
+                  </p>
                 </div>
-                <div>
+                <div class="relative">
                   <label class="field-label">项目名称</label>
-                  <input v-model.trim="productionForm.projectName" class="box-input" type="text"/>
+                  <input v-model.trim="productionForm.projectName" class="box-input pr-10" type="text"
+                         placeholder="选择客户后自动带出，也可输入新项目"
+                         autocomplete="off"
+                         @focus="handleProductionProjectFocus"
+                         @input="handleProductionProjectInput"
+                         @blur="handleProductionProjectBlur"/>
+                  <span class="material-symbols-outlined combo-arrow">expand_more</span>
+                  <div v-if="showProductionProjectOptions" class="combo-panel">
+                    <button v-for="projectName in selectedProductionCustomerProjects" :key="projectName" type="button"
+                            class="combo-option" @mousedown.prevent="chooseProductionProject(projectName)">
+                      <span class="font-bold text-on-surface">{{ projectName }}</span>
+                    </button>
+                  </div>
+                  <p v-if="productionProjectCreateHintVisible" class="mt-1 text-[11px] text-on-surface-variant">
+                    新项目保存后会归档到该客户。
+                  </p>
                 </div>
                 <div>
                   <label class="field-label">联系电话</label>
@@ -535,19 +655,19 @@
                 </div>
                 <div>
                   <label class="field-label">面料型号 *</label>
-                  <input v-model.trim="productionForm.modelCode" class="box-input" type="text"/>
+                  <input v-model.trim="productionForm.modelCode" data-field="production.modelCode" class="box-input" type="text"/>
                 </div>
                 <div>
                   <label class="field-label">数量 *</label>
-                  <input v-model.number="productionForm.quantity" class="box-input" type="number" min="1" step="1"/>
+                  <input v-model.number="productionForm.quantity" data-field="production.quantity" class="box-input" type="number" min="1" step="1"/>
                 </div>
                 <div>
                   <label class="field-label">克重 *</label>
-                  <input v-model.number="productionForm.weight" class="box-input" type="number" min="0.01" step="0.01"/>
+                  <input v-model.number="productionForm.weight" data-field="production.weight" class="box-input" type="number" min="0.01" step="0.01"/>
                 </div>
                 <div>
                   <label class="field-label">规格 *</label>
-                  <input v-model.number="productionForm.spec" class="box-input" type="number" min="0.01" step="0.01"/>
+                  <input v-model.number="productionForm.spec" data-field="production.spec" class="box-input" type="number" min="0.01" step="0.01"/>
                 </div>
                 <div>
                   <label class="field-label">面料材质</label>
@@ -591,32 +711,59 @@
         </aside>
       </transition>
     </Teleport>
+    </div>
   </div>
 </template>
 
 <script setup>
 import {computed, onMounted, reactive, ref, watch} from 'vue'
-import {ElMessage} from 'element-plus'
+import {ElMessage, ElMessageBox} from 'element-plus'
 import {useRoute} from 'vue-router'
 import {getCustomerOptions} from '../customer/api/customer'
+import {warnAndFocusField} from '@/utils/formFocus'
+import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import {
   createProductionOrder,
   createSalesOrder,
   getProductionOrderDetail,
   getProductionOrderPage,
+  getProductionOrderStatusSummary,
+  getOrderWarningSetting,
+  getOrderWarningSummary,
   getSalesOrderDetail,
   getSalesOrderPage,
+  getSalesOrderStatusSummary,
   downloadSalesOrderAttachment,
   saveProductionOrder,
   saveSalesOrder,
+  updateOrderWarningSetting,
   uploadSalesOrderAttachment
 } from './api/order'
 
 const route = useRoute()
 const tabs = [{id: 'sales', label: '销售订单'}, {id: 'production', label: '生产订单'}]
+const defaultOrderTableColumns = [
+  {key: 'orderNo', label: '编号'},
+  {key: 'customer', label: '客户 / 项目'},
+  {key: 'core', label: '核心信息'},
+  {key: 'delivery', label: '交付信息'},
+  {key: 'invoice', label: '开票'},
+  {key: 'status', label: '状态'},
+  {key: 'progress', label: '进度'},
+  {key: 'time', label: '时间'}
+]
+const {
+  orderedColumns: orderTableColumns,
+  moveColumn: moveOrderTableColumn,
+  resetColumns: resetOrderTableColumns
+} = useLocalTableColumns('order.list', defaultOrderTableColumns)
+const orderTableColumnCount = computed(() => orderTableColumns.value.length + 1)
 const salesStatuses = [
   {value: 'pending_confirm', label: '待确认'},
   {value: 'pending_pay', label: '待收款'},
+  {value: 'pending_material', label: '备料中'},
+  {value: 'producing', label: '生产中'},
   {value: 'pending_ship', label: '待发货'},
   {value: 'shipped', label: '已发货'},
   {value: 'completed', label: '已完成'},
@@ -638,10 +785,25 @@ const processOptions = [
   {value: 4, label: '卷布'}
 ]
 
-const filters = reactive({keyword: '', status: ''})
+const filters = reactive({
+  keyword: '',
+  status: '',
+  customerName: '',
+  invoiceStatus: '',
+  process: '',
+  deliveryStart: '',
+  deliveryEnd: '',
+  createStart: '',
+  createEnd: '',
+  staleOnly: false
+})
 const currentTab = ref('sales')
 const salesState = reactive({rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false})
 const productionState = reactive({rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false})
+const salesSummary = reactive({total: 0})
+const productionSummary = reactive({total: 0})
+const orderWarningSetting = reactive({staleWarningDays: 3})
+const orderWarningSummary = reactive({staleWarningDays: 3, salesCount: 0, productionCount: 0, totalCount: 0})
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const salesDetail = ref(null)
@@ -649,6 +811,8 @@ const productionDetail = ref(null)
 const customerOptions = ref([])
 const customerDropdownVisible = ref(false)
 const projectDropdownVisible = ref(false)
+const productionCustomerDropdownVisible = ref(false)
+const productionProjectDropdownVisible = ref(false)
 const formVisible = ref(false)
 const formMode = ref('create')
 const editingOrderId = ref('')
@@ -660,23 +824,62 @@ const salesAttachmentUploading = ref(false)
 
 const currentStatuses = computed(() => currentTab.value === 'sales' ? salesStatuses : productionStatuses)
 const currentState = computed(() => currentTab.value === 'sales' ? salesState : productionState)
+const currentSummary = computed(() => currentTab.value === 'sales' ? salesSummary : productionSummary)
+const currentStatusTabs = computed(() => [
+  {value: '', label: '全部订单', count: currentSummary.value.total || 0},
+  ...currentStatuses.value.map(status => ({
+    ...status,
+    label: `${status.label}订单`,
+    count: currentSummary.value[status.value] || 0
+  }))
+])
+const summaryCards = computed(() => {
+  const salesCards = [
+    {key: 'sales-total', tab: 'sales', label: '销售订单总量', status: '', count: salesSummary.total || salesState.total || 0, hint: '全部销售订单'},
+    {key: 'sales-confirm', tab: 'sales', label: '待确认订单', status: 'pending_confirm', count: salesSummary.pending_confirm || 0, hint: '待客户/业务确认'},
+    {key: 'sales-pay', tab: 'sales', label: '待收款订单', status: 'pending_pay', count: salesSummary.pending_pay || 0, hint: '待收款跟进'},
+    {key: 'sales-ship', tab: 'sales', label: '待发货订单', status: 'pending_ship', count: salesSummary.pending_ship || 0, hint: '待安排发货'},
+    {key: 'sales-stale', tab: 'sales', label: '未更新预警', staleOnly: true, count: orderWarningSummary.salesCount || 0, hint: `超过 ${orderWarningSummary.staleWarningDays || orderWarningSetting.staleWarningDays || 3} 天未更新`}
+  ]
+  const productionCards = [
+    {key: 'production-total', tab: 'production', label: '生产订单总量', status: '', count: productionSummary.total || productionState.total || 0, hint: '全部生产订单'},
+    {key: 'production-confirm', tab: 'production', label: '待确认订单', status: 'pending_confirm', count: productionSummary.pending_confirm || 0, hint: '待排产确认'},
+    {key: 'production-material', tab: 'production', label: '备料中订单', status: 'pending_material', count: productionSummary.pending_material || 0, hint: '原料准备中'},
+    {key: 'production-doing', tab: 'production', label: '生产中订单', status: 'producing', count: productionSummary.producing || 0, hint: '车间执行中'},
+    {key: 'production-stale', tab: 'production', label: '未更新预警', staleOnly: true, count: orderWarningSummary.productionCount || 0, hint: `超过 ${orderWarningSummary.staleWarningDays || orderWarningSetting.staleWarningDays || 3} 天未更新`}
+  ]
+  return currentTab.value === 'sales' ? salesCards : productionCards
+})
 const selectedCustomerOption = computed(() => {
   const customerName = normalizeText(salesForm.customerName)
   if (!customerName) return null
   return customerOptions.value.find(item => normalizeText(item.customerName) === customerName) || null
 })
+const selectedProductionCustomerOption = computed(() => {
+  const customerName = normalizeText(productionForm.customerName)
+  if (!customerName) return null
+  return customerOptions.value.find(item => normalizeText(item.customerName) === customerName) || null
+})
 const selectedCustomerProjects = computed(() => selectedCustomerOption.value?.projectNames || [])
+const selectedProductionCustomerProjects = computed(() => selectedProductionCustomerOption.value?.projectNames || [])
 const showCustomerOptions = computed(() => customerDropdownVisible.value && customerOptions.value.length > 0)
 const showProjectOptions = computed(() => projectDropdownVisible.value && selectedCustomerProjects.value.length > 0)
+const showProductionCustomerOptions = computed(() => productionCustomerDropdownVisible.value && customerOptions.value.length > 0)
+const showProductionProjectOptions = computed(() => productionProjectDropdownVisible.value && selectedProductionCustomerProjects.value.length > 0)
 const customerCreateHintVisible = computed(() => Boolean(normalizeText(salesForm.customerName)) && !selectedCustomerOption.value)
 const projectCreateHintVisible = computed(() => {
   const projectName = normalizeText(salesForm.projectName)
   return Boolean(selectedCustomerOption.value && projectName && !selectedCustomerProjects.value.includes(projectName))
 })
+const productionCustomerCreateHintVisible = computed(() => Boolean(normalizeText(productionForm.customerName)) && !selectedProductionCustomerOption.value)
+const productionProjectCreateHintVisible = computed(() => {
+  const projectName = normalizeText(productionForm.projectName)
+  return Boolean(selectedProductionCustomerOption.value && projectName && !selectedProductionCustomerProjects.value.includes(projectName))
+})
 
 onMounted(async () => {
   applyRouteSearch()
-  await Promise.all([loadSalesOrders(), loadProductionOrders(), loadCustomerOptions()])
+  await Promise.all([loadSalesOrders(), loadProductionOrders(), loadOrderSummaries(), loadCustomerOptions()])
 })
 
 watch(
@@ -751,6 +954,8 @@ function resetSalesForm() {
 
 function resetProductionForm() {
   Object.assign(productionForm, defaultProductionForm())
+  productionCustomerDropdownVisible.value = false
+  productionProjectDropdownVisible.value = false
 }
 
 async function loadCustomerOptions(keyword) {
@@ -771,9 +976,7 @@ async function handleSalesCustomerInput() {
 
 async function handleSalesCustomerFocus() {
   customerDropdownVisible.value = true
-  if (!customerOptions.value.length) {
-    await loadCustomerOptions()
-  }
+  await loadCustomerOptions(normalizeText(salesForm.customerName) || undefined)
 }
 
 function handleSalesCustomerBlur() {
@@ -836,11 +1039,140 @@ function chooseProject(projectName) {
   projectDropdownVisible.value = false
 }
 
+async function handleProductionCustomerInput() {
+  productionCustomerDropdownVisible.value = true
+  const keyword = normalizeText(productionForm.customerName)
+  await loadCustomerOptions(keyword || undefined)
+  if (!keyword) {
+    productionForm.projectName = ''
+    return
+  }
+  applyMatchedProductionCustomer(false)
+}
+
+async function handleProductionCustomerFocus() {
+  productionCustomerDropdownVisible.value = true
+  await loadCustomerOptions(normalizeText(productionForm.customerName) || undefined)
+}
+
+function handleProductionCustomerBlur() {
+  setTimeout(() => {
+    productionCustomerDropdownVisible.value = false
+    applyMatchedProductionCustomer(true)
+  }, 160)
+}
+
+function chooseProductionCustomer(option) {
+  if (!option) {
+    return
+  }
+  productionForm.customerName = option.customerName || ''
+  if (option.contactPhone) {
+    productionForm.contactPhone = option.contactPhone
+  }
+  applyProductionCustomerProject(option, true)
+  productionCustomerDropdownVisible.value = false
+  productionProjectDropdownVisible.value = Boolean(option.projectNames?.length > 1)
+}
+
+function applyMatchedProductionCustomer(autoFillProject) {
+  const option = selectedProductionCustomerOption.value
+  if (!option) {
+    return
+  }
+  if (option.contactPhone && !productionForm.contactPhone) {
+    productionForm.contactPhone = option.contactPhone
+  }
+  applyProductionCustomerProject(option, autoFillProject)
+}
+
+function applyProductionCustomerProject(option, forceFill) {
+  const projectNames = Array.isArray(option?.projectNames) ? option.projectNames : []
+  if (!projectNames.length) {
+    return
+  }
+  if (forceFill || !productionForm.projectName || !projectNames.includes(productionForm.projectName)) {
+    productionForm.projectName = projectNames[0]
+  }
+}
+
+function handleProductionProjectFocus() {
+  productionProjectDropdownVisible.value = true
+}
+
+function handleProductionProjectInput() {
+  productionProjectDropdownVisible.value = true
+}
+
+function handleProductionProjectBlur() {
+  setTimeout(() => {
+    productionProjectDropdownVisible.value = false
+  }, 160)
+}
+
+function chooseProductionProject(projectName) {
+  productionForm.projectName = projectName
+  productionProjectDropdownVisible.value = false
+}
+
 function switchTab(tabId) {
   if (currentTab.value !== tabId) {
     currentTab.value = tabId
-    filters.keyword = ''
+    resetFilters(false)
+  }
+}
+
+async function selectSummaryCard(card) {
+  if (!card) return
+  if (currentTab.value !== card.tab) {
+    currentTab.value = card.tab
+    resetFilters(false)
+  }
+  if (card.staleOnly) {
     filters.status = ''
+    filters.staleOnly = true
+    await refreshCurrentTab()
+    return
+  }
+  filters.staleOnly = false
+  await selectStatus(card.status || '')
+}
+
+async function selectStatus(status) {
+  const nextStatus = status || ''
+  if (filters.status === nextStatus && !filters.staleOnly) {
+    return
+  }
+  filters.staleOnly = false
+  filters.status = nextStatus
+  await refreshCurrentTab()
+}
+
+function isSummaryCardActive(card) {
+  if (!card || currentTab.value !== card.tab) {
+    return false
+  }
+  if (card.staleOnly) {
+    return Boolean(filters.staleOnly)
+  }
+  return !filters.staleOnly && card.status === filters.status
+}
+
+async function resetFilters(refresh = true) {
+  filters.keyword = ''
+  filters.status = ''
+  filters.customerName = ''
+  filters.invoiceStatus = ''
+  filters.process = ''
+  filters.deliveryStart = ''
+  filters.deliveryEnd = ''
+  filters.createStart = ''
+  filters.createEnd = ''
+  filters.staleOnly = false
+  salesState.page = 1
+  productionState.page = 1
+  if (refresh) {
+    await refreshCurrentTab()
   }
 }
 
@@ -851,6 +1183,77 @@ async function refreshCurrentTab() {
   } else {
     await loadProductionOrders()
   }
+}
+
+async function loadOrderSummaries() {
+  await Promise.all([loadSalesSummary(), loadProductionSummary(), loadOrderWarningSummary()])
+}
+
+async function loadSalesSummary() {
+  try {
+    assignSummary(salesSummary, await getSalesOrderStatusSummary())
+  } catch (error) {
+    console.warn('加载销售订单统计失败', error)
+  }
+}
+
+async function loadProductionSummary() {
+  try {
+    assignSummary(productionSummary, await getProductionOrderStatusSummary())
+  } catch (error) {
+    console.warn('加载生产订单统计失败', error)
+  }
+}
+
+async function loadOrderWarningSummary() {
+  try {
+    const [setting, summary] = await Promise.all([getOrderWarningSetting(), getOrderWarningSummary()])
+    orderWarningSetting.staleWarningDays = Number(setting?.staleWarningDays || 3)
+    orderWarningSummary.staleWarningDays = Number(summary?.staleWarningDays || orderWarningSetting.staleWarningDays || 3)
+    orderWarningSummary.salesCount = Number(summary?.salesCount || 0)
+    orderWarningSummary.productionCount = Number(summary?.productionCount || 0)
+    orderWarningSummary.totalCount = Number(summary?.totalCount || 0)
+  } catch (error) {
+    console.warn('加载订单预警统计失败', error)
+  }
+}
+
+async function openOrderWarningSetting() {
+  const currentDays = Number(orderWarningSetting.staleWarningDays || orderWarningSummary.staleWarningDays || 3)
+  try {
+    const {value} = await ElMessageBox.prompt(
+        '设置订单超过多少天未更新后进入预警列表。系统采用懒查询策略，只在打开订单页或筛选预警时计算，不做后台轮询。',
+        '订单未更新预警设置',
+        {
+          confirmButtonText: '保存',
+          cancelButtonText: '取消',
+          inputValue: String(currentDays),
+          inputPlaceholder: '请输入 1-365 天',
+          inputPattern: /^[1-9]\d{0,2}$/,
+          inputErrorMessage: '请输入 1-365 之间的整数',
+          inputValidator: (text) => {
+            const days = Number(text)
+            return Number.isInteger(days) && days >= 1 && days <= 365 ? true : '请输入 1-365 之间的整数'
+          }
+        }
+    )
+    const staleWarningDays = Number(value)
+    const setting = await updateOrderWarningSetting({staleWarningDays})
+    orderWarningSetting.staleWarningDays = Number(setting?.staleWarningDays || staleWarningDays)
+    ElMessage.success('订单预警设置已保存')
+    await Promise.all([loadOrderSummaries(), refreshCurrentTab()])
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      throw error
+    }
+  }
+}
+
+function assignSummary(target, source = {}) {
+  Object.keys(target).forEach(key => delete target[key])
+  Object.entries(source || {}).forEach(([key, value]) => {
+    target[key] = Number(value || 0)
+  })
 }
 
 async function changePage(page) {
@@ -869,7 +1272,14 @@ async function loadSalesOrders() {
       pageNum: salesState.page,
       pageSize: salesState.size,
       keyword: filters.keyword || undefined,
-      status: currentTab.value === 'sales' ? filters.status || undefined : undefined
+      status: currentTab.value === 'sales' ? filters.status || undefined : undefined,
+      customerName: filters.customerName || undefined,
+      isInvoice: filters.invoiceStatus === '' ? undefined : Number(filters.invoiceStatus),
+      deliveryStart: filters.deliveryStart || undefined,
+      deliveryEnd: filters.deliveryEnd || undefined,
+      createStart: filters.createStart || undefined,
+      createEnd: filters.createEnd || undefined,
+      staleOnly: filters.staleOnly || undefined
     })
     salesState.rows = res.data || []
     salesState.total = res.total || 0
@@ -886,7 +1296,14 @@ async function loadProductionOrders() {
       pageNum: productionState.page,
       pageSize: productionState.size,
       keyword: filters.keyword || undefined,
-      status: currentTab.value === 'production' ? filters.status || undefined : undefined
+      status: currentTab.value === 'production' ? filters.status || undefined : undefined,
+      customerName: filters.customerName || undefined,
+      process: filters.process === '' ? undefined : Number(filters.process),
+      deliveryStart: filters.deliveryStart || undefined,
+      deliveryEnd: filters.deliveryEnd || undefined,
+      createStart: filters.createStart || undefined,
+      createEnd: filters.createEnd || undefined,
+      staleOnly: filters.staleOnly || undefined
     })
     productionState.rows = res.data || []
     productionState.total = res.total || 0
@@ -981,6 +1398,8 @@ function closeForm() {
   formVisible.value = false
   customerDropdownVisible.value = false
   projectDropdownVisible.value = false
+  productionCustomerDropdownVisible.value = false
+  productionProjectDropdownVisible.value = false
 }
 
 function addSalesItem() {
@@ -1065,6 +1484,7 @@ async function submitForm() {
       closeForm()
       await loadSalesOrders()
       if (payload.createProductionOrder === 1) await loadProductionOrders()
+      await loadOrderSummaries()
       return
     }
 
@@ -1078,34 +1498,38 @@ async function submitForm() {
     ElMessage.success(formMode.value === 'create' ? '生产订单创建成功' : '生产订单保存成功')
     closeForm()
     await loadProductionOrders()
+    await loadOrderSummaries()
   } finally {
     submitting.value = false
   }
 }
 
 function validateSalesForm() {
-  if (!salesForm.customerName.trim()) fail('请输入客户名称')
-  if (!salesForm.projectName.trim()) fail('请输入项目名称')
-  if (!salesForm.deliveryDate) fail('请选择交付日期')
-  if (!salesForm.items.length) fail('请至少添加一个商品明细')
-  if (salesForm.status === 'shipped' && (!String(salesForm.expressCompany || '').trim() || !String(salesForm.expressNo || '').trim())) {
-    fail('订单变更为已发货时必须填写物流公司和物流单号')
+  if (!salesForm.customerName.trim()) fail('请输入客户名称', 'sales.customerName')
+  if (!salesForm.projectName.trim()) fail('请输入项目名称', 'sales.projectName')
+  if (!salesForm.deliveryDate) fail('请选择交付日期', 'sales.deliveryDate')
+  if (!salesForm.items.length) fail('请至少添加一个商品明细', 'sales.items')
+  if (salesForm.status === 'shipped' && !String(salesForm.expressCompany || '').trim()) {
+    fail('订单变更为已发货时必须填写物流公司', 'sales.expressCompany')
+  }
+  if (salesForm.status === 'shipped' && !String(salesForm.expressNo || '').trim()) {
+    fail('订单变更为已发货时必须填写物流单号', 'sales.expressNo')
   }
   salesForm.items.forEach((item, index) => {
     const label = `第 ${index + 1} 项`
-    if (!String(item.modelCode || '').trim()) fail(`${label}型号不能为空`)
-    if (!Number(item.quantity) || Number(item.quantity) <= 0) fail(`${label}数量必须大于 0`)
-    if (!Number(item.weight) || Number(item.weight) <= 0) fail(`${label}克重必须大于 0`)
-    if (!Number(item.spec) || Number(item.spec) <= 0) fail(`${label}规格必须大于 0`)
+    if (!String(item.modelCode || '').trim()) fail(`${label}型号不能为空`, `sales.items.${index}.modelCode`)
+    if (!Number(item.quantity) || Number(item.quantity) <= 0) fail(`${label}数量必须大于 0`, `sales.items.${index}.quantity`)
+    if (!Number(item.weight) || Number(item.weight) <= 0) fail(`${label}克重必须大于 0`, `sales.items.${index}.weight`)
+    if (!Number(item.spec) || Number(item.spec) <= 0) fail(`${label}规格必须大于 0`, `sales.items.${index}.spec`)
   })
 }
 
 function validateProductionForm() {
-  if (!productionForm.modelCode.trim()) fail('请输入面料型号')
-  if (!productionForm.deliveryDate) fail('请选择交付日期')
-  if (!Number(productionForm.weight) || Number(productionForm.weight) <= 0) fail('克重必须大于 0')
-  if (!Number(productionForm.spec) || Number(productionForm.spec) <= 0) fail('规格必须大于 0')
-  if (!Number(productionForm.quantity) || Number(productionForm.quantity) < 1) fail('数量至少为 1')
+  if (!productionForm.modelCode.trim()) fail('请输入面料型号', 'production.modelCode')
+  if (!productionForm.deliveryDate) fail('请选择交付日期', 'production.deliveryDate')
+  if (!Number(productionForm.weight) || Number(productionForm.weight) <= 0) fail('克重必须大于 0', 'production.weight')
+  if (!Number(productionForm.spec) || Number(productionForm.spec) <= 0) fail('规格必须大于 0', 'production.spec')
+  if (!Number(productionForm.quantity) || Number(productionForm.quantity) < 1) fail('数量至少为 1', 'production.quantity')
 }
 
 function buildSalesPayload() {
@@ -1164,8 +1588,8 @@ function salesLogTitle(log) {
   return oldStatus ? `${oldStatus} → ${newStatus}` : newStatus
 }
 
-function fail(message) {
-  ElMessage.warning(message)
+function fail(message, field) {
+  warnAndFocusField(message, field)
   throw new Error(message)
 }
 
@@ -1244,6 +1668,45 @@ function productionStatusClass(status) {
     'bg-green-100 text-green-700': status === 'completed'
   }
 }
+
+function orderRowClass(status) {
+  const normalized = String(status || 'unset').replace(/[^a-zA-Z0-9_-]/g, '')
+  return `order-row-status-${normalized || 'unset'}`
+}
+
+function orderProgress(row = {}) {
+  const status = row?.status || ''
+  const isProduction = currentTab.value === 'production'
+  const baseMap = isProduction
+    ? {
+      pending_confirm: 12,
+      pending_material: 28,
+      producing: productionProcessProgress(row),
+      pending_ship: 78,
+      shipped: 90,
+      completed: 100,
+      cancelled: 0
+    }
+    : {
+      pending_confirm: 12,
+      pending_pay: 28,
+      pending_material: 36,
+      producing: 56,
+      pending_ship: 72,
+      shipped: 88,
+      completed: 100,
+      cancelled: 0
+    }
+  const percent = Math.max(0, Math.min(100, Number(baseMap[status] ?? 8)))
+  const label = isProduction ? productionStatusLabel(status) : salesStatusLabel(status)
+  return {percent, label}
+}
+
+function productionProcessProgress(row = {}) {
+  const processValue = Number(row.process ?? 0)
+  const processIndex = Number.isFinite(processValue) ? Math.max(0, Math.min(4, processValue)) : 0
+  return 40 + (processIndex + 1) * 6
+}
 </script>
 
 <style scoped>
@@ -1301,6 +1764,103 @@ function productionStatusClass(status) {
   transform: translateY(-1px)
 }
 
+.order-status-pill {
+  display: inline-flex;
+  min-width: 4.75rem;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: .5rem .9rem;
+  font-size: .75rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center
+}
+
+.order-progress-cell {
+  min-width: 9rem;
+}
+
+.order-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  font-size: .72rem;
+  font-weight: 800;
+  color: rgb(var(--on-surface-variant));
+}
+
+.order-progress-meta strong {
+  color: rgb(var(--primary));
+}
+
+.order-progress-track {
+  margin-top: .45rem;
+  height: .48rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(31, 111, 255, .1);
+}
+
+.order-progress-bar {
+  height: 100%;
+  min-width: .5rem;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(var(--primary)), rgb(var(--secondary)));
+  box-shadow: 0 4px 12px rgba(31, 111, 255, .24);
+  transition: width .25s ease;
+}
+
+.order-table-row {
+  --order-row-bg: rgba(31, 111, 255, .035);
+  --order-row-accent: rgba(31, 111, 255, .32);
+  background: linear-gradient(90deg, var(--order-row-bg), rgba(255, 255, 255, .9));
+  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.order-table-row:hover {
+  background: linear-gradient(90deg, var(--order-row-bg), rgba(255, 255, 255, .96));
+  box-shadow: inset 0 0 0 9999px rgba(255, 255, 255, .08);
+}
+
+.order-table-row > .td-cell:first-child {
+  box-shadow: inset 4px 0 0 var(--order-row-accent);
+}
+
+.order-row-status-pending_confirm,
+.order-row-status-pending_pay {
+  --order-row-bg: rgba(255, 176, 0, .13);
+  --order-row-accent: rgba(245, 158, 11, .62);
+}
+
+.order-row-status-pending_material {
+  --order-row-bg: rgba(114, 46, 209, .10);
+  --order-row-accent: rgba(114, 46, 209, .58);
+}
+
+.order-row-status-producing,
+.order-row-status-pending_ship {
+  --order-row-bg: rgba(31, 111, 255, .10);
+  --order-row-accent: rgba(31, 111, 255, .58);
+}
+
+.order-row-status-shipped {
+  --order-row-bg: rgba(19, 194, 194, .10);
+  --order-row-accent: rgba(13, 148, 136, .55);
+}
+
+.order-row-status-completed {
+  --order-row-bg: rgba(34, 197, 94, .10);
+  --order-row-accent: rgba(22, 163, 74, .58);
+}
+
+.order-row-status-cancelled {
+  --order-row-bg: rgba(239, 68, 68, .10);
+  --order-row-accent: rgba(220, 38, 38, .58);
+}
+
 .attachment-uploader {
   margin-top: .5rem;
   cursor: pointer;
@@ -1325,13 +1885,77 @@ function productionStatusClass(status) {
   font-weight: 800
 }
 
+.order-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(132px, 1fr));
+  gap: .75rem;
+}
+
+@media (min-width: 1280px) {
+  .order-summary-grid {
+    grid-template-columns: repeat(5, minmax(132px, 1fr));
+  }
+}
+
+.order-warning-setting-btn {
+  display: inline-flex;
+  min-height: 4.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(245, 158, 11, .35);
+  background: rgba(255, 255, 255, .88);
+  padding: 1rem 1.25rem;
+  font-size: .875rem;
+  font-weight: 900;
+  color: rgb(var(--primary));
+  box-shadow: 0 10px 26px rgba(245, 158, 11, .1);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.order-warning-setting-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(245, 158, 11, .7);
+  box-shadow: 0 16px 36px rgba(245, 158, 11, .16);
+}
+
 .stat-card {
   min-width: 132px;
   border-radius: 1rem;
   border: 1px solid rgba(0, 82, 204, .1);
   background: rgb(var(--surface-container-high));
   padding: 1rem 1.25rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, .05)
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease
+}
+
+.stat-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(245, 158, 11, .45);
+  box-shadow: 0 14px 34px rgba(245, 158, 11, .12)
+}
+
+.stat-card-active {
+  border-color: rgba(245, 158, 11, .8);
+  background: linear-gradient(135deg, rgba(255, 248, 224, .95), rgba(255, 255, 255, .98))
+}
+
+.order-row-stale-warning {
+  background: linear-gradient(90deg, rgba(255, 247, 237, .88), rgba(255, 255, 255, .96));
+}
+
+.order-stale-tag {
+  margin-top: .5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  border-radius: 999px;
+  background: rgba(254, 243, 199, .95);
+  padding: .25rem .55rem;
+  font-size: .72rem;
+  font-weight: 900;
+  color: rgb(180, 83, 9);
 }
 
 .stat-label {
@@ -1348,6 +1972,52 @@ function productionStatusClass(status) {
   line-height: 2.25rem;
   font-weight: 900;
   color: rgb(var(--primary))
+}
+
+.stat-hint {
+  margin-top: .25rem;
+  font-size: .75rem;
+  color: rgb(var(--on-surface-variant))
+}
+
+.status-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 82, 204, .1);
+  background: rgba(255, 255, 255, .82);
+  padding: .55rem .85rem;
+  font-size: .84rem;
+  font-weight: 800;
+  color: rgb(var(--on-surface-variant));
+  transition: border-color .18s ease, background .18s ease, color .18s ease
+}
+
+.status-chip strong {
+  min-width: 1.65rem;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, .13);
+  padding: .1rem .45rem;
+  color: rgb(var(--primary));
+  text-align: center
+}
+
+.status-chip-active {
+  border-color: rgba(245, 158, 11, .78);
+  background: rgb(var(--primary));
+  color: rgb(var(--on-primary))
+}
+
+.status-chip-active strong {
+  background: rgba(255, 255, 255, .24);
+  color: rgb(var(--on-primary))
 }
 
 .th-cell {

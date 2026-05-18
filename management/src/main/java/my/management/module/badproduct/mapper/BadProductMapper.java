@@ -5,7 +5,7 @@ import my.management.module.badproduct.model.entity.BadProductRecord;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 次品记录数据访问层。
+ * 质量记录数据访问层。
  */
 @Mapper
 public interface BadProductMapper extends BaseMapper<BadProductRecord> {

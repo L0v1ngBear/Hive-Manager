@@ -21,5 +21,7 @@ public class LoginUserRow {
 
     private String password;
 
+    private Integer mustChangePassword;
+
     private Integer userStatus;
 }

@@ -59,7 +59,24 @@
               <option :value="2">计划中</option>
               <option :value="0">已过期</option>
             </select>
-            <button @click="fetchData" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold">查询</button>
+            <input v-model.trim="query.batchNo" @keyup.enter="handleFilter" class="w-32 px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none" placeholder="批号" />
+            <input v-model.trim="query.spec" @keyup.enter="handleFilter" class="w-32 px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none" placeholder="规格" />
+            <select v-model="query.currency" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none">
+              <option value="">全部币种</option>
+              <option value="CNY">CNY</option>
+              <option value="USD">USD</option>
+            </select>
+            <input v-model.trim="query.priceMin" type="number" min="0" step="0.01" class="w-28 px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none" placeholder="最低价" />
+            <input v-model.trim="query.priceMax" type="number" min="0" step="0.01" class="w-28 px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none" placeholder="最高价" />
+            <input v-model="query.effectiveStart" type="date" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none" title="生效开始日期" />
+            <input v-model="query.effectiveEnd" type="date" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none" title="生效结束日期" />
+            <button @click="handleFilter" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold">查询</button>
+            <button @click="resetFilter" class="px-4 py-2 bg-surface-container-highest text-on-surface rounded-lg text-sm font-bold">重置</button>
+            <TableColumnSettings
+              :columns="priceTableColumns"
+              @move="movePriceTableColumn"
+              @reset="resetPriceTableColumns"
+            />
           </div>
           <span class="text-xs text-on-surface-variant">共 {{ pagination.total }} 条价格记录</span>
         </div>
@@ -71,32 +88,41 @@
           <table class="w-full text-left border-collapse min-w-[960px]">
             <thead class="bg-surface-container-low/50">
               <tr>
-                <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">面料型号</th>
-                <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">规格说明</th>
-                <th class="px-6 py-4 text-right text-xs font-black text-on-surface-variant uppercase tracking-wider">基准价</th>
-                <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">币种</th>
-                <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">生效日期</th>
-                <th class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider">状态</th>
+                <th
+                  v-for="column in priceTableColumns"
+                  :key="column.key"
+                  class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider"
+                  :class="column.align === 'right' ? 'text-right' : ''"
+                >
+                  {{ column.label }}
+                </th>
                 <th class="px-6 py-4 text-right text-xs font-black text-on-surface-variant uppercase tracking-wider">操作</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-surface-variant/30">
               <tr v-for="item in rows" :key="item.id" class="cursor-pointer hover:bg-surface-container-high/40 transition-colors" @click="openDetail(item)">
-                <td class="px-6 py-4">
-                  <div>
+                <td
+                  v-for="column in priceTableColumns"
+                  :key="column.key"
+                  class="px-6 py-4"
+                  :class="priceCellClass(column.key)"
+                >
+                  <template v-if="column.key === 'modelCode'">
                     <div>
                       <p class="text-sm font-bold text-primary">{{ item.modelCode }}</p>
                       <p class="text-[10px] text-on-surface-variant">{{ item.batchNo || '未填写批号' }}</p>
                     </div>
-                  </div>
+                  </template>
+                  <template v-else-if="column.key === 'spec'">
+                    <div class="text-xs text-on-surface-variant">{{ item.spec || '--' }}</div>
+                  </template>
+                  <template v-else-if="column.key === 'basePrice'">¥{{ money(item.basePrice) }} <span class="text-[10px] text-on-surface-variant">/m</span></template>
+                  <template v-else-if="column.key === 'currency'">{{ item.currency }}</template>
+                  <template v-else-if="column.key === 'effectiveDate'">{{ item.effectiveDate }}</template>
+                  <template v-else-if="column.key === 'status'">
+                    <span :class="statusClass(item.status)" class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold">{{ item.statusLabel }}</span>
+                  </template>
                 </td>
-                <td class="px-6 py-4">
-                  <div class="text-xs text-on-surface-variant">{{ item.spec || '--' }}</div>
-                </td>
-                <td class="px-6 py-4 text-right text-sm font-black text-primary">¥{{ money(item.basePrice) }} <span class="text-[10px] text-on-surface-variant">/m</span></td>
-                <td class="px-6 py-4 text-xs font-bold">{{ item.currency }}</td>
-                <td class="px-6 py-4 text-xs text-on-surface-variant font-medium">{{ item.effectiveDate }}</td>
-                <td class="px-6 py-4"><span :class="statusClass(item.status)" class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold">{{ item.statusLabel }}</span></td>
                 <td class="px-6 py-4 text-right space-x-2">
                   <button @click.stop="openDetail(item)" class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-xs font-bold">详情</button>
                   <button @click.stop="openCreate(item)" class="text-secondary hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-xs font-bold">调整</button>
@@ -104,7 +130,7 @@
                 </td>
               </tr>
               <tr v-if="!loading && rows.length === 0">
-                <td colspan="7" class="px-6 py-12 text-center text-sm text-on-surface-variant">暂无价格记录。</td>
+                <td :colspan="priceTableColumnCount" class="px-6 py-12 text-center text-sm text-on-surface-variant">暂无价格记录。</td>
               </tr>
             </tbody>
           </table>
@@ -173,6 +199,8 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
 import PriceCreateDrawer from './priceCreate.vue'
+import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import {
   deletePrice,
   downloadPriceImportTemplate,
@@ -184,12 +212,38 @@ import {
 } from './api/price.js'
 
 const route = useRoute()
+const defaultPriceTableColumns = [
+  { key: 'modelCode', label: '面料型号' },
+  { key: 'spec', label: '规格说明' },
+  { key: 'basePrice', label: '基准价', align: 'right' },
+  { key: 'currency', label: '币种' },
+  { key: 'effectiveDate', label: '生效日期' },
+  { key: 'status', label: '状态' }
+]
+const {
+  orderedColumns: priceTableColumns,
+  moveColumn: movePriceTableColumn,
+  resetColumns: resetPriceTableColumns
+} = useLocalTableColumns('price.list', defaultPriceTableColumns)
+const priceTableColumnCount = computed(() => priceTableColumns.value.length + 1)
 const loading = ref(false)
 const rows = ref([])
 const stats = reactive({ skuCount: 0, averagePrice: 0, pendingCount: 0, overrideCount: 0 })
 const pagination = reactive({ total: 0, pages: 0 })
 // 分类已下线，列表只保留仍然生效的查询条件。
-const query = reactive({ page: 1, size: 10, keyword: '', status: '' })
+const query = reactive({
+  page: 1,
+  size: 10,
+  keyword: '',
+  status: '',
+  batchNo: '',
+  spec: '',
+  currency: '',
+  priceMin: '',
+  priceMax: '',
+  effectiveStart: '',
+  effectiveEnd: ''
+})
 const createVisible = ref(false)
 const editingSku = ref(null)
 const detailVisible = ref(false)
@@ -197,11 +251,18 @@ const detail = ref(null)
 const importInputRef = ref(null)
 const totalPages = computed(() => Math.max(Number(pagination.pages || 1), 1))
 
+function priceCellClass(key) {
+  if (key === 'basePrice') return 'text-right text-sm font-black text-primary'
+  if (key === 'currency') return 'text-xs font-bold'
+  if (key === 'effectiveDate') return 'text-xs text-on-surface-variant font-medium'
+  return ''
+}
+
 async function fetchData() {
   loading.value = true
   try {
     // 页面列表直接复用后端分页结果，避免再拼接已经废弃的分类参数。
-    const data = await getPricePage({ ...query, status: query.status === '' ? undefined : Number(query.status) })
+    const data = await getPricePage(normalizedQuery())
     rows.value = data.data || []
     pagination.total = Number(data.total || 0)
     pagination.pages = Number(data.pages || 0)
@@ -217,6 +278,34 @@ async function fetchStats() {
 function handleFilter() {
   query.page = 1
   fetchData()
+}
+
+function resetFilter() {
+  query.keyword = ''
+  query.status = ''
+  query.batchNo = ''
+  query.spec = ''
+  query.currency = ''
+  query.priceMin = ''
+  query.priceMax = ''
+  query.effectiveStart = ''
+  query.effectiveEnd = ''
+  query.page = 1
+  fetchData()
+}
+
+function normalizedQuery() {
+  return {
+    ...query,
+    status: query.status === '' ? undefined : Number(query.status),
+    batchNo: query.batchNo || undefined,
+    spec: query.spec || undefined,
+    currency: query.currency || undefined,
+    priceMin: query.priceMin || undefined,
+    priceMax: query.priceMax || undefined,
+    effectiveStart: query.effectiveStart || undefined,
+    effectiveEnd: query.effectiveEnd || undefined
+  }
 }
 
 function changePage(page) {
@@ -254,7 +343,7 @@ async function remove(item) {
 }
 
 async function exportExcel() {
-  const blob = await exportPriceExcel({ ...query, status: query.status === '' ? undefined : Number(query.status) })
+  const blob = await exportPriceExcel(normalizedQuery())
   downloadBlob(blob, `价格表-${Date.now()}.xlsx`)
 }
 

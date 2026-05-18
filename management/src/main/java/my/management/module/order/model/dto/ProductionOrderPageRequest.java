@@ -2,6 +2,8 @@ package my.management.module.order.model.dto;
 
 import lombok.Data;
 
+import java.time.LocalDate;
+
 /**
  * 生产订单分页查询条件。
  */
@@ -15,4 +17,18 @@ public class ProductionOrderPageRequest {
     private String keyword;
 
     private String status;
+
+    private String customerName;
+
+    private Integer process;
+
+    private LocalDate deliveryStart;
+
+    private LocalDate deliveryEnd;
+
+    private LocalDate createStart;
+
+    private LocalDate createEnd;
+
+    private Boolean staleOnly;
 }

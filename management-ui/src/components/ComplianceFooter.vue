@@ -5,7 +5,7 @@
       <a :href="siteConfig.icpUrl" target="_blank" rel="noopener noreferrer">
         {{ siteConfig.icpNumber }}
       </a>
-      <router-link v-if="!userStore.isDeveloper" to="/manual">使用手册</router-link>
+      <router-link to="/manual">使用手册</router-link>
       <router-link to="/privacy">隐私政策</router-link>
       <router-link to="/terms">服务条款</router-link>
       <a :href="`mailto:${siteConfig.supportEmail}`">联系技术支持</a>
@@ -15,11 +15,8 @@
 
 <script setup>
 import { siteConfig } from '@/config/site'
-import { useUserStore } from '@/stores/user'
 
 defineOptions({ name: 'ComplianceFooter' })
-
-const userStore = useUserStore()
 </script>
 
 <style scoped>

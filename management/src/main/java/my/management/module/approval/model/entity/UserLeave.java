@@ -38,6 +38,8 @@ public class UserLeave {
 
     private Long auditorId;
 
+    private String auditorIds;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 

@@ -1,6 +1,23 @@
 /* 引入 Tailwind 核心 */
 @import "tailwindcss";
 
+.form-field-attention {
+  position: relative;
+  outline: 2px solid rgba(250, 160, 0, 0.85) !important;
+  outline-offset: 3px;
+  border-radius: 14px;
+  animation: form-field-attention-pulse 0.9s ease-in-out 2;
+}
+
+@keyframes form-field-attention-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(250, 160, 0, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(250, 160, 0, 0.16);
+  }
+}
+
 @theme {
   /* 自定义颜色 */
   --color-primary: #f5a400;

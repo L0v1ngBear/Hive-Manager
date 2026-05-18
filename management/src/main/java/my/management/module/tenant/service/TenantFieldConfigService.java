@@ -7,7 +7,6 @@ import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
 import my.management.common.enums.BinaryFlagEnum;
 import my.management.common.enums.DeleteFlagEnum;
-import my.management.common.service.DeveloperAccessService;
 import my.management.module.tenant.mapper.TenantFieldConfigMapper;
 import my.management.module.tenant.mapper.TenantMapper;
 import my.management.module.tenant.model.dto.TenantFieldConfigSaveRequest;
@@ -41,7 +40,7 @@ public class TenantFieldConfigService {
             "inventory", Set.of("modelCode", "spec", "barCode", "totalMeters", "remainingMeters", "location", "status", "updateTime"),
             "receipt", Set.of("modelCode", "spec", "meters", "price", "amount", "remark"),
             "employee", Set.of("name", "empNo", "employeeType", "phone", "email", "departmentName", "positionName", "leaderName", "entryDate", "status", "remark"),
-            "customer", Set.of("customerName", "customerType", "contactName", "contactPhone", "projectName", "projectCount", "constructionArea")
+            "customer", Set.of("customerName", "customerType", "contactName", "contactPhone", "projectName", "projectOwner", "projectCount", "constructionArea")
     );
 
     @Resource
@@ -49,9 +48,6 @@ public class TenantFieldConfigService {
 
     @Resource
     private TenantMapper tenantMapper;
-
-    @Resource
-    private DeveloperAccessService developerAccessService;
 
     @Resource
     private ObjectMapper objectMapper;
@@ -307,8 +303,6 @@ public class TenantFieldConfigService {
     }
 
     private void ensureDeveloperAccess() {
-        if (!developerAccessService.isCurrentUserDeveloper()) {
-            throw new BusinessException("仅系统开发者可维护租户字段配置");
-        }
+        throw new BusinessException("字段配置维护入口已下线");
     }
 }

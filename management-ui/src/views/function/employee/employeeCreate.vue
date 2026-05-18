@@ -50,6 +50,7 @@
             </label>
             <input
                 v-model.trim="form.name"
+                data-field="employee.name"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
                 placeholder="例如：张三"
                 type="text"
@@ -70,6 +71,7 @@
             </label>
             <input
                 v-model.trim="form.phone"
+                data-field="employee.phone"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
                 placeholder="例如：138 0000 0000"
                 type="tel"
@@ -99,6 +101,7 @@
             </label>
             <select
                 v-model="form.departmentId"
+                data-field="employee.departmentId"
                 class="w-full appearance-none rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
             >
               <option value="">请选择部门</option>
@@ -117,6 +120,7 @@
             </label>
             <input
                 v-model="form.entryDate"
+                data-field="employee.entryDate"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
                 type="date"
             />
@@ -127,6 +131,7 @@
             </label>
             <select
                 v-model="form.positionId"
+                data-field="employee.positionId"
                 class="w-full appearance-none rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
             >
               <option value="">请选择职位</option>
@@ -245,17 +250,23 @@
                 name="status"
                 type="radio"
             />
-            <div class="h-full rounded-xl border border-outline-variant/20 bg-surface-container-low p-4 transition-all peer-checked:bg-primary-container peer-checked:text-white">
+            <div
+                class="h-full rounded-xl border p-4 shadow-sm transition-all"
+                :class="Number(form.status) === Number(status.value)
+                  ? 'border-primary bg-primary text-white shadow-lg shadow-primary/25'
+                  : 'border-outline-variant/30 bg-white text-on-surface hover:border-primary/40'"
+            >
               <div class="mb-1 flex items-center justify-between">
                 <span class="text-sm font-bold">{{ status.label }}</span>
                 <span
-                    class="material-symbols-outlined text-lg opacity-40 peer-checked:opacity-100"
+                    class="material-symbols-outlined text-lg text-current"
+                    :class="Number(form.status) === Number(status.value) ? 'opacity-100' : 'opacity-40'"
                     style="font-variation-settings: 'FILL' 1;"
                 >
                   check_circle
                 </span>
               </div>
-              <p class="text-[10px] opacity-70">保存后将同步至系统主数据。</p>
+              <p class="text-[10px] text-current opacity-70">保存后将同步至系统主数据。</p>
             </div>
           </label>
         </div>
@@ -287,6 +298,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useTenantFieldConfig } from '@/composables/useTenantFieldConfig'
+import { warnAndFocusField } from '@/utils/formFocus'
 import {
   createEmployee,
   getEmployeeDetail,
@@ -331,7 +343,7 @@ let leaderSearchTimer = null
 const employmentStatuses = ref([
   { label: '正式在职', value: 1 },
   { label: '试用期', value: 2 },
-  { label: '已离职', value: 3 }
+  { label: '已离职', value: 0 }
 ])
 
 const form = reactive(createDefaultForm())
@@ -464,10 +476,11 @@ function selectLeader(leader) {
 
 async function submit() {
   // 移除了 form.employeeType 的校验
-  if (!form.name || !form.phone || !form.departmentId || !form.positionId || !form.entryDate) {
-    ElMessage.warning('请将标有必填项的表单信息填写完整。')
-    return
-  }
+  if (!form.name) return warnAndFocusField('请填写姓名。', 'employee.name')
+  if (!form.phone) return warnAndFocusField('请填写电话。', 'employee.phone')
+  if (!form.departmentId) return warnAndFocusField('请选择部门。', 'employee.departmentId')
+  if (!form.positionId) return warnAndFocusField('请选择职位。', 'employee.positionId')
+  if (!form.entryDate) return warnAndFocusField('请选择入职日期。', 'employee.entryDate')
 
   submitting.value = true
   try {

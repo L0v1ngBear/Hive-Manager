@@ -22,6 +22,8 @@ public class LoginVO {
 
     private Boolean developer = false;
 
+    private Boolean mustChangePassword = false;
+
     private String responseKey;
 
     private List<String> permissions = new ArrayList<>();

@@ -17,12 +17,24 @@ const AI_ADVICE_PERMISSIONS = [
   'dashboard:ai:operation'
 ]
 
+const ANNOUNCEMENT_PERMISSIONS = [
+  'notification:announcement:list',
+  'notification:announcement:publish',
+  'dashboard:*'
+]
+
 export const constantRoutes = [
   {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/Login.vue'),
     meta: { public: true }
+  },
+  {
+    path: '/force-password-change',
+    name: 'ForcePasswordChange',
+    component: () => import('@/views/ForcePasswordChange.vue'),
+    meta: { title: '修改初始密码' }
   },
   {
     path: '/privacy',
@@ -71,6 +83,16 @@ export const constantRoutes = [
     component: Layout,
     children: [
       {
+        path: 'announcement',
+        name: 'Announcement',
+        component: () => import('@/views/function/announcement/announcement.vue'),
+        meta: {
+          title: '企业通知公告',
+          permissions: ANNOUNCEMENT_PERMISSIONS,
+          features: ['module.dashboard']
+        }
+      },
+      {
         path: 'label',
         name: 'Label',
         component: () => import('@/views/function/label.vue'),
@@ -93,6 +115,16 @@ export const constantRoutes = [
         }
       },
       {
+        path: 'inventory/model-detail',
+        name: 'InventoryModelDetail',
+        component: () => import('@/views/function/inventory/InventoryModelDetail.vue'),
+        meta: {
+          title: '单匹布明细',
+          permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:out'],
+          features: ['module.inventory']
+        }
+      },
+      {
         path: 'price',
         name: 'Price',
         component: () => import('@/views/function/price/price.vue'),
@@ -103,6 +135,12 @@ export const constantRoutes = [
         name: 'Employee',
         component: () => import('@/views/function/employee/employee.vue'),
         meta: { title: '员工管理', permissions: ['employee:list'], features: ['module.employee'] }
+      },
+      {
+        path: 'organization',
+        name: 'Organization',
+        component: () => import('@/views/function/organization/organization.vue'),
+        meta: { title: '部门管理', permissions: ['employee:list'], features: ['module.employee'] }
       },
       {
         path: 'attendance',
@@ -139,7 +177,7 @@ export const constantRoutes = [
         name: 'BadProduct',
         component: () => import('@/views/function/badProduct/badProduct.vue'),
         meta: {
-          title: '次品管理',
+          title: '质量管理',
           permissions: ['badproduct:list', 'badproduct:save', 'badproduct:process'],
           features: ['module.badProduct']
         }
@@ -150,28 +188,9 @@ export const constantRoutes = [
         component: () => import('@/views/function/approval/approvalCenter.vue'),
         meta: {
           title: '审批中心',
-          permissions: ['approval:leave', 'approval:finance', 'approval:leave:submit', 'approval:finance:submit'],
+          permissions: ['approval:leave', 'approval:finance', 'approval:resignation', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'sales:order:list', 'production:order:list'],
           features: ['module.approval']
         }
-      }
-    ]
-  },
-  {
-    path: '/platform',
-    name: 'Platform',
-    component: Layout,
-    children: [
-      {
-        path: 'tenant',
-        name: 'PlatformTenant',
-        component: () => import('@/views/platform/tenant/index.vue'),
-        meta: { title: '租户管理', developerOnly: true }
-      },
-      {
-        path: 'operation-log',
-        name: 'OperationLog',
-        component: () => import('@/views/platform/operationLog/index.vue'),
-        meta: { title: '运维日志', developerOnly: true }
       }
     ]
   }
@@ -183,7 +202,7 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 })
 })
 
-const PLATFORM_SUPER_HOME = '/platform/tenant'
+const FORCE_PASSWORD_CHANGE_PATH = '/force-password-change'
 
 router.beforeEach((to) => {
   const userStore = useUserStore()
@@ -191,8 +210,8 @@ router.beforeEach((to) => {
 
   if (to.meta?.public) {
     if (hasToken && to.path === '/login') {
-      if (userStore.isDeveloper) {
-        return PLATFORM_SUPER_HOME
+      if (userStore.mustChangePassword) {
+        return FORCE_PASSWORD_CHANGE_PATH
       }
       return normalizeLoginRedirect(to.query.redirect)
     }
@@ -206,25 +225,28 @@ router.beforeEach((to) => {
     }
   }
 
-  if (userStore.isDeveloper) {
-    if (to.meta?.developerOnly || to.path.startsWith('/platform/')) {
-      return true
+  if (userStore.mustChangePassword && to.path !== FORCE_PASSWORD_CHANGE_PATH) {
+    return {
+      path: FORCE_PASSWORD_CHANGE_PATH,
+      query: { redirect: to.fullPath }
     }
-    return PLATFORM_SUPER_HOME
+  }
+
+  if (!userStore.mustChangePassword && to.path === FORCE_PASSWORD_CHANGE_PATH) {
+    return '/dashboard'
+  }
+
+  if (to.path === FORCE_PASSWORD_CHANGE_PATH) {
+    return true
   }
 
   if (Array.isArray(to.meta?.features) && to.meta.features.length && !userStore.hasAnyFeature(to.meta.features)) {
-    ElMessage.warning('当前租户暂未开通该功能，请联系平台管理员开通')
+    ElMessage.warning('当前组织暂未开通该功能，请联系管理员开通')
     return '/dashboard'
   }
 
   if (Array.isArray(to.meta?.permissions) && to.meta.permissions.length && !userStore.hasAnyPermission(to.meta.permissions)) {
     ElMessage.warning('您暂无权限访问当前页面，如需开通请联系管理员')
-    return '/dashboard'
-  }
-
-  if (to.meta?.developerOnly && !userStore.isDeveloper) {
-    ElMessage.warning('当前页面仅平台超管可见')
     return '/dashboard'
   }
 

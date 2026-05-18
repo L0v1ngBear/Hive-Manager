@@ -26,6 +26,11 @@ public class SalesOrderSaveRequest {
 
     private String deliveryDate;
 
+    /**
+     * 业务录单时间。允许成熟客户补录历史订单时手动指定，不传时使用服务端当前时间。
+     */
+    private String createTime;
+
     private String expressCompany;
 
     private String expressNo;

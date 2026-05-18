@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 @Data
 public class InventoryWarningVO {
 
+    private Long id;
+
     private String modelCode;
 
     private BigDecimal totalMeters;

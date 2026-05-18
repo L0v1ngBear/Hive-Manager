@@ -1,35 +1,51 @@
 <template>
   <main class="min-h-full bg-[#fffdf8] px-4 py-10 text-[#101418]">
-    <section class="mx-auto max-w-4xl overflow-hidden rounded-[2rem] border border-[#f0d48e]/70 bg-white/90 shadow-xl shadow-amber-500/10">
-      <header class="border-b border-[#f0d48e]/60 bg-gradient-to-br from-[#fff8e6] to-white px-6 py-8 md:px-10">
-        <div class="flex items-center gap-4">
-          <img src="../../../images/logo.png" alt="蜂巢 logo" class="h-14 w-14 object-contain drop-shadow-sm">
-          <div>
-            <p class="text-xs font-black uppercase tracking-[0.24em] text-[#b56f00]">{{ siteConfig.productName }}</p>
-            <h1 class="mt-2 text-3xl font-black tracking-tight md:text-4xl">{{ pageTitle }}</h1>
+    <section class="mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-[#f0d48e]/70 bg-white/95 shadow-xl shadow-amber-500/10">
+      <header class="border-b border-[#f0d48e]/60 bg-gradient-to-br from-[#fff8e6] via-white to-[#eef6ff] px-6 py-8 md:px-10">
+        <div class="flex flex-wrap items-center justify-between gap-5">
+          <div class="flex items-center gap-4">
+            <img src="../../../images/logo.png" alt="蜂巢 Hive logo" class="h-14 w-14 object-contain drop-shadow-sm">
+            <div>
+              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#b56f00]">{{ siteConfig.productName }}</p>
+              <h1 class="mt-2 text-3xl font-black tracking-tight md:text-4xl">{{ pageTitle }}</h1>
+            </div>
+          </div>
+          <div class="rounded-2xl border border-[#d8e7ff] bg-white/80 px-4 py-3 text-xs font-bold text-[#335380]">
+            生效日期：{{ effectiveDate }}
           </div>
         </div>
-        <p class="mt-5 max-w-3xl text-sm leading-7 text-[#5f5a4e]">
-          本页面用于说明 {{ siteConfig.companyName }} 在提供数字化工厂管理服务时对用户信息、数据安全与服务边界的处理方式。
+        <p class="mt-5 max-w-4xl text-sm leading-7 text-[#5f5a4e]">
+          本页面说明 {{ siteConfig.companyName }} 在提供蜂巢 Hive 数字化工厂管理系统服务时，如何处理账号、业务、设备权限、日志与安全相关信息。我们坚持最小必要、组织内权限可控和安全审计原则。
         </p>
       </header>
 
       <article class="space-y-8 px-6 py-8 md:px-10">
+        <section class="rounded-3xl border border-[#f0d48e]/70 bg-[#fff8e6] p-5 text-sm leading-7 text-[#5f5a4e]">
+          <p>
+            <strong class="text-[#101418]">适用范围：</strong>
+            本{{ pageTitle }}适用于管理网页端、小程序端以及与其配套的后端服务。若企业基于自身业务另行制定内部制度，员工仍应同时遵守企业内部管理要求。
+          </p>
+        </section>
+
         <template v-if="type === 'privacy'">
           <section v-for="section in privacySections" :key="section.title" class="legal-section">
             <h2>{{ section.title }}</h2>
-            <p v-for="item in section.items" :key="item">{{ item }}</p>
+            <ul>
+              <li v-for="item in section.items" :key="item">{{ item }}</li>
+            </ul>
           </section>
         </template>
 
         <template v-else>
           <section v-for="section in termsSections" :key="section.title" class="legal-section">
             <h2>{{ section.title }}</h2>
-            <p v-for="item in section.items" :key="item">{{ item }}</p>
+            <ul>
+              <li v-for="item in section.items" :key="item">{{ item }}</li>
+            </ul>
           </section>
         </template>
 
-        <section class="rounded-3xl bg-[#fff8e6] p-5 text-sm leading-7 text-[#5f5a4e]">
+        <section class="grid gap-4 rounded-3xl bg-[#f7fafc] p-5 text-sm leading-7 text-[#5f5a4e] md:grid-cols-2">
           <p><strong class="text-[#101418]">公司主体：</strong>{{ siteConfig.companyName }}</p>
           <p><strong class="text-[#101418]">联系邮箱：</strong>{{ siteConfig.supportEmail }}</p>
           <p>
@@ -38,7 +54,7 @@
               {{ siteConfig.icpNumber }}
             </a>
           </p>
-          <p><strong class="text-[#101418]">最近更新：</strong>2026-04-27</p>
+          <p><strong class="text-[#101418]">最近更新：</strong>{{ effectiveDate }}</p>
         </section>
 
         <div class="flex flex-wrap gap-3">
@@ -62,40 +78,63 @@ import { siteConfig } from '@/config/site'
 defineOptions({ name: 'LegalPage' })
 
 const route = useRoute()
+const effectiveDate = '2026-05-15'
 const type = computed(() => (route.path.includes('terms') ? 'terms' : 'privacy'))
 const pageTitle = computed(() => (type.value === 'privacy' ? '隐私政策' : '服务条款'))
 
 const privacySections = [
   {
-    title: '一、我们收集的信息',
+    title: '一、我们处理的信息类型',
     items: [
-      '为完成登录、权限控制、租户隔离和业务处理，我们会处理账号、员工姓名、手机号、角色权限、租户编码等必要信息。',
-      '为支持库存、订单、客户、考勤、审批、打印和质量管理，我们会保存用户主动录入的业务数据。',
-      '为优化 AI 经营建议，我们会采集低敏行为元数据，例如页面访问、功能点击、建议反馈和通知打开记录；不会采集密码、token、银行卡号等敏感凭据。'
+      '账号与身份信息：登录账号、手机号、员工姓名、所属组织、部门、岗位、角色权限、直属负责人、账号状态等，用于身份认证、权限控制、组织协同和离职停用。',
+      '业务管理信息：库存、订单、客户、供应商、生产、出入库、标签、质量异常、考勤、请假、财务审批、离职审批、文档等由企业或用户主动录入的数据。',
+      '设备与权限信息：小程序考勤打卡可能需要位置权限；微信一键登录会使用微信提供的手机号授权能力；订阅消息会记录用户对模板消息的授权状态和 openid。',
+      '日志与安全信息：登录时间、访问接口、操作记录、异常日志、设备基础信息、IP 相关信息等，用于安全审计、问题排查、防刷限流和服务稳定性保障。',
+      'AI 建议相关信息：系统会使用脱敏后的经营指标、趋势数据和反馈结果生成经营建议；外部模型调用前会尽量去除组织编码、手机号、客户姓名等直接标识。'
     ]
   },
   {
-    title: '二、信息使用目的',
+    title: '二、我们如何使用信息',
     items: [
-      '用于身份认证、权限校验、跨租户隔离、业务流程流转、异常排查、审计追踪和数据分析。',
-      '用于生成库存、订单、质量、客户和经营风险相关的智能建议，帮助管理人员做决策辅助。',
-      '未经授权，我们不会将租户业务数据提供给无关第三方。'
+      '提供基础功能：完成登录、权限校验、员工管理、库存流转、订单协同、审批处理、标签打印和考勤统计。',
+      '保障安全与可靠性：进行异常检测、操作审计、接口限流、数据备份、故障定位和风险提醒。',
+      '改进产品体验：统计功能使用情况、识别慢查询或高频操作场景，优化页面响应速度、字段配置和流程闭环。',
+      '发送必要通知：在用户主动授权的前提下，通过小程序订阅消息发送待办提醒；订阅消息不会用于无关营销。',
+      '履行法律法规或监管要求：在必要范围内配合审计、安全事件处置、争议解决或主管机关依法提出的要求。'
     ]
   },
   {
-    title: '三、数据安全措施',
+    title: '三、第三方服务与信息共享',
     items: [
-      '系统通过 HTTPS 传输、数据库低权限账号、租户隔离、操作日志、运维日志和服务器防火墙降低数据泄露风险。',
-      '我们会尽量避免在日志和行为采集中记录密码、密钥、token、完整手机号等敏感字段。',
-      '数据库备份、服务器权限和线上运维账号应由企业管理员妥善保管，并定期轮换密码和密钥。'
+      '微信生态能力：小程序登录、手机号授权、订阅消息等能力由微信提供，相关能力会遵循微信平台规则。',
+      '对象存储服务：如企业启用 OSS 文件存储，上传的业务附件、标签相关文件或文档会存储到配置的云存储空间中。',
+      'AI 模型服务：如启用 DeepSeek 等外部模型，系统仅发送生成建议所需的脱敏经营指标和反馈样本，不发送密码、密钥、完整手机号等敏感凭据。',
+      '除实现上述功能、取得授权、履行法定义务或保护系统安全外，我们不会向无关第三方出售、出租或非法共享企业业务数据。'
     ]
   },
   {
-    title: '四、用户权利',
+    title: '四、数据保存、保护与删除',
     items: [
-      '企业管理员可以根据内部管理要求维护员工账号、角色权限、客户资料和业务数据。',
-      '如需查询、更正或删除相关数据，可通过本页面联系方式与我们或企业管理员联系。',
-      '若法律法规要求保留审计、财务或安全日志，我们会在合规期限内保留必要记录。'
+      '我们会根据业务连续性、审计追溯、财务合规和安全排查需要保存必要数据；超过必要期限的数据应通过清理策略或企业管理操作进行归档、删除或脱敏。',
+      '系统采用 HTTPS、角色权限、操作日志、数据库低权限账号、Redis 命名空间、外部 API 限流和密钥不入库等措施降低泄露风险。',
+      '员工离职、调岗或外包人员退出时，企业管理员应及时停用账号或调整权限；离职审批通过后系统会同步收敛相关权限。',
+      '如需导出、删除或更正数据，可联系企业管理员处理；涉及系统级数据处理的，可通过本页面联系方式联系我们协助。'
+    ]
+  },
+  {
+    title: '五、用户权利与选择',
+    items: [
+      '你可以在授权弹窗中选择是否授权手机号、位置或订阅消息；拒绝部分授权可能导致微信登录、考勤打卡或待办提醒不可用。',
+      '你可以要求企业管理员查询、更正、补充、停用或删除与你相关的账号和业务数据；系统会根据权限、合规留存和业务规则进行处理。',
+      '如果你认为信息处理存在问题，可以通过企业管理员或本页面联系方式提出反馈，我们会在合理期限内核实并处理。'
+    ]
+  },
+  {
+    title: '六、未成年人保护与政策更新',
+    items: [
+      '本系统面向企业生产经营管理场景，原则上不面向未成年人提供个人消费类服务；企业不应为无业务必要的未成年人创建账号。',
+      '当功能、第三方服务、法律法规或运营方式发生变化时，我们可能更新本政策，并通过页面展示、版本更新或企业通知等方式提示。',
+      '如你继续使用系统，即表示你已阅读并理解更新后的政策；重大变更会尽量以更明显方式提示。'
     ]
   }
 ]
@@ -104,29 +143,40 @@ const termsSections = [
   {
     title: '一、服务内容',
     items: [
-      '蜂巢 Hive 提供数字化工厂管理能力，包括库存、订单、客户、考勤、审批、打印、质量管理和 AI 经营建议等模块。',
-      '系统功能会根据企业配置、用户权限和租户版本有所差异。'
+      '蜂巢 Hive 提供数字化工厂管理能力，包括库存、订单、客户、生产、考勤、审批、标签、文档、质量管理和 AI 经营建议等模块。',
+      '具体可用功能会根据企业版本、组织配置、用户权限、部署环境和定制化字段有所不同。'
     ]
   },
   {
     title: '二、账号与权限',
     items: [
-      '用户应妥善保管账号和密码，不得将账号转借他人使用。',
-      '企业管理员应按最小权限原则分配角色，离职、转岗或外包人员应及时停用或调整权限。'
+      '用户应妥善保管账号和密码，不得借用、共享、冒用他人账号，不得绕过权限访问其他员工或组织内受限数据。',
+      '企业管理员应按最小必要原则分配角色权限，并在员工离职、调岗、外包结束或职责变化时及时调整账号状态。',
+      '系统管理账号应只分配给企业授权管理员，不应与普通员工账号混用。'
     ]
   },
   {
-    title: '三、数据与使用规范',
+    title: '三、数据录入与业务责任',
     items: [
-      '用户应确保录入的客户、订单、库存、考勤和财务数据真实、合法、必要。',
-      '不得利用系统上传违法内容、攻击系统、绕过权限限制或访问其他租户数据。'
+      '用户应确保录入的客户、订单、库存、考勤、财务、审批和文档信息真实、合法、必要、准确。',
+      '网页端和小程序端的打印、导入、导出、审批、状态流转等操作会被记录用于追溯；请在提交前核对关键信息。',
+      'AI 经营建议仅作为辅助分析，不替代企业管理层、财务人员、法务人员或业务负责人作出的最终判断。'
     ]
   },
   {
-    title: '四、服务安全与责任边界',
+    title: '四、禁止行为',
     items: [
-      '我们会持续完善安全、备份、日志和审计能力，但企业仍需自行管理内部账号、终端设备和人员操作风险。',
-      'AI 经营建议属于决策辅助信息，最终经营决策应由企业管理人员结合实际情况判断。'
+      '不得上传违法违规、侵权、恶意代码、虚假业务或与企业经营无关的内容。',
+      '不得攻击、扫描、压测、爬取、绕过鉴权、批量刷接口、破解密钥或干扰系统稳定运行。',
+      '不得利用系统处理未获授权的个人信息、客户资料或其他企业商业秘密。'
+    ]
+  },
+  {
+    title: '五、服务变更与责任边界',
+    items: [
+      '我们会持续优化系统安全、备份、迁移、日志和自动化运维能力，但企业仍需自行管理内部人员、终端设备、账号权限和数据录入质量。',
+      '因用户误操作、企业内部管理不当、第三方平台故障、网络波动、不可抗力或未按部署要求维护密钥造成的风险，应由相应责任方承担。',
+      '如需商业定制、字段扩展、流程改造或私有化部署，应通过双方确认的需求、验收和交付流程执行。'
     ]
   }
 ]
@@ -135,14 +185,21 @@ const termsSections = [
 <style scoped>
 .legal-section h2 {
   margin-bottom: 0.75rem;
+  color: #101418;
   font-size: 1.125rem;
   font-weight: 900;
 }
 
-.legal-section p {
-  margin-top: 0.5rem;
+.legal-section ul {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.legal-section li {
   color: #5f5a4e;
   font-size: 0.925rem;
-  line-height: 1.8;
+  line-height: 1.85;
 }
 </style>

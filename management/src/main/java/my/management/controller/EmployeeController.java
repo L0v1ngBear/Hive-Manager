@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
 import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.PageResult;
@@ -21,9 +22,7 @@ import my.management.module.employee.model.vo.EmployeeFormOptionsVO;
 import my.management.module.employee.model.vo.EmployeeLeaderOptionVO;
 import my.management.module.employee.model.vo.EmployeePageVO;
 import my.management.module.employee.model.vo.EmployeeStatsVO;
-import my.management.module.employee.model.vo.OrganizationJoinCodeVO;
 import my.management.module.employee.service.EmployeeService;
-import my.management.module.employee.service.OrganizationJoinCodeService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -49,9 +48,6 @@ public class EmployeeController {
     @Resource
     private EmployeeService employeeService;
 
-    @Resource
-    private OrganizationJoinCodeService organizationJoinCodeService;
-
     @GetMapping("/page")
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_LIST, message = "您没有权限查看员工列表")
     public Result<PageResult<EmployeePageVO>> page(@Valid EmployeePageQuery query) {
@@ -76,12 +72,14 @@ public class EmployeeController {
 
     @PostMapping("/create")
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_CREATE, message = "您没有权限新增员工")
+    @CollectLog(module = "employee", action = "create", bizType = "employee", bizNo = "#request.phone", description = "管理端新增员工")
     public Result<Long> create(@Valid @RequestBody EmployeeCreateRequest request) {
         return Result.success(employeeService.create(request));
     }
 
     @PostMapping("/update")
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_UPDATE, message = "您没有权限编辑员工")
+    @CollectLog(module = "employee", action = "update", bizType = "employee", bizNo = "#request.id", description = "管理端编辑员工")
     public Result<Void> update(@Valid @RequestBody EmployeeUpdateRequest request) {
         employeeService.update(request);
         return Result.success(null);
@@ -89,6 +87,7 @@ public class EmployeeController {
 
     @PostMapping("/change-status")
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_STATUS, message = "您没有权限调整员工状态")
+    @CollectLog(module = "employee", action = "change_status", bizType = "employee", bizNo = "#request.id", description = "管理端调整员工状态")
     public Result<Void> changeStatus(@Valid @RequestBody EmployeeStatusChangeRequest request) {
         employeeService.changeStatus(request);
         return Result.success(null);
@@ -96,6 +95,7 @@ public class EmployeeController {
 
     @PostMapping("/batch-update")
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_UPDATE, message = "您没有权限批量编辑员工")
+    @CollectLog(module = "employee", action = "batch_update", bizType = "employee", description = "管理端批量更新员工")
     public Result<Void> batchUpdate(@Valid @RequestBody EmployeeBatchUpdateRequest request) {
         employeeService.batchUpdate(request);
         return Result.success(null);
@@ -103,6 +103,7 @@ public class EmployeeController {
 
     @DeleteMapping("/{id}")
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_DELETE, message = "您没有权限删除员工")
+    @CollectLog(module = "employee", action = "delete", bizType = "employee", bizNo = "#id", description = "管理端删除员工")
     public Result<Void> delete(@PathVariable Long id) {
         employeeService.delete(id);
         return Result.success(null);
@@ -123,12 +124,14 @@ public class EmployeeController {
 
     @PostMapping("/export")
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_EXPORT, message = "您没有权限导出员工数据")
+    @CollectLog(module = "employee", action = "export", bizType = "employee", description = "管理端导出员工数据")
     public Result<List<EmployeePageVO>> export(@RequestBody(required = false) EmployeePageQuery query) {
         return Result.success(employeeService.export(query == null ? new EmployeePageQuery() : query));
     }
 
     @GetMapping("/export-excel")
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_EXPORT, message = "您没有权限导出员工数据")
+    @CollectLog(module = "employee", action = "export_excel", bizType = "employee", description = "管理端导出员工 Excel")
     public void exportExcel(@Valid EmployeePageQuery query, HttpServletResponse response) {
         employeeService.exportExcel(query, response);
     }
@@ -141,13 +144,9 @@ public class EmployeeController {
 
     @PostMapping("/import")
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_CREATE, message = "您没有权限导入员工数据")
+    @CollectLog(module = "employee", action = "import", bizType = "employee", description = "管理端导入员工数据")
     public Result<ImportResultVO> importEmployees(@RequestParam("file") MultipartFile file) {
         return Result.success(employeeService.importEmployees(file));
     }
 
-    @PostMapping("/join-code")
-    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_CREATE, message = "您没有权限生成组织邀请码")
-    public Result<OrganizationJoinCodeVO> generateJoinCode() {
-        return Result.success(organizationJoinCodeService.generateCurrentTenantJoinCode());
-    }
 }

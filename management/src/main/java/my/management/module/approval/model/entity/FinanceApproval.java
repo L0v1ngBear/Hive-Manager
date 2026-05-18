@@ -31,11 +31,17 @@ public class FinanceApproval {
 
     private String reason;
 
+    private String attachmentName;
+
     private String attachmentUrl;
+
+    private Long attachmentSize;
 
     private Integer status;
 
     private Long auditorId;
+
+    private String auditorIds;
 
     private String auditComment;
 

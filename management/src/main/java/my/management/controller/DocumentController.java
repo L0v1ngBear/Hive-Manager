@@ -1,6 +1,7 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
+import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
 import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.Result;
@@ -53,6 +54,7 @@ public class DocumentController {
 
     @PostMapping("/folder/create")
     @RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_FOLDER_CREATE, message = "您没有权限创建文件夹")
+    @CollectLog(module = "document", action = "create_folder", bizType = "document", bizNo = "#request.name", description = "管理端创建文档文件夹")
     public Result<Void> createFolder(@RequestBody DocumentAddRequest request) {
         documentService.addFolder(request);
         return Result.success(null);
@@ -60,6 +62,7 @@ public class DocumentController {
 
     @PostMapping("/file/upload")
     @RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_FILE_UPLOAD, message = "您没有权限上传文件")
+    @CollectLog(module = "document", action = "upload_file", bizType = "document", description = "管理端上传文档")
     public Result<DocumentVO> uploadFile(@RequestParam("file") MultipartFile file,
                                          @RequestParam(value = "parentId", required = false, defaultValue = "0") Long parentId) {
         return Result.success(documentService.uploadFile(file, parentId));
@@ -67,6 +70,7 @@ public class DocumentController {
 
     @PutMapping("/rename")
     @RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_RENAME, message = "您没有权限重命名文档")
+    @CollectLog(module = "document", action = "rename", bizType = "document", bizNo = "#documentId", description = "管理端重命名文档")
     public Result<Void> renameDocument(@RequestParam Long documentId, @RequestParam String newName) {
         documentService.renameDocument(documentId, newName);
         return Result.success(null);
@@ -74,6 +78,7 @@ public class DocumentController {
 
     @PutMapping("/move")
     @RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_MOVE, message = "您没有权限移动文档")
+    @CollectLog(module = "document", action = "move", bizType = "document", bizNo = "#documentId", description = "管理端移动文档")
     public Result<Void> moveDocument(@RequestParam Long documentId, @RequestParam Long newParentId) {
         documentService.moveDocument(documentId, newParentId);
         return Result.success(null);

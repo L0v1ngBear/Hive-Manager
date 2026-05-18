@@ -10,7 +10,7 @@ public enum TenantFeatureEnum {
     DASHBOARD("module.dashboard", "总览大盘", "基础模块", "经营总览、关键指标和待办提醒", true, true),
     ORDER("module.order", "订单管理", "基础模块", "销售订单、生产订单和订单流转", true, true),
     INVENTORY("module.inventory", "库存管理", "基础模块", "库存流水、库存预警和出入库", true, true),
-    BAD_PRODUCT("module.badProduct", "次品管理", "基础模块", "次品登记、处理闭环和损失跟踪", true, true),
+    BAD_PRODUCT("module.badProduct", "质量管理", "基础模块", "质量异常登记、处理闭环和损失跟踪", true, true),
     CUSTOMER("module.customer", "客户管理", "基础模块", "客户档案、联系人和合作信息", true, true),
     PRICE("module.price", "价格管理", "基础模块", "SKU 价格、客户等级价和特价", true, true),
     RECEIPT("module.receipt", "出库单打印", "基础模块", "出库单模板、打印确认和回执", true, true),
@@ -22,8 +22,7 @@ public enum TenantFeatureEnum {
     DOCUMENT("module.document", "文档管理", "基础模块", "企业目录、文件和 OSS 存储", true, true),
     MANUAL("module.manual", "使用手册", "基础模块", "网页端用户使用说明", true, true),
     AI_ADVICE("aiAdvice", "AI 建议", "智能能力", "经营、员工、客户和风险建议", false, true),
-    ADVANCED_AI("advancedAi", "高级 AI", "智能能力", "高维建议、闭环进化和高级分析", false, false),
-    PLATFORM_SUPER("platform.super", "平台超级能力", "平台能力", "仅平台开发人员可见", false, false);
+    ADVANCED_AI("advancedAi", "高级 AI", "智能能力", "高维建议、闭环进化和高级分析", false, false);
 
     public static final String CODE_DASHBOARD = "module.dashboard";
     public static final String CODE_ORDER = "module.order";
@@ -41,7 +40,6 @@ public enum TenantFeatureEnum {
     public static final String CODE_MANUAL = "module.manual";
     public static final String CODE_AI_ADVICE = "aiAdvice";
     public static final String CODE_ADVANCED_AI = "advancedAi";
-    public static final String CODE_PLATFORM_SUPER = "platform.super";
 
     private final String code;
     private final String name;

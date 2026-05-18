@@ -34,8 +34,9 @@ export const tenantFieldCatalog = {
     { fieldKey: 'contactName', fieldLabel: '首要联系人', visible: true, required: false, sortNo: 30 },
     { fieldKey: 'contactPhone', fieldLabel: '联系电话', visible: true, required: false, sortNo: 40 },
     { fieldKey: 'projectName', fieldLabel: '合作项目', visible: true, required: false, sortNo: 50 },
-    { fieldKey: 'projectCount', fieldLabel: '项目数量', visible: true, required: false, sortNo: 60 },
-    { fieldKey: 'constructionArea', fieldLabel: '施工区域', visible: true, required: false, sortNo: 70 }
+    { fieldKey: 'projectOwner', fieldLabel: '项目负责人', visible: true, required: false, sortNo: 60 },
+    { fieldKey: 'projectCount', fieldLabel: '项目数量', visible: true, required: false, sortNo: 70 },
+    { fieldKey: 'constructionArea', fieldLabel: '施工区域', visible: true, required: false, sortNo: 80 }
   ]
 }
 

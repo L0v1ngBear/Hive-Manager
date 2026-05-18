@@ -10,7 +10,7 @@ public class PasswordResetRequest {
     @NotBlank(message = "手机号不能为空")
     private String phone;
 
-    @Size(max = 64, message = "账号或组织码长度不能超过64位")
+    @Size(max = 64, message = "登录账号长度不能超过64位")
     private String account;
 
     @NotBlank(message = "验证码不能为空")

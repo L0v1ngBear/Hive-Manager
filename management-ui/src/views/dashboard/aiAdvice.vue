@@ -414,7 +414,7 @@ const categoryMeta = {
   delivery: { title: '交付发货', subtitle: '交付日期、发货状态、物流完整度', icon: 'local_shipping' },
   customer: { title: '客户经营', subtitle: '复购周期、客户活跃度、重点客户贡献', icon: 'handshake' },
   employee: { title: '员工效率', subtitle: '员工状态、考勤异常、请假审批与上下级关系', icon: 'groups' },
-  quality: { title: '质量管控', subtitle: '次品数量、损失金额、重复问题', icon: 'assignment_late' },
+  quality: { title: '质量管控', subtitle: '质量异常数量、损失金额、重复问题', icon: 'assignment_late' },
   finance: { title: '财务健康', subtitle: '订单金额、损耗金额、审批事项', icon: 'payments' },
   operation: { title: '运营节奏', subtitle: '跨部门协同和经营闭环', icon: 'fact_check' },
   overview: { title: '经营总览', subtitle: '总览大盘核心指标', icon: 'monitoring' }

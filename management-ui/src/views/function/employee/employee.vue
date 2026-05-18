@@ -12,13 +12,6 @@
         </div>
         <div class="flex gap-3">
           <button
-              v-permission="'employee:create'"
-              @click="handleGenerateJoinCode"
-              class="px-4 py-2 bg-blue-50 text-primary font-bold rounded-lg flex items-center gap-2 hover:bg-blue-100 transition-colors text-sm"
-          >
-            <span class="material-symbols-outlined text-[20px]">vpn_key</span>生成组织码
-          </button>
-          <button
               @click="openOrganizationDrawer"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
@@ -127,31 +120,70 @@
                 {{ status.label }}
               </option>
             </select>
+            <select
+                v-model="query.employeeType"
+                @change="handleFilterChange"
+                class="pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary min-w-[150px] font-medium appearance-none"
+            >
+              <option value="">所有用工类型</option>
+              <option value="FULL_TIME">全职</option>
+              <option value="PROBATION">试用期</option>
+              <option value="CONTRACT">合同工</option>
+            </select>
+            <input
+                v-model="query.entryDateStart"
+                type="date"
+                @change="handleFilterChange"
+                class="px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
+                title="入职开始日期"
+            />
+            <input
+                v-model="query.entryDateEnd"
+                type="date"
+                @change="handleFilterChange"
+                class="px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
+                title="入职结束日期"
+            />
             <button
                 @click="fetchEmployees"
                 class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors"
             >
               查询
             </button>
+            <button
+                @click="resetFilter"
+                class="px-4 py-2 bg-surface-container-highest text-on-surface rounded-lg text-sm font-bold"
+            >
+              重置
+            </button>
+            <TableColumnSettings
+                :columns="visibleEmployeeColumns"
+                @move="moveEmployeeTableColumn"
+                @reset="resetEmployeeTableColumns"
+            />
           </div>
         </div>
 
-        <div class="overflow-x-auto relative min-h-[240px]">
+        <div class="employee-table-wrap relative min-h-[240px] overflow-x-hidden">
           <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
             <span class="material-symbols-outlined text-3xl text-primary animate-spin">progress_activity</span>
           </div>
 
-          <table class="w-full text-left border-collapse">
+          <table class="employee-table w-full table-fixed text-left border-collapse">
+            <colgroup>
+              <col v-for="field in visibleEmployeeColumns" :key="field.key" :style="employeeColumnStyle(field.key)" />
+              <col style="width: 92px" />
+            </colgroup>
             <thead>
             <tr class="bg-surface-container/30 text-on-surface-variant border-b border-surface-variant/50">
               <th
                   v-for="field in visibleEmployeeColumns"
                   :key="field.key"
-                  class="px-6 py-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap"
+                  class="px-3 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap"
               >
                 {{ field.label }}
               </th>
-              <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-right whitespace-nowrap">操作</th>
+              <th class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-center whitespace-nowrap">操作</th>
             </tr>
             </thead>
             <tbody class="divide-y divide-surface-variant/50">
@@ -168,7 +200,7 @@
                 </div>
                 </template>
                 <template v-else-if="field.key === 'departmentName'">
-                  <span :class="`px-2 py-0.5 rounded text-[11px] font-bold border ${departmentBadge(emp.departmentName)}`">
+                  <span :class="`inline-block max-w-full truncate px-2 py-0.5 rounded text-[11px] font-bold border ${departmentBadge(emp.departmentName)}`">
                     {{ emp.departmentName || '--' }}
                   </span>
                 </template>
@@ -179,11 +211,11 @@
                   </div>
                 </template>
                 <template v-else>
-                  {{ employeeColumnText(emp, field.key) }}
+                  <span class="employee-cell-text">{{ employeeColumnText(emp, field.key) }}</span>
                 </template>
               </td>
-              <td class="px-6 py-3 text-right">
-                <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <td class="px-3 py-3 text-center">
+                <div class="flex justify-center gap-1 opacity-100">
                   <button @click.stop="showEmployeeDetail(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="查看">
                     <span class="material-symbols-outlined text-[18px]">visibility</span>
                   </button>
@@ -340,17 +372,20 @@ import {
   tenantFieldVisible,
   visibleTenantFields
 } from '@/utils/tenantFieldConfig'
+import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import EmployeeCreate from './employeeCreate.vue'
 import {
   downloadEmployeeImportTemplate,
   exportEmployeesExcel,
-  generateOrganizationJoinCode,
   getEmployeeDetail,
   getEmployeeFormOptions,
   getEmployeePage,
   getEmployeeStats,
   importEmployees
 } from './api/employee.js'
+
+defineOptions({ name: 'EmployeeManagement' })
 
 const route = useRoute()
 // --- 状态定义 ---
@@ -380,7 +415,10 @@ const query = reactive({
   size: 10,
   keyword: '',
   departmentId: '',
-  status: ''
+  status: '',
+  employeeType: '',
+  entryDateStart: '',
+  entryDateEnd: ''
 })
 
 // --- 计算属性 ---
@@ -388,8 +426,24 @@ const totalPages = computed(() => Math.max(pagination.pages || 1, 1))
 const pageStart = computed(() => (pagination.total === 0 ? 0 : (query.page - 1) * query.size + 1))
 const pageEnd = computed(() => Math.min(query.page * query.size, pagination.total || 0))
 const employeeColumnRenderers = new Set(['name', 'empNo', 'departmentName', 'positionName', 'phone', 'email', 'leaderName', 'entryDate', 'status'])
-const visibleEmployeeColumns = computed(() => visibleTenantFields(employeeFieldConfig.value, 'name').filter((field) => employeeColumnRenderers.has(field.key)))
+const defaultEmployeeColumns = computed(() => visibleTenantFields(employeeFieldConfig.value, 'name').filter((field) => employeeColumnRenderers.has(field.key)))
+const {
+  orderedColumns: visibleEmployeeColumns,
+  moveColumn: moveEmployeeTableColumn,
+  resetColumns: resetEmployeeTableColumns
+} = useLocalTableColumns('employee.list', defaultEmployeeColumns)
 const employeeTableColumnCount = computed(() => visibleEmployeeColumns.value.length + 1)
+const employeeColumnWidths = {
+  name: '140px',
+  empNo: '92px',
+  departmentName: '112px',
+  positionName: '112px',
+  phone: '128px',
+  email: '150px',
+  leaderName: '112px',
+  entryDate: '106px',
+  status: '82px'
+}
 
 // 核心逻辑：构建层级结构
 const employeeHierarchy = computed(() => buildEmployeeHierarchy(organizationEmployees.value))
@@ -495,6 +549,17 @@ const handleFilterChange = () => {
   fetchEmployees()
 }
 
+const resetFilter = () => {
+  query.keyword = ''
+  query.departmentId = ''
+  query.status = ''
+  query.employeeType = ''
+  query.entryDateStart = ''
+  query.entryDateEnd = ''
+  query.page = 1
+  fetchEmployees()
+}
+
 const handlePageSizeChange = () => {
   query.page = 1
   fetchEmployees()
@@ -527,12 +592,16 @@ const employeeColumnText = (emp, key) => {
 }
 
 const employeeCellClass = (key) => {
-  const base = 'px-6 py-3 whitespace-nowrap'
+  const base = 'px-3 py-3 text-sm whitespace-nowrap overflow-hidden text-ellipsis'
   if (key === 'empNo') return `${base} font-mono text-sm text-secondary`
   if (key === 'positionName') return `${base} text-sm font-bold text-primary`
   if (key === 'entryDate') return `${base} text-sm text-on-surface-variant font-medium`
   return base
 }
+
+const employeeColumnStyle = (key) => ({
+  width: employeeColumnWidths[key] || '104px'
+})
 
 const employeeDetailLines = (detail) => visibleEmployeeColumns.value
     .filter((field) => field.key !== 'name')
@@ -609,34 +678,6 @@ const triggerImport = () => {
   importInputRef.value?.click()
 }
 
-const handleGenerateJoinCode = async () => {
-  const data = await generateOrganizationJoinCode()
-  const lines = [
-    `组织码：${data.joinCode}`,
-    `所属组织：${data.tenantName || data.tenantCode || '--'}`,
-    `有效期至：${data.expireAt || '15 分钟后'}`,
-    '',
-    '员工在小程序首页输入该组织码后即可加入组织，加入后会获得系统默认基础权限。'
-  ]
-  await copyText(data.joinCode)
-  ElMessageBox.alert(lines.join('\n'), '小程序加入组织码', {
-    confirmButtonText: '知道了'
-  })
-}
-
-const copyText = async (text) => {
-  if (!text) return
-  try {
-    if (!navigator.clipboard?.writeText) {
-      throw new Error('clipboard unavailable')
-    }
-    await navigator.clipboard.writeText(text)
-    ElMessage.success('组织码已复制，15 分钟内有效。')
-  } catch (error) {
-    ElMessage.success('组织码已生成，15 分钟内有效。')
-  }
-}
-
 const handleImportChange = async (event) => {
   const [file] = event.target.files || []
   if (!file) return
@@ -667,7 +708,10 @@ const normalizeQuery = () => ({
   size: query.size,
   keyword: query.keyword || undefined,
   departmentId: query.departmentId === '' ? undefined : Number(query.departmentId),
-  status: query.status === '' ? undefined : Number(query.status)
+  status: query.status === '' ? undefined : Number(query.status),
+  employeeType: query.employeeType || undefined,
+  entryDateStart: query.entryDateStart || undefined,
+  entryDateEnd: query.entryDateEnd || undefined
 })
 
 const formatPercent = (value) => `${Number(value || 0).toFixed(2)}%`
@@ -723,6 +767,21 @@ watch(
   background: rgba(255, 255, 255, .86);
   padding: 1rem;
   box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+}
+
+.employee-table {
+  min-width: 0;
+}
+
+.employee-table-wrap {
+  width: 100%;
+}
+
+.employee-cell-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .org-stat-card span {

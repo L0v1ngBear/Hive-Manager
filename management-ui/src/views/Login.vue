@@ -188,7 +188,7 @@
           </label>
 
           <label class="block">
-            <span class="mb-2 block text-sm font-bold text-slate-700">账号或组织码（可选）</span>
+            <span class="mb-2 block text-sm font-bold text-slate-700">登录账号（可选）</span>
             <input
               v-model.trim="resetForm.account"
               type="text"
@@ -537,16 +537,15 @@ function finishLogin(loginData) {
   clearPolling()
   scanStatus.value = 'CONFIRMED'
   userStore.setLoginInfo(loginData)
-  const redirect = resolveLoginRedirect()
+  const redirect = userStore.mustChangePassword
+    ? { path: '/force-password-change', query: { redirect: resolveLoginRedirect() } }
+    : resolveLoginRedirect()
   window.setTimeout(() => {
     router.replace(redirect)
   }, 300)
 }
 
 function resolveLoginRedirect() {
-  if (userStore.isDeveloper) {
-    return '/platform/tenant'
-  }
   return normalizeLoginRedirect(route.query.redirect)
 }
 

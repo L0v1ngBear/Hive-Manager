@@ -40,6 +40,7 @@
               </label>
               <input
                 v-model="formData.customerName"
+                data-field="customer.customerName"
                 class="w-full rounded-lg bg-surface-container-low px-4 py-2.5 text-sm font-bold text-primary transition-colors focus:ring-2 focus:ring-primary"
                 placeholder="输入企业完整名称"
                 type="text"
@@ -53,6 +54,7 @@
                 </label>
                 <select
                   v-model="formData.customerType"
+                  data-field="customer.customerType"
                   class="w-full cursor-pointer rounded-lg bg-surface-container-low px-3 py-2.5 text-sm font-bold text-primary focus:ring-2 focus:ring-primary"
                 >
                   <option :value="1">直客（甲方）</option>
@@ -148,6 +150,13 @@
                     :placeholder="fieldLabel('constructionArea', '输入该项目的施工区域')"
                     type="text"
                   />
+                  <input
+                    v-if="fieldVisible('projectOwner')"
+                    v-model="project.projectOwner"
+                    class="w-full rounded border border-outline-variant/20 bg-white px-3 py-2 text-xs font-bold text-tertiary focus:ring-1 focus:ring-tertiary"
+                    :placeholder="fieldLabel('projectOwner', '输入项目负责人')"
+                    type="text"
+                  />
                 </div>
                 <button
                   class="rounded p-1.5 text-on-surface-variant transition-colors hover:bg-error-container hover:text-error"
@@ -176,7 +185,7 @@
             取消
           </button>
           <button
-            :disabled="!isFormValid || submitting || loadingDetail"
+            :disabled="submitting || loadingDetail"
             class="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-on-primary shadow-md transition-all hover:bg-primary/90 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
             @click="submit"
           >
@@ -192,6 +201,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useTenantFieldConfig } from '@/composables/useTenantFieldConfig'
+import { warnAndFocusField } from '@/utils/formFocus'
 import { createCustomer, getCustomerDetail, updateCustomer } from './api/customer'
 
 const props = defineProps({
@@ -255,7 +265,7 @@ const closeDrawer = () => {
 
 const addContact = () => formData.contacts.push({ contactName: '', contactPhone: '' })
 const removeContact = (index) => formData.contacts.splice(index, 1)
-const addProject = () => formData.projects.push({ projectName: '', constructionArea: '' })
+const addProject = () => formData.projects.push({ projectName: '', constructionArea: '', projectOwner: '' })
 const removeProject = (index) => formData.projects.splice(index, 1)
 
 async function loadCustomerDetail() {
@@ -273,7 +283,8 @@ async function loadCustomerDetail() {
     formData.projects = Array.isArray(detail?.projects)
       ? detail.projects.map((item) => ({
         projectName: item.projectName || '',
-        constructionArea: item.constructionArea || ''
+        constructionArea: item.constructionArea || '',
+        projectOwner: item.projectOwner || ''
       }))
       : []
   } finally {
@@ -282,9 +293,11 @@ async function loadCustomerDetail() {
 }
 
 async function submit() {
-  if (!isFormValid.value || submitting.value || loadingDetail.value) {
+  if (submitting.value || loadingDetail.value) {
     return
   }
+  if (!formData.customerName.trim()) return warnAndFocusField('请填写客户名称。', 'customer.customerName')
+  if (!formData.customerType) return warnAndFocusField('请选择客户类型。', 'customer.customerType')
 
   const requestPayload = {
     customerName: formData.customerName.trim(),
@@ -298,7 +311,8 @@ async function submit() {
     projects: formData.projects
       .map((item) => ({
         projectName: item.projectName?.trim() || '',
-        constructionArea: item.constructionArea?.trim() || ''
+        constructionArea: item.constructionArea?.trim() || '',
+        projectOwner: item.projectOwner?.trim() || ''
       }))
       .filter((item) => item.projectName)
   }

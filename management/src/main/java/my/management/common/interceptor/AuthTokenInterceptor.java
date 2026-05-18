@@ -9,6 +9,7 @@ import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.Result;
 import my.hive.common.tenant.TenantIsolationSupport;
 import my.hive.common.utils.ResponseEncryptUtil;
+import my.management.common.tenant.BoundedTenantProperties;
 import my.management.common.utils.PermissionCacheUtil;
 import my.hive.common.utils.TokenUtil;
 import my.management.module.auth.mapper.AuthMapper;
@@ -44,6 +45,9 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
     @Resource
     private TenantLicenseService tenantLicenseService;
 
+    @Resource
+    private BoundedTenantProperties boundedTenantProperties;
+
     @Value("${auth.token.renew-enabled:true}")
     private boolean tokenRenewEnabled;
 
@@ -68,6 +72,10 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
             return false;
         }
 
+        if (!boundedTenantProperties.isTenantAllowed(authUserInfo.getTenantCode())) {
+            writeErrorResponse(response, HttpStatus.FORBIDDEN, 403, "当前组织不在系统允许范围内");
+            return false;
+        }
         // FIELD 模式下这里是空操作；未来 DATABASE 模式会先切到租户库，再查询租户内权限。
         tenantIsolationSupport.bindTenantDatasource(authUserInfo.getTenantCode());
 

@@ -15,9 +15,8 @@ import my.hive.common.redis.HiveRedisKeyBuilder;
 import my.hive.common.utils.EncryptUtil;
 import my.hive.common.utils.ResponseEncryptUtil;
 import my.hive.common.utils.TokenUtil;
-import my.management.common.enums.PlatformTenantEnum;
-import my.management.common.service.DeveloperAccessService;
 import my.management.module.auth.mapper.AuthMapper;
+import my.management.module.auth.model.dto.InitialPasswordChangeRequest;
 import my.management.module.auth.model.dto.LoginRequest;
 import my.management.module.auth.model.dto.PasswordResetCodeRequest;
 import my.management.module.auth.model.dto.PasswordResetRequest;
@@ -26,6 +25,7 @@ import my.management.module.auth.model.vo.LoginUserRow;
 import my.management.module.auth.model.vo.LoginVO;
 import my.management.module.auth.model.vo.WebScanSessionVO;
 import my.management.module.auth.model.vo.WebScanStatusVO;
+import my.management.common.tenant.BoundedTenantProperties;
 import my.management.module.employee.model.enums.EmployeeStatusEnum;
 import my.management.module.notification.sms.SmsVerificationService;
 import my.management.module.tenant.service.TenantLicenseService;
@@ -63,9 +63,6 @@ public class AuthService {
     private EncryptUtil encryptUtil;
 
     @Resource
-    private DeveloperAccessService developerAccessService;
-
-    @Resource
     private ResponseEncryptUtil responseEncryptUtil;
 
     @Resource
@@ -85,6 +82,9 @@ public class AuthService {
 
     @Resource
     private SmsVerificationService smsVerificationService;
+
+    @Resource
+    private BoundedTenantProperties boundedTenantProperties;
 
     @Value("${auth.login.max-fail-count:5}")
     private Long maxFailCount;
@@ -158,6 +158,39 @@ public class AuthService {
         ));
     }
 
+    public void changeInitialPassword(InitialPasswordChangeRequest request) {
+        Long userId = TenantPermissionContext.getUserId();
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        if (userId == null || tenantCode == null || tenantCode.isBlank()) {
+            throw new BusinessException(401, "请先登录后再修改密码");
+        }
+
+        LoginUserRow loginUser = authMapper.selectLoginUserByUserIdAndTenantCode(userId, tenantCode);
+        if (loginUser == null || !isUsableEmployeeStatus(loginUser.getUserStatus())) {
+            throw new BusinessException(403, "当前账号不可用，请联系管理员");
+        }
+
+        String oldPassword = request.getOldPassword() == null ? "" : request.getOldPassword().trim();
+        if (oldPassword.isEmpty() || !encryptUtil.matches(oldPassword, loginUser.getPassword())) {
+            throw new BusinessException(400, "原密码不正确");
+        }
+
+        validateNewPassword(request.getNewPassword(), request.getConfirmPassword(), loginUser.getPhone());
+        String newPassword = request.getNewPassword().trim();
+        if (encryptUtil.matches(newPassword, loginUser.getPassword())) {
+            throw new BusinessException(400, "新密码不能与原密码相同");
+        }
+
+        int updated = authMapper.updatePasswordByUserIdAndTenantCode(
+                userId,
+                tenantCode,
+                encryptUtil.encode(newPassword)
+        );
+        if (updated <= 0) {
+            throw new BusinessException(500, "密码修改失败，请稍后重试");
+        }
+    }
+
     public LoginVO login(LoginRequest request, String clientIp) {
         String username = request.getUsername().trim();
         String usernamePhoneHash = privacyProtectionUtil.mayBePhoneKeyword(username) ? privacyProtectionUtil.hashPhone(username) : null;
@@ -167,7 +200,7 @@ public class AuthService {
         ensureLoginNotLocked(accountFailKey, maxFailCount, "登录失败次数过多，请稍后再试");
         ensureLoginNotLocked(ipFailKey, maxIpFailCount, "当前访问过于频繁，请稍后再试");
 
-        LoginUserRow loginUser = authMapper.selectLoginUser(username, usernamePhoneHash);
+        LoginUserRow loginUser = resolveUniqueLoginUser(authMapper.selectLoginUsers(username, usernamePhoneHash, allowedTenantCodes()));
         validatePasswordLogin(loginUser, request.getPassword(), accountFailKey, ipFailKey);
         stringRedisTemplate.delete(accountFailKey);
         stringRedisTemplate.delete(ipFailKey);
@@ -324,7 +357,7 @@ public class AuthService {
 
     private LoginUserRow resolvePasswordResetUser(String phone, String phoneHash, String account) {
         String normalizedAccount = normalizeResetAccount(account);
-        List<LoginUserRow> users = authMapper.selectLoginUsersByPhone(phone, phoneHash, normalizedAccount);
+        List<LoginUserRow> users = authMapper.selectLoginUsersByPhoneInTenants(phone, phoneHash, normalizedAccount, allowedTenantCodes());
         if (users == null || users.isEmpty()) {
             throw new BusinessException(404, "该手机号未绑定可用管理端账号");
         }
@@ -332,7 +365,7 @@ public class AuthService {
                 .filter(user -> user != null && isUsableEmployeeStatus(user.getUserStatus()))
                 .toList();
         if (usableUsers.size() > 1) {
-            throw new BusinessException(409, "该手机号存在多个组织账号，请输入登录账号或组织码后再获取验证码");
+            throw new BusinessException(409, "该手机号存在多个可用账号，请输入登录账号后再获取验证码");
         }
         if (usableUsers.isEmpty()) {
             throw new BusinessException(403, "该手机号对应员工账号已离职或停用，请联系管理员重新启用后再重置密码");
@@ -345,6 +378,26 @@ public class AuthService {
             return null;
         }
         return account.trim();
+    }
+
+    private List<String> allowedTenantCodes() {
+        return boundedTenantProperties.allowedTenantCodes();
+    }
+
+    private LoginUserRow resolveUniqueLoginUser(List<LoginUserRow> users) {
+        if (users == null || users.isEmpty()) {
+            return null;
+        }
+        List<LoginUserRow> usableUsers = users.stream()
+                .filter(user -> user != null && isUsableEmployeeStatus(user.getUserStatus()))
+                .toList();
+        if (usableUsers.size() > 1) {
+            throw new BusinessException(409, "该账号存在多个组织，请联系管理员保留唯一登录账号或手机号");
+        }
+        if (usableUsers.size() == 1) {
+            return usableUsers.get(0);
+        }
+        return users.get(0);
     }
 
     private boolean isUsableEmployeeStatus(Integer status) {
@@ -398,7 +451,8 @@ public class AuthService {
         loginVO.setUserName(loginUser.getUserName());
         loginVO.setTenantCode(loginUser.getTenantCode());
         loginVO.setTenantName(loginUser.getTenantName());
-        loginVO.setDeveloper(PlatformTenantEnum.isSuper(loginUser.getTenantCode()));
+        loginVO.setDeveloper(false);
+        loginVO.setMustChangePassword(Objects.equals(loginUser.getMustChangePassword(), 1));
         loginVO.setResponseKey(responseEncryptUtil.buildResponseKey(token));
         loginVO.setPermissions(List.copyOf(permCodes));
         loginVO.setFeatures(tenantLicenseService.enabledFeatureKeys(loginUser.getTenantCode()));

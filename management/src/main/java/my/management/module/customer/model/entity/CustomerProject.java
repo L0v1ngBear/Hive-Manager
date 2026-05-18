@@ -21,4 +21,6 @@ public class CustomerProject {
     private String projectName;
 
     private String constructionArea;
+
+    private String projectOwner;
 }

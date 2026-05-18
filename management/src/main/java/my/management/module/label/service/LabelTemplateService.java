@@ -131,6 +131,7 @@ public class LabelTemplateService {
         if (templates.isEmpty()) {
             templates = List.of(createDefaultTemplate(resolvePrintType(printType)));
         }
+        templates.forEach(this::repairLegacySystemLabelTemplateIfNecessary);
         return templates.stream().map(this::toVO).toList();
     }
 
@@ -338,9 +339,37 @@ public class LabelTemplateService {
         return template;
     }
 
+    private void repairLegacySystemLabelTemplateIfNecessary(LabelTemplate template) {
+        if (template == null || !"label".equals(template.getPrintType())) {
+            return;
+        }
+        if (!isLegacySystemLabelTemplate(template)) {
+            return;
+        }
+        template.setName("系统默认面料标签");
+        template.setContent(DEFAULT_LABEL_TEMPLATE);
+        template.setWidthMm(DEFAULT_WIDTH_MM);
+        template.setHeightMm(DEFAULT_HEIGHT_MM);
+        template.setVariables(String.join(",", extractVariables(DEFAULT_LABEL_TEMPLATE)));
+        template.setFileName("system-default.prn");
+        template.setFileSize((long) DEFAULT_LABEL_TEMPLATE.getBytes(StandardCharsets.UTF_8).length);
+        labelTemplateMapper.updateById(template);
+    }
+
+    private boolean isLegacySystemLabelTemplate(LabelTemplate template) {
+        String fileName = template.getFileName() == null ? "" : template.getFileName().trim();
+        String content = template.getContent() == null ? "" : template.getContent();
+        boolean systemFile = "default-label.prn".equalsIgnoreCase(fileName) || "system-default.prn".equalsIgnoreCase(fileName);
+        boolean legacyContent = content.contains("生产厂家：XX有限责任公司")
+                || content.contains("??: ${")
+                || content.startsWith("^XA");
+        return systemFile && legacyContent;
+    }
+
     private void clearOtherDefault(LabelTemplate template) {
         LambdaUpdateWrapper<LabelTemplate> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.eq(LabelTemplate::getPrintType, template.getPrintType())
+        updateWrapper.eq(LabelTemplate::getTenantCode, template.getTenantCode())
+                .eq(LabelTemplate::getPrintType, template.getPrintType())
                 .ne(LabelTemplate::getId, template.getId())
                 .set(LabelTemplate::getIsDefault, 0);
         labelTemplateMapper.update(null, updateWrapper);

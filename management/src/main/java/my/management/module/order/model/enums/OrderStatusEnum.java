@@ -9,10 +9,13 @@ import java.util.Set;
  */
 public enum OrderStatusEnum {
     PENDING_CONFIRM("pending_confirm"),
+    PENDING_PAY("pending_pay"),
+    PENDING_MATERIAL("pending_material"),
     PENDING_SHIP("pending_ship"),
     SHIPPED("shipped"),
     COMPLETED("completed"),
-    PRODUCING("producing");
+    PRODUCING("producing"),
+    CANCELLED("cancelled");
 
     private static final Set<String> SALES_SYNC_CODES = Set.of(
             PENDING_CONFIRM.code,

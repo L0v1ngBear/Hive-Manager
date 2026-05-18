@@ -10,7 +10,6 @@ import my.hive.common.exception.BusinessException;
 import my.hive.common.redis.HiveRedisKeyBuilder;
 import my.management.common.enums.CommonStatusEnum;
 import my.management.common.enums.DeleteFlagEnum;
-import my.management.common.enums.PlatformTenantEnum;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.tenant.mapper.TenantMapper;
 import my.management.module.tenant.mapper.TenantUsageMeterMapper;
@@ -102,9 +101,6 @@ public class TenantLicenseService {
     }
 
     public void ensureTenantUsable(String tenantCode) {
-        if (isSuperTenant(tenantCode)) {
-            return;
-        }
         Tenant tenant = requireTenant(tenantCode);
         if (!isTenantUsable(tenant)) {
             throw new BusinessException(403, "租户已到期或被停用，请联系平台管理员续费");
@@ -112,9 +108,6 @@ public class TenantLicenseService {
     }
 
     public void ensureUserQuotaAvailable(String tenantCode) {
-        if (isSuperTenant(tenantCode)) {
-            return;
-        }
         Tenant tenant = requireTenant(tenantCode);
         Integer maxUsers = tenant.getMaxUsers();
         if (maxUsers == null) {
@@ -130,9 +123,6 @@ public class TenantLicenseService {
     }
 
     public void requireFeatureEnabled(String tenantCode, String featureName, String message) {
-        if (isSuperTenant(tenantCode)) {
-            return;
-        }
         Tenant tenant = requireTenant(tenantCode);
         if (!isTenantUsable(tenant) || !isFeatureEnabled(tenant, featureName)) {
             throw new BusinessException(403, StringUtils.hasText(message) ? message : "当前套餐暂未开放该功能，请联系平台管理员开通");
@@ -140,9 +130,6 @@ public class TenantLicenseService {
     }
 
     public boolean isFeatureEnabled(String tenantCode, String featureName) {
-        if (isSuperTenant(tenantCode)) {
-            return true;
-        }
         if (!StringUtils.hasText(featureName)) {
             return false;
         }
@@ -154,13 +141,6 @@ public class TenantLicenseService {
         if (!StringUtils.hasText(tenantCode)) {
             return List.of();
         }
-        if (isSuperTenant(tenantCode)) {
-            LinkedHashSet<String> superFeatures = new LinkedHashSet<>(BASE_MODULE_FEATURES);
-            superFeatures.add(TenantFeatureEnum.CODE_AI_ADVICE);
-            superFeatures.add(TenantFeatureEnum.CODE_ADVANCED_AI);
-            superFeatures.add(TenantFeatureEnum.CODE_PLATFORM_SUPER);
-            return List.copyOf(superFeatures);
-        }
         Tenant tenant = requireTenant(tenantCode);
         if (!isTenantUsable(tenant)) {
             return List.of();
@@ -171,18 +151,12 @@ public class TenantLicenseService {
     public List<TenantFeatureOptionVO> featureCatalog() {
         List<TenantFeatureOptionVO> features = new ArrayList<>();
         for (TenantFeatureEnum item : TenantFeatureEnum.values()) {
-            if (item == TenantFeatureEnum.PLATFORM_SUPER) {
-                continue;
-            }
             features.add(feature(item));
         }
         return features;
     }
 
     public boolean tryConsumeAiAdviceQuota(String tenantCode) {
-        if (isSuperTenant(tenantCode)) {
-            return true;
-        }
         Tenant tenant = requireTenant(tenantCode);
         if (!isTenantUsable(tenant) || !isFeatureEnabled(tenant, TenantFeatureEnum.CODE_AI_ADVICE)) {
             return false;
@@ -257,7 +231,6 @@ public class TenantLicenseService {
                     redisKeyBuilder.cache("tenant", "features", tenantCode),
                     redisKeyBuilder.cache("tenant", "attendance-rule", tenantCode)
             ));
-            stringRedisTemplate.opsForHash().delete("companyAttendanceRule", tenantCode);
         } catch (Exception ignored) {
         }
     }
@@ -272,10 +245,6 @@ public class TenantLicenseService {
         }
         LocalDateTime endTime = tenant.getSubscriptionEndTime();
         return endTime == null || !endTime.isBefore(LocalDateTime.now());
-    }
-
-    public boolean isSuperTenant(String tenantCode) {
-        return PlatformTenantEnum.isSuper(tenantCode);
     }
 
     private Tenant requireTenant(String tenantCode) {

@@ -21,6 +21,13 @@ import java.util.List;
 @InterceptorIgnore(tenantLine = "true")
 public interface NotificationMapper {
 
+    String RECORD_COLUMNS = """
+            id, tenant_code, dedupe_key, biz_type, biz_id, title, content, level, channel,
+            route, receiver_user_id, receiver_name, receiver_phone, status, read_flag,
+            read_time, send_status, send_time, task_status, close_result, close_note,
+            close_user_id, close_time, source_type, create_time, update_time
+            """;
+
     @Insert("""
             INSERT INTO notification_record (
                 tenant_code, dedupe_key, biz_type, biz_id, title, content, level, channel,
@@ -49,8 +56,38 @@ public interface NotificationMapper {
             """)
     int upsert(@Param("item") NotificationRecord item);
 
+    @Insert("""
+            INSERT INTO notification_record (
+                tenant_code, dedupe_key, biz_type, biz_id, title, content, level, channel,
+                route, receiver_user_id, receiver_name, receiver_phone, status, read_flag,
+                send_status, task_status, close_result, close_note, source_type, create_time, update_time
+            ) VALUES (
+                #{item.tenantCode}, #{item.dedupeKey}, #{item.bizType}, #{item.bizId},
+                #{item.title}, #{item.content}, #{item.level}, #{item.channel},
+                #{item.route}, #{item.receiverUserId}, #{item.receiverName}, #{item.receiverPhone},
+                #{item.status}, #{item.readFlag}, #{item.sendStatus}, #{item.taskStatus},
+                #{item.closeResult}, #{item.closeNote}, #{item.sourceType}, NOW(), NOW()
+            )
+            """)
+    int insertAnnouncement(@Param("item") NotificationRecord item);
+
     @Select("""
-            SELECT *
+            SELECT
+            """ + RECORD_COLUMNS + """
+            FROM notification_record
+            WHERE tenant_code = #{tenantCode}
+              AND biz_type = 'ANNOUNCEMENT'
+              AND receiver_user_id IS NULL
+              AND status = 1
+            ORDER BY update_time DESC
+            LIMIT #{limit}
+            """)
+    List<NotificationRecord> selectRecentAnnouncements(@Param("tenantCode") String tenantCode,
+                                                       @Param("limit") Integer limit);
+
+    @Select("""
+            SELECT
+            """ + RECORD_COLUMNS + """
             FROM notification_record
             WHERE tenant_code = #{tenantCode}
               AND status = 1
@@ -84,7 +121,8 @@ public interface NotificationMapper {
     Long countUnread(@Param("tenantCode") String tenantCode, @Param("userId") Long userId);
 
     @Select("""
-            SELECT *
+            SELECT
+            """ + RECORD_COLUMNS + """
             FROM notification_record
             WHERE tenant_code = #{tenantCode}
               AND status = 1
@@ -123,7 +161,8 @@ public interface NotificationMapper {
     int markRead(@Param("tenantCode") String tenantCode, @Param("userId") Long userId, @Param("id") Long id);
 
     @Select("""
-            SELECT *
+            SELECT
+            """ + RECORD_COLUMNS + """
             FROM notification_record
             WHERE id = #{id}
               AND tenant_code = #{tenantCode}

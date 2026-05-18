@@ -217,6 +217,7 @@ public class EmployeeService {
         employee.setPhoneHash(phoneHash);
         employee.setPhoneMask(phoneMask);
         employee.setPassword(encryptUtil.encode(defaultPassword));
+        employee.setMustChangePassword(1);
         employee.setDepartmentName(department.getDeptName());
         employee.setPosition(position.getPositionName());
         employee.setManagerId(null);
@@ -238,7 +239,7 @@ public class EmployeeService {
         ext.setRemark(request.getRemark());
         ext.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         employeeExtMapper.insert(ext);
-        syncUserRoles(employee.getId(), request.getRoleIds());
+        syncUserRolesByStatus(employee.getId(), request.getRoleIds(), employee.getStatus());
 
         insertChangeLog(employee.getId(), reuseJoinedUser ? "COMPLETE_JOINED_USER_PROFILE" : "CREATE", null, Map.of(
                 "name", employee.getName(),
@@ -294,7 +295,7 @@ public class EmployeeService {
         ext.setEntryDate(request.getEntryDate());
         ext.setRemark(request.getRemark());
         saveOrUpdateExt(ext);
-        syncUserRoles(employee.getId(), request.getRoleIds());
+        syncUserRolesByStatus(employee.getId(), request.getRoleIds(), employee.getStatus());
 
         insertChangeLog(employee.getId(), "UPDATE", before, detail(employee.getId()));
     }
@@ -305,6 +306,9 @@ public class EmployeeService {
         Integer beforeStatus = employee.getStatus();
         employee.setStatus(request.getStatus());
         employeeMapper.updateById(employee);
+        if (isResigned(request.getStatus())) {
+            revokeUserRoles(employee.getId());
+        }
         if (StringUtils.hasText(request.getRemark())) {
             EmployeeExt ext = getOrCreateExt(employee.getId());
             ext.setRemark(request.getRemark());
@@ -341,6 +345,9 @@ public class EmployeeService {
                 employee.setStatus(request.getStatus());
             }
             employeeMapper.updateById(employee);
+            if (isResigned(request.getStatus())) {
+                revokeUserRoles(employee.getId());
+            }
 
             if (StringUtils.hasText(request.getRemark())) {
                 EmployeeExt ext = getOrCreateExt(id);
@@ -349,6 +356,29 @@ public class EmployeeService {
             }
             insertChangeLog(id, "BATCH_UPDATE", before, detail(id));
         }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void markResignedByApproval(Long employeeId, String remark) {
+        Employee employee = requireEmployee(employeeId);
+        if (isResigned(employee.getStatus())) {
+            revokeUserRoles(employee.getId());
+            return;
+        }
+        Integer beforeStatus = employee.getStatus();
+        employee.setStatus(EmployeeStatusEnum.RESIGNED.getCode());
+        employeeMapper.updateById(employee);
+        revokeUserRoles(employee.getId());
+        if (StringUtils.hasText(remark)) {
+            EmployeeExt ext = getOrCreateExt(employeeId);
+            String oldRemark = ext.getRemark();
+            String auditRemark = "离职审批通过：" + remark.trim();
+            ext.setRemark(StringUtils.hasText(oldRemark) ? oldRemark + "\n" + auditRemark : auditRemark);
+            saveOrUpdateExt(ext);
+        }
+        insertChangeLog(employeeId, "RESIGNATION_APPROVED",
+                Map.of("status", beforeStatus),
+                Map.of("status", EmployeeStatusEnum.RESIGNED.getCode()));
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -445,7 +475,7 @@ public class EmployeeService {
         List<String> headers = employeeImportHeaders(currentTenantFieldLabels("employee"));
         List<List<String>> examples = List.of(
                 List.of("张三", "13900030001", "仓储部", "仓库专员", "在职", "全职", LocalDate.now().toString(), "zhangsan@example.com", "王主管", "普通员工", "示例数据"),
-                List.of("李四", "13900030002", "业务部", "销售专员", "试用", "试用期", LocalDate.now().toString(), "lisi@example.com", "刘经理", "业务测试管理员,普通员工", "")
+                List.of("李四", "13900030002", "业务部", "销售专员", "试用", "试用期", LocalDate.now().toString(), "lisi@example.com", "刘经理", "销售专员,普通员工", "")
         );
         List<String> notes = List.of(
                 "仅支持 .xlsx 文件导入。",
@@ -467,16 +497,16 @@ public class EmployeeService {
 
     @Transactional(rollbackFor = Exception.class)
     public ImportResultVO importEmployees(MultipartFile file) {
-        validateImportFile(file);
+        excelUtil.validateXlsxImportFile(file, MAX_IMPORT_FILE_SIZE_BYTES);
         ImportResultVO result = new ImportResultVO();
         Set<String> importedPhones = new HashSet<>();
         try (var inputStream = file.getInputStream(); var workbook = WorkbookFactory.create(inputStream)) {
             Sheet sheet = workbook.getSheetAt(0);
-            validateImportHeader(sheet.getRow(0), List.of(EMPLOYEE_IMPORT_HEADERS, employeeImportHeaders(currentTenantFieldLabels("employee"))));
-            validateImportDataRows(sheet, EMPLOYEE_IMPORT_COLUMN_COUNT, MAX_EMPLOYEE_IMPORT_ROWS);
+            excelUtil.validateImportHeaderOptions(sheet.getRow(0), List.of(EMPLOYEE_IMPORT_HEADERS, employeeImportHeaders(currentTenantFieldLabels("employee"))));
+            excelUtil.validateImportDataRows(sheet, EMPLOYEE_IMPORT_COLUMN_COUNT, MAX_EMPLOYEE_IMPORT_ROWS);
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
-                if (row == null || isEmptyRow(row, EMPLOYEE_IMPORT_COLUMN_COUNT)) {
+                if (excelUtil.isEmptyRow(row, EMPLOYEE_IMPORT_COLUMN_COUNT)) {
                     continue;
                 }
                 result.setTotalCount(result.getTotalCount() + 1);
@@ -715,6 +745,32 @@ public class EmployeeService {
         }
     }
 
+    private void syncUserRolesByStatus(Long userId, List<Long> roleIds, Integer status) {
+        if (isResigned(status)) {
+            revokeUserRoles(userId);
+            return;
+        }
+        syncUserRoles(userId, roleIds);
+    }
+
+    private void revokeUserRoles(Long userId) {
+        if (userId == null) {
+            return;
+        }
+        List<SysUserRole> existed = sysUserRoleMapper.selectList(new LambdaQueryWrapper<SysUserRole>()
+                .eq(SysUserRole::getUserId, userId)
+                .eq(SysUserRole::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(SysUserRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
+        for (SysUserRole item : existed) {
+            item.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
+            sysUserRoleMapper.updateById(item);
+        }
+    }
+
+    private boolean isResigned(Integer status) {
+        return EmployeeStatusEnum.RESIGNED.getCode().equals(status);
+    }
+
     /**
      * 角色 ID 由前端多选框传入，历史数据中可能存在重复关联，保存前统一去重并过滤空值。
      */
@@ -778,17 +834,8 @@ public class EmployeeService {
         return request;
     }
 
-    private boolean isEmptyRow(Row row, int cellCount) {
-        for (int i = 0; i < cellCount; i++) {
-            if (StringUtils.hasText(excelUtil.readString(row.getCell(i)))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     /**
-     * 小程序自助加入组织后会先产生一条没有 emp_employee_ext 档案的 user。
+     * 小程序一键登录会先产生一条没有 emp_employee_ext 档案的 user。
      * 管理端新增/导入同手机号员工时应补全这条记录，而不是再新建一条或直接报重复。
      */
     private Employee findReusableJoinedEmployee(String normalizedPhone, String phoneHash) {
@@ -991,79 +1038,6 @@ public class EmployeeService {
             return tenantFieldConfigService.currentFieldLabelMap(moduleCode);
         } catch (BusinessException ignored) {
             return Collections.emptyMap();
-        }
-    }
-
-    private void validateImportFile(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new BusinessException("请先选择要导入的 Excel 文件");
-        }
-        if (file.getSize() > MAX_IMPORT_FILE_SIZE_BYTES) {
-            throw new BusinessException("导入文件不能超过 20MB");
-        }
-        String originalFilename = file.getOriginalFilename();
-        if (!StringUtils.hasText(originalFilename) || !originalFilename.trim().toLowerCase().endsWith(".xlsx")) {
-            throw new BusinessException("仅支持 .xlsx 格式，请先下载系统导入模板");
-        }
-    }
-
-    private void validateImportHeader(Row headerRow, List<List<String>> acceptedHeaders) {
-        if (headerRow == null) {
-            throw new BusinessException("导入文件缺少表头，请下载最新模板");
-        }
-        if (acceptedHeaders == null || acceptedHeaders.isEmpty()) {
-            acceptedHeaders = List.of(EMPLOYEE_IMPORT_HEADERS);
-        }
-        for (List<String> expectedHeaders : acceptedHeaders) {
-            if (matchesImportHeader(headerRow, expectedHeaders)) {
-                return;
-            }
-        }
-        List<String> expectedHeaders = acceptedHeaders.get(acceptedHeaders.size() - 1);
-        for (int i = 0; i < expectedHeaders.size(); i++) {
-            String actual = normalizeImportHeaderText(excelUtil.readString(headerRow.getCell(i)));
-            String expected = normalizeImportHeaderText(expectedHeaders.get(i));
-            if (!Objects.equals(expected, actual)) {
-                throw new BusinessException("导入表头不匹配，第 " + (i + 1) + " 列应为：" + expectedHeaders.get(i));
-            }
-        }
-    }
-
-    private boolean matchesImportHeader(Row headerRow, List<String> expectedHeaders) {
-        if (headerRow == null || expectedHeaders == null || expectedHeaders.isEmpty()) {
-            return false;
-        }
-        for (int i = 0; i < expectedHeaders.size(); i++) {
-            String actual = normalizeImportHeaderText(excelUtil.readString(headerRow.getCell(i)));
-            String expected = normalizeImportHeaderText(expectedHeaders.get(i));
-            if (!Objects.equals(expected, actual)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private String normalizeImportHeaderText(String value) {
-        return value == null ? "" : value.trim();
-    }
-
-    private void validateImportDataRows(Sheet sheet, int cellCount, int maxRows) {
-        if (sheet == null) {
-            throw new BusinessException("导入文件没有工作表");
-        }
-        int dataRows = 0;
-        for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-            Row row = sheet.getRow(i);
-            if (row == null || isEmptyRow(row, cellCount)) {
-                continue;
-            }
-            dataRows++;
-            if (dataRows > maxRows) {
-                throw new BusinessException("单次最多导入 " + maxRows + " 行，请拆分文件后重试");
-            }
-        }
-        if (dataRows == 0) {
-            throw new BusinessException("导入文件没有有效数据行");
         }
     }
 

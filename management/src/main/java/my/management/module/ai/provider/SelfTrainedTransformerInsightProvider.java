@@ -115,10 +115,7 @@ public class SelfTrainedTransformerInsightProvider implements AiInsightProvider 
     }
 
     private Map<String, Object> sanitizeSnapshot(AiBusinessSnapshotVO snapshot) {
-        Map<String, Object> map = objectMapper.convertValue(snapshot, new TypeReference<Map<String, Object>>() {
-        });
-        map.remove("tenantCode");
-        return map;
+        return AiPayloadSanitizer.sanitizeSnapshot(objectMapper, snapshot);
     }
 
     private List<Map<String, Object>> sanitizeTrainingExamples(List<AiAdviceTrainingSample> trainingExamples) {
@@ -136,7 +133,7 @@ public class SelfTrainedTransformerInsightProvider implements AiInsightProvider 
                     item.put("priority", sample.getPriority());
                     item.put("confidence", sample.getConfidence());
                     item.put("feedbackType", sample.getFeedbackType());
-                    item.put("feedbackText", sample.getFeedbackText());
+                    item.put("feedbackText", AiPayloadSanitizer.sanitizeFreeText(sample.getFeedbackText()));
                     item.put("occurrenceCount", sample.getOccurrenceCount());
                     return item;
                 })

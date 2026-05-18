@@ -14,6 +14,14 @@
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <button
+            v-permission="'inventory:warning:setting'"
+            @click="openWarningSetting"
+            class="inventory-secondary-btn"
+          >
+            <span class="material-symbols-outlined text-[20px]">tune</span>
+            预警设置
+          </button>
+          <button
             v-permission="'inventory:cloth:in'"
             @click="handleTemplateDownload"
             class="inventory-secondary-btn"
@@ -28,6 +36,14 @@
           >
             <span class="material-symbols-outlined text-[20px]">file_upload</span>
             导入外部库存
+          </button>
+          <button
+            v-permission="'inventory:cloth:in'"
+            @click="triggerImageRecognition"
+            class="inventory-secondary-btn"
+          >
+            <span class="material-symbols-outlined text-[20px]">photo_camera</span>
+            图片识别入库
           </button>
           <button v-permission="'inventory:cloth:in'" @click="openInDrawer" class="function-action-primary">
             <span class="material-symbols-outlined text-[20px]">add_circle</span>
@@ -70,7 +86,7 @@
             <h3 class="inventory-stat-value text-amber-600" :title="summary.warningCount">
               {{ summary.warningCount }}
             </h3>
-            <span class="text-xs font-medium text-amber-500/70">低于 100 米</span>
+            <span class="text-xs font-medium text-amber-500/70">低于 {{ meter(summary.warningThresholdMeters) }} 米</span>
           </div>
         </div>
 
@@ -119,8 +135,23 @@
                 </select>
                 <span class="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">expand_more</span>
               </div>
+              <select v-model="query.timeOrder" @change="handleFilter" class="min-w-[132px] cursor-pointer rounded-xl border border-slate-200 bg-white py-2.5 px-4 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10">
+                <option value="fifo">先进先出</option>
+                <option value="lifo">先进后出</option>
+              </select>
+              <input v-model.trim="query.specMin" type="number" min="0" step="0.01" class="w-28 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" placeholder="规格下限" />
+              <input v-model.trim="query.specMax" type="number" min="0" step="0.01" class="w-28 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" placeholder="规格上限" />
+              <input v-model.trim="query.remainingMin" type="number" min="0" step="0.01" class="w-32 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" placeholder="剩余米数下限" />
+              <input v-model.trim="query.remainingMax" type="number" min="0" step="0.01" class="w-32 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" placeholder="剩余米数上限" />
+              <input v-model="query.updatedStart" type="date" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" title="更新开始日期" />
+              <input v-model="query.updatedEnd" type="date" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" title="更新结束日期" />
               <button @click="handleFilter" class="rounded-xl bg-blue-50 px-5 py-2.5 text-sm font-bold text-blue-600 transition-colors hover:bg-blue-100">查询</button>
               <button @click="resetFilter" class="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50">重置</button>
+              <TableColumnSettings
+                :columns="inventoryTableColumns"
+                @move="moveInventoryTableColumn"
+                @reset="resetInventoryTableColumns"
+              />
             </div>
             <span class="rounded-lg border border-slate-100 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm">
               共 <b class="text-slate-800">{{ pagination.total }}</b> 条记录
@@ -135,33 +166,42 @@
             <table class="w-full min-w-[1040px] border-collapse text-left">
               <thead class="sticky top-0 z-0 bg-slate-50/80">
                 <tr>
-                  <th class="inventory-th">{{ fieldLabel('modelCode', '型号') }}</th>
-                  <th class="inventory-th text-right">{{ fieldLabel('spec', '规格') }}</th>
-                  <th class="inventory-th text-right">{{ fieldLabel('totalMeters', '总米数') }}</th>
-                  <th class="inventory-th text-right">{{ fieldLabel('remainingMeters', '剩余米数') }}</th>
-                  <th class="inventory-th">{{ fieldLabel('status', '库存状态') }}</th>
-                  <th class="inventory-th">{{ fieldLabel('updateTime', '更新时间') }}</th>
+                  <th
+                    v-for="column in inventoryTableColumns"
+                    :key="column.key"
+                    class="inventory-th"
+                    :class="column.align === 'right' ? 'text-right' : ''"
+                  >
+                    {{ column.label }}
+                  </th>
                   <th class="inventory-th text-right">操作</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
                 <tr v-for="item in rows" :key="`${item.modelCode}-${item.spec}`" class="group cursor-pointer transition-colors hover:bg-blue-50/40" @click="openDetail(item)">
-                  <td class="px-6 py-4 text-sm font-bold text-slate-700">{{ item.modelCode }}</td>
-                  <td class="px-6 py-4 text-right text-sm text-slate-600">{{ meter(item.spec) }}</td>
-                  <td class="px-6 py-4 text-right text-sm text-slate-600">{{ meter(item.totalMeters) }}</td>
-                  <td class="px-6 py-4 text-right text-sm font-black text-blue-600">{{ meter(item.remainingMeters) }}</td>
-                  <td class="px-6 py-4">
-                    <span :class="statusClass(item.status)" class="inline-flex rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wider">
-                      {{ item.statusName || statusLabel(item.status) }}
-                    </span>
+                  <td
+                    v-for="column in inventoryTableColumns"
+                    :key="column.key"
+                    class="px-6 py-4"
+                    :class="inventoryTableCellClass(column.key)"
+                  >
+                    <template v-if="column.key === 'modelCode'">{{ item.modelCode }}</template>
+                    <template v-else-if="column.key === 'spec'">{{ meter(item.spec) }}</template>
+                    <template v-else-if="column.key === 'totalMeters'">{{ meter(item.totalMeters) }}</template>
+                    <template v-else-if="column.key === 'remainingMeters'">{{ meter(item.remainingMeters) }}</template>
+                    <template v-else-if="column.key === 'status'">
+                      <span :class="statusClass(item.status)" class="inline-flex rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wider">
+                        {{ item.statusName || statusLabel(item.status) }}
+                      </span>
+                    </template>
+                    <template v-else-if="column.key === 'updateTime'">{{ formatDateTime(item.latestTime || item.updateTime) }}</template>
                   </td>
-                  <td class="px-6 py-4 text-xs text-slate-500">{{ formatDateTime(item.latestTime || item.updateTime) }}</td>
                   <td class="space-x-2 whitespace-nowrap px-6 py-4 text-right">
                     <button @click.stop="openDetail(item)" class="rounded-lg px-3 py-1.5 text-xs font-bold text-blue-600 transition-colors hover:bg-blue-100/50">详情</button>
                   </td>
                 </tr>
                 <tr v-if="!loading && rows.length === 0">
-                  <td colspan="7" class="px-6 py-16 text-center">
+                  <td :colspan="inventoryTableColumnCount" class="px-6 py-16 text-center">
                     <div class="flex flex-col items-center justify-center text-slate-400">
                       <span class="material-symbols-outlined mb-2 text-5xl opacity-50">search_off</span>
                       <p class="text-sm">暂无符合条件的库存记录</p>
@@ -272,10 +312,11 @@
     </div>
 
     <transition name="fade">
-      <div v-if="detailVisible || inVisible || outVisible" class="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm transition-opacity" @click="closePanels"></div>
+      <div v-if="detailVisible || inVisible || outVisible || imageRecognitionVisible" class="fixed inset-0 z-[90] bg-slate-900/40 backdrop-blur-sm transition-opacity" @click="closePanels"></div>
     </transition>
 
     <input ref="importInputRef" type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="handleImportChange" />
+    <input ref="imageRecognitionInputRef" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="handleImageRecognitionChange" />
 
     <aside class="inventory-drawer" :class="detailVisible ? 'translate-x-0' : 'translate-x-full'">
       <div class="h-1.5 w-full bg-blue-600"></div>
@@ -298,7 +339,7 @@
           </div>
           <div class="rounded-2xl border border-slate-100 bg-slate-50 p-5">
             <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">布匹数</span>
-            <p class="mt-2 text-3xl font-black text-slate-800">{{ detailRecord.rollCount || detailRows.length || 0 }}</p>
+            <p class="mt-2 text-3xl font-black text-slate-800">{{ detailRecord.rollCount || 0 }}</p>
           </div>
         </div>
 
@@ -325,44 +366,23 @@
           </div>
         </div>
 
-        <div class="overflow-hidden rounded-2xl border border-slate-100">
-          <div class="flex items-center justify-between bg-slate-50 px-4 py-3">
-            <span class="text-sm font-black text-slate-800">单匹布明细</span>
-            <span v-if="detailLoading" class="text-xs text-blue-600">加载中...</span>
-          </div>
-          <div class="max-h-[360px] divide-y divide-slate-100 overflow-y-auto">
-            <div v-for="cloth in detailRows" :key="cloth.id" class="space-y-2 p-4 text-sm">
-              <div class="flex items-center justify-between gap-3">
-                <span class="break-all font-mono font-bold text-slate-800">{{ cloth.barcode }}</span>
-                <span :class="statusClass(cloth.status)" class="shrink-0 rounded px-2 py-0.5 text-[11px] font-bold">
-                  {{ cloth.statusName || statusLabel(cloth.status) }}
-                </span>
-              </div>
-              <div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
-                <span>{{ fieldLabel('totalMeters', '总米数') }}：<b class="text-slate-700">{{ meter(cloth.totalMeters) }}</b></span>
-                <span>{{ fieldLabel('remainingMeters', '剩余米数') }}：<b class="text-blue-600">{{ meter(cloth.remainingMeters) }}</b></span>
-                <span>入库：{{ formatDateTime(cloth.inTime) }}</span>
-                <span>更新：{{ formatDateTime(cloth.updateTime) }}</span>
-              </div>
-              <div v-if="customInventoryFields.length" class="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
-                <span v-for="field in customInventoryFields" :key="`${cloth.id}-${field.key}`">
-                  {{ field.label }}：
-                  <b class="text-slate-700">{{ customFieldValue(cloth, field) }}</b>
-                </span>
-              </div>
-              <button
-                v-permission="'inventory:cloth:out'"
-                @click="openOutDrawer(cloth)"
-                :disabled="Number(cloth.remainingMeters || 0) <= 0"
-                class="mt-2 w-full rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-40"
-              >
-                扫码出库
-              </button>
-            </div>
-            <div v-if="!detailLoading && detailRows.length === 0" class="p-8 text-center text-sm text-slate-400">
-              暂无单匹布明细
+        <div class="rounded-2xl border border-slate-100 bg-slate-50/70 p-5">
+          <div class="flex items-start gap-3">
+            <span class="material-symbols-outlined rounded-xl bg-white p-2 text-blue-600 shadow-sm">format_list_bulleted</span>
+            <div class="min-w-0 flex-1">
+              <h4 class="text-sm font-black text-slate-900">单匹布明细已拆分为独立页面</h4>
+              <p class="mt-1 text-xs leading-5 text-slate-500">
+                当前型号共 {{ detailRecord.rollCount || 0 }} 匹布。为避免明细过长影响抽屉体验，请进入独立页面查看条码、米数、自定义字段和出库操作。
+              </p>
             </div>
           </div>
+          <button
+            @click="openModelClothPage"
+            class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition-colors hover:bg-blue-700"
+          >
+            查看单匹布明细
+            <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+          </button>
         </div>
       </div>
     </aside>
@@ -396,7 +416,7 @@
             {{ fieldLabel('modelCode', '型号') }}
             <span v-if="fieldRequired('modelCode')" class="text-rose-500">*</span>
           </span>
-          <input v-model.trim="inForm.modelCode" @input="loadModelOptions" class="inventory-input" placeholder="搜索或输入型号" />
+          <input v-model.trim="inForm.modelCode" data-field="inventory.modelCode" @input="loadModelOptions" class="inventory-input" placeholder="搜索或输入型号" />
           <div v-if="modelOptions.length" class="mt-3 flex flex-wrap gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
             <button v-for="item in modelOptions" :key="`${item.modelCode}-${item.spec}`" @click="pickModel(item)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-700">
               {{ item.modelCode }} <span class="mx-1 text-slate-300">|</span> {{ meter(item.spec) }}
@@ -411,7 +431,7 @@
               {{ fieldLabel('spec', '规格') }}
               <span v-if="fieldRequired('spec')" class="text-rose-500">*</span>
             </span>
-            <input v-model.trim="inForm.spec" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
+            <input v-model.trim="inForm.spec" data-field="inventory.spec" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
           </label>
           <label class="block">
             <span class="inventory-field-label">
@@ -419,14 +439,14 @@
               {{ fieldLabel('totalMeters', '入库米数') }}
               <span v-if="fieldRequired('totalMeters')" class="text-rose-500">*</span>
             </span>
-            <input v-model.trim="inForm.meters" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
+            <input v-model.trim="inForm.meters" data-field="inventory.meters" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
           </label>
         </div>
 
         <div v-if="customInventoryFields.length" class="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
           <div>
-            <h4 class="text-sm font-black text-slate-800">租户自定义字段</h4>
-            <p class="mt-1 text-xs text-slate-500">这些字段只属于当前租户，用于适配客户原有库存台账。</p>
+            <h4 class="text-sm font-black text-slate-800">组织自定义字段</h4>
+            <p class="mt-1 text-xs text-slate-500">这些字段只属于当前组织，用于适配客户原有库存台账。</p>
           </div>
           <label v-for="field in customInventoryFields" :key="field.key" class="block">
             <span class="inventory-field-label">
@@ -435,6 +455,7 @@
             </span>
             <input
               v-model.trim="inForm.customFields[field.key]"
+              :data-field="`inventory.custom.${field.key}`"
               :type="customFieldInputType(field)"
               class="inventory-input bg-white"
               :placeholder="`请输入${field.label}`"
@@ -445,6 +466,109 @@
       <div class="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
         <button @click="inVisible = false" class="inventory-cancel-btn">取消</button>
         <button @click="submitIn" class="inventory-confirm-btn bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600">确认入库</button>
+      </div>
+    </aside>
+
+    <aside class="inventory-drawer" :class="imageRecognitionVisible ? 'translate-x-0' : 'translate-x-full'">
+      <div class="h-1.5 w-full bg-blue-500"></div>
+      <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
+        <div>
+          <h3 class="flex items-center gap-2 text-xl font-black text-slate-900">
+            <span class="material-symbols-outlined text-blue-500">photo_camera</span>
+            图片识别入库
+          </h3>
+          <p class="mt-1.5 text-xs text-slate-500">先上传图片，系统带出候选字段；确认前请人工核对，避免错入库。</p>
+        </div>
+        <button @click="imageRecognitionVisible = false" class="inventory-close-btn">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="flex-1 space-y-5 overflow-y-auto p-6">
+        <div class="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+          <div class="flex items-start gap-3">
+            <span class="material-symbols-outlined rounded-xl bg-white p-2 text-blue-600 shadow-sm">info</span>
+            <div class="text-xs leading-5 text-blue-900/80">
+              <p class="font-bold">{{ imageRecognitionResult.message || '请上传清晰的码单、库存卡或布匹标签照片。' }}</p>
+              <p class="mt-1">当前识别结果会作为草稿，不会自动写入库存；点击“确认入库”后才会生成库存和标签打印任务。</p>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="imageRecognitionResult.fileUrl" class="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+          <img :src="imageRecognitionResult.fileUrl" alt="入库识别图片" class="h-44 w-full object-cover" />
+          <div class="flex items-center justify-between px-4 py-3 text-xs text-slate-500">
+            <span class="truncate">{{ imageRecognitionResult.fileName }}</span>
+            <span>置信度 {{ recognitionConfidenceText(imageRecognitionResult.confidence) }}</span>
+          </div>
+        </div>
+
+        <div v-for="(candidate, index) in imageRecognitionCandidates" :key="candidate.localId" class="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-black text-slate-900">候选布匹 {{ index + 1 }}</h4>
+            <button
+              v-if="imageRecognitionCandidates.length > 1"
+              @click="removeRecognitionCandidate(index)"
+              class="rounded-lg px-2 py-1 text-xs font-bold text-rose-500 hover:bg-rose-50"
+            >
+              删除
+            </button>
+          </div>
+
+          <label class="block">
+            <span class="inventory-field-label">{{ fieldLabel('barCode', '条码') }}</span>
+            <input v-model.trim="candidate.barcode" class="inventory-input" placeholder="留空则自动生成" />
+          </label>
+
+          <label class="block">
+            <span class="inventory-field-label">
+              {{ fieldLabel('modelCode', '型号') }}
+              <span class="text-rose-500">*</span>
+            </span>
+            <input v-model.trim="candidate.modelCode" class="inventory-input" placeholder="请输入或核对型号" />
+          </label>
+
+          <div class="grid grid-cols-2 gap-4">
+            <label class="block">
+              <span class="inventory-field-label">
+                {{ fieldLabel('spec', '规格') }}
+                <span class="text-rose-500">*</span>
+              </span>
+              <input v-model.trim="candidate.spec" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
+            </label>
+            <label class="block">
+              <span class="inventory-field-label">
+                {{ fieldLabel('totalMeters', '入库米数') }}
+                <span class="text-rose-500">*</span>
+              </span>
+              <input v-model.trim="candidate.meters" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
+            </label>
+          </div>
+
+          <div v-if="customInventoryFields.length" class="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+            <h5 class="text-xs font-black text-slate-700">组织自定义字段</h5>
+            <label v-for="field in customInventoryFields" :key="field.key" class="block">
+              <span class="inventory-field-label">
+                {{ field.label }}
+                <span v-if="field.required" class="text-rose-500">*</span>
+              </span>
+              <input
+                v-model.trim="candidate.customFields[field.key]"
+                :type="customFieldInputType(field)"
+                class="inventory-input bg-white"
+                :placeholder="`请输入${field.label}`"
+              />
+            </label>
+          </div>
+        </div>
+
+        <button @click="addRecognitionCandidate" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-200 bg-blue-50/60 px-4 py-3 text-sm font-black text-blue-600 hover:bg-blue-50">
+          <span class="material-symbols-outlined text-[18px]">add</span>
+          继续添加一匹布
+        </button>
+      </div>
+      <div class="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
+        <button @click="imageRecognitionVisible = false" class="inventory-cancel-btn">取消</button>
+        <button @click="submitRecognizedInventory" class="inventory-confirm-btn bg-blue-600 text-white shadow-blue-600/20 hover:bg-blue-700">确认入库</button>
       </div>
     </aside>
 
@@ -469,7 +593,7 @@
             布匹条码 <span class="text-rose-500">*</span>
           </span>
           <div class="relative">
-            <input v-model.trim="outForm.barcode" @change="lookupBarcode" class="inventory-input pr-12 font-mono" placeholder="请将光标放在此处扫码" autofocus />
+            <input v-model.trim="outForm.barcode" data-field="inventory.outBarcode" @change="lookupBarcode" class="inventory-input pr-12 font-mono" placeholder="请将光标放在此处扫码" autofocus />
             <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-300">qr_code_scanner</span>
           </div>
         </label>
@@ -494,7 +618,7 @@
             {{ fieldLabel('remainingMeters', '出库米数') }}
             <span class="text-rose-500">*</span>
           </span>
-          <input v-model.trim="outForm.meters" type="number" min="0" step="0.01" class="inventory-input" placeholder="请输入本次出库米数" />
+          <input v-model.trim="outForm.meters" data-field="inventory.outMeters" type="number" min="0" step="0.01" class="inventory-input" placeholder="请输入本次出库米数" />
         </label>
       </div>
       <div class="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
@@ -508,49 +632,83 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { warnAndFocusField } from '@/utils/formFocus'
 import { getCurrentTenantFieldConfig } from '@/api/tenantFieldConfig'
 import { customTenantFields, defaultTenantFieldConfig, mergeTenantFieldConfig } from '@/utils/tenantFieldConfig'
+import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import {
   downloadInventoryImportTemplate,
-  getInventoryModelDetail,
   getInventoryModelPage,
   getInventorySummary,
   getInventoryTrend,
+  getInventoryWarningSetting,
   getInventoryWarnings,
   getRecentInventoryRecords,
   importInventory,
   inCloth,
   outCloth,
+  recognizeInventoryImage,
   searchInventoryBarcode,
-  searchInventoryModels
+  searchInventoryModels,
+  updateInventoryWarningSetting
 } from './api/inventory.js'
 
 const route = useRoute()
+const router = useRouter()
 const rows = ref([])
 const warningRows = ref([])
 const recordRows = ref([])
 const trendRows = ref([])
 const modelOptions = ref([])
 const loading = ref(false)
-const summary = reactive({ totalMeters: 0, clothCount: 0, warningCount: 0, todayInMeters: 0, todayOutMeters: 0 })
+const summary = reactive({ totalMeters: 0, clothCount: 0, warningCount: 0, warningThresholdMeters: 100, todayInMeters: 0, todayOutMeters: 0 })
 const pagination = reactive({ total: 0, pages: 0 })
-const query = reactive({ pageNum: 1, pageSize: 10, keyword: '', status: '' })
+const query = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  keyword: '',
+  status: '',
+  specMin: '',
+  specMax: '',
+  remainingMin: '',
+  remainingMax: '',
+  updatedStart: '',
+  updatedEnd: '',
+  timeOrder: 'fifo'
+})
 const detailVisible = ref(false)
 const inVisible = ref(false)
 const outVisible = ref(false)
+const imageRecognitionVisible = ref(false)
 const detailRecord = ref(null)
-const detailRows = ref([])
-const detailLoading = ref(false)
 const outPreview = ref(null)
 const importInputRef = ref(null)
+const imageRecognitionInputRef = ref(null)
 const inForm = reactive({ barcode: '', modelCode: '', spec: '', meters: '', customFields: {} })
 const outForm = reactive({ barcode: '', meters: '' })
+const imageRecognitionResult = reactive({ fileName: '', fileUrl: '', fileSize: 0, confidence: 0, message: '' })
+const imageRecognitionCandidates = ref([])
 const inventoryFieldConfig = ref(defaultInventoryFieldConfig())
 
 const totalPages = computed(() => Math.max(Number(pagination.pages || 1), 1))
 const maxTrendValue = computed(() => Math.max(1, ...trendRows.value.flatMap((item) => [Number(item.inMeters || 0), Number(item.outMeters || 0)])))
 const customInventoryFields = computed(() => customTenantFields(inventoryFieldConfig.value))
+const defaultInventoryTableColumns = computed(() => [
+  { key: 'modelCode', label: fieldLabel('modelCode', '型号') },
+  { key: 'spec', label: fieldLabel('spec', '规格'), align: 'right' },
+  { key: 'totalMeters', label: fieldLabel('totalMeters', '总米数'), align: 'right' },
+  { key: 'remainingMeters', label: fieldLabel('remainingMeters', '剩余米数'), align: 'right' },
+  { key: 'status', label: fieldLabel('status', '库存状态') },
+  { key: 'updateTime', label: fieldLabel('updateTime', '更新时间') }
+])
+const {
+  orderedColumns: inventoryTableColumns,
+  moveColumn: moveInventoryTableColumn,
+  resetColumns: resetInventoryTableColumns
+} = useLocalTableColumns('inventory.model.list', defaultInventoryTableColumns)
+const inventoryTableColumnCount = computed(() => inventoryTableColumns.value.length + 1)
 
 applyRouteKeyword()
 refreshAll()
@@ -587,6 +745,14 @@ function fieldRequired(key) {
   return inventoryFieldConfig.value[key]?.required === true
 }
 
+function inventoryTableCellClass(key) {
+  if (key === 'modelCode') return 'text-sm font-bold text-slate-700'
+  if (key === 'remainingMeters') return 'text-right text-sm font-black text-blue-600'
+  if (key === 'spec' || key === 'totalMeters') return 'text-right text-sm text-slate-600'
+  if (key === 'updateTime') return 'text-xs text-slate-500'
+  return ''
+}
+
 function customFieldInputType(field) {
   if (field?.fieldType === 'number') return 'number'
   if (field?.fieldType === 'date') return 'date'
@@ -601,11 +767,6 @@ function resetCustomFields() {
       inForm.customFields[field.key] = ''
     }
   })
-}
-
-function customFieldValue(row, field) {
-  const value = row?.customFields?.[field?.key]
-  return value == null || value === '' ? '--' : value
 }
 
 async function refreshAll() {
@@ -627,7 +788,14 @@ async function fetchData() {
     const data = await getInventoryModelPage({
       ...query,
       status: query.status === '' ? undefined : Number(query.status),
-      keyword: query.keyword || undefined
+      keyword: query.keyword || undefined,
+      specMin: query.specMin || undefined,
+      specMax: query.specMax || undefined,
+      remainingMin: query.remainingMin || undefined,
+      remainingMax: query.remainingMax || undefined,
+      updatedStart: query.updatedStart || undefined,
+      updatedEnd: query.updatedEnd || undefined,
+      timeOrder: query.timeOrder || 'fifo'
     })
     rows.value = data.data || []
     pagination.total = Number(data.total || 0)
@@ -638,7 +806,16 @@ async function fetchData() {
 }
 
 async function fetchSummary() {
-  Object.assign(summary, await getInventorySummary())
+  const data = await getInventorySummary()
+  Object.assign(summary, data)
+  if (data?.warningThresholdMeters == null) {
+    try {
+      const setting = await getInventoryWarningSetting()
+      summary.warningThresholdMeters = setting?.warningThresholdMeters ?? summary.warningThresholdMeters
+    } catch (error) {
+      summary.warningThresholdMeters = summary.warningThresholdMeters || 100
+    }
+  }
 }
 
 async function fetchWarnings() {
@@ -661,8 +838,42 @@ function handleFilter() {
 function resetFilter() {
   query.keyword = ''
   query.status = ''
+  query.specMin = ''
+  query.specMax = ''
+  query.remainingMin = ''
+  query.remainingMax = ''
+  query.updatedStart = ''
+  query.updatedEnd = ''
+  query.timeOrder = 'fifo'
   query.pageNum = 1
   fetchData()
+}
+
+async function openWarningSetting() {
+  let promptResult
+  try {
+    promptResult = await ElMessageBox.prompt('请输入低库存预警阈值（米），库存型号总米数小于等于该值时触发预警。', '库存预警设置', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputValue: String(summary.warningThresholdMeters ?? 100),
+      inputPattern: /^(0|[1-9]\d{0,8})(\.\d{1,2})?$/,
+      inputErrorMessage: '请输入 0 到 999999999.99 之间的数字，最多保留2位小数'
+    })
+  } catch (error) {
+    return
+  }
+  const { value } = promptResult
+  const threshold = Number(value)
+  if (!Number.isFinite(threshold) || threshold < 0 || threshold > 999999999.99) {
+    ElMessage.warning('库存预警阈值不合法')
+    return
+  }
+  const result = await updateInventoryWarningSetting({
+    warningThresholdMeters: Number(threshold.toFixed(2))
+  })
+  summary.warningThresholdMeters = result?.warningThresholdMeters ?? threshold
+  await Promise.all([fetchSummary(), fetchWarnings()])
+  ElMessage.success('库存预警阈值已更新')
 }
 
 function changePage(pageNum) {
@@ -677,17 +888,22 @@ async function openDetail(record) {
   if (!record) return
   detailRecord.value = record
   detailVisible.value = true
-  detailRows.value = []
-  detailLoading.value = true
-  try {
-    detailRows.value = await getInventoryModelDetail({
-      modelCode: record.modelCode,
-      spec: record.spec,
-      status: query.status === '' ? undefined : Number(query.status)
-    })
-  } finally {
-    detailLoading.value = false
+}
+
+function openModelClothPage() {
+  if (!detailRecord.value?.modelCode) {
+    ElMessage.warning('请先选择库存型号')
+    return
   }
+  router.push({
+    name: 'InventoryModelDetail',
+    query: {
+      modelCode: detailRecord.value.modelCode,
+      spec: detailRecord.value.spec,
+      status: query.status === '' ? undefined : query.status,
+      timeOrder: query.timeOrder || 'fifo'
+    }
+  })
 }
 
 function openInDrawer() {
@@ -707,6 +923,7 @@ function closePanels() {
   detailVisible.value = false
   inVisible.value = false
   outVisible.value = false
+  imageRecognitionVisible.value = false
 }
 
 async function loadModelOptions() {
@@ -731,27 +948,121 @@ async function lookupBarcode() {
   outPreview.value = await searchInventoryBarcode({ barCode: outForm.barcode })
 }
 
-async function submitIn() {
-  if (!inForm.modelCode || Number(inForm.spec) <= 0 || Number(inForm.meters) <= 0) {
-    ElMessage.warning('请填写型号、规格和有效入库米数')
-    return
-  }
-  for (const field of customInventoryFields.value) {
-    const value = String(inForm.customFields?.[field.key] || '').trim()
-    if (field.required && !value) {
-      ElMessage.warning(`请填写自定义字段：${field.label}`)
-      return
+function triggerImageRecognition() {
+  imageRecognitionInputRef.value?.click()
+}
+
+async function handleImageRecognitionChange(event) {
+  const [file] = event.target.files || []
+  if (!file) return
+  try {
+    validateRecognitionFile(file)
+    const result = await recognizeInventoryImage(file)
+    Object.assign(imageRecognitionResult, {
+      fileName: result?.fileName || file.name,
+      fileUrl: result?.fileUrl || '',
+      fileSize: result?.fileSize || file.size || 0,
+      confidence: Number(result?.confidence || 0),
+      message: result?.message || '图片已上传，请核对识别结果后确认入库。'
+    })
+    const candidates = Array.isArray(result?.candidates) && result.candidates.length
+      ? result.candidates
+      : [{}]
+    imageRecognitionCandidates.value = candidates.map(normalizeRecognitionCandidate)
+    imageRecognitionVisible.value = true
+  } catch (error) {
+    if (error?.message && !['图片过大', '图片格式不支持', '图片内容为空'].includes(error.message)) {
+      ElMessage.error(error?.msg || error?.message || '图片识别失败')
     }
-    if (field.fieldType === 'number' && value && !Number.isFinite(Number(value))) {
-      ElMessage.warning(`自定义字段必须是数字：${field.label}`)
-      return
-    }
+  } finally {
+    event.target.value = ''
   }
-  const customFields = customInventoryFields.value.reduce((values, field) => {
-    const value = String(inForm.customFields?.[field.key] || '').trim()
-    if (value) values[field.key] = value
+}
+
+function validateRecognitionFile(file) {
+  const maxSize = 5 * 1024 * 1024
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/webp']
+  const extension = String(file.name || '').split('.').pop()?.toLowerCase()
+  if (!file || file.size <= 0) {
+    ElMessage.warning('图片内容为空')
+    throw new Error('图片内容为空')
+  }
+  if (file.size > maxSize) {
+    ElMessage.warning('图片大小不能超过 5MB')
+    throw new Error('图片过大')
+  }
+  if (!allowedTypes.includes(file.type) && !['png', 'jpg', 'jpeg', 'webp'].includes(extension)) {
+    ElMessage.warning('仅支持 PNG、JPG、JPEG、WEBP 图片')
+    throw new Error('图片格式不支持')
+  }
+}
+
+function normalizeRecognitionCandidate(candidate = {}) {
+  return {
+    localId: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    barcode: candidate.barcode || '',
+    modelCode: candidate.modelCode || '',
+    spec: candidate.spec == null ? '' : String(candidate.spec),
+    meters: candidate.meters == null ? '' : String(candidate.meters),
+    customFields: createEmptyCustomFields()
+  }
+}
+
+function createEmptyCustomFields() {
+  return customInventoryFields.value.reduce((values, field) => {
+    if (field?.key) values[field.key] = ''
     return values
   }, {})
+}
+
+function addRecognitionCandidate() {
+  imageRecognitionCandidates.value.push(normalizeRecognitionCandidate())
+}
+
+function removeRecognitionCandidate(index) {
+  imageRecognitionCandidates.value.splice(index, 1)
+  if (imageRecognitionCandidates.value.length === 0) {
+    addRecognitionCandidate()
+  }
+}
+
+function recognitionConfidenceText(value) {
+  const confidence = Number(value || 0)
+  if (!Number.isFinite(confidence) || confidence <= 0) return '待核对'
+  return `${Math.round(confidence * 100)}%`
+}
+
+function validateInboundPayload(payload, options = {}) {
+  const { focusPrefix = '', labelPrefix = '' } = options
+  const fieldName = (name) => (focusPrefix ? `${focusPrefix}.${name}` : '')
+  const warn = (message, name) => {
+    if (focusPrefix) {
+      warnAndFocusField(message, fieldName(name))
+    } else {
+      ElMessage.warning(`${labelPrefix}${message}`)
+    }
+    return null
+  }
+  if (!payload.modelCode) return warn('请填写型号。', 'modelCode')
+  if (Number(payload.spec) <= 0) return warn('请填写有效规格。', 'spec')
+  if (Number(payload.meters) <= 0) return warn('请填写有效入库米数。', 'meters')
+  const customFields = {}
+  for (const field of customInventoryFields.value) {
+    const value = String(payload.customFields?.[field.key] || '').trim()
+    if (field.required && !value) {
+      return warn(`请填写自定义字段：${field.label}`, `custom.${field.key}`)
+    }
+    if (field.fieldType === 'number' && value && !Number.isFinite(Number(value))) {
+      return warn(`自定义字段必须是数字：${field.label}`, `custom.${field.key}`)
+    }
+    if (value) customFields[field.key] = value
+  }
+  return customFields
+}
+
+async function submitIn() {
+  const customFields = validateInboundPayload(inForm, { focusPrefix: 'inventory' })
+  if (customFields == null) return
   const result = await inCloth({
     barcode: inForm.barcode || undefined,
     modelCode: inForm.modelCode,
@@ -766,11 +1077,39 @@ async function submitIn() {
   await refreshAll()
 }
 
-async function submitOut() {
-  if (!outForm.barcode || Number(outForm.meters) <= 0) {
-    ElMessage.warning('请填写条码和有效出库米数')
+async function submitRecognizedInventory() {
+  if (!imageRecognitionCandidates.value.length) {
+    ElMessage.warning('请至少保留一条识别候选')
     return
   }
+  const payloads = []
+  for (let i = 0; i < imageRecognitionCandidates.value.length; i += 1) {
+    const candidate = imageRecognitionCandidates.value[i]
+    const customFields = validateInboundPayload(candidate, { labelPrefix: `候选布匹 ${i + 1}：` })
+    if (customFields == null) return
+    payloads.push({
+      barcode: candidate.barcode || undefined,
+      modelCode: candidate.modelCode,
+      spec: Number(candidate.spec),
+      meters: Number(candidate.meters),
+      inType: 'image_recognition',
+      customFields
+    })
+  }
+
+  const results = []
+  for (const payload of payloads) {
+    results.push(await inCloth(payload))
+  }
+  const taskCount = results.filter((item) => item?.labelTask?.printTaskNo).length
+  ElMessage.success(`图片识别入库成功 ${results.length} 匹${taskCount ? `，生成 ${taskCount} 个标签打印任务` : ''}`)
+  imageRecognitionVisible.value = false
+  await refreshAll()
+}
+
+async function submitOut() {
+  if (!outForm.barcode) return warnAndFocusField('请填写或扫描布匹条码。', 'inventory.outBarcode')
+  if (Number(outForm.meters) <= 0) return warnAndFocusField('请填写有效出库米数。', 'inventory.outMeters')
   await outCloth({ barcode: outForm.barcode, meters: Number(outForm.meters) })
   ElMessage.success('出库成功')
   outVisible.value = false
@@ -1015,7 +1354,7 @@ function getUnit(value, defaultUnit = '米') {
   position: fixed;
   top: 0;
   right: 0;
-  z-index: 50;
+  z-index: 100;
   display: flex;
   height: 100%;
   width: 100%;

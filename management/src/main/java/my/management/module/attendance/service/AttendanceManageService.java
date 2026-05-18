@@ -40,7 +40,6 @@ import java.util.stream.Collectors;
 public class AttendanceManageService {
 
     private static final DateTimeFormatter PUNCH_DAY_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final String LEGACY_ATTENDANCE_RULE_CACHE_KEY = "companyAttendanceRule";
     private static final List<Integer> DEFAULT_WORK_DAYS = List.of(1, 2, 3, 4, 5);
     private static final long DEFAULT_PAGE_NUM = 1L;
     private static final long DEFAULT_PAGE_SIZE = 10L;
@@ -156,7 +155,6 @@ public class AttendanceManageService {
     private void clearAttendanceRuleCache(String tenantCode) {
         try {
             stringRedisTemplate.delete(redisKeyBuilder.cache("tenant", "attendance-rule", tenantCode));
-            stringRedisTemplate.opsForHash().delete(LEGACY_ATTENDANCE_RULE_CACHE_KEY, tenantCode);
         } catch (Exception ignored) {
         }
     }

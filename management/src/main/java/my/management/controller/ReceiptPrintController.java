@@ -1,6 +1,7 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
+import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
 import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.Result;
@@ -58,12 +59,14 @@ public class ReceiptPrintController {
 
     @PostMapping("/print/update")
     @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_MARK, message = "您没有权限修正出库单打印内容")
+    @CollectLog(module = "receipt_print", action = "update_print_detail", bizType = "outbound_print", bizNo = "#request.orderNo", description = "管理端修改出库单打印内容")
     public Result<OutboundPrintDetailVO> updatePrintDetail(@RequestBody OutboundPrintUpdateRequest request) {
         return Result.success(receiptPrintService.updatePrintDetail(request));
     }
 
     @PostMapping("/print/mark-printed")
     @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_MARK, message = "您没有权限标记打印完成")
+    @CollectLog(module = "receipt_print", action = "mark_printed", bizType = "outbound_print", bizNo = "#orderNo", description = "管理端标记出库单已打印")
     public Result<Void> markPrinted(@RequestParam String orderNo) {
         receiptPrintService.markPrinted(orderNo);
         return Result.success(null);
@@ -71,6 +74,7 @@ public class ReceiptPrintController {
 
     @PostMapping("/print/cancel")
     @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_CANCEL, message = "您没有权限作废出库单")
+    @CollectLog(module = "receipt_print", action = "cancel", bizType = "outbound_print", bizNo = "#orderNo", description = "管理端作废出库单")
     public Result<Void> cancel(@RequestParam String orderNo) {
         receiptPrintService.cancel(orderNo);
         return Result.success(null);
@@ -90,6 +94,7 @@ public class ReceiptPrintController {
 
     @PostMapping("/template/save")
     @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_MARK, message = "您没有权限保存出库单模板")
+    @CollectLog(module = "receipt_template", action = "save", bizType = "receipt_template", bizNo = "#request.id", description = "管理端保存出库单模板")
     public Result<LabelTemplateVO> saveTemplate(@RequestBody LabelTemplateSaveRequest request) {
         request.setPrintType("receipt");
         return Result.success(labelTemplateService.save(request));
@@ -97,6 +102,7 @@ public class ReceiptPrintController {
 
     @PostMapping("/template/{id}/default")
     @RequirePermission(value = PermissionCodeEnum.CODE_RECEIPT_PRINT_MARK, message = "您没有权限设置默认出库单模板")
+    @CollectLog(module = "receipt_template", action = "set_default", bizType = "receipt_template", bizNo = "#id", description = "管理端设置默认出库单模板")
     public Result<Void> setDefaultTemplate(@PathVariable Long id) {
         labelTemplateService.setDefault(id);
         return Result.success(null);

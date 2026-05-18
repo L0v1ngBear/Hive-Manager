@@ -3,7 +3,9 @@ package my.management.controller;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import my.hive.common.annotation.CollectLog;
 import my.hive.common.dto.Result;
+import my.management.module.auth.model.dto.InitialPasswordChangeRequest;
 import my.management.module.auth.model.dto.LoginRequest;
 import my.management.module.auth.model.dto.PasswordResetCodeRequest;
 import my.management.module.auth.model.dto.PasswordResetRequest;
@@ -29,23 +31,34 @@ public class AuthController {
     private AuthService authService;
 
     @PostMapping("/login")
+    @CollectLog(module = "auth", action = "login", bizType = "account", bizNo = "#request.username", description = "管理端账号登录", recordResult = false)
     public Result<LoginVO> login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
         return Result.success(authService.login(request, resolveClientIp(servletRequest)));
     }
 
     @PostMapping("/password-reset/code")
+    @CollectLog(module = "auth", action = "password_reset_code", bizType = "account", bizNo = "#request.account", description = "发送网页端密码重置验证码", recordResult = false)
     public Result<Void> sendPasswordResetCode(@Valid @RequestBody PasswordResetCodeRequest request) {
         authService.sendPasswordResetCode(request);
         return Result.success(null);
     }
 
     @PostMapping("/password-reset")
+    @CollectLog(module = "auth", action = "password_reset", bizType = "account", bizNo = "#request.account", description = "网页端短信验证码重置密码", recordResult = false)
     public Result<Void> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
         authService.resetPasswordBySmsCode(request);
         return Result.success(null);
     }
 
+    @PostMapping("/initial-password")
+    @CollectLog(module = "auth", action = "initial_password_change", bizType = "account", description = "首次登录修改初始密码", recordResult = false)
+    public Result<Void> changeInitialPassword(@Valid @RequestBody InitialPasswordChangeRequest request) {
+        authService.changeInitialPassword(request);
+        return Result.success(null);
+    }
+
     @PostMapping("/scan-login/session")
+    @CollectLog(module = "auth", action = "scan_login_session", bizType = "web_scan_login", description = "创建网页扫码登录会话", recordArgs = false, recordResult = false)
     public Result<WebScanSessionVO> createScanLoginSession() {
         return Result.success(authService.createWebScanLoginSession());
     }
@@ -56,6 +69,7 @@ public class AuthController {
     }
 
     @PostMapping("/scan-login/confirm")
+    @CollectLog(module = "auth", action = "scan_login_confirm", bizType = "web_scan_login", bizNo = "#request.sceneKey", description = "小程序确认网页扫码登录", recordResult = false)
     public Result<Void> confirmScanLogin(@Valid @RequestBody WebScanConfirmRequest request) {
         authService.confirmWebScanLogin(request);
         return Result.success(null);

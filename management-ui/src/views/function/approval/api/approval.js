@@ -1,5 +1,12 @@
 import request from '@/utils/request'
 
+export function getApprovalSummary() {
+  return request({
+    url: '/approval/summary',
+    method: 'get',
+  })
+}
+
 export function listLeaveApprovals() {
   return request({
     url: '/approval/leave/list',
@@ -47,6 +54,77 @@ export function auditFinanceApproval(data) {
 export function submitFinanceApproval(data) {
   return request({
     url: '/approval/finance/submit',
+    method: 'post',
+    data,
+  })
+}
+
+export function uploadFinanceApprovalAttachment(data) {
+  return request({
+    url: '/approval/finance/attachment/upload',
+    method: 'post',
+    data,
+    timeout: 30000,
+  })
+}
+
+export function downloadFinanceApprovalAttachment(params) {
+  return request({
+    url: '/approval/finance/attachment/download',
+    method: 'get',
+    params,
+    responseType: 'blob',
+    timeout: 30000,
+  })
+}
+
+export function listResignationApprovals() {
+  return request({
+    url: '/approval/resignation/list',
+    method: 'get',
+  })
+}
+
+export function getResignationApprovalDetail(resignationCode) {
+  return request({
+    url: `/approval/resignation/${resignationCode}`,
+    method: 'get',
+  })
+}
+
+export function submitResignationApproval(data) {
+  return request({
+    url: '/approval/resignation/submit',
+    method: 'post',
+    data,
+  })
+}
+
+export function auditResignationApproval(data) {
+  return request({
+    url: '/approval/resignation/audit',
+    method: 'post',
+    data,
+  })
+}
+
+export function listOrderApprovals() {
+  return request({
+    url: '/approval/order/list',
+    method: 'get',
+  })
+}
+
+export function getOrderApprovalDetail(orderType, orderId) {
+  return request({
+    url: `/approval/order/${orderType}/${orderId}`,
+    method: 'get',
+  })
+}
+
+export function auditOrderApproval(data) {
+  return request({
+    url: '/approval/order/audit',
     method: 'post',
     data,
   })

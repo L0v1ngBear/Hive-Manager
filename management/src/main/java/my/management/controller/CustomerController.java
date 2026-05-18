@@ -3,6 +3,7 @@ package my.management.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
+import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
 import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.PageResult;
@@ -40,6 +41,7 @@ public class CustomerController {
 
     @PostMapping("/add")
     @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_ADD, message = "您没有权限新增客户")
+    @CollectLog(module = "customer", action = "create", bizType = "customer", bizNo = "#request.customerName", description = "管理端新增客户")
     public Result<Void> addCustomer(@Valid @RequestBody CustomerAddRequest request) {
         customerService.addCustomer(request);
         return Result.success(null);
@@ -47,6 +49,7 @@ public class CustomerController {
 
     @PostMapping("/update")
     @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_UPDATE, message = "您没有权限编辑客户")
+    @CollectLog(module = "customer", action = "update", bizType = "customer", bizNo = "#request.id", description = "管理端编辑客户")
     public Result<Void> updateCustomer(@Valid @RequestBody CustomerUpdateRequest request) {
         customerService.updateCustomer(request);
         return Result.success(null);

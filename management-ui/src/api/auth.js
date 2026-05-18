@@ -24,6 +24,14 @@ export function resetPassword(data) {
   })
 }
 
+export function changeInitialPassword(data) {
+  return request({
+    url: '/auth/initial-password',
+    method: 'post',
+    data
+  })
+}
+
 export function createScanLoginSession() {
   return request({
     url: '/auth/scan-login/session',

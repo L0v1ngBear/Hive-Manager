@@ -96,17 +96,30 @@ public class CustomerService {
     }
 
     public Page<CustomerPageVO> pageSearchCustomer(CustomerPageRequest request) {
+        if (request == null) {
+            request = new CustomerPageRequest();
+        }
         String keyword = request.getKeyword();
         String tenantCode = TenantPermissionContext.getTenantCode();
-        LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<Customer>()
+                .eq(Customer::getTenantCode, tenantCode);
 
         if (StringUtils.isNotBlank(keyword)) {
             String safeKeyword = keyword.trim();
             wrapper.and(w -> w
                     .like(Customer::getCustomerName, safeKeyword)
-                    .or().apply("id IN (SELECT customer_id FROM customer_project WHERE tenant_code = {0} AND project_name LIKE CONCAT('%', {1}, '%'))", tenantCode, safeKeyword)
+                    .or().apply("id IN (SELECT customer_id FROM customer_project WHERE tenant_code = {0} AND (project_name LIKE CONCAT('%', {1}, '%') OR project_owner LIKE CONCAT('%', {1}, '%')))", tenantCode, safeKeyword)
                     .or().apply("id IN (SELECT customer_id FROM customer_contact WHERE tenant_code = {0} AND (contact_name LIKE CONCAT('%', {1}, '%') OR contact_phone LIKE CONCAT('%', {1}, '%')))", tenantCode, safeKeyword)
             );
+        }
+        if (request.getCustomerType() != null) {
+            wrapper.eq(Customer::getCustomerType, request.getCustomerType());
+        }
+        if (request.getCreateStart() != null) {
+            wrapper.ge(Customer::getCreateTime, request.getCreateStart().atStartOfDay());
+        }
+        if (request.getCreateEnd() != null) {
+            wrapper.lt(Customer::getCreateTime, request.getCreateEnd().plusDays(1).atStartOfDay());
         }
 
         wrapper.orderByDesc(Customer::getCreateTime);
@@ -162,7 +175,7 @@ public class CustomerService {
             String safeKeyword = keyword.trim();
             wrapper.and(w -> w
                     .like(Customer::getCustomerName, safeKeyword)
-                    .or().apply("id IN (SELECT customer_id FROM customer_project WHERE tenant_code = {0} AND project_name LIKE CONCAT('%', {1}, '%'))", tenantCode, safeKeyword)
+                    .or().apply("id IN (SELECT customer_id FROM customer_project WHERE tenant_code = {0} AND (project_name LIKE CONCAT('%', {1}, '%') OR project_owner LIKE CONCAT('%', {1}, '%')))", tenantCode, safeKeyword)
                     .or().apply("id IN (SELECT customer_id FROM customer_contact WHERE tenant_code = {0} AND (contact_name LIKE CONCAT('%', {1}, '%') OR contact_phone LIKE CONCAT('%', {1}, '%')))", tenantCode, safeKeyword)
             );
         }
@@ -231,6 +244,9 @@ public class CustomerService {
                 project.setProjectName(projectDto.getProjectName().trim());
                 project.setConstructionArea(StringUtils.isNotBlank(projectDto.getConstructionArea())
                         ? projectDto.getConstructionArea().trim()
+                        : null);
+                project.setProjectOwner(StringUtils.isNotBlank(projectDto.getProjectOwner())
+                        ? projectDto.getProjectOwner().trim()
                         : null);
                 customerProjectMapper.insert(project);
             }

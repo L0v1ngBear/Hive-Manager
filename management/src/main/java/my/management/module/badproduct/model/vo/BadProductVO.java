@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 次品页面展示对象。
+ * 质量管理页面展示对象。
  */
 @Data
 public class BadProductVO {
@@ -32,6 +32,12 @@ public class BadProductVO {
     private String processMeasure;
 
     private String improvementPlan;
+
+    private String attachmentName;
+
+    private String attachmentUrl;
+
+    private Long attachmentSize;
 
     private String status;
 

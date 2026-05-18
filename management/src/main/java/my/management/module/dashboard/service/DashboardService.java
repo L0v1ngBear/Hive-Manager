@@ -16,10 +16,11 @@ import my.management.module.attendance.model.enums.AttendancePunchStatusEnum;
 import my.management.module.dashboard.mapper.DashboardMapper;
 import my.management.module.dashboard.model.vo.DashboardAttendanceAlertRowVO;
 import my.management.module.dashboard.model.vo.DashboardInventoryTrendRowVO;
-import my.management.module.dashboard.model.vo.DashboardInventoryWarningRowVO;
 import my.management.module.dashboard.model.vo.DashboardOverviewVO;
 import my.management.module.dashboard.model.vo.DashboardPendingPrintRowVO;
 import my.management.module.inventory.model.enums.InventoryOperateTypeEnum;
+import my.management.module.inventory.model.vo.InventoryWarningVO;
+import my.management.module.inventory.service.InventoryWarningCacheService;
 import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.tenant.service.TenantLicenseService;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -49,7 +50,6 @@ public class DashboardService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("MM-dd");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("MM-dd HH:mm");
     private static final DateTimeFormatter DAY_PREFIX_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final BigDecimal INVENTORY_WARNING_THRESHOLD = new BigDecimal("100");
     private static final Duration OVERVIEW_CACHE_TTL = Duration.ofSeconds(90);
     private static final Duration AI_ADVICE_CACHE_TTL = Duration.ofSeconds(60);
     private static final long SLOW_OVERVIEW_MILLIS = 500L;
@@ -79,6 +79,9 @@ public class DashboardService {
     @Resource
     private TenantLicenseService tenantLicenseService;
 
+    @Resource
+    private InventoryWarningCacheService inventoryWarningCacheService;
+
     public DashboardOverviewVO overview() {
         long startNanos = System.nanoTime();
         String tenantCode = TenantPermissionContext.getTenantCode();
@@ -97,11 +100,9 @@ public class DashboardService {
             vo.setSummary(buildSummary(tenantCode, userId, visibility));
             buildTrend(tenantCode, visibility, vo);
             vo.setBusinessAlerts(buildBusinessAlerts(tenantCode, visibility));
+            vo.setAttendanceSummary(buildAttendanceSummary(tenantCode, visibility));
             vo.setAttendanceAlerts(buildAttendanceAlerts(tenantCode, visibility));
             vo.setQuickActions(buildQuickActions(visibility));
-            if (Boolean.TRUE.equals(visibility.getAiAdviceVisible())) {
-                vo.setAiAdvices(readCachedAiAdvicesForOverview(tenantCode, userId));
-            }
 
             cacheOverview(cacheKey, vo);
             return vo;
@@ -160,13 +161,7 @@ public class DashboardService {
         visibility.setReceiptVisible(hasAnyPermission("receipt:print:list", "receipt:print:detail", "receipt:print:mark", "receipt:print:cancel"));
         visibility.setTrendVisible(Boolean.TRUE.equals(visibility.getInventoryVisible()));
         visibility.setAttendanceVisible(hasAnyPermission("employee:list", "attendance:*", "attendance:record:list"));
-        boolean aiFeatureEnabled = false;
-        try {
-            tenantLicenseService.requireFeatureEnabled(TenantPermissionContext.getTenantCode(), TenantFeatureEnum.CODE_AI_ADVICE, null);
-            aiFeatureEnabled = true;
-        } catch (Exception ignored) {
-        }
-        visibility.setAiAdviceVisible(aiFeatureEnabled && aiAdvicePermissionService.canViewAny());
+        visibility.setAiAdviceVisible(false);
         return visibility;
     }
 
@@ -182,7 +177,7 @@ public class DashboardService {
 
         if (Boolean.TRUE.equals(visibility.getInventoryVisible())) {
             summary.setTotalInventoryMeters(scale(dashboardMapper.sumInventoryMeters(tenantCode)));
-            summary.setInventoryWarningCount(nvl(dashboardMapper.countLowStockModels(tenantCode, INVENTORY_WARNING_THRESHOLD)));
+            summary.setInventoryWarningCount(inventoryWarningCacheService.countWarningModels(tenantCode));
         }
 
         if (Boolean.TRUE.equals(visibility.getApprovalVisible())) {
@@ -235,8 +230,8 @@ public class DashboardService {
         List<DashboardOverviewVO.AlertItem> alerts = new ArrayList<>();
 
         if (Boolean.TRUE.equals(visibility.getInventoryVisible())) {
-            List<DashboardInventoryWarningRowVO> warnings = dashboardMapper.selectLowStockModels(tenantCode, INVENTORY_WARNING_THRESHOLD, 3);
-            for (DashboardInventoryWarningRowVO warning : warnings) {
+            List<InventoryWarningVO> warnings = inventoryWarningCacheService.topWarnings(tenantCode, 3);
+            for (InventoryWarningVO warning : warnings) {
                 DashboardOverviewVO.AlertItem item = new DashboardOverviewVO.AlertItem();
                 item.setType("inventory");
                 item.setLevel("warning");
@@ -299,8 +294,43 @@ public class DashboardService {
         return alerts;
     }
 
+    private DashboardOverviewVO.AttendanceSummary buildAttendanceSummary(String tenantCode, DashboardOverviewVO.Visibility visibility) {
+        DashboardOverviewVO.AttendanceSummary summary = new DashboardOverviewVO.AttendanceSummary();
+        if (!Boolean.TRUE.equals(visibility.getAttendanceVisible())) {
+            summary.setStatusText("暂无查看权限");
+            summary.setStatusType("no_permission");
+            return summary;
+        }
+
+        String dayPrefix = LocalDate.now().format(DAY_PREFIX_FORMATTER);
+        long totalEmployeeCount = nvl(dashboardMapper.countAttendanceEmployees(tenantCode));
+        long actualCount = nvl(dashboardMapper.countTodayAttendanceActual(tenantCode, dayPrefix));
+        long abnormalCount = nvl(dashboardMapper.countTodayAttendanceAbnormal(tenantCode, dayPrefix));
+
+        summary.setTotalEmployeeCount(totalEmployeeCount);
+        summary.setActualCount(actualCount);
+        summary.setAbnormalCount(abnormalCount);
+        if (totalEmployeeCount <= 0) {
+            summary.setStatusText("暂无在职员工");
+            summary.setStatusType("empty");
+        } else if (actualCount <= 0) {
+            summary.setStatusText("今日暂无打卡记录");
+            summary.setStatusType("waiting");
+        } else if (abnormalCount > 0) {
+            summary.setStatusText("发现考勤异常，请及时处理");
+            summary.setStatusType("warning");
+        } else {
+            summary.setStatusText("今日已打卡员工考勤正常");
+            summary.setStatusType("normal");
+        }
+        return summary;
+    }
+
     private List<DashboardOverviewVO.QuickAction> buildQuickActions(DashboardOverviewVO.Visibility visibility) {
         List<DashboardOverviewVO.QuickAction> actions = new ArrayList<>();
+        if (hasAnyPermission("notification:announcement:publish", "dashboard:*")) {
+            actions.add(buildAction("发布通知", "发布企业通知公告", "/function/announcement", "campaign"));
+        }
         if (Boolean.TRUE.equals(visibility.getApprovalVisible())) {
             actions.add(buildAction("审批中心", "处理请假与财务审批", "/function/approval", "fact_check"));
         }
@@ -317,21 +347,6 @@ public class DashboardService {
             actions.add(buildAction("价格管理", "查看价格与变更情况", "/function/price", "sell"));
         }
         return actions;
-    }
-
-    private List<DashboardAiAdviceVO> readCachedAiAdvicesForOverview(String tenantCode, Long userId) {
-        if (tenantCode == null || tenantCode.isBlank() || userId == null) {
-            return List.of();
-        }
-        List<DashboardAiAdviceVO> cached = getCachedAiAdvices(buildScopedCacheKey("ai-advice", tenantCode, userId));
-        if (cached != null) {
-            return limitAdvices(aiAdvicePermissionService.filterVisible(cached), 4);
-        }
-        List<DashboardAiAdviceVO> advices = aiAdvicePermissionService.filterVisible(
-                aiAdviceSnapshotService.readSnapshotAdvices(tenantCode)
-        );
-        cacheAiAdvices(buildScopedCacheKey("ai-advice", tenantCode, userId), advices);
-        return limitAdvices(advices, 4);
     }
 
     private List<DashboardAiAdviceVO> limitAdvices(List<DashboardAiAdviceVO> advices, Integer limit) {

@@ -113,10 +113,3 @@ export function importEmployees(file) {
     }
   })
 }
-
-export function generateOrganizationJoinCode() {
-  return request({
-    url: '/emp/employee/join-code',
-    method: 'post'
-  })
-}

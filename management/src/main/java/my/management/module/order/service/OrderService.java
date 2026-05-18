@@ -1,11 +1,13 @@
 package my.management.module.order.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
 import my.management.common.enums.BinaryFlagEnum;
+import my.management.common.security.InternalUploadUrlValidator;
 import my.management.common.utils.CodeGeneratorUtil;
 import my.management.module.customer.mapper.CustomerContactMapper;
 import my.management.module.customer.mapper.CustomerMapper;
@@ -24,6 +26,7 @@ import my.management.module.order.mapper.SalesOrderStatusLogMapper;
 import my.management.module.order.model.dto.ProductionOrderPageRequest;
 import my.management.module.order.model.dto.ProductionOrderSaveRequest;
 import my.management.module.order.model.dto.ProductionOrderUpdateRequest;
+import my.management.module.order.model.dto.OrderWarningSettingUpdateRequest;
 import my.management.module.order.model.dto.SalesOrderPageRequest;
 import my.management.module.order.model.dto.SalesOrderSaveRequest;
 import my.management.module.order.model.dto.SalesOrderUpdateRequest;
@@ -37,6 +40,8 @@ import my.management.module.order.model.enums.OrderStatusEnum;
 import my.management.module.order.model.vo.ProductionOrderDetailVO;
 import my.management.module.order.model.vo.ProductionOrderPageVO;
 import my.management.module.order.model.vo.ProductionOrderStatusLogVO;
+import my.management.module.order.model.vo.OrderWarningSettingVO;
+import my.management.module.order.model.vo.OrderWarningSummaryVO;
 import my.management.module.order.model.vo.SalesOrderAttachmentVO;
 import my.management.module.order.model.vo.SalesOrderDetailVO;
 import my.management.module.order.model.vo.SalesOrderPageVO;
@@ -58,6 +63,7 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -79,6 +85,14 @@ public class OrderService {
     private static final long MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024L;
     private static final long DEFAULT_PAGE_SIZE = 10L;
     private static final long MAX_PAGE_SIZE = 200L;
+    private static final List<String> SALES_STATUS_CODES = List.of(
+            "pending_confirm", "pending_pay", "pending_material", "producing", "pending_ship", "shipped", "completed", "cancelled"
+    );
+    private static final List<String> PRODUCTION_STATUS_CODES = List.of(
+            "pending_confirm", "pending_material", "producing", "pending_ship", "shipped", "completed"
+    );
+    private static final String STATUS_PENDING_PAY = OrderStatusEnum.PENDING_PAY.getCode();
+    private static final String STATUS_PRODUCING = OrderStatusEnum.PRODUCING.getCode();
     private static final Set<String> ALLOWED_ATTACHMENT_EXTENSIONS = Set.of(
             "pdf", "png", "jpg", "jpeg", "webp", "doc", "docx", "xls", "xlsx", "txt", "zip", "rar"
     );
@@ -112,6 +126,12 @@ public class OrderService {
 
     @Resource
     private EmployeeMapper employeeMapper;
+
+    @Resource
+    private OrderSettingService orderSettingService;
+
+    @Resource
+    private OrderWarningCacheService orderWarningCacheService;
 
     @Value("${app.upload.root:uploads}")
     private String uploadRoot;
@@ -185,14 +205,35 @@ public class OrderService {
     }
 
     public Page<SalesOrderPageVO> pageSalesOrders(SalesOrderPageRequest request) {
+        if (request == null) {
+            request = new SalesOrderPageRequest();
+        }
         String tenantCode = TenantPermissionContext.getTenantCode();
+        int staleWarningDays = orderSettingService.staleWarningDays(tenantCode);
         Page<SalesOrder> page = new Page<>(safePage(request.getPageNum()), safeSize(request.getPageSize()));
 
         LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, tenantCode)
                 .orderByDesc(SalesOrder::getCreateTime);
 
         if (StringUtils.hasText(request.getStatus())) {
             wrapper.eq(SalesOrder::getStatus, request.getStatus().trim());
+        }
+        if (StringUtils.hasText(request.getCustomerName())) {
+            wrapper.like(SalesOrder::getCustomerName, request.getCustomerName().trim());
+        }
+        if (request.getIsInvoice() != null) {
+            wrapper.eq(SalesOrder::getIsInvoice, normalizeInvoiceFlag(request.getIsInvoice()));
+        }
+        if (request.getDeliveryStart() != null) {
+            wrapper.ge(SalesOrder::getDeliveryDate, request.getDeliveryStart().toString());
+        }
+        if (request.getDeliveryEnd() != null) {
+            wrapper.le(SalesOrder::getDeliveryDate, request.getDeliveryEnd().toString());
+        }
+        applyCreateTimeRange(wrapper, request.getCreateStart(), request.getCreateEnd(), SalesOrder::getCreateTime);
+        if (Boolean.TRUE.equals(request.getStaleOnly())) {
+            applySalesStaleWarningFilter(wrapper, staleWarningDays);
         }
         if (StringUtils.hasText(request.getKeyword())) {
             String keyword = request.getKeyword().trim();
@@ -211,12 +252,26 @@ public class OrderService {
             SalesOrderPageVO vo = new SalesOrderPageVO();
             BeanUtils.copyProperties(order, vo);
             vo.setDetailCount(detailCountMap.getOrDefault(order.getOrderId(), 0));
+            markSalesStaleWarning(vo, order, staleWarningDays);
             return vo;
         }).toList();
 
         Page<SalesOrderPageVO> result = new Page<>(source.getCurrent(), source.getSize(), source.getTotal());
         result.setPages(source.getPages());
         result.setRecords(records);
+        return result;
+    }
+
+    public Map<String, Long> countSalesOrderStatuses() {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        Map<String, Long> result = new LinkedHashMap<>();
+        result.put("total", safeCount(salesOrderMapper.selectCount(new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, tenantCode))));
+        for (String status : SALES_STATUS_CODES) {
+            result.put(status, safeCount(salesOrderMapper.selectCount(new LambdaQueryWrapper<SalesOrder>()
+                    .eq(SalesOrder::getTenantCode, tenantCode)
+                    .eq(SalesOrder::getStatus, status))));
+        }
         return result;
     }
 
@@ -258,9 +313,13 @@ public class OrderService {
         order.setTenantCode(TenantPermissionContext.getTenantCode());
         order.setCreator(resolveCurrentUser());
         applySalesOrderContent(order, request, true);
+        LocalDateTime businessCreateTime = resolveBusinessCreateTime(request.getCreateTime(), "销售订单录单时间");
+        order.setCreateTime(businessCreateTime);
+        order.setUpdateTime(LocalDateTime.now());
         salesOrderMapper.insert(order);
-        replaceSalesOrderItems(order.getOrderId(), request.getItems());
-        insertSalesLog(order, null, OrderLogOperateTypeEnum.CREATE.getCode(), "创建销售订单");
+        orderWarningCacheService.invalidate(order.getTenantCode());
+        replaceSalesOrderItems(order.getOrderId(), request.getItems(), businessCreateTime);
+        insertSalesLog(order, null, OrderLogOperateTypeEnum.CREATE.getCode(), "创建销售订单", businessCreateTime);
 
         if (BinaryFlagEnum.isYes(request.getCreateProductionOrder())) {
             createProductionOrdersFromSales(order, request.getItems());
@@ -273,8 +332,12 @@ public class OrderService {
         SalesOrder order = findSalesOrder(orderId);
         String oldStatus = order.getStatus();
         applySalesOrderContent(order, request, false);
+        assertDirectSalesTransitionAllowed(oldStatus, order.getStatus());
+        applyManualCreateTime(order, request.getCreateTime(), "销售订单录单时间");
+        order.setUpdateTime(LocalDateTime.now());
         salesOrderMapper.updateById(order);
-        replaceSalesOrderItems(orderId, request.getItems());
+        orderWarningCacheService.invalidate(order.getTenantCode());
+        replaceSalesOrderItems(orderId, request.getItems(), order.getCreateTime());
         if (!Objects.equals(oldStatus, order.getStatus()) || StringUtils.hasText(request.getRemark())) {
             insertSalesLog(order, oldStatus, OrderLogOperateTypeEnum.STATUS_CHANGE.getCode(), blankToNull(request.getRemark()));
         }
@@ -291,6 +354,7 @@ public class OrderService {
         if (StringUtils.hasText(request.getStatus())) {
             order.setStatus(request.getStatus().trim());
         }
+        assertDirectSalesTransitionAllowed(oldStatus, order.getStatus());
         if (request.getDeliveryDate() != null) {
             order.setDeliveryDate(blankToNull(request.getDeliveryDate()));
         }
@@ -307,22 +371,67 @@ public class OrderService {
             order.setRemark(blankToNull(request.getRemark()));
         }
         validateShippingInfo(order.getStatus(), order.getExpressCompany(), order.getExpressNo());
+        order.setUpdateTime(LocalDateTime.now());
         salesOrderMapper.updateById(order);
+        orderWarningCacheService.invalidate(order.getTenantCode());
         if (!Objects.equals(oldStatus, order.getStatus()) || StringUtils.hasText(request.getRemark())) {
             insertSalesLog(order, oldStatus, OrderLogOperateTypeEnum.STATUS_CHANGE.getCode(), blankToNull(request.getRemark()));
         }
         syncLinkedProductionOrders(order, oldStatus);
     }
 
+    /**
+     * 订单审批中心专用入口：只有审批通过后才允许待收款销售订单进入生产中。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void approveSalesOrderTransition(String orderId, String targetStatus, String remark) {
+        if (!StringUtils.hasText(targetStatus)) {
+            throw new BusinessException("目标订单状态不能为空");
+        }
+        SalesOrder order = findSalesOrder(orderId);
+        String oldStatus = order.getStatus();
+        order.setStatus(targetStatus.trim());
+        validateShippingInfo(order.getStatus(), order.getExpressCompany(), order.getExpressNo());
+        order.setUpdateTime(LocalDateTime.now());
+        salesOrderMapper.updateById(order);
+        orderWarningCacheService.invalidate(order.getTenantCode());
+        if (!Objects.equals(oldStatus, order.getStatus())) {
+            insertSalesLog(order, oldStatus, OrderLogOperateTypeEnum.STATUS_CHANGE.getCode(),
+                    StringUtils.hasText(remark) ? remark.trim() : "审批中心确认销售订单流转");
+        }
+        syncLinkedProductionOrders(order, oldStatus);
+    }
+
     public Page<ProductionOrderPageVO> pageProductionOrders(ProductionOrderPageRequest request) {
+        if (request == null) {
+            request = new ProductionOrderPageRequest();
+        }
         String tenantCode = TenantPermissionContext.getTenantCode();
+        int staleWarningDays = orderSettingService.staleWarningDays(tenantCode);
         Page<ProductionOrder> page = new Page<>(safePage(request.getPageNum()), safeSize(request.getPageSize()));
 
         LambdaQueryWrapper<ProductionOrder> wrapper = new LambdaQueryWrapper<ProductionOrder>()
+                .eq(ProductionOrder::getTenantCode, tenantCode)
                 .orderByDesc(ProductionOrder::getCreateTime);
 
         if (StringUtils.hasText(request.getStatus())) {
             wrapper.eq(ProductionOrder::getStatus, request.getStatus().trim());
+        }
+        if (StringUtils.hasText(request.getCustomerName())) {
+            wrapper.like(ProductionOrder::getCustomerName, request.getCustomerName().trim());
+        }
+        if (request.getProcess() != null) {
+            wrapper.eq(ProductionOrder::getProcess, request.getProcess());
+        }
+        if (request.getDeliveryStart() != null) {
+            wrapper.ge(ProductionOrder::getDeliveryDate, request.getDeliveryStart().atStartOfDay());
+        }
+        if (request.getDeliveryEnd() != null) {
+            wrapper.lt(ProductionOrder::getDeliveryDate, request.getDeliveryEnd().plusDays(1).atStartOfDay());
+        }
+        applyCreateTimeRange(wrapper, request.getCreateStart(), request.getCreateEnd(), ProductionOrder::getCreateTime);
+        if (Boolean.TRUE.equals(request.getStaleOnly())) {
+            applyProductionStaleWarningFilter(wrapper, staleWarningDays);
         }
         if (StringUtils.hasText(request.getKeyword())) {
             String keyword = request.getKeyword().trim();
@@ -337,6 +446,7 @@ public class OrderService {
         List<ProductionOrderPageVO> records = source.getRecords().stream().map(order -> {
             ProductionOrderPageVO vo = new ProductionOrderPageVO();
             BeanUtils.copyProperties(order, vo);
+            markProductionStaleWarning(vo, order, staleWarningDays);
             return vo;
         }).toList();
 
@@ -344,6 +454,31 @@ public class OrderService {
         result.setPages(source.getPages());
         result.setRecords(records);
         return result;
+    }
+
+    public Map<String, Long> countProductionOrderStatuses() {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        Map<String, Long> result = new LinkedHashMap<>();
+        result.put("total", safeCount(productionOrderMapper.selectCount(new LambdaQueryWrapper<ProductionOrder>()
+                .eq(ProductionOrder::getTenantCode, tenantCode))));
+        for (String status : PRODUCTION_STATUS_CODES) {
+            result.put(status, safeCount(productionOrderMapper.selectCount(new LambdaQueryWrapper<ProductionOrder>()
+                    .eq(ProductionOrder::getTenantCode, tenantCode)
+                    .eq(ProductionOrder::getStatus, status))));
+        }
+        return result;
+    }
+
+    public OrderWarningSettingVO getOrderWarningSetting() {
+        return orderSettingService.currentSetting();
+    }
+
+    public OrderWarningSettingVO updateOrderWarningSetting(OrderWarningSettingUpdateRequest request) {
+        return orderSettingService.updateCurrentSetting(request);
+    }
+
+    public OrderWarningSummaryVO getOrderWarningSummary() {
+        return orderWarningCacheService.summary(TenantPermissionContext.getTenantCode());
     }
 
     public ProductionOrderDetailVO getProductionOrderDetail(String orderId) {
@@ -378,7 +513,11 @@ public class OrderService {
         order.setCreator(resolveCurrentUser());
         order.setUpdater(resolveCurrentUser());
         applyProductionOrderContent(order, request);
+        LocalDateTime businessCreateTime = resolveBusinessCreateTime(request.getCreateTime(), "生产订单录单时间");
+        order.setCreateTime(businessCreateTime);
+        order.setUpdateTime(LocalDateTime.now());
         productionOrderMapper.insert(order);
+        orderWarningCacheService.invalidate(order.getTenantCode());
         return order.getOrderId();
     }
 
@@ -391,7 +530,10 @@ public class OrderService {
 
         order.setUpdater(resolveCurrentUser());
         applyProductionOrderContent(order, request);
+        applyManualCreateTime(order, request.getCreateTime(), "生产订单录单时间");
+        order.setUpdateTime(LocalDateTime.now());
         productionOrderMapper.updateById(order);
+        orderWarningCacheService.invalidate(order.getTenantCode());
 
         if (!Objects.equals(oldStatus, order.getStatus())
                 || !Objects.equals(oldProcess, order.getProcess())
@@ -420,7 +562,9 @@ public class OrderService {
             changed = true;
         }
 
+        order.setUpdateTime(LocalDateTime.now());
         productionOrderMapper.updateById(order);
+        orderWarningCacheService.invalidate(order.getTenantCode());
 
         if (changed || StringUtils.hasText(request.getRemark())) {
             insertProductionLog(order, oldStatusText, StringUtils.hasText(request.getRemark()) ? request.getRemark().trim() : "管理端更新订单状态");
@@ -449,7 +593,7 @@ public class OrderService {
         order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
         order.setRemark(blankToNull(request.getRemark()));
         order.setAttachmentName(blankToNull(request.getAttachmentName()));
-        order.setAttachmentUrl(blankToNull(request.getAttachmentUrl()));
+        order.setAttachmentUrl(normalizeSalesOrderAttachmentUrlForStorage(request.getAttachmentUrl()));
         order.setAttachmentSize(request.getAttachmentSize());
         order.setStatus(StringUtils.hasText(request.getStatus()) ? request.getStatus().trim() : defaultSalesStatus(order.getStatus()));
         validateShippingInfo(order.getStatus(), order.getExpressCompany(), order.getExpressNo());
@@ -465,10 +609,11 @@ public class OrderService {
         return BinaryFlagEnum.isYes(value) ? BinaryFlagEnum.YES.getCode() : BinaryFlagEnum.NO.getCode();
     }
 
-    private void replaceSalesOrderItems(String orderId, List<SalesOrderSaveRequest.ItemDTO> items) {
+    private void replaceSalesOrderItems(String orderId, List<SalesOrderSaveRequest.ItemDTO> items, LocalDateTime businessCreateTime) {
         salesOrderDetailMapper.delete(new LambdaQueryWrapper<SalesOrderDetail>()
                 .eq(SalesOrderDetail::getOrderId, orderId));
 
+        LocalDateTime now = LocalDateTime.now();
         List<SalesOrderDetail> details = items.stream().map(item -> {
             SalesOrderDetail detail = new SalesOrderDetail();
             detail.setOrderId(orderId);
@@ -477,6 +622,8 @@ public class OrderService {
             detail.setWeight(item.getWeight());
             detail.setSpec(formatNumber(item.getSpec()));
             detail.setQuantity(item.getQuantity());
+            detail.setCreateTime(businessCreateTime == null ? now : businessCreateTime);
+            detail.setUpdateTime(now);
             return detail;
         }).toList();
 
@@ -499,6 +646,8 @@ public class OrderService {
             productionOrder.setDeliveryDate(parseDateTime(order.getDeliveryDate()));
             productionOrder.setCreator(resolveCurrentUser());
             productionOrder.setUpdater(resolveCurrentUser());
+            productionOrder.setCreateTime(order.getCreateTime());
+            productionOrder.setUpdateTime(LocalDateTime.now());
             productionOrderMapper.insert(productionOrder);
         });
     }
@@ -539,6 +688,10 @@ public class OrderService {
     }
 
     private void insertSalesLog(SalesOrder order, String oldStatus, String operateType, String remark) {
+        insertSalesLog(order, oldStatus, operateType, remark, LocalDateTime.now());
+    }
+
+    private void insertSalesLog(SalesOrder order, String oldStatus, String operateType, String remark, LocalDateTime createTime) {
         SalesOrderStatusLog log = new SalesOrderStatusLog();
         log.setTenantCode(order.getTenantCode());
         log.setOrderId(order.getOrderId());
@@ -548,7 +701,7 @@ public class OrderService {
         log.setRemark(StringUtils.hasText(remark) ? remark : "管理端更新销售订单信息");
         log.setOperator(resolveCurrentUser());
         log.setOperatorName(resolveCurrentUserName());
-        log.setCreateTime(LocalDateTime.now());
+        log.setCreateTime(createTime == null ? LocalDateTime.now() : createTime);
         salesOrderStatusLogMapper.insert(log);
     }
 
@@ -624,6 +777,12 @@ public class OrderService {
         }
     }
 
+    private void assertDirectSalesTransitionAllowed(String oldStatus, String targetStatus) {
+        if (STATUS_PENDING_PAY.equals(oldStatus) && STATUS_PRODUCING.equals(targetStatus)) {
+            throw new BusinessException("待收款订单转生产中需要先通过订单审批");
+        }
+    }
+
     /**
      * 销售订单是交付侧主单，状态变化后优先把关联生产单同步到同一阶段。
      */
@@ -642,7 +801,9 @@ public class OrderService {
             if (!OrderStatusEnum.PENDING_CONFIRM.matches(salesOrder.getStatus()) && !OrderStatusEnum.PENDING_SHIP.matches(salesOrder.getStatus())) {
                 linkedOrder.setProcess(null);
             }
+            linkedOrder.setUpdateTime(LocalDateTime.now());
             productionOrderMapper.updateById(linkedOrder);
+            orderWarningCacheService.invalidate(linkedOrder.getTenantCode());
             insertProductionLog(linkedOrder, oldStatusText, "销售订单状态同步更新");
         }
     }
@@ -667,7 +828,9 @@ public class OrderService {
         String oldSalesStatus = linkedSalesOrder.getStatus();
         linkedSalesOrder.setStatus(productionOrder.getStatus());
         validateShippingInfo(linkedSalesOrder.getStatus(), linkedSalesOrder.getExpressCompany(), linkedSalesOrder.getExpressNo());
+        linkedSalesOrder.setUpdateTime(LocalDateTime.now());
         salesOrderMapper.updateById(linkedSalesOrder);
+        orderWarningCacheService.invalidate(linkedSalesOrder.getTenantCode());
         insertSalesLog(linkedSalesOrder, oldSalesStatus, OrderLogOperateTypeEnum.SYNC.getCode(), "生产订单状态同步更新");
     }
 
@@ -780,6 +943,10 @@ public class OrderService {
         return Math.min(pageSize, MAX_PAGE_SIZE);
     }
 
+    private long safeCount(Long count) {
+        return count == null ? 0L : count;
+    }
+
     private String blankToNull(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
     }
@@ -789,21 +956,24 @@ public class OrderService {
         return text.replaceAll("[^a-zA-Z0-9_-]", "_");
     }
 
-    private String normalizeAttachmentPath(String attachmentUrl) {
-        String path = blankToNull(attachmentUrl);
-        if (path == null) {
-            throw new BusinessException("附件地址不能为空");
-        }
+    private String normalizeSalesOrderAttachmentUrlForStorage(String attachmentUrl) {
+        return InternalUploadUrlValidator.normalizeStoredUploadUrl(
+                attachmentUrl,
+                resolveContextPath(),
+                TenantPermissionContext.getTenantCode(),
+                "sales-order"
+        );
+    }
 
-        String context = resolveContextPath();
-        if (StringUtils.hasText(context) && path.startsWith(context + "/uploads/")) {
-            path = path.substring(context.length());
-        }
-        if (path.startsWith("/uploads/")) {
-            path = path.substring("/uploads/".length());
-        }
-        if (!path.startsWith("sales-order/") || path.contains("..")) {
-            throw new BusinessException("附件地址不合法");
+    private String normalizeAttachmentPath(String attachmentUrl) {
+        String path = InternalUploadUrlValidator.normalizeRelativeUploadPath(
+                attachmentUrl,
+                resolveContextPath(),
+                TenantPermissionContext.getTenantCode(),
+                "sales-order"
+        );
+        if (!StringUtils.hasText(path)) {
+            throw new BusinessException("附件地址不能为空");
         }
         return path;
     }
@@ -822,15 +992,105 @@ public class OrderService {
         return value.trim();
     }
 
+    private <T> void applyCreateTimeRange(LambdaQueryWrapper<T> wrapper,
+                                          LocalDate start,
+                                          LocalDate end,
+                                          SFunction<T, LocalDateTime> column) {
+        if (start != null) {
+            wrapper.ge(column, start.atStartOfDay());
+        }
+        if (end != null) {
+            wrapper.lt(column, end.plusDays(1).atStartOfDay());
+        }
+    }
+
+    private void applySalesStaleWarningFilter(LambdaQueryWrapper<SalesOrder> wrapper, int staleWarningDays) {
+        wrapper.notIn(SalesOrder::getStatus, OrderStatusEnum.COMPLETED.getCode(), OrderStatusEnum.CANCELLED.getCode())
+                .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(staleWarningDays));
+    }
+
+    private void applyProductionStaleWarningFilter(LambdaQueryWrapper<ProductionOrder> wrapper, int staleWarningDays) {
+        wrapper.ne(ProductionOrder::getStatus, OrderStatusEnum.COMPLETED.getCode())
+                .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(staleWarningDays));
+    }
+
+    private void markSalesStaleWarning(SalesOrderPageVO vo, SalesOrder order, int staleWarningDays) {
+        long days = staleDays(order.getUpdateTime(), order.getCreateTime());
+        vo.setStaleWarningDays(staleWarningDays);
+        vo.setStaleDays(days);
+        vo.setStaleWarning(salesOrderStaleCandidate(order.getStatus())
+                && isStale(order.getUpdateTime(), order.getCreateTime(), staleWarningDays));
+    }
+
+    private void markProductionStaleWarning(ProductionOrderPageVO vo, ProductionOrder order, int staleWarningDays) {
+        long days = staleDays(order.getUpdateTime(), order.getCreateTime());
+        vo.setStaleWarningDays(staleWarningDays);
+        vo.setStaleDays(days);
+        vo.setStaleWarning(productionOrderStaleCandidate(order.getStatus())
+                && isStale(order.getUpdateTime(), order.getCreateTime(), staleWarningDays));
+    }
+
+    private boolean salesOrderStaleCandidate(String status) {
+        return !OrderStatusEnum.COMPLETED.matches(status) && !OrderStatusEnum.CANCELLED.matches(status);
+    }
+
+    private boolean productionOrderStaleCandidate(String status) {
+        return !OrderStatusEnum.COMPLETED.matches(status);
+    }
+
+    private boolean isStale(LocalDateTime updateTime, LocalDateTime createTime, int staleWarningDays) {
+        LocalDateTime anchor = updateTime != null ? updateTime : createTime;
+        return anchor != null && !anchor.isAfter(LocalDateTime.now().minusDays(staleWarningDays));
+    }
+
+    private long staleDays(LocalDateTime updateTime, LocalDateTime createTime) {
+        LocalDateTime anchor = updateTime != null ? updateTime : createTime;
+        if (anchor == null) {
+            return 0L;
+        }
+        return Math.max(0L, ChronoUnit.DAYS.between(anchor, LocalDateTime.now()));
+    }
+
     private LocalDateTime parseDateTime(String value) {
         if (!StringUtils.hasText(value)) {
             return null;
         }
-        String trimmed = value.trim();
-        if (trimmed.length() == 10) {
-            return LocalDate.parse(trimmed).atStartOfDay();
+        String normalized = normalizeDateTimeText(value);
+        if (normalized.length() == 10) {
+            return LocalDate.parse(normalized).atStartOfDay();
         }
-        return LocalDateTime.parse(trimmed, DATE_TIME_FORMATTER);
+        return LocalDateTime.parse(normalized, DATE_TIME_FORMATTER);
+    }
+
+    private LocalDateTime resolveBusinessCreateTime(String value, String fieldName) {
+        if (!StringUtils.hasText(value)) {
+            return LocalDateTime.now();
+        }
+        try {
+            return parseDateTime(value);
+        } catch (RuntimeException ex) {
+            throw new BusinessException(fieldName + "格式不正确，请使用 yyyy-MM-dd HH:mm:ss");
+        }
+    }
+
+    private void applyManualCreateTime(SalesOrder order, String value, String fieldName) {
+        if (StringUtils.hasText(value)) {
+            order.setCreateTime(resolveBusinessCreateTime(value, fieldName));
+        }
+    }
+
+    private void applyManualCreateTime(ProductionOrder order, String value, String fieldName) {
+        if (StringUtils.hasText(value)) {
+            order.setCreateTime(resolveBusinessCreateTime(value, fieldName));
+        }
+    }
+
+    private String normalizeDateTimeText(String value) {
+        String normalized = value.trim().replace('T', ' ');
+        if (normalized.length() == 16) {
+            normalized = normalized + ":00";
+        }
+        return normalized;
     }
 
     private BigDecimal toBigDecimal(Float value) {

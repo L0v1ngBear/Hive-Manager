@@ -262,16 +262,16 @@ public class PriceService {
 
     @Transactional(rollbackFor = Exception.class)
     public ImportResultVO importPrices(MultipartFile file) {
-        validateImportFile(file);
+        excelUtil.validateXlsxImportFile(file, MAX_IMPORT_FILE_SIZE_BYTES);
         ImportResultVO result = new ImportResultVO();
         Set<String> importedModelCodes = new HashSet<>();
         try (var inputStream = file.getInputStream(); var workbook = WorkbookFactory.create(inputStream)) {
             Sheet sheet = workbook.getSheetAt(0);
-            validateImportHeader(sheet.getRow(0), PRICE_IMPORT_HEADERS);
-            validateImportDataRows(sheet, PRICE_IMPORT_COLUMN_COUNT, MAX_PRICE_IMPORT_ROWS);
+            excelUtil.validateImportHeader(sheet.getRow(0), PRICE_IMPORT_HEADERS);
+            excelUtil.validateImportDataRows(sheet, PRICE_IMPORT_COLUMN_COUNT, MAX_PRICE_IMPORT_ROWS);
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
-                if (row == null || isEmptyRow(row, PRICE_IMPORT_COLUMN_COUNT)) {
+                if (excelUtil.isEmptyRow(row, PRICE_IMPORT_COLUMN_COUNT)) {
                     continue;
                 }
                 result.setTotalCount(result.getTotalCount() + 1);
@@ -434,31 +434,47 @@ public class PriceService {
     }
 
     private LambdaQueryWrapper<PriceSku> buildQueryWrapper(PricePageRequest request) {
+        if (request == null) {
+            request = new PricePageRequest();
+        }
         LambdaQueryWrapper<PriceSku> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PriceSku::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(PriceSku::getIsDeleted, 0)
                 .orderByDesc(PriceSku::getUpdateTime);
         // 分类字段已下线，这里只保留关键词和状态两个有效筛选入口。
         if (StringUtils.hasText(request.getKeyword())) {
-            wrapper.and(w -> w.like(PriceSku::getModelCode, request.getKeyword())
+            String keyword = request.getKeyword().trim();
+            wrapper.and(w -> w.like(PriceSku::getModelCode, keyword)
                     .or()
-                    .like(PriceSku::getBatchNo, request.getKeyword())
+                    .like(PriceSku::getBatchNo, keyword)
                     .or()
-                    .like(PriceSku::getSpec, request.getKeyword()));
+                    .like(PriceSku::getSpec, keyword));
         }
         if (request.getStatus() != null) {
             wrapper.eq(PriceSku::getStatus, request.getStatus());
         }
-        return wrapper;
-    }
-
-    private boolean isEmptyRow(Row row, int cellCount) {
-        for (int i = 0; i < cellCount; i++) {
-            if (StringUtils.hasText(excelUtil.readString(row.getCell(i)))) {
-                return false;
-            }
+        if (StringUtils.hasText(request.getBatchNo())) {
+            wrapper.like(PriceSku::getBatchNo, request.getBatchNo().trim());
         }
-        return true;
+        if (StringUtils.hasText(request.getSpec())) {
+            wrapper.like(PriceSku::getSpec, request.getSpec().trim());
+        }
+        if (StringUtils.hasText(request.getCurrency())) {
+            wrapper.eq(PriceSku::getCurrency, request.getCurrency().trim());
+        }
+        if (request.getPriceMin() != null) {
+            wrapper.ge(PriceSku::getBasePrice, request.getPriceMin());
+        }
+        if (request.getPriceMax() != null) {
+            wrapper.le(PriceSku::getBasePrice, request.getPriceMax());
+        }
+        if (request.getEffectiveStart() != null) {
+            wrapper.ge(PriceSku::getEffectiveDate, request.getEffectiveStart());
+        }
+        if (request.getEffectiveEnd() != null) {
+            wrapper.le(PriceSku::getEffectiveDate, request.getEffectiveEnd());
+        }
+        return wrapper;
     }
 
     private PricePublishRequest buildImportRequest(Row row) {
@@ -479,52 +495,6 @@ public class PriceService {
         request.setEffectiveDate(effectiveDate);
         request.setRemark(remark);
         return request;
-    }
-
-    private void validateImportFile(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new BusinessException("请先选择要导入的 Excel 文件");
-        }
-        if (file.getSize() > MAX_IMPORT_FILE_SIZE_BYTES) {
-            throw new BusinessException("导入文件不能超过 20MB");
-        }
-        String originalFilename = file.getOriginalFilename();
-        if (!StringUtils.hasText(originalFilename) || !originalFilename.trim().toLowerCase().endsWith(".xlsx")) {
-            throw new BusinessException("仅支持 .xlsx 格式，请先下载系统导入模板");
-        }
-    }
-
-    private void validateImportHeader(Row headerRow, List<String> expectedHeaders) {
-        if (headerRow == null) {
-            throw new BusinessException("导入文件缺少表头，请下载最新模板");
-        }
-        for (int i = 0; i < expectedHeaders.size(); i++) {
-            String actual = excelUtil.readString(headerRow.getCell(i));
-            String expected = expectedHeaders.get(i);
-            if (!expected.equals(actual)) {
-                throw new BusinessException("导入表头不匹配，第 " + (i + 1) + " 列应为：" + expected);
-            }
-        }
-    }
-
-    private void validateImportDataRows(Sheet sheet, int cellCount, int maxRows) {
-        if (sheet == null) {
-            throw new BusinessException("导入文件没有工作表");
-        }
-        int dataRows = 0;
-        for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-            Row row = sheet.getRow(i);
-            if (row == null || isEmptyRow(row, cellCount)) {
-                continue;
-            }
-            dataRows++;
-            if (dataRows > maxRows) {
-                throw new BusinessException("单次最多导入 " + maxRows + " 行，请拆分文件后重试");
-            }
-        }
-        if (dataRows == 0) {
-            throw new BusinessException("导入文件没有有效数据行");
-        }
     }
 
     private String requireImportText(String fieldName, String value, int maxLength) {

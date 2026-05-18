@@ -12,6 +12,7 @@ import my.management.module.ai.service.AiAdvicePermissionService;
 import my.management.module.ai.service.AiAnalysisService;
 import my.management.module.dashboard.model.vo.DashboardOverviewVO;
 import my.management.module.notification.mapper.NotificationMapper;
+import my.management.module.notification.model.dto.AnnouncementPublishRequest;
 import my.management.module.notification.model.dto.NotificationPageRequest;
 import my.management.module.notification.model.dto.NotificationTaskCloseRequest;
 import my.management.module.notification.model.entity.NotificationRecord;
@@ -29,6 +30,7 @@ import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * 通知服务，负责把异常预测、AI 建议和流程待办统一沉淀为可跟进的通知。
@@ -37,9 +39,12 @@ import java.util.Set;
 public class NotificationService {
 
     private static final String AI_ADVICE_BIZ_TYPE = "AI_ADVICE";
+    private static final String ANNOUNCEMENT_BIZ_TYPE = "ANNOUNCEMENT";
     private static final int NOTIFICATION_CONTENT_LIMIT = 950;
     private static final int NOTIFICATION_LIST_ITEM_LIMIT = 3;
     private static final int NOTIFICATION_ITEM_TEXT_LIMIT = 90;
+    private static final int ANNOUNCEMENT_TITLE_LIMIT = 80;
+    private static final int ANNOUNCEMENT_CONTENT_LIMIT = 1000;
 
     @Resource
     private NotificationMapper notificationMapper;
@@ -90,6 +95,43 @@ public class NotificationService {
 
     public long unreadCount() {
         return nvl(notificationMapper.countUnread(TenantPermissionContext.getTenantCode(), TenantPermissionContext.getUserId()));
+    }
+
+    public List<NotificationVO> announcements(Integer limit) {
+        int safeLimit = Math.min(Math.max(limit == null ? 5 : limit, 1), 50);
+        return notificationMapper.selectRecentAnnouncements(TenantPermissionContext.getTenantCode(), safeLimit)
+                .stream()
+                .map(this::toVO)
+                .toList();
+    }
+
+    public NotificationVO publishAnnouncement(AnnouncementPublishRequest request) {
+        String title = normalizeText(request == null ? null : request.getTitle());
+        String content = normalizeText(request == null ? null : request.getContent());
+        if (title == null) {
+            throw new BusinessException("请填写通知标题");
+        }
+        if (content == null) {
+            throw new BusinessException("请填写通知内容");
+        }
+
+        NotificationRecord record = new NotificationRecord();
+        record.setTenantCode(TenantPermissionContext.getTenantCode());
+        record.setDedupeKey("ANNOUNCEMENT:" + UUID.randomUUID());
+        record.setBizType(ANNOUNCEMENT_BIZ_TYPE);
+        record.setBizId(record.getDedupeKey());
+        record.setTitle(limit(title, ANNOUNCEMENT_TITLE_LIMIT));
+        record.setContent(limit(content, ANNOUNCEMENT_CONTENT_LIMIT));
+        record.setLevel(normalizeAnnouncementLevel(request == null ? null : request.getLevel()));
+        record.setChannel("IN_APP");
+        record.setRoute("/dashboard");
+        record.setStatus(CommonStatusEnum.ENABLED.getCode());
+        record.setReadFlag(BinaryFlagEnum.NO.getCode());
+        record.setSendStatus(NotificationSendStatusEnum.PENDING.getCode());
+        record.setTaskStatus(NotificationTaskStatusEnum.DONE.getCode());
+        record.setSourceType("manual_announcement");
+        notificationMapper.insertAnnouncement(record);
+        return toVO(record);
     }
 
     public void markRead(Long id) {
@@ -306,6 +348,17 @@ public class NotificationService {
 
     private String normalizeTaskStatus(String taskStatus) {
         return NotificationTaskStatusEnum.normalizeCloseStatus(taskStatus).getCode();
+    }
+
+    private String normalizeAnnouncementLevel(String level) {
+        String text = normalizeText(level);
+        if ("critical".equalsIgnoreCase(text)) {
+            return "critical";
+        }
+        if ("warning".equalsIgnoreCase(text)) {
+            return "warning";
+        }
+        return "info";
     }
 
     private String limit(String value, int maxLength) {

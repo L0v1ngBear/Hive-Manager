@@ -41,6 +41,7 @@
                 </label>
                 <input
                   v-model.trim="form.modelCode"
+                  data-field="price.modelCode"
                   list="model-options"
                   class="w-full rounded-lg bg-surface-container-low px-3 py-2.5 text-sm font-bold text-primary focus:ring-2 focus:ring-primary"
                   placeholder="例如 NV-2024-OXFORD"
@@ -87,6 +88,7 @@
                   <span class="absolute top-1/2 left-3 -translate-y-1/2 font-bold text-primary">楼</span>
                   <input
                     v-model="form.basePrice"
+                    data-field="price.basePrice"
                     type="number"
                     step="0.01"
                     class="w-full rounded-lg bg-surface-container-low py-2.5 pr-3 pl-7 text-sm font-black text-primary focus:ring-2 focus:ring-primary"
@@ -100,6 +102,7 @@
                 </label>
                 <input
                   v-model="form.effectiveDate"
+                  data-field="price.effectiveDate"
                   type="date"
                   class="w-full rounded-lg bg-surface-container-low px-3 py-2.5 text-sm font-bold text-primary focus:ring-2 focus:ring-primary"
                 />
@@ -239,7 +242,7 @@
               取消
             </button>
             <button
-              :disabled="submitting || !form.modelCode || !form.basePrice || !form.effectiveDate"
+              :disabled="submitting"
               class="flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-on-primary shadow-md disabled:opacity-50"
               @click="submit"
             >
@@ -257,6 +260,7 @@
 import { reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getPriceCustomers, getPriceDetail, getPriceModels, publishPrice } from './api/price.js'
+import { warnAndFocusField } from '@/utils/formFocus'
 
 const props = defineProps({
   isVisible: { type: Boolean, default: false },
@@ -364,9 +368,14 @@ function syncCustomerName(override) {
 }
 
 async function submit() {
-  if (!form.modelCode || !form.basePrice || !form.effectiveDate) {
-    ElMessage.warning('请填写型号、基准价和生效日期。')
-    return
+  if (!form.modelCode) {
+    return warnAndFocusField('请填写面料型号。', 'price.modelCode')
+  }
+  if (!form.basePrice || Number(form.basePrice) <= 0) {
+    return warnAndFocusField('请填写有效的基准价。', 'price.basePrice')
+  }
+  if (!form.effectiveDate) {
+    return warnAndFocusField('请选择生效日期。', 'price.effectiveDate')
   }
   submitting.value = true
   try {

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import my.hive.common.external.ExternalApiGuardService;
 import my.management.module.ai.config.AiLlmProperties;
 import my.management.module.ai.model.entity.AiAdviceTrainingSample;
@@ -23,9 +24,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @Order(10)
 public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
+
+    private static final String PROVIDER = "deepseek";
+    private static final String ACTION = "chat-completions";
 
     @Resource
     private AiLlmProperties properties;
@@ -58,47 +63,70 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
             return List.of();
         }
 
+        long startNanos = System.nanoTime();
+        String tenantSubject = tenantSubject(snapshot);
+        AiLlmProperties.Provider config = null;
         try {
-            AiLlmProperties.Provider config = properties.deepseekConfig();
+            config = properties.deepseekConfig();
             String requestBody = objectMapper.writeValueAsString(buildRequest(config, snapshot, trainingExamples));
             String cacheKey = externalApiGuardService.fingerprint(requestBody);
-            String cachedResponse = externalApiGuardService.getCachedResponse("deepseek", "chat-completions", cacheKey);
+            String cachedResponse = externalApiGuardService.getCachedResponse(PROVIDER, ACTION, cacheKey);
             if (cachedResponse != null && !cachedResponse.isBlank()) {
                 return parseResponseBody(cachedResponse);
             }
 
             externalApiGuardService.checkRateLimit(
-                    "deepseek",
-                    "chat-completions",
-                    snapshot == null || snapshot.getTenantCode() == null ? "global" : snapshot.getTenantCode(),
+                    PROVIDER,
+                    ACTION,
+                    tenantSubject,
                     deepseekMaxCallsPerWindow == null ? 30 : deepseekMaxCallsPerWindow,
                     Duration.ofSeconds(deepseekWindowSeconds == null ? 60 : Math.max(1, deepseekWindowSeconds))
             );
 
             HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(config.getTimeoutSeconds()))
+                    .connectTimeout(Duration.ofSeconds(timeoutSeconds(config)))
                     .build();
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(config.getEndpoint()))
-                    .timeout(Duration.ofSeconds(config.getTimeoutSeconds()))
+                    .timeout(Duration.ofSeconds(timeoutSeconds(config)))
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + config.getApiKey())
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            long elapsedMillis = elapsedMillis(startNanos);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                externalApiGuardService.recordCallEvent(PROVIDER, ACTION, "HTTP_ERROR", tenantSubject,
+                        response.statusCode(), elapsedMillis, "DeepSeek returned non-2xx HTTP status",
+                        Map.of("model", safeText(config.getModel())));
                 return List.of();
             }
 
+            List<DashboardAiAdviceVO> advices = parseResponseBody(response.body());
             externalApiGuardService.cacheResponse(
-                    "deepseek",
-                    "chat-completions",
+                    PROVIDER,
+                    ACTION,
                     cacheKey,
                     response.body(),
                     Duration.ofSeconds(deepseekCacheSeconds == null ? 300 : Math.max(0, deepseekCacheSeconds))
             );
-            return parseResponseBody(response.body());
-        } catch (Exception ignored) {
+            Map<String, Object> detail = new LinkedHashMap<>();
+            detail.put("model", safeText(config.getModel()));
+            detail.put("adviceCount", advices.size());
+            detail.put("responseBytes", response.body() == null ? 0 : response.body().length());
+            externalApiGuardService.recordCallEvent(PROVIDER, ACTION, "SUCCESS", tenantSubject,
+                    response.statusCode(), elapsedMillis, "DeepSeek generated AI advice", detail);
+            return advices;
+        } catch (Exception exception) {
+            Map<String, Object> detail = new LinkedHashMap<>();
+            detail.put("errorType", exception.getClass().getName());
+            detail.put("errorMessage", exception.getMessage() == null ? "" : exception.getMessage());
+            if (config != null) {
+                detail.put("model", safeText(config.getModel()));
+            }
+            externalApiGuardService.recordCallEvent(PROVIDER, ACTION, "ERROR", tenantSubject,
+                    null, elapsedMillis(startNanos), "DeepSeek call failed", detail);
+            log.warn("DeepSeek AI advice generation failed, tenant={}", tenantSubject, exception);
             return List.of();
         }
     }
@@ -122,7 +150,7 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
                 }));
             }
         } catch (Exception ignored) {
-            // 兼容未开启 JSON 模式或模型偶发输出解释文本的情况，下面继续尝试截取数组。
+            // Compatible with occasional non-json-wrapper model output.
         }
         String jsonArray = extractJsonArray(cleaned);
         if (!jsonArray.isBlank()) {
@@ -149,9 +177,9 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
     private String systemPrompt() {
         return """
                 你是 Hive 蜂巢数字化工厂系统的 DeepSeek 经营建议模型。
-                你必须基于用户提供的经营快照和历史反馈样本进行分析，不要编造不存在的数据。
+                你必须基于用户提供的经营快照和历史反馈样本分析，不要编造不存在的数据。
                 不允许套用本地规则模板，不允许输出与经营快照无关的泛泛建议。
-                输出必须是 JSON 对象，不要 Markdown，不要解释性前后缀，格式固定为 {"advices":[...]}。
+                输出必须是 JSON 对象，不要 Markdown，不要解释性前后缀，固定格式为 {"advices":[...]}。
                 每条建议字段必须包含：
                 category, level, icon, title, summary, suggestion, route, priority,
                 ownerDepartment, actionLabel, metricText, trackingHint, sourceType, confidence, reasoning,
@@ -170,7 +198,7 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("maxAdvices", config.getMaxAdvices());
-            payload.put("modelProvider", "deepseek");
+            payload.put("modelProvider", PROVIDER);
             payload.put("futureTrainingTarget", "self_trained_transformer");
             payload.put("businessSnapshot", sanitizeSnapshot(snapshot));
             payload.put("recentFeedbackExamples", sanitizeTrainingExamples(trainingExamples));
@@ -199,7 +227,7 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
             item.put("priority", sample.getPriority());
             item.put("confidence", sample.getConfidence());
             item.put("feedbackType", sample.getFeedbackType());
-            item.put("feedbackText", sample.getFeedbackText());
+            item.put("feedbackText", AiPayloadSanitizer.sanitizeFreeText(sample.getFeedbackText()));
             item.put("occurrenceCount", sample.getOccurrenceCount());
             examples.add(item);
         }
@@ -212,18 +240,12 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
         }
         return advices.stream()
                 .filter(advice -> advice != null)
-                .peek(advice -> advice.setSourceType("deepseek"))
+                .peek(advice -> advice.setSourceType(PROVIDER))
                 .toList();
     }
 
     private Map<String, Object> sanitizeSnapshot(AiBusinessSnapshotVO snapshot) {
-        if (snapshot == null) {
-            return Map.of();
-        }
-        Map<String, Object> map = objectMapper.convertValue(snapshot, new TypeReference<Map<String, Object>>() {
-        });
-        map.remove("tenantCode");
-        return map;
+        return AiPayloadSanitizer.sanitizeSnapshot(objectMapper, snapshot);
     }
 
     private String cleanJsonContent(String content) {
@@ -248,5 +270,25 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
             return "";
         }
         return cleaned.substring(start, end + 1);
+    }
+
+    private String tenantSubject(AiBusinessSnapshotVO snapshot) {
+        if (snapshot == null || snapshot.getTenantCode() == null || snapshot.getTenantCode().isBlank()) {
+            return "global";
+        }
+        return snapshot.getTenantCode().trim();
+    }
+
+    private int timeoutSeconds(AiLlmProperties.Provider config) {
+        Integer timeout = config == null ? null : config.getTimeoutSeconds();
+        return timeout == null ? 45 : Math.max(1, timeout);
+    }
+
+    private long elapsedMillis(long startNanos) {
+        return Duration.ofNanos(System.nanoTime() - startNanos).toMillis();
+    }
+
+    private String safeText(String value) {
+        return value == null ? "" : value;
     }
 }

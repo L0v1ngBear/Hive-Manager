@@ -45,7 +45,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Resource
     private PlatformScopeInterceptor platformScopeInterceptor;
 
-    @Value("${app.cors.allowed-origin-patterns:*}")
+    @Value("${app.cors.allowed-origin-patterns:https://hellohive.top,http://localhost:*,http://127.0.0.1:*}")
     private String allowedOriginPatterns;
 
     @Value("${app.upload.root:uploads}")

@@ -18,7 +18,7 @@ import java.util.List;
 @InterceptorIgnore(tenantLine = "true")
 public interface AttendanceManageMapper {
 
-    @Select("SELECT COUNT(1) FROM user u WHERE u.tenant_code = #{tenantCode} AND (u.status IS NULL OR u.status = 1)")
+    @Select("SELECT COUNT(1) FROM user u WHERE u.tenant_code = #{tenantCode} AND (u.status IS NULL OR u.status IN (1, 2))")
     Long countActiveEmployees(@Param("tenantCode") String tenantCode);
 
     @Select({
@@ -103,11 +103,21 @@ public interface AttendanceManageMapper {
                                               @Param("query") AttendancePageRequest query);
 
     @Select({
-            "SELECT DISTINCT u.department_name AS name ",
-            "FROM user u ",
-            "WHERE u.tenant_code = #{tenantCode} ",
-            "AND u.department_name IS NOT NULL AND u.department_name != '' ",
-            "ORDER BY u.department_name ASC"
+            "SELECT name FROM (",
+            "  SELECT d.dept_name AS name, d.sort_no AS sortNo ",
+            "  FROM emp_department d ",
+            "  WHERE d.tenant_code = #{tenantCode} ",
+            "  AND d.is_deleted = 0 ",
+            "  AND d.status = 1 ",
+            "  AND d.dept_name IS NOT NULL AND d.dept_name != '' ",
+            "  UNION ",
+            "  SELECT DISTINCT u.department_name AS name, 9999 AS sortNo ",
+            "  FROM user u ",
+            "  WHERE u.tenant_code = #{tenantCode} ",
+            "  AND u.department_name IS NOT NULL AND u.department_name != '' ",
+            ") department_options ",
+            "GROUP BY name ",
+            "ORDER BY MIN(sortNo) ASC, name ASC"
     })
     List<AttendanceDepartmentVO> selectDepartments(@Param("tenantCode") String tenantCode);
 }

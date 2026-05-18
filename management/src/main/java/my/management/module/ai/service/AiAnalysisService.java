@@ -50,8 +50,8 @@ import java.util.Objects;
 @Service
 public class AiAnalysisService {
 
-    private static final BigDecimal INVENTORY_WARNING_THRESHOLD = new BigDecimal("100");
     private static final DateTimeFormatter ADVICE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final BigDecimal LEGACY_INVENTORY_WARNING_THRESHOLD = new BigDecimal("100");
     private static final DateTimeFormatter DAY_PREFIX_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final String ONLINE_STRATEGY_VERSION = "transformer_self_training_v1_online";
     private static final String CURRENT_RULE_VERSION = "transformer.2026.05.12.1";
@@ -317,7 +317,7 @@ public class AiAnalysisService {
     private String buildPersonalizedTrackingHint(DashboardAiAdviceVO advice, BehaviorModulePreferenceVO preference) {
         String base = isBlank(advice.getTrackingHint()) ? resolveTrackingHint(advice.getCategory(), advice.getLevel()) : advice.getTrackingHint();
         return base + String.format(
-                " 结合本租户近30天行为，该维度被关注 %d 次、点击/打开 %d 次，建议优先按本租户管理习惯跟进。",
+                " 结合本组织近30天行为，该维度被关注 %d 次、点击/打开 %d 次，建议优先按本组织管理习惯跟进。",
                 nvl(preference.getTotalCount()),
                 nvl(preference.getClickCount())
         );
@@ -853,7 +853,7 @@ public class AiAnalysisService {
             case "order", "delivery" -> "建立临期订单 T-3 巡检机制，提前确认生产、出库和客户沟通状态。";
             case "customer" -> "维护客户分层和跟进记录，让沉睡客户、核心客户和新客户开发形成固定节奏。";
             case "employee" -> "定期校验考勤规则、班次和直属上级关系，避免组织数据影响真实管理判断。";
-            case "quality" -> "把重复次品原因沉淀为工艺检查项、供应商复盘项或班组培训项。";
+            case "quality" -> "把重复质量问题原因沉淀为工艺检查项、供应商复盘项或班组培训项。";
             case "finance" -> "设置高金额审批优先级和超时提醒，避免资金事项卡住采购或交付。";
             case "operation" -> "把跨部门风险雷达固定到晨会和周会，跟踪未关闭事项和复发原因。";
             default -> "将处理结果沉淀为规则、清单或复盘模板，避免同类问题重复靠人工发现。";
@@ -925,7 +925,7 @@ public class AiAnalysisService {
                 steps.add("由部门主管确认真实业务原因，并记录改进动作。");
             }
             case "quality" -> {
-                steps.add("按次品类型、订单来源、责任环节和损失金额导出明细。");
+                steps.add("按质量类型、订单来源、责任环节和损失金额导出明细。");
                 steps.add("确认是否需要升级为工艺、供应商或班组专项复盘。");
             }
             case "finance" -> {
@@ -955,7 +955,7 @@ public class AiAnalysisService {
             case "order", "delivery" -> List.of("临期订单已逐单确认状态", "延期风险已提前沟通", "预计交付时间已更新");
             case "customer" -> List.of("核心客户已完成回访", "沉睡客户已标记原因", "下一步跟进时间已记录");
             case "employee" -> List.of("异常人员已核实原因", "班次/请假/主管关系已校验", "改进动作已同步责任人");
-            case "quality" -> List.of("次品明细已归因", "重复问题已建立预防动作", "损失金额和责任环节已确认");
+            case "quality" -> List.of("质量明细已归因", "重复问题已建立预防动作", "损失金额和责任环节已确认");
             case "finance" -> List.of("高金额事项已处理或升级", "业务影响已确认", "审批/付款状态已同步");
             case "operation" -> List.of("跨部门风险清单已建立", "owner 和截止时间已明确", "下次复盘节点已确定");
             default -> List.of("责任人已明确", "截止时间已确认", "复盘指标已记录");
@@ -968,7 +968,7 @@ public class AiAnalysisService {
             case "order", "delivery" -> List.of("交付日期", "生产状态", "出库状态", "客户沟通记录");
             case "customer" -> List.of("最近下单时间", "历史销售额", "回访记录", "报价未成交原因");
             case "employee" -> List.of("考勤记录", "请假审批", "班次规则", "直属上级");
-            case "quality" -> List.of("次品类型", "损失金额", "责任环节", "处理结果");
+            case "quality" -> List.of("质量类型", "损失金额", "责任环节", "处理结果");
             case "finance" -> List.of("待审批金额", "付款状态", "订单金额", "成本损耗");
             case "operation" -> List.of("库存", "订单", "客户", "员工", "质量", "财务");
             default -> List.of("核心指标", "异常原因", "处理记录");
@@ -981,7 +981,7 @@ public class AiAnalysisService {
             case "order", "delivery" -> "提高准时交付率，减少交付当天才暴露的问题和被动解释。";
             case "customer" -> "提升客户复购稳定性，提前识别沉睡、流失和核心客户波动。";
             case "employee" -> "减少组织数据不准导致的误判，让考勤、主管和岗位承接更可靠。";
-            case "quality" -> "把单次次品处理沉淀成可复盘、可预防的质量改进机制。";
+            case "quality" -> "把单次质量异常处理沉淀成可复盘、可预防的质量改进机制。";
             case "finance" -> "减少资金、审批和成本异常对采购、交付和经营节奏的影响。";
             case "operation" -> "把跨部门异常收敛成统一风险清单，提升管理闭环效率。";
             default -> "让管理层更早发现异常，并形成可追踪的处理闭环。";
@@ -1190,7 +1190,8 @@ public class AiAnalysisService {
         snapshot.getOrder().setSalesAmount30d(scale(aiAnalysisMapper.sumSalesAmountSince(tenantCode, start30d)));
 
         snapshot.getInventory().setTotalMeters(scale(aiAnalysisMapper.sumInventoryMeters(tenantCode)));
-        snapshot.getInventory().setLowStockModelCount(nvl(aiAnalysisMapper.countLowStockModels(tenantCode, INVENTORY_WARNING_THRESHOLD)));
+        // 库存低水位已转为用户自定义业务预警，不再进入 AI 建议输入。
+        snapshot.getInventory().setLowStockModelCount(0L);
         snapshot.getInventory().setBadClothCount(nvl(aiAnalysisMapper.countBadCloth(tenantCode)));
 
         snapshot.getQuality().setBadProductCount30d(nvl(aiAnalysisMapper.countBadProductRecordsBetween(tenantCode, start30d, now)));
@@ -1526,16 +1527,16 @@ public class AiAnalysisService {
         DashboardAiAdviceVO advice = baseAdvice("quality", "warning", "report_problem");
         advice.setTitle("质量损耗趋势恶化");
         advice.setSummary(String.format(
-                "最近 30 天次品记录 %d 条、损失约 %s 元；上一周期为 %d 条、损失约 %s 元，损失金额环比 %s%%。",
+                "最近 30 天质量记录 %d 条、损失约 %s 元；上一周期为 %d 条、损失约 %s 元，损失金额环比 %s%%。",
                 currentBadCount,
                 formatNumber(currentLoss),
                 previousBadCount,
                 formatNumber(previousLoss),
                 formatNumber(lossGrowth)
         ));
-        advice.setSuggestion("建议质检负责人把最近 30 天次品按类型、订单、责任环节和处理结果拆分，优先判断是否集中在同一型号、同一供应商、同一工序或同一班组；如果集中度高，应立即形成专项整改，而不是继续按单处理。");
+        advice.setSuggestion("建议质检负责人把最近 30 天质量异常按类型、订单、责任环节和处理结果拆分，优先判断是否集中在同一型号、同一供应商、同一工序或同一班组；如果集中度高，应立即形成专项整改，而不是继续按单处理。");
         advice.setReasoning(String.format(
-                "趋势快照显示：当前次品=%d，上一周期次品=%d，当前损失=%s，上一周期损失=%s，损失环比=%s%%。",
+                "趋势快照显示：当前质量记录=%d，上一周期质量记录=%d，当前损失=%s，上一周期损失=%s，损失环比=%s%%。",
                 currentBadCount,
                 previousBadCount,
                 formatNumber(currentLoss),
@@ -1549,8 +1550,8 @@ public class AiAnalysisService {
                 riskScore,
                 "可能影响毛利、返工成本、客户满意度和后续交付稳定性",
                 "今日内定位主要损耗来源",
-                "按次品类型和订单来源导出明细，找出损失金额最高的前三类问题。",
-                "次品损失环比、重复问题次数、整改后复发率"
+                "按质量类型和订单来源导出明细，找出损失金额最高的前三类问题。",
+                "质量损失环比、重复问题次数、整改后复发率"
         );
         if (riskScore >= 90) {
             advice.setPriority("P0");
@@ -1708,13 +1709,13 @@ public class AiAnalysisService {
         DashboardAiAdviceVO advice = baseAdvice("quality", ratio.compareTo(new BigDecimal("3")) >= 0 ? "warning" : "info", "assignment_late");
         advice.setTitle("质量成本压力评估");
         advice.setSummary(String.format(
-                "近 30 天登记次品 %d 条，损失金额约 ￥%s；按同期销售金额测算，质量损耗占比约 %s%%。",
+                "近 30 天登记质量记录 %d 条，损失金额约 ￥%s；按同期销售金额测算，质量损耗占比约 %s%%。",
                 badCount,
                 formatNumber(lossAmount),
                 formatNumber(ratio)
         ));
-        advice.setSuggestion("建议质检负责人按次品类型、订单来源和处理方式复盘高损耗记录；若损耗占比持续高于 3%，应把该类问题升级为生产工艺或供应商质量专项，而不是只按单处理。");
-        advice.setReasoning(String.format("经营快照显示：近30天销售额=￥%s，次品损失=￥%s，次品记录=%d。该建议由损耗金额与销售规模交叉测算生成。", formatNumber(salesAmount), formatNumber(lossAmount), badCount));
+        advice.setSuggestion("建议质检负责人按质量类型、订单来源和处理方式复盘高损耗记录；若损耗占比持续高于 3%，应把该类问题升级为生产工艺或供应商质量专项，而不是只按单处理。");
+        advice.setReasoning(String.format("经营快照显示：近30天销售额=￥%s，质量损失=￥%s，质量记录=%d。该建议由损耗金额与销售规模交叉测算生成。", formatNumber(salesAmount), formatNumber(lossAmount), badCount));
         advice.setRoute("/function/bad-product");
         return advice;
     }
@@ -2080,7 +2081,7 @@ public class AiAnalysisService {
         DashboardAiAdviceVO advice = baseAdvice("operation", riskScore >= 85 ? "warning" : "info", "radar");
         advice.setTitle("经营风险雷达");
         advice.setSummary(String.format(
-                "当前同时出现 %d 类经营信号：临期未发货 %d 单、低库存型号 %d 个、次品记录 %d 条、待处理次品 %d 条、考勤异常 %d 人次、待审批金额约 ￥%s。",
+                "当前同时出现 %d 类经营信号：临期未发货 %d 单、低库存型号 %d 个、质量记录 %d 条、待处理质量记录 %d 条、考勤异常 %d 人次、待审批金额约 ￥%s。",
                 signalCount,
                 dueSoon,
                 lowStock,
@@ -2091,7 +2092,7 @@ public class AiAnalysisService {
         ));
         advice.setSuggestion("建议管理层用一张风险雷达做早会决策：先判定今天必须关闭的交付风险，再确认库存和人员是否支撑交付，最后把质量损耗和财务审批列入周会复盘，避免各部门只处理自己看到的单点异常。");
         advice.setReasoning(String.format(
-                "经营快照显示：临期未发货=%d，低库存型号=%d，次品记录=%d，待处理次品=%d，质量损失=￥%s，待审批金额=￥%s，考勤异常=%d，缺少直属上级=%d，沉睡客户=%d/%d。该建议由多域信号累计生成。",
+                "经营快照显示：临期未发货=%d，低库存型号=%d，质量记录=%d，待处理质量记录=%d，质量损失=￥%s，待审批金额=￥%s，考勤异常=%d，缺少直属上级=%d，沉睡客户=%d/%d。该建议由多域信号累计生成。",
                 dueSoon,
                 lowStock,
                 badCount,
@@ -2143,14 +2144,14 @@ public class AiAnalysisService {
         DashboardAiAdviceVO advice = baseAdvice("finance", riskScore >= 80 ? "warning" : "info", "account_balance_wallet");
         advice.setTitle("质量损耗对经营利润的拖拽");
         advice.setSummary(String.format(
-                "近 30 天次品损失约 ￥%s，按同期销售额测算损耗占比约 %s%%；当前财务待审批金额约 ￥%s。",
+                "近 30 天质量损失约 ￥%s，按同期销售额测算损耗占比约 %s%%；当前财务待审批金额约 ￥%s。",
                 formatNumber(lossAmount),
                 formatNumber(lossRatio),
                 formatNumber(pendingFinanceAmount)
         ));
-        advice.setSuggestion("建议把次品损耗从“质检问题”上升到“经营成本问题”处理：财务负责量化损失，质检定位高发原因，生产复盘工艺和责任归属；若同类问题持续出现，应对对应供应商、工序或班组建立专项改进。");
+        advice.setSuggestion("建议把质量损耗从“质检问题”上升到“经营成本问题”处理：财务负责量化损失，质检定位高发原因，生产复盘工艺和责任归属；若同类问题持续出现，应对对应供应商、工序或班组建立专项改进。");
         advice.setReasoning(String.format(
-                "经营快照显示：次品记录=%d，次品损失=￥%s，30天销售额=￥%s，损耗占比=%s%%，待审批金额=￥%s。该建议由质量成本和财务审批压力交叉生成。",
+                "经营快照显示：质量记录=%d，质量损失=￥%s，30天销售额=￥%s，损耗占比=%s%%，待审批金额=￥%s。该建议由质量成本和财务审批压力交叉生成。",
                 badCount,
                 formatNumber(lossAmount),
                 formatNumber(salesAmount),
@@ -2164,8 +2165,8 @@ public class AiAnalysisService {
                 riskScore,
                 "可能影响毛利、返工成本、客户赔付和供应商结算",
                 "本周内形成专项复盘",
-                "按次品类型、订单来源和责任环节导出明细，确认最高损耗来源。",
-                "次品损耗率、重复问题次数、整改后同类问题下降比例"
+                "按质量类型、订单来源和责任环节导出明细，确认最高损耗来源。",
+                "质量损耗率、重复问题次数、整改后同类问题下降比例"
         );
         return advice;
     }
@@ -2234,7 +2235,11 @@ public class AiAnalysisService {
     }
 
     private List<DashboardAiAdviceVO> buildInventoryAdvices(String tenantCode) {
-        List<DashboardInventoryWarningRowVO> warnings = dashboardMapper.selectLowStockModels(tenantCode, INVENTORY_WARNING_THRESHOLD, 8);
+        boolean inventoryWaterLevelAdviceDisabled = true;
+        if (inventoryWaterLevelAdviceDisabled) {
+            return List.of();
+        }
+        List<DashboardInventoryWarningRowVO> warnings = dashboardMapper.selectLowStockModels(tenantCode, LEGACY_INVENTORY_WARNING_THRESHOLD, 8);
         if (warnings == null || warnings.isEmpty()) {
             return List.of(buildInventoryStableAdvice());
         }
@@ -2330,7 +2335,7 @@ public class AiAnalysisService {
     private DashboardAiAdviceVO buildFinanceAdvice() {
         DashboardAiAdviceVO advice = baseAdvice("finance", "info", "payments");
         advice.setTitle("经营金额跟踪");
-        advice.setSummary("当前系统已沉淀订单金额、次品损失和审批事项，可作为财务健康分析的第一层数据基础。");
+        advice.setSummary("当前系统已沉淀订单金额、质量损失和审批事项，可作为财务健康分析的第一层数据基础。");
         advice.setSuggestion("建议后续把客户利润贡献、异常损耗占比和逾期未交付金额纳入看板，帮助管理层快速判断现金流压力、履约风险和成本侵蚀点。");
         advice.setRoute("/function/order");
         return advice;
@@ -2375,7 +2380,7 @@ public class AiAnalysisService {
         DashboardAiAdviceVO advice = baseAdvice("quality", "warning", "assignment_late");
         advice.setTitle("质量损耗洞察");
         advice.setSummary(String.format(
-                "近 30 天次品问题主要集中在“%s”，共 %d 条记录，累计损失约 ¥%s。",
+                "近 30 天质量问题主要集中在“%s”，共 %d 条记录，累计损失约 ¥%s。",
                 typeLabel(row.getType()),
                 row.getRecordCount(),
                 formatNumber(row.getTotalLossAmount())
@@ -2388,8 +2393,8 @@ public class AiAnalysisService {
     private DashboardAiAdviceVO buildStableAdvice() {
         DashboardAiAdviceVO advice = baseAdvice("overview", "success", "check_circle");
         advice.setTitle("经营态势整体平稳");
-        advice.setSummary("当前未识别出明显的库存、交付、客户复购、员工出勤或次品异常波动。");
-        advice.setSuggestion("建议继续保持日常巡检节奏，重点观察未来 7 天订单交付、库存消耗、客户复购、员工考勤和次品损耗变化，必要时再触发专项复盘。");
+        advice.setSummary("当前未识别出明显的库存、交付、客户复购、员工出勤或质量异常波动。");
+        advice.setSuggestion("建议继续保持日常巡检节奏，重点观察未来 7 天订单交付、库存消耗、客户复购、员工考勤和质量损耗变化，必要时再触发专项复盘。");
         advice.setRoute("/dashboard");
         return advice;
     }
@@ -2445,7 +2450,7 @@ public class AiAnalysisService {
             case "order", "delivery" -> "跟进订单";
             case "customer" -> "查看客户";
             case "employee" -> "查看员工/考勤";
-            case "quality" -> "查看次品";
+            case "quality" -> "查看质量记录";
             case "finance" -> "查看订单金额";
             default -> "查看总览";
         };
@@ -2458,7 +2463,7 @@ public class AiAnalysisService {
             case "delivery" -> "交付日期、发货状态、物流完整度";
             case "customer" -> "客户复购周期、活跃客户、核心客户贡献";
             case "employee" -> "员工状态、考勤异常、请假审批、上下级关系";
-            case "quality" -> "近 30 天次品数量与损失金额";
+            case "quality" -> "近 30 天质量异常数量与损失金额";
             case "finance" -> "订单金额、损耗金额、审批事项";
             case "operation" -> "库存、订单、客户、员工、审批、打印任务联动";
             default -> "总览大盘核心指标";
@@ -2540,7 +2545,7 @@ public class AiAnalysisService {
             case "order", "delivery" -> "先拉出临近交付订单，逐单确认生产、出库和物流状态。";
             case "customer" -> "先筛出核心客户和沉睡客户，确认最近一次跟进记录。";
             case "employee" -> "先核对今日考勤异常和直属上级缺失名单。";
-            case "quality" -> "先按次品类型和订单来源导出损耗明细。";
+            case "quality" -> "先按质量类型和订单来源导出损耗明细。";
             case "finance" -> "先按金额从高到低处理待审批事项。";
             default -> "先明确责任人、截止时间和复盘指标。";
         };
@@ -2552,7 +2557,7 @@ public class AiAnalysisService {
             case "order", "delivery" -> "临期未发货订单数、准时发货率、延期提前沟通率";
             case "customer" -> "客户活跃率、复购间隔、新增客户数、重点客户跟进完成率";
             case "employee" -> "考勤异常率、关键岗位到岗率、直属上级完整率";
-            case "quality" -> "次品损耗率、重复问题次数、整改后复发率";
+            case "quality" -> "质量损耗率、重复问题次数、整改后复发率";
             case "finance" -> "审批周转时长、待审批金额、成本异常处理率";
             default -> "异常关闭率、复盘完成率、同类问题复发率";
         };

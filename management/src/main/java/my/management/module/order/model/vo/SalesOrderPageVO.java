@@ -50,4 +50,10 @@ public class SalesOrderPageVO {
     private LocalDateTime updateTime;
 
     private Integer detailCount;
+
+    private Boolean staleWarning = false;
+
+    private Long staleDays = 0L;
+
+    private Integer staleWarningDays;
 }

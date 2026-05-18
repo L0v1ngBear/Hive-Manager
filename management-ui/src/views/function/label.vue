@@ -577,18 +577,20 @@ onMounted(async () => {
 
 <style scoped>
 .label-page {
-  height: calc(100vh - 8rem);
+  min-height: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  margin: -1rem;
+  margin: calc(-1 * var(--ys-app-page-padding, 1rem));
   background:
     radial-gradient(circle at 8% 0%, rgba(255, 196, 41, 0.18), transparent 32%),
     linear-gradient(180deg, #fffdf8 0%, #fffaf0 100%);
+  overflow: hidden;
 }
 
 @media (min-width: 768px) {
   .label-page {
-    margin: -2rem;
+    margin: calc(-1 * var(--ys-app-page-padding, 2rem));
   }
 }
 
@@ -739,6 +741,7 @@ onMounted(async () => {
 
 .designer-area {
   min-width: 0;
+  min-height: 0;
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr) 260px;
   gap: 16px;
@@ -759,6 +762,18 @@ onMounted(async () => {
 .property-panel,
 .sidebar-card {
   padding: 18px;
+}
+
+.tool-panel,
+.property-panel,
+.canvas-wrap,
+.source-editor {
+  min-height: 0;
+}
+
+.tool-panel,
+.property-panel {
+  overflow-y: auto;
 }
 
 .panel-title {
@@ -963,6 +978,7 @@ onMounted(async () => {
 
 .source-area {
   min-width: 0;
+  min-height: 0;
   display: flex;
 }
 
@@ -1005,6 +1021,7 @@ onMounted(async () => {
 
 .template-sidebar {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -1070,6 +1087,12 @@ onMounted(async () => {
 }
 
 @media (max-width: 1280px) {
+  .label-page {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
   .label-main {
     grid-template-columns: 1fr;
     overflow-y: auto;
@@ -1079,8 +1102,41 @@ onMounted(async () => {
     grid-template-columns: 1fr;
   }
 
+  .tool-panel,
+  .property-panel,
+  .canvas-wrap,
+  .source-editor {
+    min-height: auto;
+  }
+
   .template-sidebar {
     min-height: 320px;
+  }
+}
+
+@media (max-width: 768px) {
+  .label-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .header-left,
+  .header-actions {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .header-actions {
+    justify-content: flex-start;
+  }
+
+  .template-name-input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .label-main {
+    padding: 14px;
   }
 }
 </style>

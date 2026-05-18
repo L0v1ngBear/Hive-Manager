@@ -28,10 +28,10 @@ public interface DashboardMapper {
     @Select("SELECT COALESCE(SUM(remaining_meters), 0) FROM cloth WHERE tenant_code = #{tenantCode} AND remaining_meters > 0")
     BigDecimal sumInventoryMeters(@Param("tenantCode") String tenantCode);
 
-    @Select("SELECT COUNT(1) FROM user_leave WHERE tenant_code = #{tenantCode} AND auditor_id = #{userId} AND status = 1")
+    @Select("SELECT COUNT(1) FROM user_leave WHERE tenant_code = #{tenantCode} AND status = 1 AND (auditor_id = #{userId} OR FIND_IN_SET(#{userId}, auditor_ids) > 0)")
     Long countPendingLeaveApprovals(@Param("tenantCode") String tenantCode, @Param("userId") Long userId);
 
-    @Select("SELECT COUNT(1) FROM finance_approval WHERE tenant_code = #{tenantCode} AND auditor_id = #{userId} AND status = 1")
+    @Select("SELECT COUNT(1) FROM finance_approval WHERE tenant_code = #{tenantCode} AND status = 1 AND (auditor_id = #{userId} OR FIND_IN_SET(#{userId}, auditor_ids) > 0)")
     Long countPendingFinanceApprovals(@Param("tenantCode") String tenantCode, @Param("userId") Long userId);
 
     @Select("SELECT COUNT(1) FROM outbound_order WHERE tenant_code = #{tenantCode} AND order_status = 1 AND print_status = 0")
@@ -107,6 +107,27 @@ public interface DashboardMapper {
     })
     List<DashboardPendingPrintRowVO> selectRecentPendingPrintOrders(@Param("tenantCode") String tenantCode,
                                                                     @Param("limit") Integer limit);
+
+    @Select("SELECT COUNT(1) FROM user u WHERE u.tenant_code = #{tenantCode} AND (u.status IS NULL OR u.status IN (1, 2))")
+    Long countAttendanceEmployees(@Param("tenantCode") String tenantCode);
+
+    @Select({
+            "SELECT COUNT(DISTINCT a.user_id) FROM attendance_record a ",
+            "WHERE a.tenant_code = #{tenantCode} ",
+            "AND a.punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
+            "AND (a.sign_in_status IS NOT NULL OR a.sign_out_status IS NOT NULL)"
+    })
+    Long countTodayAttendanceActual(@Param("tenantCode") String tenantCode,
+                                    @Param("dayPrefix") String dayPrefix);
+
+    @Select({
+            "SELECT COUNT(DISTINCT a.user_id) FROM attendance_record a ",
+            "WHERE a.tenant_code = #{tenantCode} ",
+            "AND a.punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
+            "AND (a.sign_in_status IN (1, 3, 6) OR a.sign_out_status IN (2, 3, 6))"
+    })
+    Long countTodayAttendanceAbnormal(@Param("tenantCode") String tenantCode,
+                                      @Param("dayPrefix") String dayPrefix);
 
     @Select({
             "SELECT a.user_id AS userId, u.name AS userName, u.department_name AS departmentName, ",

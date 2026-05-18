@@ -12,7 +12,9 @@ import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.inventory.model.dto.InventoryInRequest;
 import my.management.module.inventory.model.dto.InventoryOutRequest;
 import my.management.module.inventory.model.dto.InventoryPageRequest;
+import my.management.module.inventory.model.dto.InventoryWarningSettingUpdateRequest;
 import my.management.module.inventory.model.vo.ClothInventoryVO;
+import my.management.module.inventory.model.vo.InventoryImageRecognitionVO;
 import my.management.module.inventory.model.vo.InventoryImportResultVO;
 import my.management.module.inventory.model.vo.InventoryInResultVO;
 import my.management.module.inventory.model.vo.InventoryModelSummaryVO;
@@ -20,7 +22,9 @@ import my.management.module.inventory.model.vo.InventoryModelOptionVO;
 import my.management.module.inventory.model.vo.InventoryRecordVO;
 import my.management.module.inventory.model.vo.InventorySummaryVO;
 import my.management.module.inventory.model.vo.InventoryTrendVO;
+import my.management.module.inventory.model.vo.InventoryWarningSettingVO;
 import my.management.module.inventory.model.vo.InventoryWarningVO;
+import my.management.module.inventory.service.InventorySettingService;
 import my.management.module.inventory.service.InventoryService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,6 +46,9 @@ public class InventoryController {
 
     @Resource
     private InventoryService inventoryService;
+
+    @Resource
+    private InventorySettingService inventorySettingService;
 
     @GetMapping("/summary")
     @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存概览")
@@ -65,14 +72,27 @@ public class InventoryController {
     @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存明细")
     public Result<List<ClothInventoryVO>> modelDetail(@RequestParam String modelCode,
                                                       @RequestParam(required = false) java.math.BigDecimal spec,
-                                                      @RequestParam(required = false) Integer status) {
-        return Result.success(inventoryService.modelDetail(modelCode, spec, status));
+                                                      @RequestParam(required = false) Integer status,
+                                                      @RequestParam(required = false) String timeOrder) {
+        return Result.success(inventoryService.modelDetail(modelCode, spec, status, timeOrder));
     }
 
     @GetMapping("/warning/list")
     @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存预警")
     public Result<List<InventoryWarningVO>> warnings() {
         return Result.success(inventoryService.warnings());
+    }
+
+    @GetMapping("/warning/setting")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存预警设置")
+    public Result<InventoryWarningSettingVO> warningSetting() {
+        return Result.success(inventorySettingService.currentSetting());
+    }
+
+    @PostMapping("/warning/setting")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_SETTING, message = "您没有权限维护库存预警设置")
+    public Result<InventoryWarningSettingVO> updateWarningSetting(@Valid @RequestBody InventoryWarningSettingUpdateRequest request) {
+        return Result.success(inventorySettingService.updateCurrentSetting(request));
     }
 
     @GetMapping("/record/recent")
@@ -103,6 +123,12 @@ public class InventoryController {
     @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_CLOTH_IN, message = "您没有权限执行入库")
     public Result<InventoryInResultVO> in(@Valid @RequestBody InventoryInRequest request) {
         return Result.success(inventoryService.in(request));
+    }
+
+    @PostMapping("/cloth/image-recognition")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_CLOTH_IN, message = "您没有权限执行图片识别入库")
+    public Result<InventoryImageRecognitionVO> recognizeInboundImage(@RequestParam("file") MultipartFile file) {
+        return Result.success(inventoryService.recognizeInboundImage(file));
     }
 
     @PostMapping("/cloth/out")

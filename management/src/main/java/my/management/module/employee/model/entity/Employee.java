@@ -39,6 +39,8 @@ public class Employee {
     @TableField(select = false)
     private String password;
 
+    private Integer mustChangePassword;
+
     private String departmentName;
 
     private String position;

@@ -112,6 +112,5 @@ function resolveModule(path) {
   if (path.startsWith('/function/bad-product')) return 'quality'
   if (path.startsWith('/function/approval')) return 'approval'
   if (path.startsWith('/function/attendance')) return 'attendance'
-  if (path.startsWith('/platform/tenant')) return 'tenant'
   return path.split('/').filter(Boolean)[0] || 'unknown'
 }
