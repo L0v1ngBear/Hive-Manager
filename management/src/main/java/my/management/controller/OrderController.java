@@ -172,6 +172,20 @@ public class OrderController {
         return Result.success(orderService.refreshOrderWarningSummary());
     }
 
+    @PostMapping("/warning/sales/refresh")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限刷新销售订单预警")
+    @CollectLog(module = "order", action = "refresh_sales_warning", bizType = "order_warning", description = "管理端重新计时销售订单预警")
+    public Result<OrderWarningSummaryVO> refreshSalesWarnings() {
+        return Result.success(orderService.refreshSalesOrderWarnings());
+    }
+
+    @PostMapping("/warning/sales/{orderId}/refresh")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限刷新销售订单预警")
+    @CollectLog(module = "order", action = "refresh_sales_order_warning", bizType = "sales_order", bizNo = "#orderId", description = "管理端重新计时单个销售订单预警")
+    public Result<OrderWarningSummaryVO> refreshSalesOrderWarning(@PathVariable String orderId) {
+        return Result.success(orderService.refreshSalesOrderWarning(orderId));
+    }
+
     @GetMapping("/production/detail/{orderId}")
     @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_DETAIL, message = "您没有权限查看生产订单详情")
     public Result<ProductionOrderDetailVO> productionDetail(@PathVariable String orderId) {

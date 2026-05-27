@@ -1,66 +1,71 @@
 <template>
   <div class="function-page-shell h-full min-h-0 font-body">
     <div class="function-page-container space-y-6">
-    <header class="function-page-header">
-      <div>
-        <div class="function-page-eyebrow">
-          <span class="material-symbols-outlined">list_alt</span>
-          订单协同中心
+    <header class="order-page-header-new">
+      <div class="order-title-row">
+        <div>
+          <div class="function-page-eyebrow">
+            <span class="material-symbols-outlined">list_alt</span>
+            订单协同中心
+          </div>
+          <h1 class="function-page-title">订单全流程管理</h1>
+          <p class="function-page-desc">
+            统一管理订单创建、编辑、详情查看和状态流转追踪。
+          </p>
         </div>
-        <h1 class="function-page-title">订单全流程管理</h1>
-        <p class="function-page-desc">
-          统一管理订单创建、编辑、详情查看和状态流转追踪。</p>
+
+        <div class="order-header-button-row">
+          <button
+              v-permission="'order:warning:setting'"
+              class="order-warning-setting-btn"
+              @click="openOrderWarningSetting"
+          >
+            <span class="material-symbols-outlined text-[20px]">notification_important</span>
+            预警设置
+          </button>
+
+          <button
+              class="order-warning-refresh-btn"
+              :disabled="warningRefreshing"
+              @click="refreshOrderWarnings(true)"
+          >
+            <span class="material-symbols-outlined text-[20px]" :class="warningRefreshing ? 'animate-spin' : ''">sync</span>
+            重新更新预警
+          </button>
+
+          <button class="function-action-primary px-6 py-4" @click="openCreate">
+            新建订单
+          </button>
+        </div>
       </div>
-      <div class="flex flex-col gap-3 xl:flex-row xl:items-stretch">
-        <div class="order-header-card-stack">
-          <div class="order-summary-grid">
-            <button
-                v-for="card in summaryCards"
-                :key="card.key"
-                type="button"
-                class="stat-card text-left"
-                :class="[isSummaryCardActive(card) ? 'stat-card-active' : '', summaryCardClass(card)]"
-                @click="selectSummaryCard(card)"
-            >
-              <div class="stat-label">{{ card.label }}</div>
-              <div class="stat-value">{{ card.count }}</div>
-              <div class="stat-hint">{{ card.hint }}</div>
-            </button>
-          </div>
-          <div class="order-category-summary-grid" aria-label="订单小项数量统计">
-            <button
-                v-for="card in categorySummaryCards"
-                :key="card.key"
-                type="button"
-                class="category-stat-card"
-                :class="{ 'category-stat-card-active': filters.orderCategory === card.value }"
-                @click="selectCategoryCard(card.value)"
-            >
-              <span>{{ card.label }}</span>
-              <strong>{{ card.count }}</strong>
-              <small>{{ card.hint }}</small>
-            </button>
-          </div>
-        </div>
+
+      <div class="order-summary-grid-new">
         <button
-            v-permission="'order:warning:setting'"
-            class="order-warning-setting-btn"
-            @click="openOrderWarningSetting"
+            v-for="card in summaryCards"
+            :key="card.key"
+            type="button"
+            class="stat-card text-left"
+            :class="[isSummaryCardActive(card) ? 'stat-card-active' : '', summaryCardClass(card)]"
+            @click="selectSummaryCard(card)"
         >
-          <span class="material-symbols-outlined text-[20px]">notification_important</span>
-          预警设置
+          <div class="stat-label">{{ card.label }}</div>
+          <div class="stat-value">{{ card.count }}</div>
+          <div class="stat-hint">{{ card.hint }}</div>
         </button>
+      </div>
+
+      <div class="order-category-summary-grid-new" aria-label="订单小项数量统计">
         <button
-            class="order-warning-refresh-btn"
-            :disabled="warningRefreshing"
-            @click="refreshOrderWarnings(true)"
+            v-for="card in categorySummaryCards"
+            :key="card.key"
+            type="button"
+            class="category-stat-card"
+            :class="{ 'category-stat-card-active': filters.orderCategory === card.value }"
+            @click="selectCategoryCard(card.value)"
         >
-          <span class="material-symbols-outlined text-[20px]" :class="warningRefreshing ? 'animate-spin' : ''">sync</span>
-          重新更新预警
-        </button>
-        <button class="function-action-primary px-6 py-4"
-                @click="openCreate">
-          新建订单
+          <span>{{ card.label }}</span>
+          <strong>{{ card.count }}</strong>
+          <small>{{ card.hint }}</small>
         </button>
       </div>
     </header>
@@ -185,8 +190,8 @@
                 <div class="mt-2">
                   <span class="order-category-pill">{{ orderCategoryLabel(row.orderCategory) }}</span>
                 </div>
-                <div v-if="row.staleWarning" class="order-stale-actions">
-                  <div class="order-stale-tag">
+                <div v-if="row.staleWarning" class="order-stale-actions" @click.stop>
+                  <div class="order-stale-tag" @click.stop>
                     <span class="material-symbols-outlined text-[14px]">warning</span>
                     {{ row.staleDays || row.staleWarningDays || 0 }} 天未更新
                   </div>
@@ -925,7 +930,8 @@ import {
   getProductionOrderStatusSummary,
   getOrderWarningSetting,
   getOrderWarningSummary,
-  refreshOrderWarningSummary,
+  refreshSalesOrderWarning,
+  refreshSalesOrderWarnings,
   getSalesOrderDetail,
   getSalesOrderPage,
   getSalesOrderStatusSummary,
@@ -1631,7 +1637,7 @@ async function refreshOrderWarnings(showToast = false) {
   }
   warningRefreshing.value = true
   try {
-    const summary = await refreshOrderWarningSummary()
+    const summary = await refreshSalesOrderWarnings()
     applyOrderWarningSummary(summary)
     await refreshCurrentTab()
     if (showToast) {
@@ -1658,7 +1664,7 @@ async function refreshSingleOrderWarning(row = {}) {
   }
   rowWarningRefreshingKey.value = key
   try {
-    const summary = await refreshOrderWarningSummary()
+    const summary = await refreshSalesOrderWarning(row.orderId)
     applyOrderWarningSummary(summary)
     await loadSalesOrders()
     ElMessage.success('该订单预警已重新计算')
@@ -1783,6 +1789,9 @@ async function openDetail(orderId) {
   productionDetail.value = null
   try {
     salesDetail.value = await getSalesOrderDetail(orderId)
+  } catch (error) {
+    detailVisible.value = false
+    ElMessage.error(error?.message || '订单详情加载失败，请稍后重试')
   } finally {
     detailLoading.value = false
   }
@@ -2741,23 +2750,37 @@ function productionProcessText(row = {}) {
   font-weight: 800
 }
 
-.order-header-card-stack {
+.order-page-header-new {
   display: flex;
-  min-width: min(100%, 720px);
   flex-direction: column;
-  gap: .75rem;
+  gap: 24px;
 }
 
-.order-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(132px, 1fr));
-  gap: .75rem;
+.order-title-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
 }
 
-.order-category-summary-grid {
+.order-summary-grid-new {
   display: grid;
-  grid-template-columns: repeat(3, minmax(118px, 1fr));
-  gap: .65rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.order-category-summary-grid-new {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.order-header-button-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
 }
 
 .category-stat-card {
@@ -2801,15 +2824,26 @@ function productionProcessText(row = {}) {
   box-shadow: 0 16px 34px rgba(31, 63, 95, .12);
 }
 
-@media (min-width: 1280px) {
-  .order-summary-grid {
-    grid-template-columns: repeat(5, minmax(132px, 1fr));
+@media (max-width: 1280px) {
+  .order-summary-grid-new,
+  .order-category-summary-grid-new {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 720px) {
-  .order-category-summary-grid {
+@media (max-width: 768px) {
+  .order-title-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .order-summary-grid-new,
+  .order-category-summary-grid-new {
     grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .order-header-button-row {
+    justify-content: flex-start;
   }
 }
 
@@ -2832,14 +2866,14 @@ function productionProcessText(row = {}) {
 .order-warning-setting-btn,
 .order-warning-refresh-btn {
   display: inline-flex;
-  min-height: 4.5rem;
+  min-height: 3.75rem;
   align-items: center;
   justify-content: center;
   gap: .5rem;
   border-radius: 1rem;
   border: 1px solid rgba(31, 63, 95, .24);
   background: rgba(255, 255, 255, .88);
-  padding: 1rem 1.25rem;
+  padding: .85rem 1.1rem;
   font-size: .875rem;
   font-weight: 900;
   color: rgb(var(--primary));
@@ -2911,7 +2945,7 @@ function productionProcessText(row = {}) {
 .stat-card {
   --order-card-color: rgb(var(--primary));
   --order-card-soft: rgba(31, 63, 95, .10);
-  min-width: 132px;
+  min-width: 0;
   border-radius: 1rem;
   border: 1px solid rgba(0, 82, 204, .1);
   background: rgb(var(--surface-container-high));

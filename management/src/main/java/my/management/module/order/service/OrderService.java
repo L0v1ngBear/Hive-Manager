@@ -1,6 +1,7 @@
 package my.management.module.order.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
@@ -627,6 +628,46 @@ public class OrderService {
 
     public OrderWarningSummaryVO refreshOrderWarningSummary() {
         String tenantCode = TenantPermissionContext.getTenantCode();
+        orderWarningCacheService.invalidate(tenantCode);
+        return orderWarningCacheService.summary(tenantCode);
+    }
+
+    @Transactional
+    public OrderWarningSummaryVO refreshSalesOrderWarnings() {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<SalesOrder>()
+                .select(SalesOrder::getOrderId)
+                .eq(SalesOrder::getTenantCode, tenantCode);
+        applySalesStaleWarningFilter(wrapper, tenantCode);
+        List<String> orderIds = salesOrderMapper.selectList(wrapper).stream()
+                .map(SalesOrder::getOrderId)
+                .filter(StringUtils::hasText)
+                .toList();
+        if (!orderIds.isEmpty()) {
+            LocalDateTime now = LocalDateTime.now();
+            for (int start = 0; start < orderIds.size(); start += 500) {
+                List<String> batch = orderIds.subList(start, Math.min(start + 500, orderIds.size()));
+                salesOrderMapper.update(null, new LambdaUpdateWrapper<SalesOrder>()
+                        .eq(SalesOrder::getTenantCode, tenantCode)
+                        .in(SalesOrder::getOrderId, batch)
+                        .set(SalesOrder::getUpdateTime, now));
+            }
+        }
+        orderWarningCacheService.invalidate(tenantCode);
+        return orderWarningCacheService.summary(tenantCode);
+    }
+
+    @Transactional
+    public OrderWarningSummaryVO refreshSalesOrderWarning(String orderId) {
+        if (!StringUtils.hasText(orderId)) {
+            throw new BusinessException("订单编号不能为空");
+        }
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        SalesOrder order = findSalesOrder(orderId.trim());
+        salesOrderMapper.update(null, new LambdaUpdateWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, tenantCode)
+                .eq(SalesOrder::getOrderId, order.getOrderId())
+                .set(SalesOrder::getUpdateTime, LocalDateTime.now()));
         orderWarningCacheService.invalidate(tenantCode);
         return orderWarningCacheService.summary(tenantCode);
     }

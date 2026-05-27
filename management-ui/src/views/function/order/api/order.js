@@ -117,6 +117,20 @@ export function refreshOrderWarningSummary() {
   })
 }
 
+export function refreshSalesOrderWarnings() {
+  return request({
+    url: '/order/warning/sales/refresh',
+    method: 'post'
+  })
+}
+
+export function refreshSalesOrderWarning(orderId) {
+  return request({
+    url: `/order/warning/sales/${encodeURIComponent(orderId)}/refresh`,
+    method: 'post'
+  })
+}
+
 export function getProductionOrderDetail(orderId) {
   return request({
     url: `/order/production/detail/${orderId}`,
