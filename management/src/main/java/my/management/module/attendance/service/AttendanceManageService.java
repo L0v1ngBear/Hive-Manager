@@ -1,5 +1,6 @@
 package my.management.module.attendance.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
@@ -12,12 +13,16 @@ import my.management.common.enums.BinaryFlagEnum;
 import my.management.common.enums.CommonStatusEnum;
 import my.management.common.utils.ExcelUtil;
 import my.management.module.attendance.mapper.AttendanceManageMapper;
+import my.management.module.attendance.mapper.TenantAttendanceLocationManageMapper;
 import my.management.module.attendance.mapper.TenantAttendanceRuleManageMapper;
+import my.management.module.attendance.model.dto.AttendanceLocationSaveRequest;
 import my.management.module.attendance.model.dto.AttendancePageRequest;
 import my.management.module.attendance.model.dto.AttendanceRuleSaveRequest;
+import my.management.module.attendance.model.entity.TenantAttendanceLocation;
 import my.management.module.attendance.model.entity.TenantAttendanceRule;
 import my.management.module.attendance.model.enums.AttendancePunchStatusEnum;
 import my.management.module.attendance.model.vo.AttendanceDepartmentVO;
+import my.management.module.attendance.model.vo.AttendanceLocationVO;
 import my.management.module.attendance.model.vo.AttendanceRecordManageVO;
 import my.management.module.attendance.model.vo.AttendanceRuleVO;
 import my.management.module.attendance.model.vo.AttendanceSummaryVO;
@@ -30,7 +35,10 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -51,6 +59,9 @@ public class AttendanceManageService {
 
     @Resource
     private TenantAttendanceRuleManageMapper tenantAttendanceRuleManageMapper;
+
+    @Resource
+    private TenantAttendanceLocationManageMapper tenantAttendanceLocationManageMapper;
 
     @Resource
     private ExcelUtil excelUtil;
@@ -117,6 +128,8 @@ public class AttendanceManageService {
     public void saveRule(AttendanceRuleSaveRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         validateRule(request);
+        List<AttendanceLocationSaveRequest> locations = normalizeLocations(request);
+        AttendanceLocationSaveRequest primaryLocation = locations.isEmpty() ? null : locations.get(0);
 
         TenantAttendanceRule rule = tenantAttendanceRuleManageMapper.selectByTenantCode(tenantCode);
         if (rule == null) {
@@ -136,10 +149,10 @@ public class AttendanceManageService {
         rule.setEarlyToleranceMinutes(nonNegative(request.getEarlyToleranceMinutes()));
         rule.setWorkDays(toWorkDays(request.getWorkDays()));
         rule.setEnableGps(BinaryFlagEnum.codeOf(request.getEnableGps()));
-        rule.setLatitude(request.getLatitude());
-        rule.setLongitude(request.getLongitude());
-        rule.setRadius(request.getRadius());
-        rule.setAddress(clean(request.getAddress()));
+        rule.setLatitude(primaryLocation == null ? request.getLatitude() : primaryLocation.getLatitude());
+        rule.setLongitude(primaryLocation == null ? request.getLongitude() : primaryLocation.getLongitude());
+        rule.setRadius(primaryLocation == null ? request.getRadius() : primaryLocation.getRadius());
+        rule.setAddress(primaryLocation == null ? clean(request.getAddress()) : clean(primaryLocation.getAddress()));
         rule.setEnableWifi(BinaryFlagEnum.codeOf(request.getEnableWifi()));
         rule.setWifiSsid(clean(request.getWifiSsid()));
 
@@ -149,7 +162,50 @@ public class AttendanceManageService {
             tenantAttendanceRuleManageMapper.updateById(rule);
         }
 
+        saveLocations(tenantCode, BinaryFlagEnum.isYes(rule.getEnableGps()), locations);
         clearAttendanceRuleCache(tenantCode);
+    }
+
+    private void saveLocations(String tenantCode, boolean enableGps, List<AttendanceLocationSaveRequest> locations) {
+        List<TenantAttendanceLocation> existing = tenantAttendanceLocationManageMapper.selectList(new LambdaQueryWrapper<TenantAttendanceLocation>()
+                .eq(TenantAttendanceLocation::getTenantCode, tenantCode)
+                .eq(TenantAttendanceLocation::getStatus, CommonStatusEnum.ENABLED.getCode()));
+        Map<Long, TenantAttendanceLocation> existingById = existing.stream()
+                .filter(item -> item.getId() != null)
+                .collect(Collectors.toMap(TenantAttendanceLocation::getId, Function.identity(), (left, right) -> left));
+        Set<Long> requestedIds = enableGps ? locations.stream()
+                .map(AttendanceLocationSaveRequest::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet()) : Set.of();
+        for (TenantAttendanceLocation item : existing) {
+            if (!requestedIds.contains(item.getId())) {
+                item.setStatus(CommonStatusEnum.DISABLED.getCode());
+                tenantAttendanceLocationManageMapper.updateById(item);
+            }
+        }
+        if (!enableGps) {
+            return;
+        }
+        int sortOrder = 1;
+        for (AttendanceLocationSaveRequest request : locations) {
+            TenantAttendanceLocation location = request.getId() == null ? null : existingById.get(request.getId());
+            if (location == null) {
+                location = new TenantAttendanceLocation();
+            }
+            location.setTenantCode(tenantCode);
+            location.setLocationName(clean(request.getLocationName()) == null ? "打卡点" + sortOrder : clean(request.getLocationName()));
+            location.setLatitude(request.getLatitude());
+            location.setLongitude(request.getLongitude());
+            location.setAddress(clean(request.getAddress()));
+            location.setRadius(safeRadius(request.getRadius()));
+            location.setStatus(CommonStatusEnum.ENABLED.getCode());
+            location.setSortOrder(sortOrder++);
+            if (location.getId() == null) {
+                tenantAttendanceLocationManageMapper.insert(location);
+            } else {
+                tenantAttendanceLocationManageMapper.updateById(location);
+            }
+        }
     }
 
     private void clearAttendanceRuleCache(String tenantCode) {
@@ -217,6 +273,7 @@ public class AttendanceManageService {
         vo.setEnableGps(Boolean.FALSE);
         vo.setRadius(200D);
         vo.setEnableWifi(Boolean.FALSE);
+        vo.setLocations(List.of());
         return vo;
     }
 
@@ -236,15 +293,40 @@ public class AttendanceManageService {
         vo.setLongitude(rule.getLongitude());
         vo.setRadius(rule.getRadius());
         vo.setAddress(rule.getAddress());
+        List<AttendanceLocationVO> locations = tenantAttendanceLocationManageMapper.selectActiveByTenantCode(rule.getTenantCode())
+                .stream()
+                .map(this::toLocationVO)
+                .toList();
+        if (locations.isEmpty() && isValidLatitude(rule.getLatitude()) && isValidLongitude(rule.getLongitude())) {
+            AttendanceLocationVO fallback = new AttendanceLocationVO();
+            fallback.setLocationName(clean(rule.getAddress()) == null ? "公司打卡点" : clean(rule.getAddress()));
+            fallback.setLatitude(rule.getLatitude());
+            fallback.setLongitude(rule.getLongitude());
+            fallback.setRadius(safeRadius(rule.getRadius()));
+            fallback.setAddress(rule.getAddress());
+            locations = List.of(fallback);
+        }
+        vo.setLocations(locations);
         vo.setEnableWifi(BinaryFlagEnum.isYes(rule.getEnableWifi()));
         vo.setWifiSsid(rule.getWifiSsid());
         return vo;
     }
 
+    private AttendanceLocationVO toLocationVO(TenantAttendanceLocation location) {
+        AttendanceLocationVO vo = new AttendanceLocationVO();
+        vo.setId(location.getId());
+        vo.setLocationName(location.getLocationName());
+        vo.setLatitude(location.getLatitude());
+        vo.setLongitude(location.getLongitude());
+        vo.setAddress(location.getAddress());
+        vo.setRadius(safeRadius(location.getRadius()));
+        return vo;
+    }
+
     private void validateRule(AttendanceRuleSaveRequest request) {
         if (Boolean.TRUE.equals(request.getEnableGps())) {
-            if (request.getLatitude() == null || request.getLongitude() == null || request.getRadius() == null || request.getRadius() <= 0) {
-                throw new BusinessException("启用GPS围栏时，请填写经纬度和有效半径");
+            if (normalizeLocations(request).isEmpty()) {
+                throw new BusinessException("启用GPS围栏时，请至少配置一个有效打卡地点");
             }
         }
         if (Boolean.TRUE.equals(request.getEnableWifi()) && clean(request.getWifiSsid()) == null) {
@@ -252,6 +334,37 @@ public class AttendanceManageService {
         }
         if (request.getWorkDays() == null || request.getWorkDays().isEmpty()) {
             throw new BusinessException("请至少选择一个工作日");
+        }
+    }
+
+    private List<AttendanceLocationSaveRequest> normalizeLocations(AttendanceRuleSaveRequest request) {
+        List<AttendanceLocationSaveRequest> source = request.getLocations();
+        if ((source == null || source.isEmpty())
+                && (request.getLatitude() != null || request.getLongitude() != null || request.getRadius() != null || clean(request.getAddress()) != null)) {
+            AttendanceLocationSaveRequest legacy = new AttendanceLocationSaveRequest();
+            legacy.setLocationName(clean(request.getAddress()) == null ? "公司打卡点" : clean(request.getAddress()));
+            legacy.setLatitude(request.getLatitude());
+            legacy.setLongitude(request.getLongitude());
+            legacy.setRadius(request.getRadius());
+            legacy.setAddress(request.getAddress());
+            source = List.of(legacy);
+        }
+        if (source == null) {
+            return List.of();
+        }
+        return source.stream()
+                .filter(Objects::nonNull)
+                .peek(this::validateLocation)
+                .toList();
+    }
+
+    private void validateLocation(AttendanceLocationSaveRequest location) {
+        if (!isValidLatitude(location.getLatitude()) || !isValidLongitude(location.getLongitude())) {
+            throw new BusinessException("打卡点经纬度不合法，请检查后再保存");
+        }
+        Double radius = location.getRadius();
+        if (radius == null || radius <= 0D || radius > 5000D) {
+            throw new BusinessException("打卡点允许半径需大于0且不超过5000米");
         }
     }
 
@@ -298,6 +411,18 @@ public class AttendanceManageService {
 
     private Integer nonNegative(Integer value) {
         return value == null || value < 0 ? 0 : value;
+    }
+
+    private Double safeRadius(Double value) {
+        return value == null || value <= 0D ? 300D : value;
+    }
+
+    private boolean isValidLatitude(Double value) {
+        return value != null && value >= -90D && value <= 90D;
+    }
+
+    private boolean isValidLongitude(Double value) {
+        return value != null && value >= -180D && value <= 180D;
     }
 
     private void fillStatus(AttendanceRecordManageVO row) {

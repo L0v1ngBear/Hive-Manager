@@ -118,7 +118,7 @@ public class AiAnalysisService {
                 : advices.stream().filter(Objects::nonNull).toList();
         if (safeAdvices.isEmpty()) {
             brief.setTitle("今日经营简报");
-            brief.setExecutiveSummary("当前暂无可见 AI 建议。请继续沉淀订单、库存、客户、员工和审批数据，系统会在识别到有效信号后生成简报。");
+            brief.setExecutiveSummary("当前暂无可见经营建议。请继续沉淀订单、库存、客户、员工和审批数据，系统会在识别到有效信号后生成简报。");
             brief.setTopRiskTitle("暂无重点风险");
             brief.setTopRiskSummary("当前没有可见的高优先级经营风险。");
             brief.setFirstAction("保持日常数据录入和巡检节奏。");
@@ -1952,7 +1952,7 @@ public class AiAnalysisService {
                 missingManagerCount,
                 pendingLeaveCount
         ));
-        advice.setSuggestion("建议优先补齐员工直属上级关系，并把请假、考勤异常、订单跟进等事项绑定到部门负责人；这样后续 AI 在识别异常时，才能直接给出可落地的责任链路，而不是只停留在系统提示。");
+        advice.setSuggestion("建议优先补齐员工直属上级关系，并把请假、考勤异常、订单跟进等事项绑定到部门负责人；这样后续系统在识别异常时，才能直接给出可落地的责任链路，而不是只停留在系统提示。");
         advice.setReasoning(String.format(
                 "经营快照显示：在职员工=%d，缺少直属上级=%d，待审批请假=%d，30天请假申请=%d。该建议由组织架构完整度与审批积压共同判断生成。",
                 activeEmployeeCount,
@@ -2193,7 +2193,7 @@ public class AiAnalysisService {
                 "近 30 天暂无新增客户，当前客户 90 天活跃率约 %s%%，客户增长和复购两端都需要持续跟进。",
                 formatNumber(activeRatio)
         ));
-        advice.setSuggestion("建议销售负责人把客户池拆成老客户复购、沉睡客户唤醒和新客户开发三张清单，每周至少固定跟进一批高潜客户，并把拜访结果、报价反馈和下一步动作维护到客户管理里，为后续 AI 判断客户流失和增长机会提供数据。");
+        advice.setSuggestion("建议销售负责人把客户池拆成老客户复购、沉睡客户唤醒和新客户开发三张清单，每周至少固定跟进一批高潜客户，并把拜访结果、报价反馈和下一步动作维护到客户管理里，为后续判断客户流失和增长机会提供数据。");
         advice.setReasoning(String.format(
                 "经营快照显示：客户总数=%d，90天活跃客户=%d，30天新增客户=%d，活跃率=%s%%。该建议由客户增长速度与存量客户活跃度共同判断生成。",
                 customerCount,

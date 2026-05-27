@@ -3,6 +3,7 @@ package my.management.module.badproduct.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
+import my.hive.common.context.OperationLogSkipContext;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
@@ -21,11 +22,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Set;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * 质量管理服务，复用小程序端同一张坏品表和处理规则。
@@ -136,12 +139,15 @@ public class BadProductService {
         Employee operator = userId == null ? null : employeeMapper.selectById(userId);
 
         BadProductRecord entity;
+        BadProductRecord before = null;
         if (request.getDefectiveId() != null && !request.getDefectiveId().isBlank()) {
             entity = badProductMapper.selectOne(new LambdaQueryWrapper<BadProductRecord>()
                     .eq(BadProductRecord::getDefectiveId, request.getDefectiveId()));
             if (entity == null) {
                 throw new BusinessException("质量记录不存在");
             }
+            before = new BadProductRecord();
+            BeanUtils.copyProperties(entity, before);
         } else {
             entity = new BadProductRecord();
             entity.setTenantCode(tenantCode);
@@ -149,7 +155,7 @@ public class BadProductService {
             entity.setCreatorId(userId);
             entity.setCreatorName(operator == null ? "未知用户" : operator.getName());
             entity.setStatus("pending");
-            entity.setCreateTime(LocalDateTime.now());
+            entity.setCreateTime(resolveBusinessCreateTime(request.getCreateTime()));
         }
 
         entity.setOrderId(blankToNull(request.getOrderId()));
@@ -163,11 +169,21 @@ public class BadProductService {
         entity.setAttachmentName(normalizeAttachmentName(request.getAttachmentName(), request.getAttachmentUrl()));
         entity.setAttachmentUrl(normalizeBadProductAttachmentUrl(request.getAttachmentUrl(), tenantCode));
         entity.setAttachmentSize(normalizeAttachmentSize(request.getAttachmentSize(), entity.getAttachmentUrl()));
+        if (before != null && request.getCreateTime() != null) {
+            entity.setCreateTime(resolveBusinessCreateTime(request.getCreateTime()));
+        }
 
         if (entity.getId() == null) {
             badProductMapper.insert(entity);
         } else {
+            boolean businessChanged = badProductContentChanged(before, entity);
+            if (!businessChanged) {
+                entity.setUpdateTime(before.getUpdateTime());
+            }
             badProductMapper.updateById(entity);
+            if (!businessChanged) {
+                OperationLogSkipContext.skipCurrent();
+            }
         }
     }
 
@@ -255,5 +271,40 @@ public class BadProductService {
             return DEFAULT_PAGE_SIZE;
         }
         return Math.min(pageSize, MAX_PAGE_SIZE);
+    }
+
+    private LocalDateTime resolveBusinessCreateTime(LocalDateTime value) {
+        LocalDateTime now = LocalDateTime.now();
+        if (value == null) {
+            return now;
+        }
+        if (value.isAfter(now)) {
+            throw new BusinessException("登记时间不能晚于当前时间");
+        }
+        return value;
+    }
+
+    private boolean badProductContentChanged(BadProductRecord before, BadProductRecord after) {
+        if (before == null || after == null) {
+            return true;
+        }
+        return !Objects.equals(before.getOrderId(), after.getOrderId())
+                || !Objects.equals(before.getType(), after.getType())
+                || !sameBigDecimal(before.getQuantity(), after.getQuantity())
+                || !sameBigDecimal(before.getLossAmount(), after.getLossAmount())
+                || !Objects.equals(before.getDescription(), after.getDescription())
+                || !Objects.equals(before.getResponsiblePerson(), after.getResponsiblePerson())
+                || !Objects.equals(before.getProcessMeasure(), after.getProcessMeasure())
+                || !Objects.equals(before.getImprovementPlan(), after.getImprovementPlan())
+                || !Objects.equals(before.getAttachmentName(), after.getAttachmentName())
+                || !Objects.equals(before.getAttachmentUrl(), after.getAttachmentUrl())
+                || !Objects.equals(before.getAttachmentSize(), after.getAttachmentSize());
+    }
+
+    private boolean sameBigDecimal(BigDecimal left, BigDecimal right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+        return left.compareTo(right) == 0;
     }
 }

@@ -31,6 +31,12 @@ export const constantRoutes = [
     meta: { public: true }
   },
   {
+    path: '/join-organization',
+    name: 'JoinOrganization',
+    component: () => import('@/views/JoinOrganization.vue'),
+    meta: { public: true, title: '加入组织' }
+  },
+  {
     path: '/force-password-change',
     name: 'ForcePasswordChange',
     component: () => import('@/views/ForcePasswordChange.vue'),
@@ -67,7 +73,7 @@ export const constantRoutes = [
         path: 'dashboard/ai-advices',
         name: 'DashboardAiAdvice',
         component: () => import('@/views/dashboard/aiAdvice.vue'),
-        meta: { title: 'AI 经营建议', permissions: AI_ADVICE_PERMISSIONS, features: ['aiAdvice'] }
+        meta: { title: '经营建议', permissions: AI_ADVICE_PERMISSIONS, features: ['aiAdvice'] }
       },
       {
         path: 'manual',
@@ -147,6 +153,16 @@ export const constantRoutes = [
         name: 'Attendance',
         component: () => import('@/views/function/attendance/attendanceManagement.vue'),
         meta: { title: '考勤管理', permissions: ['attendance:record:list', 'attendance:*'], features: ['module.attendance'] }
+      },
+      {
+        path: 'equipment',
+        name: 'Equipment',
+        component: () => import('@/views/function/equipment/equipment.vue'),
+        meta: {
+          title: '设备巡检',
+          permissions: ['equipment:list', 'equipment:detail', 'equipment:inspection:list'],
+          features: ['module.equipment']
+        }
       },
       {
         path: 'role',
@@ -241,12 +257,12 @@ router.beforeEach((to) => {
   }
 
   if (Array.isArray(to.meta?.features) && to.meta.features.length && !userStore.hasAnyFeature(to.meta.features)) {
-    ElMessage.warning('当前组织暂未开通该功能，请联系管理员开通')
+    ElMessage.warning('当前账号暂未启用该功能，请联系企业负责人确认权限配置')
     return '/dashboard'
   }
 
   if (Array.isArray(to.meta?.permissions) && to.meta.permissions.length && !userStore.hasAnyPermission(to.meta.permissions)) {
-    ElMessage.warning('您暂无权限访问当前页面，如需开通请联系管理员')
+    ElMessage.warning('您暂无权限访问当前页面，请联系企业负责人确认权限配置')
     return '/dashboard'
   }
 

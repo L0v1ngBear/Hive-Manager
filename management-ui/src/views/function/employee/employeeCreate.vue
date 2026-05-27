@@ -146,6 +146,61 @@
           </div>
 
           <div class="col-span-2">
+            <label class="ml-1 mb-2 block text-xs font-semibold text-on-surface-variant">考勤要求</label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="cursor-pointer">
+                <input v-model.number="form.attendanceRequired" :value="1" class="peer hidden" name="attendanceRequired" type="radio" />
+                <div
+                    class="rounded-xl border p-4 transition-all"
+                    :class="Number(form.attendanceRequired ?? 1) === 1
+                      ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                      : 'border-outline-variant/30 bg-white text-on-surface hover:border-primary/40'"
+                >
+                  <div class="text-sm font-black">需要打卡</div>
+                  <div class="mt-1 text-xs opacity-70">参与打卡、缺勤和异常统计。</div>
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input v-model.number="form.attendanceRequired" :value="0" class="peer hidden" name="attendanceRequired" type="radio" />
+                <div
+                    class="rounded-xl border p-4 transition-all"
+                    :class="Number(form.attendanceRequired ?? 1) === 0
+                      ? 'border-amber-400 bg-amber-50 text-amber-800 shadow-sm'
+                      : 'border-outline-variant/30 bg-white text-on-surface hover:border-amber-300'"
+                >
+                  <div class="text-sm font-black">免打卡</div>
+                  <div class="mt-1 text-xs opacity-70">不参与缺卡、缺勤和考勤日报补录。</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div v-if="Number(form.attendanceRequired ?? 1) === 1" class="col-span-2">
+            <div class="mb-2 ml-1 flex items-center justify-between">
+              <label class="block text-xs font-semibold text-on-surface-variant">允许打卡地点</label>
+              <span class="text-[11px] text-on-surface-variant">不选择则默认允许全部启用地点</span>
+            </div>
+            <div class="rounded-xl border border-outline-variant/20 bg-surface-container-low p-4">
+              <div v-if="attendanceLocations.length === 0" class="text-xs text-on-surface-variant">
+                暂无可选打卡点，请先到考勤规则中维护打卡地点。
+              </div>
+              <div v-else class="flex flex-wrap gap-2">
+                <button
+                    v-for="location in attendanceLocations"
+                    :key="location.value"
+                    class="rounded-lg border px-3 py-1.5 text-xs font-bold transition-all"
+                    :class="form.attendanceLocationIds.includes(Number(location.value))
+                      ? 'border-primary bg-primary text-white shadow-md shadow-primary/20'
+                      : 'border-outline-variant/30 bg-white text-on-surface-variant hover:border-primary/50 hover:text-primary'"
+                    @click.prevent="toggleAttendanceLocation(location.value)"
+                >
+                  {{ location.label }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-span-2">
             <div class="mb-2 ml-1 flex items-center justify-between">
               <label class="block text-xs font-semibold text-on-surface-variant">系统角色分配</label>
               <span
@@ -334,12 +389,13 @@ const initialized = ref(false)
 const departments = ref([])
 const positions = ref([])
 const roles = ref([])
+const attendanceLocations = ref([])
 const leaderOptions = ref([])
 const leaderKeyword = ref('')
 const selectedLeaderLabel = ref('')
 let leaderSearchTimer = null
 
-// 🌟 雇佣状态：硬编码中文选项，接管后端英文/数字枚举
+// 雇佣状态与后端员工状态枚举值保持一致。
 const employmentStatuses = ref([
   { label: '正式在职', value: 1 },
   { label: '试用期', value: 2 },
@@ -399,11 +455,25 @@ function toggleRole(roleId) {
   form.roleIds.splice(index, 1)
 }
 
+function toggleAttendanceLocation(locationId) {
+  const id = Number(locationId)
+  if (!Number.isFinite(id) || id <= 0) {
+    return
+  }
+  const index = form.attendanceLocationIds.indexOf(id)
+  if (index === -1) {
+    form.attendanceLocationIds.push(id)
+    return
+  }
+  form.attendanceLocationIds.splice(index, 1)
+}
+
 async function loadOptions() {
   const data = await getEmployeeFormOptions()
   departments.value = data.departments || []
   positions.value = data.positions || []
   roles.value = data.roles || []
+  attendanceLocations.value = data.attendanceLocations || []
 
   // 强制防呆：只有当后端明确返回了包含中文字符的 label 时，才使用后端的数据
   if (data.employmentStatuses?.length > 0 && /[\u4e00-\u9fa5]/.test(data.employmentStatuses[0].label)) {
@@ -428,7 +498,9 @@ function createDefaultForm() {
     leaderName: '',
     entryDate: new Date().toISOString().slice(0, 10),
     status: 1,
+    attendanceRequired: 1,
     remark: '',
+    attendanceLocationIds: [],
     roleIds: []
   }
 }
@@ -443,7 +515,9 @@ async function loadEmployeeDetail() {
   form.leaderName = detail.leaderName || ''
   form.entryDate = detail.entryDate || new Date().toISOString().slice(0, 10)
   form.status = Number(detail.status ?? 1)
+  form.attendanceRequired = Number(detail.attendanceRequired ?? 1)
   form.remark = detail.remark || ''
+  form.attendanceLocationIds = Array.isArray(detail.attendanceLocationIds) ? detail.attendanceLocationIds.map((id) => Number(id)) : []
   form.roleIds = Array.isArray(detail.roleIds) ? detail.roleIds.map((id) => Number(id)) : []
 
   if (detail.leaderName) {
@@ -490,6 +564,8 @@ async function submit() {
       positionId: Number(form.positionId),
       leaderName: form.leaderName || null,
       status: Number(form.status),
+      attendanceRequired: Number(form.attendanceRequired ?? 1),
+      attendanceLocationIds: Number(form.attendanceRequired ?? 1) === 1 ? (form.attendanceLocationIds || []).map((id) => Number(id)) : [],
       roleIds: (form.roleIds || []).map((id) => Number(id))
     }
 

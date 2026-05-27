@@ -22,8 +22,14 @@ import my.management.module.notification.model.vo.NotificationReceiverVO;
 import my.management.module.notification.model.vo.NotificationVO;
 import my.management.module.notification.sms.SmsMessage;
 import my.management.module.notification.sms.SmsSender;
+import my.management.module.inventory.model.vo.InventoryWarningVO;
+import my.management.module.inventory.service.InventoryWarningCacheService;
+import my.management.module.order.model.vo.OrderWarningSummaryVO;
+import my.management.module.order.service.OrderWarningCacheService;
+import my.management.module.sys.model.enums.PermissionCodeEnum;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -40,11 +46,26 @@ public class NotificationService {
 
     private static final String AI_ADVICE_BIZ_TYPE = "AI_ADVICE";
     private static final String ANNOUNCEMENT_BIZ_TYPE = "ANNOUNCEMENT";
+    private static final String INVENTORY_WARNING_BIZ_TYPE = "INVENTORY_WARNING";
+    private static final String ORDER_STALE_WARNING_BIZ_TYPE = "ORDER_STALE_WARNING";
+    private static final String INVENTORY_WARNING_SOURCE = "inventory_warning";
+    private static final String ORDER_WARNING_SOURCE = "order_stale_warning";
     private static final int NOTIFICATION_CONTENT_LIMIT = 950;
     private static final int NOTIFICATION_LIST_ITEM_LIMIT = 3;
     private static final int NOTIFICATION_ITEM_TEXT_LIMIT = 90;
     private static final int ANNOUNCEMENT_TITLE_LIMIT = 80;
     private static final int ANNOUNCEMENT_CONTENT_LIMIT = 1000;
+    private static final int WARNING_NOTIFICATION_LIMIT = 8;
+    private static final List<String> INVENTORY_WARNING_PERMISSIONS = List.of(
+            "*", "*:*", PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, PermissionCodeEnum.CODE_INVENTORY_WARNING_SETTING,
+            PermissionCodeEnum.CODE_INVENTORY_RECORD_RECENT, PermissionCodeEnum.CODE_INVENTORY_CLOTH_IN,
+            PermissionCodeEnum.CODE_INVENTORY_CLOTH_OUT
+    );
+    private static final List<String> ORDER_WARNING_PERMISSIONS = List.of(
+            "*", "*:*", PermissionCodeEnum.CODE_ORDER_WARNING_SETTING, PermissionCodeEnum.CODE_SALES_ORDER_LIST,
+            PermissionCodeEnum.CODE_SALES_ORDER_STATUS, PermissionCodeEnum.CODE_PRODUCTION_ORDER_LIST,
+            PermissionCodeEnum.CODE_PRODUCTION_ORDER_STATUS
+    );
 
     @Resource
     private NotificationMapper notificationMapper;
@@ -60,6 +81,12 @@ public class NotificationService {
 
     @Resource
     private SmsSender smsSender;
+
+    @Resource
+    private InventoryWarningCacheService inventoryWarningCacheService;
+
+    @Resource
+    private OrderWarningCacheService orderWarningCacheService;
 
     public PageResult<NotificationVO> page(NotificationPageRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
@@ -99,12 +126,15 @@ public class NotificationService {
 
     public List<NotificationVO> announcements(Integer limit) {
         int safeLimit = Math.min(Math.max(limit == null ? 5 : limit, 1), 50);
-        return notificationMapper.selectRecentAnnouncements(TenantPermissionContext.getTenantCode(), safeLimit)
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        return notificationMapper.selectRecentAnnouncements(tenantCode, safeLimit)
                 .stream()
-                .map(this::toVO)
+                .peek(announcement -> markAnnouncementReadForCurrentUser(tenantCode, announcement))
+                .map(record -> toAnnouncementVO(tenantCode, record))
                 .toList();
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public NotificationVO publishAnnouncement(AnnouncementPublishRequest request) {
         String title = normalizeText(request == null ? null : request.getTitle());
         String content = normalizeText(request == null ? null : request.getContent());
@@ -131,14 +161,25 @@ public class NotificationService {
         record.setTaskStatus(NotificationTaskStatusEnum.DONE.getCode());
         record.setSourceType("manual_announcement");
         notificationMapper.insertAnnouncement(record);
-        return toVO(record);
+        createAnnouncementReceiverRecords(record, notificationMapper.selectAnnouncementTargetUsers(record.getTenantCode()));
+        return toAnnouncementVO(record.getTenantCode(), record);
     }
 
     public void markRead(Long id) {
         if (id == null) {
             return;
         }
-        notificationMapper.markRead(TenantPermissionContext.getTenantCode(), TenantPermissionContext.getUserId(), id);
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        Long userId = TenantPermissionContext.getUserId();
+        NotificationRecord record = notificationMapper.selectByIdForUser(tenantCode, userId, id);
+        if (record == null) {
+            return;
+        }
+        if (ANNOUNCEMENT_BIZ_TYPE.equals(record.getBizType()) && record.getBizId() != null) {
+            markAnnouncementReadForCurrentUser(tenantCode, record);
+            return;
+        }
+        notificationMapper.markRead(tenantCode, userId, id);
     }
 
     public void closeTask(Long id, NotificationTaskCloseRequest request) {
@@ -178,6 +219,29 @@ public class NotificationService {
         return syncAiAdviceNotifications(TenantPermissionContext.getTenantCode());
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public int syncAllNotificationsForCurrentTenant() {
+        int count = syncBusinessWarningNotificationsForCurrentTenant();
+        count += syncAiAdviceNotificationsForCurrentTenant();
+        return count;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public int syncBusinessWarningNotificationsForCurrentTenant() {
+        return syncBusinessWarningNotifications(TenantPermissionContext.getTenantCode());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public int syncBusinessWarningNotifications(String tenantCode) {
+        if (tenantCode == null || tenantCode.isBlank()) {
+            return 0;
+        }
+        int count = 0;
+        count += syncInventoryWarningNotifications(tenantCode);
+        count += syncOrderWarningNotifications(tenantCode);
+        return count;
+    }
+
     public int syncAiAdviceNotifications(String tenantCode) {
         if (tenantCode == null || tenantCode.isBlank()) {
             return 0;
@@ -203,6 +267,99 @@ public class NotificationService {
             }
         }
         return count;
+    }
+
+    private int syncInventoryWarningNotifications(String tenantCode) {
+        notificationMapper.deactivateActiveBySource(
+                tenantCode,
+                INVENTORY_WARNING_BIZ_TYPE,
+                INVENTORY_WARNING_SOURCE,
+                "库存水位已恢复，系统自动关闭预警"
+        );
+        List<NotificationReceiverVO> receivers = notificationMapper.selectReceiversByPermissions(tenantCode, INVENTORY_WARNING_PERMISSIONS);
+        if (receivers == null || receivers.isEmpty()) {
+            return 0;
+        }
+        List<InventoryWarningVO> warnings = inventoryWarningCacheService.topWarnings(tenantCode, WARNING_NOTIFICATION_LIMIT);
+        if (warnings == null || warnings.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        for (InventoryWarningVO warning : warnings) {
+            if (warning == null || warning.getModelCode() == null || warning.getModelCode().isBlank()) {
+                continue;
+            }
+            for (NotificationReceiverVO receiver : receivers) {
+                count += notificationMapper.upsert(fromInventoryWarning(tenantCode, warning, receiver));
+            }
+        }
+        return count;
+    }
+
+    private int syncOrderWarningNotifications(String tenantCode) {
+        notificationMapper.deactivateActiveBySource(
+                tenantCode,
+                ORDER_STALE_WARNING_BIZ_TYPE,
+                ORDER_WARNING_SOURCE,
+                "订单更新风险已解除，系统自动关闭预警"
+        );
+        List<NotificationReceiverVO> receivers = notificationMapper.selectReceiversByPermissions(tenantCode, ORDER_WARNING_PERMISSIONS);
+        if (receivers == null || receivers.isEmpty()) {
+            return 0;
+        }
+        OrderWarningSummaryVO summary = orderWarningCacheService.summary(tenantCode);
+        if (summary == null || summary.getTotalCount() == null || summary.getTotalCount() <= 0) {
+            return 0;
+        }
+        int count = 0;
+        for (NotificationReceiverVO receiver : receivers) {
+            count += notificationMapper.upsert(fromOrderWarning(tenantCode, summary, receiver));
+        }
+        return count;
+    }
+
+    private NotificationRecord fromInventoryWarning(String tenantCode, InventoryWarningVO warning, NotificationReceiverVO receiver) {
+        String modelCode = warning.getModelCode() == null ? "未填写型号" : warning.getModelCode();
+        NotificationRecord record = new NotificationRecord();
+        record.setTenantCode(tenantCode);
+        record.setDedupeKey("INV_WARN:" + sha256(String.join("|", safe(tenantCode), safe(modelCode), safe(receiver.getUserId() == null ? null : String.valueOf(receiver.getUserId())))).substring(0, 48));
+        record.setBizType(INVENTORY_WARNING_BIZ_TYPE);
+        record.setBizId(modelCode);
+        record.setTitle("库存水位预警");
+        record.setContent(limit("型号 " + modelCode + " 当前剩余约 " + safe(warning.getTotalMeters() == null ? null : warning.getTotalMeters().stripTrailingZeros().toPlainString()) + " 米，已低于预警水位，请及时核对库存并安排补货。", NOTIFICATION_CONTENT_LIMIT));
+        record.setLevel("warning");
+        record.setChannel("IN_APP");
+        record.setRoute("/function/inventory");
+        record.setReceiverUserId(receiver.getUserId());
+        record.setReceiverName(receiver.getUserName());
+        record.setStatus(CommonStatusEnum.ENABLED.getCode());
+        record.setReadFlag(BinaryFlagEnum.NO.getCode());
+        record.setSendStatus(NotificationSendStatusEnum.PENDING.getCode());
+        record.setTaskStatus(NotificationTaskStatusEnum.PENDING.getCode());
+        record.setSourceType(INVENTORY_WARNING_SOURCE);
+        return record;
+    }
+
+    private NotificationRecord fromOrderWarning(String tenantCode, OrderWarningSummaryVO summary, NotificationReceiverVO receiver) {
+        int days = summary.getStaleWarningDays() == null ? 3 : Math.max(summary.getStaleWarningDays(), 1);
+        NotificationRecord record = new NotificationRecord();
+        record.setTenantCode(tenantCode);
+        record.setDedupeKey("ORDER_WARN:" + sha256(String.join("|", safe(tenantCode), String.valueOf(days), safe(receiver.getUserId() == null ? null : String.valueOf(receiver.getUserId())))).substring(0, 48));
+        record.setBizType(ORDER_STALE_WARNING_BIZ_TYPE);
+        record.setBizId("STALE:" + days);
+        record.setTitle("订单未更新预警");
+        record.setContent(limit("当前有 " + nvl(summary.getTotalCount()) + " 张订单超过 " + days + " 天未更新，其中销售订单 " + nvl(summary.getSalesCount()) + " 张，生产订单 " + nvl(summary.getProductionCount()) + " 张，请进入订单管理跟进。", NOTIFICATION_CONTENT_LIMIT));
+        record.setLevel("warning");
+        record.setChannel("IN_APP");
+        record.setRoute("/function/order");
+        record.setReceiverUserId(receiver.getUserId());
+        record.setReceiverName(receiver.getUserName());
+        record.setStatus(CommonStatusEnum.ENABLED.getCode());
+        record.setReadFlag(BinaryFlagEnum.NO.getCode());
+        record.setSendStatus(NotificationSendStatusEnum.PENDING.getCode());
+        record.setTaskStatus(NotificationTaskStatusEnum.PENDING.getCode());
+        record.setSourceType(ORDER_WARNING_SOURCE);
+        return record;
     }
 
     private DashboardOverviewVO.Visibility fullVisibility() {
@@ -328,6 +485,67 @@ public class NotificationService {
         BeanUtils.copyProperties(record, vo);
         vo.setType(record.getBizType());
         return vo;
+    }
+
+    private NotificationVO toAnnouncementVO(String tenantCode, NotificationRecord record) {
+        NotificationVO vo = toVO(record);
+        List<NotificationReceiverVO> receivers = record.getBizId() == null
+                ? List.of()
+                : notificationMapper.selectAnnouncementReceiverStatuses(tenantCode, record.getBizId());
+        long readCount = receivers.stream().filter(receiver -> BinaryFlagEnum.YES.getCode().equals(receiver.getReadFlag())).count();
+        vo.setReceivers(receivers);
+        vo.setReadCount(readCount);
+        vo.setTotalReceiverCount((long) receivers.size());
+        vo.setUnreadCount(Math.max(receivers.size() - readCount, 0));
+        return vo;
+    }
+
+    private void createAnnouncementReceiverRecords(NotificationRecord announcement, List<NotificationReceiverVO> receivers) {
+        if (announcement == null || receivers == null || receivers.isEmpty()) {
+            return;
+        }
+        for (NotificationReceiverVO receiver : receivers) {
+            if (receiver == null || receiver.getUserId() == null) {
+                continue;
+            }
+            notificationMapper.upsertAnnouncementReceiver(buildAnnouncementReceiverRecord(announcement, receiver, BinaryFlagEnum.NO.getCode()));
+        }
+    }
+
+    private void markAnnouncementReadForCurrentUser(String tenantCode, NotificationRecord announcement) {
+        Long userId = TenantPermissionContext.getUserId();
+        if (tenantCode == null || userId == null || announcement == null || announcement.getBizId() == null) {
+            return;
+        }
+        int updated = notificationMapper.markAnnouncementReadByBizId(tenantCode, userId, announcement.getBizId());
+        if (updated > 0) {
+            return;
+        }
+        NotificationReceiverVO receiver = new NotificationReceiverVO();
+        receiver.setUserId(userId);
+        notificationMapper.upsertAnnouncementReceiver(buildAnnouncementReceiverRecord(announcement, receiver, BinaryFlagEnum.YES.getCode()));
+    }
+
+    private NotificationRecord buildAnnouncementReceiverRecord(NotificationRecord announcement, NotificationReceiverVO receiver, Integer readFlag) {
+        NotificationRecord record = new NotificationRecord();
+        record.setTenantCode(announcement.getTenantCode());
+        String parentKey = announcement.getDedupeKey() == null ? announcement.getBizId() : announcement.getDedupeKey();
+        record.setDedupeKey(parentKey + ":USER:" + receiver.getUserId());
+        record.setBizType(ANNOUNCEMENT_BIZ_TYPE);
+        record.setBizId(announcement.getBizId());
+        record.setTitle(announcement.getTitle());
+        record.setContent(announcement.getContent());
+        record.setLevel(announcement.getLevel());
+        record.setChannel(announcement.getChannel());
+        record.setRoute(announcement.getRoute());
+        record.setReceiverUserId(receiver.getUserId());
+        record.setReceiverName(receiver.getUserName());
+        record.setStatus(CommonStatusEnum.ENABLED.getCode());
+        record.setReadFlag(readFlag == null ? BinaryFlagEnum.NO.getCode() : readFlag);
+        record.setSendStatus(NotificationSendStatusEnum.PENDING.getCode());
+        record.setTaskStatus(NotificationTaskStatusEnum.DONE.getCode());
+        record.setSourceType(announcement.getSourceType());
+        return record;
     }
 
     private long nvl(Long value) {

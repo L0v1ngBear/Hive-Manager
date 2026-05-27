@@ -36,17 +36,15 @@
             <option value="2">总包方</option>
             <option value="3">分包方</option>
           </select>
-          <input
+          <DateFilterInput
             v-model="filters.createStart"
-            type="date"
+            placeholder="创建开始"
             class="rounded-lg border border-outline-variant/20 bg-surface-container-low px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/30 focus:outline-none"
-            title="创建开始日期"
           />
-          <input
+          <DateFilterInput
             v-model="filters.createEnd"
-            type="date"
+            placeholder="创建结束"
             class="rounded-lg border border-outline-variant/20 bg-surface-container-low px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/30 focus:outline-none"
-            title="创建结束日期"
           />
 
           <button
@@ -64,6 +62,7 @@
 
           <TableColumnSettings
             :columns="visibleCustomerColumns"
+            export-module="customer"
             @move="moveCustomerTableColumn"
             @reset="resetCustomerTableColumns"
           />
@@ -95,8 +94,8 @@
           <span class="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
         </div>
 
-        <div class="overflow-x-auto">
-          <table class="min-w-[1000px] w-full border-collapse text-left">
+        <div class="responsive-table-wrap">
+          <table class="responsive-data-table w-full border-collapse text-left">
             <thead class="bg-surface-container-low/50">
               <tr>
                 <th
@@ -119,6 +118,7 @@
                 <td
                   v-for="field in visibleCustomerColumns"
                   :key="field.key"
+                  :data-label="field.label"
                   class="px-6 py-4"
                 >
                   <template v-if="field.key === 'customerName'">
@@ -152,8 +152,8 @@
                   </template>
                 </td>
 
-                <td class="px-6 py-4 text-right">
-                  <div class="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <td class="px-6 py-4 text-right" data-label="操作">
+                  <div class="flex justify-end gap-1">
                     <button
                       class="rounded-md p-1.5 text-secondary transition-colors hover:bg-white"
                       title="编辑客户"
@@ -300,6 +300,7 @@ import {
   visibleTenantFields
 } from '@/utils/tenantFieldConfig'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import DateFilterInput from '@/components/DateFilterInput.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import CustomerCreateDrawer from './customerCreate.vue'
 import { getCustomerDetail, getCustomerPage } from './api/customer'

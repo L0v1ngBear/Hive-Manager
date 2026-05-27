@@ -22,6 +22,7 @@ import my.management.module.approval.model.enums.ApprovalActionEnum;
 import my.management.module.approval.model.enums.ApprovalStatusEnum;
 import my.management.module.approval.model.enums.LeaveTypeEnum;
 import my.management.module.approval.model.vo.ApprovalSummaryVO;
+import my.management.module.approval.model.vo.ApprovalAuditorOptionVO;
 import my.management.module.approval.model.vo.FinanceApprovalVO;
 import my.management.module.approval.model.vo.LeaveApprovalListVO;
 import my.management.module.approval.model.vo.LeaveDetailVO;
@@ -56,6 +57,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 /**
  * ApprovalService 属于管理端后端审批模块，实现核心业务编排与规则逻辑。
@@ -73,7 +75,13 @@ public class ApprovalService {
     private static final String APPROVAL_TYPE_LEAVE = "LEAVE";
     private static final String APPROVAL_TYPE_FINANCE = "FINANCE";
     private static final String APPROVAL_TYPE_RESIGNATION = "RESIGNATION";
+    private static final String APPROVAL_TYPE_ORDER = "ORDER";
     private static final int MAX_PARALLEL_APPROVERS = 30;
+    private static final int DEFAULT_APPROVAL_LIST_LIMIT = 100;
+    private static final int MAX_APPROVAL_LIST_LIMIT = 500;
+    private static final int DEFAULT_AUDITOR_OPTION_LIMIT = 20;
+    private static final int MAX_AUDITOR_OPTION_LIMIT = 50;
+    private static final long MAX_LEAVE_SYNC_DAYS = 366L;
 
     @Resource
     private LeaveMapper leaveMapper;
@@ -111,6 +119,9 @@ public class ApprovalService {
     @Resource
     private ApprovalAuditorCandidateService approvalAuditorCandidateService;
 
+    @Resource
+    private ApprovalDefaultAuditorService approvalDefaultAuditorService;
+
     @Value("${server.servlet.context-path:}")
     private String contextPath;
 
@@ -135,7 +146,7 @@ public class ApprovalService {
                 .eq(ResignationApproval::getStatus, ApprovalStatusEnum.PENDING.getCode());
         appendResignationAuditorFilter(resignationPendingWrapper, userId);
         long resignationPending = safeCount(resignationApprovalMapper.selectCount(resignationPendingWrapper));
-        long orderPending = countPendingOrderApprovals(tenantCode);
+        long orderPending = countPendingOrderApprovals(tenantCode, userId);
 
         ApprovalSummaryVO vo = new ApprovalSummaryVO();
         vo.setLeavePending(leavePending);
@@ -146,7 +157,22 @@ public class ApprovalService {
         return vo;
     }
 
-    public List<LeaveApprovalListVO> listLeaveApprovals() {
+    public List<ApprovalAuditorOptionVO> listAuditorOptions(String type, String keyword, Integer limit) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        String permissionCode = resolveAuditorPermissionCode(type);
+        if (!StringUtils.hasText(tenantCode) || !StringUtils.hasText(permissionCode)) {
+            return List.of();
+        }
+        String normalizedType = approvalDefaultAuditorService.normalizeType(type);
+        return approvalDefaultAuditorService.applyDefaultMark(normalizedType, employeeMapper.selectActiveApproverOptionsByPermission(
+                tenantCode,
+                permissionCode,
+                trimToNull(keyword),
+                safeAuditorOptionLimit(limit)
+        ));
+    }
+
+    public List<LeaveApprovalListVO> listLeaveApprovals(Integer limit) {
         Long userId = TenantPermissionContext.getUserId();
         LambdaQueryWrapper<UserLeave> wrapper = new LambdaQueryWrapper<>();
         wrapper.and(q -> q.eq(UserLeave::getApplyUserId, userId)
@@ -155,6 +181,7 @@ public class ApprovalService {
                         .or()
                         .apply("FIND_IN_SET({0}, auditor_ids) > 0", String.valueOf(userId)));
         wrapper.orderByDesc(UserLeave::getCreateTime);
+        wrapper.last("LIMIT " + safeApprovalListLimit(limit));
         return leaveMapper.selectList(wrapper).stream().map(this::toLeaveListVO).toList();
     }
 
@@ -203,8 +230,18 @@ public class ApprovalService {
      * 这样无论审批是在小程序还是管理端完成，考勤页和每日统计都能识别该员工当天处于请假状态。
      */
     private void syncLeaveToAttendance(UserLeave leave) {
+        if (leave == null || leave.getStartTime() == null || leave.getEndTime() == null) {
+            throw new BusinessException("请假时间不完整，无法同步考勤");
+        }
         LocalDate currentDate = leave.getStartTime().toLocalDate();
         LocalDate endDate = leave.getEndTime().toLocalDate();
+        long syncDays = ChronoUnit.DAYS.between(currentDate, endDate) + 1;
+        if (syncDays <= 0) {
+            throw new BusinessException("请假结束时间不能早于开始时间");
+        }
+        if (syncDays > MAX_LEAVE_SYNC_DAYS) {
+            throw new BusinessException("请假跨度不能超过 " + MAX_LEAVE_SYNC_DAYS + " 天，请拆分后提交");
+        }
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
         TenantAttendanceRule rule = tenantAttendanceRuleManageMapper.selectByTenantCode(leave.getTenantCode());
 
@@ -270,7 +307,7 @@ public class ApprovalService {
         return leave.getStartTime().isBefore(segmentEnd) && leave.getEndTime().isAfter(segmentStart);
     }
 
-    public List<FinanceApprovalVO> listFinanceApprovals() {
+    public List<FinanceApprovalVO> listFinanceApprovals(Integer limit) {
         Long userId = TenantPermissionContext.getUserId();
         LambdaQueryWrapper<FinanceApproval> wrapper = new LambdaQueryWrapper<>();
         wrapper.and(q -> q.eq(FinanceApproval::getApplyUserId, userId)
@@ -279,6 +316,7 @@ public class ApprovalService {
                         .or()
                         .apply("FIND_IN_SET({0}, auditor_ids) > 0", String.valueOf(userId)));
         wrapper.orderByDesc(FinanceApproval::getCreateTime);
+        wrapper.last("LIMIT " + safeApprovalListLimit(limit));
         return financeApprovalMapper.selectList(wrapper).stream().map(this::toFinanceVO).toList();
     }
 
@@ -286,7 +324,7 @@ public class ApprovalService {
         return toFinanceVO(getFinanceByCode(approvalCode));
     }
 
-    public List<ResignationApprovalVO> listResignationApprovals() {
+    public List<ResignationApprovalVO> listResignationApprovals(Integer limit) {
         Long userId = TenantPermissionContext.getUserId();
         String tenantCode = TenantPermissionContext.getTenantCode();
         LambdaQueryWrapper<ResignationApproval> wrapper = new LambdaQueryWrapper<>();
@@ -297,6 +335,7 @@ public class ApprovalService {
                 .or()
                 .apply("FIND_IN_SET({0}, auditor_ids) > 0", String.valueOf(userId)));
         wrapper.orderByDesc(ResignationApproval::getCreateTime);
+        wrapper.last("LIMIT " + safeApprovalListLimit(limit));
         return resignationApprovalMapper.selectList(wrapper).stream().map(this::toResignationVO).toList();
     }
 
@@ -304,26 +343,32 @@ public class ApprovalService {
         return toResignationVO(getResignationByCode(resignationCode));
     }
 
-    public List<OrderApprovalVO> listOrderApprovals() {
+    public List<OrderApprovalVO> listOrderApprovals(Integer limit) {
         String tenantCode = TenantPermissionContext.getTenantCode();
+        Long currentUserId = TenantPermissionContext.getUserId();
+        int safeLimit = safeApprovalListLimit(limit);
         List<OrderApprovalVO> salesRows = salesOrderMapper.selectList(new LambdaQueryWrapper<SalesOrder>()
                         .eq(SalesOrder::getTenantCode, tenantCode)
                         .in(SalesOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM, ORDER_STATUS_PENDING_PAY)
-                        .orderByDesc(SalesOrder::getCreateTime))
+                        .orderByDesc(SalesOrder::getCreateTime)
+                        .last("LIMIT " + safeLimit))
                 .stream()
                 .map(this::toSalesOrderApprovalVO)
                 .toList();
         List<OrderApprovalVO> productionRows = productionOrderMapper.selectList(new LambdaQueryWrapper<ProductionOrder>()
                         .eq(ProductionOrder::getTenantCode, tenantCode)
                         .eq(ProductionOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM)
-                        .orderByDesc(ProductionOrder::getCreateTime))
+                        .orderByDesc(ProductionOrder::getCreateTime)
+                        .last("LIMIT " + safeLimit))
                 .stream()
                 .map(this::toProductionOrderApprovalVO)
                 .toList();
 
         return java.util.stream.Stream.concat(salesRows.stream(), productionRows.stream())
+                .filter(row -> canCurrentUserAudit(currentUserId, row.getAuditorId(), null))
                 .sorted(Comparator.comparing(OrderApprovalVO::getCreateTime,
                         Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(safeLimit)
                 .toList();
     }
 
@@ -347,18 +392,23 @@ public class ApprovalService {
 
         if (ORDER_TYPE_SALES.equals(orderType)) {
             SalesOrder salesOrder = findPendingSalesOrder(request.getOrderId());
+            validateCurrentOrderAuditor(orderType, salesOrder.getOrderId(), salesOrder.getTenantCode());
             SalesOrderUpdateRequest updateRequest = new SalesOrderUpdateRequest();
             updateRequest.setStatus(resolveSalesApprovalNextStatus(salesOrder));
             updateRequest.setRemark(remark);
             orderService.approveSalesOrderTransition(request.getOrderId(), updateRequest.getStatus(), updateRequest.getRemark());
+            approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, orderApprovalCode(orderType, salesOrder.getOrderId()));
             return;
         }
         if (ORDER_TYPE_PRODUCTION.equals(orderType)) {
-            findPendingProductionOrder(request.getOrderId());
+            ProductionOrder productionOrder = findPendingProductionOrder(request.getOrderId());
+            validateCurrentOrderAuditor(orderType, productionOrder.getOrderId(), productionOrder.getTenantCode());
             ProductionOrderUpdateRequest updateRequest = new ProductionOrderUpdateRequest();
             updateRequest.setStatus(PRODUCTION_APPROVED_NEXT_STATUS);
             updateRequest.setRemark(remark);
             orderService.updateProductionOrder(request.getOrderId(), updateRequest);
+            orderService.enqueueProductionOrderFlowPrintTaskAfterApproval(request.getOrderId());
+            approvalAuditorCandidateService.closeActiveCandidates(productionOrder.getTenantCode(), APPROVAL_TYPE_ORDER, orderApprovalCode(orderType, productionOrder.getOrderId()));
             return;
         }
         throw new BusinessException("订单审批类型不合法");
@@ -368,7 +418,6 @@ public class ApprovalService {
     public String submitResignation(ResignationSubmitRequest request) {
         Long userId = TenantPermissionContext.getUserId();
         String tenantCode = TenantPermissionContext.getTenantCode();
-        Long managerId = getManagerId(userId);
 
         Long pendingCount = resignationApprovalMapper.selectCount(new LambdaQueryWrapper<ResignationApproval>()
                 .eq(ResignationApproval::getTenantCode, tenantCode)
@@ -386,7 +435,7 @@ public class ApprovalService {
         approval.setReason(request.getReason().trim());
         approval.setHandoverNote(trimToNull(request.getHandoverNote()));
         approval.setStatus(ApprovalStatusEnum.PENDING.getCode());
-        assignResignationAuditors(approval, managerId);
+        assignResignationAuditors(approval, request.getAuditorId(), true);
         resignationApprovalMapper.insert(approval);
         return approval.getResignationCode();
     }
@@ -425,7 +474,6 @@ public class ApprovalService {
     @Transactional(rollbackFor = Exception.class)
     public String submitFinance(FinanceSubmitRequest request) {
         Long userId = TenantPermissionContext.getUserId();
-        Long managerId = getManagerId(userId);
 
         FinanceApproval approval = new FinanceApproval();
         approval.setApprovalCode(codeGeneratorUtil.generateCode("FIN", 4));
@@ -444,7 +492,7 @@ public class ApprovalService {
         approval.setAttachmentUrl(normalizedAttachmentUrl);
         approval.setAttachmentSize(normalizeAttachmentSize(request.getAttachmentSize(), normalizedAttachmentUrl));
         approval.setStatus(ApprovalStatusEnum.PENDING.getCode());
-        assignFinanceAuditors(approval, managerId);
+        assignFinanceAuditors(approval, request.getAuditorId(), true);
         financeApprovalMapper.insert(approval);
         return approval.getApprovalCode();
     }
@@ -561,7 +609,7 @@ public class ApprovalService {
         vo.setStatus(order.getStatus());
         vo.setStatusText(payToProductionApproval ? "待审批转生产中" : "待确认");
         vo.setCreateTime(order.getCreateTime());
-        vo.setCanAudit(Boolean.TRUE);
+        applyOrderAuditor(vo, order.getTenantCode(), ORDER_TYPE_SALES, order.getOrderId());
         return vo;
     }
 
@@ -577,7 +625,7 @@ public class ApprovalService {
         vo.setStatus(order.getStatus());
         vo.setStatusText("待确认");
         vo.setCreateTime(order.getCreateTime());
-        vo.setCanAudit(Boolean.TRUE);
+        applyOrderAuditor(vo, order.getTenantCode(), ORDER_TYPE_PRODUCTION, order.getOrderId());
         return vo;
     }
 
@@ -603,14 +651,91 @@ public class ApprovalService {
         return order;
     }
 
-    private long countPendingOrderApprovals(String tenantCode) {
-        long salesCount = safeCount(salesOrderMapper.selectCount(new LambdaQueryWrapper<SalesOrder>()
+    private long countPendingOrderApprovals(String tenantCode, Long currentUserId) {
+        if (currentUserId == null) {
+            return 0L;
+        }
+        long count = 0L;
+        List<SalesOrder> salesOrders = salesOrderMapper.selectList(new LambdaQueryWrapper<SalesOrder>()
                 .eq(SalesOrder::getTenantCode, tenantCode)
-                .in(SalesOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM, ORDER_STATUS_PENDING_PAY)));
-        long productionCount = safeCount(productionOrderMapper.selectCount(new LambdaQueryWrapper<ProductionOrder>()
+                .in(SalesOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM, ORDER_STATUS_PENDING_PAY));
+        for (SalesOrder order : salesOrders) {
+            Long auditorId = ensureOrderAuditorId(order.getTenantCode(), ORDER_TYPE_SALES, order.getOrderId());
+            if (currentUserId.equals(auditorId)) {
+                count++;
+            }
+        }
+        List<ProductionOrder> productionOrders = productionOrderMapper.selectList(new LambdaQueryWrapper<ProductionOrder>()
                 .eq(ProductionOrder::getTenantCode, tenantCode)
-                .eq(ProductionOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM)));
-        return salesCount + productionCount;
+                .eq(ProductionOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM));
+        for (ProductionOrder order : productionOrders) {
+            Long auditorId = ensureOrderAuditorId(order.getTenantCode(), ORDER_TYPE_PRODUCTION, order.getOrderId());
+            if (currentUserId.equals(auditorId)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private void applyOrderAuditor(OrderApprovalVO vo, String tenantCode, String orderType, String orderId) {
+        Long auditorId = ensureOrderAuditorId(tenantCode, orderType, orderId);
+        vo.setAuditorId(auditorId);
+        vo.setAuditorName(resolveOrderAuditorName(auditorId));
+        vo.setCanAudit(canCurrentUserAudit(TenantPermissionContext.getUserId(), auditorId, null));
+    }
+
+    private Long ensureOrderAuditorId(String tenantCode, String orderType, String orderId) {
+        String approvalCode = orderApprovalCode(orderType, orderId);
+        List<Long> activeAuditors = approvalAuditorCandidateService.findActiveAuditorIds(
+                tenantCode, APPROVAL_TYPE_ORDER, approvalCode);
+        if (activeAuditors != null && !activeAuditors.isEmpty()) {
+            Long existingAuditorId = activeAuditors.get(0);
+            if (existingAuditorId != null && existingAuditorId > 0) {
+                return existingAuditorId;
+            }
+        }
+        Long auditorId = approvalDefaultAuditorService.resolveAuditorId(
+                tenantCode,
+                APPROVAL_TYPE_ORDER,
+                null,
+                null,
+                resolveOrderAuditPermissionCode(orderType),
+                false
+        );
+        approvalAuditorCandidateService.replaceActiveCandidates(
+                tenantCode, APPROVAL_TYPE_ORDER, approvalCode, List.of(auditorId));
+        return auditorId;
+    }
+
+    private void validateCurrentOrderAuditor(String orderType, String orderId, String tenantCode) {
+        Long currentUserId = TenantPermissionContext.getUserId();
+        Long auditorId = ensureOrderAuditorId(tenantCode, orderType, orderId);
+        if (!canCurrentUserAudit(currentUserId, auditorId, null)) {
+            throw new BusinessException("您不是该订单的当前审批人");
+        }
+    }
+
+    private String orderApprovalCode(String orderType, String orderId) {
+        if (!StringUtils.hasText(orderId)) {
+            throw new BusinessException("订单编号不能为空");
+        }
+        String type = ORDER_TYPE_PRODUCTION.equalsIgnoreCase(orderType) ? ORDER_TYPE_PRODUCTION : ORDER_TYPE_SALES;
+        return type + ":" + orderId.trim();
+    }
+
+    private String resolveOrderAuditPermissionCode(String orderType) {
+        if (ORDER_TYPE_PRODUCTION.equalsIgnoreCase(orderType)) {
+            return PermissionCodeEnum.CODE_PRODUCTION_ORDER_STATUS;
+        }
+        return PermissionCodeEnum.CODE_SALES_ORDER_STATUS;
+    }
+
+    private String resolveOrderAuditorName(Long auditorId) {
+        if (auditorId == null || auditorId <= 0) {
+            return "待分配";
+        }
+        Employee auditor = employeeMapper.selectById(auditorId);
+        return auditor == null || !StringUtils.hasText(auditor.getName()) ? "待分配" : auditor.getName();
     }
 
     private void appendLeaveAuditorFilter(LambdaQueryWrapper<UserLeave> wrapper, Long userId) {
@@ -644,51 +769,63 @@ public class ApprovalService {
     }
 
     private void assignLeaveAuditors(UserLeave approval, Long primaryAuditorId) {
-        List<Long> auditorIds = resolveParallelAuditorIds(
+        Long auditorId = resolveSingleAuditorId(
                 approval.getTenantCode(),
                 approval.getApplyUserId(),
                 primaryAuditorId,
-                PermissionCodeEnum.CODE_APPROVAL_LEAVE_AUDIT
+                APPROVAL_TYPE_LEAVE,
+                PermissionCodeEnum.CODE_APPROVAL_LEAVE_AUDIT,
+                false
         );
-        applyAuditorIds(approval::setAuditorId, approval::setAuditorIds, auditorIds);
+        applySingleAuditor(approval::setAuditorId, approval::setAuditorIds, auditorId);
+        approvalAuditorCandidateService.replaceActiveCandidates(
+                approval.getTenantCode(), APPROVAL_TYPE_LEAVE, approval.getLeaveCode(), List.of(auditorId));
     }
 
     private void assignFinanceAuditors(FinanceApproval approval, Long primaryAuditorId) {
-        List<Long> auditorIds = resolveParallelAuditorIds(
+        assignFinanceAuditors(approval, primaryAuditorId, false);
+    }
+
+    private void assignFinanceAuditors(FinanceApproval approval, Long primaryAuditorId, boolean strictPrimary) {
+        Long auditorId = resolveSingleAuditorId(
                 approval.getTenantCode(),
                 approval.getApplyUserId(),
                 primaryAuditorId,
-                PermissionCodeEnum.CODE_APPROVAL_FINANCE_AUDIT
+                APPROVAL_TYPE_FINANCE,
+                PermissionCodeEnum.CODE_APPROVAL_FINANCE_AUDIT,
+                strictPrimary
         );
-        applyAuditorIds(approval::setAuditorId, approval::setAuditorIds, auditorIds);
+        applySingleAuditor(approval::setAuditorId, approval::setAuditorIds, auditorId);
+        approvalAuditorCandidateService.replaceActiveCandidates(
+                approval.getTenantCode(), APPROVAL_TYPE_FINANCE, approval.getApprovalCode(), List.of(auditorId));
     }
 
     private void assignResignationAuditors(ResignationApproval approval, Long primaryAuditorId) {
-        List<Long> auditorIds = resolveParallelAuditorIds(
+        assignResignationAuditors(approval, primaryAuditorId, false);
+    }
+
+    private void assignResignationAuditors(ResignationApproval approval, Long primaryAuditorId, boolean strictPrimary) {
+        Long auditorId = resolveSingleAuditorId(
                 approval.getTenantCode(),
                 approval.getApplyUserId(),
                 primaryAuditorId,
-                PermissionCodeEnum.CODE_APPROVAL_RESIGNATION_AUDIT
+                APPROVAL_TYPE_RESIGNATION,
+                PermissionCodeEnum.CODE_APPROVAL_RESIGNATION_AUDIT,
+                strictPrimary
         );
-        applyAuditorIds(approval::setAuditorId, approval::setAuditorIds, auditorIds);
+        applySingleAuditor(approval::setAuditorId, approval::setAuditorIds, auditorId);
+        approvalAuditorCandidateService.replaceActiveCandidates(
+                approval.getTenantCode(), APPROVAL_TYPE_RESIGNATION, approval.getResignationCode(), List.of(auditorId));
     }
 
-    private List<Long> resolveParallelAuditorIds(String tenantCode,
-                                                 Long applyUserId,
-                                                 Long primaryAuditorId,
-                                                 String permissionCode) {
-        LinkedHashSet<Long> ids = new LinkedHashSet<>();
-        addCandidateAuditor(ids, primaryAuditorId, applyUserId);
-        if (StringUtils.hasText(tenantCode) && StringUtils.hasText(permissionCode)) {
-            List<Long> permissionAuditorIds = employeeMapper.selectActiveApproverIdsByPermission(tenantCode, permissionCode);
-            if (permissionAuditorIds != null) {
-                permissionAuditorIds.forEach(id -> addCandidateAuditor(ids, id, applyUserId));
-            }
-        }
-        if (ids.isEmpty()) {
-            throw new BusinessException("未找到可用审批人，请先配置直属负责人或审批角色权限");
-        }
-        return ids.stream().limit(MAX_PARALLEL_APPROVERS).toList();
+    private Long resolveSingleAuditorId(String tenantCode,
+                                        Long applyUserId,
+                                        Long primaryAuditorId,
+                                        String approvalType,
+                                        String permissionCode,
+                                        boolean strictPrimary) {
+        return approvalDefaultAuditorService.resolveAuditorId(
+                tenantCode, approvalType, applyUserId, primaryAuditorId, permissionCode, strictPrimary);
     }
 
     private void addCandidateAuditor(LinkedHashSet<Long> ids, Long auditorId, Long applyUserId) {
@@ -701,14 +838,14 @@ public class ApprovalService {
         ids.add(auditorId);
     }
 
-    private void applyAuditorIds(java.util.function.Consumer<Long> primarySetter,
-                                 java.util.function.Consumer<String> idsSetter,
-                                 List<Long> auditorIds) {
-        if (auditorIds == null || auditorIds.isEmpty()) {
-            throw new BusinessException("未找到可用审批人，请先配置直属负责人或审批角色权限");
+    private void applySingleAuditor(java.util.function.Consumer<Long> primarySetter,
+                                    java.util.function.Consumer<String> idsSetter,
+                                    Long auditorId) {
+        if (auditorId == null || auditorId <= 0) {
+            throw new BusinessException("未找到可用审批人，请先配置审批角色权限");
         }
-        primarySetter.accept(auditorIds.get(0));
-        idsSetter.accept(joinAuditorIds(auditorIds));
+        primarySetter.accept(auditorId);
+        idsSetter.accept(null);
     }
 
     private boolean canCurrentUserAudit(Long currentUserId, Long auditorId, String auditorIds) {
@@ -779,6 +916,31 @@ public class ApprovalService {
 
     private long safeCount(Long count) {
         return count == null ? 0L : count;
+    }
+
+    private int safeApprovalListLimit(Integer limit) {
+        if (limit == null || limit <= 0) {
+            return DEFAULT_APPROVAL_LIST_LIMIT;
+        }
+        return Math.min(limit, MAX_APPROVAL_LIST_LIMIT);
+    }
+
+    private int safeAuditorOptionLimit(Integer limit) {
+        if (limit == null || limit <= 0) {
+            return DEFAULT_AUDITOR_OPTION_LIMIT;
+        }
+        return Math.min(limit, MAX_AUDITOR_OPTION_LIMIT);
+    }
+
+    private String resolveAuditorPermissionCode(String type) {
+        String normalized = type == null ? "" : type.trim().toLowerCase();
+        return switch (normalized) {
+            case "leave" -> PermissionCodeEnum.CODE_APPROVAL_LEAVE_AUDIT;
+            case "finance" -> PermissionCodeEnum.CODE_APPROVAL_FINANCE_AUDIT;
+            case "resignation" -> PermissionCodeEnum.CODE_APPROVAL_RESIGNATION_AUDIT;
+            case "order" -> PermissionCodeEnum.CODE_SALES_ORDER_STATUS;
+            default -> throw new BusinessException("审批类型不合法");
+        };
     }
 
     private Long getManagerId(Long userId) {

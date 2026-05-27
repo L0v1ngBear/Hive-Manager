@@ -16,7 +16,10 @@ import my.management.common.utils.CodeGeneratorUtil;
 import my.management.common.utils.ExcelUtil;
 import my.hive.common.utils.EncryptUtil;
 import my.management.common.vo.ImportResultVO;
+import my.management.module.attendance.mapper.TenantAttendanceLocationManageMapper;
+import my.management.module.attendance.model.entity.TenantAttendanceLocation;
 import my.management.module.employee.mapper.DepartmentMapper;
+import my.management.module.employee.mapper.EmployeeAttendanceLocationMapper;
 import my.management.module.employee.mapper.EmployeeChangeLogMapper;
 import my.management.module.employee.mapper.EmployeeExtMapper;
 import my.management.module.employee.mapper.EmployeeMapper;
@@ -28,6 +31,7 @@ import my.management.module.employee.model.dto.EmployeeStatusChangeRequest;
 import my.management.module.employee.model.dto.EmployeeUpdateRequest;
 import my.management.module.employee.model.entity.Department;
 import my.management.module.employee.model.entity.Employee;
+import my.management.module.employee.model.entity.EmployeeAttendanceLocation;
 import my.management.module.employee.model.entity.EmployeeChangeLog;
 import my.management.module.employee.model.entity.EmployeeExt;
 import my.management.module.employee.model.entity.Position;
@@ -81,6 +85,7 @@ public class EmployeeService {
     private static final int MAX_PAGE_SIZE = 200;
     private static final int EMPLOYEE_IMPORT_COLUMN_COUNT = 11;
     private static final int MAX_EMPLOYEE_IMPORT_ROWS = 5000;
+    private static final int MAX_EMPLOYEE_EXPORT_ROWS = 10000;
     private static final long MAX_IMPORT_FILE_SIZE_BYTES = 20L * 1024L * 1024L;
     private static final int MAX_NAME_LENGTH = 50;
     private static final int MAX_PHONE_LENGTH = 20;
@@ -136,6 +141,12 @@ public class EmployeeService {
     @Resource
     private TenantFieldConfigService tenantFieldConfigService;
 
+    @Resource
+    private TenantAttendanceLocationManageMapper tenantAttendanceLocationManageMapper;
+
+    @Resource
+    private EmployeeAttendanceLocationMapper employeeAttendanceLocationMapper;
+
     /**
      * 新员工初始密码从配置读取，避免敏感默认值固定写死在代码中。
      */
@@ -143,6 +154,9 @@ public class EmployeeService {
     private String defaultPassword;
 
     public Page<EmployeePageVO> page(EmployeePageQuery query) {
+        if (query == null) {
+            query = new EmployeePageQuery();
+        }
         String tenantCode = TenantPermissionContext.getTenantCode();
         Page<EmployeePageVO> page = new Page<>(safePageNum(query.getPage()), safePageSize(query.getSize()));
         Page<EmployeePageVO> result = employeeMapper.selectEmployeePage(
@@ -223,6 +237,7 @@ public class EmployeeService {
         employee.setManagerId(null);
         employee.setManagerName(leaderName);
         employee.setStatus(request.getStatus());
+        employee.setAttendanceRequired(normalizeAttendanceRequired(request.getAttendanceRequired()));
         if (reuseJoinedUser) {
             employeeMapper.updateById(employee);
         } else {
@@ -240,6 +255,7 @@ public class EmployeeService {
         ext.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         employeeExtMapper.insert(ext);
         syncUserRolesByStatus(employee.getId(), request.getRoleIds(), employee.getStatus());
+        syncAttendanceLocations(employee.getId(), isResigned(employee.getStatus()) ? Collections.emptyList() : request.getAttendanceLocationIds());
 
         insertChangeLog(employee.getId(), reuseJoinedUser ? "COMPLETE_JOINED_USER_PROFILE" : "CREATE", null, Map.of(
                 "name", employee.getName(),
@@ -249,6 +265,7 @@ public class EmployeeService {
                 "position", employee.getPosition(),
                 "managerName", employee.getManagerName(),
                 "status", employee.getStatus(),
+                "attendanceRequired", employee.getAttendanceRequired(),
                 "empNo", ext.getEmpNo()
         ));
         return employee.getId();
@@ -287,6 +304,7 @@ public class EmployeeService {
         employee.setManagerId(null);
         employee.setManagerName(leaderName);
         employee.setStatus(request.getStatus());
+        employee.setAttendanceRequired(normalizeAttendanceRequired(request.getAttendanceRequired()));
         employeeMapper.updateById(employee);
 
         ext.setEmail(request.getEmail());
@@ -296,6 +314,7 @@ public class EmployeeService {
         ext.setRemark(request.getRemark());
         saveOrUpdateExt(ext);
         syncUserRolesByStatus(employee.getId(), request.getRoleIds(), employee.getStatus());
+        syncAttendanceLocations(employee.getId(), isResigned(employee.getStatus()) ? Collections.emptyList() : request.getAttendanceLocationIds());
 
         insertChangeLog(employee.getId(), "UPDATE", before, detail(employee.getId()));
     }
@@ -419,6 +438,10 @@ public class EmployeeService {
                 .stream()
                 .map(this::toRoleOption)
                 .toList());
+        vo.setAttendanceLocations(tenantAttendanceLocationManageMapper.selectActiveByTenantCode(TenantPermissionContext.getTenantCode())
+                .stream()
+                .map(location -> new OptionVO(location.getLocationName(), String.valueOf(location.getId())))
+                .toList());
         vo.setEmployeeTypes(List.of(
                 new OptionVO("Full Time", EmployeeTypeEnum.FULL_TIME.getCode()),
                 new OptionVO("Contract", EmployeeTypeEnum.CONTRACT.getCode()),
@@ -433,6 +456,9 @@ public class EmployeeService {
     }
 
     public List<EmployeePageVO> export(EmployeePageQuery query) {
+        if (query == null) {
+            query = new EmployeePageQuery();
+        }
         List<EmployeePageVO> list = employeeMapper.selectEmployeeExport(
                 TenantPermissionContext.getTenantCode(),
                 query.getKeyword(),
@@ -441,7 +467,11 @@ public class EmployeeService {
                 query.getStatus(),
                 query.getEmployeeType(),
                 query.getEntryDateStart(),
-                query.getEntryDateEnd());
+                query.getEntryDateEnd(),
+                MAX_EMPLOYEE_EXPORT_ROWS + 1);
+        if (list.size() > MAX_EMPLOYEE_EXPORT_ROWS) {
+            throw new BusinessException("导出数据超过 " + MAX_EMPLOYEE_EXPORT_ROWS + " 行，请缩小筛选范围后重试");
+        }
         fillViewFields(list);
         return list;
     }
@@ -624,6 +654,8 @@ public class EmployeeService {
 
         Map<Long, List<Long>> roleIdMap = new HashMap<>();
         Map<Long, List<String>> roleNameMap = new HashMap<>();
+        Map<Long, List<Long>> attendanceLocationIdMap = new HashMap<>();
+        Map<Long, List<String>> attendanceLocationNameMap = new HashMap<>();
         if (!userIds.isEmpty()) {
             sysUserRoleMapper.selectRoleIdsByUserIds(tenantCode, userIds).forEach(row -> {
                 Long userId = toLong(row.get("userId"));
@@ -639,13 +671,44 @@ public class EmployeeService {
                     roleNameMap.computeIfAbsent(userId, key -> new ArrayList<>()).add(roleName);
                 }
             });
+            List<EmployeeAttendanceLocation> relations = employeeAttendanceLocationMapper.selectList(new LambdaQueryWrapper<EmployeeAttendanceLocation>()
+                    .eq(EmployeeAttendanceLocation::getTenantCode, tenantCode)
+                    .in(EmployeeAttendanceLocation::getUserId, userIds));
+            Map<Long, String> locationNameById = new HashMap<>();
+            List<Long> locationIds = (relations == null ? List.<EmployeeAttendanceLocation>of() : relations).stream()
+                    .map(EmployeeAttendanceLocation::getAttendanceLocationId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            if (!locationIds.isEmpty()) {
+                tenantAttendanceLocationManageMapper.selectList(new LambdaQueryWrapper<TenantAttendanceLocation>()
+                        .eq(TenantAttendanceLocation::getTenantCode, tenantCode)
+                        .eq(TenantAttendanceLocation::getStatus, CommonStatusEnum.ENABLED.getCode())
+                        .in(TenantAttendanceLocation::getId, locationIds)
+                        .orderByAsc(TenantAttendanceLocation::getSortOrder)
+                        .orderByAsc(TenantAttendanceLocation::getId))
+                        .forEach(location -> locationNameById.put(location.getId(), location.getLocationName()));
+            }
+            for (EmployeeAttendanceLocation relation : (relations == null ? List.<EmployeeAttendanceLocation>of() : relations)) {
+                if (relation.getUserId() == null || relation.getAttendanceLocationId() == null) {
+                    continue;
+                }
+                attendanceLocationIdMap.computeIfAbsent(relation.getUserId(), key -> new ArrayList<>()).add(relation.getAttendanceLocationId());
+                String locationName = locationNameById.get(relation.getAttendanceLocationId());
+                if (StringUtils.hasText(locationName)) {
+                    attendanceLocationNameMap.computeIfAbsent(relation.getUserId(), key -> new ArrayList<>()).add(locationName);
+                }
+            }
         }
 
         list.forEach(vo -> {
             vo.setStatusLabel(statusLabel(vo.getStatus()));
             vo.setPhone(privacyProtectionUtil.maskPhone(vo.getPhone()));
+            vo.setAttendanceRequired(normalizeAttendanceRequired(vo.getAttendanceRequired()));
             vo.setRoleIds(roleIdMap.getOrDefault(vo.getId(), Collections.emptyList()));
             vo.setRoleNames(roleNameMap.getOrDefault(vo.getId(), Collections.emptyList()));
+            vo.setAttendanceLocationIds(attendanceLocationIdMap.getOrDefault(vo.getId(), Collections.emptyList()));
+            vo.setAttendanceLocationNames(attendanceLocationNameMap.getOrDefault(vo.getId(), Collections.emptyList()));
         });
     }
 
@@ -665,6 +728,10 @@ public class EmployeeService {
 
     private String statusLabel(Integer status) {
         return EmployeeStatusEnum.of(status).getLabel();
+    }
+
+    private Integer normalizeAttendanceRequired(Integer value) {
+        return value != null && value == 0 ? 0 : 1;
     }
 
     private void insertChangeLog(Long employeeId, String changeType, Object before, Object after) {
@@ -748,9 +815,25 @@ public class EmployeeService {
     private void syncUserRolesByStatus(Long userId, List<Long> roleIds, Integer status) {
         if (isResigned(status)) {
             revokeUserRoles(userId);
+            syncAttendanceLocations(userId, Collections.emptyList());
             return;
         }
         syncUserRoles(userId, roleIds);
+    }
+
+    private void syncAttendanceLocations(Long userId, List<Long> locationIds) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        List<Long> normalizedLocationIds = normalizeAttendanceLocationIds(tenantCode, locationIds);
+        employeeAttendanceLocationMapper.delete(new LambdaQueryWrapper<EmployeeAttendanceLocation>()
+                .eq(EmployeeAttendanceLocation::getTenantCode, tenantCode)
+                .eq(EmployeeAttendanceLocation::getUserId, userId));
+        for (Long locationId : normalizedLocationIds) {
+            EmployeeAttendanceLocation relation = new EmployeeAttendanceLocation();
+            relation.setTenantCode(tenantCode);
+            relation.setUserId(userId);
+            relation.setAttendanceLocationId(locationId);
+            employeeAttendanceLocationMapper.insert(relation);
+        }
     }
 
     private void revokeUserRoles(Long userId) {
@@ -783,6 +866,29 @@ public class EmployeeService {
                 .filter(roleId -> roleId > 0)
                 .distinct()
                 .toList();
+    }
+
+    private List<Long> normalizeAttendanceLocationIds(String tenantCode, List<Long> locationIds) {
+        if (locationIds == null || locationIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> normalized = locationIds.stream()
+                .filter(Objects::nonNull)
+                .filter(locationId -> locationId > 0)
+                .distinct()
+                .toList();
+        if (normalized.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<TenantAttendanceLocation> locations = tenantAttendanceLocationManageMapper.selectList(new LambdaQueryWrapper<TenantAttendanceLocation>()
+                .eq(TenantAttendanceLocation::getTenantCode, tenantCode)
+                .eq(TenantAttendanceLocation::getStatus, CommonStatusEnum.ENABLED.getCode())
+                .in(TenantAttendanceLocation::getId, normalized));
+        Set<Long> validLocationIds = new HashSet<>(locations.stream().map(TenantAttendanceLocation::getId).toList());
+        if (validLocationIds.size() != normalized.size()) {
+            throw new BusinessException("存在无效打卡地点，无法分配");
+        }
+        return normalized;
     }
 
     /**

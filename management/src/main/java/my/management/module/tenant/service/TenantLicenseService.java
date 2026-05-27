@@ -310,11 +310,11 @@ public class TenantLicenseService {
         try {
             JsonNode root = OBJECT_MAPPER.readTree(trimmed);
             if (!root.isObject()) {
-                throw new BusinessException("功能开关必须是 JSON 对象");
+                throw new BusinessException("功能开关配置格式不正确");
             }
             buildFeatureKeys(defaultText(planCode, TenantPlanEnum.TRIAL.getCode()), trimmed, true, null);
         } catch (JsonProcessingException ex) {
-            throw new BusinessException("功能开关必须是合法 JSON");
+            throw new BusinessException("功能开关配置格式不正确");
         }
         return trimmed;
     }
@@ -336,6 +336,7 @@ public class TenantLicenseService {
                 + "\"role\":true,"
                 + "\"label\":true,"
                 + "\"document\":true,"
+                + "\"equipment\":true,"
                 + "\"manual\":true"
                 + "},"
                 + "\"aiAdvice\":true,"
@@ -365,7 +366,7 @@ public class TenantLicenseService {
             JsonNode root = OBJECT_MAPPER.readTree(flags);
             if (!root.isObject()) {
                 if (strict) {
-                    throw new BusinessException("功能开关必须是 JSON 对象");
+                    throw new BusinessException("功能开关配置格式不正确");
                 }
                 return Collections.unmodifiableSet(enabled);
             }

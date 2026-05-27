@@ -5,6 +5,7 @@ import jakarta.annotation.Resource;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
 import my.hive.common.privacy.PrivacyProtectionUtil;
+import my.hive.common.redis.HiveRedisKeyBuilder;
 import my.management.common.enums.CommonStatusEnum;
 import my.management.common.enums.DeleteFlagEnum;
 import my.management.common.utils.CodeGeneratorUtil;
@@ -15,8 +16,10 @@ import my.management.module.organization.mapper.OrganizationMapper;
 import my.management.module.organization.model.dto.OrganizationDepartmentSaveRequest;
 import my.management.module.organization.model.vo.OrganizationDepartmentVO;
 import my.management.module.organization.model.vo.OrganizationEmployeeVO;
+import my.management.module.organization.model.vo.OrganizationJoinCodeVO;
 import my.management.module.organization.model.vo.OrganizationOverviewVO;
 import my.management.module.organization.model.vo.OrganizationStatsVO;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,12 +31,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.security.SecureRandom;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 组织架构服务，围绕部门层级维护和部门员工查看进行业务编排。
  */
 @Service
 public class OrganizationService {
+
+    private static final long JOIN_CODE_EXPIRE_SECONDS = 15L * 60L;
+    private static final String JOIN_CODE_KEY_PART = "organization-join-code";
+    private static final char[] JOIN_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @Resource
     private DepartmentMapper departmentMapper;
@@ -49,6 +59,12 @@ public class OrganizationService {
 
     @Resource
     private PrivacyProtectionUtil privacyProtectionUtil;
+
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Resource
+    private HiveRedisKeyBuilder redisKeyBuilder;
 
     public OrganizationOverviewVO overview() {
         List<Department> departments = listTenantDepartments();
@@ -70,6 +86,23 @@ public class OrganizationService {
         List<OrganizationEmployeeVO> employees = organizationMapper.selectEmployeesByDepartment(TenantPermissionContext.getTenantCode(), department.getDeptName());
         employees.forEach(item -> item.setPhone(privacyProtectionUtil.maskPhone(item.getPhone())));
         return employees;
+    }
+
+    public OrganizationJoinCodeVO createJoinCode() {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        if (!StringUtils.hasText(tenantCode)) {
+            throw new BusinessException(401, "当前登录组织异常，请重新登录");
+        }
+
+        String code = generateJoinCode();
+        String key = redisKeyBuilder.cache("auth", JOIN_CODE_KEY_PART, code);
+        stringRedisTemplate.opsForValue().set(key, tenantCode, JOIN_CODE_EXPIRE_SECONDS, TimeUnit.SECONDS);
+
+        OrganizationJoinCodeVO vo = new OrganizationJoinCodeVO();
+        vo.setOrganizationCode(code);
+        vo.setExpiresInSeconds(JOIN_CODE_EXPIRE_SECONDS);
+        vo.setExpireAt(System.currentTimeMillis() / 1000 + JOIN_CODE_EXPIRE_SECONDS);
+        return vo;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -267,5 +300,20 @@ public class OrganizationService {
         } catch (NumberFormatException ignored) {
             return null;
         }
+    }
+
+    private String generateJoinCode() {
+        for (int attempt = 0; attempt < 8; attempt++) {
+            StringBuilder builder = new StringBuilder(8);
+            for (int i = 0; i < 8; i++) {
+                builder.append(JOIN_CODE_CHARS[SECURE_RANDOM.nextInt(JOIN_CODE_CHARS.length)]);
+            }
+            String code = builder.toString();
+            String key = redisKeyBuilder.cache("auth", JOIN_CODE_KEY_PART, code);
+            if (Boolean.FALSE.equals(stringRedisTemplate.hasKey(key))) {
+                return code;
+            }
+        }
+        throw new BusinessException(500, "组织码生成失败，请稍后重试");
     }
 }

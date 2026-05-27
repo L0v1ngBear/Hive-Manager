@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full min-h-0 max-w-7xl mx-auto space-y-6">
+  <div class="min-h-fit max-w-7xl mx-auto space-y-6">
     <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="text-sm font-bold tracking-[0.2em] text-primary/70 uppercase">经营总览</p>
@@ -95,7 +95,11 @@
           </div>
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary">{{ announcements.length }} 条</span>
-            <button @click="openAnnouncementCenter" class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90">
+            <button
+                v-permission="'notification:announcement:publish'"
+                @click="openAnnouncementCenter"
+                class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90"
+            >
               发布通知
             </button>
           </div>
@@ -334,7 +338,7 @@ const attendanceSummary = ref({
 const quickActions = ref([])
 const announcements = ref([])
 
-const userName = computed(() => userStore.userInfo?.userName || '管理员')
+const userName = computed(() => userStore.userInfo?.userName || '当前用户')
 
 const greetingText = computed(() => {
   const hour = new Date().getHours()

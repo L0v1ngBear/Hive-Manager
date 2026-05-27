@@ -119,7 +119,7 @@ public class DashboardService {
         long startNanos = System.nanoTime();
         aiAdvicePermissionService.requireAnyView();
         String tenantCode = TenantPermissionContext.getTenantCode();
-        tenantLicenseService.requireFeatureEnabled(tenantCode, TenantFeatureEnum.CODE_AI_ADVICE, "当前套餐暂未开放 AI 建议，请联系平台管理员开通");
+        tenantLicenseService.requireFeatureEnabled(tenantCode, TenantFeatureEnum.CODE_AI_ADVICE, "当前套餐暂未开放经营建议，请联系管理员开通");
         Long userId = TenantPermissionContext.getUserId();
         String cacheKey = buildScopedCacheKey("ai-advice", tenantCode, userId);
 
@@ -149,7 +149,7 @@ public class DashboardService {
 
     public AiBusinessSnapshotVO aiSnapshot() {
         String tenantCode = TenantPermissionContext.getTenantCode();
-        tenantLicenseService.requireFeatureEnabled(tenantCode, TenantFeatureEnum.CODE_AI_ADVICE, "当前套餐暂未开放 AI 经营快照，请联系平台管理员开通");
+        tenantLicenseService.requireFeatureEnabled(tenantCode, TenantFeatureEnum.CODE_AI_ADVICE, "当前套餐暂未开放经营快照，请联系管理员开通");
         return aiAnalysisService.buildBusinessSnapshot(tenantCode);
     }
 

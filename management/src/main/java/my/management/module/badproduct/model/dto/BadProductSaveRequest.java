@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 /**
  * 质量记录新增或编辑请求。
@@ -50,4 +51,6 @@ public class BadProductSaveRequest {
     private String attachmentUrl;
 
     private Long attachmentSize;
+
+    private LocalDateTime createTime;
 }

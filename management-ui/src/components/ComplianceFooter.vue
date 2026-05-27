@@ -8,7 +8,7 @@
       <router-link to="/manual">使用手册</router-link>
       <router-link to="/privacy">隐私政策</router-link>
       <router-link to="/terms">服务条款</router-link>
-      <a :href="`mailto:${siteConfig.supportEmail}`">联系技术支持</a>
+      <a :href="`mailto:${siteConfig.supportEmail}`">联系我们</a>
     </nav>
   </footer>
 </template>
@@ -27,12 +27,12 @@ defineOptions({ name: 'ComplianceFooter' })
   justify-content: space-between;
   gap: 0.75rem 1.5rem;
   padding: 0.875rem 2rem;
-  color: rgba(95, 90, 78, 0.82);
+  color: rgba(71, 85, 105, 0.82);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  background: rgba(255, 253, 248, 0.9);
-  border-top: 1px solid rgba(233, 197, 109, 0.42);
+  background: rgba(251, 252, 254, 0.9);
+  border-top: 1px solid rgba(200, 211, 223, 0.58);
   backdrop-filter: blur(16px);
 }
 
@@ -51,7 +51,7 @@ defineOptions({ name: 'ComplianceFooter' })
 }
 
 .compliance-footer a:hover {
-  color: #f5a400;
+  color: #1f3f5f;
 }
 
 @media (max-width: 768px) {

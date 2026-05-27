@@ -30,6 +30,9 @@ public class ProductionOrder {
 
     private String status;
 
+    @TableField("order_category")
+    private String orderCategory;
+
     @TableField("model")
     private String modelCode;
 
@@ -59,6 +62,9 @@ public class ProductionOrder {
 
     @TableField("project_name")
     private String projectName;
+
+    @TableField("brand_name")
+    private String brandName;
 
     @TableField("contact_phone")
     private String contactPhone;

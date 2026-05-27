@@ -3,6 +3,7 @@ package my.management.module.notification.model.vo;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 前端通知展示对象。
@@ -33,6 +34,14 @@ public class NotificationVO {
     private String closeNote;
 
     private String sourceType;
+
+    private Long readCount;
+
+    private Long unreadCount;
+
+    private Long totalReceiverCount;
+
+    private List<NotificationReceiverVO> receivers;
 
     private LocalDateTime updateTime;
 }

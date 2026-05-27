@@ -32,7 +32,7 @@ export async function decryptPayload(responseKey, payload) {
     return payload
   }
   if (!responseKey) {
-    throw new Error('缺少响应解密密钥，请重新登录')
+    throw new Error('登录状态异常，请重新登录')
   }
   if (!window.crypto?.subtle) {
     throw new Error('当前浏览器不支持响应解密')
@@ -40,7 +40,7 @@ export async function decryptPayload(responseKey, payload) {
 
   const keyMaterial = base64ToUint8Array(responseKey)
   if (keyMaterial.length < 64) {
-    throw new Error('响应解密密钥格式错误')
+    throw new Error('登录信息异常，请重新登录')
   }
 
   const cipherKey = keyMaterial.slice(0, 32)

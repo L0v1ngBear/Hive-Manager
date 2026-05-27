@@ -42,4 +42,20 @@ public interface InventoryRecordMapper extends BaseMapper<InventoryRecord> {
             "LIMIT #{limit}"
     })
     List<InventoryRecordVO> selectRecent(@Param("tenantCode") String tenantCode, @Param("limit") Integer limit);
+
+    @InterceptorIgnore(tenantLine = "true")
+    @Select({
+            "SELECT r.id, c.barcode, COALESCE(r.model_code, c.model_code) AS modelCode, r.operate_type AS operateType, ",
+            "r.operate_meters AS operateMeters, r.remaining_meters AS remainingMeters, ",
+            "COALESCE(e.name, '系统') AS operatorName, r.create_time AS createTime ",
+            "FROM inventory_record r ",
+            "LEFT JOIN cloth c ON c.id = r.cloth_id AND c.tenant_code = r.tenant_code ",
+            "LEFT JOIN user e ON e.id = r.operator_id AND e.tenant_code = r.tenant_code ",
+            "WHERE r.tenant_code = #{tenantCode} AND r.cloth_id = #{clothId} ",
+            "ORDER BY r.create_time DESC, r.id DESC ",
+            "LIMIT #{limit}"
+    })
+    List<InventoryRecordVO> selectByClothId(@Param("tenantCode") String tenantCode,
+                                            @Param("clothId") Long clothId,
+                                            @Param("limit") Integer limit);
 }

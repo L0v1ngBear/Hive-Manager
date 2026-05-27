@@ -1,7 +1,7 @@
 <template>
   <main class="login-stage min-h-full bg-slate-50 text-slate-800 overflow-hidden font-sans relative">
-    <section class="absolute inset-0 z-0 overflow-hidden bg-[#fffdf8]">
-      <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_12%,rgba(255,196,41,0.16),transparent_34%),linear-gradient(180deg,#ffffff_0%,#fffaf0_100%)] pointer-events-none"></div>
+    <section class="absolute inset-0 z-0 overflow-hidden bg-[#fbfcfe]">
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_12%,rgba(31,63,95,0.16),transparent_34%),linear-gradient(180deg,#ffffff_0%,#f5f7fb_100%)] pointer-events-none"></div>
 
       <div class="absolute top-12 left-12 z-10 pointer-events-none">
         <span class="text-primary/5 text-[12rem] font-black tracking-widest select-none leading-none">HIVE</span>
@@ -9,7 +9,7 @@
 
       <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-16 z-20 pointer-events-none opacity-40 mix-blend-color-burn">
         <svg ref="char1Ref" :class="['pixel-char w-40 h-40 drop-shadow-xl', { 'error-shake': isError }]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect fill="#f5a400" height="80" width="80" x="10" y="10" rx="4"></rect>
+          <rect fill="#1f3f5f" height="80" width="80" x="10" y="10" rx="4"></rect>
           <rect fill="#101418" height="10" width="80" x="10" y="80" rx="2"></rect>
           <g class="eye-container">
             <rect class="eye-white" fill="white" height="15" width="15" x="25" y="30" rx="2"></rect>
@@ -21,8 +21,8 @@
         </svg>
 
         <svg ref="char2Ref" :class="['pixel-char w-32 h-32 mt-16 drop-shadow-xl', { 'error-shake': isError }]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect fill="#ffd43b" height="80" width="80" x="10" y="10" rx="4"></rect>
-          <rect fill="#f5a400" height="10" width="80" x="10" y="80" rx="2"></rect>
+          <rect fill="#4b7395" height="80" width="80" x="10" y="10" rx="4"></rect>
+          <rect fill="#1f3f5f" height="10" width="80" x="10" y="80" rx="2"></rect>
           <g class="eye-container">
             <rect class="eye-white" fill="white" height="12" width="12" x="30" y="35" rx="2"></rect>
             <rect class="eye-pupil" fill="#101418" height="6" width="6" x="33" y="38" rx="1" :transform="pupil2Transform"></rect>
@@ -91,7 +91,7 @@
         <section class="w-full lg:w-3/5 p-10 lg:p-16 flex flex-col justify-center bg-white">
           <div class="mb-10">
             <h3 class="text-3xl font-extrabold text-slate-900 tracking-tight">账号登录</h3>
-            <p class="text-slate-500 mt-2 font-medium">欢迎回来，请输入您的管理员凭证</p>
+            <p class="text-slate-500 mt-2 font-medium">欢迎回来，请输入账号信息</p>
           </div>
 
           <form class="space-y-6" @submit.prevent="handleLogin">
@@ -105,6 +105,7 @@
                     id="username"
                     v-model.trim="loginForm.username"
                     type="text"
+                    autocomplete="username"
                     required
                     placeholder="请输入员工编号或邮箱"
                     :class="['w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-200',
@@ -126,12 +127,25 @@
                     id="password"
                     v-model="loginForm.password"
                     type="password"
+                    autocomplete="current-password"
                     required
                     placeholder="••••••••"
                     :class="['w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-200 tracking-widest',
                           isError ? 'border-error/50 focus:ring-error/20 bg-error/5' : 'border-slate-200 focus:border-primary focus:ring-primary/10']"
                 />
               </div>
+            </div>
+
+            <div class="flex flex-col gap-2 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-slate-700">
+                <input
+                    v-model="rememberLogin"
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/20"
+                />
+                <span>记住登录状态</span>
+              </label>
+              <span class="text-xs font-medium text-slate-500">仅保存登录状态和账号，不保存密码</span>
             </div>
 
             <div class="pt-4 space-y-4">
@@ -148,6 +162,15 @@
                 <span v-if="isLoading" class="material-symbols-outlined animate-spin text-xl">progress_activity</span>
                 <span>{{ isLoading ? '正在验证身份...' : '立即登录系统' }}</span>
                 <span v-if="!isLoading" class="material-symbols-outlined text-lg ml-1">arrow_forward</span>
+              </button>
+
+              <button
+                  type="button"
+                  class="w-full py-3.5 bg-white hover:bg-slate-50 text-slate-700 font-bold text-base rounded-xl border border-slate-200 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
+                  @click="goJoinOrganization"
+              >
+                <span class="material-symbols-outlined text-lg text-primary">group_add</span>
+                <span>使用组织码加入组织</span>
               </button>
             </div>
           </form>
@@ -263,16 +286,19 @@ import { useRoute, useRouter } from 'vue-router'
 import { createScanLoginSession, getScanLoginStatus, login, resetPassword, sendPasswordResetCode } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 import { normalizeLoginRedirect } from '@/utils/redirect'
+import { readLoginMemory, saveLoginMemory } from '@/utils/loginMemory'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const loginMemory = readLoginMemory()
 
 const loginForm = reactive({
-  username: '',
+  username: loginMemory.username,
   password: ''
 })
+const rememberLogin = ref(loginMemory.remember)
 
 const resetForm = reactive({
   phone: '',
@@ -334,7 +360,11 @@ async function handleLogin() {
       username: loginForm.username,
       password: loginForm.password
     })
-    finishLogin(loginData)
+    saveLoginMemory({
+      remember: rememberLogin.value,
+      username: loginForm.username
+    })
+    finishLogin(loginData, { remember: rememberLogin.value })
   } catch (error) {
     errorMessage.value = error?.msg || error?.message || '用户名或密码错误，请重试。'
     triggerErrorState()
@@ -345,6 +375,11 @@ async function handleLogin() {
 
 function openResetPasswordDialog() {
   resetDialogVisible.value = true
+}
+
+function goJoinOrganization() {
+  clearPolling()
+  router.push('/join-organization')
 }
 
 function closeResetPasswordDialog() {
@@ -462,6 +497,10 @@ function stopCodeCountdown() {
 }
 
 async function refreshScanSession() {
+  if (hasActiveWebSession()) {
+    stopScanLoginFlow()
+    return
+  }
   if (isRefreshingScan.value) {
     return
   }
@@ -486,13 +525,32 @@ async function refreshScanSession() {
 }
 
 function startPolling() {
-  if (!scanSession.sceneKey || pollTimer) {
+  if (!scanSession.sceneKey || pollTimer || hasActiveWebSession()) {
+    if (hasActiveWebSession()) {
+      stopScanLoginFlow()
+    }
     return
   }
 
   pollTimer = window.setInterval(async () => {
     try {
-      const statusData = await getScanLoginStatus({ sceneKey: scanSession.sceneKey })
+      if (hasActiveWebSession()) {
+        stopScanLoginFlow()
+        return
+      }
+      const currentSceneKey = scanSession.sceneKey
+      if (!currentSceneKey) {
+        clearPolling()
+        return
+      }
+      const statusData = await getScanLoginStatus({ sceneKey: currentSceneKey })
+      if (hasActiveWebSession()) {
+        stopScanLoginFlow()
+        return
+      }
+      if (currentSceneKey !== scanSession.sceneKey) {
+        return
+      }
       scanStatus.value = statusData.status || 'PENDING'
       scanMessage.value = statusData.message || '请使用小程序扫码确认'
       if (statusData.expireAt) {
@@ -503,12 +561,21 @@ function startPolling() {
         finishLogin(statusData.loginInfo)
         return
       }
+      if (scanStatus.value === 'CONFIRMED' || scanStatus.value === 'USED') {
+        clearPolling()
+        scanMessage.value = statusData.message || '网页端已完成登录'
+        return
+      }
       if (scanStatus.value === 'EXPIRED') {
         clearPolling()
         refreshScanSession()
       }
     } catch (error) {
       clearPolling()
+      if (hasActiveWebSession()) {
+        stopScanLoginFlow()
+        return
+      }
       scanStatus.value = 'EXPIRED'
       scanMessage.value = error?.msg || error?.message || '扫码状态查询失败，正在尝试刷新二维码。'
       refreshScanSession()
@@ -518,8 +585,16 @@ function startPolling() {
 
 function scheduleAutoRefresh() {
   window.clearTimeout(refreshTimer)
+  if (hasActiveWebSession()) {
+    stopScanLoginFlow()
+    return
+  }
   const remainMs = Math.max(scanSession.expireAt * 1000 - Date.now(), 0)
   refreshTimer = window.setTimeout(() => {
+    if (hasActiveWebSession()) {
+      stopScanLoginFlow()
+      return
+    }
     scanStatus.value = 'EXPIRED'
     scanMessage.value = '二维码已过期，系统正在自动刷新...'
     refreshScanSession()
@@ -533,10 +608,23 @@ function clearPolling() {
   refreshTimer = null
 }
 
-function finishLogin(loginData) {
+function hasActiveWebSession() {
+  return Boolean(userStore.token)
+}
+
+function stopScanLoginFlow() {
+  clearPolling()
+  scanSession.sceneKey = ''
+  scanSession.qrCodeDataUrl = ''
+  scanSession.expireAt = 0
+  scanStatus.value = 'CONFIRMED'
+  scanMessage.value = '网页端已登录'
+}
+
+function finishLogin(loginData, options = {}) {
   clearPolling()
   scanStatus.value = 'CONFIRMED'
-  userStore.setLoginInfo(loginData)
+  userStore.setLoginInfo(loginData, { remember: options.remember ?? rememberLogin.value })
   const redirect = userStore.mustChangePassword
     ? { path: '/force-password-change', query: { redirect: resolveLoginRedirect() } }
     : resolveLoginRedirect()

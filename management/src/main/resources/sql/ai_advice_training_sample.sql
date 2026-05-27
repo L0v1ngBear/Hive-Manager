@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS `ai_advice_training_sample` (
   UNIQUE KEY `uk_ai_sample_tenant_key` (`tenant_code`,`sample_key`),
   KEY `idx_ai_sample_tenant_category_time` (`tenant_code`,`category`,`update_time`),
   KEY `idx_ai_sample_label_status` (`tenant_code`,`label_status`,`update_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='AI建议训练样本表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='经营建议训练样本表';
 
 SET @database_name = DATABASE();
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = @database_name AND table_name = 'ai_advice_training_sample' AND column_name = 'feedback_type') = 0,

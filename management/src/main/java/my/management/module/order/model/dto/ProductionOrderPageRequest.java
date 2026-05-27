@@ -20,6 +20,10 @@ public class ProductionOrderPageRequest {
 
     private String customerName;
 
+    private String brandName;
+
+    private String orderCategory;
+
     private Integer process;
 
     private LocalDate deliveryStart;

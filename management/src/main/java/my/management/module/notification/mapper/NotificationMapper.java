@@ -71,6 +71,41 @@ public interface NotificationMapper {
             """)
     int insertAnnouncement(@Param("item") NotificationRecord item);
 
+    @Insert("""
+            INSERT INTO notification_record (
+                tenant_code, dedupe_key, biz_type, biz_id, title, content, level, channel,
+                route, receiver_user_id, receiver_name, receiver_phone, status, read_flag,
+                read_time, send_status, task_status, close_result, close_note, source_type, create_time, update_time
+            ) VALUES (
+                #{item.tenantCode}, #{item.dedupeKey}, #{item.bizType}, #{item.bizId},
+                #{item.title}, #{item.content}, #{item.level}, #{item.channel},
+                #{item.route}, #{item.receiverUserId}, #{item.receiverName}, #{item.receiverPhone},
+                #{item.status}, #{item.readFlag},
+                CASE WHEN #{item.readFlag} = 1 THEN NOW() ELSE NULL END,
+                #{item.sendStatus}, #{item.taskStatus},
+                #{item.closeResult}, #{item.closeNote}, #{item.sourceType}, NOW(), NOW()
+            )
+            ON DUPLICATE KEY UPDATE
+                title = VALUES(title),
+                content = VALUES(content),
+                level = VALUES(level),
+                route = VALUES(route),
+                receiver_name = VALUES(receiver_name),
+                receiver_phone = VALUES(receiver_phone),
+                status = VALUES(status),
+                read_time = CASE
+                    WHEN notification_record.read_flag = 1 THEN notification_record.read_time
+                    WHEN VALUES(read_flag) = 1 THEN NOW()
+                    ELSE notification_record.read_time
+                END,
+                read_flag = GREATEST(COALESCE(notification_record.read_flag, 0), COALESCE(VALUES(read_flag), 0)),
+                send_status = VALUES(send_status),
+                task_status = VALUES(task_status),
+                source_type = VALUES(source_type),
+                update_time = NOW()
+            """)
+    int upsertAnnouncementReceiver(@Param("item") NotificationRecord item);
+
     @Select("""
             SELECT
             """ + RECORD_COLUMNS + """
@@ -84,6 +119,51 @@ public interface NotificationMapper {
             """)
     List<NotificationRecord> selectRecentAnnouncements(@Param("tenantCode") String tenantCode,
                                                        @Param("limit") Integer limit);
+
+    @Select("""
+            SELECT
+                u.id AS userId,
+                u.name AS userName,
+                u.department_name AS departmentName,
+                u.position AS positionName
+            FROM user u
+            LEFT JOIN emp_employee_ext ext
+              ON ext.user_id = u.id
+             AND BINARY ext.tenant_code = BINARY u.tenant_code
+             AND IFNULL(ext.is_deleted, 0) = 0
+            WHERE BINARY u.tenant_code = BINARY #{tenantCode}
+              AND IFNULL(u.status, 1) = 1
+              AND (ext.id IS NULL OR IFNULL(ext.is_deleted, 0) = 0)
+            ORDER BY COALESCE(u.role_level, 0) DESC, u.id ASC
+            """)
+    List<NotificationReceiverVO> selectAnnouncementTargetUsers(@Param("tenantCode") String tenantCode);
+
+    @Select("""
+            SELECT
+                u.id AS userId,
+                u.name AS userName,
+                u.department_name AS departmentName,
+                u.position AS positionName,
+                COALESCE(n.read_flag, 0) AS readFlag,
+                n.read_time AS readTime
+            FROM user u
+            LEFT JOIN emp_employee_ext ext
+              ON ext.user_id = u.id
+             AND BINARY ext.tenant_code = BINARY u.tenant_code
+             AND IFNULL(ext.is_deleted, 0) = 0
+            LEFT JOIN notification_record n
+              ON BINARY n.tenant_code = BINARY u.tenant_code
+             AND n.biz_type = 'ANNOUNCEMENT'
+             AND n.biz_id = #{bizId}
+             AND n.receiver_user_id = u.id
+             AND n.status = 1
+            WHERE BINARY u.tenant_code = BINARY #{tenantCode}
+              AND IFNULL(u.status, 1) = 1
+              AND (ext.id IS NULL OR IFNULL(ext.is_deleted, 0) = 0)
+            ORDER BY COALESCE(n.read_flag, 0) ASC, u.department_name ASC, u.name ASC, u.id ASC
+            """)
+    List<NotificationReceiverVO> selectAnnouncementReceiverStatuses(@Param("tenantCode") String tenantCode,
+                                                                    @Param("bizId") String bizId);
 
     @Select("""
             SELECT
@@ -127,6 +207,7 @@ public interface NotificationMapper {
             WHERE tenant_code = #{tenantCode}
               AND status = 1
               AND (biz_type != 'AI_ADVICE' OR receiver_user_id = #{userId})
+              AND NOT (biz_type = 'ANNOUNCEMENT' AND receiver_user_id IS NULL)
               AND (receiver_user_id IS NULL OR receiver_user_id = #{userId})
               AND (#{onlyUnread} = false OR read_flag = 0)
             ORDER BY update_time DESC
@@ -144,6 +225,7 @@ public interface NotificationMapper {
             WHERE tenant_code = #{tenantCode}
               AND status = 1
               AND (biz_type != 'AI_ADVICE' OR receiver_user_id = #{userId})
+              AND NOT (biz_type = 'ANNOUNCEMENT' AND receiver_user_id IS NULL)
               AND (receiver_user_id IS NULL OR receiver_user_id = #{userId})
               AND (#{onlyUnread} = false OR read_flag = 0)
             """)
@@ -159,6 +241,19 @@ public interface NotificationMapper {
               AND (receiver_user_id IS NULL OR receiver_user_id = #{userId})
             """)
     int markRead(@Param("tenantCode") String tenantCode, @Param("userId") Long userId, @Param("id") Long id);
+
+    @Update("""
+            UPDATE notification_record
+            SET read_flag = 1, read_time = COALESCE(read_time, NOW()), update_time = NOW()
+            WHERE tenant_code = #{tenantCode}
+              AND biz_type = 'ANNOUNCEMENT'
+              AND biz_id = #{bizId}
+              AND receiver_user_id = #{userId}
+              AND status = 1
+            """)
+    int markAnnouncementReadByBizId(@Param("tenantCode") String tenantCode,
+                                    @Param("userId") Long userId,
+                                    @Param("bizId") String bizId);
 
     @Select("""
             SELECT
@@ -186,7 +281,7 @@ public interface NotificationMapper {
             WHERE id = #{id}
               AND tenant_code = #{tenantCode}
               AND (receiver_user_id IS NULL OR receiver_user_id = #{userId})
-              AND (task_status IS NULL OR task_status NOT IN ('DONE', 'IGNORED'))
+                  AND (task_status IS NULL OR task_status NOT IN ('DONE', 'IGNORED'))
             """)
     int closeTask(@Param("tenantCode") String tenantCode,
                   @Param("userId") Long userId,
@@ -194,6 +289,24 @@ public interface NotificationMapper {
                   @Param("taskStatus") String taskStatus,
                   @Param("closeResult") String closeResult,
                   @Param("closeNote") String closeNote);
+
+    @Update("""
+            UPDATE notification_record
+            SET status = 0,
+                close_note = CASE
+                    WHEN task_status IN ('DONE', 'IGNORED') THEN close_note
+                    ELSE #{closeNote}
+                END,
+                update_time = NOW()
+            WHERE tenant_code = #{tenantCode}
+              AND biz_type = #{bizType}
+              AND source_type = #{sourceType}
+              AND status = 1
+            """)
+    int deactivateActiveBySource(@Param("tenantCode") String tenantCode,
+                                 @Param("bizType") String bizType,
+                                 @Param("sourceType") String sourceType,
+                                 @Param("closeNote") String closeNote);
 
     @Select("""
             SELECT
@@ -226,4 +339,37 @@ public interface NotificationMapper {
             GROUP BY u.id, u.name
             """)
     List<NotificationReceiverVO> selectAiAdviceReceivers(@Param("tenantCode") String tenantCode);
+
+    @Select("""
+            <script>
+            SELECT
+                u.id AS userId,
+                u.name AS userName,
+                GROUP_CONCAT(DISTINCT p.perm_code ORDER BY p.perm_code SEPARATOR ',') AS permissionCodes
+            FROM user u
+            INNER JOIN sys_user_role ur
+              ON ur.user_id = u.id
+             AND ur.tenant_code = u.tenant_code
+             AND IFNULL(ur.is_deleted, 0) = 0
+            INNER JOIN sys_role r
+              ON r.id = ur.role_id
+             AND r.tenant_code = u.tenant_code
+             AND IFNULL(r.is_deleted, 0) = 0
+            INNER JOIN sys_role_permission rp
+              ON rp.role_id = r.id
+             AND IFNULL(rp.is_deleted, 0) = 0
+            INNER JOIN sys_permission p
+              ON p.id = rp.permission_id
+             AND IFNULL(p.is_deleted, 0) = 0
+            WHERE u.tenant_code = #{tenantCode}
+              AND IFNULL(u.status, 1) = 1
+              AND p.perm_code IN
+              <foreach collection="permissionCodes" item="code" open="(" separator="," close=")">
+                #{code}
+              </foreach>
+            GROUP BY u.id, u.name
+            </script>
+            """)
+    List<NotificationReceiverVO> selectReceiversByPermissions(@Param("tenantCode") String tenantCode,
+                                                              @Param("permissionCodes") List<String> permissionCodes);
 }

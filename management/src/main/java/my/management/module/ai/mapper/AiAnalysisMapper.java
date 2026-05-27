@@ -282,7 +282,8 @@ public interface AiAnalysisMapper {
             "SELECT COUNT(1) ",
             "FROM user ",
             "WHERE tenant_code = #{tenantCode} ",
-            "AND (status IS NULL OR status = 1)"
+            "AND (status IS NULL OR status = 1) ",
+            "AND COALESCE(attendance_required, 1) = 1"
     })
     Long countActiveEmployees(@Param("tenantCode") String tenantCode);
 
@@ -297,20 +298,22 @@ public interface AiAnalysisMapper {
 
     @Select({
             "SELECT COUNT(1) ",
-            "FROM attendance_record ",
-            "WHERE tenant_code = #{tenantCode} ",
-            "AND punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
-            "AND (sign_in_status IN (1, 3, 6) OR sign_out_status IN (2, 3, 6))"
+            "FROM attendance_record a ",
+            "INNER JOIN user u ON u.id = a.user_id AND u.tenant_code = a.tenant_code AND COALESCE(u.attendance_required, 1) = 1 ",
+            "WHERE a.tenant_code = #{tenantCode} ",
+            "AND a.punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
+            "AND (a.sign_in_status IN (1, 3, 6) OR a.sign_out_status IN (2, 3, 6))"
     })
     Long countTodayAttendanceExceptions(@Param("tenantCode") String tenantCode,
                                         @Param("dayPrefix") String dayPrefix);
 
     @Select({
             "SELECT COUNT(1) ",
-            "FROM attendance_record ",
-            "WHERE tenant_code = #{tenantCode} ",
-            "AND punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
-            "AND sign_in_status = 1"
+            "FROM attendance_record a ",
+            "INNER JOIN user u ON u.id = a.user_id AND u.tenant_code = a.tenant_code AND COALESCE(u.attendance_required, 1) = 1 ",
+            "WHERE a.tenant_code = #{tenantCode} ",
+            "AND a.punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
+            "AND a.sign_in_status = 1"
     })
     Long countTodayLate(@Param("tenantCode") String tenantCode,
                         @Param("dayPrefix") String dayPrefix);

@@ -11,6 +11,12 @@ export default [
   // 2. Vue 的基础 JavaScript 校验规则
   ...pluginVue.configs['flat/essential'],
 
+  {
+    rules: {
+      'vue/multi-word-component-names': 'off',
+    },
+  },
+
   // 3. 引入 Oxlint 规则 (用于加速 lint)
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 

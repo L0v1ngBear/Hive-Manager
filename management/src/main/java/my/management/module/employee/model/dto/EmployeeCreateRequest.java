@@ -36,6 +36,10 @@ public class EmployeeCreateRequest {
     @NotNull(message = "status is required")
     private Integer status;
 
+    private Integer attendanceRequired = 1;
+
+    private List<Long> attendanceLocationIds;
+
     private String remark;
 
     private List<Long> roleIds;

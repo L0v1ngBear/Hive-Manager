@@ -12,5 +12,7 @@ public class ProductionOrderUpdateRequest {
 
     private Integer process;
 
+    private String operateType;
+
     private String remark;
 }

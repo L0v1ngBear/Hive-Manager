@@ -24,6 +24,9 @@ public class SalesOrder {
 
     private String status;
 
+    @TableField("order_category")
+    private String orderCategory;
+
     @TableField("customer_name")
     private String customerName;
 
@@ -32,6 +35,9 @@ public class SalesOrder {
 
     @TableField("project_name")
     private String projectName;
+
+    @TableField("brand_name")
+    private String brandName;
 
     @TableField("goods_desc")
     private String goodsDesc;

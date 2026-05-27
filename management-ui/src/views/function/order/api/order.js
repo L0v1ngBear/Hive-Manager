@@ -65,6 +65,14 @@ export function updateSalesOrder(orderId, data) {
   })
 }
 
+export function createSalesOrderFlowPrintTask(data) {
+  return request({
+    url: '/order/sales/flow-print-task',
+    method: 'post',
+    data
+  })
+}
+
 export function getProductionOrderPage(params) {
   return request({
     url: '/order/production/page',
@@ -102,6 +110,13 @@ export function getOrderWarningSummary() {
   })
 }
 
+export function refreshOrderWarningSummary() {
+  return request({
+    url: '/order/warning/refresh',
+    method: 'post'
+  })
+}
+
 export function getProductionOrderDetail(orderId) {
   return request({
     url: `/order/production/detail/${orderId}`,
@@ -128,6 +143,14 @@ export function saveProductionOrder(orderId, data) {
 export function updateProductionOrder(orderId, data) {
   return request({
     url: `/order/production/update/${orderId}`,
+    method: 'post',
+    data
+  })
+}
+
+export function createProductionOrderFlowPrintTask(data) {
+  return request({
+    url: '/order/production/flow-print-task',
     method: 'post',
     data
   })

@@ -68,12 +68,13 @@
             </select>
             <input v-model.trim="query.priceMin" type="number" min="0" step="0.01" class="w-28 px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none" placeholder="最低价" />
             <input v-model.trim="query.priceMax" type="number" min="0" step="0.01" class="w-28 px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none" placeholder="最高价" />
-            <input v-model="query.effectiveStart" type="date" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none" title="生效开始日期" />
-            <input v-model="query.effectiveEnd" type="date" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none" title="生效结束日期" />
+            <DateFilterInput v-model="query.effectiveStart" placeholder="生效开始" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none" />
+            <DateFilterInput v-model="query.effectiveEnd" placeholder="生效结束" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none" />
             <button @click="handleFilter" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold">查询</button>
             <button @click="resetFilter" class="px-4 py-2 bg-surface-container-highest text-on-surface rounded-lg text-sm font-bold">重置</button>
             <TableColumnSettings
               :columns="priceTableColumns"
+              :exportable="false"
               @move="movePriceTableColumn"
               @reset="resetPriceTableColumns"
             />
@@ -81,11 +82,11 @@
           <span class="text-xs text-on-surface-variant">共 {{ pagination.total }} 条价格记录</span>
         </div>
 
-        <div class="overflow-x-auto relative min-h-[260px]">
+        <div class="responsive-table-wrap relative min-h-[260px]">
           <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
             <span class="material-symbols-outlined text-primary text-3xl animate-spin">progress_activity</span>
           </div>
-          <table class="w-full text-left border-collapse min-w-[960px]">
+          <table class="responsive-data-table w-full text-left border-collapse">
             <thead class="bg-surface-container-low/50">
               <tr>
                 <th
@@ -104,6 +105,7 @@
                 <td
                   v-for="column in priceTableColumns"
                   :key="column.key"
+                  :data-label="column.label"
                   class="px-6 py-4"
                   :class="priceCellClass(column.key)"
                 >
@@ -123,7 +125,7 @@
                     <span :class="statusClass(item.status)" class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold">{{ item.statusLabel }}</span>
                   </template>
                 </td>
-                <td class="px-6 py-4 text-right space-x-2">
+                <td class="px-6 py-4 text-right space-x-2" data-label="操作">
                   <button @click.stop="openDetail(item)" class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-xs font-bold">详情</button>
                   <button @click.stop="openCreate(item)" class="text-secondary hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-xs font-bold">调整</button>
                   <button @click.stop="remove(item)" class="text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold">删除</button>
@@ -200,6 +202,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute } from 'vue-router'
 import PriceCreateDrawer from './priceCreate.vue'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import DateFilterInput from '@/components/DateFilterInput.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import {
   deletePrice,

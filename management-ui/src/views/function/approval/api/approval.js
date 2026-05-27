@@ -7,6 +7,29 @@ export function getApprovalSummary() {
   })
 }
 
+export function listApprovalAuditors(params) {
+  return request({
+    url: '/approval/auditors',
+    method: 'get',
+    params,
+  })
+}
+
+export function listApprovalDefaultAuditors() {
+  return request({
+    url: '/approval/default-auditors',
+    method: 'get',
+  })
+}
+
+export function saveApprovalDefaultAuditor(data) {
+  return request({
+    url: '/approval/default-auditors',
+    method: 'post',
+    data,
+  })
+}
+
 export function listLeaveApprovals() {
   return request({
     url: '/approval/leave/list',

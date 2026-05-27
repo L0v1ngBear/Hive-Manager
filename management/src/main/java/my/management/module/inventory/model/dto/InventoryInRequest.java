@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -28,6 +29,8 @@ public class InventoryInRequest {
     private BigDecimal meters;
 
     private String inType;
+
+    private LocalDateTime inTime;
 
     private Map<String, Object> customFields;
 }

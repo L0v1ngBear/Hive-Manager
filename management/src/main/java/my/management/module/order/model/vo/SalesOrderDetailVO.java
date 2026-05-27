@@ -22,6 +22,10 @@ public class SalesOrderDetailVO {
 
     private String projectName;
 
+    private String brandName;
+
+    private String orderCategory;
+
     private String goodsDesc;
 
     private BigDecimal totalAmount;

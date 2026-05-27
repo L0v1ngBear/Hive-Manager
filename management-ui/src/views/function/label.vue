@@ -151,13 +151,13 @@
         <div class="source-editor">
           <div class="editor-head">
             <span class="material-symbols-outlined text-sm">code</span>
-            TEMPLATE_SOURCE_CODE
+            模板内容
             <span v-if="uploadedFile" class="ml-4 text-xs text-gray-400">已选择：{{ uploadedFile.name }}</span>
           </div>
           <textarea
             v-model="templateCode"
             spellcheck="false"
-            placeholder="在这里粘贴蓝牙标签打印机底层指令，例如 TSPL/PRN。支持 ${modelCode} 或 {modelCode} 占位符。"
+            placeholder="在这里维护标签模板内容。建议优先使用可视化设计；如需导入打印模板，请联系管理员。"
           ></textarea>
         </div>
       </section>
@@ -165,13 +165,13 @@
       <aside class="template-sidebar">
         <section class="sidebar-card">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="panel-title">动态变量</h3>
+            <h3 class="panel-title">可用字段</h3>
             <span class="text-xs text-on-surface-variant">{{ detectedVariables.length }} 个</span>
           </div>
           <div v-if="detectedVariables.length" class="space-y-2">
             <div v-for="variable in detectedVariables" :key="variable" class="variable-chip">{{ variable }}</div>
           </div>
-          <div v-else class="empty-state">暂无变量</div>
+          <div v-else class="empty-state">暂无可用字段</div>
         </section>
 
         <section class="sidebar-card flex-1 overflow-hidden">
@@ -203,7 +203,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -217,55 +217,34 @@ import {
 
 defineOptions({ name: 'LabelTemplateDesigner' })
 
-type EditMode = 'visual' | 'source'
-type ElementType = 'text' | 'barcode'
-
-interface FieldOption {
-  label: string
-  field: string
-  type: ElementType
-  sampleValue?: string
-}
-
-interface DesignElement {
-  id: string
-  type: ElementType
-  label: string
-  field: string
-  x: number
-  y: number
-  fontSize: number
-  height: number
-}
-
 const DOTS_PER_MM = 8
 const PREVIEW_SCALE = 0.75
 
-const fallbackFields: FieldOption[] = [
+const fallbackFields = [
   { label: '条码', field: 'barcode', type: 'barcode', sampleValue: 'CL20260421001' },
   { label: '型号', field: 'modelCode', type: 'text', sampleValue: 'M-2026-A' },
   { label: '米数', field: 'meters', type: 'text', sampleValue: '120.50' },
   { label: '规格', field: 'spec', type: 'text', sampleValue: '160' }
 ]
 
-const fieldOptions = ref<FieldOption[]>(fallbackFields)
+const fieldOptions = ref(fallbackFields)
 const templateName = ref('面料入库标签')
 const templateCode = ref('')
-const editMode = ref<EditMode>('visual')
+const editMode = ref('visual')
 const isDefault = ref(false)
 const saving = ref(false)
-const uploadedFile = ref<File | null>(null)
-const fileInputRef = ref<HTMLInputElement | null>(null)
-const templates = ref<any[]>([])
+const uploadedFile = ref(null)
+const fileInputRef = ref(null)
+const templates = ref([])
 const selectedElementId = ref('')
-const currentTemplateId = ref<number | null>(null)
+const currentTemplateId = ref(null)
 
 const canvas = reactive({
   widthMm: 70,
   heightMm: 50
 })
 
-const designElements = ref<DesignElement[]>(defaultElements())
+const designElements = ref(defaultElements())
 
 const canvasStyle = computed(() => ({
   width: `${canvas.widthMm * DOTS_PER_MM * PREVIEW_SCALE}px`,
@@ -279,8 +258,8 @@ const visualTemplateCode = computed(() => generateTspl())
 const detectedVariables = computed(() => {
   const source = editMode.value === 'visual' ? visualTemplateCode.value : templateCode.value
   if (!source) return []
-  const vars = new Set<string>()
-  const collect = (regex: RegExp) => {
+  const vars = new Set()
+  const collect = (regex) => {
     let match
     while ((match = regex.exec(source)) !== null) {
       vars.add(match[1].trim())
@@ -297,7 +276,7 @@ watch(visualTemplateCode, (value) => {
   }
 }, { immediate: true })
 
-function defaultElements(): DesignElement[] {
+function defaultElements() {
   return [
     { id: cryptoId(), type: 'text', label: '型号', field: 'modelCode', x: 30, y: 30, fontSize: 1, height: 80 },
     { id: cryptoId(), type: 'text', label: '米数', field: 'meters', x: 30, y: 70, fontSize: 1, height: 80 },
@@ -310,7 +289,7 @@ function cryptoId() {
   return `el_${Date.now()}_${Math.random().toString(16).slice(2)}`
 }
 
-function switchMode(mode: EditMode) {
+function switchMode(mode) {
   editMode.value = mode
   if (mode === 'visual') {
     uploadedFile.value = null
@@ -322,8 +301,8 @@ function triggerUpload() {
   fileInputRef.value?.click()
 }
 
-function handleFileUpload(event: Event) {
-  const target = event.target as HTMLInputElement
+function handleFileUpload(event) {
+  const target = event.target
   const file = target.files?.[0]
   if (!file) return
 
@@ -336,7 +315,7 @@ function handleFileUpload(event: Event) {
 
   const reader = new FileReader()
   reader.onload = (e) => {
-    templateCode.value = e.target?.result as string
+    templateCode.value = String(e.target?.result || '')
     ElMessage.success(`成功读取文件: ${file.name}`)
     target.value = ''
   }
@@ -344,8 +323,8 @@ function handleFileUpload(event: Event) {
   reader.readAsText(file, 'UTF-8')
 }
 
-function addElement(field: FieldOption) {
-  const element: DesignElement = {
+function addElement(field) {
+  const element = {
     id: cryptoId(),
     type: field.type,
     label: field.label,
@@ -379,11 +358,11 @@ function resetVisualTemplate() {
   selectedElementId.value = designElements.value[0]?.id || ''
 }
 
-function sampleValue(field: string) {
+function sampleValue(field) {
   return fieldOptions.value.find((item) => item.field === field)?.sampleValue || field
 }
 
-function elementStyle(element: DesignElement) {
+function elementStyle(element) {
   const common = {
     left: `${element.x * PREVIEW_SCALE}px`,
     top: `${element.y * PREVIEW_SCALE}px`
@@ -401,14 +380,14 @@ function elementStyle(element: DesignElement) {
   }
 }
 
-function startDrag(event: MouseEvent, element: DesignElement) {
+function startDrag(event, element) {
   selectedElementId.value = element.id
   const startX = event.clientX
   const startY = event.clientY
   const originX = element.x
   const originY = element.y
 
-  const onMove = (moveEvent: MouseEvent) => {
+  const onMove = (moveEvent) => {
     const deltaX = Math.round((moveEvent.clientX - startX) / PREVIEW_SCALE)
     const deltaY = Math.round((moveEvent.clientY - startY) / PREVIEW_SCALE)
     element.x = Math.max(0, originX + deltaX)
@@ -454,7 +433,7 @@ function buildDesignJson() {
   })
 }
 
-function loadDesignJson(designJson?: string) {
+function loadDesignJson(designJson) {
   if (!designJson) return false
   try {
     const parsed = JSON.parse(designJson)
@@ -534,7 +513,7 @@ async function saveTemplate() {
   }
 }
 
-function loadTemplate(item: any) {
+function loadTemplate(item) {
   currentTemplateId.value = item.id
   templateName.value = item.name
   templateCode.value = item.content || ''
@@ -549,13 +528,13 @@ function loadTemplate(item: any) {
   }
 }
 
-async function setDefault(id: number) {
+async function setDefault(id) {
   await setDefaultLabelTemplate(id)
   ElMessage.success('默认模板已更新')
   await fetchTemplates()
 }
 
-async function removeTemplate(id: number) {
+async function removeTemplate(id) {
   await ElMessageBox.confirm('停用后小程序端将不再显示该模板，确认继续吗？', '停用模板', {
     confirmButtonText: '确认停用',
     cancelButtonText: '取消',
@@ -583,8 +562,8 @@ onMounted(async () => {
   flex-direction: column;
   margin: calc(-1 * var(--ys-app-page-padding, 1rem));
   background:
-    radial-gradient(circle at 8% 0%, rgba(255, 196, 41, 0.18), transparent 32%),
-    linear-gradient(180deg, #fffdf8 0%, #fffaf0 100%);
+    radial-gradient(circle at 8% -6%, rgba(31, 63, 95, 0.14), transparent 34%),
+    linear-gradient(180deg, #fbfcfe 0%, #f8fafc 100%);
   overflow: hidden;
 }
 
@@ -604,8 +583,8 @@ onMounted(async () => {
   padding: 12px 24px;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(233, 197, 109, 0.55);
-  box-shadow: 0 18px 42px rgba(245, 164, 0, 0.10);
+  border-bottom: 1px solid rgba(200, 211, 223, 0.58);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
 }
 
 .header-left,
@@ -651,7 +630,7 @@ onMounted(async () => {
 
 .template-name-input:hover,
 .template-name-input:focus {
-  background: rgba(255, 243, 204, 0.78);
+  background: rgba(232, 238, 246, 0.86);
 }
 
 .mode-switch {
@@ -672,9 +651,9 @@ onMounted(async () => {
 }
 
 .mode-switch button.active {
-  color: #b56f00;
+  color: #1f3f5f;
   background: #fff;
-  box-shadow: 0 6px 18px rgba(245, 164, 0, 0.14);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.10);
 }
 
 .default-check {
@@ -688,7 +667,7 @@ onMounted(async () => {
 }
 
 .default-check input {
-  accent-color: #f5a400;
+  accent-color: #1f3f5f;
 }
 
 .primary-action,
@@ -709,16 +688,16 @@ onMounted(async () => {
   border-radius: 14px;
   padding: 10px 18px;
   color: #fff;
-  background: linear-gradient(135deg, #ffd43b 0%, #f5a400 58%, #f08a00 100%);
-  box-shadow: 0 14px 30px rgba(245, 164, 0, 0.24);
+  background: linear-gradient(135deg, #0b1f33 0%, #1f3f5f 58%, #4b7395 100%);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
 }
 
 .secondary-action,
 .ghost-action {
   border-radius: 14px;
   padding: 10px 14px;
-  color: #101418;
-  background: #fff3cc;
+  color: #0f172a;
+  background: #e8eef6;
 }
 
 .danger-action {
@@ -809,9 +788,9 @@ onMounted(async () => {
 }
 
 .tool-item:hover {
-  color: #b56f00;
-  border-color: rgba(245, 164, 0, 0.30);
-  background: #fff8e6;
+  color: #1f3f5f;
+  border-color: rgba(31, 63, 95, 0.26);
+  background: #eef4fb;
 }
 
 .size-card,
@@ -1030,7 +1009,7 @@ onMounted(async () => {
 
 .variable-chip {
   padding: 10px 12px;
-  border-left: 4px solid #f5a400;
+  border-left: 4px solid #1f3f5f;
   border-radius: 12px;
   color: #111827;
   background: #f1f5f9;
@@ -1063,7 +1042,7 @@ onMounted(async () => {
   border-radius: 999px;
   padding: 3px 8px;
   color: #fff;
-  background: #f5a400;
+  background: #1f3f5f;
   font-size: 11px;
   font-weight: 900;
 }
@@ -1077,7 +1056,7 @@ onMounted(async () => {
 }
 
 .mini-action.primary {
-  color: #b56f00;
+  color: #1f3f5f;
   background: #dbeafe;
 }
 

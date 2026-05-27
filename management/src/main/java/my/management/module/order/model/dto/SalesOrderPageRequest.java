@@ -20,6 +20,10 @@ public class SalesOrderPageRequest {
 
     private String customerName;
 
+    private String brandName;
+
+    private String orderCategory;
+
     private Integer isInvoice;
 
     private LocalDate deliveryStart;

@@ -1,17 +1,22 @@
 <template>
-  <div class="h-full min-h-0 max-w-7xl mx-auto space-y-6">
+  <div class="min-h-fit max-w-7xl mx-auto space-y-6">
     <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-xs font-black tracking-[0.18em] text-primary">
           <span class="material-symbols-outlined text-[18px]">campaign</span>
           企业通知公告
         </p>
-        <h1 class="mt-4 text-3xl md:text-4xl font-black tracking-tight text-on-surface">发布企业通知</h1>
+        <h1 class="mt-4 text-3xl md:text-4xl font-black tracking-tight text-on-surface">
+          {{ canPublishAnnouncement ? '发布企业通知' : '企业通知公告' }}
+        </h1>
         <p class="mt-2 text-base text-on-surface-variant max-w-2xl">
-          面向当前组织发布制度、业务安排和临时提醒。公告会展示在总览大盘，不进入待办闭环。
+          {{ canPublishAnnouncement
+            ? '面向当前组织发布制度、业务安排和临时提醒。公告会展示在总览大盘，不进入待办闭环。'
+            : '查看当前组织的制度、业务安排和临时提醒，发布通知需要管理员授予权限。' }}
         </p>
       </div>
       <button
+          v-if="canPublishAnnouncement"
           class="rounded-2xl bg-primary px-6 py-4 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90"
           :disabled="publishing"
           @click="handlePublish"
@@ -20,8 +25,11 @@
       </button>
     </section>
 
-    <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)] gap-5">
-      <article class="rounded-3xl border border-primary/20 bg-white p-6 shadow-sm">
+    <section
+        class="grid grid-cols-1 gap-5"
+        :class="canPublishAnnouncement ? 'xl:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]' : ''"
+    >
+      <article v-if="canPublishAnnouncement" class="rounded-3xl border border-primary/20 bg-white p-6 shadow-sm">
         <h2 class="text-xl font-black text-on-surface">通知内容</h2>
         <div class="mt-5 space-y-5">
           <label class="block">
@@ -89,6 +97,40 @@
               </span>
             </div>
             <p class="mt-2 whitespace-pre-wrap text-sm leading-7 opacity-90">{{ item.content }}</p>
+            <div class="mt-4 rounded-2xl border border-white/70 bg-white/55 p-3">
+              <div class="flex flex-wrap items-center gap-2 text-xs font-black">
+                <span class="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
+                  已读 {{ numberText(item.readCount) }}
+                </span>
+                <span class="rounded-full bg-amber-100 px-3 py-1 text-amber-700">
+                  未读 {{ numberText(item.unreadCount) }}
+                </span>
+                <span class="rounded-full bg-slate-100 px-3 py-1 text-slate-600">
+                  共 {{ numberText(item.totalReceiverCount) }} 人
+                </span>
+              </div>
+              <div v-if="receiverList(item).length" class="mt-3 max-h-36 overflow-y-auto pr-1">
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div
+                      v-for="receiver in receiverList(item)"
+                      :key="receiver.userId"
+                      class="flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs"
+                      :class="receiverRead(receiver) ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'"
+                  >
+                    <div class="min-w-0">
+                      <p class="truncate font-black">{{ receiver.userName || '未命名员工' }}</p>
+                      <p class="truncate opacity-70">{{ receiver.departmentName || '未分部门' }} · {{ receiver.positionName || '未设职位' }}</p>
+                    </div>
+                    <span class="shrink-0 rounded-full px-2 py-1 font-black" :class="receiverRead(receiver) ? 'bg-emerald-100' : 'bg-amber-100'">
+                      {{ receiverRead(receiver) ? '已读' : '未读' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-500">
+                当前暂无可统计人员。
+              </p>
+            </div>
             <p class="mt-3 text-xs font-bold opacity-60">{{ formatTime(item.updateTime) }}</p>
           </div>
         </div>
@@ -98,15 +140,19 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getAnnouncements, publishAnnouncement } from '@/api/notification.js'
+import { useUserStore } from '@/stores/user.js'
 
 defineOptions({ name: 'AnnouncementCenter' })
 
+const ANNOUNCEMENT_PUBLISH_PERMISSION = 'notification:announcement:publish'
+const userStore = useUserStore()
 const loading = ref(false)
 const publishing = ref(false)
 const announcements = ref([])
+const canPublishAnnouncement = computed(() => userStore.hasPermission(ANNOUNCEMENT_PUBLISH_PERMISSION))
 
 const form = reactive({
   level: 'info',
@@ -127,6 +173,10 @@ async function loadAnnouncements() {
 }
 
 async function handlePublish() {
+  if (!canPublishAnnouncement.value) {
+    ElMessage.warning('您没有权限发布企业通知')
+    return
+  }
   if (!form.title) {
     ElMessage.warning('请填写通知标题')
     return
@@ -168,6 +218,15 @@ const announcementLevelText = (level) => {
   if (level === 'critical') return '紧急'
   if (level === 'warning') return '重要'
   return '公告'
+}
+
+const receiverList = (item) => Array.isArray(item?.receivers) ? item.receivers : []
+
+const receiverRead = (receiver) => Number(receiver?.readFlag) === 1
+
+const numberText = (value) => {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : 0
 }
 
 const formatTime = (value) => {

@@ -26,6 +26,8 @@ export const tenantFieldCatalog = {
     { fieldKey: 'email', fieldLabel: '邮箱', visible: true, required: false, sortNo: 60 },
     { fieldKey: 'leaderName', fieldLabel: '直属负责人', visible: true, required: false, sortNo: 70 },
     { fieldKey: 'entryDate', fieldLabel: '入职日期', visible: true, required: false, sortNo: 80 },
+    { fieldKey: 'attendanceRequired', fieldLabel: '考勤', visible: true, required: false, sortNo: 85 },
+    { fieldKey: 'attendanceLocationNames', fieldLabel: '打卡地点', visible: true, required: false, sortNo: 86 },
     { fieldKey: 'status', fieldLabel: '状态', visible: true, required: false, sortNo: 90 }
   ],
   customer: [
@@ -70,7 +72,7 @@ export function mergeTenantFieldConfig(moduleCode, rows) {
     const custom = isCustomTenantFieldKey(key)
     if (!config[key] && !custom) return
     config[key] = {
-      ...(config[key] || {}),
+      ...config[key],
       key,
       label: row.fieldLabel || config[key]?.label || key,
       visible: row.visible !== false,

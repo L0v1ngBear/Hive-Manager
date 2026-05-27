@@ -11,12 +11,15 @@ public enum PermissionCodeEnum {
     APPROVAL_LEAVE("approval:leave"),
     APPROVAL_LEAVE_AUDIT("approval:leave:audit"),
     APPROVAL_LEAVE_DETAIL("approval:leave:detail"),
+    APPROVAL_LEAVE_SUBMIT("approval:leave:submit"),
     APPROVAL_RESIGNATION("approval:resignation"),
     APPROVAL_RESIGNATION_AUDIT("approval:resignation:audit"),
     APPROVAL_RESIGNATION_DETAIL("approval:resignation:detail"),
     APPROVAL_RESIGNATION_SUBMIT("approval:resignation:submit"),
     ATTENDANCE_ALL("attendance:*"),
+    ATTENDANCE_PUNCH("attendance:punch"),
     ATTENDANCE_RECORD_LIST("attendance:record:list"),
+    BADPRODUCT_ALL("badproduct:*"),
     BADPRODUCT_LIST("badproduct:list"),
     BADPRODUCT_PROCESS("badproduct:process"),
     BADPRODUCT_SAVE("badproduct:save"),
@@ -38,8 +41,17 @@ public enum PermissionCodeEnum {
     EMPLOYEE_LIST("employee:list"),
     EMPLOYEE_STATUS("employee:status"),
     EMPLOYEE_UPDATE("employee:update"),
+    EQUIPMENT_DETAIL("equipment:detail"),
+    EQUIPMENT_INSPECTION_LIST("equipment:inspection:list"),
+    EQUIPMENT_INSPECTION_SUBMIT("equipment:inspection:submit"),
+    EQUIPMENT_LIST("equipment:list"),
+    EQUIPMENT_SAVE("equipment:save"),
+    INVENTORY("inventory"),
+    INVENTORY_ALL("inventory:*"),
+    INVENTORY_BARCODE_SEARCH("inventory:barcode:search"),
     INVENTORY_CLOTH_IN("inventory:cloth:in"),
     INVENTORY_CLOTH_OUT("inventory:cloth:out"),
+    INVENTORY_MODEL_SEARCH("inventory:model:search"),
     INVENTORY_RECORD_RECENT("inventory:record:recent"),
     INVENTORY_TREND("inventory:trend"),
     INVENTORY_WARNING_LIST("inventory:warning:list"),
@@ -57,6 +69,7 @@ public enum PermissionCodeEnum {
     PRICE_DETAIL("price:detail"),
     PRICE_LIST("price:list"),
     PRICE_PUBLISH("price:publish"),
+    PRODUCTION_ORDER_ALL("production:order:*"),
     PRODUCTION_ORDER_DETAIL("production:order:detail"),
     PRODUCTION_ORDER_LIST("production:order:list"),
     PRODUCTION_ORDER_LOG("production:order:log"),
@@ -69,6 +82,8 @@ public enum PermissionCodeEnum {
     ROLE_LIST("role:list"),
     ROLE_PERMISSION_LIST("role:permission:list"),
     ROLE_UPDATE("role:update"),
+    TABLE_EXPORT("table:export"),
+    SALES_ORDER_ALL("sales:order:*"),
     SALES_ORDER_DETAIL("sales:order:detail"),
     SALES_ORDER_LIST("sales:order:list"),
     SALES_ORDER_STATUS("sales:order:status");
@@ -80,12 +95,15 @@ public enum PermissionCodeEnum {
     public static final String CODE_APPROVAL_LEAVE = "approval:leave";
     public static final String CODE_APPROVAL_LEAVE_AUDIT = "approval:leave:audit";
     public static final String CODE_APPROVAL_LEAVE_DETAIL = "approval:leave:detail";
+    public static final String CODE_APPROVAL_LEAVE_SUBMIT = "approval:leave:submit";
     public static final String CODE_APPROVAL_RESIGNATION = "approval:resignation";
     public static final String CODE_APPROVAL_RESIGNATION_AUDIT = "approval:resignation:audit";
     public static final String CODE_APPROVAL_RESIGNATION_DETAIL = "approval:resignation:detail";
     public static final String CODE_APPROVAL_RESIGNATION_SUBMIT = "approval:resignation:submit";
     public static final String CODE_ATTENDANCE_ALL = "attendance:*";
+    public static final String CODE_ATTENDANCE_PUNCH = "attendance:punch";
     public static final String CODE_ATTENDANCE_RECORD_LIST = "attendance:record:list";
+    public static final String CODE_BADPRODUCT_ALL = "badproduct:*";
     public static final String CODE_BADPRODUCT_LIST = "badproduct:list";
     public static final String CODE_BADPRODUCT_PROCESS = "badproduct:process";
     public static final String CODE_BADPRODUCT_SAVE = "badproduct:save";
@@ -107,8 +125,17 @@ public enum PermissionCodeEnum {
     public static final String CODE_EMPLOYEE_LIST = "employee:list";
     public static final String CODE_EMPLOYEE_STATUS = "employee:status";
     public static final String CODE_EMPLOYEE_UPDATE = "employee:update";
+    public static final String CODE_EQUIPMENT_DETAIL = "equipment:detail";
+    public static final String CODE_EQUIPMENT_INSPECTION_LIST = "equipment:inspection:list";
+    public static final String CODE_EQUIPMENT_INSPECTION_SUBMIT = "equipment:inspection:submit";
+    public static final String CODE_EQUIPMENT_LIST = "equipment:list";
+    public static final String CODE_EQUIPMENT_SAVE = "equipment:save";
+    public static final String CODE_INVENTORY = "inventory";
+    public static final String CODE_INVENTORY_ALL = "inventory:*";
+    public static final String CODE_INVENTORY_BARCODE_SEARCH = "inventory:barcode:search";
     public static final String CODE_INVENTORY_CLOTH_IN = "inventory:cloth:in";
     public static final String CODE_INVENTORY_CLOTH_OUT = "inventory:cloth:out";
+    public static final String CODE_INVENTORY_MODEL_SEARCH = "inventory:model:search";
     public static final String CODE_INVENTORY_RECORD_RECENT = "inventory:record:recent";
     public static final String CODE_INVENTORY_TREND = "inventory:trend";
     public static final String CODE_INVENTORY_WARNING_LIST = "inventory:warning:list";
@@ -126,6 +153,7 @@ public enum PermissionCodeEnum {
     public static final String CODE_PRICE_DETAIL = "price:detail";
     public static final String CODE_PRICE_LIST = "price:list";
     public static final String CODE_PRICE_PUBLISH = "price:publish";
+    public static final String CODE_PRODUCTION_ORDER_ALL = "production:order:*";
     public static final String CODE_PRODUCTION_ORDER_DETAIL = "production:order:detail";
     public static final String CODE_PRODUCTION_ORDER_LIST = "production:order:list";
     public static final String CODE_PRODUCTION_ORDER_LOG = "production:order:log";
@@ -138,6 +166,8 @@ public enum PermissionCodeEnum {
     public static final String CODE_ROLE_LIST = "role:list";
     public static final String CODE_ROLE_PERMISSION_LIST = "role:permission:list";
     public static final String CODE_ROLE_UPDATE = "role:update";
+    public static final String CODE_TABLE_EXPORT = "table:export";
+    public static final String CODE_SALES_ORDER_ALL = "sales:order:*";
     public static final String CODE_SALES_ORDER_DETAIL = "sales:order:detail";
     public static final String CODE_SALES_ORDER_LIST = "sales:order:list";
     public static final String CODE_SALES_ORDER_STATUS = "sales:order:status";

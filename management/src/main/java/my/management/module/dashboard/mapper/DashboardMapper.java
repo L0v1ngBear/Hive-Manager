@@ -108,11 +108,12 @@ public interface DashboardMapper {
     List<DashboardPendingPrintRowVO> selectRecentPendingPrintOrders(@Param("tenantCode") String tenantCode,
                                                                     @Param("limit") Integer limit);
 
-    @Select("SELECT COUNT(1) FROM user u WHERE u.tenant_code = #{tenantCode} AND (u.status IS NULL OR u.status IN (1, 2))")
+    @Select("SELECT COUNT(1) FROM user u WHERE u.tenant_code = #{tenantCode} AND (u.status IS NULL OR u.status IN (1, 2)) AND COALESCE(u.attendance_required, 1) = 1")
     Long countAttendanceEmployees(@Param("tenantCode") String tenantCode);
 
     @Select({
             "SELECT COUNT(DISTINCT a.user_id) FROM attendance_record a ",
+            "INNER JOIN user u ON u.id = a.user_id AND u.tenant_code = a.tenant_code AND COALESCE(u.attendance_required, 1) = 1 ",
             "WHERE a.tenant_code = #{tenantCode} ",
             "AND a.punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
             "AND (a.sign_in_status IS NOT NULL OR a.sign_out_status IS NOT NULL)"
@@ -122,6 +123,7 @@ public interface DashboardMapper {
 
     @Select({
             "SELECT COUNT(DISTINCT a.user_id) FROM attendance_record a ",
+            "INNER JOIN user u ON u.id = a.user_id AND u.tenant_code = a.tenant_code AND COALESCE(u.attendance_required, 1) = 1 ",
             "WHERE a.tenant_code = #{tenantCode} ",
             "AND a.punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
             "AND (a.sign_in_status IN (1, 3, 6) OR a.sign_out_status IN (2, 3, 6))"
@@ -136,6 +138,7 @@ public interface DashboardMapper {
             "FROM attendance_record a ",
             "LEFT JOIN user u ON u.id = a.user_id AND u.tenant_code = a.tenant_code ",
             "WHERE a.tenant_code = #{tenantCode} ",
+            "AND COALESCE(u.attendance_required, 1) = 1 ",
             "AND a.punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
             "AND (a.sign_in_status IN (1, 3, 6) OR a.sign_out_status IN (2, 3, 6)) ",
             "ORDER BY a.update_time DESC, a.id DESC ",

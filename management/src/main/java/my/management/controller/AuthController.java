@@ -7,6 +7,8 @@ import my.hive.common.annotation.CollectLog;
 import my.hive.common.dto.Result;
 import my.management.module.auth.model.dto.InitialPasswordChangeRequest;
 import my.management.module.auth.model.dto.LoginRequest;
+import my.management.module.auth.model.dto.OrganizationJoinCodeSendRequest;
+import my.management.module.auth.model.dto.OrganizationJoinRequest;
 import my.management.module.auth.model.dto.PasswordResetCodeRequest;
 import my.management.module.auth.model.dto.PasswordResetRequest;
 import my.management.module.auth.model.dto.WebScanConfirmRequest;
@@ -48,6 +50,19 @@ public class AuthController {
     public Result<Void> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
         authService.resetPasswordBySmsCode(request);
         return Result.success(null);
+    }
+
+    @PostMapping("/join-organization/code")
+    @CollectLog(module = "auth", action = "organization_join_code", bizType = "account", description = "发送网页登录组织验证码", recordArgs = false, recordResult = false)
+    public Result<Void> sendOrganizationJoinCode(@Valid @RequestBody OrganizationJoinCodeSendRequest request) {
+        authService.sendOrganizationJoinCode(request);
+        return Result.success(null);
+    }
+
+    @PostMapping("/join-organization")
+    @CollectLog(module = "auth", action = "organization_join", bizType = "account", description = "网页登录加入组织", recordArgs = false, recordResult = false)
+    public Result<LoginVO> joinOrganization(@Valid @RequestBody OrganizationJoinRequest request) {
+        return Result.success(authService.joinOrganization(request));
     }
 
     @PostMapping("/initial-password")

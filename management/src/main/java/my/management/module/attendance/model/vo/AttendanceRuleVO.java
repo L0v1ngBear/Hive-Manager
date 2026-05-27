@@ -39,6 +39,8 @@ public class AttendanceRuleVO {
 
     private String address;
 
+    private List<AttendanceLocationVO> locations = new ArrayList<>();
+
     private Boolean enableWifi = Boolean.FALSE;
 
     private String wifiSsid;

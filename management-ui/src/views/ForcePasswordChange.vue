@@ -1,7 +1,7 @@
 <template>
-  <main class="min-h-screen overflow-hidden bg-[#fff8e8] text-slate-900">
+  <main class="min-h-screen overflow-hidden bg-[#f8fafc] text-slate-900">
     <section class="relative flex min-h-screen items-center justify-center px-4 py-10">
-      <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_10%,rgba(245,164,0,0.22),transparent_32%),linear-gradient(135deg,#fffdf7_0%,#fff4cf_45%,#f8fbff_100%)]"></div>
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_10%,rgba(31,63,95,0.18),transparent_32%),linear-gradient(135deg,#fbfcfe_0%,#eef4fb_45%,#f8fbff_100%)]"></div>
       <div class="absolute -left-16 top-20 h-56 w-56 rounded-full bg-primary/20 blur-3xl"></div>
       <div class="absolute -right-10 bottom-16 h-72 w-72 rounded-full bg-blue-300/20 blur-3xl"></div>
 
@@ -9,7 +9,7 @@
         <div class="grid gap-0 md:grid-cols-[0.9fr_1.1fr]">
           <aside class="flex flex-col justify-between bg-slate-950 p-8 text-white">
             <div>
-              <div class="mb-8 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-2xl font-black text-slate-950">H</div>
+              <div class="mb-8 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-2xl font-black text-white">H</div>
               <p class="text-sm font-bold uppercase tracking-[0.32em] text-primary">Security Check</p>
               <h1 class="mt-4 text-3xl font-black leading-tight">首次登录需要修改密码</h1>
               <p class="mt-4 text-sm leading-7 text-slate-300">

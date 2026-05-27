@@ -45,6 +45,7 @@
           </select>
           <TableColumnSettings
             :columns="documentTableColumns"
+            export-module="document"
             @move="moveDocumentTableColumn"
             @reset="resetDocumentTableColumns"
           />
@@ -68,7 +69,7 @@
             <span class="material-symbols-outlined text-3xl text-primary animate-spin">progress_activity</span>
           </div>
 
-          <table class="w-full text-left text-sm whitespace-nowrap">
+          <table class="responsive-data-table w-full text-left text-sm">
             <thead class="bg-surface-container-low text-on-surface-variant font-bold text-xs sticky top-0 z-10 shadow-sm">
               <tr>
                 <th
@@ -86,6 +87,7 @@
                 <td
                   v-for="column in documentTableColumns"
                   :key="column.key"
+                  :data-label="column.label"
                   class="px-4 py-3"
                   :class="documentCellClass(column.key)"
                 >

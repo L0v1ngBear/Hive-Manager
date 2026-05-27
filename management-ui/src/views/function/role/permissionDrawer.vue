@@ -183,7 +183,7 @@ defineExpose({open})
 
 <style scoped>
 :deep(.atelier-drawer) {
-  box-shadow: 0px 20px 40px rgba(245, 164, 0, 0.08) !important;
+  box-shadow: 0px 20px 40px rgba(15, 23, 42, 0.08) !important;
   background-color: #ffffff !important;
 }
 
@@ -196,7 +196,7 @@ defineExpose({open})
 }
 
 :deep(.atelier-tree-select.is-focus .el-select__wrapper) {
-  box-shadow: 0 0 0 1px #f5a400 inset !important;
+  box-shadow: 0 0 0 1px #1f3f5f inset !important;
 }
 
 :deep(.el-tree-node__content) {
@@ -211,8 +211,8 @@ defineExpose({open})
 
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner),
 :deep(.el-checkbox__input.is-indeterminate .el-checkbox__inner) {
-  background-color: #f5a400;
-  border-color: #f5a400;
+  background-color: #1f3f5f;
+  border-color: #1f3f5f;
 }
 
 .no-scrollbar::-webkit-scrollbar {

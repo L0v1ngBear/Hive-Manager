@@ -13,6 +13,7 @@
         <div class="flex flex-wrap items-center gap-3">
           <TableColumnSettings
             :columns="roleTableColumns"
+            export-module="role"
             @move="moveRoleTableColumn"
             @reset="resetRoleTableColumns"
           />
@@ -27,8 +28,8 @@
           <span class="material-symbols-outlined text-primary text-3xl animate-spin">progress_activity</span>
         </div>
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse min-w-[900px]">
+        <div class="responsive-table-wrap">
+          <table class="responsive-data-table w-full text-left border-collapse">
             <thead class="bg-surface-container-low/50">
               <tr>
                 <th
@@ -46,6 +47,7 @@
                 <td
                   v-for="column in roleTableColumns"
                   :key="column.key"
+                  :data-label="column.label"
                   class="px-6 py-4"
                   :class="column.key === 'createTime' ? 'text-sm text-on-surface-variant' : ''"
                 >
@@ -63,7 +65,7 @@
                   </template>
                   <template v-else-if="column.key === 'createTime'">{{ formatTime(role.createTime) }}</template>
                 </td>
-                <td class="px-6 py-4 text-right">
+                <td class="px-6 py-4 text-right" data-label="操作">
                   <button v-permission="'role:update'" @click="openPermission(role)" class="text-primary hover:bg-primary/10 px-4 py-2 rounded-lg text-sm font-bold transition-colors">配置权限</button>
                 </td>
               </tr>

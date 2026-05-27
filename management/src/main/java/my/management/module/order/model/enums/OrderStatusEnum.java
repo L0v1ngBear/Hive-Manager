@@ -11,6 +11,8 @@ public enum OrderStatusEnum {
     PENDING_CONFIRM("pending_confirm"),
     PENDING_PAY("pending_pay"),
     PENDING_MATERIAL("pending_material"),
+    BUDGETING("budgeting"),
+    BUDGET_COMPLETED("budget_completed"),
     PENDING_SHIP("pending_ship"),
     SHIPPED("shipped"),
     COMPLETED("completed"),

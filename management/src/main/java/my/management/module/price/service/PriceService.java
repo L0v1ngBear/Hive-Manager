@@ -62,6 +62,7 @@ public class PriceService {
 
     private static final int PRICE_IMPORT_COLUMN_COUNT = 7;
     private static final int MAX_PRICE_IMPORT_ROWS = 10000;
+    private static final int MAX_PRICE_EXPORT_ROWS = 10000;
     private static final long MAX_IMPORT_FILE_SIZE_BYTES = 20L * 1024L * 1024L;
     private static final int MAX_MODEL_CODE_LENGTH = 128;
     private static final int MAX_BATCH_NO_LENGTH = 64;
@@ -218,7 +219,9 @@ public class PriceService {
 
     public void exportExcel(PricePageRequest request, HttpServletResponse response) {
         List<String> headers = List.of("面料型号", "批号", "规格", "基准价", "币种", "生效日期", "状态", "备注");
-        List<List<String>> rows = priceSkuMapper.selectList(buildQueryWrapper(request)).stream()
+        LambdaQueryWrapper<PriceSku> wrapper = buildQueryWrapper(request);
+        ensureExportRowLimit(priceSkuMapper.selectCount(wrapper), MAX_PRICE_EXPORT_ROWS);
+        List<List<String>> rows = priceSkuMapper.selectList(wrapper.last("LIMIT " + MAX_PRICE_EXPORT_ROWS)).stream()
                 .map(this::toSkuVO)
                 .map(item -> List.of(
                         excelUtil.stringify(item.getModelCode()),
@@ -236,6 +239,13 @@ public class PriceService {
                 headers,
                 rows,
                 "价格列表.xlsx");
+    }
+
+    private void ensureExportRowLimit(Long total, int maxRows) {
+        long safeTotal = total == null ? 0L : total;
+        if (safeTotal > maxRows) {
+            throw new BusinessException("导出数据超过 " + maxRows + " 行，请缩小筛选范围后重试");
+        }
     }
 
     public void downloadImportTemplate(HttpServletResponse response) {

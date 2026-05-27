@@ -18,6 +18,13 @@
             <span class="material-symbols-outlined text-[20px]">account_tree</span>组织架构
           </button>
           <button
+              v-permission="'employee:create'"
+              @click="handleCreateJoinCode"
+              class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
+          >
+            <span class="material-symbols-outlined text-[20px]">vpn_key</span>组织码
+          </button>
+          <button
               v-permission="'employee:export'"
               @click="handleTemplateDownload"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
@@ -130,19 +137,17 @@
               <option value="PROBATION">试用期</option>
               <option value="CONTRACT">合同工</option>
             </select>
-            <input
+            <DateFilterInput
                 v-model="query.entryDateStart"
-                type="date"
-                @change="handleFilterChange"
+                placeholder="入职开始"
                 class="px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
-                title="入职开始日期"
+                @change="handleFilterChange"
             />
-            <input
+            <DateFilterInput
                 v-model="query.entryDateEnd"
-                type="date"
-                @change="handleFilterChange"
+                placeholder="入职结束"
                 class="px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
-                title="入职结束日期"
+                @change="handleFilterChange"
             />
             <button
                 @click="fetchEmployees"
@@ -158,18 +163,19 @@
             </button>
             <TableColumnSettings
                 :columns="visibleEmployeeColumns"
+                :exportable="false"
                 @move="moveEmployeeTableColumn"
                 @reset="resetEmployeeTableColumns"
             />
           </div>
         </div>
 
-        <div class="employee-table-wrap relative min-h-[240px] overflow-x-hidden">
+        <div class="employee-table-wrap responsive-table-wrap relative min-h-[240px]">
           <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
             <span class="material-symbols-outlined text-3xl text-primary animate-spin">progress_activity</span>
           </div>
 
-          <table class="employee-table w-full table-fixed text-left border-collapse">
+          <table class="employee-table responsive-data-table w-full text-left border-collapse">
             <colgroup>
               <col v-for="field in visibleEmployeeColumns" :key="field.key" :style="employeeColumnStyle(field.key)" />
               <col style="width: 92px" />
@@ -191,6 +197,7 @@
               <td
                   v-for="field in visibleEmployeeColumns"
                   :key="field.key"
+                  :data-label="field.label"
                   :class="employeeCellClass(field.key)"
               >
                 <template v-if="field.key === 'name'">
@@ -204,6 +211,19 @@
                     {{ emp.departmentName || '--' }}
                   </span>
                 </template>
+                <template v-else-if="field.key === 'attendanceRequired'">
+                  <span
+                      class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-black"
+                      :class="Number(emp.attendanceRequired ?? 1) === 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+                  >
+                    {{ Number(emp.attendanceRequired ?? 1) === 1 ? '需要打卡' : '免打卡' }}
+                  </span>
+                </template>
+                <template v-else-if="field.key === 'attendanceLocationNames'">
+                  <span class="employee-cell-text">
+                    {{ Array.isArray(emp.attendanceLocationNames) && emp.attendanceLocationNames.length ? emp.attendanceLocationNames.join('、') : '全部地点' }}
+                  </span>
+                </template>
                 <template v-else-if="field.key === 'status'">
                   <div :class="`flex items-center gap-1.5 font-bold text-xs ${statusMeta(emp.status).text}`">
                     <span :class="`w-1.5 h-1.5 rounded-full ${statusMeta(emp.status).dot}`"></span>
@@ -214,7 +234,7 @@
                   <span class="employee-cell-text">{{ employeeColumnText(emp, field.key) }}</span>
                 </template>
               </td>
-              <td class="px-3 py-3 text-center">
+              <td class="px-3 py-3 text-center" data-label="操作">
                 <div class="flex justify-center gap-1 opacity-100">
                   <button @click.stop="showEmployeeDetail(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="查看">
                     <span class="material-symbols-outlined text-[18px]">visibility</span>
@@ -337,7 +357,7 @@
                       <p v-if="!node.$$data?.isVirtualRoot" class="org-chart-meta">
                         {{ node.$$data?.departmentName || '未分配部门' }} · {{ node.$$data?.positionName || '未设置职位' }}
                       </p>
-                      <p v-else class="org-chart-meta">按 manager_id 自动生成上下级关系</p>
+                      <p v-else class="org-chart-meta">按直属负责人关系生成组织架构</p>
                     </div>
                     <span v-if="!node.$$data?.isVirtualRoot" :class="['org-chart-status', Number(node.$$data?.status) === 1 ? 'enabled' : 'disabled']">
                       {{ employeeStatusLabel(node.$$data?.status) }}
@@ -349,7 +369,7 @@
             <div v-else class="flex min-h-[360px] flex-col items-center justify-center rounded-2xl bg-surface-container-low text-center">
               <span class="material-symbols-outlined text-5xl text-primary">account_tree</span>
               <p class="mt-3 text-sm font-bold text-on-surface">暂无上下级关系</p>
-              <p class="mt-1 text-xs text-on-surface-variant">还没有员工数据或 manager_id 尚未维护。</p>
+              <p class="mt-1 text-xs text-on-surface-variant">还没有员工数据或直属负责人关系尚未维护。</p>
             </div>
           </div>
         </div>
@@ -373,10 +393,12 @@ import {
   visibleTenantFields
 } from '@/utils/tenantFieldConfig'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import DateFilterInput from '@/components/DateFilterInput.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import EmployeeCreate from './employeeCreate.vue'
 import {
   downloadEmployeeImportTemplate,
+  createOrganizationJoinCode,
   exportEmployeesExcel,
   getEmployeeDetail,
   getEmployeeFormOptions,
@@ -425,7 +447,7 @@ const query = reactive({
 const totalPages = computed(() => Math.max(pagination.pages || 1, 1))
 const pageStart = computed(() => (pagination.total === 0 ? 0 : (query.page - 1) * query.size + 1))
 const pageEnd = computed(() => Math.min(query.page * query.size, pagination.total || 0))
-const employeeColumnRenderers = new Set(['name', 'empNo', 'departmentName', 'positionName', 'phone', 'email', 'leaderName', 'entryDate', 'status'])
+const employeeColumnRenderers = new Set(['name', 'empNo', 'departmentName', 'positionName', 'phone', 'email', 'leaderName', 'entryDate', 'attendanceRequired', 'attendanceLocationNames', 'status'])
 const defaultEmployeeColumns = computed(() => visibleTenantFields(employeeFieldConfig.value, 'name').filter((field) => employeeColumnRenderers.has(field.key)))
 const {
   orderedColumns: visibleEmployeeColumns,
@@ -442,6 +464,8 @@ const employeeColumnWidths = {
   email: '150px',
   leaderName: '112px',
   entryDate: '106px',
+  attendanceRequired: '96px',
+  attendanceLocationNames: '140px',
   status: '82px'
 }
 
@@ -586,6 +610,8 @@ const employeeColumnText = (emp, key) => {
   if (key === 'email') return emp.email || '--'
   if (key === 'leaderName') return emp.leaderName || '--'
   if (key === 'entryDate') return emp.entryDate || '--'
+  if (key === 'attendanceRequired') return Number(emp.attendanceRequired ?? 1) === 1 ? '需要打卡' : '免打卡'
+  if (key === 'attendanceLocationNames') return Array.isArray(emp.attendanceLocationNames) && emp.attendanceLocationNames.length ? emp.attendanceLocationNames.join('、') : '全部地点'
   if (key === 'employeeType') return formatEmployeeType(emp.employeeType)
   if (key === 'remark') return emp.remark || '--'
   return emp[key] || '--'
@@ -667,6 +693,17 @@ const employeeHierarchyHasChildren = (employeeId, nodes) => {
 const handleExport = async () => {
   const blob = await exportEmployeesExcel(normalizeQuery())
   downloadBlob(blob, `员工列表-${Date.now()}.xlsx`)
+}
+
+const handleCreateJoinCode = async () => {
+  const data = await createOrganizationJoinCode()
+  const code = data?.organizationCode || ''
+  const expiresInMinutes = Math.ceil(Number(data?.expiresInSeconds || 900) / 60)
+  await ElMessageBox.alert(
+    `组织码：${code}\n有效期：${expiresInMinutes} 分钟\n\n员工在小程序或网页登录页加入组织时，需要填写姓名和该组织码。`,
+    '组织加入码',
+    { confirmButtonText: '知道了' }
+  )
 }
 
 const handleTemplateDownload = async () => {
@@ -803,8 +840,8 @@ watch(
 }
 
 .org-stat-card.warning {
-  border-color: rgba(245, 158, 11, .22);
-  background: rgba(255, 251, 235, .9);
+  border-color: rgba(31, 63, 95, .20);
+  background: rgba(238, 244, 251, .9);
 }
 
 .org-tree-panel {

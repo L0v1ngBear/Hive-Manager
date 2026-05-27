@@ -52,6 +52,7 @@
           <div class="flex flex-wrap items-center gap-3">
             <TableColumnSettings
               :columns="inventoryDetailTableColumns"
+              export-module="inventory"
               @move="moveInventoryDetailTableColumn"
               @reset="resetInventoryDetailTableColumns"
             />
@@ -61,12 +62,12 @@
           </div>
         </div>
 
-        <div class="relative overflow-x-auto">
+        <div class="responsive-table-wrap relative">
           <div v-if="loading" class="absolute inset-0 z-10 flex min-h-[360px] flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-[2px]">
             <span class="material-symbols-outlined animate-spin text-4xl text-blue-600">progress_activity</span>
             <span class="text-sm font-medium text-blue-600">正在加载单匹布明细...</span>
           </div>
-          <table class="w-full min-w-[1080px] border-collapse text-left">
+          <table class="responsive-data-table w-full border-collapse text-left">
             <thead class="bg-slate-50/80">
               <tr>
                 <th
@@ -81,10 +82,16 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
-              <tr v-for="cloth in detailRows" :key="cloth.id || cloth.barcode" class="hover:bg-blue-50/40">
+              <tr
+                v-for="cloth in detailRows"
+                :key="cloth.id || cloth.barcode"
+                class="cursor-pointer hover:bg-blue-50/40"
+                @click="openClothDetail(cloth)"
+              >
                 <td
                   v-for="column in inventoryDetailTableColumns"
                   :key="column.key"
+                  :data-label="column.label"
                   class="px-6 py-4"
                   :class="inventoryDetailCellClass(column.key)"
                 >
@@ -112,10 +119,16 @@
                     </div>
                   </template>
                 </td>
-                <td class="px-6 py-4 text-right">
+                <td class="px-6 py-4 text-right" data-label="操作">
+                  <button
+                    @click.stop="openClothDetail(cloth)"
+                    class="mr-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100"
+                  >
+                    详情
+                  </button>
                   <button
                     v-permission="'inventory:cloth:out'"
-                    @click="openOutDrawer(cloth)"
+                    @click.stop="openOutDrawer(cloth)"
                     :disabled="Number(cloth.remainingMeters || 0) <= 0"
                     class="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -136,6 +149,9 @@
 
     <transition name="fade">
       <div v-if="outVisible" class="fixed inset-0 z-[90] bg-slate-900/40 backdrop-blur-sm transition-opacity" @click="outVisible = false"></div>
+    </transition>
+    <transition name="fade">
+      <div v-if="detailVisible" class="fixed inset-0 z-[90] bg-slate-900/40 backdrop-blur-sm transition-opacity" @click="closeClothDetail"></div>
     </transition>
 
     <aside class="inventory-drawer" :class="outVisible ? 'translate-x-0' : 'translate-x-full'">
@@ -182,6 +198,95 @@
         <button @click="submitOut" class="inventory-confirm-btn bg-slate-800 text-white shadow-slate-800/20 hover:bg-slate-900">确认出库</button>
       </div>
     </aside>
+
+    <aside class="inventory-drawer inventory-detail-drawer" :class="detailVisible ? 'translate-x-0' : 'translate-x-full'">
+      <div class="h-1.5 w-full bg-slate-800"></div>
+      <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
+        <div>
+          <h3 class="flex items-center gap-2 text-xl font-black text-slate-900">
+            <span class="material-symbols-outlined text-slate-700">receipt_long</span>
+            单匹布详情
+          </h3>
+          <p class="mt-1.5 break-all text-xs text-slate-500">{{ currentCloth.barcode || '正在加载布匹条码...' }}</p>
+        </div>
+        <button @click="closeClothDetail" class="inventory-close-btn">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6">
+        <div v-if="detailLoading" class="flex min-h-[320px] flex-col items-center justify-center gap-3 text-blue-600">
+          <span class="material-symbols-outlined animate-spin text-4xl">progress_activity</span>
+          <span class="text-sm font-bold">正在加载单匹详情...</span>
+        </div>
+        <template v-else>
+          <section class="inventory-detail-card">
+            <div class="inventory-detail-card-head">
+              <div>
+                <p class="inventory-field-label mb-1">条码</p>
+                <h4 class="break-all font-mono text-lg font-black text-slate-900">{{ currentCloth.barcode || '--' }}</h4>
+              </div>
+              <span :class="statusClass(currentCloth.status)" class="inline-flex rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wider">
+                {{ currentCloth.statusName || statusLabel(currentCloth.status) }}
+              </span>
+            </div>
+            <div class="inventory-detail-grid">
+              <p><span>型号</span><b>{{ currentCloth.modelCode || '--' }}</b></p>
+              <p><span>规格</span><b>{{ meter(currentCloth.spec) }}</b></p>
+              <p><span>总米数</span><b>{{ meter(currentCloth.totalMeters) }}</b></p>
+              <p><span>剩余米数</span><b class="text-blue-600">{{ meter(currentCloth.remainingMeters) }}</b></p>
+              <p><span>入库方式</span><b>{{ currentCloth.inType || '--' }}</b></p>
+              <p><span>入库时间</span><b>{{ formatDateTime(currentCloth.inTime) }}</b></p>
+              <p><span>最近更新</span><b>{{ formatDateTime(currentCloth.updateTime) }}</b></p>
+              <p><span>出库时间</span><b>{{ formatDateTime(currentCloth.outTime) }}</b></p>
+            </div>
+            <div v-if="customInventoryFields.length" class="mt-4 flex flex-wrap gap-2">
+              <span
+                v-for="field in customInventoryFields"
+                :key="`detail-${field.key}`"
+                class="rounded-lg bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-500"
+              >
+                {{ field.label }}：{{ customFieldValue(currentCloth, field) }}
+              </span>
+            </div>
+          </section>
+
+          <section class="mt-5">
+            <div class="mb-3 flex items-center justify-between">
+              <h4 class="text-base font-black text-slate-900">出入库流水</h4>
+              <span class="rounded-lg bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-500">
+                {{ currentRecords.length }} 条
+              </span>
+            </div>
+            <div v-if="currentRecords.length" class="inventory-record-timeline">
+              <article
+                v-for="record in currentRecords"
+                :key="record.id"
+                class="inventory-record-item"
+                :class="recordOperateClass(record.operateType)"
+              >
+                <div class="inventory-record-icon">
+                  <span class="material-symbols-outlined text-[18px]">{{ recordOperateIcon(record.operateType) }}</span>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <strong>{{ record.operateTypeName || recordOperateLabel(record.operateType) }}</strong>
+                    <span class="text-xs text-slate-400">{{ formatDateTime(record.createTime) }}</span>
+                  </div>
+                  <p class="mt-1 text-sm text-slate-600">
+                    本次 {{ meter(record.operateMeters) }} 米，操作后剩余 {{ meter(record.remainingMeters) }} 米
+                  </p>
+                  <p class="mt-1 text-xs text-slate-400">操作人：{{ record.operatorName || '系统' }}</p>
+                </div>
+              </article>
+            </div>
+            <div v-else class="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-8 text-center text-sm font-bold text-slate-400">
+              暂无出入库流水
+            </div>
+          </section>
+        </template>
+      </div>
+    </aside>
   </div>
 </template>
 
@@ -191,7 +296,7 @@ import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { getCurrentTenantFieldConfig } from '@/api/tenantFieldConfig'
 import { customTenantFields, defaultTenantFieldConfig, mergeTenantFieldConfig } from '@/utils/tenantFieldConfig'
-import { getInventoryModelDetail, outCloth } from './api/inventory.js'
+import { getInventoryClothDetail, getInventoryModelDetail, outCloth } from './api/inventory.js'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 
@@ -205,7 +310,10 @@ const timeOrder = ref(route.query.timeOrder === 'lifo' ? 'lifo' : 'fifo')
 const detailRows = ref([])
 const loading = ref(false)
 const outVisible = ref(false)
+const detailVisible = ref(false)
+const detailLoading = ref(false)
 const outPreview = ref(null)
+const clothDetail = ref(null)
 const outForm = reactive({ barcode: '', meters: '' })
 const inventoryFieldConfig = ref(defaultTenantFieldConfig('inventory'))
 const customInventoryFields = computed(() => customTenantFields(inventoryFieldConfig.value))
@@ -232,6 +340,8 @@ const inventoryDetailTableColumnCount = computed(() => inventoryDetailTableColum
 const summaryRemainingMeters = computed(() => detailRows.value.reduce((sum, item) => sum + Number(item.remainingMeters || 0), 0))
 const statusFilterLabel = computed(() => status.value === undefined ? '全部状态' : statusLabel(status.value))
 const timeOrderLabel = computed(() => timeOrder.value === 'lifo' ? '先进后出' : '先进先出')
+const currentCloth = computed(() => clothDetail.value?.cloth || {})
+const currentRecords = computed(() => Array.isArray(clothDetail.value?.records) ? clothDetail.value.records : [])
 
 fetchFieldConfig()
 fetchDetail()
@@ -267,6 +377,24 @@ function openOutDrawer(record) {
   Object.assign(outForm, { barcode: record?.barcode || '', meters: record?.remainingMeters ? String(record.remainingMeters) : '' })
   outPreview.value = record || null
   outVisible.value = true
+}
+
+async function openClothDetail(record) {
+  if (!record?.id && !record?.barcode) {
+    ElMessage.warning('缺少单匹布标识，无法查看详情')
+    return
+  }
+  detailVisible.value = true
+  detailLoading.value = true
+  try {
+    clothDetail.value = await getInventoryClothDetail({ id: record.id, barcode: record.barcode })
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+function closeClothDetail() {
+  detailVisible.value = false
 }
 
 async function submitOut() {
@@ -310,6 +438,25 @@ function statusClass(value) {
   if (Number(value) === 1) return 'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200/60'
   if (Number(value) === 2) return 'bg-amber-50 text-amber-600 ring-1 ring-inset ring-amber-200/60'
   return 'bg-emerald-50 text-emerald-600 ring-1 ring-inset ring-emerald-200/60'
+}
+
+function recordOperateLabel(value) {
+  if (Number(value) === 0) return '入库'
+  if (Number(value) === 1) return '出库'
+  if (Number(value) === 2) return '外部导入'
+  return '库存操作'
+}
+
+function recordOperateIcon(value) {
+  if (Number(value) === 1) return 'move_to_inbox'
+  if (Number(value) === 2) return 'upload_file'
+  return 'inventory'
+}
+
+function recordOperateClass(value) {
+  if (Number(value) === 1) return 'is-out'
+  if (Number(value) === 2) return 'is-import'
+  return 'is-in'
 }
 
 function formatDateTime(value) {
@@ -401,6 +548,10 @@ function meter(value) {
   .inventory-drawer {
     width: 420px;
   }
+
+  .inventory-detail-drawer {
+    width: min(560px, 92vw);
+  }
 }
 
 .inventory-close-btn {
@@ -470,5 +621,87 @@ function meter(value) {
 
 .inventory-confirm-btn:active {
   transform: scale(0.95);
+}
+
+.inventory-detail-card {
+  border-radius: 1rem;
+  border: 1px solid rgb(226 232 240);
+  background: linear-gradient(135deg, rgb(248 250 252), #fff);
+  padding: 1rem;
+}
+
+.inventory-detail-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgb(226 232 240 / 0.7);
+  padding-bottom: 1rem;
+}
+
+.inventory-detail-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.inventory-detail-grid p {
+  border-radius: .85rem;
+  background: rgb(255 255 255 / .86);
+  padding: .75rem;
+}
+
+.inventory-detail-grid span {
+  display: block;
+  font-size: .72rem;
+  font-weight: 800;
+  color: rgb(100 116 139);
+}
+
+.inventory-detail-grid b {
+  margin-top: .25rem;
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgb(15 23 42);
+}
+
+.inventory-record-timeline {
+  display: grid;
+  gap: .75rem;
+}
+
+.inventory-record-item {
+  display: flex;
+  gap: .85rem;
+  border-radius: 1rem;
+  border: 1px solid rgb(226 232 240);
+  background: #fff;
+  padding: .9rem;
+}
+
+.inventory-record-icon {
+  display: inline-flex;
+  height: 2.4rem;
+  width: 2.4rem;
+  flex: 0 0 2.4rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: .85rem;
+  background: rgb(239 246 255);
+  color: rgb(37 99 235);
+}
+
+.inventory-record-item.is-out .inventory-record-icon {
+  background: rgb(236 253 245);
+  color: rgb(5 150 105);
+}
+
+.inventory-record-item.is-import .inventory-record-icon {
+  background: rgb(245 243 255);
+  color: rgb(109 40 217);
 }
 </style>

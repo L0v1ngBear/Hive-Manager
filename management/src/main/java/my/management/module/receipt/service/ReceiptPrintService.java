@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
+import my.hive.common.context.OperationLogSkipContext;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
 import my.hive.common.print.PrintTaskService;
@@ -127,6 +128,20 @@ public class ReceiptPrintService {
                 .last("LIMIT 1"));
         if (order == null) {
             throw new BusinessException("出库单不存在或不是待打印状态");
+        }
+
+        if (Boolean.TRUE.equals(request.getTimeCorrectionOnly())) {
+            LocalDate printDate = request.getPrintDate();
+            if (printDate == null) {
+                throw new BusinessException("录单日期不能为空");
+            }
+            if (printDate.isAfter(LocalDate.now())) {
+                throw new BusinessException("录单日期不能晚于当前日期");
+            }
+            order.setPrintDate(printDate);
+            outboundOrderMapper.updateById(order);
+            OperationLogSkipContext.skipCurrent();
+            return detail(order.getOrderNo());
         }
 
         OutboundPrintDetailVO before = detail(order.getOrderNo());

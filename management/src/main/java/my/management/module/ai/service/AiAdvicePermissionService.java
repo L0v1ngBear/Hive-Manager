@@ -60,7 +60,7 @@ public class AiAdvicePermissionService {
 
     public void requireAnyView() {
         if (!canViewAny()) {
-            throw new BusinessException(403, "您没有权限查看 AI 建议");
+            throw new BusinessException(403, "您没有权限查看经营建议");
         }
     }
 

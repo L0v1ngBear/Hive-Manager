@@ -14,6 +14,12 @@
         </div>
         <div class="flex items-center gap-3">
           <button
+            @click="openDefaultAuditorDialog"
+            class="function-action-secondary"
+          >
+            <span class="material-symbols-outlined text-[18px]">manage_accounts</span>审批负责人
+          </button>
+          <button
             @click="refreshAll"
             class="function-action-secondary"
           >
@@ -21,14 +27,14 @@
           </button>
           <button
             v-if="activeTab === 'finance'"
-            @click="financeDialogVisible = true"
+            @click="openFinanceDialog"
             class="function-action-primary"
           >
             <span class="material-symbols-outlined text-[18px]">add_circle</span>新建财务审批
           </button>
           <button
             v-if="activeTab === 'resignation'"
-            @click="resignationDialogVisible = true"
+            @click="openResignationDialog"
             class="function-action-primary"
           >
             <span class="material-symbols-outlined text-[18px]">person_remove</span>新建离职申请
@@ -129,26 +135,27 @@
             <p class="text-xs font-bold text-on-surface-variant">列表已按“与我相关”自动过滤</p>
             <TableColumnSettings
               :columns="approvalTableColumns"
+              :export-module="approvalExportModule"
               @move="moveApprovalTableColumn"
               @reset="resetApprovalTableColumns"
             />
           </div>
         </div>
 
-        <div class="overflow-x-auto relative min-h-[300px]">
+        <div class="responsive-table-wrap relative min-h-[300px]">
           <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
             <span class="material-symbols-outlined text-primary text-4xl animate-spin">progress_activity</span>
             <span class="text-xs font-bold text-primary mt-2">加载数据中...</span>
           </div>
 
-          <table class="w-full text-left border-collapse min-w-[1080px]">
+          <table class="responsive-data-table w-full text-left border-collapse">
             <thead class="bg-surface-container-low/30 border-b border-surface-variant/40">
               <tr>
                 <th
                   v-for="column in approvalTableColumns"
                   :key="column.key"
                   class="px-5 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-widest whitespace-nowrap"
-                  :class="column.key === 'summary' ? 'min-w-[220px]' : ''"
+                  :class="column.key === 'summary' ? 'approval-summary-column' : ''"
                 >
                   {{ column.label }}
                 </th>
@@ -160,6 +167,7 @@
                 <td
                   v-for="column in approvalTableColumns"
                   :key="column.key"
+                  :data-label="column.label"
                   class="px-5 py-3.5"
                   :class="column.key === 'createTime' ? 'text-xs font-medium text-on-surface-variant' : ''"
                 >
@@ -195,7 +203,7 @@
                   </template>
                   <template v-else-if="column.key === 'createTime'">{{ formatTime(item.createTime) }}</template>
                 </td>
-                <td class="px-5 py-3.5 text-right space-x-2">
+                <td class="px-5 py-3.5 text-right space-x-2" data-label="操作">
                   <button @click.stop="openDetail(item)" class="text-on-surface-variant hover:text-primary hover:bg-primary/10 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors">详情</button>
                   <template v-if="item.status === 1 && item.canAudit">
                     <button @click.stop="quickAudit(item, 1)" class="text-white bg-primary hover:bg-primary/90 shadow-sm shadow-primary/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95">通过</button>
@@ -303,6 +311,51 @@
       </div>
     </el-dialog>
 
+    <el-dialog v-model="defaultAuditorDialogVisible" title="审批负责人设置" width="720px" class="atelier-dialog" destroy-on-close>
+      <div class="space-y-4 py-2">
+        <div class="rounded-2xl bg-primary/5 p-4 text-sm leading-relaxed text-on-surface-variant">
+          各审批类型可以设置一名默认负责人。员工提交审批时如未手动指定审批人，系统会自动流转给对应默认负责人；手动指定时优先按指定人流转。
+        </div>
+        <div v-if="defaultAuditorLoading" class="flex items-center justify-center py-10 text-sm font-bold text-primary">
+          <span class="material-symbols-outlined mr-2 animate-spin">progress_activity</span>
+          正在读取负责人配置...
+        </div>
+        <div v-else class="space-y-3">
+          <div
+            v-for="row in defaultAuditorRows"
+            :key="row.approvalType"
+            class="grid grid-cols-[150px_minmax(0,1fr)_120px] items-center gap-3 rounded-2xl bg-surface-container-lowest p-4 ring-1 ring-outline-variant/20"
+          >
+            <div>
+              <p class="text-sm font-black text-on-surface">{{ row.approvalTypeText }}</p>
+              <p class="mt-1 text-[11px] text-on-surface-variant">{{ row.configured ? `当前：${row.auditorName || '未命名'}` : '暂未配置' }}</p>
+            </div>
+            <select
+              v-model="row.auditorId"
+              class="h-11 w-full rounded-xl bg-surface-container-low px-4 text-sm outline-none ring-1 ring-outline-variant/30 focus:ring-2 focus:ring-primary/40"
+            >
+              <option value="">请选择负责人</option>
+              <option
+                v-for="item in defaultAuditorOptions[row.approvalType] || []"
+                :key="item.id"
+                :value="String(item.id)"
+              >
+                {{ formatAuditorOption(item) }}
+              </option>
+            </select>
+            <button
+              type="button"
+              class="h-11 rounded-xl bg-primary px-4 text-sm font-bold text-white shadow-sm shadow-primary/20 disabled:opacity-60"
+              :disabled="defaultAuditorSaving[row.approvalType]"
+              @click="saveDefaultAuditorRow(row)"
+            >
+              {{ defaultAuditorSaving[row.approvalType] ? '保存中' : '保存' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
+
     <el-dialog v-model="financeDialogVisible" title="新建财务审批" width="560px" class="atelier-dialog" destroy-on-close>
       <div class="space-y-4 py-2">
         <div class="space-y-1.5">
@@ -312,6 +365,19 @@
         <div class="space-y-1.5">
           <label class="text-xs font-bold text-on-surface-variant pl-1">申请金额（元）</label>
           <input v-model.trim="financeForm.amount" type="number" class="w-full h-11 px-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm font-mono" placeholder="0.00" />
+        </div>
+        <div class="space-y-1.5">
+          <label class="text-xs font-bold text-on-surface-variant pl-1">审批负责人（可手动指定）</label>
+          <select
+            v-model="financeForm.auditorId"
+            class="w-full h-11 px-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm"
+            :disabled="auditorLoading.finance"
+          >
+            <option value="">{{ auditorLoading.finance ? '审批人加载中...' : '请选择审批人' }}</option>
+            <option v-for="item in auditorOptions.finance" :key="item.id" :value="String(item.id)">
+              {{ formatAuditorOption(item) }}
+            </option>
+          </select>
         </div>
         <div class="space-y-1.5">
           <label class="text-xs font-bold text-on-surface-variant pl-1">详细事由</label>
@@ -361,6 +427,19 @@
           <input v-model.trim="resignationForm.expectedLeaveDate" type="date" class="w-full h-11 px-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm" />
         </div>
         <div class="space-y-1.5">
+          <label class="text-xs font-bold text-on-surface-variant pl-1">审批负责人（可手动指定）</label>
+          <select
+            v-model="resignationForm.auditorId"
+            class="w-full h-11 px-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm"
+            :disabled="auditorLoading.resignation"
+          >
+            <option value="">{{ auditorLoading.resignation ? '审批人加载中...' : '请选择审批人' }}</option>
+            <option v-for="item in auditorOptions.resignation" :key="item.id" :value="String(item.id)">
+              {{ formatAuditorOption(item) }}
+            </option>
+          </select>
+        </div>
+        <div class="space-y-1.5">
           <label class="text-xs font-bold text-on-surface-variant pl-1">离职原因</label>
           <textarea v-model.trim="resignationForm.reason" class="w-full min-h-[110px] p-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm leading-relaxed" placeholder="请说明离职原因..." />
         </div>
@@ -398,10 +477,13 @@ import {
   getLeaveApprovalDetail,
   getOrderApprovalDetail,
   getResignationApprovalDetail,
+  listApprovalAuditors,
+  listApprovalDefaultAuditors,
   listOrderApprovals,
   listFinanceApprovals,
   listLeaveApprovals,
   listResignationApprovals,
+  saveApprovalDefaultAuditor,
   submitResignationApproval,
   submitFinanceApproval,
   uploadFinanceApprovalAttachment
@@ -410,10 +492,10 @@ import {
 const userStore = useUserStore()
 
 const tabs = [
-  { label: '请假审批', value: 'leave' },
+  { label: '订单审批', value: 'order' },
   { label: '财务审批', value: 'finance' },
-  { label: '离职审批', value: 'resignation' },
-  { label: '订单审批', value: 'order' }
+  { label: '请假审批', value: 'leave' },
+  { label: '离职审批', value: 'resignation' }
 ]
 const defaultApprovalTableColumns = [
   { key: 'code', label: '单号' },
@@ -431,7 +513,8 @@ const {
 } = useLocalTableColumns('approval.center.list', defaultApprovalTableColumns)
 const approvalTableColumnCount = computed(() => approvalTableColumns.value.length + 1)
 
-const activeTab = ref('leave')
+const activeTab = ref('order')
+const approvalExportModule = computed(() => `approval-${activeTab.value}`)
 const loading = ref(false)
 const rows = ref([])
 const filters = reactive({ keyword: '', status: '' })
@@ -447,6 +530,7 @@ const financeForm = reactive({
   category: '',
   amount: '',
   reason: '',
+  auditorId: '',
   attachmentName: '',
   attachmentUrl: '',
   attachmentSize: null
@@ -454,8 +538,22 @@ const financeForm = reactive({
 const resignationForm = reactive({
   expectedLeaveDate: '',
   reason: '',
-  handoverNote: ''
+  handoverNote: '',
+  auditorId: ''
 })
+const auditorOptions = reactive({
+  finance: [],
+  resignation: []
+})
+const auditorLoading = reactive({
+  finance: false,
+  resignation: false
+})
+const defaultAuditorDialogVisible = ref(false)
+const defaultAuditorLoading = ref(false)
+const defaultAuditorRows = ref([])
+const defaultAuditorOptions = reactive({})
+const defaultAuditorSaving = reactive({})
 const approvalSummary = ref({
   leavePending: 0,
   financePending: 0,
@@ -476,6 +574,79 @@ const canAuditApproval = (item) => {
   if (!userId || Number(item?.status) !== 1) return false
   if (Number(item?.auditorId) === userId) return true
   return parseAuditorIds(item?.auditorIds).includes(userId)
+}
+
+const formatAuditorOption = (item = {}) => {
+  const profile = [item.departmentName, item.positionName].filter(Boolean).join(' / ')
+  const suffix = item.defaultAuditor ? ' · 默认' : ''
+  return profile ? `${item.name || '未命名'}（${profile}）${suffix}` : `${item.name || '未命名'}${suffix}`
+}
+
+const defaultTypeToApiType = (type) => {
+  if (type === 'ORDER') return 'order'
+  if (type === 'FINANCE') return 'finance'
+  if (type === 'LEAVE') return 'leave'
+  if (type === 'RESIGNATION') return 'resignation'
+  return String(type || '').toLowerCase()
+}
+
+const loadDefaultAuditorOptions = async (approvalType) => {
+  const data = await listApprovalAuditors({ type: defaultTypeToApiType(approvalType), limit: 80 })
+  defaultAuditorOptions[approvalType] = Array.isArray(data) ? data : []
+}
+
+const loadDefaultAuditors = async () => {
+  defaultAuditorLoading.value = true
+  try {
+    const rows = await listApprovalDefaultAuditors()
+    defaultAuditorRows.value = (Array.isArray(rows) ? rows : []).map((row) => ({
+      ...row,
+      auditorId: row.auditorId ? String(row.auditorId) : ''
+    }))
+    await Promise.all(defaultAuditorRows.value.map((row) => loadDefaultAuditorOptions(row.approvalType)))
+  } finally {
+    defaultAuditorLoading.value = false
+  }
+}
+
+const openDefaultAuditorDialog = async () => {
+  defaultAuditorDialogVisible.value = true
+  await loadDefaultAuditors()
+}
+
+const saveDefaultAuditorRow = async (row) => {
+  if (!row?.approvalType || !row.auditorId) {
+    ElMessage.warning('请选择审批负责人')
+    return
+  }
+  defaultAuditorSaving[row.approvalType] = true
+  try {
+    await saveApprovalDefaultAuditor({
+      approvalType: row.approvalType,
+      auditorId: Number(row.auditorId)
+    })
+    ElMessage.success('审批负责人已更新')
+    await loadDefaultAuditors()
+  } finally {
+    defaultAuditorSaving[row.approvalType] = false
+  }
+}
+
+const loadAuditorOptions = async (type) => {
+  if (!['finance', 'resignation'].includes(type)) return
+  auditorLoading[type] = true
+  try {
+    const data = await listApprovalAuditors({ type, limit: 30 })
+    auditorOptions[type] = Array.isArray(data) ? data : []
+    const form = type === 'finance' ? financeForm : resignationForm
+    if (!form.auditorId && auditorOptions[type].length) {
+      form.auditorId = String(auditorOptions[type][0].id || '')
+    }
+  } catch (error) {
+    auditorOptions[type] = []
+  } finally {
+    auditorLoading[type] = false
+  }
 }
 
 const stats = computed(() => ({
@@ -515,7 +686,7 @@ const fetchSummary = async () => {
       resignationPending: 0,
       orderPending: 0,
       totalPending: 0,
-      ...(data || {})
+      ...data
     }
   } catch (error) {
     approvalSummary.value = {
@@ -546,6 +717,8 @@ const fetchList = async () => {
         category: item.leaveTypeText,
         summary: `${formatTime(item.startTime)} 至 ${formatTime(item.endTime)}`,
         auditorName: item.auditorName,
+        auditorId: item.auditorId,
+        auditorIds: item.auditorIds,
         status: item.status,
         statusText: item.statusText,
         createTime: item.createTime,
@@ -564,6 +737,8 @@ const fetchList = async () => {
         category: item.category,
         summary: `金额 ￥${item.amount} / ${item.reason}`,
         auditorName: item.auditorName,
+        auditorId: item.auditorId,
+        auditorIds: item.auditorIds,
         status: item.status,
         statusText: item.statusText,
         createTime: item.createTime,
@@ -582,6 +757,8 @@ const fetchList = async () => {
         category: '离职申请',
         summary: `预计离职 ${item.expectedLeaveDate || '--'} / ${item.reason || '无说明'}`,
         auditorName: item.auditorName,
+        auditorId: item.auditorId,
+        auditorIds: item.auditorIds,
         status: item.status,
         statusText: item.statusText,
         createTime: item.createTime,
@@ -601,7 +778,8 @@ const fetchList = async () => {
         departmentName: item.projectName || '未填写项目',
         category: item.orderTypeText || '订单确认',
         summary: item.summary || '待确认订单',
-        auditorName: '订单负责人',
+        auditorName: item.auditorName || '订单负责人',
+        auditorId: item.auditorId,
         status: 1,
         statusText: item.statusText || '待确认',
         createTime: item.createTime,
@@ -639,6 +817,8 @@ const openDetail = async (item) => {
       status: detail.status,
       statusText: statusText(detail.status),
       auditorName: detail.auditorName,
+      auditorId: detail.auditorId,
+      auditorIds: detail.auditorIds,
       auditComment: detail.auditComment,
       canAudit: canAuditApproval(detail)
     }
@@ -655,6 +835,8 @@ const openDetail = async (item) => {
       status: detail.status,
       statusText: detail.statusText,
       auditorName: detail.auditorName,
+      auditorId: detail.auditorId,
+      auditorIds: detail.auditorIds,
       auditComment: detail.auditComment,
       attachmentName: detail.attachmentName,
       attachmentUrl: detail.attachmentUrl,
@@ -675,6 +857,8 @@ const openDetail = async (item) => {
       status: detail.status,
       statusText: detail.statusText,
       auditorName: detail.auditorName,
+      auditorId: detail.auditorId,
+      auditorIds: detail.auditorIds,
       auditComment: detail.auditComment,
       canAudit: canAuditApproval(detail)
     }
@@ -691,7 +875,8 @@ const openDetail = async (item) => {
       reason: detail.summary || '待确认订单',
       status: 1,
       statusText: detail.statusText || '待确认',
-      auditorName: '订单负责人',
+      auditorName: detail.auditorName || '订单负责人',
+      auditorId: detail.auditorId,
       canAudit: detail.canAudit !== false
     }
     detailTitle.value = '订单审批详情'
@@ -770,7 +955,36 @@ const orderAuditActionText = (item) => {
 
 const orderAuditSuccessText = (item) => {
   const text = item?.statusText || item?.raw?.statusText || ''
-  return text.includes('生产') ? '已通过转生产审批' : '订单已确认'
+  return text.includes('生产') || text.includes('履约') ? '已通过流转审批' : '订单已确认'
+}
+
+const resetFinanceForm = () => {
+  financeForm.category = ''
+  financeForm.amount = ''
+  financeForm.reason = ''
+  financeForm.auditorId = ''
+  financeForm.attachmentName = ''
+  financeForm.attachmentUrl = ''
+  financeForm.attachmentSize = null
+}
+
+const resetResignationForm = () => {
+  resignationForm.expectedLeaveDate = ''
+  resignationForm.reason = ''
+  resignationForm.handoverNote = ''
+  resignationForm.auditorId = ''
+}
+
+const openFinanceDialog = async () => {
+  resetFinanceForm()
+  financeDialogVisible.value = true
+  await loadAuditorOptions('finance')
+}
+
+const openResignationDialog = async () => {
+  resetResignationForm()
+  resignationDialogVisible.value = true
+  await loadAuditorOptions('resignation')
 }
 
 function triggerFinanceAttachmentUpload() {
@@ -833,17 +1047,13 @@ const submitFinance = async () => {
     category: financeForm.category,
     amount: Number(financeForm.amount),
     reason: financeForm.reason,
+    auditorId: financeForm.auditorId ? Number(financeForm.auditorId) : undefined,
     attachmentName: financeForm.attachmentName || undefined,
     attachmentUrl: financeForm.attachmentUrl || undefined,
     attachmentSize: financeForm.attachmentSize || undefined
   })
   ElMessage.success('财务审批申请已提交')
-  financeForm.category = ''
-  financeForm.amount = ''
-  financeForm.reason = ''
-  financeForm.attachmentName = ''
-  financeForm.attachmentUrl = ''
-  financeForm.attachmentSize = null
+  resetFinanceForm()
   financeDialogVisible.value = false
   activeTab.value = 'finance'
   fetchList()
@@ -857,12 +1067,11 @@ const submitResignation = async () => {
   await submitResignationApproval({
     expectedLeaveDate: resignationForm.expectedLeaveDate,
     reason: resignationForm.reason,
-    handoverNote: resignationForm.handoverNote
+    handoverNote: resignationForm.handoverNote,
+    auditorId: resignationForm.auditorId ? Number(resignationForm.auditorId) : undefined
   })
   ElMessage.success('离职申请已提交')
-  resignationForm.expectedLeaveDate = ''
-  resignationForm.reason = ''
-  resignationForm.handoverNote = ''
+  resetResignationForm()
   resignationDialogVisible.value = false
   activeTab.value = 'resignation'
   fetchList()

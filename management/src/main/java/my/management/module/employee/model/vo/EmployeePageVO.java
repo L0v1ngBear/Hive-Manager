@@ -22,6 +22,9 @@ public class EmployeePageVO {
     private String phone;
     private Integer status;
     private String statusLabel;
+    private Integer attendanceRequired;
+    private List<Long> attendanceLocationIds;
+    private List<String> attendanceLocationNames;
     private LocalDate entryDate;
     private Long leaderId;
     private String leaderName;

@@ -14,6 +14,7 @@ import my.management.module.inventory.model.dto.InventoryOutRequest;
 import my.management.module.inventory.model.dto.InventoryPageRequest;
 import my.management.module.inventory.model.dto.InventoryWarningSettingUpdateRequest;
 import my.management.module.inventory.model.vo.ClothInventoryVO;
+import my.management.module.inventory.model.vo.ClothInventoryDetailVO;
 import my.management.module.inventory.model.vo.InventoryImageRecognitionVO;
 import my.management.module.inventory.model.vo.InventoryImportResultVO;
 import my.management.module.inventory.model.vo.InventoryInResultVO;
@@ -75,6 +76,13 @@ public class InventoryController {
                                                       @RequestParam(required = false) Integer status,
                                                       @RequestParam(required = false) String timeOrder) {
         return Result.success(inventoryService.modelDetail(modelCode, spec, status, timeOrder));
+    }
+
+    @GetMapping("/cloth/detail")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看单匹布详情")
+    public Result<ClothInventoryDetailVO> clothDetail(@RequestParam(required = false) Long id,
+                                                      @RequestParam(required = false) String barcode) {
+        return Result.success(inventoryService.clothDetail(id, barcode));
     }
 
     @GetMapping("/warning/list")

@@ -55,7 +55,7 @@ public class AiAdviceEvolutionService {
 
     public AiAdviceEvolutionReportVO report() {
         if (!aiAdvicePermissionService.hasGlobalPermission()) {
-            throw new BusinessException(403, "您没有权限查看 AI 自进化评估");
+            throw new BusinessException(403, "您没有权限查看经营建议评估");
         }
 
         AiAdviceEvolutionReportVO report = emptyReport();
@@ -435,7 +435,7 @@ public class AiAdviceEvolutionService {
         candidate.setDelta(nvlInt(comparison.getDelta()));
         candidate.setObservationDays(nvlInt(comparison.getObservationDays()));
         candidate.setConsecutiveWinDays(nvlInt(comparison.getConsecutiveWinDays()));
-        candidate.setApprovalRequiredRole("super / 老板 / 经营负责人");
+        candidate.setApprovalRequiredRole("老板 / 经营负责人");
         candidate.setGovernanceStatus("待高权限确认");
         candidate.setRolloutReason("该建议模式已连续胜出，候选策略综合评分比当前策略高 "
                 + signedDelta(nvlInt(comparison.getDelta()))

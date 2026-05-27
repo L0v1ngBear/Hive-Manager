@@ -20,6 +20,8 @@ public class ProductionOrderDetailVO {
 
     private String status;
 
+    private String orderCategory;
+
     private String modelCode;
 
     private String fabric;
@@ -38,9 +40,21 @@ public class ProductionOrderDetailVO {
 
     private Integer process;
 
+    private String processText;
+
+    private String currentProcessText;
+
+    private String completedProcessText;
+
+    private Integer processProgressPercent;
+
+    private List<ProductionProcessStepVO> processSteps;
+
     private String customerName;
 
     private String projectName;
+
+    private String brandName;
 
     private String contactPhone;
 

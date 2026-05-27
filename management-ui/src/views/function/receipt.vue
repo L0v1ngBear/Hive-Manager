@@ -1,28 +1,29 @@
 <template>
-  <div class="receipt-page-shell">
-    <header class="receipt-hero function-page-header">
-      <div>
-        <div class="function-page-eyebrow">
-          <span class="material-symbols-outlined">print</span>
-          出库打印中心
+  <div class="receipt-page-shell function-page-shell font-body">
+    <div class="function-page-container receipt-page-container space-y-6">
+      <header class="receipt-hero function-page-header">
+        <div>
+          <div class="function-page-eyebrow">
+            <span class="material-symbols-outlined">print</span>
+            出库打印中心
+          </div>
+          <h1 class="function-page-title">出库单打印与模板</h1>
+          <p class="function-page-desc">
+            选择待打印出库单并套用模板，支持浏览器连续纸打印和模板字段自定义排版。
+          </p>
         </div>
-        <h1 class="function-page-title">出库单打印与模板</h1>
-        <p class="function-page-desc">
-          选择待打印出库单并套用模板，支持浏览器连续纸打印和模板字段自定义排版。
-        </p>
-      </div>
-    </header>
 
-    <nav class="receipt-tabs">
-      <button :class="{ active: activeMode === 'print' }" @click="activeMode = 'print'">
-        <span class="material-symbols-outlined">print</span>
-        出库单打印
-      </button>
-      <button :class="{ active: activeMode === 'template' }" @click="activeMode = 'template'">
-        <span class="material-symbols-outlined">dashboard_customize</span>
-        模板设置
-      </button>
-    </nav>
+        <nav class="receipt-tabs" aria-label="出库单功能切换">
+          <button :class="{ active: activeMode === 'print' }" @click="activeMode = 'print'">
+            <span class="material-symbols-outlined">print</span>
+            出库单打印
+          </button>
+          <button :class="{ active: activeMode === 'template' }" @click="activeMode = 'template'">
+            <span class="material-symbols-outlined">dashboard_customize</span>
+            模板设置
+          </button>
+        </nav>
+      </header>
 
   <div v-if="activeMode === 'print'" class="receipt-workspace">
     <section class="queue-panel">
@@ -64,7 +65,7 @@
         <div>
           <h2>出库单打印预览</h2>
           <p v-if="selectedOrder">共 {{ printPages.length }} 页，每页都是完整出库单格式。</p>
-          <p v-else>请选择左侧待打印任务。</p>
+          <p v-else>请选择左侧待打印出库单。</p>
         </div>
 
         <div class="receipt-actions">
@@ -99,190 +100,209 @@
           <p>请在左侧选择一张出库单</p>
         </div>
 
-        <div v-if="selectedOrder" id="print-paper-area" class="paper-stack">
-          <article v-for="page in printPages" :key="page.pageNo" class="receipt-page" :style="paperStyle">
-            <header class="receipt-top">
-              <div class="receipt-title-block">
-                <h1>{{ templateConfig.title }}</h1>
-                <p>{{ templateConfig.subtitle }}</p>
-              </div>
-            </header>
+        <div v-if="selectedOrder" class="receipt-preview-layout">
+          <div class="paper-preview-viewport">
+            <div id="print-paper-area" class="paper-stack">
+              <article v-for="page in printPages" :key="page.pageNo" class="receipt-page" :style="paperStyle">
+              <header class="receipt-top">
+                <div class="receipt-title-block">
+                  <h1>{{ templateConfig.title }}</h1>
+                  <p>{{ templateConfig.subtitle }}</p>
+                </div>
+              </header>
 
-            <section class="receipt-info">
-              <div class="customer-line">
-                <div>客户名称：<span>{{ printableText(printDraft.customerName) }}</span></div>
-                <div>单据编号：<span>{{ printDraft.orderNo || '--' }}</span></div>
-              </div>
-              <div class="order-line">
-                <span>项目名称：<b>{{ printableText(printDraft.projectName) }}</b></span>
-                <span>录单日期：<b>{{ formatDateOnly(printDraft.printDate || printDraft.createTime) }}</b></span>
-                <span>制单人：<b>{{ printDraft.operator || '--' }}</b></span>
-                <span>第 {{ page.pageNo }} 页 / 共 {{ page.totalPages }} 页</span>
-              </div>
-            </section>
+              <section class="receipt-info">
+                <div class="customer-line">
+                  <div>客户名称：<span>{{ printableText(printDraft.customerName) }}</span></div>
+                  <div>单据编号：<span>{{ printDraft.orderNo || '--' }}</span></div>
+                </div>
+                <div class="order-line">
+                  <span>项目名称：<b>{{ printableText(printDraft.projectName) }}</b></span>
+                  <span>录单日期：<b>{{ formatDateOnly(printDraft.printDate || printDraft.createTime) }}</b></span>
+                  <span>制单人：<b>{{ printDraft.operator || '--' }}</b></span>
+                  <span>第 {{ page.pageNo }} 页 / 共 {{ page.totalPages }} 页</span>
+                </div>
+              </section>
 
-            <table class="receipt-print-table">
-              <colgroup>
-                <col
-                  v-for="column in visibleColumns"
-                  :key="`col-${column.key}`"
-                  :style="{ width: columnWidth(column) }"
-                />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th v-for="column in visibleColumns" :key="column.key">{{ column.label }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, rowIndex) in page.rows" :key="`${page.pageNo}-${rowIndex}`" class="data-row">
-                  <td
+              <table class="receipt-print-table">
+                <colgroup>
+                  <col
                     v-for="column in visibleColumns"
-                    :key="column.key"
-                    :class="{ 'text-left': isTextColumn(column.key) }"
-                  >
-                    {{ row.id ? renderReceiptCell(row, column.key) : '' }}
-                  </td>
-                </tr>
-                <tr class="total-row">
-                  <td :colspan="visibleColumns.length">
-                    <div class="total-line">
-                      <span>合计大写：{{ page.pageNo === page.totalPages ? amountUpper(summary.totalAmount) : '' }}</span>
-                      <span>合计数：{{ formatNumber(page.pageMeters) }}</span>
-                      <span>小计：{{ money(page.pageAmount) }} 元</span>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    :key="`col-${column.key}`"
+                    :style="{ width: columnWidth(column) }"
+                  />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th v-for="column in visibleColumns" :key="column.key">{{ column.label }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, rowIndex) in page.rows" :key="`${page.pageNo}-${rowIndex}`" class="data-row">
+                    <td
+                      v-for="column in visibleColumns"
+                      :key="column.key"
+                      :class="{ 'text-left': isTextColumn(column.key) }"
+                    >
+                      {{ row.id ? renderReceiptCell(row, column.key) : '' }}
+                    </td>
+                  </tr>
+                  <tr class="total-row">
+                    <td :colspan="visibleColumns.length">
+                      <div class="total-line">
+                        <span>合计大写：{{ page.pageNo === page.totalPages ? amountUpper(summary.totalAmount) : '' }}</span>
+                        <span>合计数：{{ formatNumber(page.pageMeters) }}</span>
+                        <span>小计：{{ money(page.pageAmount) }} 元</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
 
-            <footer class="receipt-bottom">
-              <div v-if="templateConfig.showLogistics" class="logistics-row">
-                <span>物流公司：</span>
-                <b>{{ printableText(printDraft.logisticsCompany) }}</b>
-                <span>物流单号：</span>
-                <b>{{ printableText(printDraft.logisticsNo) }}</b>
+              <footer class="receipt-bottom">
+                <div v-if="templateConfig.showLogistics" class="logistics-row">
+                  <span>物流公司：</span>
+                  <b>{{ printableText(printDraft.logisticsCompany) }}</b>
+                  <span>物流单号：</span>
+                  <b>{{ printableText(printDraft.logisticsNo) }}</b>
+                </div>
+                <p v-if="templateConfig.notice" class="notice">{{ templateConfig.notice }}</p>
+                <div v-if="templateConfig.showSignature" class="signature-row">
+                  <span>收货仓库：{{ templateConfig.warehouse || '成品仓库' }}</span>
+                  <span>送货人签字：____________</span>
+                  <span>收货人签字：____________</span>
+                </div>
+              </footer>
+              </article>
+            </div>
+          </div>
+
+          <aside class="print-editor">
+            <div class="print-editor-head">
+              <div>
+                <strong>打印内容修正</strong>
+                <span>保存后会回写出库单，并记录修改前后快照</span>
               </div>
-              <p v-if="templateConfig.notice" class="notice">{{ templateConfig.notice }}</p>
-              <div v-if="templateConfig.showSignature" class="signature-row">
-                <span>收货仓库：{{ templateConfig.warehouse || '成品仓库' }}</span>
-                <span>送货人签字：____________</span>
-                <span>收货人签字：____________</span>
+              <div class="print-editor-actions">
+                <button
+                  v-if="timeCorrectionMode"
+                  type="button"
+                  class="editor-save-btn"
+                  :disabled="isSubmitting"
+                  @click="savePrintRevision({ timeCorrectionOnly: true })"
+                >
+                  保存时间
+                </button>
+                <button type="button" class="editor-save-btn" :disabled="isSubmitting" @click="savePrintRevision()">保存修正</button>
+                <button type="button" class="editor-reset-btn" @click="resetPrintDraft">恢复系统内容</button>
               </div>
-            </footer>
-          </article>
+            </div>
+
+            <BusinessTimeCorrectionPanel
+              v-model="printDraft.printDate"
+              :active="timeCorrectionMode"
+              data-field="receipt.printDate"
+              input-type="date"
+              title="业务时间修正"
+              label="业务日期"
+              description="用于修正当前出库单的业务日期。"
+            />
+
+            <div class="print-editor-grid">
+              <label>
+                <span>客户名称</span>
+                <input v-model.trim="printDraft.customerName" maxlength="80" placeholder="客户名称" />
+              </label>
+              <label>
+                <span>打印单号</span>
+                <input v-model.trim="printDraft.orderNo" maxlength="60" placeholder="打印显示单号" />
+              </label>
+              <label>
+                <span>项目名称</span>
+                <input v-model.trim="printDraft.projectName" maxlength="80" placeholder="项目名称，可留空" />
+              </label>
+              <label>
+                <span>制单人</span>
+                <input v-model.trim="printDraft.operator" maxlength="30" placeholder="制单人" />
+              </label>
+              <label>
+                <span>收货仓库</span>
+                <input v-model.trim="templateConfig.warehouse" maxlength="20" placeholder="收货仓库" />
+              </label>
+              <label>
+                <span>物流公司</span>
+                <input v-model.trim="printDraft.logisticsCompany" maxlength="40" placeholder="物流公司，可留空" />
+              </label>
+              <label>
+                <span>物流单号</span>
+                <input v-model.trim="printDraft.logisticsNo" maxlength="60" placeholder="物流单号，可留空" />
+              </label>
+            </div>
+
+            <div class="print-editor-table-wrap">
+              <div class="print-editor-table-head">
+                <strong>明细行修正</strong>
+                <button type="button" class="editor-add-btn" @click="addPrintRow">新增打印行</button>
+              </div>
+              <div class="print-editor-table">
+                <div class="print-editor-row print-editor-row-head">
+                  <span>货物名称</span>
+                  <span>规格</span>
+                  <span>米数</span>
+                  <span>单价</span>
+                  <span>金额</span>
+                  <span>备注</span>
+                  <span>操作</span>
+                </div>
+                <div v-for="(row, index) in printableRows" :key="getRowKey(row)" class="print-editor-row">
+                  <input
+                    :value="row.modelCode || row.barcode || ''"
+                    maxlength="80"
+                    placeholder="货物名称"
+                    @input="updatePrintRow(index, 'modelCode', $event.target.value)"
+                  />
+                  <input
+                    :value="row.spec || ''"
+                    maxlength="30"
+                    placeholder="规格"
+                    @input="updatePrintRow(index, 'spec', $event.target.value)"
+                  />
+                  <input
+                    :value="row.meters ?? ''"
+                    inputmode="decimal"
+                    maxlength="12"
+                    placeholder="米数"
+                    @input="updatePrintRow(index, 'meters', $event.target.value)"
+                  />
+                  <input
+                    :value="row.price ?? ''"
+                    inputmode="decimal"
+                    maxlength="12"
+                    placeholder="单价"
+                    @input="updatePrintRow(index, 'price', $event.target.value)"
+                  />
+                  <input
+                    :value="row.totalAmount ?? ''"
+                    inputmode="decimal"
+                    maxlength="14"
+                    placeholder="金额"
+                    @input="updatePrintRow(index, 'totalAmount', $event.target.value)"
+                  />
+                  <input
+                    :value="row.remark || ''"
+                    maxlength="30"
+                    placeholder="备注"
+                    @input="updatePrintRow(index, 'remark', $event.target.value)"
+                  />
+                  <button type="button" class="editor-remove-btn" @click="removePrintRow(index)">移除</button>
+                </div>
+              </div>
+            </div>
+            <div v-if="!printableRows.length" class="print-editor-empty">
+              当前没有可打印明细，可点击“新增打印行”补充本次打印内容。
+            </div>
+          </aside>
         </div>
-
-        <aside v-if="selectedOrder" class="print-editor">
-          <div class="print-editor-head">
-            <div>
-              <strong>打印内容修正</strong>
-              <span>保存后会回写出库单，并记录修改前后快照</span>
-            </div>
-            <div class="print-editor-actions">
-              <button type="button" class="editor-save-btn" :disabled="isSubmitting" @click="savePrintRevision()">保存修正</button>
-              <button type="button" class="editor-reset-btn" @click="resetPrintDraft">恢复系统内容</button>
-            </div>
-          </div>
-
-          <div class="print-editor-grid">
-            <label>
-              <span>客户名称</span>
-              <input v-model.trim="printDraft.customerName" maxlength="80" placeholder="客户名称" />
-            </label>
-            <label>
-              <span>打印单号</span>
-              <input v-model.trim="printDraft.orderNo" maxlength="60" placeholder="打印显示单号" />
-            </label>
-            <label>
-              <span>项目名称</span>
-              <input v-model.trim="printDraft.projectName" maxlength="80" placeholder="项目名称，可留空" />
-            </label>
-            <label>
-              <span>录单日期</span>
-              <input v-model.trim="printDraft.printDate" maxlength="10" placeholder="yyyy-MM-dd" />
-            </label>
-            <label>
-              <span>制单人</span>
-              <input v-model.trim="printDraft.operator" maxlength="30" placeholder="制单人" />
-            </label>
-            <label>
-              <span>收货仓库</span>
-              <input v-model.trim="templateConfig.warehouse" maxlength="20" placeholder="收货仓库" />
-            </label>
-            <label>
-              <span>物流公司</span>
-              <input v-model.trim="printDraft.logisticsCompany" maxlength="40" placeholder="物流公司，可留空" />
-            </label>
-            <label>
-              <span>物流单号</span>
-              <input v-model.trim="printDraft.logisticsNo" maxlength="60" placeholder="物流单号，可留空" />
-            </label>
-          </div>
-
-          <div class="print-editor-table-wrap">
-            <div class="print-editor-table-head">
-              <strong>明细行修正</strong>
-              <button type="button" class="editor-add-btn" @click="addPrintRow">新增打印行</button>
-            </div>
-            <div class="print-editor-table">
-              <div class="print-editor-row print-editor-row-head">
-                <span>货物名称</span>
-                <span>规格</span>
-                <span>米数</span>
-                <span>单价</span>
-                <span>金额</span>
-                <span>备注</span>
-                <span>操作</span>
-              </div>
-              <div v-for="(row, index) in printableRows" :key="getRowKey(row)" class="print-editor-row">
-                <input
-                  :value="row.modelCode || row.barcode || ''"
-                  maxlength="80"
-                  placeholder="货物名称"
-                  @input="updatePrintRow(index, 'modelCode', $event.target.value)"
-                />
-                <input
-                  :value="row.spec || ''"
-                  maxlength="30"
-                  placeholder="规格"
-                  @input="updatePrintRow(index, 'spec', $event.target.value)"
-                />
-                <input
-                  :value="row.meters ?? ''"
-                  inputmode="decimal"
-                  maxlength="12"
-                  placeholder="米数"
-                  @input="updatePrintRow(index, 'meters', $event.target.value)"
-                />
-                <input
-                  :value="row.price ?? ''"
-                  inputmode="decimal"
-                  maxlength="12"
-                  placeholder="单价"
-                  @input="updatePrintRow(index, 'price', $event.target.value)"
-                />
-                <input
-                  :value="row.totalAmount ?? ''"
-                  inputmode="decimal"
-                  maxlength="14"
-                  placeholder="金额"
-                  @input="updatePrintRow(index, 'totalAmount', $event.target.value)"
-                />
-                <input
-                  :value="row.remark || ''"
-                  maxlength="30"
-                  placeholder="备注"
-                  @input="updatePrintRow(index, 'remark', $event.target.value)"
-                />
-                <button type="button" class="editor-remove-btn" @click="removePrintRow(index)">移除</button>
-              </div>
-            </div>
-          </div>
-          <div v-if="!printableRows.length" class="print-editor-empty">
-            当前没有可打印明细，可点击“新增打印行”补充本次打印内容。
-          </div>
-        </aside>
       </div>
     </section>
   </div>
@@ -400,13 +420,13 @@
 
                 <section class="receipt-info">
                   <div class="customer-line">
-                    <div>客户名称：<span>示例客户</span></div>
+                    <div>客户名称：<span>客户名称</span></div>
                     <div>单据编号：<span>CK20260414001</span></div>
                   </div>
                   <div class="order-line">
                     <span>项目名称：<b>春季面料项目</b></span>
                     <span>录单日期：<b>2026-04-14</b></span>
-                    <span>制单人：<b>仓库管理员</b></span>
+                    <span>制单人：<b>制单人</b></span>
                     <span>第 1 页 / 共 1 页</span>
                   </div>
                 </section>
@@ -466,12 +486,15 @@
         </div>
       </div>
     </section>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import BusinessTimeCorrectionPanel from '@/components/BusinessTimeCorrectionPanel.vue'
+import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
 import {
   cancelPrint,
   getPendingPrintOrders,
@@ -499,6 +522,12 @@ const receiptVariables = ref([])
 const selectedTemplateId = ref(null)
 const templateDraftName = ref('系统默认出库单')
 const templateConfig = ref(defaultTemplateConfig())
+const {
+  timeCorrectionMode,
+  closeTimeCorrectionMode
+} = useTimeCorrectionMode({
+  isAvailable: () => activeMode.value === 'print' && !!selectedOrder.value
+})
 
 onMounted(async () => {
   await Promise.all([fetchPendingList(), fetchReceiptTemplates(), fetchReceiptVariables()])
@@ -509,6 +538,7 @@ async function fetchPendingList() {
   selectedOrder.value = null
   tableData.value = []
   printDraft.value = createEmptyPrintDraft()
+  closeTimeCorrectionMode()
   try {
     pendingOrders.value = await getPendingPrintOrders()
   } finally {
@@ -518,6 +548,7 @@ async function fetchPendingList() {
 
 async function selectOrder(order) {
   if (selectedOrder.value?.orderNo === order.orderNo) return
+  closeTimeCorrectionMode()
   isLoadingDetail.value = true
   try {
     const detail = await getPrintDetail({ orderNo: order.orderNo })
@@ -599,6 +630,7 @@ function createNewReceiptTemplate() {
 async function savePrintRevision(options = {}) {
   if (!selectedOrder.value) return null
   const payload = buildPrintRevisionPayload()
+  payload.timeCorrectionOnly = options.timeCorrectionOnly === true
   if (!payload.items.length) {
     ElMessage.warning('出库单至少需要一条明细')
     throw new Error('empty receipt items')
@@ -608,7 +640,10 @@ async function savePrintRevision(options = {}) {
   tableData.value = normalizeEditableRows(saved.items || [])
   printDraft.value = createPrintDraft(saved)
   if (!options.silent) {
-    ElMessage.success('打印内容已保存，可追溯')
+    ElMessage.success(options.timeCorrectionOnly ? '录单日期已修正' : '打印内容已保存，可追溯')
+  }
+  if (options.timeCorrectionOnly) {
+    closeTimeCorrectionMode()
   }
   return saved
 }
@@ -1139,33 +1174,26 @@ function buildReceiptTemplateContent(config) {
 
 <style scoped>
 .receipt-page-shell {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  background:
-    radial-gradient(circle at 8% 0%, rgba(255, 196, 41, 0.18), transparent 32%),
-    linear-gradient(180deg, #fffdf8 0%, #fffaf0 100%);
+  min-height: auto;
+  overflow-x: hidden;
 }
 
-.receipt-hero {
-  max-width: 1500px;
-  margin: 0 auto;
-  padding: 1rem 1rem 0;
+.receipt-page-container {
+  padding-bottom: 1rem;
 }
 
 .receipt-tabs {
-  max-width: 1500px;
-  margin: 0 auto;
-  padding: 1rem 1rem 0;
   display: flex;
   gap: .75rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
 .receipt-tabs button {
-  border: 1px solid #f0d48e;
+  border: 1px solid #c8d3df;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.86);
-  color: #5f5a4e;
+  color: #475569;
   padding: .7rem 1rem;
   display: inline-flex;
   align-items: center;
@@ -1175,28 +1203,25 @@ function buildReceiptTemplateContent(config) {
 }
 
 .receipt-tabs button.active {
-  background: linear-gradient(135deg, #ffd43b 0%, #f5a400 58%, #f08a00 100%);
-  border-color: #f5a400;
+  background: linear-gradient(135deg, #0b1f33 0%, #1f3f5f 58%, #4b7395 100%);
+  border-color: #1f3f5f;
   color: #fff;
-  box-shadow: 0 14px 30px rgba(245, 164, 0, 0.24);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
 }
 
 .receipt-workspace {
-  flex: 1;
   min-height: 0;
-  max-width: 1500px;
   width: 100%;
-  margin: 0 auto;
-  padding: 1rem;
+  padding: 0;
   display: flex;
+  align-items: stretch;
   gap: 1.25rem;
   color: #1f2937;
 }
 
 .template-workspace {
-  max-width: 1500px;
-  margin: 0 auto;
-  padding: 1rem;
+  width: 100%;
+  padding: 0;
 }
 
 .template-main-card {
@@ -1302,7 +1327,7 @@ function buildReceiptTemplateContent(config) {
 
 .queue-card:hover,
 .queue-card.active {
-  border-color: #f5a400;
+  border-color: #1f3f5f;
   box-shadow: 0 8px 24px rgb(69 95 136 / 12%);
   transform: translateY(-1px);
 }
@@ -1352,6 +1377,7 @@ function buildReceiptTemplateContent(config) {
 .preview-panel {
   flex: 1;
   min-width: 0;
+  min-height: clamp(480px, calc(100vh - 18rem), 760px);
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 1.25rem;
@@ -1391,7 +1417,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .template-select:focus {
-  border-color: #f5a400;
+  border-color: #1f3f5f;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 
@@ -1413,13 +1439,13 @@ function buildReceiptTemplateContent(config) {
 }
 
 .btn-print {
-  background: #f5a400;
+  background: #1f3f5f;
   color: white;
 }
 
 .btn-template {
   background: #f8fafc;
-  color: #b56f00;
+  color: #1f3f5f;
   border: 1px solid #dbe3ef;
 }
 
@@ -1435,10 +1461,20 @@ function buildReceiptTemplateContent(config) {
 
 .preview-scroll {
   flex: 1;
+  min-width: 0;
   overflow: auto;
   background: #eef2f7;
-  padding: 2rem;
+  padding: 1.5rem;
   position: relative;
+}
+
+.receipt-preview-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  align-items: flex-start;
+  gap: 1.25rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .loading-mask {
@@ -1451,7 +1487,7 @@ function buildReceiptTemplateContent(config) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #b56f00;
+  color: #1f3f5f;
   font-weight: 900;
 }
 
@@ -1460,10 +1496,21 @@ function buildReceiptTemplateContent(config) {
 }
 
 .paper-stack {
+  flex: 0 0 auto;
+  width: max-content;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1.5rem;
+}
+
+.paper-preview-viewport {
+  min-width: 0;
+  overflow: auto;
+  padding: .25rem .25rem .75rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }
 
 .remark-editor {
@@ -1477,13 +1524,20 @@ function buildReceiptTemplateContent(config) {
 }
 
 .print-editor {
-  width: min(215.9mm, 100%);
-  margin: 1rem auto 0;
+  width: 100%;
+  min-width: 340px;
+  max-width: 420px;
+  margin: 0;
   padding: 1rem;
   border: 1px solid #dbe3ef;
   border-radius: 1rem;
   background: rgb(255 255 255 / 96%);
   box-shadow: 0 10px 28px rgb(15 23 42 / 10%);
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  max-height: calc(100vh - 12rem);
+  overflow: auto;
 }
 
 .print-editor-head {
@@ -1514,6 +1568,7 @@ function buildReceiptTemplateContent(config) {
   flex-wrap: wrap;
 }
 
+.editor-time-btn,
 .editor-save-btn,
 .editor-reset-btn,
 .editor-add-btn,
@@ -1524,6 +1579,25 @@ function buildReceiptTemplateContent(config) {
   font-size: .75rem;
   font-weight: 900;
   cursor: pointer;
+}
+
+.editor-time-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  background: #eef4fb;
+  border-color: rgba(31, 63, 95, .24);
+  color: #1f3f5f;
+}
+
+.editor-time-btn.active {
+  background: #1f3f5f;
+  border-color: #1f3f5f;
+  color: #fff;
+}
+
+.editor-time-btn .material-symbols-outlined {
+  font-size: 1rem;
 }
 
 .editor-save-btn {
@@ -1540,7 +1614,7 @@ function buildReceiptTemplateContent(config) {
 .editor-reset-btn,
 .editor-add-btn {
   background: #fff7e6;
-  color: #b56f00;
+  color: #1f3f5f;
 }
 
 .editor-remove-btn {
@@ -1550,7 +1624,7 @@ function buildReceiptTemplateContent(config) {
 
 .print-editor-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: .75rem;
 }
 
@@ -1577,7 +1651,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .print-editor input:focus {
-  border-color: #f5a400;
+  border-color: #1f3f5f;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 
@@ -1599,13 +1673,15 @@ function buildReceiptTemplateContent(config) {
   display: flex;
   flex-direction: column;
   gap: .45rem;
+  width: 100%;
   overflow-x: auto;
+  scrollbar-gutter: stable;
 }
 
 .print-editor-row {
-  min-width: 920px;
+  min-width: 680px;
   display: grid;
-  grid-template-columns: 1.45fr .7fr .7fr .7fr .8fr 1fr 70px;
+  grid-template-columns: 1.25fr .65fr .65fr .65fr .75fr .85fr 64px;
   gap: .45rem;
   align-items: center;
 }
@@ -1677,7 +1753,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .template-grid input:focus {
-  border-color: #f5a400;
+  border-color: #1f3f5f;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 
@@ -1707,7 +1783,7 @@ function buildReceiptTemplateContent(config) {
 .variable-strip span {
   border-radius: 999px;
   background: #eef2f7;
-  color: #b56f00;
+  color: #1f3f5f;
   padding: .28rem .6rem;
   font-size: .72rem;
   font-weight: 800;
@@ -1781,7 +1857,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .column-editor-row > input:focus {
-  border-color: #f5a400;
+  border-color: #1f3f5f;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 
@@ -1805,7 +1881,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .column-width-input input:focus {
-  border-color: #f5a400;
+  border-color: #1f3f5f;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 
@@ -1818,7 +1894,7 @@ function buildReceiptTemplateContent(config) {
   border: 1px solid #dbe3ef;
   border-radius: .55rem;
   background: #f8fafc;
-  color: #b56f00;
+  color: #1f3f5f;
   padding: .35rem .5rem;
   font-size: .72rem;
   font-weight: 900;
@@ -1926,7 +2002,7 @@ function buildReceiptTemplateContent(config) {
 }
 
 .remark-editor-row input:focus {
-  border-color: #f5a400;
+  border-color: #1f3f5f;
   box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
 }
 
@@ -2083,6 +2159,20 @@ function buildReceiptTemplateContent(config) {
   font-size: 13px;
 }
 
+@media (max-width: 1280px) {
+  .receipt-preview-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .print-editor {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    position: static;
+    max-height: none;
+  }
+}
+
 @media (max-width: 1100px) {
   .receipt-workspace {
     min-height: auto;
@@ -2118,6 +2208,55 @@ function buildReceiptTemplateContent(config) {
     transform: scale(.52);
     margin-right: -48%;
     margin-bottom: -28%;
+  }
+}
+
+@media (max-width: 720px) {
+  .receipt-workspace,
+  .template-workspace {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .receipt-tabs {
+    width: 100%;
+  }
+
+  .preview-scroll {
+    padding: .85rem;
+  }
+
+  .preview-head {
+    align-items: flex-start;
+  }
+
+  .receipt-actions,
+  .receipt-actions .btn,
+  .template-select {
+    width: 100%;
+  }
+
+  .receipt-actions .btn,
+  .template-select {
+    justify-content: center;
+  }
+
+  .paper-preview-viewport {
+    justify-content: flex-start;
+  }
+
+  .print-editor-head,
+  .print-editor-table-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .print-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .print-editor-row {
+    min-width: 640px;
   }
 }
 </style>

@@ -54,6 +54,7 @@ public class NotificationClosedLoopScheduler {
                     continue;
                 }
                 try {
+                    notificationService.syncBusinessWarningNotifications(tenant.getTenantCode());
                     notificationService.syncAiAdviceNotifications(tenant.getTenantCode());
                     syncedTenantCount++;
                 } catch (Exception ex) {

@@ -18,11 +18,12 @@ import java.util.List;
 @InterceptorIgnore(tenantLine = "true")
 public interface AttendanceManageMapper {
 
-    @Select("SELECT COUNT(1) FROM user u WHERE u.tenant_code = #{tenantCode} AND (u.status IS NULL OR u.status IN (1, 2))")
+    @Select("SELECT COUNT(1) FROM user u WHERE u.tenant_code = #{tenantCode} AND (u.status IS NULL OR u.status IN (1, 2)) AND COALESCE(u.attendance_required, 1) = 1")
     Long countActiveEmployees(@Param("tenantCode") String tenantCode);
 
     @Select({
             "SELECT COUNT(DISTINCT a.user_id) FROM attendance_record a ",
+            "INNER JOIN user u ON u.id = a.user_id AND u.tenant_code = a.tenant_code AND COALESCE(u.attendance_required, 1) = 1 ",
             "WHERE a.tenant_code = #{tenantCode} ",
             "AND a.punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
             "AND a.sign_in_status IS NOT NULL"
@@ -31,6 +32,7 @@ public interface AttendanceManageMapper {
 
     @Select({
             "SELECT COUNT(1) FROM attendance_record a ",
+            "INNER JOIN user u ON u.id = a.user_id AND u.tenant_code = a.tenant_code AND COALESCE(u.attendance_required, 1) = 1 ",
             "WHERE a.tenant_code = #{tenantCode} ",
             "AND a.punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
             "AND a.sign_in_status = 1"
@@ -39,6 +41,7 @@ public interface AttendanceManageMapper {
 
     @Select({
             "SELECT COUNT(1) FROM attendance_record a ",
+            "INNER JOIN user u ON u.id = a.user_id AND u.tenant_code = a.tenant_code AND COALESCE(u.attendance_required, 1) = 1 ",
             "WHERE a.tenant_code = #{tenantCode} ",
             "AND a.punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
             "AND a.sign_out_status = 2"
@@ -47,6 +50,7 @@ public interface AttendanceManageMapper {
 
     @Select({
             "SELECT COUNT(1) FROM attendance_record a ",
+            "INNER JOIN user u ON u.id = a.user_id AND u.tenant_code = a.tenant_code AND COALESCE(u.attendance_required, 1) = 1 ",
             "WHERE a.tenant_code = #{tenantCode} ",
             "AND a.punch_id LIKE CONCAT(#{dayPrefix}, '%') ",
             "AND (a.sign_in_status IN (3, 6) OR a.sign_out_status IN (3, 6))"

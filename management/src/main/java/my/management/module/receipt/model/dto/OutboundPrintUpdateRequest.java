@@ -30,5 +30,7 @@ public class OutboundPrintUpdateRequest {
 
     private String editReason;
 
+    private Boolean timeCorrectionOnly;
+
     private List<OutboundPrintItemUpdateRequest> items = new ArrayList<>();
 }

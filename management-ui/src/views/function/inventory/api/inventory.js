@@ -16,6 +16,10 @@ export function getInventoryModelDetail(params) {
   return request({ url: '/inventory/model/detail', method: 'get', params })
 }
 
+export function getInventoryClothDetail(params) {
+  return request({ url: '/inventory/cloth/detail', method: 'get', params })
+}
+
 export function getInventoryWarnings() {
   return request({ url: '/inventory/warning/list', method: 'get' })
 }

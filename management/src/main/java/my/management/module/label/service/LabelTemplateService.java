@@ -50,7 +50,7 @@ public class LabelTemplateService {
             new LabelTemplateVariableVO("规格", "spec", "text", "160"),
             new LabelTemplateVariableVO("批次", "batchNo", "text", "BATCH-001"),
             new LabelTemplateVariableVO("入库时间", "inboundTime", "text", "2026-04-21"),
-            new LabelTemplateVariableVO("客户", "customerName", "text", "示例客户")
+            new LabelTemplateVariableVO("客户", "customerName", "text", "客户名称")
     );
     private static final List<LabelTemplateVariableVO> RECEIPT_VARIABLES = List.of(
             new LabelTemplateVariableVO("单据编号", "orderNo", "text", "CK20260414001"),
@@ -70,9 +70,31 @@ public class LabelTemplateService {
             new LabelTemplateVariableVO("本页小计金额", "pageAmount", "text", "7855.05"),
             new LabelTemplateVariableVO("总金额", "totalAmount", "text", "7855.05")
     );
+    private static final List<LabelTemplateVariableVO> ORDER_FLOW_VARIABLES = List.of(
+            new LabelTemplateVariableVO("流转条码", "flowBarcode", "barcode", "SO202605190001"),
+            new LabelTemplateVariableVO("流转二维码", "flowQrPayload", "qrcode", "SO202605190001"),
+            new LabelTemplateVariableVO("订单编号", "orderId", "text", "SO202605190001"),
+            new LabelTemplateVariableVO("订单类型", "orderTypeLabel", "text", "销售订单"),
+            new LabelTemplateVariableVO("当前状态", "currentStatusText", "text", "待确认"),
+            new LabelTemplateVariableVO("订单小项", "orderCategoryLabel", "text", "大货"),
+            new LabelTemplateVariableVO("客户名称", "customerName", "text", "上海某服饰"),
+            new LabelTemplateVariableVO("项目名称", "projectName", "text", "春季面料项目"),
+            new LabelTemplateVariableVO("品牌", "brandName", "text", "客户品牌")
+    );
+    private static final List<LabelTemplateVariableVO> EQUIPMENT_INSPECTION_VARIABLES = List.of(
+            new LabelTemplateVariableVO("设备编码", "equipmentCode", "barcode", "EQ202605190001"),
+            new LabelTemplateVariableVO("固定巡检码", "inspectionQrPayload", "qrcode", "EQ202605190001"),
+            new LabelTemplateVariableVO("设备名称", "equipmentName", "text", "定型机01"),
+            new LabelTemplateVariableVO("设备类型", "equipmentType", "text", "生产设备"),
+            new LabelTemplateVariableVO("设备位置", "location", "text", "一车间"),
+            new LabelTemplateVariableVO("负责人", "responsiblePerson", "text", "设备管理员"),
+            new LabelTemplateVariableVO("巡检周期", "inspectionCycleDays", "text", "7")
+    );
     private static final Map<String, List<LabelTemplateVariableVO>> VARIABLE_MAP = Map.of(
             "label", LABEL_VARIABLES,
-            "receipt", RECEIPT_VARIABLES
+            "receipt", RECEIPT_VARIABLES,
+            "order_flow", ORDER_FLOW_VARIABLES,
+            "equipment_inspection", EQUIPMENT_INSPECTION_VARIABLES
     );
     private static final String DEFAULT_LABEL_TEMPLATE = "SIZE 70 mm,50 mm\r\n"
             + "GAP 2 mm,0 mm\r\n"
@@ -110,6 +132,30 @@ public class LabelTemplateService {
               "variables": ["orderNo", "customerName", "projectName", "createDate", "operator", "modelCode", "spec", "meters", "price", "amount", "remark"]
             }
             """;
+    private static final String DEFAULT_ORDER_FLOW_TEMPLATE = "SIZE 60 mm,40 mm\r\n"
+            + "GAP 2 mm,0 mm\r\n"
+            + "DIRECTION 1\r\n"
+            + "CLS\r\n"
+            + "TEXT 24,18,\"TSS24.BF2\",0,1,1,\"订单流转码\"\r\n"
+            + "TEXT 24,52,\"TSS24.BF2\",0,1,1,\"${orderTypeLabel}  ${currentStatusText}\"\r\n"
+            + "BARCODE 24,88,\"128\",54,1,0,2,2,\"${flowBarcode}\"\r\n"
+            + "QRCODE 330,36,L,5,A,0,M2,S7,\"${flowQrPayload}\"\r\n"
+            + "TEXT 24,162,\"TSS24.BF2\",0,1,1,\"${customerName}\"\r\n"
+            + "TEXT 24,198,\"TSS24.BF2\",0,1,1,\"${orderCategoryLabel} / ${brandName}\"\r\n"
+            + "TEXT 24,234,\"TSS24.BF2\",0,1,1,\"${orderId}\"\r\n"
+            + "PRINT 1,1";
+    private static final String DEFAULT_EQUIPMENT_INSPECTION_TEMPLATE = "SIZE 60 mm,40 mm\r\n"
+            + "GAP 2 mm,0 mm\r\n"
+            + "DIRECTION 1\r\n"
+            + "CLS\r\n"
+            + "TEXT 24,18,\"TSS24.BF2\",0,1,1,\"设备巡检码\"\r\n"
+            + "TEXT 24,52,\"TSS24.BF2\",0,1,1,\"${equipmentName}\"\r\n"
+            + "QRCODE 320,30,L,5,A,0,M2,S7,\"${inspectionQrPayload}\"\r\n"
+            + "BARCODE 24,92,\"128\",56,1,0,2,2,\"${equipmentCode}\"\r\n"
+            + "TEXT 24,170,\"TSS24.BF2\",0,1,1,\"位置: ${location}\"\r\n"
+            + "TEXT 24,206,\"TSS24.BF2\",0,1,1,\"负责人: ${responsiblePerson}\"\r\n"
+            + "TEXT 24,242,\"TSS24.BF2\",0,1,1,\"${equipmentCode}\"\r\n"
+            + "PRINT 1,1";
 
     @Resource
     private LabelTemplateMapper labelTemplateMapper;
@@ -163,6 +209,8 @@ public class LabelTemplateService {
         runIgnoringTenant(() -> {
             ensureDefaultTemplate(tenantCode, creatorId, "label");
             ensureDefaultTemplate(tenantCode, creatorId, "receipt");
+            ensureDefaultTemplate(tenantCode, creatorId, "order_flow");
+            ensureDefaultTemplate(tenantCode, creatorId, "equipment_inspection");
             return null;
         });
     }
@@ -273,6 +321,12 @@ public class LabelTemplateService {
         if ("receipt".equals(printType)) {
             return createDefaultReceiptTemplate();
         }
+        if ("order_flow".equals(printType)) {
+            return createDefaultOrderFlowTemplate();
+        }
+        if ("equipment_inspection".equals(printType)) {
+            return createDefaultEquipmentInspectionTemplate();
+        }
         return createDefaultLabelTemplate();
     }
 
@@ -287,6 +341,10 @@ public class LabelTemplateService {
         }
         if ("receipt".equals(printType)) {
             createDefaultReceiptTemplate(tenantCode, creatorId);
+        } else if ("order_flow".equals(printType)) {
+            createDefaultOrderFlowTemplate(tenantCode, creatorId);
+        } else if ("equipment_inspection".equals(printType)) {
+            createDefaultEquipmentInspectionTemplate(tenantCode, creatorId);
         } else {
             createDefaultLabelTemplate(tenantCode, creatorId);
         }
@@ -331,6 +389,52 @@ public class LabelTemplateService {
         template.setVariables(String.join(",", RECEIPT_VARIABLES.stream().map(LabelTemplateVariableVO::getField).toList()));
         template.setFileName("system-default-receipt.json");
         template.setFileSize((long) DEFAULT_RECEIPT_TEMPLATE.getBytes(StandardCharsets.UTF_8).length);
+        template.setIsDefault(BinaryFlagEnum.YES.getCode());
+        template.setStatus(CommonStatusEnum.ENABLED.getCode());
+        template.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
+        template.setCreatorId(creatorId);
+        labelTemplateMapper.insert(template);
+        return template;
+    }
+
+    private LabelTemplate createDefaultOrderFlowTemplate() {
+        return createDefaultOrderFlowTemplate(TenantPermissionContext.getTenantCode(), TenantPermissionContext.getUserId());
+    }
+
+    private LabelTemplate createDefaultOrderFlowTemplate(String tenantCode, Long creatorId) {
+        LabelTemplate template = new LabelTemplate();
+        template.setTenantCode(tenantCode);
+        template.setName("系统默认订单流转码");
+        template.setPrintType("order_flow");
+        template.setContent(DEFAULT_ORDER_FLOW_TEMPLATE);
+        template.setWidthMm(new BigDecimal("60"));
+        template.setHeightMm(new BigDecimal("40"));
+        template.setVariables(String.join(",", extractVariables(DEFAULT_ORDER_FLOW_TEMPLATE)));
+        template.setFileName("system-default-order-flow.prn");
+        template.setFileSize((long) DEFAULT_ORDER_FLOW_TEMPLATE.getBytes(StandardCharsets.UTF_8).length);
+        template.setIsDefault(BinaryFlagEnum.YES.getCode());
+        template.setStatus(CommonStatusEnum.ENABLED.getCode());
+        template.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
+        template.setCreatorId(creatorId);
+        labelTemplateMapper.insert(template);
+        return template;
+    }
+
+    private LabelTemplate createDefaultEquipmentInspectionTemplate() {
+        return createDefaultEquipmentInspectionTemplate(TenantPermissionContext.getTenantCode(), TenantPermissionContext.getUserId());
+    }
+
+    private LabelTemplate createDefaultEquipmentInspectionTemplate(String tenantCode, Long creatorId) {
+        LabelTemplate template = new LabelTemplate();
+        template.setTenantCode(tenantCode);
+        template.setName("系统默认设备巡检码");
+        template.setPrintType("equipment_inspection");
+        template.setContent(DEFAULT_EQUIPMENT_INSPECTION_TEMPLATE);
+        template.setWidthMm(new BigDecimal("60"));
+        template.setHeightMm(new BigDecimal("40"));
+        template.setVariables(String.join(",", extractVariables(DEFAULT_EQUIPMENT_INSPECTION_TEMPLATE)));
+        template.setFileName("system-default-equipment-inspection.prn");
+        template.setFileSize((long) DEFAULT_EQUIPMENT_INSPECTION_TEMPLATE.getBytes(StandardCharsets.UTF_8).length);
         template.setIsDefault(BinaryFlagEnum.YES.getCode());
         template.setStatus(CommonStatusEnum.ENABLED.getCode());
         template.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());

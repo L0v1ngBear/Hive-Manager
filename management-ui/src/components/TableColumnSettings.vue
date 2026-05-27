@@ -1,5 +1,15 @@
 <template>
   <div class="table-column-settings" ref="rootRef">
+    <button v-if="exportable" type="button" class="column-settings-trigger column-export-trigger" @click="handleExportTable">
+      <span class="material-symbols-outlined text-[18px]">file_download</span>
+      导出当前页
+    </button>
+
+    <button v-if="exportAllable" type="button" class="column-settings-trigger column-export-trigger" @click="handleExportAll">
+      <span class="material-symbols-outlined text-[18px]">download_for_offline</span>
+      导出全部页
+    </button>
+
     <button type="button" class="column-settings-trigger" @click="open = !open">
       <span class="material-symbols-outlined text-[18px]">view_column</span>
       列设置
@@ -33,16 +43,38 @@
 </template>
 
 <script setup>
+import { ElMessage } from 'element-plus'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { exportTableElementToExcel } from '@/utils/tableExport'
 
-defineProps({
+const props = defineProps({
   columns: {
     type: Array,
     required: true
+  },
+  exportable: {
+    type: Boolean,
+    default: true
+  },
+  exportFileName: {
+    type: String,
+    default: ''
+  },
+  exportSheetName: {
+    type: String,
+    default: ''
+  },
+  exportModule: {
+    type: String,
+    default: ''
+  },
+  exportAllable: {
+    type: Boolean,
+    default: false
   }
 })
 
-defineEmits(['move', 'reset'])
+const emit = defineEmits(['move', 'reset', 'export-all'])
 
 const open = ref(false)
 const rootRef = ref(null)
@@ -50,6 +82,43 @@ const rootRef = ref(null)
 const closeOnOutsideClick = (event) => {
   if (!rootRef.value || rootRef.value.contains(event.target)) return
   open.value = false
+}
+
+function findExportTable() {
+  const root = rootRef.value
+  if (!root) return null
+  const containers = [
+    root.closest('.responsive-table-wrap')?.parentElement,
+    root.closest('section'),
+    root.closest('.function-page-container'),
+    root.closest('.function-page-shell'),
+    document
+  ].filter(Boolean)
+
+  for (const container of containers) {
+    const table = container.querySelector?.('table.responsive-data-table, table')
+    if (table) return table
+  }
+  return null
+}
+
+async function handleExportTable() {
+  try {
+    await exportTableElementToExcel(findExportTable(), {
+      fileName: props.exportFileName,
+      sheetName: props.exportSheetName,
+      sourceModule: props.exportModule
+    })
+    ElMessage.success('Excel 已导出')
+  } catch (error) {
+    if (!error?.__shown) {
+      ElMessage.warning(error?.message || '导出失败，请稍后重试')
+    }
+  }
+}
+
+function handleExportAll() {
+  emit('export-all')
 }
 
 onMounted(() => {
@@ -65,27 +134,49 @@ onBeforeUnmount(() => {
 .table-column-settings {
   position: relative;
   display: inline-flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: max-content;
 }
 
 .column-settings-trigger {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   height: 38px;
+  min-width: 104px;
   padding: 0 14px;
   border-radius: 12px;
-  border: 1px solid rgba(245, 164, 0, .22);
+  border: 1px solid rgba(31, 63, 95, .18);
   background: rgba(255, 255, 255, .92);
-  color: #7a4b00;
+  color: #1f3f5f;
   font-size: 13px;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
   transition: all .18s ease;
 }
 
 .column-settings-trigger:hover {
-  background: #fff8e6;
-  border-color: rgba(245, 164, 0, .38);
-  color: #f59f00;
+  background: #eef4fb;
+  border-color: rgba(31, 63, 95, .34);
+  color: #0b1f33;
+}
+
+.column-export-trigger {
+  border-color: rgba(22, 101, 52, .18);
+  color: #166534;
+}
+
+.column-export-trigger:hover {
+  background: #ecfdf5;
+  border-color: rgba(22, 101, 52, .34);
+  color: #14532d;
 }
 
 .column-settings-panel {
@@ -97,7 +188,7 @@ onBeforeUnmount(() => {
   max-height: 520px;
   overflow: hidden;
   border-radius: 20px;
-  border: 1px solid rgba(245, 164, 0, .2);
+  border: 1px solid rgba(200, 211, 223, .82);
   background: rgba(255, 255, 255, .98);
   box-shadow: 0 24px 60px rgba(15, 23, 42, .14);
 }
@@ -107,8 +198,8 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 12px;
   padding: 16px;
-  border-bottom: 1px solid rgba(245, 164, 0, .14);
-  background: linear-gradient(135deg, rgba(255, 248, 230, .92), rgba(255, 255, 255, .94));
+  border-bottom: 1px solid rgba(200, 211, 223, .58);
+  background: linear-gradient(135deg, rgba(238, 244, 251, .94), rgba(255, 255, 255, .96));
 }
 
 .column-settings-title {
@@ -125,7 +216,7 @@ onBeforeUnmount(() => {
 
 .column-settings-reset {
   flex-shrink: 0;
-  color: #f59f00;
+  color: #1f3f5f;
   font-size: 12px;
   font-weight: 900;
 }

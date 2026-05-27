@@ -72,7 +72,7 @@
               <p class="text-sm font-black text-on-surface">待办通知</p>
               <p class="text-xs text-on-surface-variant">{{ pendingNotifications.length ? `有 ${pendingNotifications.length} 条需要处理` : '当前没有新的待办' }}</p>
             </div>
-            <button class="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container" @click="refreshNotifications(canViewAiAdvice)">
+            <button class="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container" @click="refreshNotifications(true)">
               刷新
             </button>
           </div>
@@ -179,24 +179,22 @@
   </header>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { closeNotificationTask, getUnreadNotifications, markNotificationRead, syncAiNotifications } from '@/api/notification.js'
+import { closeNotificationTask, getUnreadNotifications, markNotificationRead, syncNotifications } from '@/api/notification.js'
 import { trackBehavior } from '@/utils/behavior'
 
 defineOptions({ name: 'Navbar' });
 
-const emit = defineEmits<{
-  (event: 'toggle-mobile-menu'): void
-}>()
+const emit = defineEmits(['toggle-mobile-menu'])
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
-const navbarRef = ref<HTMLElement | null>(null)
+const navbarRef = ref(null)
 const AI_ADVICE_PERMISSIONS = [
   'dashboard:ai:view',
   'dashboard:ai:*',
@@ -214,7 +212,7 @@ const ANNOUNCEMENT_PERMISSIONS = [
   'notification:announcement:publish',
   'dashboard:*'
 ]
-const menuFeatureMap: Record<string, string> = {
+const menuFeatureMap = {
   '/dashboard': 'module.dashboard',
   '/dashboard/ai-advices': 'aiAdvice',
   '/function/announcement': 'module.dashboard',
@@ -238,25 +236,13 @@ const searchPanelOpen = ref(false)
 const mobileSearchOpen = ref(false)
 const notificationOpen = ref(false)
 const userMenuOpen = ref(false)
-type PendingNotification = {
-  key: string
-  id: number
-  title: string
-  desc: string
-  type: string
-  route?: string
-  level?: string
-  taskStatus?: string
-}
-
-const pendingNotifications = ref<PendingNotification[]>([])
+const pendingNotifications = ref([])
 
 // 动态获取路由元信息中的中文标题
-const pageTitle = computed<string>(() => (route.meta.title as string) || '高管总览大盘')
+const pageTitle = computed(() => route.meta.title || '高管总览大盘')
 const displayName = computed(() => userStore.userInfo?.userName || '当前用户')
 const tenantName = computed(() => userStore.currentTenantName)
 const tenantTooltip = computed(() => `欢迎你：${userStore.currentTenantLabel}`)
-const canViewAiAdvice = computed(() => userStore.hasAnyPermission(AI_ADVICE_PERMISSIONS))
 const roleLabel = computed(() => '运营管理')
 const avatarText = computed(() => {
   const name = displayName.value.trim()
@@ -268,8 +254,8 @@ const searchableMenus = computed(() => {
   { name: '总览大盘', path: '/dashboard', icon: 'dashboard', desc: '查看经营总览、企业公告和关键待办' },
   { name: '使用手册', path: '/manual', icon: 'menu_book', desc: '查看系统使用流程、打印说明和常见问题' },
   { name: '企业通知公告', path: '/function/announcement', icon: 'campaign', desc: '发布并查看企业通知公告', permissions: ANNOUNCEMENT_PERMISSIONS },
-  { name: 'AI 经营建议', path: '/dashboard/ai-advices', icon: 'psychology', desc: '查看库存、订单、客户、质量等经营洞察', permissions: AI_ADVICE_PERMISSIONS },
-  { name: '订单管理', path: '/function/order', icon: 'list_alt', desc: '销售订单、生产订单和状态流转', permissions: ['sales:order:list', 'production:order:list'] },
+  { name: '经营建议', path: '/dashboard/ai-advices', icon: 'psychology', desc: '查看库存、订单、客户、质量等经营洞察', permissions: AI_ADVICE_PERMISSIONS },
+  { name: '订单管理', path: '/function/order', icon: 'list_alt', desc: '订单创建、履约和状态流转', permissions: ['sales:order:list', 'production:order:list'] },
   { name: '库存管理', path: '/function/inventory', icon: 'inventory_2', desc: '布匹入库、出库、库存预警和流水', permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:in', 'inventory:cloth:out'] },
   { name: '质量管理', path: '/function/bad-product', icon: 'report_problem', desc: '质量异常登记、处理闭环和损失跟踪', permissions: ['badproduct:list', 'badproduct:save', 'badproduct:process'] },
   { name: '客户管理', path: '/function/customer', icon: 'handshake', desc: '客户档案、联系人和合作项目维护', permissions: ['customer:page'] },
@@ -298,7 +284,7 @@ const filteredMenus = computed(() => {
     .slice(0, 8)
 })
 
-function filterMenus(menus: Array<{ name: string; path: string; icon: string; desc: string; permissions?: string[]; features?: string[] }>) {
+function filterMenus(menus) {
   return menus.filter((item) => {
     const requiredFeatures = item.features || (menuFeatureMap[item.path] ? [menuFeatureMap[item.path]] : [])
     if (requiredFeatures.length && !userStore.hasAnyFeature(requiredFeatures)) {
@@ -308,7 +294,7 @@ function filterMenus(menus: Array<{ name: string; path: string; icon: string; de
   })
 }
 
-function buildSmartSearchResults(rawKeyword: string) {
+function buildSmartSearchResults(rawKeyword) {
   const value = rawKeyword.trim()
   const upper = value.toUpperCase()
   const directResults = []
@@ -380,7 +366,7 @@ function buildSmartSearchResults(rawKeyword: string) {
   return [...allowedDirectResults, ...moduleResults]
 }
 
-function canAccessSearchTarget(path: string) {
+function canAccessSearchTarget(path) {
   return searchableMenus.value.some((item) => item.path === path)
 }
 
@@ -405,7 +391,7 @@ function goFirstSearchResult() {
   }
 }
 
-function goRoute(target: string | { path: string; query?: Record<string, string> }) {
+function goRoute(target) {
   searchPanelOpen.value = false
   mobileSearchOpen.value = false
   notificationOpen.value = false
@@ -438,10 +424,10 @@ async function toggleNotifications() {
 async function refreshNotifications(sync = false) {
   try {
     if (sync) {
-      await syncAiNotifications()
+      await syncNotifications()
     }
     const list = await getUnreadNotifications()
-    pendingNotifications.value = (list || []).slice(0, 8).map((item: any) => ({
+    pendingNotifications.value = (list || []).slice(0, 8).map((item) => ({
       key: `notification-${item.id}`,
       id: Number(item.id),
       title: item.title || '业务提醒',
@@ -456,7 +442,7 @@ async function refreshNotifications(sync = false) {
   }
 }
 
-async function openNotification(item: PendingNotification) {
+async function openNotification(item) {
   trackBehavior({
     eventType: 'notification_open',
     pagePath: route.fullPath,
@@ -478,11 +464,11 @@ async function openNotification(item: PendingNotification) {
   await refreshNotifications()
 }
 
-async function closeNotification(item: PendingNotification, taskStatus: 'DONE' | 'IGNORED') {
+async function closeNotification(item, taskStatus) {
   try {
     const closeNote = taskStatus === 'DONE'
-      ? '已在待办入口标记完成，进入 AI 建议闭环样本。'
-      : '已在待办入口标记跳过，进入 AI 建议反馈样本。'
+      ? '已在待办入口标记完成，并记录处理结果。'
+      : '已在待办入口标记跳过，系统会减少类似提醒。'
     await closeNotificationTask(item.id, { taskStatus, closeNote })
     trackBehavior({
       eventType: 'notification_close',
@@ -499,7 +485,7 @@ async function closeNotification(item: PendingNotification, taskStatus: 'DONE' |
         closeNote
       }
     })
-    ElMessage.success(taskStatus === 'DONE' ? '已完成，AI 建议会同步记录处理结果' : '已跳过，后续会减少类似提醒')
+    ElMessage.success(taskStatus === 'DONE' ? '已完成，系统会同步记录处理结果' : '已跳过，系统会减少类似提醒')
     await refreshNotifications()
   } catch (error) {
     ElMessage.warning('待办处理失败，请稍后再试')
@@ -521,7 +507,7 @@ async function handleLogout() {
   }
 }
 
-function resolveNotificationType(item: any) {
+function resolveNotificationType(item) {
   if (item.level === 'critical') {
     return '紧急'
   }
@@ -529,13 +515,13 @@ function resolveNotificationType(item: any) {
     return '预警'
   }
   if (item.type === 'AI_ADVICE') {
-    return 'AI'
+    return '建议'
   }
   return '提醒'
 }
 
-function handleClickOutside(event: MouseEvent) {
-  const target = event.target as Node
+function handleClickOutside(event) {
+  const target = event.target
   if (navbarRef.value && !navbarRef.value.contains(target)) {
     searchPanelOpen.value = false
     mobileSearchOpen.value = false
@@ -556,9 +542,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .ys-navbar {
-  background: rgba(255, 253, 248, 0.88);
+  background: rgba(251, 252, 254, 0.88);
   backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(233, 197, 109, 0.42);
+  border-bottom: 1px solid rgba(200, 211, 223, 0.58);
 }
 
 .navbar-menu-item {
@@ -570,12 +556,12 @@ onBeforeUnmount(() => {
   text-align: left;
   font-size: 0.875rem;
   font-weight: 800;
-  color: #101418;
+  color: #0f172a;
   transition: background 0.18s ease;
 }
 
 .navbar-menu-item:hover {
-  background: #fff3cc;
+  background: #e8eef6;
 }
 
 .local-avatar {
@@ -585,11 +571,11 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.75rem;
-  background: linear-gradient(135deg, #ffd43b 0%, #f5a400 58%, #f08a00 100%);
+  background: linear-gradient(135deg, #0b1f33 0%, #1f3f5f 58%, #4b7395 100%);
   color: #ffffff;
   font-size: 1rem;
   font-weight: 900;
-  box-shadow: 0 12px 24px rgba(245, 164, 0, 0.24);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
 }
 
 .tenant-chip {

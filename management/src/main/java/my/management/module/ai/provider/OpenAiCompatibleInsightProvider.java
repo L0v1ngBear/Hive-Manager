@@ -97,7 +97,7 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
             long elapsedMillis = elapsedMillis(startNanos);
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 externalApiGuardService.recordCallEvent(PROVIDER, ACTION, "HTTP_ERROR", tenantSubject,
-                        response.statusCode(), elapsedMillis, "DeepSeek returned non-2xx HTTP status",
+                        response.statusCode(), elapsedMillis, "智能建议服务返回异常",
                         Map.of("model", safeText(config.getModel())));
                 return List.of();
             }
@@ -115,7 +115,7 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
             detail.put("adviceCount", advices.size());
             detail.put("responseBytes", response.body() == null ? 0 : response.body().length());
             externalApiGuardService.recordCallEvent(PROVIDER, ACTION, "SUCCESS", tenantSubject,
-                    response.statusCode(), elapsedMillis, "DeepSeek generated AI advice", detail);
+                    response.statusCode(), elapsedMillis, "智能建议生成完成", detail);
             return advices;
         } catch (Exception exception) {
             Map<String, Object> detail = new LinkedHashMap<>();
@@ -125,8 +125,8 @@ public class OpenAiCompatibleInsightProvider implements AiInsightProvider {
                 detail.put("model", safeText(config.getModel()));
             }
             externalApiGuardService.recordCallEvent(PROVIDER, ACTION, "ERROR", tenantSubject,
-                    null, elapsedMillis(startNanos), "DeepSeek call failed", detail);
-            log.warn("DeepSeek AI advice generation failed, tenant={}", tenantSubject, exception);
+                    null, elapsedMillis(startNanos), "智能建议服务调用失败", detail);
+            log.warn("智能建议生成失败, tenant={}", tenantSubject, exception);
             return List.of();
         }
     }

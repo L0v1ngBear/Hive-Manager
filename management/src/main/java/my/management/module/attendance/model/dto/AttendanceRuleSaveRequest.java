@@ -45,6 +45,8 @@ public class AttendanceRuleSaveRequest {
 
     private String address;
 
+    private List<AttendanceLocationSaveRequest> locations;
+
     private Boolean enableWifi = Boolean.FALSE;
 
     private String wifiSsid;

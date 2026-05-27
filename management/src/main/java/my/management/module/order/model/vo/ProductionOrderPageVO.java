@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 生产订单列表行对象。
@@ -16,6 +17,8 @@ public class ProductionOrderPageVO {
     private String salesOrderId;
 
     private String status;
+
+    private String orderCategory;
 
     private String modelCode;
 
@@ -31,9 +34,21 @@ public class ProductionOrderPageVO {
 
     private Integer process;
 
+    private String processText;
+
+    private String currentProcessText;
+
+    private String completedProcessText;
+
+    private Integer processProgressPercent;
+
+    private List<ProductionProcessStepVO> processSteps;
+
     private String customerName;
 
     private String projectName;
+
+    private String brandName;
 
     private LocalDateTime deliveryDate;
 

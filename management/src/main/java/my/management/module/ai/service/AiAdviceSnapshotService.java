@@ -133,7 +133,7 @@ public class AiAdviceSnapshotService {
             throw new IllegalArgumentException("tenantCode cannot be blank");
         }
         if (!tenantLicenseService.tryConsumeAiAdviceQuota(tenantCode)) {
-            throw new IllegalStateException("AI advice quota exhausted or feature disabled for tenant: " + tenantCode);
+            throw new IllegalStateException("经营建议额度已用完或功能未启用: " + tenantCode);
         }
         return refreshTenantInternal(tenantCode);
     }
@@ -211,7 +211,7 @@ public class AiAdviceSnapshotService {
                 .eventType("AI_ADVICE_SNAPSHOT_REFRESH")
                 .level(failedCount > 0 ? "WARN" : "INFO")
                 .module("ai")
-                .title(failedCount > 0 ? "AI advice snapshot refresh had failures" : "AI advice snapshot refreshed")
+                .title(failedCount > 0 ? "经营建议快照刷新存在失败项" : "经营建议快照已刷新")
                 .content("success=" + successCount + ", failed=" + failedCount + ", skipped=" + skippedCount)
                 .bizType("xxl-job")
                 .bizNo("aiAdviceSnapshotRefreshJob")

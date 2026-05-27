@@ -34,6 +34,7 @@ public class ExcelUtil {
     private static final DataFormatter DATA_FORMATTER = new DataFormatter();
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final int EXCEL_WRITE_BATCH_SIZE = 500;
 
     public void writeRowsToResponse(HttpServletResponse response,
                                     String sheetName,
@@ -41,12 +42,13 @@ public class ExcelUtil {
                                     List<List<String>> rows,
                                     String fileName) {
         prepareDownloadResponse(response, fileName);
-        try {
-            EasyExcel.write(response.getOutputStream())
-                    .head(toEasyExcelHead(headers))
+        try (ExcelWriter writer = EasyExcel.write(response.getOutputStream())
                     .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
-                    .sheet(safeSheetName(sheetName))
-                    .doWrite(normalizeRows(rows, headerCount(headers)));
+                    .build()) {
+            WriteSheet writeSheet = EasyExcel.writerSheet(safeSheetName(sheetName))
+                    .head(toEasyExcelHead(headers))
+                    .build();
+            writeRowsInBatches(writer, writeSheet, rows, headerCount(headers));
             response.flushBuffer();
         } catch (IOException e) {
             throw new RuntimeException("导出 Excel 失败", e);
@@ -229,14 +231,36 @@ public class ExcelUtil {
         }
         List<List<String>> normalizedRows = new ArrayList<>(rows.size());
         for (List<String> row : rows) {
-            int actualColumnCount = columnCount > 0 ? columnCount : (row == null ? 0 : row.size());
-            List<String> normalizedRow = new ArrayList<>(actualColumnCount);
-            for (int i = 0; i < actualColumnCount; i++) {
-                normalizedRow.add(row != null && i < row.size() ? stringify(row.get(i)) : "");
-            }
-            normalizedRows.add(normalizedRow);
+            normalizedRows.add(normalizeRow(row, columnCount));
         }
         return normalizedRows;
+    }
+
+    private void writeRowsInBatches(ExcelWriter writer, WriteSheet writeSheet, List<List<String>> rows, int columnCount) {
+        if (rows == null || rows.isEmpty()) {
+            writer.write(List.of(), writeSheet);
+            return;
+        }
+        List<List<String>> batch = new ArrayList<>(Math.min(EXCEL_WRITE_BATCH_SIZE, rows.size()));
+        for (List<String> row : rows) {
+            batch.add(normalizeRow(row, columnCount));
+            if (batch.size() >= EXCEL_WRITE_BATCH_SIZE) {
+                writer.write(batch, writeSheet);
+                batch.clear();
+            }
+        }
+        if (!batch.isEmpty()) {
+            writer.write(batch, writeSheet);
+        }
+    }
+
+    private List<String> normalizeRow(List<String> row, int columnCount) {
+        int actualColumnCount = columnCount > 0 ? columnCount : (row == null ? 0 : row.size());
+        List<String> normalizedRow = new ArrayList<>(actualColumnCount);
+        for (int i = 0; i < actualColumnCount; i++) {
+            normalizedRow.add(row != null && i < row.size() ? stringify(row.get(i)) : "");
+        }
+        return normalizedRow;
     }
 
     private List<List<String>> toSingleColumnRows(List<String> values) {

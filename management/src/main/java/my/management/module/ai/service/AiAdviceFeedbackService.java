@@ -55,7 +55,7 @@ public class AiAdviceFeedbackService {
         String normalizedSampleKey = sampleKey.trim();
         String category = aiAdviceTrainingSampleMapper.selectCategoryBySampleKey(tenantCode, normalizedSampleKey);
         if (category != null && !aiAdvicePermissionService.canViewCategory(category)) {
-            throw new BusinessException(403, "您没有权限反馈该维度 AI 建议");
+            throw new BusinessException(403, "您没有权限反馈该类经营建议");
         }
 
         String normalizedFeedbackType = normalizeFeedbackType(feedbackType);

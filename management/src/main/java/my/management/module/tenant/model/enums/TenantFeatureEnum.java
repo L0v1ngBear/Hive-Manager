@@ -17,12 +17,13 @@ public enum TenantFeatureEnum {
     APPROVAL("module.approval", "审批中心", "基础模块", "请假、财务等审批流程", true, true),
     ATTENDANCE("module.attendance", "考勤管理", "基础模块", "小程序打卡、规则和统计", true, true),
     EMPLOYEE("module.employee", "员工管理", "基础模块", "员工档案、组织和状态", true, true),
+    EQUIPMENT("module.equipment", "设备巡检", "基础模块", "设备档案、固定巡检码和巡检记录", true, true),
     ROLE("module.role", "角色管理", "基础模块", "角色权限和人员授权", true, true),
     LABEL("module.label", "标签打印", "基础模块", "标签模板和小程序打印联动", true, true),
     DOCUMENT("module.document", "文档管理", "基础模块", "企业目录、文件和 OSS 存储", true, true),
     MANUAL("module.manual", "使用手册", "基础模块", "网页端用户使用说明", true, true),
-    AI_ADVICE("aiAdvice", "AI 建议", "智能能力", "经营、员工、客户和风险建议", false, true),
-    ADVANCED_AI("advancedAi", "高级 AI", "智能能力", "高维建议、闭环进化和高级分析", false, false);
+    AI_ADVICE("aiAdvice", "经营建议", "智能能力", "经营、员工、客户和风险建议", false, true),
+    ADVANCED_AI("advancedAi", "高级分析", "智能能力", "高维建议、闭环复盘和高级分析", false, false);
 
     public static final String CODE_DASHBOARD = "module.dashboard";
     public static final String CODE_ORDER = "module.order";
@@ -34,6 +35,7 @@ public enum TenantFeatureEnum {
     public static final String CODE_APPROVAL = "module.approval";
     public static final String CODE_ATTENDANCE = "module.attendance";
     public static final String CODE_EMPLOYEE = "module.employee";
+    public static final String CODE_EQUIPMENT = "module.equipment";
     public static final String CODE_ROLE = "module.role";
     public static final String CODE_LABEL = "module.label";
     public static final String CODE_DOCUMENT = "module.document";

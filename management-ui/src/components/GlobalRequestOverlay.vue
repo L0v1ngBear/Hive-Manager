@@ -45,7 +45,7 @@ const requestStatus = useRequestStatusStore()
 }
 
 .global-request-icon {
-  color: #f59e0b;
+  color: #1f3f5f;
   font-size: 22px;
   animation: global-request-spin 1s linear infinite;
 }

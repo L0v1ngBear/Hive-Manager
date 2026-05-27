@@ -51,3 +51,10 @@ export function syncAiNotifications() {
     method: 'post'
   })
 }
+
+export function syncNotifications() {
+  return request({
+    url: '/notifications/sync',
+    method: 'post'
+  })
+}

@@ -12,6 +12,7 @@ import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.order.model.dto.ProductionOrderPageRequest;
 import my.management.module.order.model.dto.ProductionOrderSaveRequest;
 import my.management.module.order.model.dto.ProductionOrderUpdateRequest;
+import my.management.module.order.model.dto.OrderFlowPrintTaskRequest;
 import my.management.module.order.model.dto.OrderWarningSettingUpdateRequest;
 import my.management.module.order.model.dto.SalesOrderPageRequest;
 import my.management.module.order.model.dto.SalesOrderSaveRequest;
@@ -19,6 +20,7 @@ import my.management.module.order.model.dto.SalesOrderUpdateRequest;
 import my.management.module.order.model.vo.ProductionOrderDetailVO;
 import my.management.module.order.model.vo.ProductionOrderPageVO;
 import my.management.module.order.model.vo.ProductionOrderStatusLogVO;
+import my.management.module.order.model.vo.OrderFlowPrintTaskVO;
 import my.management.module.order.model.vo.OrderWarningSettingVO;
 import my.management.module.order.model.vo.OrderWarningSummaryVO;
 import my.management.module.order.model.vo.SalesOrderAttachmentVO;
@@ -125,6 +127,13 @@ public class OrderController {
         return Result.success(orderService.listSalesLogs(orderId));
     }
 
+    @PostMapping("/sales/flow-print-task")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_STATUS, message = "您没有权限生成销售订单流转码")
+    @CollectLog(module = "order", action = "create_sales_flow_print_task", bizType = "sales_order", bizNo = "#request.orderId", description = "管理端创建销售订单流转码打印任务")
+    public Result<OrderFlowPrintTaskVO> createSalesFlowPrintTask(@RequestBody @Valid OrderFlowPrintTaskRequest request) {
+        return Result.success(orderService.createSalesOrderFlowPrintTask(request));
+    }
+
     @GetMapping("/production/page")
     @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_LIST, message = "您没有权限查看生产订单列表")
     public Result<PageResult<ProductionOrderPageVO>> productionPage(ProductionOrderPageRequest request) {
@@ -154,6 +163,13 @@ public class OrderController {
     @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限查看订单预警统计")
     public Result<OrderWarningSummaryVO> warningSummary() {
         return Result.success(orderService.getOrderWarningSummary());
+    }
+
+    @PostMapping("/warning/refresh")
+    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限刷新订单预警")
+    @CollectLog(module = "order", action = "refresh_warning", bizType = "order_warning", description = "管理端重新更新订单预警")
+    public Result<OrderWarningSummaryVO> refreshWarningSummary() {
+        return Result.success(orderService.refreshOrderWarningSummary());
     }
 
     @GetMapping("/production/detail/{orderId}")
@@ -189,6 +205,13 @@ public class OrderController {
     public Result<Void> updateProduction(@PathVariable String orderId, @RequestBody ProductionOrderUpdateRequest request) {
         orderService.updateProductionOrder(orderId, request);
         return Result.success(null);
+    }
+
+    @PostMapping("/production/flow-print-task")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_STATUS, message = "您没有权限生成生产订单流转码")
+    @CollectLog(module = "order", action = "create_production_flow_print_task", bizType = "production_order", bizNo = "#request.orderId", description = "管理端创建生产订单流转码打印任务")
+    public Result<OrderFlowPrintTaskVO> createProductionFlowPrintTask(@RequestBody @Valid OrderFlowPrintTaskRequest request) {
+        return Result.success(orderService.createProductionOrderFlowPrintTask(request));
     }
 
     @GetMapping("/health")

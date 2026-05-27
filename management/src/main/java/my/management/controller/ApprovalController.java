@@ -15,14 +15,18 @@ import my.management.module.approval.model.dto.FinanceAuditRequest;
 import my.management.module.approval.model.dto.FinanceSubmitRequest;
 import my.management.module.approval.model.dto.LeaveAuditRequest;
 import my.management.module.approval.model.dto.OrderApprovalAuditRequest;
+import my.management.module.approval.model.dto.ApprovalDefaultAuditorSaveRequest;
 import my.management.module.approval.model.dto.ResignationAuditRequest;
 import my.management.module.approval.model.dto.ResignationSubmitRequest;
 import my.management.module.approval.model.vo.ApprovalSummaryVO;
+import my.management.module.approval.model.vo.ApprovalAuditorOptionVO;
+import my.management.module.approval.model.vo.ApprovalDefaultAuditorVO;
 import my.management.module.approval.model.vo.FinanceApprovalVO;
 import my.management.module.approval.model.vo.LeaveApprovalListVO;
 import my.management.module.approval.model.vo.LeaveDetailVO;
 import my.management.module.approval.model.vo.OrderApprovalVO;
 import my.management.module.approval.model.vo.ResignationApprovalVO;
+import my.management.module.approval.service.ApprovalDefaultAuditorService;
 import my.management.module.approval.service.ApprovalService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -53,6 +57,9 @@ public class ApprovalController {
     private ApprovalService approvalService;
 
     @Resource
+    private ApprovalDefaultAuditorService approvalDefaultAuditorService;
+
+    @Resource
     private BusinessAttachmentService businessAttachmentService;
 
     @GetMapping("/summary")
@@ -60,10 +67,31 @@ public class ApprovalController {
         return Result.success(approvalService.getSummary());
     }
 
+    @GetMapping("/auditors")
+    public Result<List<ApprovalAuditorOptionVO>> listAuditors(@RequestParam String type,
+                                                              @RequestParam(required = false) String keyword,
+                                                              @RequestParam(defaultValue = "20") Integer limit) {
+        return Result.success(approvalService.listAuditorOptions(type, keyword, limit));
+    }
+
+    @GetMapping("/default-auditors")
+    @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_FINANCE_AUDIT, message = "您没有权限查看审批负责人配置")
+    public Result<List<ApprovalDefaultAuditorVO>> listDefaultAuditors() {
+        return Result.success(approvalDefaultAuditorService.listDefaults());
+    }
+
+    @PostMapping("/default-auditors")
+    @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_FINANCE_AUDIT, message = "您没有权限配置审批负责人")
+    @CollectLog(module = "approval", action = "save_default_auditor", bizType = "approval_default_auditor", bizNo = "#request.approvalType", description = "配置审批默认负责人")
+    public Result<Void> saveDefaultAuditor(@Valid @RequestBody ApprovalDefaultAuditorSaveRequest request) {
+        approvalDefaultAuditorService.saveDefault(request);
+        return Result.success(null);
+    }
+
     @GetMapping("/leave/list")
     @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_LEAVE, message = "您没有权限查看请假审批列表")
-    public Result<List<LeaveApprovalListVO>> listLeaveApprovals() {
-        return Result.success(approvalService.listLeaveApprovals());
+    public Result<List<LeaveApprovalListVO>> listLeaveApprovals(@RequestParam(required = false) Integer limit) {
+        return Result.success(approvalService.listLeaveApprovals(limit));
     }
 
     @GetMapping("/leave/{leaveCode}")
@@ -82,8 +110,8 @@ public class ApprovalController {
 
     @GetMapping("/finance/list")
     @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_FINANCE, message = "您没有权限查看财务审批列表")
-    public Result<List<FinanceApprovalVO>> listFinanceApprovals() {
-        return Result.success(approvalService.listFinanceApprovals());
+    public Result<List<FinanceApprovalVO>> listFinanceApprovals(@RequestParam(required = false) Integer limit) {
+        return Result.success(approvalService.listFinanceApprovals(limit));
     }
 
     @GetMapping("/finance/{approvalCode}")
@@ -130,8 +158,8 @@ public class ApprovalController {
 
     @GetMapping("/resignation/list")
     @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_RESIGNATION, message = "您没有权限查看离职审批列表")
-    public Result<List<ResignationApprovalVO>> listResignationApprovals() {
-        return Result.success(approvalService.listResignationApprovals());
+    public Result<List<ResignationApprovalVO>> listResignationApprovals(@RequestParam(required = false) Integer limit) {
+        return Result.success(approvalService.listResignationApprovals(limit));
     }
 
     @GetMapping("/resignation/{resignationCode}")
@@ -157,8 +185,8 @@ public class ApprovalController {
 
     @GetMapping("/order/list")
     @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限查看订单审批列表")
-    public Result<List<OrderApprovalVO>> listOrderApprovals() {
-        return Result.success(approvalService.listOrderApprovals());
+    public Result<List<OrderApprovalVO>> listOrderApprovals(@RequestParam(required = false) Integer limit) {
+        return Result.success(approvalService.listOrderApprovals(limit));
     }
 
     @GetMapping("/order/{orderType}/{orderId}")

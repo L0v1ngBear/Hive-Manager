@@ -6,9 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
-/**
- * FinanceSubmitRequest 属于管理端后端审批模块，定义入参结构。
- */
+
 @Data
 public class FinanceSubmitRequest {
 
@@ -16,11 +14,16 @@ public class FinanceSubmitRequest {
     private String category;
 
     @NotNull(message = "申请金额不能为空")
-    @DecimalMin(value = "0.01", message = "申请金额必须大于 0")
+    @DecimalMin(value = "0.01", message = "申请金额必须大于0")
     private BigDecimal amount;
 
     @NotBlank(message = "申请事由不能为空")
     private String reason;
+
+    /**
+     * 可手动指定审批人；为空时走当前租户的默认审批负责人。
+     */
+    private Long auditorId;
 
     private String attachmentName;
 

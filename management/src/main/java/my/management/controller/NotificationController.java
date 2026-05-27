@@ -73,8 +73,14 @@ public class NotificationController {
     }
 
     @PostMapping("/sync-ai")
-    @CollectLog(module = "notification", action = "sync_ai", bizType = "ai_advice_notification", description = "同步 AI 建议通知")
+    @CollectLog(module = "notification", action = "sync_ai", bizType = "ai_advice_notification", description = "同步经营建议通知")
     public Result<Integer> syncAi() {
         return Result.success(notificationService.syncAiAdviceNotificationsForCurrentTenant());
+    }
+
+    @PostMapping("/sync")
+    @CollectLog(module = "notification", action = "sync_all", bizType = "notification", description = "同步待办通知")
+    public Result<Integer> syncAll() {
+        return Result.success(notificationService.syncAllNotificationsForCurrentTenant());
     }
 }

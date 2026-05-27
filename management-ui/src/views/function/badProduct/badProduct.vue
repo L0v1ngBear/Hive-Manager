@@ -78,22 +78,20 @@
               <option value="">全部类型</option>
               <option v-for="item in typeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
             </select>
-            <input
+            <DateFilterInput
               v-model="query.date"
-              type="date"
+              placeholder="发生日期"
               class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none"
             />
-            <input
+            <DateFilterInput
               v-model="query.startDate"
-              type="date"
+              placeholder="开始日期"
               class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none"
-              title="开始日期"
             />
-            <input
+            <DateFilterInput
               v-model="query.endDate"
-              type="date"
+              placeholder="结束日期"
               class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none"
-              title="结束日期"
             />
             <button @click="handleFilter" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold">查询</button>
             <button @click="resetFilter" class="px-4 py-2 bg-surface-container-highest text-on-surface rounded-lg text-sm font-bold">
@@ -101,6 +99,7 @@
             </button>
             <TableColumnSettings
               :columns="badProductTableColumns"
+              export-module="badproduct"
               @move="moveBadProductTableColumn"
               @reset="resetBadProductTableColumns"
             />
@@ -108,11 +107,11 @@
           <span class="text-xs text-on-surface-variant">共 {{ pagination.total }} {{ scopeMeta.countText }}</span>
         </div>
 
-        <div class="overflow-x-auto relative min-h-[260px]">
+        <div class="responsive-table-wrap relative min-h-[260px]">
           <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
             <span class="material-symbols-outlined text-primary text-3xl animate-spin">progress_activity</span>
           </div>
-          <table class="w-full text-left border-collapse min-w-[1120px]">
+          <table class="responsive-data-table w-full text-left border-collapse">
             <thead class="bg-surface-container-low/50">
               <tr>
                 <th
@@ -136,6 +135,7 @@
                 <td
                   v-for="column in badProductTableColumns"
                   :key="column.key"
+                  :data-label="column.label"
                   class="px-6 py-4"
                   :class="badProductCellClass(column.key)"
                 >
@@ -155,7 +155,7 @@
                   </template>
                   <template v-else-if="column.key === 'createTime'">{{ formatDateTime(item.createTime) }}</template>
                 </td>
-                <td class="px-6 py-4 text-right space-x-2">
+                <td class="px-6 py-4 text-right space-x-2" data-label="操作">
                   <button @click.stop="openDetail(item)" class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-xs font-bold">
                     详情
                   </button>
@@ -282,16 +282,26 @@
       :class="formVisible ? 'translate-x-0' : 'translate-x-full'"
     >
       <div class="h-1 bg-primary"></div>
-      <div class="p-6 border-b flex justify-between items-start">
+      <div class="p-6 border-b flex justify-between items-start gap-3">
         <div>
           <h3 class="font-black text-primary text-lg">{{ editingRecord ? scopeMeta.editTitle : scopeMeta.createTitle }}</h3>
           <p class="text-xs text-on-surface-variant mt-1">{{ scopeMeta.formSubtitle }}</p>
         </div>
-        <button @click="closeForm" class="p-1 hover:bg-surface-container-high rounded-full">
-          <span class="material-symbols-outlined">close</span>
-        </button>
+        <div class="drawer-head-actions">
+          <button @click="closeForm" class="p-1 hover:bg-surface-container-high rounded-full">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
       </div>
       <div class="flex-1 p-6 space-y-5 overflow-y-auto">
+        <BusinessTimeCorrectionPanel
+          v-model="form.createTime"
+          :active="timeCorrectionMode"
+          data-field="badProduct.createTime"
+          title="业务时间修正"
+          label="业务时间"
+          description="用于修正当前记录的业务时间。"
+        />
         <label class="block">
           <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">关联订单</span>
           <input v-model.trim="form.orderId" class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary" placeholder="请输入订单号" />
@@ -436,7 +446,10 @@ import {
 } from './api/badProduct.js'
 import { warnAndFocusField } from '@/utils/formFocus'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import DateFilterInput from '@/components/DateFilterInput.vue'
+import BusinessTimeCorrectionPanel from '@/components/BusinessTimeCorrectionPanel.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
+import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
 
 const qualityTypeOptions = [
   { value: 'quality', label: '质量问题' },
@@ -455,7 +468,7 @@ const scopeOptions = [
   {
     value: 'quality',
     tabTitle: '质量记录',
-    tabDesc: '登记生产、运输和内部质量异常，沉淀责任与改进闭环。',
+    tabDesc: '登记生产、运输和质量异常，形成责任与改进闭环。',
     eyebrow: '质量追踪中心',
     title: '质量管理',
     desc: '统一登记质量问题、运输破损和其他质量异常记录，支持处理闭环和损失跟踪。',
@@ -519,6 +532,12 @@ const attachmentInputRef = ref(null)
 const attachmentUploading = ref(false)
 const form = reactive(createEmptyForm())
 const processForm = reactive({ method: '', remark: '' })
+const {
+  timeCorrectionMode,
+  closeTimeCorrectionMode
+} = useTimeCorrectionMode({
+  isAvailable: () => formVisible.value
+})
 
 const totalPages = computed(() => Math.max(Number(pagination.pages || 1), 1))
 const scopeMeta = computed(() => scopeOptions.find((item) => item.value === activeScope.value) || scopeOptions[0])
@@ -621,11 +640,13 @@ function openEdit(record) {
   form.attachmentName = record.attachmentName || ''
   form.attachmentUrl = record.attachmentUrl || ''
   form.attachmentSize = record.attachmentSize || null
+  form.createTime = toDateTimeLocal(record.createTime)
   formVisible.value = true
 }
 
 function closeForm() {
   formVisible.value = false
+  closeTimeCorrectionMode()
   editingRecord.value = null
   resetForm()
 }
@@ -708,6 +729,9 @@ async function submitForm() {
   if (!form.lossAmount || Number(form.lossAmount) <= 0) {
     return warnAndFocusField('请填写有效的损失金额', 'badProduct.lossAmount')
   }
+  if (!validateCreateTimeInput(form.createTime)) {
+    return
+  }
 
   await saveBadProduct({
     defectiveId: form.defectiveId || undefined,
@@ -721,7 +745,8 @@ async function submitForm() {
     improvementPlan: form.improvementPlan || undefined,
     attachmentName: form.attachmentName || undefined,
     attachmentUrl: form.attachmentUrl || undefined,
-    attachmentSize: form.attachmentSize || undefined
+    attachmentSize: form.attachmentSize || undefined,
+    createTime: formatCreateTimePayload(form.createTime) || undefined
   })
   ElMessage.success(editingRecord.value ? '质量记录已更新' : '质量记录已新增')
   closeForm()
@@ -762,6 +787,39 @@ function formatDateTime(value) {
   return String(value).replace('T', ' ').slice(0, 19)
 }
 
+function toDateTimeLocal(value) {
+  if (!value) {
+    return ''
+  }
+  const normalized = String(value).replace(' ', 'T')
+  return normalized.length >= 16 ? normalized.slice(0, 19) : normalized
+}
+
+function formatCreateTimePayload(value) {
+  if (!value) {
+    return ''
+  }
+  const text = String(value).trim()
+  return text.length === 16 ? `${text}:00` : text
+}
+
+function validateCreateTimeInput(value) {
+  if (!value) {
+    return true
+  }
+  const payload = formatCreateTimePayload(value)
+  const date = new Date(payload)
+  if (!Number.isFinite(date.getTime())) {
+    warnAndFocusField('登记时间格式不正确，请选择完整日期和时间', 'badProduct.createTime')
+    return false
+  }
+  if (date.getTime() > Date.now()) {
+    warnAndFocusField('登记时间不能晚于当前时间', 'badProduct.createTime')
+    return false
+  }
+  return true
+}
+
 function money(value) {
   return Number(value || 0).toFixed(2)
 }
@@ -797,7 +855,8 @@ function createEmptyForm() {
     improvementPlan: '',
     attachmentName: '',
     attachmentUrl: '',
-    attachmentSize: null
+    attachmentSize: null,
+    createTime: ''
   }
 }
 </script>
@@ -811,5 +870,41 @@ function createEmptyForm() {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.drawer-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.time-correction-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 63, 95, 0.24);
+  background: rgba(238, 244, 251, 0.86);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  color: #1f3f5f;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.time-correction-toggle small {
+  color: rgba(71, 85, 105, 0.72);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.time-correction-toggle.active {
+  border-color: rgba(31, 63, 95, 0.86);
+  background: #1f3f5f;
+  color: #fff;
+}
+
+.time-correction-toggle.active small {
+  color: rgba(255, 255, 255, 0.78);
 }
 </style>

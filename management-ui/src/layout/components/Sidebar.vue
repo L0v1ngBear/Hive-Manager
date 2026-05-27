@@ -91,7 +91,7 @@
   </aside>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 import {useUserStore} from '@/stores/user'
@@ -99,10 +99,11 @@ import {getApprovalSummary} from '@/views/function/approval/api/approval'
 
 defineOptions({name: 'Sidebar'})
 
-const props = withDefaults(defineProps<{
-  mobile?: boolean
-}>(), {
-  mobile: false
+const props = defineProps({
+  mobile: {
+    type: Boolean,
+    default: false
+  }
 })
 
 const route = useRoute()
@@ -130,15 +131,7 @@ const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value
 }
 
-interface MenuItem {
-  name: string
-  path: string
-  icon: string
-  permissions?: string[]
-  features?: string[]
-}
-
-const menuFeatureMap: Record<string, string> = {
+const menuFeatureMap = {
   '/dashboard': 'module.dashboard',
   '/dashboard/ai-advices': 'aiAdvice',
   '/function/announcement': 'module.dashboard',
@@ -150,6 +143,7 @@ const menuFeatureMap: Record<string, string> = {
   '/function/receipt': 'module.receipt',
   '/function/approval': 'module.approval',
   '/function/attendance': 'module.attendance',
+  '/function/equipment': 'module.equipment',
   '/function/employee': 'module.employee',
   '/function/organization': 'module.employee',
   '/function/role': 'module.role',
@@ -158,7 +152,7 @@ const menuFeatureMap: Record<string, string> = {
   '/manual': 'module.manual'
 }
 
-const primaryMenus = computed<MenuItem[]>(() => {
+const primaryMenus = computed(() => {
   return filterMenus([
   {name: '总览大盘', path: '/dashboard', icon: 'dashboard'},
   {
@@ -181,11 +175,12 @@ const primaryMenus = computed<MenuItem[]>(() => {
 ])
 })
 
-const secondaryMenus = computed<MenuItem[]>(() => {
+const secondaryMenus = computed(() => {
   return filterMenus([
   {name: '企业通知公告', path: '/function/announcement', icon: 'campaign', permissions: ANNOUNCEMENT_PERMISSIONS},
-  {name: 'AI 经营建议', path: '/dashboard/ai-advices', icon: 'psychology', permissions: AI_ADVICE_PERMISSIONS},
+  {name: '经营建议', path: '/dashboard/ai-advices', icon: 'psychology', permissions: AI_ADVICE_PERMISSIONS},
   {name: '考勤管理', path: '/function/attendance', icon: 'timer', permissions: ['attendance:record:list', 'attendance:*']},
+  {name: '设备巡检', path: '/function/equipment', icon: 'qr_code_scanner', permissions: ['equipment:list', 'equipment:detail', 'equipment:inspection:list']},
   {name: '员工管理', path: '/function/employee', icon: 'people', permissions: ['employee:list']},
   {name: '部门管理', path: '/function/organization', icon: 'account_tree', permissions: ['employee:list']},
   {name: '角色管理', path: '/function/role', icon: 'settings_accessibility', permissions: ['role:list']},
@@ -195,7 +190,7 @@ const secondaryMenus = computed<MenuItem[]>(() => {
 ])
 })
 
-function filterMenus(menus: MenuItem[]) {
+function filterMenus(menus) {
   return menus.filter((item) => {
     const requiredFeatures = item.features || (menuFeatureMap[item.path] ? [menuFeatureMap[item.path]] : [])
     if (requiredFeatures.length && !userStore.hasAnyFeature(requiredFeatures)) {
@@ -255,7 +250,7 @@ watch(
     {immediate: true, deep: true}
 )
 
-const linkClass = (path: string) => {
+const linkClass = (path) => {
   const active = route.path.startsWith(path)
   return [
     active
@@ -278,8 +273,8 @@ const linkClass = (path: string) => {
 
 .ys-sidebar {
   background:
-      linear-gradient(180deg, rgba(255, 250, 240, 0.96), rgba(255, 255, 255, 0.92)),
-      radial-gradient(circle at 20% 0%, rgba(255, 196, 41, 0.24), transparent 36%);
-  box-shadow: 18px 0 42px rgba(245, 164, 0, 0.08);
+      linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(255, 255, 255, 0.94)),
+      radial-gradient(circle at 20% -4%, rgba(31, 63, 95, 0.14), transparent 38%);
+  box-shadow: 18px 0 42px rgba(15, 23, 42, 0.07);
 }
 </style>

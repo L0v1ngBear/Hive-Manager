@@ -40,7 +40,9 @@ import java.util.stream.Collectors;
 public class RoleService {
 
     private static final Set<String> HIDDEN_ASSIGNABLE_PERMISSION_CODES = Set.of(
+            "*",
             "*:*",
+            "super",
             "developer:super",
             "platform",
             "platform:tenant",

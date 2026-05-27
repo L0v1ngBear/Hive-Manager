@@ -265,7 +265,7 @@ public class TenantFieldConfigService {
         try {
             objectMapper.readTree(value);
         } catch (Exception exception) {
-            throw new BusinessException("字段选项必须是合法 JSON");
+            throw new BusinessException("字段选项格式不正确");
         }
     }
 

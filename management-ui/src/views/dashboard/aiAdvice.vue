@@ -1,12 +1,12 @@
 <template>
-  <div class="h-full min-h-0 max-w-7xl mx-auto space-y-6">
+  <div class="min-h-fit max-w-7xl mx-auto space-y-6">
     <header class="relative overflow-hidden rounded-[2rem] bg-primary text-white p-6 md:p-8 shadow-lg shadow-primary/20">
       <div class="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/10"></div>
       <div class="absolute right-20 bottom-0 h-28 w-28 rounded-full bg-white/5"></div>
       <div class="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div class="min-w-0">
           <p class="text-xs font-black tracking-[0.24em] uppercase text-white/70">Business Advice</p>
-          <h1 class="mt-3 text-3xl md:text-5xl font-black tracking-tight">AI 经营建议</h1>
+          <h1 class="mt-3 text-3xl md:text-5xl font-black tracking-tight">经营建议</h1>
           <p class="mt-4 max-w-3xl text-sm md:text-base leading-7 text-white/80">
             系统会结合库存、订单、客户、员工、质量和审批数据，整理成管理层可以直接跟进的建议、责任方向和复盘指标。
           </p>
@@ -326,7 +326,7 @@ async function fetchAdvices(refresh = false) {
     dailyBrief.value = briefResult || null
     trackAdviceExposure()
   } catch (error) {
-    ElMessage.error(error?.msg || 'AI 经营建议加载失败')
+    ElMessage.error(error?.msg || '经营建议加载失败')
   } finally {
     loading.value = false
   }
@@ -403,14 +403,14 @@ async function submitAdviceFeedback(item, feedbackType) {
 }
 
 function resolveFeedbackMessage(feedbackType) {
-  if (feedbackType === 'irrelevant') return '已记录为不准确，后续会减少类似建议'
-  if (feedbackType === 'resolved') return '已记录为已处理，后续会用于闭环复盘'
+  if (feedbackType === 'irrelevant') return '已记录为不准确，系统会减少类似建议'
+  if (feedbackType === 'resolved') return '已记录为已处理，系统会用于闭环复盘'
   return '已记录为有帮助'
 }
 
 const categoryMeta = {
   inventory: { title: '库存周转', subtitle: '库存余量、低库存型号、近期出入库', icon: 'inventory_2' },
-  order: { title: '订单履约', subtitle: '销售订单、生产订单、履约状态', icon: 'receipt_long' },
+  order: { title: '订单履约', subtitle: '订单进度、履约状态、交付风险', icon: 'receipt_long' },
   delivery: { title: '交付发货', subtitle: '交付日期、发货状态、物流完整度', icon: 'local_shipping' },
   customer: { title: '客户经营', subtitle: '复购周期、客户活跃度、重点客户贡献', icon: 'handshake' },
   employee: { title: '员工效率', subtitle: '员工状态、考勤异常、请假审批与上下级关系', icon: 'groups' },

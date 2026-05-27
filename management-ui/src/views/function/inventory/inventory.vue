@@ -143,12 +143,13 @@
               <input v-model.trim="query.specMax" type="number" min="0" step="0.01" class="w-28 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" placeholder="规格上限" />
               <input v-model.trim="query.remainingMin" type="number" min="0" step="0.01" class="w-32 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" placeholder="剩余米数下限" />
               <input v-model.trim="query.remainingMax" type="number" min="0" step="0.01" class="w-32 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" placeholder="剩余米数上限" />
-              <input v-model="query.updatedStart" type="date" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" title="更新开始日期" />
-              <input v-model="query.updatedEnd" type="date" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" title="更新结束日期" />
+              <DateFilterInput v-model="query.updatedStart" placeholder="更新开始" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" />
+              <DateFilterInput v-model="query.updatedEnd" placeholder="更新结束" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" />
               <button @click="handleFilter" class="rounded-xl bg-blue-50 px-5 py-2.5 text-sm font-bold text-blue-600 transition-colors hover:bg-blue-100">查询</button>
               <button @click="resetFilter" class="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50">重置</button>
               <TableColumnSettings
                 :columns="inventoryTableColumns"
+                export-module="inventory"
                 @move="moveInventoryTableColumn"
                 @reset="resetInventoryTableColumns"
               />
@@ -158,12 +159,12 @@
             </span>
           </div>
 
-          <div class="relative flex-1 overflow-x-auto">
+          <div class="responsive-table-wrap relative flex-1">
             <div v-if="loading" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-[2px]">
               <span class="material-symbols-outlined animate-spin text-4xl text-blue-600">progress_activity</span>
               <span class="text-sm font-medium text-blue-600">正在加载库存数据...</span>
             </div>
-            <table class="w-full min-w-[1040px] border-collapse text-left">
+            <table class="responsive-data-table w-full border-collapse text-left">
               <thead class="sticky top-0 z-0 bg-slate-50/80">
                 <tr>
                   <th
@@ -182,6 +183,7 @@
                   <td
                     v-for="column in inventoryTableColumns"
                     :key="column.key"
+                    :data-label="column.label"
                     class="px-6 py-4"
                     :class="inventoryTableCellClass(column.key)"
                   >
@@ -196,7 +198,7 @@
                     </template>
                     <template v-else-if="column.key === 'updateTime'">{{ formatDateTime(item.latestTime || item.updateTime) }}</template>
                   </td>
-                  <td class="space-x-2 whitespace-nowrap px-6 py-4 text-right">
+                  <td class="space-x-2 whitespace-nowrap px-6 py-4 text-right" data-label="操作">
                     <button @click.stop="openDetail(item)" class="rounded-lg px-3 py-1.5 text-xs font-bold text-blue-600 transition-colors hover:bg-blue-100/50">详情</button>
                   </td>
                 </tr>
@@ -320,7 +322,7 @@
 
     <aside class="inventory-drawer" :class="detailVisible ? 'translate-x-0' : 'translate-x-full'">
       <div class="h-1.5 w-full bg-blue-600"></div>
-      <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
+      <div class="flex items-start justify-between gap-3 border-b border-slate-100 bg-slate-50/50 p-6">
         <div>
           <h3 class="text-xl font-black text-slate-900">库存详情</h3>
           <p class="mt-1.5 inline-block rounded bg-slate-200/50 px-2 py-0.5 font-mono text-xs font-medium text-slate-500">
@@ -397,11 +399,21 @@
           </h3>
           <p class="mt-1.5 text-xs text-slate-500">条码不填时系统会自动生成唯一标识号，打印标签请在小程序端完成。</p>
         </div>
-        <button @click="inVisible = false" class="inventory-close-btn">
-          <span class="material-symbols-outlined">close</span>
-        </button>
+        <div class="inventory-drawer-actions">
+          <button @click="closeInDrawer" class="inventory-close-btn">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
       </div>
       <div class="flex-1 space-y-6 overflow-y-auto p-6">
+        <BusinessTimeCorrectionPanel
+          v-model="inForm.inTime"
+          :active="inTimeCorrectionMode"
+          data-field="inventory.inTime"
+          title="业务时间修正"
+          label="业务时间"
+          description="用于修正当前布匹的业务入库时间。"
+        />
         <label class="block">
           <span class="inventory-field-label">
             <span class="material-symbols-outlined text-[16px] text-slate-400">qr_code</span>
@@ -464,7 +476,7 @@
         </div>
       </div>
       <div class="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
-        <button @click="inVisible = false" class="inventory-cancel-btn">取消</button>
+        <button @click="closeInDrawer" class="inventory-cancel-btn">取消</button>
         <button @click="submitIn" class="inventory-confirm-btn bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600">确认入库</button>
       </div>
     </aside>
@@ -489,7 +501,7 @@
             <span class="material-symbols-outlined rounded-xl bg-white p-2 text-blue-600 shadow-sm">info</span>
             <div class="text-xs leading-5 text-blue-900/80">
               <p class="font-bold">{{ imageRecognitionResult.message || '请上传清晰的码单、库存卡或布匹标签照片。' }}</p>
-              <p class="mt-1">当前识别结果会作为草稿，不会自动写入库存；点击“确认入库”后才会生成库存和标签打印任务。</p>
+              <p class="mt-1">当前识别结果会作为草稿，不会自动写入库存；点击“确认入库”后才会生成库存记录并准备标签打印。</p>
             </div>
           </div>
         </div>
@@ -637,7 +649,10 @@ import { warnAndFocusField } from '@/utils/formFocus'
 import { getCurrentTenantFieldConfig } from '@/api/tenantFieldConfig'
 import { customTenantFields, defaultTenantFieldConfig, mergeTenantFieldConfig } from '@/utils/tenantFieldConfig'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import DateFilterInput from '@/components/DateFilterInput.vue'
+import BusinessTimeCorrectionPanel from '@/components/BusinessTimeCorrectionPanel.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
+import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
 import {
   downloadInventoryImportTemplate,
   getInventoryModelPage,
@@ -686,8 +701,14 @@ const detailRecord = ref(null)
 const outPreview = ref(null)
 const importInputRef = ref(null)
 const imageRecognitionInputRef = ref(null)
-const inForm = reactive({ barcode: '', modelCode: '', spec: '', meters: '', customFields: {} })
+const inForm = reactive({ barcode: '', modelCode: '', spec: '', meters: '', inTime: '', customFields: {} })
 const outForm = reactive({ barcode: '', meters: '' })
+const {
+  timeCorrectionMode: inTimeCorrectionMode,
+  closeTimeCorrectionMode: closeInTimeCorrectionMode
+} = useTimeCorrectionMode({
+  isAvailable: () => inVisible.value
+})
 const imageRecognitionResult = reactive({ fileName: '', fileUrl: '', fileSize: 0, confidence: 0, message: '' })
 const imageRecognitionCandidates = ref([])
 const inventoryFieldConfig = ref(defaultInventoryFieldConfig())
@@ -907,10 +928,15 @@ function openModelClothPage() {
 }
 
 function openInDrawer() {
-  Object.assign(inForm, { barcode: '', modelCode: '', spec: '', meters: '' })
+  Object.assign(inForm, { barcode: '', modelCode: '', spec: '', meters: '', inTime: '' })
   resetCustomFields()
   modelOptions.value = []
   inVisible.value = true
+}
+
+function closeInDrawer() {
+  inVisible.value = false
+  closeInTimeCorrectionMode()
 }
 
 function openOutDrawer(record) {
@@ -921,7 +947,7 @@ function openOutDrawer(record) {
 
 function closePanels() {
   detailVisible.value = false
-  inVisible.value = false
+  closeInDrawer()
   outVisible.value = false
   imageRecognitionVisible.value = false
 }
@@ -1060,20 +1086,47 @@ function validateInboundPayload(payload, options = {}) {
   return customFields
 }
 
+function formatBusinessDateTimePayload(value) {
+  if (!value) {
+    return ''
+  }
+  const text = String(value).trim()
+  return text.length === 16 ? `${text}:00` : text
+}
+
+function validateInTimeInput(value) {
+  if (!value) {
+    return true
+  }
+  const payload = formatBusinessDateTimePayload(value)
+  const date = new Date(payload)
+  if (!Number.isFinite(date.getTime())) {
+    warnAndFocusField('入库时间格式不正确，请选择完整日期和时间。', 'inventory.inTime')
+    return false
+  }
+  if (date.getTime() > Date.now()) {
+    warnAndFocusField('入库时间不能晚于当前时间。', 'inventory.inTime')
+    return false
+  }
+  return true
+}
+
 async function submitIn() {
   const customFields = validateInboundPayload(inForm, { focusPrefix: 'inventory' })
   if (customFields == null) return
+  if (!validateInTimeInput(inForm.inTime)) return
   const result = await inCloth({
     barcode: inForm.barcode || undefined,
     modelCode: inForm.modelCode,
     spec: Number(inForm.spec),
     meters: Number(inForm.meters),
     inType: 'manual',
+    inTime: formatBusinessDateTimePayload(inForm.inTime) || undefined,
     customFields
   })
-  const taskNo = result?.labelTask?.printTaskNo
-  ElMessage.success(taskNo ? `入库成功，已生成小程序标签打印任务：${taskNo}` : '入库成功')
-  inVisible.value = false
+  const hasLabelPrint = Boolean(result?.labelTask?.printTaskNo)
+  ElMessage.success(hasLabelPrint ? '入库成功，标签已加入待打印' : '入库成功')
+  closeInDrawer()
   await refreshAll()
 }
 
@@ -1102,7 +1155,7 @@ async function submitRecognizedInventory() {
     results.push(await inCloth(payload))
   }
   const taskCount = results.filter((item) => item?.labelTask?.printTaskNo).length
-  ElMessage.success(`图片识别入库成功 ${results.length} 匹${taskCount ? `，生成 ${taskCount} 个标签打印任务` : ''}`)
+  ElMessage.success(`图片识别入库成功 ${results.length} 匹${taskCount ? '，标签已加入待打印' : ''}`)
   imageRecognitionVisible.value = false
   await refreshAll()
 }
@@ -1375,6 +1428,34 @@ function getUnit(value, defaultUnit = '米') {
   padding: 0.375rem;
   color: rgb(148 163 184);
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.inventory-drawer-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.inventory-time-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgb(251 191 36 / 0.45);
+  background: rgb(255 251 235);
+  padding: 0.45rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgb(146 64 14);
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.inventory-time-btn:hover,
+.inventory-time-btn.active {
+  background: rgb(245 158 11);
+  color: #fff;
+  transform: translateY(-1px);
 }
 
 .inventory-close-btn:hover {

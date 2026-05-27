@@ -92,7 +92,7 @@ async function fetchPermissions() {
     console.error('获取权限异常:', error)
     allPermissions.value = []
     permissionLoadError.value = error?.response?.status === 403
-      ? '您暂无权限查看权限树，请联系管理员开通“角色权限查看”权限。'
+      ? '您暂无权限查看权限树，请联系企业负责人确认角色权限配置。'
       : '权限树加载失败，请稍后重试。'
   } finally {
     isLoadingPerms.value = false

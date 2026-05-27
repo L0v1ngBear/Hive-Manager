@@ -1,12 +1,12 @@
 <template>
-  <main class="min-h-full bg-[#fffdf8] px-4 py-10 text-[#101418]">
-    <section class="mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-[#f0d48e]/70 bg-white/95 shadow-xl shadow-amber-500/10">
-      <header class="border-b border-[#f0d48e]/60 bg-gradient-to-br from-[#fff8e6] via-white to-[#eef6ff] px-6 py-8 md:px-10">
+  <main class="min-h-full bg-[#fbfcfe] px-4 py-10 text-[#0f172a]">
+    <section class="mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-[#c8d3df]/70 bg-white/95 shadow-xl shadow-slate-500/10">
+      <header class="border-b border-[#c8d3df]/60 bg-gradient-to-br from-[#eef4fb] via-white to-[#f8fbff] px-6 py-8 md:px-10">
         <div class="flex flex-wrap items-center justify-between gap-5">
           <div class="flex items-center gap-4">
             <img src="../../../images/logo.png" alt="蜂巢 Hive logo" class="h-14 w-14 object-contain drop-shadow-sm">
             <div>
-              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#b56f00]">{{ siteConfig.productName }}</p>
+              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#1f3f5f]">{{ siteConfig.productName }}</p>
               <h1 class="mt-2 text-3xl font-black tracking-tight md:text-4xl">{{ pageTitle }}</h1>
             </div>
           </div>
@@ -20,7 +20,7 @@
       </header>
 
       <article class="space-y-8 px-6 py-8 md:px-10">
-        <section class="rounded-3xl border border-[#f0d48e]/70 bg-[#fff8e6] p-5 text-sm leading-7 text-[#5f5a4e]">
+        <section class="rounded-3xl border border-[#c8d3df]/70 bg-[#eef4fb] p-5 text-sm leading-7 text-[#475569]">
           <p>
             <strong class="text-[#101418]">适用范围：</strong>
             本{{ pageTitle }}适用于管理网页端、小程序端以及与其配套的后端服务。若企业基于自身业务另行制定内部制度，员工仍应同时遵守企业内部管理要求。
@@ -50,7 +50,7 @@
           <p><strong class="text-[#101418]">联系邮箱：</strong>{{ siteConfig.supportEmail }}</p>
           <p>
             <strong class="text-[#101418]">ICP备案：</strong>
-            <a :href="siteConfig.icpUrl" target="_blank" rel="noopener noreferrer" class="font-bold text-[#b56f00]">
+            <a :href="siteConfig.icpUrl" target="_blank" rel="noopener noreferrer" class="font-bold text-[#1f3f5f]">
               {{ siteConfig.icpNumber }}
             </a>
           </p>
@@ -61,7 +61,7 @@
           <router-link to="/login" class="rounded-2xl bg-[#101418] px-5 py-3 text-sm font-black text-white transition hover:bg-black">
             返回登录页
           </router-link>
-          <router-link :to="type === 'privacy' ? '/terms' : '/privacy'" class="rounded-2xl border border-[#f0d48e] bg-white px-5 py-3 text-sm font-black text-[#101418] transition hover:bg-[#fff8e6]">
+          <router-link :to="type === 'privacy' ? '/terms' : '/privacy'" class="rounded-2xl border border-[#c8d3df] bg-white px-5 py-3 text-sm font-black text-[#0f172a] transition hover:bg-[#eef4fb]">
             查看{{ type === 'privacy' ? '服务条款' : '隐私政策' }}
           </router-link>
         </div>
@@ -89,15 +89,15 @@ const privacySections = [
       '账号与身份信息：登录账号、手机号、员工姓名、所属组织、部门、岗位、角色权限、直属负责人、账号状态等，用于身份认证、权限控制、组织协同和离职停用。',
       '业务管理信息：库存、订单、客户、供应商、生产、出入库、标签、质量异常、考勤、请假、财务审批、离职审批、文档等由企业或用户主动录入的数据。',
       '设备与权限信息：小程序考勤打卡可能需要位置权限；微信一键登录会使用微信提供的手机号授权能力；订阅消息会记录用户对模板消息的授权状态和 openid。',
-      '日志与安全信息：登录时间、访问接口、操作记录、异常日志、设备基础信息、IP 相关信息等，用于安全审计、问题排查、防刷限流和服务稳定性保障。',
-      'AI 建议相关信息：系统会使用脱敏后的经营指标、趋势数据和反馈结果生成经营建议；外部模型调用前会尽量去除组织编码、手机号、客户姓名等直接标识。'
+      '日志与安全信息：登录时间、服务访问、操作记录、异常日志、设备基础信息、IP 相关信息等，用于安全审计、问题排查、异常访问限制和服务稳定性保障。',
+      '经营建议相关信息：系统会使用脱敏后的经营指标、趋势数据和反馈结果生成经营建议；生成建议前会尽量去除组织编码、手机号、客户姓名等直接标识。'
     ]
   },
   {
     title: '二、我们如何使用信息',
     items: [
       '提供基础功能：完成登录、权限校验、员工管理、库存流转、订单协同、审批处理、标签打印和考勤统计。',
-      '保障安全与可靠性：进行异常检测、操作审计、接口限流、数据备份、故障定位和风险提醒。',
+      '保障安全与可靠性：进行异常检测、操作审计、访问频率控制、数据备份、故障定位和风险提醒。',
       '改进产品体验：统计功能使用情况、识别慢查询或高频操作场景，优化页面响应速度、字段配置和流程闭环。',
       '发送必要通知：在用户主动授权的前提下，通过小程序订阅消息发送待办提醒；订阅消息不会用于无关营销。',
       '履行法律法规或监管要求：在必要范围内配合审计、安全事件处置、争议解决或主管机关依法提出的要求。'
@@ -108,7 +108,7 @@ const privacySections = [
     items: [
       '微信生态能力：小程序登录、手机号授权、订阅消息等能力由微信提供，相关能力会遵循微信平台规则。',
       '对象存储服务：如企业启用 OSS 文件存储，上传的业务附件、标签相关文件或文档会存储到配置的云存储空间中。',
-      'AI 模型服务：如启用 DeepSeek 等外部模型，系统仅发送生成建议所需的脱敏经营指标和反馈样本，不发送密码、密钥、完整手机号等敏感凭据。',
+      '智能建议服务：如启用智能建议能力，系统仅使用生成建议所需的脱敏经营指标和反馈样本，不发送密码、完整手机号等敏感凭据。',
       '除实现上述功能、取得授权、履行法定义务或保护系统安全外，我们不会向无关第三方出售、出租或非法共享企业业务数据。'
     ]
   },
@@ -116,7 +116,7 @@ const privacySections = [
     title: '四、数据保存、保护与删除',
     items: [
       '我们会根据业务连续性、审计追溯、财务合规和安全排查需要保存必要数据；超过必要期限的数据应通过清理策略或企业管理操作进行归档、删除或脱敏。',
-      '系统采用 HTTPS、角色权限、操作日志、数据库低权限账号、Redis 命名空间、外部 API 限流和密钥不入库等措施降低泄露风险。',
+      '系统会通过加密传输、权限控制、操作留痕、访问隔离和外部服务调用保护等措施降低泄露风险。',
       '员工离职、调岗或外包人员退出时，企业管理员应及时停用账号或调整权限；离职审批通过后系统会同步收敛相关权限。',
       '如需导出、删除或更正数据，可联系企业管理员处理；涉及系统级数据处理的，可通过本页面联系方式联系我们协助。'
     ]
@@ -143,7 +143,7 @@ const termsSections = [
   {
     title: '一、服务内容',
     items: [
-      '蜂巢 Hive 提供数字化工厂管理能力，包括库存、订单、客户、生产、考勤、审批、标签、文档、质量管理和 AI 经营建议等模块。',
+      '蜂巢 Hive 提供数字化工厂管理能力，包括库存、订单、客户、生产、考勤、审批、标签、文档、质量管理和经营建议等模块。',
       '具体可用功能会根据企业版本、组织配置、用户权限、部署环境和定制化字段有所不同。'
     ]
   },
@@ -160,14 +160,14 @@ const termsSections = [
     items: [
       '用户应确保录入的客户、订单、库存、考勤、财务、审批和文档信息真实、合法、必要、准确。',
       '网页端和小程序端的打印、导入、导出、审批、状态流转等操作会被记录用于追溯；请在提交前核对关键信息。',
-      'AI 经营建议仅作为辅助分析，不替代企业管理层、财务人员、法务人员或业务负责人作出的最终判断。'
+      '经营建议仅作为辅助分析，不替代企业管理层、财务人员、法务人员或业务负责人作出的最终判断。'
     ]
   },
   {
     title: '四、禁止行为',
     items: [
       '不得上传违法违规、侵权、恶意代码、虚假业务或与企业经营无关的内容。',
-      '不得攻击、扫描、压测、爬取、绕过鉴权、批量刷接口、破解密钥或干扰系统稳定运行。',
+      '不得攻击、扫描、压测、爬取、绕过权限、恶意批量请求、破解授权信息或干扰系统稳定运行。',
       '不得利用系统处理未获授权的个人信息、客户资料或其他企业商业秘密。'
     ]
   },
@@ -175,7 +175,7 @@ const termsSections = [
     title: '五、服务变更与责任边界',
     items: [
       '我们会持续优化系统安全、备份、迁移、日志和自动化运维能力，但企业仍需自行管理内部人员、终端设备、账号权限和数据录入质量。',
-      '因用户误操作、企业内部管理不当、第三方平台故障、网络波动、不可抗力或未按部署要求维护密钥造成的风险，应由相应责任方承担。',
+      '因用户误操作、企业内部管理不当、第三方平台故障、网络波动、不可抗力或未按安全要求维护账号与授权信息造成的风险，应由相应责任方承担。',
       '如需商业定制、字段扩展、流程改造或私有化部署，应通过双方确认的需求、验收和交付流程执行。'
     ]
   }

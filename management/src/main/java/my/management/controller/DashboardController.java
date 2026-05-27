@@ -58,19 +58,19 @@ public class DashboardController {
     }
 
     @GetMapping("/ai-snapshot")
-    @RequirePermission(value = PermissionCodeEnum.CODE_DASHBOARD_AI_VIEW, message = "您没有权限查看 AI 经营快照")
+    @RequirePermission(value = PermissionCodeEnum.CODE_DASHBOARD_AI_VIEW, message = "您没有权限查看经营快照")
     public Result<AiBusinessSnapshotVO> aiSnapshot() {
         return Result.success(dashboardService.aiSnapshot());
     }
 
     @GetMapping("/ai-evolution")
-    @RequirePermission(value = PermissionCodeEnum.CODE_DASHBOARD_AI_VIEW, message = "您没有权限查看 AI 自进化评估")
+    @RequirePermission(value = PermissionCodeEnum.CODE_DASHBOARD_AI_VIEW, message = "您没有权限查看经营建议评估")
     public Result<AiAdviceEvolutionReportVO> aiEvolution() {
         return Result.success(aiAdviceEvolutionService.report());
     }
 
     @PostMapping("/ai-advices/feedback")
-    @CollectLog(module = "ai_advice", action = "feedback", bizType = "ai_advice_training_sample", bizNo = "#request.sampleKey", description = "submit AI advice feedback")
+    @CollectLog(module = "ai_advice", action = "feedback", bizType = "ai_advice_training_sample", bizNo = "#request.sampleKey", description = "提交经营建议反馈")
     public Result<Void> aiAdviceFeedback(@RequestBody AiAdviceFeedbackRequest request) {
         aiAdviceFeedbackService.feedback(request);
         return Result.success(null);

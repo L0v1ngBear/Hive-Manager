@@ -20,6 +20,10 @@ public class ProductionOrderSaveRequest {
 
     private String projectName;
 
+    private String brandName;
+
+    private String orderCategory;
+
     private String contactPhone;
 
     @NotBlank(message = "型号不能为空")

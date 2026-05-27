@@ -3,7 +3,7 @@
 
 .form-field-attention {
   position: relative;
-  outline: 2px solid rgba(250, 160, 0, 0.85) !important;
+  outline: 2px solid rgba(30, 64, 104, 0.82) !important;
   outline-offset: 3px;
   border-radius: 14px;
   animation: form-field-attention-pulse 0.9s ease-in-out 2;
@@ -11,32 +11,32 @@
 
 @keyframes form-field-attention-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(250, 160, 0, 0);
+    box-shadow: 0 0 0 0 rgba(30, 64, 104, 0);
   }
   50% {
-    box-shadow: 0 0 0 8px rgba(250, 160, 0, 0.16);
+    box-shadow: 0 0 0 8px rgba(30, 64, 104, 0.14);
   }
 }
 
 @theme {
   /* 自定义颜色 */
-  --color-primary: #f5a400;
-  --color-primary-container: #fff3cc;
-  --color-on-primary-container: #201600;
-  --color-secondary: #7a6845;
-  --color-surface-tint: #f5a400;
+  --color-primary: #1f3f5f;
+  --color-primary-container: #e8eef6;
+  --color-on-primary-container: #0b1f33;
+  --color-secondary: #64748b;
+  --color-surface-tint: #1f3f5f;
   --color-error: #ba1a1a;
   --color-error-container: #ffdad6;
   --color-on-error-container: #93000a;
-  --color-surface-bright: #fffdf8;
+  --color-surface-bright: #fbfcfe;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #fff8e6;
-  --color-surface-container-high: #ffedb3;
-  --color-surface-container-highest: #ffe299;
-  --color-surface: #fffaf0;
-  --color-on-surface: #101418;
-  --color-on-surface-variant: #5f5a4e;
-  --color-outline-variant: #e9c56d;
+  --color-surface-container-low: #f5f7fb;
+  --color-surface-container-high: #e7edf5;
+  --color-surface-container-highest: #dbe5f0;
+  --color-surface: #f8fafc;
+  --color-on-surface: #0f172a;
+  --color-on-surface-variant: #64748b;
+  --color-outline-variant: #c8d3df;
 
   /* 自定义字体 */
   --font-sans: "PingFang SC", "Microsoft YaHei", "Inter", sans-serif;
@@ -51,77 +51,89 @@ html, body, #app {
   margin: 0;
   padding: 0;
   background:
-    radial-gradient(circle at 12% 0%, rgba(255, 196, 41, 0.22), transparent 34%),
-    linear-gradient(180deg, #fffdf8 0%, #ffffff 100%);
-  color: #101418;
+    radial-gradient(circle at 14% -8%, rgba(31, 63, 95, 0.16), transparent 34%),
+    radial-gradient(circle at 86% 2%, rgba(143, 110, 61, 0.08), transparent 30%),
+    linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  color: #0f172a;
 }
 
 body {
-  --ys-primary: #f5a400;
-  --ys-primary-dark: #101418;
-  --ys-primary-mid: #b56f00;
-  --ys-primary-light: #ffc429;
-  --ys-soft: #fff8e6;
-  --ys-surface: #fffaf0;
-  --ys-line: #f0d48e;
-  --el-color-primary: #f5a400;
-  --el-color-primary-light-3: #ffc429;
-  --el-color-primary-light-5: #ffd76b;
-  --el-color-primary-light-7: #ffe7a6;
-  --el-color-primary-light-9: #fff8e6;
-  --el-color-primary-dark-2: #b56f00;
-  --el-text-color-primary: #101418;
-  --el-text-color-regular: #3f3a32;
-  --el-border-color: #f0d48e;
-  --el-fill-color-light: #fffaf0;
+  --ys-primary: #1f3f5f;
+  --ys-primary-dark: #0b1f33;
+  --ys-primary-mid: #2f5f86;
+  --ys-primary-light: #7fa4c7;
+  --ys-accent: #8f6e3d;
+  --ys-soft: #f5f7fb;
+  --ys-surface: #f8fafc;
+  --ys-line: #c8d3df;
+  --el-color-primary: #1f3f5f;
+  --el-color-primary-light-3: #4b7395;
+  --el-color-primary-light-5: #7fa4c7;
+  --el-color-primary-light-7: #bfd0e2;
+  --el-color-primary-light-9: #e8eef6;
+  --el-color-primary-dark-2: #0b1f33;
+  --el-text-color-primary: #0f172a;
+  --el-text-color-regular: #334155;
+  --el-border-color: #d6dee8;
+  --el-fill-color-light: #f6f8fb;
+  --el-border-radius-base: 12px;
+  --primary: 31 63 95;
+  --on-primary: 255 255 255;
+  --surface-container-lowest: 255 255 255;
+  --surface-container-low: 245 247 251;
+  --surface-container-high: 231 237 245;
+  --on-surface: 15 23 42;
+  --on-surface-variant: 100 116 139;
 }
 
 .bg-primary,
 .el-button--primary {
-  background: linear-gradient(135deg, #ffd43b 0%, #f5a400 52%, #f08a00 100%) !important;
+  border-color: transparent !important;
+  background: linear-gradient(135deg, #0b1f33 0%, #1f3f5f 56%, #4b7395 100%) !important;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18) !important;
 }
 
 .text-primary {
-  color: #f5a400 !important;
+  color: #1f3f5f !important;
 }
 
 .border-primary {
-  border-color: #f5a400 !important;
+  border-color: #1f3f5f !important;
 }
 
 .bg-surface,
 .bg-slate-50,
 .bg-slate-50\/50 {
-  background-color: #fffaf0 !important;
+  background-color: #f8fafc !important;
 }
 
 .bg-surface-container-low,
 .bg-slate-100 {
-  background-color: #fff8e6 !important;
+  background-color: #f5f7fb !important;
 }
 
 .text-slate-900,
 .text-slate-800,
 .text-on-surface {
-  color: #101418 !important;
+  color: #0f172a !important;
 }
 
 .text-slate-600,
 .text-slate-500,
 .text-on-surface-variant {
-  color: #5f5a4e !important;
+  color: #64748b !important;
 }
 
 .border-slate-100,
 .border-slate-200,
 .border-outline-variant\/20,
 .border-outline-variant\/30 {
-  border-color: rgba(233, 197, 109, 0.72) !important;
+  border-color: rgba(200, 211, 223, 0.82) !important;
 }
 
 .shadow-sm,
 .ambient-shadow {
-  box-shadow: 0 18px 42px rgba(245, 164, 0, 0.10) !important;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08) !important;
 }
 
 .el-drawer,
@@ -154,18 +166,24 @@ body {
    功能页统一标题区
    ========================================== */
 .function-page-shell {
-  min-height: 100%;
+  min-height: auto;
   min-width: 0;
   overflow-x: hidden;
   container-type: inline-size;
   background:
-    radial-gradient(circle at 8% 0%, rgba(255, 196, 41, 0.18), transparent 32%),
-    linear-gradient(180deg, #fffdf8 0%, #fffaf0 100%);
-  color: #101418;
+    radial-gradient(circle at 10% -8%, rgba(31, 63, 95, 0.13), transparent 34%),
+    radial-gradient(circle at 90% 4%, rgba(143, 110, 61, 0.07), transparent 28%),
+    linear-gradient(180deg, #fbfcfe 0%, #f8fafc 100%);
+  color: #0f172a;
+}
+
+.function-page-shell.h-full {
+  height: auto !important;
+  min-height: auto !important;
 }
 
 .function-page-container {
-  width: min(100%, 80rem);
+  width: min(100%, 112rem);
   min-width: 0;
   margin: 0 auto;
 }
@@ -201,10 +219,10 @@ body {
   gap: 0.5rem;
   margin-bottom: 0.5rem;
   padding: 0.25rem 0.75rem;
-  border: 1px solid rgba(245, 164, 0, 0.18);
+  border: 1px solid rgba(31, 63, 95, 0.16);
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(255, 248, 230, 0.96), rgba(255, 255, 255, 0.78));
-  color: #b56f00;
+  background: linear-gradient(135deg, rgba(232, 238, 246, 0.96), rgba(255, 255, 255, 0.82));
+  color: #1f3f5f;
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -217,7 +235,7 @@ body {
 }
 
 .function-page-title {
-  color: #101418;
+  color: #0f172a;
   font-size: clamp(1.875rem, 3vw, 2.5rem);
   line-height: 1.12;
   font-weight: 900;
@@ -227,7 +245,7 @@ body {
 .function-page-desc {
   margin-top: 0.5rem;
   max-width: 42rem;
-  color: #5f5a4e;
+  color: #64748b;
   font-size: clamp(0.875rem, 1.6vw, 1rem);
   line-height: 1.75;
 }
@@ -247,19 +265,19 @@ body {
 }
 
 .function-action-primary {
-  background: linear-gradient(135deg, #ffd43b 0%, #f5a400 52%, #f08a00 100%);
+  background: linear-gradient(135deg, #0b1f33 0%, #1f3f5f 56%, #4b7395 100%);
   color: #ffffff;
-  box-shadow: 0 14px 30px rgba(245, 164, 0, 0.24);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
 }
 
 .function-action-secondary {
-  border: 1px solid rgba(233, 197, 109, 0.72);
-  background: rgba(255, 255, 255, 0.82);
-  color: #101418;
+  border: 1px solid rgba(200, 211, 223, 0.9);
+  background: rgba(255, 255, 255, 0.86);
+  color: #0f172a;
 }
 
 .function-action-dark {
-  background: linear-gradient(135deg, #201600 0%, #101418 100%);
+  background: linear-gradient(135deg, #102033 0%, #0f172a 100%);
   color: #ffffff;
   box-shadow: 0 14px 30px rgba(16, 20, 24, 0.18);
 }
@@ -277,6 +295,140 @@ body {
 }
 
 /* ==========================================
+   商用主题兼容层：把旧页面里的高饱和黄橙色统一收敛为蓝灰体系
+   ========================================== */
+.bg-amber-50,
+.bg-amber-50\/50,
+.bg-amber-50\/60,
+.bg-amber-50\/70,
+.bg-amber-50\/80,
+.bg-yellow-50,
+.bg-orange-50 {
+  background-color: #eef4fb !important;
+}
+
+.bg-amber-100,
+.bg-yellow-100,
+.bg-orange-100,
+.bg-primary-container,
+.hover\:bg-primary-container:hover,
+.hover\:bg-surface-container-highest:hover {
+  background-color: #e0e9f3 !important;
+}
+
+.bg-amber-200,
+.bg-yellow-200,
+.bg-orange-200 {
+  background-color: #c8d7e7 !important;
+}
+
+.text-amber-400,
+.text-amber-500,
+.text-amber-600,
+.text-amber-700,
+.text-amber-800,
+.text-amber-900,
+.text-amber-950,
+.text-yellow-500,
+.text-yellow-600,
+.text-orange-500,
+.text-orange-600,
+.text-orange-700 {
+  color: #1f3f5f !important;
+}
+
+.text-amber-50,
+.text-yellow-50,
+.text-orange-50 {
+  color: #f8fafc !important;
+}
+
+.border-amber-100,
+.border-amber-100\/80,
+.border-amber-200,
+.border-amber-300,
+.border-yellow-100,
+.border-yellow-200,
+.border-orange-100,
+.border-orange-200 {
+  border-color: #c8d3df !important;
+}
+
+.ring-amber-100,
+.ring-amber-200,
+.ring-amber-200\/60,
+.ring-yellow-100,
+.ring-yellow-200,
+.ring-orange-100,
+.ring-orange-200 {
+  --tw-ring-color: rgba(31, 63, 95, 0.20) !important;
+}
+
+.shadow-primary\/5,
+.shadow-primary\/10,
+.shadow-primary\/20,
+.shadow-primary\/40 {
+  --tw-shadow-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+.from-amber-50,
+.from-yellow-50,
+.from-orange-50 {
+  --tw-gradient-from: #eef4fb var(--tw-gradient-from-position) !important;
+}
+
+.to-amber-50,
+.to-yellow-50,
+.to-orange-50 {
+  --tw-gradient-to: #f8fafc var(--tw-gradient-to-position) !important;
+}
+
+.from-amber-100,
+.from-yellow-100,
+.from-orange-100 {
+  --tw-gradient-from: #e0e9f3 var(--tw-gradient-from-position) !important;
+}
+
+.to-amber-100,
+.to-yellow-100,
+.to-orange-100 {
+  --tw-gradient-to: #e0e9f3 var(--tw-gradient-to-position) !important;
+}
+
+.el-card,
+.el-table,
+.el-table tr,
+.el-table th.el-table__cell,
+.el-table td.el-table__cell {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.el-table th.el-table__cell {
+  color: #0f172a;
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner,
+.el-date-editor.el-input__wrapper {
+  border-radius: 14px !important;
+  box-shadow: 0 0 0 1px rgba(200, 211, 223, 0.82) inset !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px rgba(31, 63, 95, 0.72) inset, 0 0 0 4px rgba(31, 63, 95, 0.10) !important;
+}
+
+.el-message,
+.el-notification {
+  border-color: rgba(200, 211, 223, 0.86) !important;
+  box-shadow: 0 22px 52px rgba(15, 23, 42, 0.16) !important;
+}
+
+/* ==========================================
    父级自适应布局兜底
    ========================================== */
 .function-page-shell .overflow-x-auto {
@@ -285,6 +437,144 @@ body {
 
 .function-page-shell table {
   max-width: 100%;
+}
+
+.function-page-shell .responsive-table-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden !important;
+}
+
+.function-page-shell .responsive-data-table {
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100%;
+  table-layout: auto;
+  border-collapse: collapse;
+}
+
+.function-page-shell .responsive-data-table th,
+.function-page-shell .responsive-data-table td {
+  min-width: 0;
+  vertical-align: top;
+  white-space: normal !important;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.function-page-shell .responsive-data-table th {
+  line-height: 1.35;
+}
+
+.function-page-shell .responsive-data-table td {
+  line-height: 1.55;
+}
+
+.function-page-shell .responsive-data-table th:last-child,
+.function-page-shell .responsive-data-table td:last-child {
+  width: clamp(104px, 9vw, 168px);
+}
+
+.function-page-shell .responsive-data-table td:last-child > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  opacity: 1 !important;
+}
+
+.function-page-shell .responsive-data-table td:last-child button {
+  flex-shrink: 0;
+}
+
+.function-page-shell .responsive-data-table .truncate {
+  white-space: nowrap !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.function-page-shell .responsive-data-table .max-w-\[180px\],
+.function-page-shell .responsive-data-table .max-w-\[280px\],
+.function-page-shell .responsive-data-table .max-w-\[300px\],
+.function-page-shell .responsive-data-table .max-w-\[320px\] {
+  max-width: 100% !important;
+}
+
+@media (max-width: 1280px) {
+  .function-page-shell .responsive-data-table th,
+  .function-page-shell .responsive-data-table td {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .function-page-shell .responsive-table-wrap {
+    overflow: visible !important;
+  }
+
+  .function-page-shell .responsive-data-table,
+  .function-page-shell .responsive-data-table thead,
+  .function-page-shell .responsive-data-table tbody,
+  .function-page-shell .responsive-data-table tr,
+  .function-page-shell .responsive-data-table th,
+  .function-page-shell .responsive-data-table td {
+    display: block;
+    width: 100% !important;
+  }
+
+  .function-page-shell .responsive-data-table thead {
+    display: none;
+  }
+
+  .function-page-shell .responsive-data-table tbody {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .function-page-shell .responsive-data-table tr {
+    border: 1px solid rgba(200, 211, 223, 0.72);
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+  }
+
+  .function-page-shell .responsive-data-table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid rgba(200, 211, 223, 0.42);
+    padding: 0.75rem 1rem !important;
+  }
+
+  .function-page-shell .responsive-data-table td::before {
+    content: attr(data-label);
+    flex: 0 0 6rem;
+    color: #64748b;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+  }
+
+  .function-page-shell .responsive-data-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .function-page-shell .responsive-data-table td:last-child::before {
+    content: '操作';
+  }
+
+  .function-page-shell .responsive-data-table td[colspan] {
+    display: block;
+    text-align: center;
+  }
+
+  .function-page-shell .responsive-data-table td[colspan]::before {
+    display: none;
+    content: '';
+  }
 }
 
 .function-page-shell img,

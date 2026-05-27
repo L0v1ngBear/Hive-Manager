@@ -32,6 +32,7 @@ import my.management.module.inventory.model.enums.ClothQualityFlagEnum;
 import my.management.module.inventory.model.enums.InventoryInTypeEnum;
 import my.management.module.inventory.model.enums.InventoryOperateTypeEnum;
 import my.management.module.inventory.model.vo.ClothInventoryVO;
+import my.management.module.inventory.model.vo.ClothInventoryDetailVO;
 import my.management.module.inventory.model.vo.InventoryImportResultVO;
 import my.management.module.inventory.model.vo.InventoryImageRecognitionVO;
 import my.management.module.inventory.model.vo.InventoryInResultVO;
@@ -85,6 +86,8 @@ public class InventoryService {
     private static final long DEFAULT_PAGE_NUM = 1L;
     private static final long DEFAULT_PAGE_SIZE = 10L;
     private static final long MAX_PAGE_SIZE = 200L;
+    private static final int CLOTH_DETAIL_RECORD_LIMIT = 100;
+    private static final int MAX_MODEL_DETAIL_ROWS = 2000;
     private static final String TIME_ORDER_FIFO = "fifo";
     private static final String TIME_ORDER_LIFO = "lifo";
     private static final int MAX_IMPORT_ROWS = 5000;
@@ -336,7 +339,43 @@ public class InventoryService {
                 .eq(status != null, Cloth::getStatus, status)
                 .gt(status == null, Cloth::getRemainingMeters, BigDecimal.ZERO);
         applyInventoryTimeOrder(wrapper, timeOrder);
-        return clothMapper.selectList(wrapper).stream().map(this::toClothVO).toList();
+        List<Cloth> cloths = clothMapper.selectList(wrapper.last("LIMIT " + (MAX_MODEL_DETAIL_ROWS + 1)));
+        if (cloths.size() > MAX_MODEL_DETAIL_ROWS) {
+            throw new BusinessException("单型号布匹明细超过 " + MAX_MODEL_DETAIL_ROWS + " 条，请增加筛选条件后重试");
+        }
+        return cloths.stream().map(this::toClothVO).toList();
+    }
+
+    public ClothInventoryDetailVO clothDetail(Long id, String barcode) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        String safeBarcode = cleanText(barcode);
+        if ((id == null || id <= 0) && safeBarcode == null) {
+            throw new BusinessException("请选择要查看的单匹布");
+        }
+
+        LambdaQueryWrapper<Cloth> wrapper = new LambdaQueryWrapper<Cloth>()
+                .eq(Cloth::getTenantCode, tenantCode);
+        if (id != null && id > 0) {
+            wrapper.eq(Cloth::getId, id);
+        } else {
+            wrapper.eq(Cloth::getBarcode, safeBarcode);
+        }
+
+        Cloth cloth = clothMapper.selectOne(wrapper);
+        if (cloth == null) {
+            throw new BusinessException("未找到该单匹布库存");
+        }
+
+        List<InventoryRecordVO> records = inventoryRecordMapper
+                .selectByClothId(tenantCode, cloth.getId(), CLOTH_DETAIL_RECORD_LIMIT)
+                .stream()
+                .peek(item -> item.setOperateTypeName(recordOperateTypeName(item.getOperateType())))
+                .toList();
+
+        ClothInventoryDetailVO detail = new ClothInventoryDetailVO();
+        detail.setCloth(toClothVO(cloth));
+        detail.setRecords(records);
+        return detail;
     }
 
     private void applyInventoryTimeOrder(LambdaQueryWrapper<Cloth> wrapper, String timeOrder) {
@@ -424,7 +463,7 @@ public class InventoryService {
         vo.setCandidates(List.of(candidate));
         vo.setMessage(hasCandidate
                 ? "图片已上传，系统已带出可疑字段，请人工核对后确认入库。"
-                : "图片已上传。当前未接入正式 OCR，请人工补全型号、规格和米数后确认入库。");
+                : "图片已上传，请确认型号、规格和米数后完成入库。");
         return vo;
     }
 
@@ -433,7 +472,7 @@ public class InventoryService {
     public InventoryInResultVO in(InventoryInRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime businessInTime = resolveBusinessDateTime(request.getInTime(), "入库时间");
 
         String barcode = request.getBarcode() == null || request.getBarcode().isBlank()
                 ? generateBarcode(tenantCode)
@@ -444,8 +483,8 @@ public class InventoryService {
 
         Cloth cloth = new Cloth();
         cloth.setTenantCode(tenantCode);
-        cloth.setCreateTime(now);
-        cloth.setUpdateTime(now);
+        cloth.setCreateTime(businessInTime);
+        cloth.setUpdateTime(businessInTime);
         cloth.setBarcode(barcode);
         cloth.setModelCode(request.getModelCode().trim());
         cloth.setSpec(request.getSpec());
@@ -453,7 +492,7 @@ public class InventoryService {
         cloth.setTotalMeters(request.getMeters());
         cloth.setRemainingMeters(request.getMeters());
         cloth.setStatus(ClothInventoryStatusEnum.IN_STOCK.getCode());
-        cloth.setInTime(now);
+        cloth.setInTime(businessInTime);
         cloth.setInOperatorId(userId);
         cloth.setInType(InventoryInTypeEnum.normalizeInbound(request.getInType()));
         cloth.setIsBad(ClothQualityFlagEnum.NORMAL.getCode());
@@ -461,7 +500,7 @@ public class InventoryService {
         cloth.setVersion(INITIAL_VERSION);
         clothMapper.insert(cloth);
 
-        saveRecord(cloth, InventoryOperateTypeEnum.IN.getCode(), request.getMeters(), userId, now);
+        saveRecord(cloth, InventoryOperateTypeEnum.IN.getCode(), request.getMeters(), userId, businessInTime);
         saveModelSpecIfAbsent(tenantCode, cloth.getModelCode(), cloth.getSpec());
         InventoryLabelTaskVO labelTask = createLabelTask(cloth, "网页端新增入库，请在小程序端蓝牙打印并粘贴布匹标签");
         invalidateDashboardCache(tenantCode);
@@ -686,6 +725,7 @@ public class InventoryService {
                         values.add(readCellValue(row.getCell(j)));
                     }
                     rows.add(values);
+                    guardImportReadRowCount(rows.size());
                 }
             }
         }
@@ -693,18 +733,30 @@ public class InventoryService {
     }
 
     private List<List<String>> readCsvRows(MultipartFile file) throws IOException {
-        List<String> lines = new ArrayList<>();
+        List<List<String>> rows = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
+            char delimiter = ',';
+            boolean delimiterDetected = false;
             while ((line = reader.readLine()) != null) {
-                if (lines.isEmpty() && line.startsWith("\uFEFF")) {
+                if (rows.isEmpty() && line.startsWith("\uFEFF")) {
                     line = line.substring(1);
                 }
-                lines.add(line);
+                if (!delimiterDetected && !line.isBlank()) {
+                    delimiter = detectDelimiter(List.of(line));
+                    delimiterDetected = true;
+                }
+                rows.add(parseDelimitedLine(line, delimiter));
+                guardImportReadRowCount(rows.size());
             }
         }
-        char delimiter = detectDelimiter(lines);
-        return lines.stream().map(line -> parseDelimitedLine(line, delimiter)).toList();
+        return rows;
+    }
+
+    private void guardImportReadRowCount(int rowCount) {
+        if (rowCount > MAX_IMPORT_ROWS + 100) {
+            throw new BusinessException("导入文件行数过多，单次最多导入 " + MAX_IMPORT_ROWS + " 行业务数据，请拆分文件后重试");
+        }
     }
 
     private String readCellValue(Cell cell) {
@@ -1075,6 +1127,17 @@ public class InventoryService {
         record.setRemainingMeters(cloth.getRemainingMeters());
         record.setOperatorId(userId);
         inventoryRecordMapper.insert(record);
+    }
+
+    private LocalDateTime resolveBusinessDateTime(LocalDateTime value, String fieldName) {
+        LocalDateTime now = LocalDateTime.now();
+        if (value == null) {
+            return now;
+        }
+        if (value.isAfter(now)) {
+            throw new BusinessException(fieldName + "不能晚于当前时间");
+        }
+        return value;
     }
 
     private void saveModelSpecIfAbsent(String tenantCode, String modelCode, BigDecimal spec) {

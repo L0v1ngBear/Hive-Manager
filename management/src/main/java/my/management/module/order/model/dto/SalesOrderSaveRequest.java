@@ -24,6 +24,10 @@ public class SalesOrderSaveRequest {
     @NotBlank(message = "项目名称不能为空")
     private String projectName;
 
+    private String brandName;
+
+    private String orderCategory;
+
     private String deliveryDate;
 
     /**

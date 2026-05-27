@@ -22,15 +22,15 @@ public class AiAdviceSnapshotJobHandler {
     public void refreshAiAdviceSnapshots() {
         try {
             Map<String, Object> result = aiAdviceSnapshotService.refreshAllTenants();
-            XxlJobHelper.log("AI advice snapshot refresh finished: {}", result);
+            XxlJobHelper.log("经营建议快照刷新完成: {}", result);
             if (Boolean.TRUE.equals(result.get("skipped"))) {
-                XxlJobHelper.handleSuccess("AI advice snapshot refresh skipped: " + result.get("reason"));
+                XxlJobHelper.handleSuccess("经营建议快照刷新已跳过: " + result.get("reason"));
             }
         } catch (Exception ex) {
             log.error("ai advice snapshot refresh job failed", ex);
-            XxlJobHelper.log("AI advice snapshot refresh failed: {}", ex.getMessage());
+            XxlJobHelper.log("经营建议快照刷新失败: {}", ex.getMessage());
             systemEventPublisher.error("AI_ADVICE_SNAPSHOT_REFRESH_FAILED",
-                    "AI advice snapshot refresh failed",
+                    "经营建议快照刷新失败",
                     ex,
                     Map.of("job", "aiAdviceSnapshotRefreshJob"));
             XxlJobHelper.handleFail(ex.getMessage());

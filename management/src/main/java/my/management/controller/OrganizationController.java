@@ -10,6 +10,7 @@ import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.organization.model.dto.OrganizationDepartmentSaveRequest;
 import my.management.module.organization.model.vo.OrganizationEmployeeVO;
+import my.management.module.organization.model.vo.OrganizationJoinCodeVO;
 import my.management.module.organization.model.vo.OrganizationOverviewVO;
 import my.management.module.organization.service.OrganizationService;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -43,6 +44,13 @@ public class OrganizationController {
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_LIST, message = "您没有权限查看部门员工")
     public Result<List<OrganizationEmployeeVO>> employees(@PathVariable Long departmentId) {
         return Result.success(organizationService.employees(departmentId));
+    }
+
+    @PostMapping("/join-code")
+    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_CREATE, message = "您没有权限生成组织加入码")
+    @CollectLog(module = "organization", action = "create_join_code", bizType = "organization", description = "管理端生成组织加入码", recordResult = false)
+    public Result<OrganizationJoinCodeVO> createJoinCode() {
+        return Result.success(organizationService.createJoinCode());
     }
 
     @PostMapping("/department/save")

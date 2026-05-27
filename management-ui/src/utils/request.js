@@ -62,11 +62,13 @@ service.interceptors.request.use(
 service.interceptors.response.use(
     async (response) => {
         finishGlobalLoading(response.config)
+        const userStore = useUserStore()
         if (response.config?.responseType === 'blob') {
+            await assertBlobResponseOk(response, userStore)
+            applyRenewedSession(response, userStore)
             return response.data
         }
 
-        const userStore = useUserStore()
         const res = response.data
 
         try {
@@ -109,7 +111,7 @@ service.interceptors.response.use(
                 router.push({path: '/login', query: buildLoginQuery(currentPath)})
             }
         } else if (status === 403) {
-            ElMessage.warning(error.response?.data?.msg || '您暂无权限访问当前功能，如需开通请联系管理员')
+            ElMessage.warning(error.response?.data?.msg || '您暂无权限访问当前功能，请联系企业负责人确认权限配置')
         } else if (status === 400) {
             ElMessage.error(error.response?.data?.msg || '非法请求')
         } else {
@@ -254,6 +256,62 @@ function getResponseHeader(headers, name) {
     }
     const matchedKey = Object.keys(headers).find((key) => key.toLowerCase() === name.toLowerCase())
     return matchedKey ? headers[matchedKey] : ''
+}
+
+async function assertBlobResponseOk(response, userStore) {
+    const blob = response.data
+    if (typeof Blob === 'undefined' || !(blob instanceof Blob)) {
+        return
+    }
+    if (blob.size === 0) {
+        const msg = '文件下载失败，服务端返回了空文件'
+        ElMessage.error(msg)
+        throw createDisplayedError(msg)
+    }
+    const contentType = getBlobContentType(response, blob)
+    const isErrorPayload = contentType.includes('application/json')
+        || contentType.startsWith('text/')
+        || contentType.includes('html')
+    if (!isErrorPayload) {
+        return
+    }
+    const msg = await resolveBlobErrorMessage(blob, userStore)
+    ElMessage.error(msg)
+    throw createDisplayedError(msg)
+}
+
+function createDisplayedError(message) {
+    const error = new Error(message)
+    error.__shown = true
+    return error
+}
+
+function getBlobContentType(response, blob) {
+    return String(getResponseHeader(response.headers, 'Content-Type') || blob.type || '').toLowerCase()
+}
+
+async function resolveBlobErrorMessage(blob, userStore) {
+    const text = await blob.text()
+    if (!text) {
+        return '文件下载失败，服务端未返回有效文件'
+    }
+    try {
+        const payload = JSON.parse(text)
+        if (payload?.data) {
+            try {
+                payload.data = await decryptPayload(userStore.responseKey, payload.data)
+            } catch (error) {
+                // Blob errors may already be plain JSON; keep the original message if decrypt is not needed.
+            }
+        }
+        return payload?.msg
+            || payload?.message
+            || payload?.data?.msg
+            || payload?.data?.message
+            || '文件下载失败，请稍后重试'
+    } catch (error) {
+        return text.replace(/\s+/g, ' ').trim().slice(0, 160) || '文件下载失败，请稍后重试'
+    }
 }
 
 export default request

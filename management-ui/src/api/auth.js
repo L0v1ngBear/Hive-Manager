@@ -24,6 +24,22 @@ export function resetPassword(data) {
   })
 }
 
+export function sendOrganizationJoinCode(data) {
+  return request({
+    url: '/auth/join-organization/code',
+    method: 'post',
+    data
+  })
+}
+
+export function joinOrganization(data) {
+  return request({
+    url: '/auth/join-organization',
+    method: 'post',
+    data
+  })
+}
+
 export function changeInitialPassword(data) {
   return request({
     url: '/auth/initial-password',

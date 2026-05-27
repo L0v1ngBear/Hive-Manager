@@ -113,18 +113,19 @@
             <button class="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors" @click="resetFilter">重置</button>
             <TableColumnSettings
                 :columns="attendanceTableColumns"
+                :exportable="false"
                 @move="moveAttendanceTableColumn"
                 @reset="resetAttendanceTableColumns"
             />
           </div>
         </div>
 
-        <div class="overflow-x-auto relative min-h-[420px]">
+        <div class="responsive-table-wrap relative min-h-[420px]">
           <div v-if="loading" class="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-3">
             <span class="material-symbols-outlined text-blue-600 text-4xl animate-spin">progress_activity</span>
             <span class="text-sm font-medium text-blue-600">加载考勤数据中...</span>
           </div>
-          <table class="w-full text-left border-collapse min-w-[980px]">
+          <table class="responsive-data-table w-full text-left border-collapse">
             <thead class="bg-slate-50/80 sticky top-0 z-0">
             <tr>
               <th
@@ -141,6 +142,7 @@
               <td
                   v-for="column in attendanceTableColumns"
                   :key="column.key"
+                  :data-label="column.label"
                   class="px-6 py-4"
                   :class="attendanceCellClass(column.key)"
               >
@@ -297,23 +299,50 @@
                   <div class="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </div>
               </label>
-              <div v-if="ruleForm.enableGps" class="grid grid-cols-2 gap-4">
-                <div class="space-y-1">
-                  <label class="block text-xs font-bold text-slate-500">纬度</label>
-                  <input v-model.number="ruleForm.latitude" type="number" step="0.000001" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="例如 30.27415"/>
+              <div v-if="ruleForm.enableGps" class="space-y-3">
+                <div
+                    v-for="(location, index) in ruleForm.locations"
+                    :key="`attendance-location-${index}`"
+                    class="rounded-2xl border border-blue-100 bg-blue-50/40 p-4 space-y-3"
+                >
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="text-sm font-black text-slate-800">打卡点 {{ index + 1 }}</div>
+                    <button
+                        class="text-xs font-bold text-rose-500 hover:text-rose-600"
+                        @click.prevent="removeAttendanceLocation(index)"
+                    >
+                      删除
+                    </button>
+                  </div>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                      <label class="block text-xs font-bold text-slate-500">地点名称</label>
+                      <input v-model.trim="location.locationName" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="例如：工厂南门"/>
+                    </div>
+                    <div class="space-y-1">
+                      <label class="block text-xs font-bold text-slate-500">允许半径（米）</label>
+                      <input v-model.number="location.radius" type="number" min="1" max="5000" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="300"/>
+                    </div>
+                    <div class="space-y-1">
+                      <label class="block text-xs font-bold text-slate-500">纬度</label>
+                      <input v-model.number="location.latitude" type="number" step="0.000001" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="例如 30.27415"/>
+                    </div>
+                    <div class="space-y-1">
+                      <label class="block text-xs font-bold text-slate-500">经度</label>
+                      <input v-model.number="location.longitude" type="number" step="0.000001" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="例如 120.15515"/>
+                    </div>
+                    <div class="space-y-1 col-span-2">
+                      <label class="block text-xs font-bold text-slate-500">地址备注</label>
+                      <input v-model.trim="location.address" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="可填写园区、楼栋或门岗位置"/>
+                    </div>
+                  </div>
                 </div>
-                <div class="space-y-1">
-                  <label class="block text-xs font-bold text-slate-500">经度</label>
-                  <input v-model.number="ruleForm.longitude" type="number" step="0.000001" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="例如 120.15515"/>
-                </div>
-                <div class="space-y-1">
-                  <label class="block text-xs font-bold text-slate-500">允许半径</label>
-                  <input v-model.number="ruleForm.radius" type="number" min="1" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="米"/>
-                </div>
-                <div class="space-y-1">
-                  <label class="block text-xs font-bold text-slate-500">地点名称</label>
-                  <input v-model.trim="ruleForm.address" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="工厂地址"/>
-                </div>
+                <button
+                    class="w-full rounded-xl border border-dashed border-blue-300 bg-white py-3 text-sm font-black text-blue-700 hover:bg-blue-50"
+                    @click.prevent="addAttendanceLocation"
+                >
+                  + 新增打卡地点
+                </button>
               </div>
 
               <label class="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors shadow-sm">
@@ -328,7 +357,7 @@
               </label>
               <div v-if="ruleForm.enableWifi" class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">Wi-Fi 名称</label>
-                <input v-model.trim="ruleForm.wifiSsid" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="预留配置，后续小程序可接入 Wi-Fi 校验"/>
+                <input v-model.trim="ruleForm.wifiSsid" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="请输入 Wi-Fi 名称（可选）"/>
               </div>
             </div>
           </section>
@@ -401,6 +430,7 @@ const ruleForm = reactive({
   longitude: undefined,
   radius: 200,
   address: '',
+  locations: [],
   enableWifi: false,
   wifiSsid: ''
 })
@@ -479,14 +509,73 @@ async function fetchDepartments() {
   departments.value = await getAttendanceDepartments()
 }
 
+function createDefaultLocation(source = {}) {
+  return {
+    id: source.id || undefined,
+    locationName: source.locationName || source.address || '公司打卡点',
+    latitude: source.latitude ?? undefined,
+    longitude: source.longitude ?? undefined,
+    radius: Number(source.radius || 300),
+    address: source.address || ''
+  }
+}
+
+function normalizeRuleLocations(data = {}) {
+  const locations = Array.isArray(data.locations) ? data.locations.filter(Boolean) : []
+  if (locations.length > 0) {
+    return locations.map((item) => createDefaultLocation(item))
+  }
+  if (data.latitude !== undefined && data.latitude !== null && data.longitude !== undefined && data.longitude !== null) {
+    return [createDefaultLocation(data)]
+  }
+  return [createDefaultLocation()]
+}
+
+function addAttendanceLocation() {
+  ruleForm.locations.push(createDefaultLocation({ locationName: `打卡点${ruleForm.locations.length + 1}` }))
+}
+
+function removeAttendanceLocation(index) {
+  if (!Array.isArray(ruleForm.locations)) {
+    ruleForm.locations = []
+  }
+  if (ruleForm.locations.length <= 1) {
+    if (ruleForm.locations.length === 0) {
+      ruleForm.locations.push(createDefaultLocation())
+    } else {
+      Object.assign(ruleForm.locations[0], createDefaultLocation())
+    }
+    return
+  }
+  ruleForm.locations.splice(index, 1)
+}
+
+function normalizeLocationPayload() {
+  return (ruleForm.locations || [])
+    .map((item) => ({
+      id: item.id || undefined,
+      locationName: String(item.locationName || item.address || '公司打卡点').trim(),
+      latitude: item.latitude === '' || item.latitude == null ? undefined : Number(item.latitude),
+      longitude: item.longitude === '' || item.longitude == null ? undefined : Number(item.longitude),
+      radius: item.radius === '' || item.radius == null ? 300 : Number(item.radius),
+      address: String(item.address || '').trim()
+    }))
+}
+
 async function openRuleDrawer() {
   const data = await getAttendanceRule()
+  const locations = normalizeRuleLocations(data)
+  const firstLocation = locations[0] || createDefaultLocation()
   Object.assign(ruleForm, {
     ...data,
     workDays: Array.isArray(data.workDays) && data.workDays.length ? data.workDays : [1, 2, 3, 4, 5],
     enableGps: data.enableGps !== false,
     enableWifi: data.enableWifi === true,
-    radius: data.radius || 200
+    latitude: firstLocation.latitude,
+    longitude: firstLocation.longitude,
+    radius: firstLocation.radius || 300,
+    address: firstLocation.address || firstLocation.locationName || '',
+    locations
   })
   ruleDrawerVisible.value = true
 }
@@ -496,15 +585,25 @@ async function submitRule() {
     ElMessage.warning('请至少选择一个工作日')
     return
   }
-  if (ruleForm.enableGps && (!ruleForm.latitude || !ruleForm.longitude || !ruleForm.radius)) {
-    ElMessage.warning('启用 GPS 围栏时，请填写经纬度和允许半径')
+  const locations = ruleForm.enableGps ? normalizeLocationPayload() : []
+  if (ruleForm.enableGps && locations.length === 0) {
+    ElMessage.warning('启用 GPS 围栏时，请至少填写一个有效打卡点')
     return
   }
+  if (ruleForm.enableGps && locations.some((item) => !Number.isFinite(item.latitude) || !Number.isFinite(item.longitude) || Number(item.radius) <= 0)) {
+    ElMessage.warning('请检查每个打卡点的经纬度和允许半径')
+    return
+  }
+  const firstLocation = locations[0] || {}
   await saveAttendanceRule({
     ...ruleForm,
     lateToleranceMinutes: Number(ruleForm.lateToleranceMinutes || 0),
     earlyToleranceMinutes: Number(ruleForm.earlyToleranceMinutes || 0),
-    radius: ruleForm.radius == null ? undefined : Number(ruleForm.radius)
+    latitude: firstLocation.latitude,
+    longitude: firstLocation.longitude,
+    radius: firstLocation.radius,
+    address: firstLocation.address || firstLocation.locationName,
+    locations
   })
   ElMessage.success('考勤规则已保存，小程序打卡规则已同步')
   ruleDrawerVisible.value = false

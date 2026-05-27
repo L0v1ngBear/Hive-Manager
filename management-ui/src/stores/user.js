@@ -3,9 +3,10 @@ import { computed, ref } from 'vue'
 import { hasAnyPermission as matchAnyPermission, hasPermission as matchPermission } from '@/utils/permission'
 
 const authStorage = window.sessionStorage
-const legacyStorage = window.localStorage
+const persistentStorage = window.localStorage
+const AUTH_KEYS = ['token', 'userInfo', 'permissions', 'features', 'responseKey', 'expireAt', 'mustChangePassword']
 
-const readStorageItem = (key, fallback = '') => authStorage.getItem(key) || legacyStorage.getItem(key) || fallback
+const readStorageItem = (key, fallback = '') => authStorage.getItem(key) || persistentStorage.getItem(key) || fallback
 
 const readJsonStorageItem = (key, fallback) => {
   try {
@@ -16,10 +17,24 @@ const readJsonStorageItem = (key, fallback) => {
 }
 
 const removeLoginStorage = () => {
-  ;['token', 'userInfo', 'permissions', 'features', 'responseKey', 'expireAt', 'mustChangePassword'].forEach((key) => {
+  AUTH_KEYS.forEach((key) => {
     authStorage.removeItem(key)
-    legacyStorage.removeItem(key)
+    persistentStorage.removeItem(key)
   })
+}
+
+const resolveWriteStorage = (remember) => remember ? persistentStorage : authStorage
+
+const resolveActiveStorage = () => {
+  if (authStorage.getItem('token')) {
+    return authStorage
+  }
+  return persistentStorage.getItem('token') ? persistentStorage : authStorage
+}
+
+const clearOtherStorage = (targetStorage) => {
+  const otherStorage = targetStorage === authStorage ? persistentStorage : authStorage
+  AUTH_KEYS.forEach((key) => otherStorage.removeItem(key))
 }
 
 export const useUserStore = defineStore('user', () => {
@@ -42,7 +57,8 @@ export const useUserStore = defineStore('user', () => {
   const expireAt = ref(readStorageItem('expireAt'))
   const mustChangePassword = ref(readStorageItem('mustChangePassword') === '1')
 
-  const setLoginInfo = (loginData) => {
+  const setLoginInfo = (loginData, options = {}) => {
+    const targetStorage = resolveWriteStorage(Boolean(options.remember))
     token.value = loginData?.token || ''
     userInfo.value = loginData
       ? {
@@ -58,20 +74,14 @@ export const useUserStore = defineStore('user', () => {
     expireAt.value = loginData?.expireAt ? String(loginData.expireAt) : ''
     mustChangePassword.value = Boolean(loginData?.mustChangePassword)
 
-    legacyStorage.removeItem('token')
-    legacyStorage.removeItem('userInfo')
-    legacyStorage.removeItem('permissions')
-    legacyStorage.removeItem('features')
-    legacyStorage.removeItem('responseKey')
-    legacyStorage.removeItem('expireAt')
-    legacyStorage.removeItem('mustChangePassword')
-    authStorage.setItem('token', token.value)
-    authStorage.setItem('userInfo', JSON.stringify(userInfo.value))
-    authStorage.setItem('permissions', JSON.stringify(permissions.value))
-    authStorage.setItem('features', JSON.stringify(features.value))
-    authStorage.setItem('responseKey', responseKey.value)
-    authStorage.setItem('expireAt', expireAt.value)
-    authStorage.setItem('mustChangePassword', mustChangePassword.value ? '1' : '0')
+    clearOtherStorage(targetStorage)
+    targetStorage.setItem('token', token.value)
+    targetStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+    targetStorage.setItem('permissions', JSON.stringify(permissions.value))
+    targetStorage.setItem('features', JSON.stringify(features.value))
+    targetStorage.setItem('responseKey', responseKey.value)
+    targetStorage.setItem('expireAt', expireAt.value)
+    targetStorage.setItem('mustChangePassword', mustChangePassword.value ? '1' : '0')
   }
 
   const renewSession = ({ token: renewedToken, responseKey: renewedResponseKey, expireAt: renewedExpireAt } = {}) => {
@@ -82,12 +92,11 @@ export const useUserStore = defineStore('user', () => {
     responseKey.value = renewedResponseKey
     expireAt.value = renewedExpireAt ? String(renewedExpireAt) : expireAt.value
 
-    legacyStorage.removeItem('token')
-    legacyStorage.removeItem('responseKey')
-    legacyStorage.removeItem('expireAt')
-    authStorage.setItem('token', token.value)
-    authStorage.setItem('responseKey', responseKey.value)
-    authStorage.setItem('expireAt', expireAt.value)
+    const targetStorage = resolveActiveStorage()
+    clearOtherStorage(targetStorage)
+    targetStorage.setItem('token', token.value)
+    targetStorage.setItem('responseKey', responseKey.value)
+    targetStorage.setItem('expireAt', expireAt.value)
   }
 
   const logout = () => {
@@ -103,8 +112,9 @@ export const useUserStore = defineStore('user', () => {
 
   const markPasswordChanged = () => {
     mustChangePassword.value = false
-    authStorage.setItem('mustChangePassword', '0')
-    legacyStorage.removeItem('mustChangePassword')
+    const targetStorage = resolveActiveStorage()
+    clearOtherStorage(targetStorage)
+    targetStorage.setItem('mustChangePassword', '0')
   }
 
   const hasPermission = (permCode) => matchPermission(permissions.value, permCode)

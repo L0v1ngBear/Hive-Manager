@@ -2,6 +2,7 @@ package my.management.module.auth.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
 import com.google.zxing.MultiFormatWriter;
@@ -18,6 +19,8 @@ import my.hive.common.utils.TokenUtil;
 import my.management.module.auth.mapper.AuthMapper;
 import my.management.module.auth.model.dto.InitialPasswordChangeRequest;
 import my.management.module.auth.model.dto.LoginRequest;
+import my.management.module.auth.model.dto.OrganizationJoinCodeSendRequest;
+import my.management.module.auth.model.dto.OrganizationJoinRequest;
 import my.management.module.auth.model.dto.PasswordResetCodeRequest;
 import my.management.module.auth.model.dto.PasswordResetRequest;
 import my.management.module.auth.model.dto.WebScanConfirmRequest;
@@ -25,17 +28,40 @@ import my.management.module.auth.model.vo.LoginUserRow;
 import my.management.module.auth.model.vo.LoginVO;
 import my.management.module.auth.model.vo.WebScanSessionVO;
 import my.management.module.auth.model.vo.WebScanStatusVO;
+import my.management.common.enums.CommonStatusEnum;
+import my.management.common.enums.DeleteFlagEnum;
 import my.management.common.tenant.BoundedTenantProperties;
+import my.management.common.utils.CodeGeneratorUtil;
+import my.management.module.employee.mapper.DepartmentMapper;
+import my.management.module.employee.mapper.EmployeeExtMapper;
+import my.management.module.employee.mapper.EmployeeMapper;
+import my.management.module.employee.mapper.PositionMapper;
+import my.management.module.employee.model.entity.Department;
+import my.management.module.employee.model.entity.Employee;
+import my.management.module.employee.model.entity.EmployeeExt;
+import my.management.module.employee.model.entity.Position;
 import my.management.module.employee.model.enums.EmployeeStatusEnum;
+import my.management.module.employee.model.enums.EmployeeTypeEnum;
 import my.management.module.notification.sms.SmsVerificationService;
+import my.management.module.sys.mapper.SysRoleMapper;
+import my.management.module.sys.mapper.SysUserRoleMapper;
+import my.management.module.sys.model.entity.SysRole;
+import my.management.module.sys.model.entity.SysUserRole;
+import my.management.module.tenant.mapper.TenantMapper;
+import my.management.module.tenant.model.entity.Tenant;
 import my.management.module.tenant.service.TenantLicenseService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.io.ByteArrayOutputStream;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -54,6 +80,14 @@ public class AuthService {
     private static final long PASSWORD_RESET_CODE_EXPIRE_MINUTES = 5L;
     private static final long PASSWORD_RESET_SEND_INTERVAL_SECONDS = 60L;
     private static final long PASSWORD_RESET_MAX_VERIFY_FAIL = 5L;
+    private static final long ORGANIZATION_JOIN_CODE_EXPIRE_SECONDS = 15L * 60L;
+    private static final long ORGANIZATION_JOIN_SMS_EXPIRE_MINUTES = 5L;
+    private static final long ORGANIZATION_JOIN_SMS_INTERVAL_SECONDS = 60L;
+    private static final String JOIN_CODE_KEY_PART = "organization-join-code";
+    private static final String DEFAULT_JOIN_ROLE_CODE = "EMPLOYEE";
+    private static final String DEFAULT_JOIN_ROLE_NAME = "普通员工";
+    private static final String DEFAULT_JOIN_DEPARTMENT = "待分配部门";
+    private static final String DEFAULT_JOIN_POSITION = "普通员工";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @Resource
@@ -85,6 +119,30 @@ public class AuthService {
 
     @Resource
     private BoundedTenantProperties boundedTenantProperties;
+
+    @Resource
+    private TenantMapper tenantMapper;
+
+    @Resource
+    private EmployeeMapper employeeMapper;
+
+    @Resource
+    private EmployeeExtMapper employeeExtMapper;
+
+    @Resource
+    private DepartmentMapper departmentMapper;
+
+    @Resource
+    private PositionMapper positionMapper;
+
+    @Resource
+    private SysRoleMapper sysRoleMapper;
+
+    @Resource
+    private SysUserRoleMapper sysUserRoleMapper;
+
+    @Resource
+    private CodeGeneratorUtil codeGeneratorUtil;
 
     @Value("${auth.login.max-fail-count:5}")
     private Long maxFailCount;
@@ -120,6 +178,50 @@ public class AuthService {
         );
         stringRedisTemplate.opsForValue().set(sendLockKey, "1", PASSWORD_RESET_SEND_INTERVAL_SECONDS, TimeUnit.SECONDS);
         stringRedisTemplate.delete(passwordResetFailKey(phoneHash));
+    }
+
+    public void sendOrganizationJoinCode(OrganizationJoinCodeSendRequest request) {
+        String phone = normalizeResetPhone(request.getPhone());
+        String phoneHash = privacyProtectionUtil.hashPhone(phone);
+        String sendLockKey = organizationJoinSmsSendLockKey(phoneHash);
+        if (Boolean.TRUE.equals(stringRedisTemplate.hasKey(sendLockKey))) {
+            throw new BusinessException(429, "验证码发送过于频繁，请稍后再试");
+        }
+
+        String code = generateSmsCode();
+        boolean sent = smsVerificationService.sendCode(phone, "Hive 加入组织", code, ORGANIZATION_JOIN_SMS_EXPIRE_MINUTES);
+        if (!sent) {
+            throw new BusinessException(503, "短信服务未配置或发送失败，请联系管理员");
+        }
+
+        stringRedisTemplate.opsForValue().set(
+                organizationJoinSmsCodeKey(phoneHash),
+                code,
+                ORGANIZATION_JOIN_SMS_EXPIRE_MINUTES,
+                TimeUnit.MINUTES
+        );
+        stringRedisTemplate.opsForValue().set(sendLockKey, "1", ORGANIZATION_JOIN_SMS_INTERVAL_SECONDS, TimeUnit.SECONDS);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public LoginVO joinOrganization(OrganizationJoinRequest request) {
+        String name = normalizeJoinName(request.getName());
+        String phone = normalizeResetPhone(request.getPhone());
+        String phoneHash = privacyProtectionUtil.hashPhone(phone);
+        validateOrganizationJoinSmsCode(phoneHash, request.getSmsCode());
+        validateNewPassword(request.getPassword(), request.getConfirmPassword(), phone);
+
+        String tenantCode = resolveTenantCodeByOrganizationCode(request.getOrganizationCode());
+        tenantLicenseService.ensureTenantUsable(tenantCode);
+        tenantLicenseService.ensureUserQuotaAvailable(tenantCode);
+
+        Employee employee = resolveOrCreateJoinEmployee(tenantCode, name, phone, phoneHash, request.getPassword().trim());
+        LoginUserRow loginUser = authMapper.selectLoginUserByUserIdAndTenantCode(employee.getId(), tenantCode);
+        if (loginUser == null) {
+            throw new BusinessException(500, "加入组织成功但登录信息生成失败，请重新登录");
+        }
+        stringRedisTemplate.delete(List.of(organizationJoinSmsCodeKey(phoneHash), organizationJoinSmsSendLockKey(phoneHash)));
+        return buildLoginVO(loginUser, null);
     }
 
     public void resetPasswordBySmsCode(PasswordResetRequest request) {
@@ -266,8 +368,8 @@ public class AuthService {
         }
 
         LoginUserRow loginUser = authMapper.selectLoginUserByUserIdAndTenantCode(userId, tenantCode);
-        if (loginUser == null || !Objects.equals(loginUser.getUserStatus(), 1)) {
-            throw new BusinessException(403, "当前账号不可用于网页登录");
+        if (loginUser == null || !isUsableEmployeeStatus(loginUser.getUserStatus())) {
+            throw new BusinessException(403, loginUser == null ? "当前账号不可用于网页登录" : employeeStatusMessage(loginUser.getUserStatus()));
         }
 
         payload.setStatus("CONFIRMED");
@@ -436,6 +538,187 @@ public class AuthService {
         }
     }
 
+    private void validateOrganizationJoinSmsCode(String phoneHash, String smsCode) {
+        String code = smsCode == null ? "" : smsCode.trim();
+        if (!code.matches("^\\d{6}$")) {
+            throw new BusinessException(400, "请输入6位短信验证码");
+        }
+        String expected = stringRedisTemplate.opsForValue().get(organizationJoinSmsCodeKey(phoneHash));
+        if (expected == null || expected.isBlank()) {
+            throw new BusinessException(400, "验证码已过期，请重新获取");
+        }
+        if (!Objects.equals(expected, code)) {
+            throw new BusinessException(400, "验证码错误");
+        }
+    }
+
+    private String normalizeJoinName(String name) {
+        String normalized = name == null ? "" : name.trim();
+        if (normalized.isEmpty()) {
+            throw new BusinessException(400, "请输入姓名");
+        }
+        if (normalized.length() > 30) {
+            throw new BusinessException(400, "姓名不能超过30个字符");
+        }
+        return normalized;
+    }
+
+    private String resolveTenantCodeByOrganizationCode(String organizationCode) {
+        String code = organizationCode == null ? "" : organizationCode.trim().toUpperCase();
+        if (!code.matches("^[A-Z0-9]{4,32}$")) {
+            throw new BusinessException(400, "组织码格式不正确");
+        }
+        String cachedTenantCode = stringRedisTemplate.opsForValue().get(redisKeyBuilder.cache("auth", JOIN_CODE_KEY_PART, code));
+        if (!StringUtils.hasText(cachedTenantCode)) {
+            throw new BusinessException(404, "组织码无效或已过期");
+        }
+        String tenantCode = cachedTenantCode.trim();
+        if (!boundedTenantProperties.isTenantAllowed(tenantCode)) {
+            throw new BusinessException(404, "组织码无效或已过期");
+        }
+        Tenant tenant = tenantMapper.selectByTenantCode(tenantCode);
+        if (tenant == null || !CommonStatusEnum.isEnabled(tenant.getStatus())) {
+            throw new BusinessException(404, "组织码无效或已过期");
+        }
+        return tenantCode;
+    }
+
+    private Employee resolveOrCreateJoinEmployee(String tenantCode, String name, String phone, String phoneHash, String password) {
+        TenantPermissionContext.init(tenantCode, null, Collections.emptySet());
+        try {
+            Employee reusableUnjoined = null;
+            List<Employee> matched = employeeMapper.selectList(new LambdaQueryWrapper<Employee>()
+                    .and(wrapper -> wrapper.eq(Employee::getPhoneHash, phoneHash).or().eq(Employee::getPhone, phone))
+                    .last("LIMIT 5"));
+            if (matched != null) {
+                for (Employee existing : matched) {
+                    if (existing == null) {
+                        continue;
+                    }
+                    String existingTenantCode = existing.getTenantCode();
+                    if (tenantCode.equals(existingTenantCode)) {
+                        throw new BusinessException(409, "该手机号已加入组织，请直接登录或联系管理员重置密码");
+                    }
+                    if (StringUtils.hasText(existingTenantCode)) {
+                        throw new BusinessException(409, "该手机号已加入其他组织，请先由原组织办理离职或解绑");
+                    }
+                    if (reusableUnjoined != null) {
+                        throw new BusinessException(409, "该手机号存在多条未加入账号，请联系管理员合并后再加入组织");
+                    }
+                    reusableUnjoined = existing;
+                }
+            }
+
+            Department department = getOrCreateJoinDepartment(tenantCode);
+            Position position = getOrCreateJoinPosition(tenantCode, department.getId());
+            SysRole role = getOrCreateEmployeeRole(tenantCode);
+
+            Employee employee = reusableUnjoined == null ? new Employee() : reusableUnjoined;
+            employee.setTenantCode(tenantCode);
+            employee.setName(name);
+            employee.setLoginName(phone);
+            employee.setPhone(privacyProtectionUtil.maskPhone(phone));
+            employee.setPhoneHash(phoneHash);
+            employee.setPhoneMask(privacyProtectionUtil.maskPhone(phone));
+            employee.setPassword(encryptUtil.encode(password));
+            employee.setMustChangePassword(0);
+            employee.setDepartmentName(department.getDeptName());
+            employee.setPosition(position.getPositionName());
+            employee.setManagerId(null);
+            employee.setManagerName(null);
+            employee.setStatus(EmployeeStatusEnum.ACTIVE.getCode());
+            employee.setRoleLevel(0);
+            if (reusableUnjoined == null) {
+                employeeMapper.insert(employee);
+            } else {
+                employeeMapper.updateById(employee);
+            }
+
+            EmployeeExt ext = new EmployeeExt();
+            ext.setUserId(employee.getId());
+            ext.setTenantCode(tenantCode);
+            ext.setEmpNo(codeGeneratorUtil.generateEmployeeNo());
+            ext.setEmployeeType(EmployeeTypeEnum.FULL_TIME.getCode());
+            ext.setEntryDate(LocalDate.now());
+            ext.setRemark("用户通过组织码自助加入");
+            ext.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
+            employeeExtMapper.insert(ext);
+
+            SysUserRole userRole = new SysUserRole();
+            userRole.setUserId(employee.getId());
+            userRole.setTenantCode(tenantCode);
+            userRole.setRoleId(role.getId());
+            userRole.setCreateTime(LocalDateTime.now());
+            userRole.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
+            sysUserRoleMapper.insert(userRole);
+            return employee;
+        } finally {
+            TenantPermissionContext.clear();
+        }
+    }
+
+    private Department getOrCreateJoinDepartment(String tenantCode) {
+        Department department = departmentMapper.selectOne(new LambdaQueryWrapper<Department>()
+                .eq(Department::getTenantCode, tenantCode)
+                .eq(Department::getDeptName, DEFAULT_JOIN_DEPARTMENT)
+                .eq(Department::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
+                .last("LIMIT 1"));
+        if (department != null) {
+            return department;
+        }
+        Department created = new Department();
+        created.setTenantCode(tenantCode);
+        created.setDeptName(DEFAULT_JOIN_DEPARTMENT);
+        created.setDeptCode(codeGeneratorUtil.generateCode("DPT", 4));
+        created.setParentId(null);
+        created.setLeaderName(null);
+        created.setSortNo(999);
+        created.setStatus(CommonStatusEnum.ENABLED.getCode());
+        created.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
+        departmentMapper.insert(created);
+        return created;
+    }
+
+    private Position getOrCreateJoinPosition(String tenantCode, Long departmentId) {
+        Position position = positionMapper.selectOne(new LambdaQueryWrapper<Position>()
+                .eq(Position::getTenantCode, tenantCode)
+                .eq(Position::getPositionName, DEFAULT_JOIN_POSITION)
+                .eq(Position::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
+                .last("LIMIT 1"));
+        if (position != null) {
+            return position;
+        }
+        Position created = new Position();
+        created.setTenantCode(tenantCode);
+        created.setPositionName(DEFAULT_JOIN_POSITION);
+        created.setPositionCode(codeGeneratorUtil.generateCode("POS", 4));
+        created.setDepartmentId(departmentId);
+        created.setSortNo(999);
+        created.setStatus(CommonStatusEnum.ENABLED.getCode());
+        created.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
+        positionMapper.insert(created);
+        return created;
+    }
+
+    private SysRole getOrCreateEmployeeRole(String tenantCode) {
+        SysRole role = sysRoleMapper.selectOne(new LambdaQueryWrapper<SysRole>()
+                .eq(SysRole::getTenantCode, tenantCode)
+                .eq(SysRole::getRoleCode, DEFAULT_JOIN_ROLE_CODE)
+                .eq(SysRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
+                .last("LIMIT 1"));
+        if (role != null) {
+            return role;
+        }
+        SysRole created = new SysRole();
+        created.setTenantCode(tenantCode);
+        created.setRoleCode(DEFAULT_JOIN_ROLE_CODE);
+        created.setRoleName(DEFAULT_JOIN_ROLE_NAME);
+        created.setIsSystem(1);
+        created.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
+        sysRoleMapper.insert(created);
+        return created;
+    }
+
     private LoginVO buildLoginVO(LoginUserRow loginUser, String rawPassword) {
         if (rawPassword != null && !encryptUtil.isBcryptHash(loginUser.getPassword())) {
             authMapper.updatePasswordByUserId(loginUser.getUserId(), encryptUtil.encode(rawPassword));
@@ -511,5 +794,13 @@ public class AuthService {
 
     private String passwordResetFailKey(String phoneHash) {
         return redisKeyBuilder.counter("auth", "password-reset", "fail", phoneHash);
+    }
+
+    private String organizationJoinSmsCodeKey(String phoneHash) {
+        return redisKeyBuilder.cache("auth", "organization-join", "sms", phoneHash);
+    }
+
+    private String organizationJoinSmsSendLockKey(String phoneHash) {
+        return redisKeyBuilder.counter("auth", "organization-join", "sms-send-lock", phoneHash);
     }
 }
