@@ -604,8 +604,7 @@ public class ApprovalService {
         vo.setCustomerName(order.getCustomerName());
         vo.setProjectName(order.getProjectName());
         String fallbackSummary = payToProductionApproval ? "待审批转生产中销售订单" : "待确认销售订单";
-        vo.setSummary((StringUtils.hasText(order.getGoodsDesc()) ? order.getGoodsDesc() : fallbackSummary)
-                + " / 金额 ￥" + (order.getTotalAmount() == null ? "0.00" : order.getTotalAmount()));
+        vo.setSummary(StringUtils.hasText(order.getGoodsDesc()) ? order.getGoodsDesc() : fallbackSummary);
         vo.setStatus(order.getStatus());
         vo.setStatusText(payToProductionApproval ? "待审批转生产中" : "待确认");
         vo.setCreateTime(order.getCreateTime());

@@ -34,10 +34,6 @@ public class ProductionOrderDetailVO {
 
     private Integer quantity;
 
-    private BigDecimal price;
-
-    private BigDecimal totalAmount;
-
     private Integer process;
 
     private String processText;

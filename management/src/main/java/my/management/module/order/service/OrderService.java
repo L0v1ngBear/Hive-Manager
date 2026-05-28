@@ -356,12 +356,14 @@ public class OrderService {
 
         Page<SalesOrder> source = salesOrderMapper.selectPage(page, wrapper);
         List<SalesOrder> orders = source.getRecords();
-        Map<String, Integer> detailCountMap = buildSalesDetailCountMap(orders);
+        Map<String, List<SalesOrderDetail>> detailMap = buildSalesDetailMap(orders);
 
         List<SalesOrderPageVO> records = orders.stream().map(order -> {
             SalesOrderPageVO vo = new SalesOrderPageVO();
             BeanUtils.copyProperties(order, vo);
-            vo.setDetailCount(detailCountMap.getOrDefault(order.getOrderId(), 0));
+            List<SalesOrderDetail> details = detailMap.getOrDefault(order.getOrderId(), Collections.emptyList());
+            vo.setDetailCount(details.size());
+            vo.setItems(details.stream().map(this::toSalesOrderPageItem).toList());
             markSalesStaleWarning(vo, order, orderSettingService.staleWarningDays(tenantCode, order.getOrderCategory()));
             return vo;
         }).toList();
@@ -405,6 +407,7 @@ public class OrderService {
     public SalesOrderDetailVO getSalesOrderDetail(String orderId) {
         SalesOrder order = findSalesOrder(orderId);
         List<SalesOrderDetail> details = salesOrderDetailMapper.selectList(new LambdaQueryWrapper<SalesOrderDetail>()
+                .eq(SalesOrderDetail::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(SalesOrderDetail::getOrderId, orderId)
                 .orderByAsc(SalesOrderDetail::getId));
 
@@ -814,9 +817,6 @@ public class OrderService {
         ensureCustomerProjectExists(order.getCustomerName(), order.getCustomerPhone(), order.getProjectName());
         order.setGoodsDesc(buildSalesGoodsDesc(request.getItems()));
         order.setTotalQuantity(sumSalesQuantity(request.getItems()));
-        if (createMode && order.getTotalAmount() == null) {
-            order.setTotalAmount(BigDecimal.ZERO);
-        }
     }
 
     private Integer normalizeInvoiceFlag(Integer value) {
@@ -825,16 +825,17 @@ public class OrderService {
 
     private void replaceSalesOrderItems(String orderId, List<SalesOrderSaveRequest.ItemDTO> items, LocalDateTime businessCreateTime) {
         salesOrderDetailMapper.delete(new LambdaQueryWrapper<SalesOrderDetail>()
+                .eq(SalesOrderDetail::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(SalesOrderDetail::getOrderId, orderId));
 
         LocalDateTime now = LocalDateTime.now();
-        List<SalesOrderDetail> details = items.stream().map(item -> {
+        List<SalesOrderDetail> details = normalizeSalesItems(items).stream().map(item -> {
             SalesOrderDetail detail = new SalesOrderDetail();
             detail.setOrderId(orderId);
             detail.setTenantCode(TenantPermissionContext.getTenantCode());
-            detail.setModelCode(item.getModelCode().trim());
+            detail.setModelCode(blankToNull(item.getModelCode()));
             detail.setWeight(item.getWeight());
-            detail.setSpec(formatNumber(item.getSpec()));
+            detail.setSpec(blankToNull(formatNumber(item.getSpec())));
             detail.setQuantity(item.getQuantity());
             detail.setCreateTime(businessCreateTime == null ? now : businessCreateTime);
             detail.setUpdateTime(now);
@@ -845,7 +846,9 @@ public class OrderService {
     }
 
     private void createProductionOrdersFromSales(SalesOrder order, List<SalesOrderSaveRequest.ItemDTO> items) {
-        items.forEach(item -> {
+        normalizeSalesItems(items).stream()
+                .filter(item -> StringUtils.hasText(item.getModelCode()))
+                .forEach(item -> {
             ProductionOrder productionOrder = new ProductionOrder();
             productionOrder.setTenantCode(TenantPermissionContext.getTenantCode());
             productionOrder.setOrderId(codeGeneratorUtil.generateProductionOrderCode());
@@ -877,8 +880,6 @@ public class OrderService {
         order.setWidth(toBigDecimal(request.getSpec()));
         order.setColor(blankToNull(request.getColor()));
         order.setQuantity(request.getQuantity());
-        order.setPrice(request.getPrice());
-        order.setTotalAmount(request.getPrice() == null ? null : request.getPrice().multiply(BigDecimal.valueOf(request.getQuantity())));
         order.setCustomerName(blankToNull(request.getCustomerName()));
         order.setProjectName(blankToNull(request.getProjectName()));
         order.setBrandName(blankToNull(request.getBrandName()));
@@ -1330,29 +1331,73 @@ public class OrderService {
         return order;
     }
 
-    private Map<String, Integer> buildSalesDetailCountMap(List<SalesOrder> orders) {
+    private Map<String, List<SalesOrderDetail>> buildSalesDetailMap(List<SalesOrder> orders) {
         if (orders == null || orders.isEmpty()) {
             return Collections.emptyMap();
         }
         List<String> orderIds = orders.stream().map(SalesOrder::getOrderId).toList();
         return salesOrderDetailMapper.selectList(new LambdaQueryWrapper<SalesOrderDetail>()
-                        .in(SalesOrderDetail::getOrderId, orderIds))
+                        .eq(SalesOrderDetail::getTenantCode, TenantPermissionContext.getTenantCode())
+                        .in(SalesOrderDetail::getOrderId, orderIds)
+                        .orderByAsc(SalesOrderDetail::getId))
                 .stream()
-                .collect(Collectors.groupingBy(SalesOrderDetail::getOrderId, LinkedHashMap::new, Collectors.summingInt(item -> 1)));
+                .collect(Collectors.groupingBy(SalesOrderDetail::getOrderId, LinkedHashMap::new, Collectors.toList()));
+    }
+
+    private SalesOrderPageVO.ItemVO toSalesOrderPageItem(SalesOrderDetail detail) {
+        SalesOrderPageVO.ItemVO vo = new SalesOrderPageVO.ItemVO();
+        BeanUtils.copyProperties(detail, vo);
+        return vo;
     }
 
     private String buildSalesGoodsDesc(List<SalesOrderSaveRequest.ItemDTO> items) {
-        return items.stream()
-                .map(item -> item.getModelCode().trim() + " / " + formatNumber(item.getWeight()) + "克 / " + formatNumber(item.getSpec()) + "规格 × " + item.getQuantity().stripTrailingZeros().toPlainString())
+        List<SalesOrderSaveRequest.ItemDTO> normalizedItems = normalizeSalesItems(items);
+        if (normalizedItems.isEmpty()) {
+            return null;
+        }
+        return normalizedItems.stream()
+                .map(item -> {
+                    String weight = formatNumber(item.getWeight());
+                    String spec = formatNumber(item.getSpec());
+                    return (blankToNull(item.getModelCode()) == null ? "未填写型号" : item.getModelCode().trim())
+                            + " / " + (StringUtils.hasText(weight) ? weight + "克" : "未填写克重")
+                            + " / " + (StringUtils.hasText(spec) ? spec + "规格" : "未填写规格")
+                            + " × " + optionalText(formatQuantity(item.getQuantity()), "未填写数量");
+                })
                 .collect(Collectors.joining("；"));
     }
 
     private Integer sumSalesQuantity(List<SalesOrderSaveRequest.ItemDTO> items) {
-        BigDecimal total = items.stream()
+        BigDecimal total = normalizeSalesItems(items).stream()
                 .map(SalesOrderSaveRequest.ItemDTO::getQuantity)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return total.intValue();
+    }
+
+    private List<SalesOrderSaveRequest.ItemDTO> normalizeSalesItems(List<SalesOrderSaveRequest.ItemDTO> items) {
+        if (items == null || items.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return items.stream()
+                .filter(Objects::nonNull)
+                .filter(this::hasSalesItemContent)
+                .toList();
+    }
+
+    private boolean hasSalesItemContent(SalesOrderSaveRequest.ItemDTO item) {
+        return StringUtils.hasText(item.getModelCode())
+                || item.getQuantity() != null
+                || item.getWeight() != null
+                || item.getSpec() != null;
+    }
+
+    private String optionalText(String value, String fallback) {
+        return StringUtils.hasText(value) ? value.trim() : fallback;
+    }
+
+    private String formatQuantity(BigDecimal value) {
+        return value == null ? "" : value.stripTrailingZeros().toPlainString();
     }
 
     private Integer resolveProcess(String status, Integer process) {
@@ -1558,7 +1603,6 @@ public class OrderService {
                 || !sameText(before.getProjectName(), after.getProjectName())
                 || !sameText(before.getBrandName(), after.getBrandName())
                 || !sameText(before.getGoodsDesc(), after.getGoodsDesc())
-                || !sameBigDecimal(before.getTotalAmount(), after.getTotalAmount())
                 || !Objects.equals(before.getTotalQuantity(), after.getTotalQuantity())
                 || !sameText(before.getDeliveryDate(), after.getDeliveryDate())
                 || !sameText(before.getExpressCompany(), after.getExpressCompany())
@@ -1579,8 +1623,6 @@ public class OrderService {
                 || !sameBigDecimal(before.getWidth(), after.getWidth())
                 || !sameText(before.getColor(), after.getColor())
                 || !Objects.equals(before.getQuantity(), after.getQuantity())
-                || !sameBigDecimal(before.getPrice(), after.getPrice())
-                || !sameBigDecimal(before.getTotalAmount(), after.getTotalAmount())
                 || !Objects.equals(before.getProcess(), after.getProcess())
                 || !sameText(before.getCustomerName(), after.getCustomerName())
                 || !sameText(before.getProjectName(), after.getProjectName())
@@ -1591,9 +1633,10 @@ public class OrderService {
 
     private boolean salesOrderItemsChanged(String orderId, List<SalesOrderSaveRequest.ItemDTO> items) {
         List<SalesOrderDetail> existingItems = salesOrderDetailMapper.selectList(new LambdaQueryWrapper<SalesOrderDetail>()
+                .eq(SalesOrderDetail::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(SalesOrderDetail::getOrderId, orderId)
                 .orderByAsc(SalesOrderDetail::getId));
-        List<SalesOrderSaveRequest.ItemDTO> requestItems = items == null ? Collections.emptyList() : items;
+        List<SalesOrderSaveRequest.ItemDTO> requestItems = normalizeSalesItems(items);
         if (existingItems.size() != requestItems.size()) {
             return true;
         }

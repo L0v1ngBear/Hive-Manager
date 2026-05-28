@@ -47,11 +47,6 @@ public class ProductionOrder {
 
     private Integer quantity;
 
-    private BigDecimal price;
-
-    @TableField("total_amount")
-    private BigDecimal totalAmount;
-
     private Integer process;
 
     @TableField("customer_id")

@@ -28,8 +28,6 @@ public class SalesOrderDetailVO {
 
     private String goodsDesc;
 
-    private BigDecimal totalAmount;
-
     private Integer totalQuantity;
 
     private String deliveryDate;

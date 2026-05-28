@@ -221,9 +221,9 @@
               </template>
               <template v-else-if="column.key === 'core'">
                 <template v-if="currentTab === 'sales'">
-                  <div class="max-w-[320px] truncate font-bold text-primary">{{ row.goodsDesc || '未填写商品信息' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">总数量 {{ row.totalQuantity || 0 }} / 金额
-                    ￥{{ formatAmount(row.totalAmount) }}
+                  <div class="max-w-[320px] truncate font-bold text-primary">{{ salesCoreTitle(row) }}</div>
+                  <div class="mt-1 text-xs text-on-surface-variant">
+                    {{ salesCoreMeta(row) }}
                   </div>
                 </template>
                 <template v-else>
@@ -232,6 +232,9 @@
                     {{ formatNumber(row.width) }} 规格
                   </div>
                 </template>
+              </template>
+              <template v-else-if="column.key === 'remark'">
+                <div class="order-remark-cell">{{ row.remark || '暂无备注' }}</div>
               </template>
               <template v-else-if="column.key === 'delivery'">
                 <template v-if="currentTab === 'sales'">
@@ -417,33 +420,6 @@
                 </div>
               </div>
               <div class="mt-6">
-                <div class="section-title">生产工序进度</div>
-                <div class="production-process-detail">
-                  <div class="production-process-detail-head">
-                    <span>当前工序</span>
-                    <strong>{{ productionProcessText(productionDetail) || '待进入生产' }}</strong>
-                    <em>{{ productionProcessPercent(productionDetail) }}%</em>
-                  </div>
-                  <div class="order-progress-track">
-                    <div
-                        class="order-progress-bar"
-                        :style="{ width: `${productionProcessPercent(productionDetail)}%` }"
-                    ></div>
-                  </div>
-                  <div class="production-process-steps production-process-steps-detail">
-                    <span
-                        v-for="step in productionProcessSteps(productionDetail)"
-                        :key="step.code"
-                        class="production-process-step"
-                        :class="{ done: step.done, current: step.current }"
-                    >
-                      {{ step.name }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="mt-6">
                 <div class="section-title">订单流转码</div>
                 <div class="order-flow-code-card">
                   <div class="flow-code-summary">
@@ -467,10 +443,10 @@
                   <div class="font-bold text-primary">{{ item.modelCode || '未填写型号' }}</div>
                   <div class="mt-1 text-sm text-on-surface-variant">
                     克重：{{ formatNumber(item.weight) || '未填写' }} / 规格：{{ item.spec || '未填写' }} /
-                    数量：{{ item.quantity || 0 }}
+                    数量：{{ formatNumber(item.quantity) || '未填写' }}
                   </div>
                 </div>
-                <div v-if="!(salesDetail.items || []).length" class="mt-3 text-sm text-on-surface-variant">暂无明细项
+                <div v-if="!(salesDetail.items || []).length" class="mt-3 text-sm text-on-surface-variant">暂无订单明细
                 </div>
               </div>
               <div class="mt-6">
@@ -870,10 +846,6 @@
                   <label class="field-label">颜色</label>
                   <input v-model.trim="productionForm.color" class="box-input" type="text"/>
                 </div>
-                <div>
-                  <label class="field-label">单价</label>
-                  <input v-model.number="productionForm.price" class="box-input" type="number" min="0" step="0.01"/>
-                </div>
                 <div v-if="productionForm.status === 'producing'">
                   <label class="field-label">履约工序</label>
                   <select v-model="productionForm.process" class="box-input">
@@ -946,7 +918,8 @@ const route = useRoute()
 const defaultOrderTableColumns = [
   {key: 'orderNo', label: '编号'},
   {key: 'customer', label: '客户 / 项目'},
-  {key: 'core', label: '核心信息'},
+  {key: 'core', label: '订单信息'},
+  {key: 'remark', label: '备注'},
   {key: 'status', label: '状态'},
   {key: 'progress', label: '进度'},
   {key: 'time', label: '时间'}
@@ -955,7 +928,7 @@ const {
   orderedColumns: orderTableColumns,
   moveColumn: moveOrderTableColumn,
   resetColumns: resetOrderTableColumns
-} = useLocalTableColumns('order.list.commercial.v2', defaultOrderTableColumns)
+} = useLocalTableColumns('order.list.commercial.v3', defaultOrderTableColumns)
 const MAX_ORDER_EXPORT_ROWS = 2000
 const orderTableColumnCount = computed(() => orderTableColumns.value.length + 1)
 const orderColumnClass = (key) => `order-column-${key}`
@@ -1189,7 +1162,7 @@ function applyRouteSearch() {
 }
 
 function defaultSalesItem() {
-  return {modelCode: '', quantity: 1, weight: '', spec: ''}
+  return {modelCode: '', quantity: '', weight: '', spec: ''}
 }
 
 function defaultSalesForm() {
@@ -1210,7 +1183,7 @@ function defaultSalesForm() {
     attachmentSize: null,
     status: 'pending_confirm',
     createProductionOrder: 1,
-    items: [defaultSalesItem()]
+    items: []
   }
 }
 
@@ -1228,7 +1201,6 @@ function defaultProductionForm() {
     spec: '',
     color: '',
     quantity: 1,
-    price: '',
     deliveryDate: '',
     createTime: '',
     status: 'pending_confirm',
@@ -1744,7 +1716,8 @@ function formatOrderExportCell(row, key) {
   if (key === 'category') return orderCategoryLabel(row.orderCategory)
   if (key === 'customer') return [row.customerName, row.projectName].filter(Boolean).join(' / ')
   if (key === 'brand') return row.brandName || ''
-  if (key === 'core') return `${row.goodsDesc || ''} 数量${row.totalQuantity || 0} 金额${formatAmount(row.totalAmount)}`
+  if (key === 'core') return salesCoreExportText(row)
+  if (key === 'remark') return row.remark || ''
   if (key === 'delivery') return [row.deliveryDate, row.expressCompany, row.expressNo].filter(Boolean).join(' / ')
   if (key === 'invoice') return invoiceLabel(row.isInvoice)
   if (key === 'status') return salesStatusLabel(row.status)
@@ -1848,7 +1821,7 @@ async function openEdit(orderId) {
         weight: num(item.weight),
         spec: num(item.spec)
       }))
-      : [defaultSalesItem()]
+      : []
 }
 
 function closeForm() {
@@ -1865,10 +1838,6 @@ function addSalesItem() {
 }
 
 function removeSalesItem(index) {
-  if (salesForm.items.length === 1) {
-    ElMessage.warning('至少保留一个商品明细')
-    return
-  }
   salesForm.items.splice(index, 1)
 }
 
@@ -1951,20 +1920,12 @@ function validateSalesForm() {
   if (!salesForm.projectName.trim()) fail('请输入项目名称', 'sales.projectName')
   if (!salesForm.deliveryDate) fail('请选择交付日期', 'sales.deliveryDate')
   validateCreateTimeInput(salesForm.createTime)
-  if (!salesForm.items.length) fail('请至少添加一个商品明细', 'sales.items')
   if (salesForm.status === 'shipped' && !String(salesForm.expressCompany || '').trim()) {
     fail('订单变更为已发货时必须填写物流公司', 'sales.expressCompany')
   }
   if (salesForm.status === 'shipped' && !String(salesForm.expressNo || '').trim()) {
     fail('订单变更为已发货时必须填写物流单号', 'sales.expressNo')
   }
-  salesForm.items.forEach((item, index) => {
-    const label = `第 ${index + 1} 项`
-    if (!String(item.modelCode || '').trim()) fail(`${label}型号不能为空`, `sales.items.${index}.modelCode`)
-    if (!Number(item.quantity) || Number(item.quantity) <= 0) fail(`${label}数量必须大于 0`, `sales.items.${index}.quantity`)
-    if (!Number(item.weight) || Number(item.weight) <= 0) fail(`${label}克重必须大于 0`, `sales.items.${index}.weight`)
-    if (!Number(item.spec) || Number(item.spec) <= 0) fail(`${label}规格必须大于 0`, `sales.items.${index}.spec`)
-  })
 }
 
 function validateProductionForm() {
@@ -1978,6 +1939,14 @@ function validateProductionForm() {
 
 function buildSalesPayload() {
   const orderCategory = normalizeOrderCategory(salesForm.orderCategory)
+  const normalizedItems = salesForm.items
+      .filter(isSalesItemMeaningful)
+      .map(item => ({
+        modelCode: blank(item.modelCode),
+        quantity: optionalNumber(item.quantity),
+        weight: optionalNumber(item.weight),
+        spec: optionalNumber(item.spec)
+      }))
   return {
     customerName: salesForm.customerName.trim(),
     customerPhone: blank(salesForm.customerPhone),
@@ -1997,12 +1966,7 @@ function buildSalesPayload() {
     createProductionOrder: formMode.value === 'create' && orderCategory !== 'drawing_budget'
         ? Number(salesForm.createProductionOrder || 0)
         : 0,
-    items: salesForm.items.map(item => ({
-      modelCode: item.modelCode.trim(),
-      quantity: Number(item.quantity),
-      weight: Number(item.weight),
-      spec: Number(item.spec)
-    }))
+    items: normalizedItems
   }
 }
 
@@ -2020,7 +1984,6 @@ function buildProductionPayload() {
     spec: Number(productionForm.spec),
     color: blank(productionForm.color),
     quantity: Number(productionForm.quantity),
-    price: productionForm.price === '' || productionForm.price === null ? null : Number(productionForm.price),
     deliveryDate: `${productionForm.deliveryDate} 00:00:00`,
     createTime: blank(formatCreateTimePayload(productionForm.createTime)),
     status: productionForm.status,
@@ -2098,10 +2061,6 @@ function num(value) {
   return value === null || value === undefined || value === '' ? '' : Number(value)
 }
 
-function formatAmount(value) {
-  return value === null || value === undefined || value === '' ? '0.00' : Number(value).toFixed(2)
-}
-
 function formatFileSize(value) {
   const size = Number(value || 0)
   if (!size) {
@@ -2115,6 +2074,61 @@ function formatFileSize(value) {
 
 function formatNumber(value) {
   return value === null || value === undefined || value === '' ? '' : String(Number(value))
+}
+
+function optionalNumber(value) {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function isSalesItemMeaningful(item = {}) {
+  return Boolean(
+      normalizeText(item.modelCode)
+      || item.quantity !== null && item.quantity !== undefined && item.quantity !== ''
+      || item.weight !== null && item.weight !== undefined && item.weight !== ''
+      || item.spec !== null && item.spec !== undefined && item.spec !== ''
+  )
+}
+
+function salesRowItems(row = {}) {
+  return Array.isArray(row.items) ? row.items.filter(isSalesItemMeaningful) : []
+}
+
+function salesItemText(item = {}) {
+  const model = normalizeText(item.modelCode) || '未填写型号'
+  const weight = formatNumber(item.weight)
+  const spec = formatNumber(item.spec) || normalizeText(item.spec)
+  const quantity = formatNumber(item.quantity) || '未填写数量'
+  return `${model} / ${weight ? `${weight}克` : '未填写克重'} / ${spec ? `${spec}规格` : '未填写规格'} × ${quantity}`
+}
+
+function salesCoreTitle(row = {}) {
+  const items = salesRowItems(row)
+  if (items.length) {
+    return salesItemText(items[0])
+  }
+  return '未填写订单明细'
+}
+
+function salesCoreMeta(row = {}) {
+  const items = salesRowItems(row)
+  if (!items.length) {
+    return '订单明细 0 项'
+  }
+  const totalQuantity = items.reduce((sum, item) => sum + (optionalNumber(item.quantity) || 0), 0)
+  const suffix = items.length > 1 ? ` / 共 ${items.length} 项` : ''
+  return `总数量 ${formatNumber(totalQuantity) || 0}${suffix}`
+}
+
+function salesCoreExportText(row = {}) {
+  const items = salesRowItems(row)
+  if (items.length) {
+    return `${items.map(salesItemText).join('；')}；${salesCoreMeta(row)}`
+  }
+  return salesCoreMeta(row)
 }
 
 function formatDateTime(value) {
@@ -2253,6 +2267,7 @@ function productionProcessProgress(row = {}) {
 }
 
 function productionProcessPercent(row = {}) {
+  row = row || {}
   if (Number.isFinite(Number(row.processProgressPercent))) {
     return Math.max(0, Math.min(100, Number(row.processProgressPercent)))
   }
@@ -2269,6 +2284,7 @@ function productionProcessPercent(row = {}) {
 }
 
 function productionProcessSteps(row = {}) {
+  row = row || {}
   if (Array.isArray(row.processSteps) && row.processSteps.length) {
     return row.processSteps.map((step, index) => ({
       code: step.code ?? index,
@@ -2295,6 +2311,7 @@ function productionProcessSteps(row = {}) {
 }
 
 function productionProcessText(row = {}) {
+  row = row || {}
   return row.currentProcessText || row.processText || row.completedProcessText || ''
 }
 </script>
@@ -3289,8 +3306,13 @@ function productionProcessText(row = {}) {
 }
 
 .order-column-core {
-  width: 24%;
-  min-width: 14rem;
+  width: 22%;
+  min-width: 13rem;
+}
+
+.order-column-remark {
+  width: 12%;
+  min-width: 9rem;
 }
 
 .order-column-status {
@@ -3310,13 +3332,15 @@ function productionProcessText(row = {}) {
 
 .order-column-orderNo,
 .order-column-customer,
-.order-column-core {
+.order-column-core,
+.order-column-remark {
   word-break: keep-all;
 }
 
 .order-column-orderNo > *,
 .order-column-customer > *,
-.order-column-core > * {
+.order-column-core > *,
+.order-column-remark > * {
   min-width: 0;
 }
 
@@ -3327,6 +3351,15 @@ function productionProcessText(row = {}) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.order-remark-cell {
+  max-width: 100%;
+  overflow: hidden;
+  color: rgb(var(--on-surface-variant));
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .order-column-time {
@@ -3383,7 +3416,7 @@ function productionProcessText(row = {}) {
   position: fixed;
   top: 0;
   right: 0;
-  z-index: 70;
+  z-index: 80;
   display: flex;
   height: 100%;
   width: 100%;

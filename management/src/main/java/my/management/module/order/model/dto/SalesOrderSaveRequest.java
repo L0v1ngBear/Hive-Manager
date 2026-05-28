@@ -1,10 +1,7 @@
 package my.management.module.order.model.dto;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -65,7 +62,6 @@ public class SalesOrderSaveRequest {
 
     private Integer createProductionOrder;
 
-    @NotEmpty(message = "订单明细不能为空")
     @Valid
     private List<ItemDTO> items;
 
@@ -77,19 +73,12 @@ public class SalesOrderSaveRequest {
 
         private Long id;
 
-        @NotBlank(message = "型号不能为空")
         private String modelCode;
 
-        @NotNull(message = "数量不能为空")
-        @DecimalMin(value = "0.0", inclusive = false, message = "数量必须大于0")
         private BigDecimal quantity;
 
-        @NotNull(message = "克重不能为空")
-        @DecimalMin(value = "0.0", inclusive = false, message = "克重必须大于0")
         private Float weight;
 
-        @NotNull(message = "规格不能为空")
-        @DecimalMin(value = "0.0", inclusive = false, message = "规格必须大于0")
         private Float spec;
     }
 }
