@@ -734,12 +734,19 @@ public class AuthService {
         loginVO.setUserName(loginUser.getUserName());
         loginVO.setTenantCode(loginUser.getTenantCode());
         loginVO.setTenantName(loginUser.getTenantName());
-        loginVO.setDeveloper(false);
+        loginVO.setTenantLogoUrl(loginUser.getTenantLogoUrl());
+        loginVO.setDeveloper(isDeveloperAccount(loginUser.getTenantCode(), permCodes));
         loginVO.setMustChangePassword(Objects.equals(loginUser.getMustChangePassword(), 1));
         loginVO.setResponseKey(responseEncryptUtil.buildResponseKey(token));
         loginVO.setPermissions(List.copyOf(permCodes));
         loginVO.setFeatures(tenantLicenseService.enabledFeatureKeys(loginUser.getTenantCode()));
         return loginVO;
+    }
+
+    private boolean isDeveloperAccount(String tenantCode, Set<String> permCodes) {
+        return "super".equalsIgnoreCase(String.valueOf(tenantCode).trim())
+                && permCodes != null
+                && (permCodes.contains("super") || permCodes.contains("developer:super"));
     }
 
     private WebScanLoginRedisPayload getWebScanPayload(String sceneKey) {

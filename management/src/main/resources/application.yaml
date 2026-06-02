@@ -127,6 +127,36 @@ maintenance:
     cleanup-enabled: ${DB_MAINTENANCE_CLEANUP_ENABLED:true}
     batch-size: ${DB_CLEANUP_BATCH_SIZE:5000}
     capacity-warn-mb: ${DB_CAPACITY_WARN_MB:32768}
+    capacity-disk-total-mb: ${DB_CAPACITY_DISK_TOTAL_MB:40960}
+    capacity-disk-path: ${DB_CAPACITY_DISK_PATH:/app}
+    capacity-platform-reserve-mb: ${DB_CAPACITY_PLATFORM_RESERVE_MB:12288}
+    capacity-projection-warn-percent: ${DB_CAPACITY_PROJECTION_WARN_PERCENT:70}
+    capacity-projection-fail-percent: ${DB_CAPACITY_PROJECTION_FAIL_PERCENT:85}
+    capacity-estimate-tenants: ${DB_CAPACITY_ESTIMATE_TENANTS:2}
+    capacity-estimate-daily-orders: ${DB_CAPACITY_ESTIMATE_DAILY_ORDERS:300}
+    capacity-estimate-order-items-per-order: ${DB_CAPACITY_ESTIMATE_ORDER_ITEMS_PER_ORDER:4}
+    capacity-estimate-daily-cloth-in: ${DB_CAPACITY_ESTIMATE_DAILY_CLOTH_IN:800}
+    capacity-estimate-daily-cloth-out: ${DB_CAPACITY_ESTIMATE_DAILY_CLOTH_OUT:600}
+    capacity-estimate-active-employees: ${DB_CAPACITY_ESTIMATE_ACTIVE_EMPLOYEES:150}
+    capacity-estimate-daily-operation-logs: ${DB_CAPACITY_ESTIMATE_DAILY_OPERATION_LOGS:8000}
+    capacity-estimate-daily-notifications: ${DB_CAPACITY_ESTIMATE_DAILY_NOTIFICATIONS:2000}
+    capacity-estimate-daily-print-tasks: ${DB_CAPACITY_ESTIMATE_DAILY_PRINT_TASKS:800}
+    capacity-estimate-daily-attachments: ${DB_CAPACITY_ESTIMATE_DAILY_ATTACHMENTS:40}
+    capacity-estimate-avg-attachment-mb: ${DB_CAPACITY_ESTIMATE_AVG_ATTACHMENT_MB:1.5}
+    capacity-estimate-local-attachment-ratio: ${DB_CAPACITY_ESTIMATE_LOCAL_ATTACHMENT_RATIO:1.0}
+    capacity-estimate-safety-factor: ${DB_CAPACITY_ESTIMATE_SAFETY_FACTOR:1.45}
+    capacity-estimate-backup-keep: ${DB_CAPACITY_ESTIMATE_BACKUP_KEEP:3}
+    runtime-audit-enabled: ${RUNTIME_AUDIT_ENABLED:true}
+    runtime-audit-recent-minutes: ${RUNTIME_AUDIT_RECENT_MINUTES:30}
+    runtime-audit-db-latency-warn-ms: ${RUNTIME_AUDIT_DB_LATENCY_WARN_MS:500}
+    runtime-audit-error-warn-count: ${RUNTIME_AUDIT_ERROR_WARN_COUNT:20}
+    runtime-audit-error-fail-count: ${RUNTIME_AUDIT_ERROR_FAIL_COUNT:100}
+    runtime-audit-slow-warn-count: ${RUNTIME_AUDIT_SLOW_WARN_COUNT:50}
+    runtime-audit-slow-fail-count: ${RUNTIME_AUDIT_SLOW_FAIL_COUNT:200}
+    runtime-audit-system-error-warn-count: ${RUNTIME_AUDIT_SYSTEM_ERROR_WARN_COUNT:10}
+    runtime-audit-system-error-fail-count: ${RUNTIME_AUDIT_SYSTEM_ERROR_FAIL_COUNT:50}
+    runtime-audit-notification-backlog-warn-count: ${RUNTIME_AUDIT_NOTIFICATION_BACKLOG_WARN_COUNT:200}
+    runtime-audit-notification-backlog-fail-count: ${RUNTIME_AUDIT_NOTIFICATION_BACKLOG_FAIL_COUNT:1000}
     operation-log-retention-days: ${OPERATION_LOG_RETENTION_DAYS:90}
     behavior-event-retention-days: ${BEHAVIOR_EVENT_RETENTION_DAYS:90}
     ai-sample-retention-days: ${AI_SAMPLE_RETENTION_DAYS:365}
@@ -144,7 +174,7 @@ hive:
     allowed-codes: ${HIVE_ALLOWED_TENANT_CODES:TENANT_001,TENANT_002}
     max-count: ${HIVE_TENANT_MAX_COUNT:2}
   single-tenant:
-    enabled: ${HIVE_SINGLE_TENANT_ENABLED:true}
+    enabled: ${HIVE_SINGLE_TENANT_ENABLED:false}
     code: ${HIVE_SINGLE_TENANT_CODE:TENANT_001}
     name: ${HIVE_SINGLE_TENANT_NAME:当前组织}
   redis:

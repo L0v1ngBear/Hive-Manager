@@ -571,6 +571,14 @@
               />
             </label>
           </div>
+
+          <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50/80 p-3 text-xs text-blue-900">
+            <input v-model="candidate.manualVerified" type="checkbox" class="mt-1 h-4 w-4 rounded border-blue-300 text-blue-600" />
+            <span>
+              <b class="block text-sm text-blue-950">已人工核对该候选布匹</b>
+              <span class="text-blue-900/70">确认型号、规格、米数和条码无误后再入库。</span>
+            </span>
+          </label>
         </div>
 
         <button @click="addRecognitionCandidate" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-200 bg-blue-50/60 px-4 py-3 text-sm font-black text-blue-600 hover:bg-blue-50">
@@ -1030,6 +1038,7 @@ function normalizeRecognitionCandidate(candidate = {}) {
     modelCode: candidate.modelCode || '',
     spec: candidate.spec == null ? '' : String(candidate.spec),
     meters: candidate.meters == null ? '' : String(candidate.meters),
+    manualVerified: false,
     customFields: createEmptyCustomFields()
   }
 }
@@ -1138,6 +1147,10 @@ async function submitRecognizedInventory() {
   const payloads = []
   for (let i = 0; i < imageRecognitionCandidates.value.length; i += 1) {
     const candidate = imageRecognitionCandidates.value[i]
+    if (!candidate.manualVerified) {
+      ElMessage.warning(`候选布匹 ${i + 1} 请先完成人工校验`)
+      return
+    }
     const customFields = validateInboundPayload(candidate, { labelPrefix: `候选布匹 ${i + 1}：` })
     if (customFields == null) return
     payloads.push({
@@ -1146,6 +1159,7 @@ async function submitRecognizedInventory() {
       spec: Number(candidate.spec),
       meters: Number(candidate.meters),
       inType: 'image_recognition',
+      manualVerified: true,
       customFields
     })
   }

@@ -147,6 +147,7 @@ const menuFeatureMap = {
   '/function/employee': 'module.employee',
   '/function/organization': 'module.employee',
   '/function/role': 'module.role',
+  '/function/tenant': '',
   '/function/label': 'module.label',
   '/function/document': 'module.document',
   '/manual': 'module.manual'
@@ -184,6 +185,7 @@ const secondaryMenus = computed(() => {
   {name: '员工管理', path: '/function/employee', icon: 'people', permissions: ['employee:list']},
   {name: '部门管理', path: '/function/organization', icon: 'account_tree', permissions: ['employee:list']},
   {name: '角色管理', path: '/function/role', icon: 'settings_accessibility', permissions: ['role:list']},
+  {name: '租户管理', path: '/function/tenant', icon: 'domain', developerOnly: true},
   {name: '标签模板', path: '/function/label', icon: 'sell', permissions: ['label:template:list']},
   {name: '文档管理', path: '/function/document', icon: 'folder_open', permissions: ['document:list']},
   {name: '使用手册', path: '/manual', icon: 'menu_book'},
@@ -192,6 +194,9 @@ const secondaryMenus = computed(() => {
 
 function filterMenus(menus) {
   return menus.filter((item) => {
+    if (item.developerOnly && !userStore.isDeveloper) {
+      return false
+    }
     const requiredFeatures = item.features || (menuFeatureMap[item.path] ? [menuFeatureMap[item.path]] : [])
     if (requiredFeatures.length && !userStore.hasAnyFeature(requiredFeatures)) {
       return false

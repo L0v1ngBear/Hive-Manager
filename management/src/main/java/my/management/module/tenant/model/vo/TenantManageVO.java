@@ -1,19 +1,13 @@
-package my.management.module.tenant.model.entity;
+package my.management.module.tenant.model.vo;
 
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-/**
- * Tenant 属于管理端后端租户模块，定义持久化实体结构，用于表字段映射。
- */
-@Data
-@TableName("tenant")
-public class Tenant {
+import java.util.List;
 
-    @TableId(type = IdType.AUTO)
+@Data
+public class TenantManageVO {
+
     private Long id;
 
     private String tenantCode;
@@ -27,8 +21,6 @@ public class Tenant {
     private String contactPerson;
 
     private String contactPhone;
-
-    private String password;
 
     private Integer status;
 
@@ -50,11 +42,19 @@ public class Tenant {
 
     private String featureFlags;
 
-    private Long creator;
+    private List<String> enabledFeatures;
+
+    private Long ownerUserId;
+
+    private String ownerName;
+
+    private String ownerLoginName;
+
+    private String ownerPhone;
+
+    private Integer ownerAttendanceRequired;
 
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;
-
-    private Integer deleted;
 }

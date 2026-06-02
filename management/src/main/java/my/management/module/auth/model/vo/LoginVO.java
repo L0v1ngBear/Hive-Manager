@@ -20,6 +20,8 @@ public class LoginVO {
 
     private String tenantName;
 
+    private String tenantLogoUrl;
+
     private Boolean developer = false;
 
     private Boolean mustChangePassword = false;

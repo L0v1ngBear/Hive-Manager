@@ -30,6 +30,11 @@ public class InventoryInRequest {
 
     private String inType;
 
+    /**
+     * 图片识别入库必须由人工核对后才能落库，避免识别误差直接进入库存。
+     */
+    private Boolean manualVerified;
+
     private LocalDateTime inTime;
 
     private Map<String, Object> customFields;

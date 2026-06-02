@@ -53,6 +53,8 @@ export const useUserStore = defineStore('user', () => {
   const currentTenantLabel = computed(() => {
     return currentTenantName.value
   })
+  const currentTenantLogoUrl = computed(() => String(userInfo.value?.tenantLogoUrl || '').trim())
+  const isDeveloper = computed(() => Boolean(userInfo.value?.developer))
   const responseKey = ref(readStorageItem('responseKey'))
   const expireAt = ref(readStorageItem('expireAt'))
   const mustChangePassword = ref(readStorageItem('mustChangePassword') === '1')
@@ -65,7 +67,9 @@ export const useUserStore = defineStore('user', () => {
           userId: loginData.userId,
           userName: loginData.userName,
           tenantCode: loginData.tenantCode,
-          tenantName: loginData.tenantName
+          tenantName: loginData.tenantName,
+          tenantLogoUrl: loginData.tenantLogoUrl,
+          developer: Boolean(loginData.developer)
         }
       : null
     permissions.value = loginData?.permissions || []
@@ -117,6 +121,20 @@ export const useUserStore = defineStore('user', () => {
     targetStorage.setItem('mustChangePassword', '0')
   }
 
+  const updateTenantBrand = ({ tenantName, tenantLogoUrl } = {}) => {
+    if (!userInfo.value) {
+      return
+    }
+    userInfo.value = {
+      ...userInfo.value,
+      tenantName: tenantName ?? userInfo.value.tenantName,
+      tenantLogoUrl: tenantLogoUrl ?? userInfo.value.tenantLogoUrl
+    }
+    const targetStorage = resolveActiveStorage()
+    clearOtherStorage(targetStorage)
+    targetStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+  }
+
   const hasPermission = (permCode) => matchPermission(permissions.value, permCode)
   const hasAnyPermission = (permCodes) => matchAnyPermission(permissions.value, permCodes)
   const hasFeature = (featureCode) => {
@@ -144,6 +162,8 @@ export const useUserStore = defineStore('user', () => {
     currentTenantCode,
     currentTenantName,
     currentTenantLabel,
+    currentTenantLogoUrl,
+    isDeveloper,
     responseKey,
     expireAt,
     mustChangePassword,
@@ -154,6 +174,7 @@ export const useUserStore = defineStore('user', () => {
     setLoginInfo,
     renewSession,
     markPasswordChanged,
+    updateTenantBrand,
     logout
   }
 })

@@ -473,6 +473,10 @@ public class InventoryService {
         String tenantCode = TenantPermissionContext.getTenantCode();
         Long userId = TenantPermissionContext.getUserId();
         LocalDateTime businessInTime = resolveBusinessDateTime(request.getInTime(), "入库时间");
+        String inType = InventoryInTypeEnum.normalizeInbound(request.getInType());
+        if (InventoryInTypeEnum.IMAGE_RECOGNITION.getCode().equals(inType) && !Boolean.TRUE.equals(request.getManualVerified())) {
+            throw new BusinessException("图片识别入库请先完成人工校验");
+        }
 
         String barcode = request.getBarcode() == null || request.getBarcode().isBlank()
                 ? generateBarcode(tenantCode)
@@ -494,7 +498,7 @@ public class InventoryService {
         cloth.setStatus(ClothInventoryStatusEnum.IN_STOCK.getCode());
         cloth.setInTime(businessInTime);
         cloth.setInOperatorId(userId);
-        cloth.setInType(InventoryInTypeEnum.normalizeInbound(request.getInType()));
+        cloth.setInType(inType);
         cloth.setIsBad(ClothQualityFlagEnum.NORMAL.getCode());
         cloth.setCustomFieldsJson(writeCustomFields(validateInventoryCustomFields(request.getCustomFields())));
         cloth.setVersion(INITIAL_VERSION);

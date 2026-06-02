@@ -934,7 +934,6 @@ const orderTableColumnCount = computed(() => orderTableColumns.value.length + 1)
 const orderColumnClass = (key) => `order-column-${key}`
 const salesStatuses = [
   {value: 'budgeting', label: '预算中'},
-  {value: 'budget_completed', label: '预算完成'},
   {value: 'pending_confirm', label: '待确认'},
   {value: 'pending_pay', label: '待收款'},
   {value: 'pending_material', label: '备料中'},
@@ -967,7 +966,7 @@ const processOptions = [
 const orderCategoryOptions = [
   {value: 'sample_room', label: '样板间'},
   {value: 'bulk', label: '大货'},
-  {value: 'replenishment', label: '补单'},
+  {value: 'replenishment', label: '增补'},
   {value: 'drawing_budget', label: '图纸预算'}
 ]
 const productionOrderCategoryOptions = orderCategoryOptions.filter(option => option.value !== 'drawing_budget')
@@ -1055,16 +1054,16 @@ const orderWarningHint = computed(() => {
   const bulkDays = orderWarningSummary.bulkStaleWarningDays || orderWarningSetting.bulkStaleWarningDays || 3
   const replenishmentDays = orderWarningSummary.replenishmentStaleWarningDays || orderWarningSetting.replenishmentStaleWarningDays || 3
   const drawingDays = orderWarningSummary.drawingBudgetStaleWarningDays || orderWarningSetting.drawingBudgetStaleWarningDays || 3
-  return `样板间${sampleDays}天 / 大货${bulkDays}天 / 补单${replenishmentDays}天 / 图纸预算${drawingDays}天`
+  return `样板间${sampleDays}天 / 大货${bulkDays}天 / 增补${replenishmentDays}天 / 图纸预算${drawingDays}天`
 })
 const summaryCards = computed(() => {
   return [
     {key: 'sales-total', tab: 'sales', label: '订单总量', status: '', count: salesSummary.total || salesState.total || 0, hint: '全部订单'},
     {key: 'sales-budgeting', tab: 'sales', label: '预算中订单', status: 'budgeting', count: salesSummary.budgeting || 0, hint: '图纸预算测算中'},
-    {key: 'sales-budget-done', tab: 'sales', label: '预算完成', status: 'budget_completed', count: salesSummary.budget_completed || 0, hint: '预算可交付客户确认'},
     {key: 'sales-confirm', tab: 'sales', label: '待确认订单', status: 'pending_confirm', count: salesSummary.pending_confirm || 0, hint: '待客户/业务确认'},
     {key: 'sales-pay', tab: 'sales', label: '待收款订单', status: 'pending_pay', count: salesSummary.pending_pay || 0, hint: '待收款跟进'},
     {key: 'sales-ship', tab: 'sales', label: '待发货订单', status: 'pending_ship', count: salesSummary.pending_ship || 0, hint: '待安排发货'},
+    {key: 'sales-shipped', tab: 'sales', label: '已发货订单', status: 'shipped', count: salesSummary.shipped || 0, hint: '物流已录入'},
     {key: 'sales-stale', tab: 'sales', label: '未更新预警', staleOnly: true, count: orderWarningSummary.salesCount || 0, hint: orderWarningHint.value}
   ]
 })
@@ -1558,10 +1557,10 @@ async function openOrderWarningSetting() {
 function buildOrderWarningSettingHtml() {
   return `
     <div class="order-warning-dialog" data-order-warning-form>
-      <p class="order-warning-dialog__desc">不同订单小项可以设置不同未更新预警天数。系统采用懒查询策略，只在打开订单页、筛选预警或手动重新更新时计算，不做后台轮询。</p>
+      <p class="order-warning-dialog__desc">不同订单小项可以设置不同未更新预警天数。</p>
       ${buildOrderWarningInputHtml('sampleRoomStaleWarningDays', '样板间', orderWarningSetting.sampleRoomStaleWarningDays)}
       ${buildOrderWarningInputHtml('bulkStaleWarningDays', '大货', orderWarningSetting.bulkStaleWarningDays)}
-      ${buildOrderWarningInputHtml('replenishmentStaleWarningDays', '补单', orderWarningSetting.replenishmentStaleWarningDays)}
+      ${buildOrderWarningInputHtml('replenishmentStaleWarningDays', '增补', orderWarningSetting.replenishmentStaleWarningDays)}
       ${buildOrderWarningInputHtml('drawingBudgetStaleWarningDays', '图纸预算', orderWarningSetting.drawingBudgetStaleWarningDays)}
     </div>
   `
@@ -1592,7 +1591,7 @@ function readOrderWarningSettingFromDialog() {
   }
   const sampleRoomStaleWarningDays = read('sampleRoomStaleWarningDays', '样板间')
   const bulkStaleWarningDays = read('bulkStaleWarningDays', '大货')
-  const replenishmentStaleWarningDays = read('replenishmentStaleWarningDays', '补单')
+  const replenishmentStaleWarningDays = read('replenishmentStaleWarningDays', '增补')
   const drawingBudgetStaleWarningDays = read('drawingBudgetStaleWarningDays', '图纸预算')
   return {
     staleWarningDays: bulkStaleWarningDays,
@@ -2196,7 +2195,7 @@ function invoiceLabel(value) {
 }
 
 function invoiceClass(value) {
-  return Number(value || 0) === 1 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+  return Number(value || 0) === 1 ? 'order-invoice-paid' : 'order-invoice-unpaid'
 }
 
 function statusToken(status) {
@@ -2662,6 +2661,16 @@ function productionProcessText(row = {}) {
 .order-table-row .order-status-pill {
   border-color: color-mix(in srgb, var(--order-row-text) 24%, transparent);
   background: color-mix(in srgb, var(--order-row-text) 10%, white);
+}
+
+.order-table-row .order-invoice-unpaid {
+  color: #dc2626 !important;
+  border-color: rgba(220, 38, 38, .24);
+  background: rgba(254, 226, 226, .94);
+}
+
+.order-table-row .order-invoice-paid {
+  color: var(--order-row-text) !important;
 }
 
 .order-table-row .order-stale-tag,

@@ -43,7 +43,8 @@
 
     <div class="flex items-center gap-2 md:gap-4">
       <div class="tenant-chip" :title="tenantTooltip">
-        <span class="material-symbols-outlined">waving_hand</span>
+        <img v-if="tenantLogoUrl" :src="tenantLogoUrl" alt="公司logo" class="tenant-chip__logo">
+        <span v-else class="material-symbols-outlined">waving_hand</span>
         <span class="tenant-chip__label">欢迎你</span>
         <span class="tenant-chip__name">{{ tenantName }}</span>
       </div>
@@ -227,6 +228,7 @@ const menuFeatureMap = {
   '/function/employee': 'module.employee',
   '/function/organization': 'module.employee',
   '/function/role': 'module.role',
+  '/function/tenant': '',
   '/function/label': 'module.label',
   '/function/document': 'module.document',
   '/manual': 'module.manual'
@@ -242,6 +244,7 @@ const pendingNotifications = ref([])
 const pageTitle = computed(() => route.meta.title || '高管总览大盘')
 const displayName = computed(() => userStore.userInfo?.userName || '当前用户')
 const tenantName = computed(() => userStore.currentTenantName)
+const tenantLogoUrl = computed(() => userStore.currentTenantLogoUrl)
 const tenantTooltip = computed(() => `欢迎你：${userStore.currentTenantLabel}`)
 const roleLabel = computed(() => '运营管理')
 const avatarText = computed(() => {
@@ -266,6 +269,7 @@ const searchableMenus = computed(() => {
   { name: '员工管理', path: '/function/employee', icon: 'groups', desc: '员工名录、组织架构和人员状态', permissions: ['employee:list'] },
   { name: '部门管理', path: '/function/organization', icon: 'account_tree', desc: '维护部门层级、负责人和部门成员归属', permissions: ['employee:list'] },
   { name: '角色管理', path: '/function/role', icon: 'admin_panel_settings', desc: '角色权限配置和员工授权', permissions: ['role:list'] },
+  { name: '租户管理', path: '/function/tenant', icon: 'domain', desc: '查看企业授权、启停状态和功能开关', developerOnly: true },
   { name: '标签模板', path: '/function/label', icon: 'sell', desc: '标签模板可视化设计与小程序打印联动', permissions: ['label:template:list'] },
   { name: '文档管理', path: '/function/document', icon: 'folder_open', desc: '企业文档目录和文件管理', permissions: ['document:list'] }
 ])
@@ -286,6 +290,9 @@ const filteredMenus = computed(() => {
 
 function filterMenus(menus) {
   return menus.filter((item) => {
+    if (item.developerOnly && !userStore.isDeveloper) {
+      return false
+    }
     const requiredFeatures = item.features || (menuFeatureMap[item.path] ? [menuFeatureMap[item.path]] : [])
     if (requiredFeatures.length && !userStore.hasAnyFeature(requiredFeatures)) {
       return false
@@ -595,6 +602,16 @@ onBeforeUnmount(() => {
 .tenant-chip .material-symbols-outlined {
   font-size: 1rem;
   color: #2563eb;
+}
+
+.tenant-chip__logo {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: 0 0 auto;
+  border-radius: 0.45rem;
+  object-fit: contain;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(15, 47, 111, 0.08);
 }
 
 .tenant-chip__label {

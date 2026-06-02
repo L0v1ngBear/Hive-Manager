@@ -1,1121 +1,900 @@
 <template>
-  <div class="label-page">
-    <header class="label-header">
-      <div class="header-left">
-        <div>
-          <div class="function-page-eyebrow">
-            <span class="material-symbols-outlined">sell</span>
-            标签模板中心
-          </div>
-          <input v-model="templateName" class="template-name-input" placeholder="输入模板名称" />
-          <p class="header-desc">管理端设计和维护标签模板，小程序端选择同一批模板进行打印。</p>
+  <div class="label-print-page">
+    <header class="label-print-header">
+      <div>
+        <div class="function-page-eyebrow">
+          <span class="material-symbols-outlined">print</span>
+          标签打印中心
         </div>
+        <h1 class="function-page-title">网页热敏标签打印</h1>
+        <p class="function-page-desc">布匹标签、订单流转码、设备巡检码统一在这里预览和打印。</p>
       </div>
-
       <div class="header-actions">
-        <div class="mode-switch">
-          <button :class="{ active: editMode === 'visual' }" @click="switchMode('visual')">可视化设计</button>
-          <button :class="{ active: editMode === 'source' }" @click="switchMode('source')">源码模式</button>
-        </div>
-
-        <input type="file" ref="fileInputRef" accept=".prn,.txt" class="hidden" @change="handleFileUpload" />
-        <button @click="triggerUpload" class="secondary-action">
-          <span class="material-symbols-outlined text-lg">upload_file</span>
-          上传 PRN
+        <button class="secondary-action" :disabled="loading" @click="reloadCurrentTab">
+          <span class="material-symbols-outlined" :class="{ 'animate-spin': loading }">sync</span>
+          刷新
         </button>
-
-        <label class="default-check">
-          <input v-model="isDefault" type="checkbox" />
-          设为默认
-        </label>
-
-        <button :disabled="saving" @click="saveTemplate" class="primary-action">
-          <span class="material-symbols-outlined text-lg">save</span>
-          {{ saving ? '保存中...' : currentTemplateId ? '保存修改' : '保存模板' }}
+        <button class="primary-action" :disabled="!printTarget" @click="printCurrentLabel">
+          <span class="material-symbols-outlined">local_printshop</span>
+          浏览器打印
         </button>
       </div>
     </header>
 
-    <main class="label-main">
-      <section v-if="editMode === 'visual'" class="designer-area">
-        <aside class="tool-panel">
-          <div class="panel-head">
-            <h3 class="panel-title">字段组件</h3>
-            <p class="panel-tip">点击添加到画布，拖动元素调整位置。</p>
-          </div>
+    <section class="print-tabs">
+      <button
+        v-for="tab in printTabs"
+        :key="tab.key"
+        type="button"
+        class="print-tab"
+        :class="{ active: activeTab === tab.key }"
+        @click="switchTab(tab.key)"
+      >
+        <span class="material-symbols-outlined">{{ tab.icon }}</span>
+        <span>{{ tab.label }}</span>
+        <strong>{{ tab.count }}</strong>
+      </button>
+    </section>
 
-          <div class="tool-list">
-            <button v-for="field in fieldOptions" :key="field.field" class="tool-item" @click="addElement(field)">
-              <span class="material-symbols-outlined text-lg">{{ field.type === 'barcode' ? 'barcode' : 'text_fields' }}</span>
-              <span>{{ field.label }}</span>
+    <main class="print-workbench">
+      <aside class="task-panel">
+        <div class="panel-title-row">
+          <div>
+            <h2>{{ activeMeta.taskTitle }}</h2>
+            <p>{{ activeMeta.taskDesc }}</p>
+          </div>
+        </div>
+
+        <template v-if="activeTab === 'equipment_inspection'">
+          <div class="search-row">
+            <input v-model.trim="equipmentKeyword" class="business-input" placeholder="搜索设备名称或编号" @keyup.enter="loadEquipmentList" />
+            <button class="secondary-action compact" @click="loadEquipmentList">搜索</button>
+          </div>
+          <div class="task-list">
+            <button
+              v-for="equipment in equipmentList"
+              :key="equipment.id || equipment.equipmentCode"
+              type="button"
+              class="task-card"
+              :class="{ active: selectedEquipmentKey === equipmentKey(equipment) }"
+              @click="selectEquipment(equipment)"
+            >
+              <span class="task-name">{{ equipment.equipmentName || equipment.equipmentCode || '设备' }}</span>
+              <span class="task-meta">{{ equipment.equipmentCode || '--' }} · {{ equipment.location || equipment.areaName || '未设置位置' }}</span>
             </button>
+            <div v-if="!loading && equipmentList.length === 0" class="empty-state">暂无设备数据</div>
           </div>
+        </template>
 
-          <div class="size-card">
-            <label>
-              标签宽度(mm)
-              <input v-model.number="canvas.widthMm" type="number" min="20" max="120" />
-            </label>
-            <label>
-              标签高度(mm)
-              <input v-model.number="canvas.heightMm" type="number" min="20" max="100" />
-            </label>
+        <template v-else>
+          <div class="task-list">
+            <button
+              v-for="task in pendingTasks"
+              :key="task.taskNo"
+              type="button"
+              class="task-card"
+              :class="{ active: selectedTaskNo === task.taskNo }"
+              @click="selectTask(task)"
+            >
+              <span class="task-name">{{ taskTitle(task) }}</span>
+              <span class="task-meta">{{ taskSubtitle(task) }}</span>
+              <span v-if="task.retryCount" class="retry-badge">重试 {{ task.retryCount }}</span>
+            </button>
+            <div v-if="!loading && pendingTasks.length === 0" class="empty-state">暂无待打印任务</div>
           </div>
+        </template>
+      </aside>
 
-          <div class="hint-card">
-            <span class="material-symbols-outlined">tips_and_updates</span>
-            <p>保存后会自动生成 TSPL 指令到模板内容，小程序端无需知道可视化结构。</p>
+      <section class="preview-panel">
+        <div class="preview-head">
+          <div>
+            <h2>打印预览</h2>
+            <p>{{ printTarget ? `${labelSize.width}mm × ${labelSize.height}mm` : '请选择一条业务记录' }}</p>
           </div>
-        </aside>
-
-        <section class="canvas-wrap">
-          <div class="canvas-toolbar">
-            <div>
-              <h3>标签画布</h3>
-              <p>{{ canvas.widthMm }}mm × {{ canvas.heightMm }}mm，当前元素 {{ designElements.length }} 个。</p>
-            </div>
-            <div class="toolbar-actions">
-              <button class="ghost-action" @click="resetVisualTemplate">恢复默认布局</button>
-              <button class="ghost-action" @click="copyTspl">复制 TSPL</button>
-            </div>
+          <div class="template-select">
+            <label>打印模板</label>
+            <select v-model="selectedTemplateId" @change="refreshPreview">
+              <option v-for="template in templates" :key="template.id || template.name" :value="String(template.id || '')">
+                {{ template.name || '默认模板' }}
+              </option>
+            </select>
           </div>
+        </div>
 
-          <div class="canvas-scroll">
-            <div class="label-canvas" :style="canvasStyle" @click="selectedElementId = ''">
-              <div
-                v-for="element in designElements"
-                :key="element.id"
-                class="canvas-element"
-                :class="{ selected: selectedElementId === element.id, barcode: element.type === 'barcode' }"
-                :style="elementStyle(element)"
-                @click.stop="selectedElementId = element.id"
-                @mousedown.stop="startDrag($event, element)"
-              >
-                <template v-if="element.type === 'barcode'">
-                  <div class="barcode-preview"></div>
-                  <span>{{ sampleValue(element.field) }}</span>
-                </template>
-                <template v-else>
-                  {{ element.label }}: {{ sampleValue(element.field) }}
-                </template>
+        <div class="preview-stage">
+          <div v-if="printTarget" ref="printAreaRef" class="thermal-label" :style="labelStyle">
+            <div class="label-business-title">{{ labelTitle }}</div>
+            <div class="label-main-grid">
+              <div class="label-info-list">
+                <div v-for="row in businessRows" :key="row.label" class="label-info-row">
+                  <span>{{ row.label }}</span>
+                  <strong>{{ row.value }}</strong>
+                </div>
+              </div>
+              <div v-if="qrDataUrl" class="qr-box">
+                <img :src="qrDataUrl" alt="业务二维码" />
+                <span>扫码流转</span>
               </div>
             </div>
-          </div>
-        </section>
-
-        <aside class="property-panel">
-          <h3 class="panel-title">属性</h3>
-          <template v-if="selectedElement">
-            <label>
-              显示名称
-              <input v-model="selectedElement.label" />
-            </label>
-            <label>
-              字段
-              <select v-model="selectedElement.field" @change="syncSelectedLabel">
-                <option v-for="field in fieldOptions" :key="field.field" :value="field.field">{{ field.label }}</option>
-              </select>
-            </label>
-            <div class="property-grid">
-              <label>
-                X
-                <input v-model.number="selectedElement.x" type="number" min="0" />
-              </label>
-              <label>
-                Y
-                <input v-model.number="selectedElement.y" type="number" min="0" />
-              </label>
+            <div v-if="barcodeValue" class="barcode-box">
+              <div class="barcode-svg" v-html="barcodeSvg"></div>
+              <span>{{ barcodeValue }}</span>
             </div>
-            <template v-if="selectedElement.type === 'text'">
-              <label>
-                字号倍数
-                <input v-model.number="selectedElement.fontSize" type="number" min="1" max="3" />
-              </label>
-            </template>
-            <template v-else>
-              <label>
-                条码高度
-                <input v-model.number="selectedElement.height" type="number" min="40" max="160" />
-              </label>
-            </template>
-            <button class="danger-action" @click="removeSelectedElement">删除元素</button>
-          </template>
-          <div v-else class="empty-property">
+          </div>
+          <div v-else class="preview-empty">
             <span class="material-symbols-outlined">ads_click</span>
-            <p>请选择画布元素后编辑属性。</p>
+            <p>请选择左侧记录后预览热敏标签</p>
           </div>
-        </aside>
-      </section>
+        </div>
 
-      <section v-else class="source-area">
-        <div class="source-editor">
-          <div class="editor-head">
-            <span class="material-symbols-outlined text-sm">code</span>
-            模板内容
-            <span v-if="uploadedFile" class="ml-4 text-xs text-gray-400">已选择：{{ uploadedFile.name }}</span>
-          </div>
-          <textarea
-            v-model="templateCode"
-            spellcheck="false"
-            placeholder="在这里维护标签模板内容。建议优先使用可视化设计；如需导入打印模板，请联系管理员。"
-          ></textarea>
+        <div v-if="printTarget" class="print-tips">
+          <span class="material-symbols-outlined">info</span>
+          <p>浏览器打印时请选择热敏打印机，并把纸张尺寸设置为当前标签尺寸。打印成功后系统会自动回写打印任务状态。</p>
         </div>
       </section>
-
-      <aside class="template-sidebar">
-        <section class="sidebar-card">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="panel-title">可用字段</h3>
-            <span class="text-xs text-on-surface-variant">{{ detectedVariables.length }} 个</span>
-          </div>
-          <div v-if="detectedVariables.length" class="space-y-2">
-            <div v-for="variable in detectedVariables" :key="variable" class="variable-chip">{{ variable }}</div>
-          </div>
-          <div v-else class="empty-state">暂无可用字段</div>
-        </section>
-
-        <section class="sidebar-card flex-1 overflow-hidden">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="panel-title">已保存模板</h3>
-            <button @click="fetchTemplates" class="text-xs font-bold text-primary hover:underline">刷新</button>
-          </div>
-
-          <div class="template-list">
-            <div v-if="templates.length === 0" class="empty-state">暂无模板，请先保存</div>
-            <div v-for="item in templates" :key="item.id" class="template-card" :class="{ active: currentTemplateId === item.id }">
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <div class="font-bold text-sm text-on-surface">{{ item.name }}</div>
-                  <div class="text-xs text-on-surface-variant mt-1">{{ item.fileName || (item.designJson ? '可视化设计' : '手动保存') }}</div>
-                </div>
-                <span v-if="item.isDefault === 1" class="default-badge">默认</span>
-              </div>
-              <div class="mt-3 flex flex-wrap gap-2">
-                <button @click="loadTemplate(item)" class="mini-action">编辑</button>
-                <button @click="setDefault(item.id)" class="mini-action primary">设默认</button>
-                <button @click="removeTemplate(item.id)" class="mini-action danger">停用</button>
-              </div>
-            </div>
-          </div>
-        </section>
-      </aside>
     </main>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  deleteLabelTemplate,
-  listLabelTemplateVariables,
-  listLabelTemplates,
-  saveLabelTemplate,
-  setDefaultLabelTemplate,
-  uploadLabelTemplate
-} from './label/api/label'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
+import QRCode from 'qrcode'
+import JsBarcode from 'jsbarcode'
+import { listLabelTemplates } from './label/api/label'
+import { listPendingPrintTasks, reportPrintTask } from './label/api/printTask'
+import { getEquipmentPage } from './equipment/api/equipment'
 
-defineOptions({ name: 'LabelTemplateDesigner' })
+defineOptions({ name: 'LabelPrintCenter' })
 
-const DOTS_PER_MM = 8
-const PREVIEW_SCALE = 0.75
+const PRINT_SUCCESS = 1
+const PRINT_FAILED = 2
 
-const fallbackFields = [
-  { label: '条码', field: 'barcode', type: 'barcode', sampleValue: 'CL20260421001' },
-  { label: '型号', field: 'modelCode', type: 'text', sampleValue: 'M-2026-A' },
-  { label: '米数', field: 'meters', type: 'text', sampleValue: '120.50' },
-  { label: '规格', field: 'spec', type: 'text', sampleValue: '160' }
-]
+const printTabs = ref([
+  { key: 'label', label: '布匹标签', icon: 'sell', count: 0 },
+  { key: 'order_flow', label: '订单流转码', icon: 'qr_code_2', count: 0 },
+  { key: 'equipment_inspection', label: '设备巡检码', icon: 'qr_code_scanner', count: 0 }
+])
 
-const fieldOptions = ref(fallbackFields)
-const templateName = ref('面料入库标签')
-const templateCode = ref('')
-const editMode = ref('visual')
-const isDefault = ref(false)
-const saving = ref(false)
-const uploadedFile = ref(null)
-const fileInputRef = ref(null)
+const activeTab = ref('label')
+const loading = ref(false)
+const pendingTasks = ref([])
 const templates = ref([])
-const selectedElementId = ref('')
-const currentTemplateId = ref(null)
+const selectedTaskNo = ref('')
+const selectedTemplateId = ref('')
+const selectedEquipmentKey = ref('')
+const equipmentKeyword = ref('')
+const equipmentList = ref([])
+const printAreaRef = ref(null)
+const qrDataUrl = ref('')
+const barcodeSvg = ref('')
+const pendingPrintTaskNo = ref('')
 
-const canvas = reactive({
-  widthMm: 70,
-  heightMm: 50
-})
-
-const designElements = ref(defaultElements())
-
-const canvasStyle = computed(() => ({
-  width: `${canvas.widthMm * DOTS_PER_MM * PREVIEW_SCALE}px`,
-  height: `${canvas.heightMm * DOTS_PER_MM * PREVIEW_SCALE}px`
-}))
-
-const selectedElement = computed(() => designElements.value.find((item) => item.id === selectedElementId.value))
-
-const visualTemplateCode = computed(() => generateTspl())
-
-const detectedVariables = computed(() => {
-  const source = editMode.value === 'visual' ? visualTemplateCode.value : templateCode.value
-  if (!source) return []
-  const vars = new Set()
-  const collect = (regex) => {
-    let match
-    while ((match = regex.exec(source)) !== null) {
-      vars.add(match[1].trim())
+const activeMeta = computed(() => {
+  if (activeTab.value === 'order_flow') {
+    return {
+      taskTitle: '待打印订单流转码',
+      taskDesc: '订单审核通过后自动生成，员工扫码即可更新订单流转状态。'
     }
   }
-  collect(/\$\{([^}]+)\}/g)
-  collect(/\{([^}]+)\}/g)
-  return Array.from(vars)
-})
-
-watch(visualTemplateCode, (value) => {
-  if (editMode.value === 'visual') {
-    templateCode.value = value
-  }
-}, { immediate: true })
-
-function defaultElements() {
-  return [
-    { id: cryptoId(), type: 'text', label: '型号', field: 'modelCode', x: 30, y: 30, fontSize: 1, height: 80 },
-    { id: cryptoId(), type: 'text', label: '米数', field: 'meters', x: 30, y: 70, fontSize: 1, height: 80 },
-    { id: cryptoId(), type: 'text', label: '规格', field: 'spec', x: 30, y: 110, fontSize: 1, height: 80 },
-    { id: cryptoId(), type: 'barcode', label: '条码', field: 'barcode', x: 30, y: 160, fontSize: 1, height: 80 }
-  ]
-}
-
-function cryptoId() {
-  return `el_${Date.now()}_${Math.random().toString(16).slice(2)}`
-}
-
-function switchMode(mode) {
-  editMode.value = mode
-  if (mode === 'visual') {
-    uploadedFile.value = null
-    templateCode.value = visualTemplateCode.value
-  }
-}
-
-function triggerUpload() {
-  fileInputRef.value?.click()
-}
-
-function handleFileUpload(event) {
-  const target = event.target
-  const file = target.files?.[0]
-  if (!file) return
-
-  uploadedFile.value = file
-  editMode.value = 'source'
-  currentTemplateId.value = null
-  if (!templateName.value.trim()) {
-    templateName.value = file.name.replace(/\.(prn|txt)$/i, '')
-  }
-
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    templateCode.value = String(e.target?.result || '')
-    ElMessage.success(`成功读取文件: ${file.name}`)
-    target.value = ''
-  }
-  reader.onerror = () => ElMessage.error('文件读取失败')
-  reader.readAsText(file, 'UTF-8')
-}
-
-function addElement(field) {
-  const element = {
-    id: cryptoId(),
-    type: field.type,
-    label: field.label,
-    field: field.field,
-    x: 50,
-    y: 50 + designElements.value.length * 34,
-    fontSize: 1,
-    height: field.type === 'barcode' ? 80 : 80
-  }
-  designElements.value.push(element)
-  selectedElementId.value = element.id
-}
-
-function syncSelectedLabel() {
-  if (!selectedElement.value) return
-  const field = fieldOptions.value.find((item) => item.field === selectedElement.value?.field)
-  if (field) {
-    selectedElement.value.label = field.label
-    selectedElement.value.type = field.type
-  }
-}
-
-function removeSelectedElement() {
-  if (!selectedElement.value) return
-  designElements.value = designElements.value.filter((item) => item.id !== selectedElement.value?.id)
-  selectedElementId.value = ''
-}
-
-function resetVisualTemplate() {
-  designElements.value = defaultElements()
-  selectedElementId.value = designElements.value[0]?.id || ''
-}
-
-function sampleValue(field) {
-  return fieldOptions.value.find((item) => item.field === field)?.sampleValue || field
-}
-
-function elementStyle(element) {
-  const common = {
-    left: `${element.x * PREVIEW_SCALE}px`,
-    top: `${element.y * PREVIEW_SCALE}px`
-  }
-  if (element.type === 'barcode') {
+  if (activeTab.value === 'equipment_inspection') {
     return {
-      ...common,
-      width: '180px',
-      height: `${Math.max(element.height * PREVIEW_SCALE, 42)}px`
+      taskTitle: '设备巡检固定码',
+      taskDesc: '选择设备后打印固定巡检码，贴到设备上长期使用。'
     }
   }
   return {
-    ...common,
-    fontSize: `${12 + element.fontSize * 3}px`
+    taskTitle: '待打印布匹标签',
+    taskDesc: '库存入库、补打标签生成的标签任务会集中展示在这里。'
   }
-}
+})
 
-function startDrag(event, element) {
-  selectedElementId.value = element.id
-  const startX = event.clientX
-  const startY = event.clientY
-  const originX = element.x
-  const originY = element.y
+const selectedTask = computed(() => pendingTasks.value.find((task) => task.taskNo === selectedTaskNo.value) || null)
+const selectedEquipment = computed(() => equipmentList.value.find((item) => equipmentKey(item) === selectedEquipmentKey.value) || null)
+const selectedTemplate = computed(() => templates.value.find((item) => String(item.id || '') === selectedTemplateId.value) || templates.value[0] || null)
 
-  const onMove = (moveEvent) => {
-    const deltaX = Math.round((moveEvent.clientX - startX) / PREVIEW_SCALE)
-    const deltaY = Math.round((moveEvent.clientY - startY) / PREVIEW_SCALE)
-    element.x = Math.max(0, originX + deltaX)
-    element.y = Math.max(0, originY + deltaY)
+const printTarget = computed(() => {
+  if (activeTab.value === 'equipment_inspection') {
+    return selectedEquipment.value ? buildEquipmentPayload(selectedEquipment.value) : null
   }
+  return selectedTask.value ? normalizeTaskPayload(selectedTask.value) : null
+})
 
-  const onUp = () => {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
+const labelSize = computed(() => ({
+  width: Number(selectedTemplate.value?.widthMm || (activeTab.value === 'label' ? 70 : 60)),
+  height: Number(selectedTemplate.value?.heightMm || (activeTab.value === 'label' ? 50 : 40))
+}))
+
+const labelStyle = computed(() => ({
+  width: `${labelSize.value.width}mm`,
+  minHeight: `${labelSize.value.height}mm`
+}))
+
+const labelTitle = computed(() => {
+  if (activeTab.value === 'order_flow') return '订单流转码'
+  if (activeTab.value === 'equipment_inspection') return '设备巡检码'
+  return '布匹标签'
+})
+
+const barcodeValue = computed(() => {
+  const target = printTarget.value || {}
+  return safeText(target.barcode || target.flowBarcode || target.flowScanCode || target.equipmentCode || target.clothCode)
+})
+
+const qrValue = computed(() => {
+  const target = printTarget.value || {}
+  if (activeTab.value === 'equipment_inspection') {
+    return safeText(target.inspectionQrPayload || target.equipmentCode)
   }
-
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
-}
-
-function generateTspl() {
-  const lines = [
-    `SIZE ${canvas.widthMm} mm,${canvas.heightMm} mm`,
-    'GAP 2 mm,0 mm',
-    'DIRECTION 1',
-    'CLS'
-  ]
-
-  for (const element of designElements.value) {
-    const safeLabel = element.label.replace(/"/g, '')
-    if (element.type === 'barcode') {
-      lines.push(`BARCODE ${element.x},${element.y},"128",${element.height},1,0,2,2,"\${${element.field}}"`)
-      lines.push(`TEXT ${element.x},${element.y + element.height + 12},"TSS24.BF2",0,1,1,"\${${element.field}}"`)
-    } else {
-      lines.push(`TEXT ${element.x},${element.y},"TSS24.BF2",0,${element.fontSize},${element.fontSize},"${safeLabel}: \${${element.field}}"`)
-    }
+  if (activeTab.value === 'order_flow') {
+    return safeText(target.flowQrPayload || target.flowScanCode || target.flowBarcode || target.orderId)
   }
-  lines.push('PRINT 1,1')
-  return lines.join('\r\n')
-}
+  return ''
+})
 
-function buildDesignJson() {
-  return JSON.stringify({
-    version: 1,
-    widthMm: canvas.widthMm,
-    heightMm: canvas.heightMm,
-    elements: designElements.value
-  })
-}
-
-function loadDesignJson(designJson) {
-  if (!designJson) return false
-  try {
-    const parsed = JSON.parse(designJson)
-    canvas.widthMm = Number(parsed.widthMm || 70)
-    canvas.heightMm = Number(parsed.heightMm || 50)
-    designElements.value = Array.isArray(parsed.elements) && parsed.elements.length ? parsed.elements : defaultElements()
-    selectedElementId.value = designElements.value[0]?.id || ''
-    return true
-  } catch {
-    return false
+const businessRows = computed(() => {
+  const target = printTarget.value || {}
+  if (activeTab.value === 'order_flow') {
+    return compactRows([
+      ['订单号', target.orderId || target.orderNo || target.bizNo],
+      ['订单小项', target.orderCategoryLabel || target.orderCategoryName],
+      ['客户', target.customerName],
+      ['项目', target.projectName],
+      ['品牌', target.brandName],
+      ['当前状态', target.currentStatusText || target.statusText]
+    ])
   }
-}
-
-async function copyTspl() {
-  templateCode.value = visualTemplateCode.value
-  await navigator.clipboard?.writeText(templateCode.value)
-  ElMessage.success('TSPL 指令已复制')
-}
-
-async function fetchVariables() {
-  try {
-    const variables = await listLabelTemplateVariables({ printType: 'label' })
-    if (Array.isArray(variables) && variables.length) {
-      fieldOptions.value = variables
-    }
-  } catch {
-    fieldOptions.value = fallbackFields
+  if (activeTab.value === 'equipment_inspection') {
+    return compactRows([
+      ['设备编号', target.equipmentCode],
+      ['设备名称', target.equipmentName],
+      ['位置', target.location || target.areaName],
+      ['负责人', target.responsiblePerson],
+      ['巡检周期', target.inspectionCycleDays ? `${target.inspectionCycleDays} 天` : '']
+    ])
   }
-}
+  return compactRows([
+    ['条码', target.barcode || target.barCode || target.clothCode],
+    ['型号', target.modelCode || target.model],
+    ['米数', formatNumber(target.meters || target.remainingMeters || target.totalMeters)],
+    ['规格', target.spec],
+    ['批次', target.batchNo],
+    ['入库时间', formatDate(target.inboundTime || target.inTime || target.createTime)],
+    ['客户', target.customerName]
+  ])
+})
 
-async function fetchTemplates() {
-  templates.value = await listLabelTemplates({ printType: 'label' })
-}
-
-async function saveTemplate() {
-  if (!templateName.value.trim()) {
-    ElMessage.warning('模板名称不能为空')
-    return
-  }
-  if (editMode.value === 'visual') {
-    templateCode.value = visualTemplateCode.value
-  }
-  if (!templateCode.value.trim()) {
-    ElMessage.warning('模板代码不能为空')
-    return
-  }
-
-  saving.value = true
-  try {
-    if (uploadedFile.value && editMode.value === 'source' && currentTemplateId.value == null) {
-      const fileForUpload = new File([templateCode.value], uploadedFile.value.name, { type: uploadedFile.value.type || 'text/plain' })
-      const formData = new FormData()
-      formData.append('file', fileForUpload)
-      formData.append('name', templateName.value.trim())
-      formData.append('printType', 'label')
-      formData.append('isDefault', isDefault.value ? '1' : '0')
-      const saved = await uploadLabelTemplate(formData)
-      currentTemplateId.value = saved?.id || null
-    } else {
-      const saved = await saveLabelTemplate({
-        id: currentTemplateId.value,
-        name: templateName.value.trim(),
-        printType: 'label',
-        content: templateCode.value,
-        designJson: editMode.value === 'visual' ? buildDesignJson() : undefined,
-        widthMm: canvas.widthMm,
-        heightMm: canvas.heightMm,
-        isDefault: isDefault.value ? 1 : 0
-      })
-      currentTemplateId.value = saved?.id || currentTemplateId.value
-    }
-    ElMessage.success('模板保存成功，小程序端已可选择使用')
-    uploadedFile.value = null
-    await fetchTemplates()
-  } finally {
-    saving.value = false
-  }
-}
-
-function loadTemplate(item) {
-  currentTemplateId.value = item.id
-  templateName.value = item.name
-  templateCode.value = item.content || ''
-  isDefault.value = item.isDefault === 1
-  uploadedFile.value = null
-
-  if (loadDesignJson(item.designJson)) {
-    editMode.value = 'visual'
-    templateCode.value = visualTemplateCode.value
-  } else {
-    editMode.value = 'source'
-  }
-}
-
-async function setDefault(id) {
-  await setDefaultLabelTemplate(id)
-  ElMessage.success('默认模板已更新')
-  await fetchTemplates()
-}
-
-async function removeTemplate(id) {
-  await ElMessageBox.confirm('停用后小程序端将不再显示该模板，确认继续吗？', '停用模板', {
-    confirmButtonText: '确认停用',
-    cancelButtonText: '取消',
-    type: 'warning'
-  })
-  await deleteLabelTemplate(id)
-  if (currentTemplateId.value === id) {
-    currentTemplateId.value = null
-  }
-  ElMessage.success('模板已停用')
-  await fetchTemplates()
-}
+watch([printTarget, barcodeValue, qrValue], () => refreshPreview(), { deep: true })
 
 onMounted(async () => {
-  await fetchVariables()
-  await fetchTemplates()
+  await switchTab('label')
+  window.addEventListener('afterprint', handleAfterPrint)
 })
+
+onUnmounted(() => {
+  window.removeEventListener('afterprint', handleAfterPrint)
+})
+
+async function switchTab(tabKey) {
+  activeTab.value = tabKey
+  selectedTaskNo.value = ''
+  selectedEquipmentKey.value = ''
+  pendingPrintTaskNo.value = ''
+  await Promise.all([loadTemplates(), tabKey === 'equipment_inspection' ? loadEquipmentList() : loadPendingTasks()])
+}
+
+async function reloadCurrentTab() {
+  await switchTab(activeTab.value)
+}
+
+async function loadTemplates() {
+  try {
+    templates.value = await listLabelTemplates({ printType: activeTab.value })
+    selectedTemplateId.value = String((templates.value.find((item) => Number(item.isDefault) === 1) || templates.value[0])?.id || '')
+  } catch (error) {
+    templates.value = []
+    selectedTemplateId.value = ''
+  }
+}
+
+async function loadPendingTasks() {
+  loading.value = true
+  try {
+    pendingTasks.value = await listPendingPrintTasks({ printType: activeTab.value, limit: 50 })
+    selectedTaskNo.value = pendingTasks.value[0]?.taskNo || ''
+    updateTabCount(activeTab.value, pendingTasks.value.length)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadEquipmentList() {
+  loading.value = true
+  try {
+    const page = await getEquipmentPage({
+      pageNum: 1,
+      pageSize: 50,
+      keyword: equipmentKeyword.value || undefined
+    })
+    equipmentList.value = page?.data || page?.records || []
+    selectedEquipmentKey.value = equipmentList.value[0] ? equipmentKey(equipmentList.value[0]) : ''
+    updateTabCount('equipment_inspection', equipmentList.value.length)
+  } finally {
+    loading.value = false
+  }
+}
+
+function updateTabCount(key, count) {
+  const tab = printTabs.value.find((item) => item.key === key)
+  if (tab) tab.count = Number(count || 0)
+}
+
+function selectTask(task) {
+  selectedTaskNo.value = task.taskNo
+}
+
+function selectEquipment(equipment) {
+  selectedEquipmentKey.value = equipmentKey(equipment)
+}
+
+function equipmentKey(equipment = {}) {
+  return String(equipment.id || equipment.equipmentCode || equipment.equipmentName || '')
+}
+
+async function refreshPreview() {
+  await nextTick()
+  renderBarcode()
+  await renderQrCode()
+}
+
+function renderBarcode() {
+  const value = barcodeValue.value
+  if (!value) {
+    barcodeSvg.value = ''
+    return
+  }
+  try {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    JsBarcode(svg, value, {
+      format: 'CODE128',
+      displayValue: false,
+      margin: 0,
+      width: 1.4,
+      height: 48
+    })
+    barcodeSvg.value = svg.outerHTML
+  } catch (error) {
+    barcodeSvg.value = ''
+  }
+}
+
+async function renderQrCode() {
+  const value = qrValue.value
+  if (!value) {
+    qrDataUrl.value = ''
+    return
+  }
+  try {
+    qrDataUrl.value = await QRCode.toDataURL(value, {
+      margin: 1,
+      width: 112,
+      errorCorrectionLevel: 'M'
+    })
+  } catch (error) {
+    qrDataUrl.value = ''
+  }
+}
+
+async function printCurrentLabel() {
+  if (!printTarget.value) {
+    ElMessage.warning('请选择需要打印的业务记录')
+    return
+  }
+  await refreshPreview()
+  pendingPrintTaskNo.value = activeTab.value === 'equipment_inspection' ? '' : selectedTask.value?.taskNo || ''
+  await nextTick()
+  window.print()
+}
+
+async function handleAfterPrint() {
+  const taskNo = pendingPrintTaskNo.value
+  pendingPrintTaskNo.value = ''
+  if (!taskNo) return
+  try {
+    await reportPrintTask({
+      taskNo,
+      status: PRINT_SUCCESS,
+      printChannel: 'browser_thermal',
+      deviceName: '浏览器热敏打印',
+      errorMessage: ''
+    })
+    ElMessage.success('已记录打印完成')
+    await loadPendingTasks()
+  } catch (error) {
+    await reportPrintTask({
+      taskNo,
+      status: PRINT_FAILED,
+      printChannel: 'browser_thermal',
+      deviceName: '浏览器热敏打印',
+      errorMessage: '浏览器打印状态回写失败'
+    }).catch(() => {})
+  }
+}
+
+function normalizeTaskPayload(task = {}) {
+  const payload = task.printPayload || {}
+  return {
+    ...payload,
+    taskNo: task.taskNo,
+    bizNo: task.bizNo,
+    barcode: payload.barcode || payload.barCode || payload.clothCode || task.bizNo,
+    orderId: payload.orderId || payload.orderNo || task.bizNo,
+    printDate: formatDate(new Date())
+  }
+}
+
+function buildEquipmentPayload(equipment = {}) {
+  const equipmentCode = safeText(equipment.equipmentCode)
+  return {
+    ...equipment,
+    equipmentCode,
+    inspectionQrPayload: equipment.inspectionQrPayload || (equipmentCode ? `HIVE_EQUIPMENT:${equipmentCode}` : ''),
+    inspectionCycleDays: equipment.inspectionCycleDays || 7
+  }
+}
+
+function taskTitle(task = {}) {
+  const payload = task.printPayload || {}
+  if (activeTab.value === 'order_flow') {
+    return payload.orderId || payload.orderNo || task.bizNo || task.taskNo
+  }
+  return payload.barcode || payload.barCode || payload.clothCode || task.bizNo || task.taskNo
+}
+
+function taskSubtitle(task = {}) {
+  const payload = task.printPayload || {}
+  if (activeTab.value === 'order_flow') {
+    return compactText([payload.customerName, payload.orderCategoryLabel || payload.orderCategoryName, payload.currentStatusText])
+  }
+  return compactText([payload.modelCode || payload.model, formatNumber(payload.meters || payload.remainingMeters), payload.spec])
+}
+
+function compactRows(rows) {
+  return rows
+    .map(([label, value]) => ({ label, value: safeText(value) }))
+    .filter((row) => row.value)
+    .slice(0, 7)
+}
+
+function compactText(values) {
+  return values.map((value) => safeText(value)).filter(Boolean).join(' · ') || '--'
+}
+
+function safeText(value) {
+  if (value === 0) return '0'
+  if (value === undefined || value === null) return ''
+  return String(value).trim()
+}
+
+function formatNumber(value) {
+  const text = safeText(value)
+  if (!text) return ''
+  const numberValue = Number(text)
+  if (!Number.isFinite(numberValue)) return text
+  return `${Number(numberValue.toFixed(2))} 米`
+}
+
+function formatDate(value) {
+  if (!value) return ''
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value).replace('T', ' ').slice(0, 16)
+  const pad = (num) => String(num).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
 </script>
 
 <style scoped>
-.label-page {
+.label-print-page {
   min-height: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
-  margin: calc(-1 * var(--ys-app-page-padding, 1rem));
+  gap: 20px;
+  padding: clamp(18px, 2vw, 32px);
   background:
-    radial-gradient(circle at 8% -6%, rgba(31, 63, 95, 0.14), transparent 34%),
-    linear-gradient(180deg, #fbfcfe 0%, #f8fafc 100%);
-  overflow: hidden;
+    radial-gradient(circle at 12% -6%, rgba(31, 63, 95, 0.14), transparent 34%),
+    linear-gradient(180deg, #f7f9fc 0%, #ffffff 100%);
 }
 
-@media (min-width: 768px) {
-  .label-page {
-    margin: calc(-1 * var(--ys-app-page-padding, 2rem));
-  }
-}
-
-.label-header {
-  min-height: 96px;
-  flex-shrink: 0;
+.label-print-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
-  padding: 12px 24px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgba(200, 211, 223, 0.58);
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+  gap: 20px;
 }
 
-.header-left,
 .header-actions {
   display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.header-actions {
   flex-wrap: wrap;
+  gap: 12px;
   justify-content: flex-end;
 }
 
-.header-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 18px;
-  color: #fff;
-  background: #101418;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 12px 24px rgba(16, 20, 24, 0.18);
-}
-
-.header-desc {
-  color: #5f5a4e;
-  font-size: 12px;
-  padding: 0 8px;
-}
-
-.template-name-input {
-  min-width: 280px;
-  border: none;
-  background: transparent;
-  color: #101418;
-  font-size: 24px;
-  font-weight: 900;
-  outline: none;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.template-name-input:hover,
-.template-name-input:focus {
-  background: rgba(232, 238, 246, 0.86);
-}
-
-.mode-switch {
-  display: flex;
-  padding: 4px;
-  border-radius: 14px;
-  background: #e8eef6;
-}
-
-.mode-switch button {
-  border: none;
-  padding: 8px 14px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 800;
-  color: #64748b;
-  background: transparent;
-}
-
-.mode-switch button.active {
-  color: #1f3f5f;
-  background: #fff;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.10);
-}
-
-.default-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #475569;
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.default-check input {
-  accent-color: #1f3f5f;
-}
-
 .primary-action,
-.secondary-action,
-.ghost-action,
-.danger-action,
-.mini-action {
-  border: none;
+.secondary-action {
+  border: 1px solid rgba(31, 63, 95, 0.16);
+  border-radius: 18px;
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-weight: 800;
+  gap: 8px;
+  padding: 0 18px;
+  font-weight: 900;
   transition: 0.2s ease;
 }
 
 .primary-action {
-  border-radius: 14px;
-  padding: 10px 18px;
   color: #fff;
-  background: linear-gradient(135deg, #0b1f33 0%, #1f3f5f 58%, #4b7395 100%);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
+  background: linear-gradient(135deg, #0b1f33 0%, #1f3f5f 100%);
+  box-shadow: 0 18px 36px rgba(15, 31, 51, 0.18);
 }
 
-.secondary-action,
-.ghost-action {
+.secondary-action {
+  color: #1f3f5f;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.secondary-action.compact {
+  min-height: 42px;
   border-radius: 14px;
-  padding: 10px 14px;
-  color: #0f172a;
+}
+
+.primary-action:disabled,
+.secondary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.print-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.print-tab {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 68px;
+  padding: 0 18px;
+  color: #52657b;
+  background: rgba(255, 255, 255, 0.82);
+  font-weight: 900;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.06);
+}
+
+.print-tab strong {
+  margin-left: auto;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #1f3f5f;
   background: #e8eef6;
 }
 
-.danger-action {
-  width: 100%;
-  border-radius: 12px;
-  padding: 10px 12px;
-  color: #dc2626;
-  background: #fee2e2;
+.print-tab.active {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #0b1f33 0%, #1f3f5f 100%);
 }
 
-.label-main {
+.print-tab.active strong {
+  color: #0b1f33;
+  background: #fff;
+}
+
+.print-workbench {
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 20px;
-  padding: 20px;
-  overflow: hidden;
+  grid-template-columns: 380px minmax(0, 1fr);
+  gap: 18px;
 }
 
-.designer-area {
+.task-panel,
+.preview-panel {
   min-width: 0;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 260px;
-  gap: 16px;
-}
-
-.tool-panel,
-.canvas-wrap,
-.property-panel,
-.sidebar-card,
-.source-editor {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 28px;
   background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 24px;
-  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
-}
-
-.tool-panel,
-.property-panel,
-.sidebar-card {
-  padding: 18px;
-}
-
-.tool-panel,
-.property-panel,
-.canvas-wrap,
-.source-editor {
-  min-height: 0;
-}
-
-.tool-panel,
-.property-panel {
-  overflow-y: auto;
-}
-
-.panel-title {
-  color: #111827;
-  font-size: 14px;
-  font-weight: 900;
-}
-
-.panel-tip {
-  margin-top: 6px;
-  color: #64748b;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.tool-list {
-  margin-top: 16px;
-  display: grid;
-  gap: 10px;
-}
-
-.tool-item {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 14px;
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #334155;
-  background: #f8fafc;
-  font-weight: 800;
-  text-align: left;
-}
-
-.tool-item:hover {
-  color: #1f3f5f;
-  border-color: rgba(31, 63, 95, 0.26);
-  background: #eef4fb;
-}
-
-.size-card,
-.hint-card {
-  margin-top: 18px;
-  padding: 14px;
-  border-radius: 18px;
-  background: #f8fafc;
-}
-
-.size-card {
-  display: grid;
-  gap: 12px;
-}
-
-.hint-card {
-  display: flex;
-  gap: 10px;
-  color: #64748b;
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.size-card label,
-.property-panel label {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.size-card input,
-.property-panel input,
-.property-panel select {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  border-radius: 12px;
-  padding: 9px 10px;
-  color: #111827;
-  background: #fff;
-  outline: none;
-}
-
-.property-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
   overflow: hidden;
 }
 
-.property-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
-  min-width: 0;
-}
-
-.canvas-wrap {
-  min-width: 0;
+.task-panel {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
-.canvas-toolbar {
-  min-height: 74px;
-  flex-shrink: 0;
+.panel-title-row,
+.preview-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 18px;
+  gap: 18px;
+  padding: 22px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.16);
 }
 
-.canvas-toolbar h3 {
-  color: #111827;
+.panel-title-row h2,
+.preview-head h2 {
+  color: #0b1f33;
+  font-size: 18px;
+  font-weight: 1000;
+}
+
+.panel-title-row p,
+.preview-head p {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+  padding: 18px 18px 0;
+}
+
+.business-input,
+.template-select select {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  min-height: 42px;
+  padding: 0 14px;
+  color: #0f172a;
+  background: #f7f9fc;
+  outline: none;
+}
+
+.template-select {
+  min-width: 220px;
+}
+
+.template-select label {
+  display: block;
+  margin-bottom: 6px;
+  color: #64748b;
+  font-size: 12px;
   font-weight: 900;
 }
 
-.canvas-toolbar p {
-  color: #64748b;
-  font-size: 12px;
-  margin-top: 4px;
-}
-
-.toolbar-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.canvas-scroll {
+.task-list {
   flex: 1;
-  overflow: auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px;
+}
+
+.task-card {
+  position: relative;
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 16px;
+  color: #475569;
+  background: #fff;
+  text-align: left;
+}
+
+.task-card.active {
+  border-color: rgba(31, 63, 95, 0.42);
+  background: #edf4fb;
+  box-shadow: inset 4px 0 0 #1f3f5f;
+}
+
+.task-name {
+  color: #0b1f33;
+  font-size: 15px;
+  font-weight: 1000;
+  word-break: break-all;
+}
+
+.task-meta {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.retry-badge {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: #b45309;
+  background: #fef3c7;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.preview-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-stage {
+  flex: 1;
+  min-height: 420px;
   display: grid;
   place-items: center;
-  padding: 36px;
+  padding: 28px;
   background:
     linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
     linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px);
   background-size: 18px 18px;
 }
 
-.label-canvas {
-  position: relative;
+.thermal-label {
+  color: #111827;
   background: #fff;
   border: 1px solid #111827;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
-}
-
-.canvas-element {
-  position: absolute;
-  user-select: none;
-  cursor: move;
-  color: #111827;
-  font-weight: 800;
-  line-height: 1.2;
-  padding: 2px 4px;
-  border: 1px dashed transparent;
-  white-space: nowrap;
-}
-
-.canvas-element.selected {
-  border-color: #2563eb;
-  background: rgba(219, 234, 254, 0.55);
-}
-
-.canvas-element.barcode {
-  display: grid;
-  gap: 4px;
-  text-align: center;
-  font-size: 11px;
-}
-
-.barcode-preview {
-  width: 100%;
-  height: 100%;
-  min-height: 34px;
-  background: repeating-linear-gradient(90deg, #111827 0 3px, #fff 3px 5px, #111827 5px 7px, #fff 7px 11px);
-}
-
-.empty-property,
-.empty-state {
-  color: #94a3b8;
-  font-size: 13px;
-  text-align: center;
-  line-height: 1.8;
-  padding: 28px 10px;
-}
-
-.empty-property .material-symbols-outlined {
-  display: block;
-  color: #cbd5e1;
-  font-size: 42px;
-  margin-bottom: 8px;
-}
-
-.source-area {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-}
-
-.source-editor {
-  flex: 1;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: #1e1e1e;
-  border-color: #111827;
+  gap: 3mm;
+  padding: 4mm;
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.20);
+  overflow: hidden;
 }
 
-.editor-head {
-  height: 42px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 16px;
-  color: #9ca3af;
-  font-size: 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  background: #2d2d2d;
-  border-bottom: 1px solid #404040;
+.label-business-title {
+  border-bottom: 1px solid #111827;
+  padding-bottom: 2mm;
+  font-size: 5mm;
+  font-weight: 1000;
+  line-height: 1;
 }
 
-.source-editor textarea {
-  flex: 1;
+.label-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24mm;
+  gap: 3mm;
+  align-items: start;
+}
+
+.label-info-list {
+  min-width: 0;
+  display: grid;
+  gap: 1.5mm;
+}
+
+.label-info-row {
+  display: grid;
+  grid-template-columns: 16mm minmax(0, 1fr);
+  gap: 2mm;
+  align-items: baseline;
+  font-size: 3.2mm;
+  line-height: 1.25;
+}
+
+.label-info-row span {
+  color: #4b5563;
+  font-weight: 800;
+}
+
+.label-info-row strong {
+  color: #111827;
+  font-weight: 1000;
+  word-break: break-all;
+}
+
+.qr-box {
+  display: grid;
+  gap: 1mm;
+  justify-items: center;
+  font-size: 2.4mm;
+  font-weight: 900;
+}
+
+.qr-box img {
+  width: 22mm;
+  height: 22mm;
+}
+
+.barcode-box {
+  display: grid;
+  gap: 1mm;
+  justify-items: stretch;
+  margin-top: auto;
+}
+
+.barcode-svg {
+  height: 12mm;
+  overflow: hidden;
+}
+
+.barcode-svg :deep(svg) {
   width: 100%;
-  border: none;
-  resize: none;
-  outline: none;
-  padding: 18px;
-  color: #4ade80;
-  background: transparent;
+  height: 12mm;
+}
+
+.barcode-box span {
+  text-align: center;
+  font-size: 3mm;
+  font-weight: 900;
+  letter-spacing: 0.2mm;
+  word-break: break-all;
+}
+
+.preview-empty,
+.empty-state {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 42px 16px;
+  color: #94a3b8;
+  font-weight: 800;
+  text-align: center;
+}
+
+.preview-empty .material-symbols-outlined {
+  font-size: 54px;
+}
+
+.print-tips {
+  display: flex;
+  gap: 10px;
+  padding: 16px 22px;
+  color: #52657b;
+  background: #f8fafc;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
   font-size: 13px;
   line-height: 1.7;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
-.template-sidebar {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  overflow: hidden;
-}
-
-.variable-chip {
-  padding: 10px 12px;
-  border-left: 4px solid #1f3f5f;
-  border-radius: 12px;
-  color: #111827;
-  background: #f1f5f9;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.template-list {
-  height: calc(100% - 36px);
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.template-card {
-  padding: 14px;
-  margin-bottom: 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: #f8fafc;
-}
-
-.template-card.active {
-  border-color: rgba(15, 76, 129, 0.42);
-  box-shadow: 0 10px 24px rgba(15, 76, 129, 0.12);
-}
-
-.default-badge {
-  flex-shrink: 0;
-  border-radius: 999px;
-  padding: 3px 8px;
-  color: #fff;
-  background: #1f3f5f;
-  font-size: 11px;
-  font-weight: 900;
-}
-
-.mini-action {
-  border-radius: 10px;
-  padding: 6px 10px;
-  color: #334155;
-  background: #e2e8f0;
-  font-size: 12px;
-}
-
-.mini-action.primary {
-  color: #1f3f5f;
-  background: #dbeafe;
-}
-
-.mini-action.danger {
-  color: #dc2626;
-  background: #fee2e2;
 }
 
 @media (max-width: 1280px) {
-  .label-page {
-    height: auto;
-    min-height: 100%;
-    overflow: visible;
-  }
-
-  .label-main {
-    grid-template-columns: 1fr;
-    overflow-y: auto;
-  }
-
-  .designer-area {
+  .print-tabs,
+  .print-workbench {
     grid-template-columns: 1fr;
   }
 
-  .tool-panel,
-  .property-panel,
-  .canvas-wrap,
-  .source-editor {
-    min-height: auto;
-  }
-
-  .template-sidebar {
-    min-height: 320px;
-  }
-}
-
-@media (max-width: 768px) {
-  .label-header {
+  .label-print-header {
     align-items: stretch;
     flex-direction: column;
   }
+}
 
-  .header-left,
-  .header-actions {
-    align-items: stretch;
-    width: 100%;
+@media print {
+  body * {
+    visibility: hidden !important;
   }
 
-  .header-actions {
-    justify-content: flex-start;
+  .thermal-label,
+  .thermal-label * {
+    visibility: visible !important;
   }
 
-  .template-name-input {
-    min-width: 0;
-    width: 100%;
+  .thermal-label {
+    position: fixed;
+    left: 0;
+    top: 0;
+    margin: 0;
+    box-shadow: none;
+    page-break-inside: avoid;
   }
 
-  .label-main {
-    padding: 14px;
+  @page {
+    size: 70mm 50mm;
+    margin: 0;
   }
 }
 </style>

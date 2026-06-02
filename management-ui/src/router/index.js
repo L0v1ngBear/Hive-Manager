@@ -171,6 +171,12 @@ export const constantRoutes = [
         meta: { title: '角色管理', permissions: ['role:list'], features: ['module.role'] }
       },
       {
+        path: 'tenant',
+        name: 'TenantManage',
+        component: () => import('@/views/function/tenant/tenant.vue'),
+        meta: { title: '租户管理', developerOnly: true }
+      },
+      {
         path: 'customer',
         name: 'Customer',
         component: () => import('@/views/function/customer/customer.vue'),
@@ -254,6 +260,11 @@ router.beforeEach((to) => {
 
   if (to.path === FORCE_PASSWORD_CHANGE_PATH) {
     return true
+  }
+
+  if (to.meta?.developerOnly && !userStore.isDeveloper) {
+    ElMessage.warning('仅开发者可访问租户管理')
+    return '/dashboard'
   }
 
   if (Array.isArray(to.meta?.features) && to.meta.features.length && !userStore.hasAnyFeature(to.meta.features)) {
