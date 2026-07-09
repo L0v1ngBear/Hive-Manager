@@ -17,6 +17,7 @@ public enum OrderStatusEnum {
     SHIPPED("shipped"),
     COMPLETED("completed"),
     PRODUCING("producing"),
+    PENDING_CANCEL("pending_cancel"),
     CANCELLED("cancelled");
 
     private static final Set<String> SALES_SYNC_CODES = Set.of(

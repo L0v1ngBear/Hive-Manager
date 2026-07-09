@@ -110,19 +110,30 @@ public interface AuthMapper {
 
     @Select({
             "<script>",
-            "SELECT DISTINCT p.perm_code ",
-            "FROM sys_user_role ur ",
-            "INNER JOIN sys_role r ON ur.role_id = r.id AND r.tenant_code = #{tenantCode} AND IFNULL(r.is_deleted, 0) = 0 ",
-            "INNER JOIN sys_role_permission rp ON r.id = rp.role_id AND IFNULL(rp.is_deleted, 0) = 0 ",
-            "INNER JOIN sys_permission p ON rp.permission_id = p.id AND IFNULL(p.is_deleted, 0) = 0 ",
-            "WHERE ur.user_id = #{userId} AND IFNULL(ur.is_deleted, 0) = 0 ",
-            "AND p.perm_code IS NOT NULL AND p.perm_code != ''",
+            "SELECT DISTINCT effective_perm.perm_code ",
+            "FROM (",
+            "  SELECT p.perm_code AS perm_code ",
+            "  FROM sys_user_role ur ",
+            "  INNER JOIN sys_role r ON ur.role_id = r.id AND r.tenant_code = #{tenantCode} AND IFNULL(r.is_deleted, 0) = 0 ",
+            "  INNER JOIN sys_role_permission rp ON r.id = rp.role_id AND IFNULL(rp.is_deleted, 0) = 0 ",
+            "  INNER JOIN sys_permission p ON rp.permission_id = p.id AND IFNULL(p.is_deleted, 0) = 0 ",
+            "  WHERE ur.user_id = #{userId} AND ur.tenant_code = #{tenantCode} AND IFNULL(ur.is_deleted, 0) = 0 ",
+            "  UNION ALL ",
+            "  SELECT CASE WHEN up.effect = 'DENY' THEN CONCAT('!', p.perm_code) ELSE p.perm_code END AS perm_code ",
+            "  FROM sys_user_permission up ",
+            "  INNER JOIN sys_permission p ON p.id = up.permission_id AND IFNULL(p.is_deleted, 0) = 0 ",
+            "  WHERE up.user_id = #{userId} AND up.tenant_code = #{tenantCode} AND IFNULL(up.is_deleted, 0) = 0 ",
+            "  AND up.effect IN ('GRANT', 'DENY') ",
+            ") effective_perm ",
+            "WHERE effective_perm.perm_code IS NOT NULL AND effective_perm.perm_code != ''",
             "</script>"
     })
     List<String> selectPermCodesByUserIdAndTenantCode(@Param("userId") Long userId, @Param("tenantCode") String tenantCode);
 
-    @Update("UPDATE user SET password = #{password} WHERE id = #{userId}")
-    int updatePasswordByUserId(@Param("userId") Long userId, @Param("password") String password);
+    @Update("UPDATE user SET password = #{password} WHERE id = #{userId} AND tenant_code = #{tenantCode}")
+    int updatePasswordHashByUserIdAndTenantCode(@Param("userId") Long userId,
+                                                @Param("tenantCode") String tenantCode,
+                                                @Param("password") String password);
 
     @Update("UPDATE user SET password = #{password}, must_change_password = 0 WHERE id = #{userId} AND tenant_code = #{tenantCode}")
     int updatePasswordByUserIdAndTenantCode(@Param("userId") Long userId,

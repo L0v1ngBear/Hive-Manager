@@ -15,6 +15,17 @@ export function createFolder(data) {
   })
 }
 
+export function uploadDocumentFile(data) {
+  return request({
+    url: '/document/file/upload',
+    method: 'post',
+    data,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
 export function getBreadcrumbs(documentId) {
   return request({
     url: '/document/breadcrumbs',

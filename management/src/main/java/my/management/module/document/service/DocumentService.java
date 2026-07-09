@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
 import my.management.common.storage.FileUploadResult;
-import my.management.common.storage.OssStorageService;
+import my.management.common.storage.LocalFileStorageService;
 import my.management.module.document.DocumentTypeEnum;
 import my.management.module.document.mapper.DocumentMapper;
 import my.management.module.document.model.enums.DocumentUploadStatusEnum;
@@ -36,7 +36,7 @@ public class DocumentService {
     private DocumentMapper documentMapper;
 
     @Resource
-    private OssStorageService ossStorageService;
+    private LocalFileStorageService localFileStorageService;
 
     @Resource
     private TenantMapper tenantMapper;
@@ -83,7 +83,7 @@ public class DocumentService {
         ensureNameNotExists(tenantCode, normalizedParentId, displayName, null);
         ensureStorageQuota(tenantCode, file.getSize());
 
-        FileUploadResult uploadResult = ossStorageService.upload(file, tenantCode);
+        FileUploadResult uploadResult = localFileStorageService.upload(file, tenantCode, "document");
         Document document = new Document();
         document.setTenantCode(tenantCode);
         document.setParentId(normalizedParentId);
@@ -106,8 +106,8 @@ public class DocumentService {
             documentMapper.insert(document);
             return toVO(document);
         } catch (RuntimeException e) {
-            ossStorageService.deleteQuietly(uploadResult.getObjectKey());
-            log.error("save document after oss upload failed, tenantCode={}, objectKey={}", tenantCode, uploadResult.getObjectKey(), e);
+            localFileStorageService.deleteQuietly(uploadResult.getObjectKey());
+            log.error("save document after local upload failed, tenantCode={}, objectKey={}", tenantCode, uploadResult.getObjectKey(), e);
             throw e;
         }
     }

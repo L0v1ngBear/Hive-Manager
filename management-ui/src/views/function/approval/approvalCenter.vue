@@ -14,6 +14,7 @@
         </div>
         <div class="flex items-center gap-3">
           <button
+            v-permission="'approval:finance:audit'"
             @click="openDefaultAuditorDialog"
             class="function-action-secondary"
           >
@@ -27,6 +28,7 @@
           </button>
           <button
             v-if="activeTab === 'finance'"
+            v-permission="'approval:finance:submit'"
             @click="openFinanceDialog"
             class="function-action-primary"
           >
@@ -34,6 +36,7 @@
           </button>
           <button
             v-if="activeTab === 'resignation'"
+            v-permission="'approval:resignation:submit'"
             @click="openResignationDialog"
             class="function-action-primary"
           >
@@ -102,9 +105,15 @@
             <button
               v-for="tab in tabs"
               :key="tab.value"
+              v-permission="tab.permissions"
+              :disabled="!canAccessTab(tab)"
+              :title="canAccessTab(tab) ? tab.label : '当前账号暂无权限'"
               @click="changeTab(tab.value)"
               class="px-5 py-2 rounded-lg text-sm font-bold transition-all"
-              :class="activeTab === tab.value ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/10' : 'text-on-surface-variant hover:text-on-surface'"
+              :class="[
+                activeTab === tab.value ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/10' : 'text-on-surface-variant hover:text-on-surface',
+                !canAccessTab(tab) ? 'cursor-not-allowed opacity-45 grayscale hover:text-on-surface-variant' : ''
+              ]"
             >
               <span class="inline-flex items-center gap-2">
                 {{ tab.label }}
@@ -163,7 +172,15 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-surface-variant/20">
-              <tr v-for="item in filteredRows" :key="`${item.type}-${item.code}`" class="cursor-pointer hover:bg-surface-container-low/50 transition-colors group" @click="openDetail(item)">
+              <tr v-if="!loading && !activeTabCanViewList">
+                <td :colspan="approvalTableColumnCount" class="px-6 py-16 text-center">
+                  <div class="flex flex-col items-center justify-center opacity-50">
+                    <span class="material-symbols-outlined text-5xl mb-3">lock</span>
+                    <p class="text-sm font-bold text-on-surface-variant">当前账号暂无权限查看该审批列表</p>
+                  </div>
+                </td>
+              </tr>
+              <tr v-for="item in filteredRows" v-else :key="`${item.type}-${item.code}`" class="cursor-pointer hover:bg-surface-container-low/50 transition-colors group" @click="openDetail(item)">
                 <td
                   v-for="column in approvalTableColumns"
                   :key="column.key"
@@ -205,9 +222,22 @@
                 </td>
                 <td class="px-5 py-3.5 text-right space-x-2" data-label="操作">
                   <button @click.stop="openDetail(item)" class="text-on-surface-variant hover:text-primary hover:bg-primary/10 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors">详情</button>
-                  <template v-if="item.status === 1 && item.canAudit">
-                    <button @click.stop="quickAudit(item, 1)" class="text-white bg-primary hover:bg-primary/90 shadow-sm shadow-primary/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95">通过</button>
-                    <button v-if="item.type !== 'order'" @click.stop="quickAudit(item, 2)" class="text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors active:scale-95">拒绝</button>
+                  <template v-if="item.status === 1">
+                    <button
+                      :disabled="!canAuditAction(item)"
+                      :class="auditButtonDisabledClass(!canAuditAction(item))"
+                      :title="canAuditAction(item) ? '通过' : '当前账号暂无审批该记录权限'"
+                      @click.stop="quickAudit(item, 1)"
+                      class="text-white bg-primary hover:bg-primary/90 shadow-sm shadow-primary/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95"
+                    >通过</button>
+                    <button
+                      v-if="item.type !== 'order'"
+                      :disabled="!canAuditAction(item)"
+                      :class="auditButtonDisabledClass(!canAuditAction(item))"
+                      :title="canAuditAction(item) ? '拒绝' : '当前账号暂无审批该记录权限'"
+                      @click.stop="quickAudit(item, 2)"
+                      class="text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors active:scale-95"
+                    >拒绝</button>
                   </template>
                 </td>
               </tr>
@@ -267,6 +297,17 @@
                 <p><span class="text-on-surface-variant text-xs mr-2">预计离职日期</span><span class="font-bold">{{ detailData.expectedLeaveDate || '--' }}</span></p>
                 <p class="col-span-2"><span class="text-on-surface-variant text-xs mr-2">交接说明</span><span class="font-medium">{{ detailData.handoverNote || '无' }}</span></p>
               </div>
+              <div v-else-if="detailData.type === 'quality'" class="grid grid-cols-2 gap-4">
+                <p><span class="text-on-surface-variant text-xs mr-2">质量类型</span><span class="font-bold">{{ detailData.category }}</span></p>
+                <p><span class="text-on-surface-variant text-xs mr-2">关联订单</span><span class="font-medium">{{ detailData.orderId || '未关联' }}</span></p>
+                <p><span class="text-on-surface-variant text-xs mr-2">异常数量</span><span class="font-bold">{{ detailData.quantity || '--' }}</span></p>
+                <p><span class="text-on-surface-variant text-xs mr-2">损失金额</span><span class="font-bold text-rose-600">￥{{ detailData.lossAmount || 0 }}</span></p>
+                <p><span class="text-on-surface-variant text-xs mr-2">负责人员</span><span class="font-medium">{{ detailData.responsiblePerson || '--' }}</span></p>
+                <p><span class="text-on-surface-variant text-xs mr-2">处理方式</span><span class="font-medium">{{ detailData.processMethod || '--' }}</span></p>
+                <p class="col-span-2"><span class="text-on-surface-variant text-xs mr-2">处理措施</span><span class="font-medium">{{ detailData.processMeasure || '--' }}</span></p>
+                <p class="col-span-2"><span class="text-on-surface-variant text-xs mr-2">改进方案</span><span class="font-medium">{{ detailData.improvementPlan || '--' }}</span></p>
+                <p class="col-span-2"><span class="text-on-surface-variant text-xs mr-2">处理备注</span><span class="font-medium">{{ detailData.processRemark || '无' }}</span></p>
+              </div>
               <div v-else class="grid grid-cols-2 gap-4">
                 <p><span class="text-on-surface-variant text-xs mr-2">订单类型</span><span class="font-bold">{{ detailData.orderTypeText }}</span></p>
                 <p><span class="text-on-surface-variant text-xs mr-2">当前状态</span><span class="font-bold">{{ detailData.statusText }}</span></p>
@@ -300,12 +341,31 @@
           </div>
         </div>
 
-        <div v-if="detailData.status === 1 && detailData.canAudit" class="pt-2 space-y-3">
+        <div v-if="detailData.status === 1" class="pt-2 space-y-3">
           <p class="text-xs font-bold text-on-surface">您的处理意见 <span class="font-normal text-on-surface-variant ml-1">(订单审批可选填，拒绝审批时建议填写)</span></p>
-          <textarea v-model.trim="auditComment" class="w-full min-h-[100px] bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 p-3 text-sm outline-none focus:ring-2 focus:ring-primary transition-shadow" placeholder="请输入审批意见..."></textarea>
+          <textarea
+            v-model.trim="auditComment"
+            :disabled="!canAuditDetail"
+            :class="auditButtonDisabledClass(!canAuditDetail)"
+            class="w-full min-h-[100px] bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 p-3 text-sm outline-none focus:ring-2 focus:ring-primary transition-shadow"
+            placeholder="请输入审批意见..."
+          ></textarea>
           <div class="flex justify-end gap-3 pt-2">
-            <button v-if="detailData.type !== 'order'" @click="submitAudit(2)" class="px-5 py-2.5 rounded-xl text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors">驳回申请</button>
-            <button @click="submitAudit(1)" class="px-6 py-2.5 rounded-xl text-sm font-bold bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95">{{ detailData.type === 'order' ? orderAuditActionText(detailData) : '同意并流转' }}</button>
+            <button
+              v-if="detailData.type !== 'order'"
+              :disabled="!canAuditDetail"
+              :class="auditButtonDisabledClass(!canAuditDetail)"
+              :title="canAuditDetail ? '驳回申请' : '当前账号暂无审批该记录权限'"
+              @click="submitAudit(2)"
+              class="px-5 py-2.5 rounded-xl text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors"
+            >驳回申请</button>
+            <button
+              :disabled="!canAuditDetail"
+              :class="auditButtonDisabledClass(!canAuditDetail)"
+              :title="canAuditDetail ? '' : '当前账号暂无审批该记录权限'"
+              @click="submitAudit(1)"
+              class="px-6 py-2.5 rounded-xl text-sm font-bold bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95"
+            >{{ detailData.type === 'order' ? orderAuditActionText(detailData) : (detailData.type === 'quality' ? '通过质量审核' : '同意并流转') }}</button>
           </div>
         </div>
       </div>
@@ -314,7 +374,7 @@
     <el-dialog v-model="defaultAuditorDialogVisible" title="审批负责人设置" width="720px" class="atelier-dialog" destroy-on-close>
       <div class="space-y-4 py-2">
         <div class="rounded-2xl bg-primary/5 p-4 text-sm leading-relaxed text-on-surface-variant">
-          各审批类型可以设置一名默认负责人。员工提交审批时如未手动指定审批人，系统会自动流转给对应默认负责人；手动指定时优先按指定人流转。
+          各审批类型可以设置多名默认负责人。员工提交审批时如未手动指定审批人，系统会自动流转给全部默认负责人；手动指定时优先按指定人流转。
         </div>
         <div v-if="defaultAuditorLoading" class="flex items-center justify-center py-10 text-sm font-bold text-primary">
           <span class="material-symbols-outlined mr-2 animate-spin">progress_activity</span>
@@ -330,20 +390,25 @@
               <p class="text-sm font-black text-on-surface">{{ row.approvalTypeText }}</p>
               <p class="mt-1 text-[11px] text-on-surface-variant">{{ row.configured ? `当前：${row.auditorName || '未命名'}` : '暂未配置' }}</p>
             </div>
-            <select
-              v-model="row.auditorId"
-              class="h-11 w-full rounded-xl bg-surface-container-low px-4 text-sm outline-none ring-1 ring-outline-variant/30 focus:ring-2 focus:ring-primary/40"
+            <el-select
+              v-model="row.auditorIds"
+              multiple
+              filterable
+              clearable
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="请选择审批负责人"
+              class="w-full"
             >
-              <option value="">请选择负责人</option>
-              <option
+              <el-option
                 v-for="item in defaultAuditorOptions[row.approvalType] || []"
                 :key="item.id"
+                :label="formatAuditorOption(item)"
                 :value="String(item.id)"
-              >
-                {{ formatAuditorOption(item) }}
-              </option>
-            </select>
+              />
+            </el-select>
             <button
+              v-permission="'approval:finance:audit'"
               type="button"
               class="h-11 rounded-xl bg-primary px-4 text-sm font-bold text-white shadow-sm shadow-primary/20 disabled:opacity-60"
               :disabled="defaultAuditorSaving[row.approvalType]"
@@ -368,52 +433,55 @@
         </div>
         <div class="space-y-1.5">
           <label class="text-xs font-bold text-on-surface-variant pl-1">审批负责人（可手动指定）</label>
-          <select
-            v-model="financeForm.auditorId"
-            class="w-full h-11 px-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm"
+          <el-select
+            v-model="financeForm.auditorIds"
+            multiple
+            filterable
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            class="w-full"
             :disabled="auditorLoading.finance"
+            :loading="auditorLoading.finance"
+            :placeholder="auditorLoading.finance ? '审批人加载中...' : '请选择审批人'"
           >
-            <option value="">{{ auditorLoading.finance ? '审批人加载中...' : '请选择审批人' }}</option>
-            <option v-for="item in auditorOptions.finance" :key="item.id" :value="String(item.id)">
-              {{ formatAuditorOption(item) }}
-            </option>
-          </select>
+            <el-option-group
+              v-for="group in groupedAuditorOptions.finance"
+              :key="group.name"
+              :label="group.name"
+            >
+              <el-option
+                v-for="item in group.items"
+                :key="item.id"
+                :label="formatAuditorOption(item)"
+                :value="String(item.id)"
+              />
+            </el-option-group>
+          </el-select>
         </div>
         <div class="space-y-1.5">
           <label class="text-xs font-bold text-on-surface-variant pl-1">详细事由</label>
           <textarea v-model.trim="financeForm.reason" class="w-full min-h-[120px] p-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm leading-relaxed" placeholder="请详细说明资金用途、收款方及相关背景..." />
         </div>
-        <div class="rounded-xl bg-surface-container-lowest p-4 ring-1 ring-outline-variant/30">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="text-xs font-bold text-on-surface-variant">附件凭证</p>
-              <p class="mt-1 text-xs text-on-surface-variant">可上传发票、收据、合同或付款截图，单个文件不超过 10MB。</p>
-            </div>
-            <button
-              type="button"
-              class="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
-              :disabled="financeAttachmentUploading"
-              @click="triggerFinanceAttachmentUpload"
-            >
-              {{ financeAttachmentUploading ? '上传中...' : '上传附件' }}
-            </button>
-          </div>
-          <input ref="financeAttachmentInputRef" type="file" class="hidden" @change="handleFinanceAttachmentChange" />
-          <div v-if="financeForm.attachmentUrl" class="mt-3 flex items-center justify-between gap-3 rounded-lg bg-primary/5 px-3 py-2">
-            <button type="button" class="truncate text-left text-sm font-bold text-primary hover:underline" @click="openFinanceAttachment(financeForm.attachmentUrl, financeForm.attachmentName)">
-              {{ financeForm.attachmentName || '查看附件' }}
-            </button>
-            <div class="flex items-center gap-2 shrink-0">
-              <span class="text-xs text-on-surface-variant">{{ formatFileSize(financeForm.attachmentSize) }}</span>
-              <button type="button" class="text-xs font-bold text-rose-600" @click="removeFinanceAttachment">移除</button>
-            </div>
-          </div>
+        <div class="space-y-2">
+          <p class="text-xs font-bold text-on-surface-variant">附件凭证</p>
+          <DragAttachmentUpload
+            title="上传发票、收据、合同或付款截图"
+            helper-text="支持拖拽上传，单个文件不超过 10MB"
+            :uploading="financeAttachmentUploading"
+            :file-name="financeForm.attachmentName"
+            :file-url="financeForm.attachmentUrl"
+            :file-size="financeForm.attachmentSize"
+            @select="handleFinanceAttachmentFile"
+            @download="openFinanceAttachment(financeForm.attachmentUrl, financeForm.attachmentName)"
+            @remove="removeFinanceAttachment"
+          />
         </div>
       </div>
       <template #footer>
         <div class="flex justify-end gap-3 pb-1">
           <button @click="financeDialogVisible = false" class="px-5 py-2.5 rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-colors">取消</button>
-          <button @click="submitFinance" class="px-6 py-2.5 rounded-xl text-sm font-bold bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 flex items-center gap-1.5">
+          <button v-permission="'approval:finance:submit'" @click="submitFinance" class="px-6 py-2.5 rounded-xl text-sm font-bold bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 flex items-center gap-1.5">
             <span class="material-symbols-outlined text-[18px]">send</span>提交申请
           </button>
         </div>
@@ -428,16 +496,31 @@
         </div>
         <div class="space-y-1.5">
           <label class="text-xs font-bold text-on-surface-variant pl-1">审批负责人（可手动指定）</label>
-          <select
-            v-model="resignationForm.auditorId"
-            class="w-full h-11 px-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm"
+          <el-select
+            v-model="resignationForm.auditorIds"
+            multiple
+            filterable
+            clearable
+            collapse-tags
+            collapse-tags-tooltip
+            class="w-full"
             :disabled="auditorLoading.resignation"
+            :loading="auditorLoading.resignation"
+            :placeholder="auditorLoading.resignation ? '审批人加载中...' : '请选择审批人'"
           >
-            <option value="">{{ auditorLoading.resignation ? '审批人加载中...' : '请选择审批人' }}</option>
-            <option v-for="item in auditorOptions.resignation" :key="item.id" :value="String(item.id)">
-              {{ formatAuditorOption(item) }}
-            </option>
-          </select>
+            <el-option-group
+              v-for="group in groupedAuditorOptions.resignation"
+              :key="group.name"
+              :label="group.name"
+            >
+              <el-option
+                v-for="item in group.items"
+                :key="item.id"
+                :label="formatAuditorOption(item)"
+                :value="String(item.id)"
+              />
+            </el-option-group>
+          </el-select>
         </div>
         <div class="space-y-1.5">
           <label class="text-xs font-bold text-on-surface-variant pl-1">离职原因</label>
@@ -451,7 +534,7 @@
       <template #footer>
         <div class="flex justify-end gap-3 pb-1">
           <button @click="resignationDialogVisible = false" class="px-5 py-2.5 rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-colors">取消</button>
-          <button @click="submitResignation" class="px-6 py-2.5 rounded-xl text-sm font-bold bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 flex items-center gap-1.5">
+          <button v-permission="'approval:resignation:submit'" @click="submitResignation" class="px-6 py-2.5 rounded-xl text-sm font-bold bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 flex items-center gap-1.5">
             <span class="material-symbols-outlined text-[18px]">send</span>提交申请
           </button>
         </div>
@@ -465,23 +548,27 @@ import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElDialog } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
+import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import {
   auditFinanceApproval,
   auditOrderApproval,
   auditResignationApproval,
   auditLeaveApproval,
+  auditQualityApproval,
   downloadFinanceApprovalAttachment,
   getApprovalSummary,
   getFinanceApprovalDetail,
   getLeaveApprovalDetail,
   getOrderApprovalDetail,
+  getQualityApprovalDetail,
   getResignationApprovalDetail,
   listApprovalAuditors,
   listApprovalDefaultAuditors,
   listOrderApprovals,
   listFinanceApprovals,
   listLeaveApprovals,
+  listQualityApprovals,
   listResignationApprovals,
   saveApprovalDefaultAuditor,
   submitResignationApproval,
@@ -492,10 +579,11 @@ import {
 const userStore = useUserStore()
 
 const tabs = [
-  { label: '订单审批', value: 'order' },
-  { label: '财务审批', value: 'finance' },
-  { label: '请假审批', value: 'leave' },
-  { label: '离职审批', value: 'resignation' }
+  { label: '订单审批', value: 'order', permissions: ['order:list'], listPermission: 'order:list', auditPermission: 'approval:order:audit' },
+  { label: '质量审核', value: 'quality', permissions: ['badproduct:process'], listPermission: 'badproduct:process', auditPermission: 'badproduct:process' },
+  { label: '财务审批', value: 'finance', permissions: ['approval:finance', 'approval:finance:submit', 'approval:finance:audit'], listPermission: 'approval:finance', auditPermission: 'approval:finance:audit' },
+  { label: '请假审批', value: 'leave', permissions: ['approval:leave'], listPermission: 'approval:leave', auditPermission: 'approval:leave:audit' },
+  { label: '离职审批', value: 'resignation', permissions: ['approval:resignation', 'approval:resignation:submit', 'approval:resignation:audit'], listPermission: 'approval:resignation', auditPermission: 'approval:resignation:audit' }
 ]
 const defaultApprovalTableColumns = [
   { key: 'code', label: '单号' },
@@ -524,13 +612,13 @@ const detailTitle = ref('审批详情')
 const auditComment = ref('')
 const financeDialogVisible = ref(false)
 const resignationDialogVisible = ref(false)
-const financeAttachmentInputRef = ref(null)
 const financeAttachmentUploading = ref(false)
 const financeForm = reactive({
   category: '',
   amount: '',
   reason: '',
   auditorId: '',
+  auditorIds: [],
   attachmentName: '',
   attachmentUrl: '',
   attachmentSize: null
@@ -539,7 +627,8 @@ const resignationForm = reactive({
   expectedLeaveDate: '',
   reason: '',
   handoverNote: '',
-  auditorId: ''
+  auditorId: '',
+  auditorIds: []
 })
 const auditorOptions = reactive({
   finance: [],
@@ -559,22 +648,90 @@ const approvalSummary = ref({
   financePending: 0,
   resignationPending: 0,
   orderPending: 0,
+  qualityPending: 0,
   totalPending: 0
 })
 
 const currentUserId = computed(() => Number(userStore.userInfo?.userId || 0))
 
-const parseAuditorIds = (value) => String(value || '')
-    .split(',')
+const canAccessPermissionSet = (permissions = []) => !permissions?.length || userStore.hasAnyPermission(permissions)
+const canAccessTab = (tab) => canAccessPermissionSet(tab?.permissions || [])
+const accessibleTabs = computed(() => tabs.filter((tab) => canAccessTab(tab)))
+const activeTabMeta = computed(() => tabs.find((tab) => tab.value === activeTab.value) || accessibleTabs.value[0] || tabs[0])
+const activeTabCanViewList = computed(() => {
+  const permission = activeTabMeta.value?.listPermission
+  return !permission || userStore.hasPermission(permission)
+})
+
+function ensureActiveTabAccess() {
+  if (canAccessTab(activeTabMeta.value)) {
+    return true
+  }
+  const first = accessibleTabs.value[0]
+  if (!first) {
+    rows.value = []
+    return false
+  }
+  activeTab.value = first.value
+  return true
+}
+
+function requireUiPermission(permission) {
+  if (!permission || userStore.hasPermission(permission)) {
+    return true
+  }
+  ElMessage.warning('当前账号暂无权限')
+  return false
+}
+
+function tabMetaByValue(value) {
+  return tabs.find((tab) => tab.value === value)
+}
+
+function auditPermissionForType(type) {
+  return tabMetaByValue(type)?.auditPermission || ''
+}
+
+function canAuditAction(item) {
+  if (!canAuditApproval(item)) {
+    return false
+  }
+  const permission = auditPermissionForType(item?.type)
+  return !permission || userStore.hasPermission(permission)
+}
+
+const canAuditDetail = computed(() => canAuditAction(detailData.value))
+
+const parseAuditorIds = (value) => (Array.isArray(value) ? value : String(value || '').split(','))
     .map((item) => Number(String(item).trim()))
     .filter((id) => Number.isFinite(id) && id > 0)
 
 const canAuditApproval = (item) => {
   const userId = currentUserId.value
   if (!userId || Number(item?.status) !== 1) return false
+  if (typeof item?.canAudit === 'boolean') return item.canAudit
   if (Number(item?.auditorId) === userId) return true
   return parseAuditorIds(item?.auditorIds).includes(userId)
 }
+
+const auditButtonDisabledClass = (disabled) => disabled ? 'cursor-not-allowed opacity-50 grayscale' : ''
+
+const groupAuditorOptions = (options = []) => {
+  const groups = new Map()
+  for (const item of options || []) {
+    const name = item.departmentName || '未分配部门'
+    if (!groups.has(name)) {
+      groups.set(name, [])
+    }
+    groups.get(name).push(item)
+  }
+  return Array.from(groups.entries()).map(([name, items]) => ({ name, items }))
+}
+
+const groupedAuditorOptions = computed(() => ({
+  finance: groupAuditorOptions(auditorOptions.finance),
+  resignation: groupAuditorOptions(auditorOptions.resignation)
+}))
 
 const formatAuditorOption = (item = {}) => {
   const profile = [item.departmentName, item.positionName].filter(Boolean).join(' / ')
@@ -584,6 +741,7 @@ const formatAuditorOption = (item = {}) => {
 
 const defaultTypeToApiType = (type) => {
   if (type === 'ORDER') return 'order'
+  if (type === 'QUALITY') return 'quality'
   if (type === 'FINANCE') return 'finance'
   if (type === 'LEAVE') return 'leave'
   if (type === 'RESIGNATION') return 'resignation'
@@ -601,7 +759,10 @@ const loadDefaultAuditors = async () => {
     const rows = await listApprovalDefaultAuditors()
     defaultAuditorRows.value = (Array.isArray(rows) ? rows : []).map((row) => ({
       ...row,
-      auditorId: row.auditorId ? String(row.auditorId) : ''
+      auditorId: row.auditorId ? String(row.auditorId) : '',
+      auditorIds: parseAuditorIds(row.auditorIds).length
+          ? parseAuditorIds(row.auditorIds).map((id) => String(id))
+          : (row.auditorId ? [String(row.auditorId)] : [])
     }))
     await Promise.all(defaultAuditorRows.value.map((row) => loadDefaultAuditorOptions(row.approvalType)))
   } finally {
@@ -610,12 +771,19 @@ const loadDefaultAuditors = async () => {
 }
 
 const openDefaultAuditorDialog = async () => {
+  if (!requireUiPermission('approval:finance:audit')) {
+    return
+  }
   defaultAuditorDialogVisible.value = true
   await loadDefaultAuditors()
 }
 
 const saveDefaultAuditorRow = async (row) => {
-  if (!row?.approvalType || !row.auditorId) {
+  if (!requireUiPermission('approval:finance:audit')) {
+    return
+  }
+  const auditorIds = parseAuditorIds(row?.auditorIds)
+  if (!row?.approvalType || !auditorIds.length) {
     ElMessage.warning('请选择审批负责人')
     return
   }
@@ -623,7 +791,8 @@ const saveDefaultAuditorRow = async (row) => {
   try {
     await saveApprovalDefaultAuditor({
       approvalType: row.approvalType,
-      auditorId: Number(row.auditorId)
+      auditorId: auditorIds[0],
+      auditorIds
     })
     ElMessage.success('审批负责人已更新')
     await loadDefaultAuditors()
@@ -638,10 +807,6 @@ const loadAuditorOptions = async (type) => {
   try {
     const data = await listApprovalAuditors({ type, limit: 30 })
     auditorOptions[type] = Array.isArray(data) ? data : []
-    const form = type === 'finance' ? financeForm : resignationForm
-    if (!form.auditorId && auditorOptions[type].length) {
-      form.auditorId = String(auditorOptions[type][0].id || '')
-    }
   } catch (error) {
     auditorOptions[type] = []
   } finally {
@@ -674,6 +839,7 @@ const tabPendingCount = (tab) => {
   if (tab === 'finance') return approvalSummary.value.financePending || 0
   if (tab === 'resignation') return approvalSummary.value.resignationPending || 0
   if (tab === 'order') return approvalSummary.value.orderPending || 0
+  if (tab === 'quality') return approvalSummary.value.qualityPending || 0
   return 0
 }
 
@@ -685,6 +851,7 @@ const fetchSummary = async () => {
       financePending: 0,
       resignationPending: 0,
       orderPending: 0,
+      qualityPending: 0,
       totalPending: 0,
       ...data
     }
@@ -694,6 +861,7 @@ const fetchSummary = async () => {
       financePending: 0,
       resignationPending: 0,
       orderPending: 0,
+      qualityPending: 0,
       totalPending: 0
     }
   }
@@ -704,6 +872,13 @@ const refreshAll = async () => {
 }
 
 const fetchList = async () => {
+  if (!ensureActiveTabAccess()) {
+    return
+  }
+  if (!activeTabCanViewList.value) {
+    rows.value = []
+    return
+  }
   loading.value = true
   try {
     if (activeTab.value === 'leave') {
@@ -766,6 +941,26 @@ const fetchList = async () => {
         canAudit: canAuditApproval(item),
         raw: item
       }))
+    } else if (activeTab.value === 'quality') {
+      const data = await listQualityApprovals()
+      rows.value = (data || []).map((item) => ({
+        type: 'quality',
+        typeLabel: '质量审核',
+        code: item.defectiveId,
+        applicantName: item.applicantName || '质量处理',
+        departmentName: item.orderId || '未关联订单',
+        category: item.typeText || '质量记录',
+        summary: item.summary || item.description || '质量处理审核',
+        auditorName: item.auditorName || '质量审核人',
+        auditorId: item.auditorId,
+        auditorIds: item.auditorIds,
+        status: item.status,
+        statusText: item.statusText,
+        createTime: item.createTime,
+        isMine: false,
+        canAudit: item.canAudit !== false,
+        raw: item
+      }))
     } else {
       const data = await listOrderApprovals()
       rows.value = (data || []).map((item) => ({
@@ -794,6 +989,11 @@ const fetchList = async () => {
 }
 
 const changeTab = (tab) => {
+  const meta = tabMetaByValue(tab)
+  if (!canAccessTab(meta)) {
+    ElMessage.warning('当前账号暂无权限')
+    return
+  }
   activeTab.value = tab
   filters.keyword = ''
   filters.status = ''
@@ -863,6 +1063,30 @@ const openDetail = async (item) => {
       canAudit: canAuditApproval(detail)
     }
     detailTitle.value = '离职审批详情'
+  } else if (item.type === 'quality') {
+    const detail = await getQualityApprovalDetail(item.code)
+    detailData.value = {
+      type: 'quality',
+      code: detail.defectiveId,
+      applicantName: detail.applicantName || '质量处理',
+      category: detail.typeText || '质量记录',
+      orderId: detail.orderId,
+      quantity: detail.quantity,
+      lossAmount: detail.lossAmount,
+      reason: detail.description || detail.summary || '质量处理审核',
+      responsiblePerson: detail.responsiblePerson,
+      processMethod: detail.processMethod,
+      processMeasure: detail.processMeasure,
+      improvementPlan: detail.improvementPlan,
+      processRemark: detail.processRemark,
+      status: detail.status,
+      statusText: detail.statusText,
+      auditorName: detail.auditorName,
+      auditorId: detail.auditorId,
+      auditorIds: detail.auditorIds,
+      canAudit: detail.canAudit !== false
+    }
+    detailTitle.value = '质量审核详情'
   } else {
     const detail = await getOrderApprovalDetail(item.orderType || item.raw?.orderType, item.code)
     detailData.value = {
@@ -885,6 +1109,10 @@ const openDetail = async (item) => {
 }
 
 const quickAudit = async (item, action) => {
+  if (!canAuditAction(item)) {
+    ElMessage.warning('当前账号暂无审批该记录权限')
+    return
+  }
   if (item.type === 'leave') {
     await auditLeaveApproval({
       leaveCode: item.code,
@@ -903,6 +1131,12 @@ const quickAudit = async (item, action) => {
       action,
       comment: action === 2 ? '审批中心快捷处理' : ''
     })
+  } else if (item.type === 'quality') {
+    await auditQualityApproval({
+      defectiveId: item.code,
+      action,
+      comment: action === 2 ? '审批中心快捷驳回' : ''
+    })
   } else {
     await auditOrderApproval({
       orderType: item.orderType || item.raw?.orderType,
@@ -911,12 +1145,16 @@ const quickAudit = async (item, action) => {
       comment: action === 1 ? orderAuditActionText(item) : ''
     })
   }
-  ElMessage.success(item.type === 'order' ? orderAuditSuccessText(item) : (action === 1 ? '审批已通过' : '审批已拒绝'))
+  ElMessage.success(item.type === 'order' ? orderAuditSuccessText(item) : (item.type === 'quality' ? (action === 1 ? '质量审核已通过' : '质量审核已驳回') : (action === 1 ? '审批已通过' : '审批已拒绝')))
   refreshAll()
 }
 
 const submitAudit = async (action) => {
   if (!detailData.value) return
+  if (!canAuditDetail.value) {
+    ElMessage.warning('当前账号暂无审批该记录权限')
+    return
+  }
   if (detailData.value.type === 'leave') {
     await auditLeaveApproval({
       leaveCode: detailData.value.code,
@@ -935,6 +1173,12 @@ const submitAudit = async (action) => {
       action,
       comment: auditComment.value
     })
+  } else if (detailData.value.type === 'quality') {
+    await auditQualityApproval({
+      defectiveId: detailData.value.code,
+      action,
+      comment: auditComment.value
+    })
   } else {
     await auditOrderApproval({
       orderType: detailData.value.orderType,
@@ -943,7 +1187,7 @@ const submitAudit = async (action) => {
       comment: auditComment.value
     })
   }
-  ElMessage.success(detailData.value.type === 'order' ? orderAuditSuccessText(detailData.value) : (action === 1 ? '审批已提交' : '已驳回申请'))
+  ElMessage.success(detailData.value.type === 'order' ? orderAuditSuccessText(detailData.value) : (detailData.value.type === 'quality' ? (action === 1 ? '质量审核已通过' : '质量审核已驳回') : (action === 1 ? '审批已提交' : '已驳回申请')))
   detailVisible.value = false
   refreshAll()
 }
@@ -963,6 +1207,7 @@ const resetFinanceForm = () => {
   financeForm.amount = ''
   financeForm.reason = ''
   financeForm.auditorId = ''
+  financeForm.auditorIds = []
   financeForm.attachmentName = ''
   financeForm.attachmentUrl = ''
   financeForm.attachmentSize = null
@@ -973,32 +1218,36 @@ const resetResignationForm = () => {
   resignationForm.reason = ''
   resignationForm.handoverNote = ''
   resignationForm.auditorId = ''
+  resignationForm.auditorIds = []
 }
 
 const openFinanceDialog = async () => {
+  if (!requireUiPermission('approval:finance:submit')) {
+    return
+  }
   resetFinanceForm()
   financeDialogVisible.value = true
   await loadAuditorOptions('finance')
 }
 
 const openResignationDialog = async () => {
+  if (!requireUiPermission('approval:resignation:submit')) {
+    return
+  }
   resetResignationForm()
   resignationDialogVisible.value = true
   await loadAuditorOptions('resignation')
 }
 
-function triggerFinanceAttachmentUpload() {
-  financeAttachmentInputRef.value?.click()
-}
-
-async function handleFinanceAttachmentChange(event) {
-  const file = event.target.files?.[0]
+async function handleFinanceAttachmentFile(file) {
+  if (!requireUiPermission('approval:finance:submit')) {
+    return
+  }
   if (!file) {
     return
   }
   if (file.size > 10 * 1024 * 1024) {
     ElMessage.warning('附件不能超过 10MB')
-    event.target.value = ''
     return
   }
 
@@ -1013,7 +1262,6 @@ async function handleFinanceAttachmentChange(event) {
     ElMessage.success('附件上传成功')
   } finally {
     financeAttachmentUploading.value = false
-    event.target.value = ''
   }
 }
 
@@ -1039,6 +1287,9 @@ async function openFinanceAttachment(url, name) {
 }
 
 const submitFinance = async () => {
+  if (!requireUiPermission('approval:finance:submit')) {
+    return
+  }
   if (!financeForm.category || !financeForm.amount || !financeForm.reason) {
     ElMessage.warning('请完整填写财务类别、金额和申请理由')
     return
@@ -1047,7 +1298,8 @@ const submitFinance = async () => {
     category: financeForm.category,
     amount: Number(financeForm.amount),
     reason: financeForm.reason,
-    auditorId: financeForm.auditorId ? Number(financeForm.auditorId) : undefined,
+    auditorId: financeForm.auditorIds?.length ? Number(financeForm.auditorIds[0]) : undefined,
+    auditorIds: (financeForm.auditorIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0),
     attachmentName: financeForm.attachmentName || undefined,
     attachmentUrl: financeForm.attachmentUrl || undefined,
     attachmentSize: financeForm.attachmentSize || undefined
@@ -1060,6 +1312,9 @@ const submitFinance = async () => {
 }
 
 const submitResignation = async () => {
+  if (!requireUiPermission('approval:resignation:submit')) {
+    return
+  }
   if (!resignationForm.expectedLeaveDate || !resignationForm.reason) {
     ElMessage.warning('请填写预计离职日期和离职原因')
     return
@@ -1068,7 +1323,8 @@ const submitResignation = async () => {
     expectedLeaveDate: resignationForm.expectedLeaveDate,
     reason: resignationForm.reason,
     handoverNote: resignationForm.handoverNote,
-    auditorId: resignationForm.auditorId ? Number(resignationForm.auditorId) : undefined
+    auditorId: resignationForm.auditorIds?.length ? Number(resignationForm.auditorIds[0]) : undefined,
+    auditorIds: (resignationForm.auditorIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
   })
   ElMessage.success('离职申请已提交')
   resetResignationForm()
@@ -1088,6 +1344,7 @@ const typeTagClass = (type) => {
   if (type === 'leave') return 'bg-indigo-50 text-indigo-700 border-indigo-100'
   if (type === 'finance') return 'bg-sky-50 text-sky-700 border-sky-100'
   if (type === 'order') return 'bg-amber-50 text-amber-700 border-amber-100'
+  if (type === 'quality') return 'bg-emerald-50 text-emerald-700 border-emerald-100'
   return 'bg-rose-50 text-rose-700 border-rose-100'
 }
 

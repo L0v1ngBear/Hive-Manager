@@ -7,8 +7,8 @@
           {{ greetingText }}，{{ userName }}
         </h1>
         <p class="mt-2 text-base text-on-surface-variant max-w-2xl">
-          待处理审批 <span class="font-bold text-primary">{{ summary.pendingApprovalCount }}</span> 项，
-          待打印出库单 <span class="font-bold text-primary">{{ summary.pendingPrintCount }}</span> 单。
+          预警订单 <span class="font-bold text-primary">{{ summary.orderWarningCount }}</span> 单，
+          待我审批 <span class="font-bold text-primary">{{ summary.pendingApprovalCount }}</span> 项。
         </p>
       </div>
 
@@ -34,7 +34,7 @@
       </div>
     </section>
 
-    <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <article class="rounded-2xl p-5 bg-primary text-white shadow-md shadow-primary/20 overflow-hidden relative flex flex-col justify-between min-h-[120px]">
         <div class="absolute -right-2 -top-2 text-white/10">
           <span class="material-symbols-outlined text-[90px]">receipt_long</span>
@@ -42,20 +42,20 @@
         <p class="text-xs font-bold tracking-widest uppercase text-white/80 z-10">本月新增订单</p>
         <div class="mt-auto z-10">
           <p class="text-4xl font-black leading-none">{{ summary.monthOrderCount }}</p>
-          <p class="text-xs text-white/70 mt-1.5 truncate">销售单与生产单合并</p>
+          <p class="text-xs text-white/70 mt-1.5 truncate">本月创建的订单总数</p>
         </div>
       </article>
 
       <article class="rounded-2xl p-5 bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between min-h-[120px]">
         <div class="flex items-center justify-between mb-2">
-          <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant">库存预警项</p>
-          <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant">预警订单</p>
+          <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
             <span class="material-symbols-outlined text-[30px] leading-none">warning</span>
           </div>
         </div>
         <div class="mt-auto">
-          <p class="text-4xl font-black text-on-surface leading-none">{{ summary.inventoryWarningCount }}</p>
-          <p class="text-xs text-on-surface-variant mt-1.5 truncate">低于安全阈值的型号</p>
+          <p class="text-4xl font-black text-on-surface leading-none">{{ summary.orderWarningCount }}</p>
+          <p class="text-xs text-on-surface-variant mt-1.5 truncate">超过预警天数未更新</p>
         </div>
       </article>
 
@@ -68,20 +68,7 @@
         </div>
         <div class="mt-auto">
           <p class="text-4xl font-black text-on-surface leading-none">{{ summary.pendingApprovalCount }}</p>
-          <p class="text-xs text-on-surface-variant mt-1.5 truncate">请假与财务审批</p>
-        </div>
-      </article>
-
-      <article class="rounded-2xl p-5 bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between min-h-[120px]">
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant">待打出库单</p>
-          <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-            <span class="material-symbols-outlined text-[30px] leading-none">print</span>
-          </div>
-        </div>
-        <div class="mt-auto">
-          <p class="text-4xl font-black text-on-surface leading-none">{{ summary.pendingPrintCount }}</p>
-          <p class="text-xs text-on-surface-variant mt-1.5 truncate">已提交待打印</p>
+          <p class="text-xs text-on-surface-variant mt-1.5 truncate">等待当前账号处理</p>
         </div>
       </article>
     </section>
@@ -91,16 +78,16 @@
         <div class="flex items-center justify-between mb-4">
           <div>
             <h2 class="text-lg font-black text-on-surface leading-tight">企业通知公告</h2>
-            <p class="text-xs text-on-surface-variant mt-1">展示公司最新通知、制度公告和业务提醒，帮助团队统一节奏。</p>
+            <p class="text-xs text-on-surface-variant mt-1">展示少量普通公告和紧急公告，帮助团队快速同步日常安排。</p>
           </div>
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary">{{ announcements.length }} 条</span>
             <button
                 v-permission="'notification:announcement:publish'"
-                @click="openAnnouncementCenter"
+                @click="openAnnouncementPublish"
                 class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90"
             >
-              发布通知
+              发布公告
             </button>
           </div>
         </div>
@@ -146,70 +133,51 @@
       </article>
 
       <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 flex flex-col">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between gap-3 mb-4">
           <div>
-            <h2 class="text-lg font-black text-on-surface leading-tight">近 7 日出入库趋势</h2>
-            <p class="text-xs text-on-surface-variant mt-1">按日汇总出入库米数</p>
+            <h2 class="text-lg font-black text-on-surface leading-tight">重要公告</h2>
+            <p class="text-xs text-on-surface-variant mt-1">集中展示更多需要重点关注的公告。</p>
           </div>
-          <div class="flex items-center gap-4 text-xs font-bold">
-            <span class="inline-flex items-center gap-1.5 text-primary">
-              <span class="w-2.5 h-2.5 rounded-full bg-primary"></span>入库
-            </span>
-            <span class="inline-flex items-center gap-1.5 text-emerald-600">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>出库
-            </span>
-          </div>
+          <button class="rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-black text-primary" @click="openAnnouncementCenter">
+            查看全部
+          </button>
         </div>
 
-        <div v-if="!visibility.trendVisible" class="flex-1 rounded-xl bg-surface-container-low flex items-center justify-center text-sm text-on-surface-variant min-h-[160px]">
-          暂无查看权限
+        <div
+            v-if="announcementLoading && !importantAnnouncements.length"
+            class="flex-1 rounded-xl border border-dashed border-primary/25 bg-primary/5 px-4 py-6 text-sm font-bold text-primary flex items-center justify-center gap-2 min-h-[180px]"
+        >
+          <span class="material-symbols-outlined animate-spin text-[22px]">progress_activity</span>
+          正在同步重要公告
         </div>
-        <div v-else-if="chartReady" class="flex-1 flex flex-col gap-3">
-          <div class="h-40 rounded-xl bg-[radial-gradient(circle_at_top,_rgba(25,118,210,0.06),_transparent_60%)] border border-outline-variant/20 p-3 relative">
-            <svg viewBox="0 0 100 56" preserveAspectRatio="none" class="w-full h-full overflow-visible">
-              <g v-for="grid in [0, 25, 50, 75, 100]" :key="grid">
-                <line
-                    x1="0"
-                    :x2="100"
-                    :y1="56 - (grid * 0.56)"
-                    :y2="56 - (grid * 0.56)"
-                    stroke="rgba(120, 144, 156, 0.15)"
-                    stroke-width="0.3"
-                />
-              </g>
-              <polyline
-                  :points="inLinePoints"
-                  fill="none"
-                  stroke="rgb(25,118,210)"
-                  stroke-width="1.2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-              />
-              <polyline
-                  :points="outLinePoints"
-                  fill="none"
-                  stroke="rgb(16,185,129)"
-                  stroke-width="1.2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-              />
-              <g v-for="(point, index) in chartPoints" :key="`point-${index}`">
-                <circle :cx="point.x" :cy="point.inY" r="1.5" fill="rgb(25,118,210)" />
-                <circle :cx="point.x" :cy="point.outY" r="1.5" fill="rgb(16,185,129)" />
-              </g>
-            </svg>
-          </div>
-
-          <div class="grid grid-cols-7 gap-1.5 text-center">
-            <div v-for="(date, index) in trendDates" :key="date" class="rounded-lg bg-surface-container-low px-1 py-2">
-              <p class="text-[11px] font-bold text-on-surface-variant origin-bottom">{{ date }}</p>
-              <p class="mt-1 text-sm font-black text-primary leading-tight">{{ formatTrendValue(trendInMeters[index]) }}</p>
-              <p class="text-[11px] font-medium text-emerald-600 leading-none mt-1">{{ formatTrendValue(trendOutMeters[index]) }}</p>
+        <div
+            v-else-if="!importantAnnouncements.length"
+            class="flex-1 rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low px-4 py-6 text-sm font-bold text-on-surface-variant text-center flex items-center justify-center min-h-[180px]"
+        >
+          暂无重要公告
+        </div>
+        <div v-else class="space-y-3 flex-1 overflow-y-auto pr-1 no-scrollbar max-h-[260px]">
+          <div
+              v-for="item in importantAnnouncements"
+              :key="item.id || `${item.title}-${item.updateTime}`"
+              class="rounded-2xl p-4 border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
+              :class="announcementCardClass(item.level)"
+              @click="openAnnouncementCenter"
+          >
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" :class="announcementIconClass(item.level)">
+                <span class="material-symbols-outlined text-[24px] leading-none">priority_high</span>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2">
+                  <p class="text-sm font-black truncate">{{ item.title }}</p>
+                  <span class="text-[10px] font-bold uppercase tracking-widest opacity-70 shrink-0">{{ announcementLevelText(item.level) }}</span>
+                </div>
+                <p class="mt-2 text-sm leading-6 opacity-90 line-clamp-3">{{ item.content }}</p>
+                <p class="mt-3 text-xs leading-6 font-medium opacity-70">{{ formatAnnouncementTime(item.updateTime) }}</p>
+              </div>
             </div>
           </div>
-        </div>
-        <div v-else class="flex-1 rounded-xl bg-surface-container-low flex items-center justify-center text-sm text-on-surface-variant min-h-[160px]">
-          暂无数据
         </div>
       </article>
 
@@ -298,7 +266,6 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getDashboardOverview } from './api/dashboard.js'
 import { getAnnouncements } from '@/api/notification.js'
-import { trackBehavior } from '@/utils/behavior'
 
 defineOptions({ name: 'DashboardOverview' })
 
@@ -312,20 +279,16 @@ const summary = ref({
   totalInventoryMeters: 0,
   pendingApprovalCount: 0,
   pendingPrintCount: 0,
-  inventoryWarningCount: 0
+  inventoryWarningCount: 0,
+  orderWarningCount: 0
 })
 const visibility = ref({
   orderVisible: false,
   inventoryVisible: false,
   approvalVisible: false,
   receiptVisible: false,
-  trendVisible: false,
-  attendanceVisible: false,
-  aiAdviceVisible: false
+  attendanceVisible: false
 })
-const trendDates = ref([])
-const trendInMeters = ref([])
-const trendOutMeters = ref([])
 const businessAlerts = ref([])
 const attendanceAlerts = ref([])
 const attendanceSummary = ref({
@@ -337,6 +300,7 @@ const attendanceSummary = ref({
 })
 const quickActions = ref([])
 const announcements = ref([])
+const importantAnnouncements = ref([])
 
 const userName = computed(() => userStore.userInfo?.userName || '当前用户')
 
@@ -348,24 +312,6 @@ const greetingText = computed(() => {
   if (hour < 18) return '下午好'
   return '晚上好'
 })
-
-const chartPoints = computed(() => {
-  const values = [...trendInMeters.value, ...trendOutMeters.value].map((item) => Number(item || 0))
-  const maxValue = Math.max(...values, 1)
-  const count = Math.max(trendDates.value.length, 1)
-  return trendDates.value.map((_, index) => {
-    const x = count === 1 ? 50 : (index / (count - 1)) * 100
-    const inValue = Number(trendInMeters.value[index] || 0)
-    const outValue = Number(trendOutMeters.value[index] || 0)
-    const inY = 56 - (inValue / maxValue) * 50
-    const outY = 56 - (outValue / maxValue) * 50
-    return {x, inY, outY}
-  })
-})
-
-const inLinePoints = computed(() => chartPoints.value.map((item) => `${item.x},${item.inY}`).join(' '))
-const outLinePoints = computed(() => chartPoints.value.map((item) => `${item.x},${item.outY}`).join(' '))
-const chartReady = computed(() => chartPoints.value.length > 1)
 
 const attendanceStatusText = computed(() => {
   if (!visibility.value.attendanceVisible) {
@@ -397,9 +343,6 @@ const fetchOverview = async () => {
     const data = await getDashboardOverview()
     summary.value = data?.summary || summary.value
     visibility.value = data?.visibility || visibility.value
-    trendDates.value = Array.isArray(data?.trendDates) ? data.trendDates : []
-    trendInMeters.value = Array.isArray(data?.trendInMeters) ? data.trendInMeters : []
-    trendOutMeters.value = Array.isArray(data?.trendOutMeters) ? data.trendOutMeters : []
     businessAlerts.value = Array.isArray(data?.businessAlerts) ? data.businessAlerts : []
     attendanceAlerts.value = Array.isArray(data?.attendanceAlerts) ? data.attendanceAlerts : []
     attendanceSummary.value = data?.attendanceSummary || attendanceSummary.value
@@ -418,49 +361,30 @@ async function fetchAnnouncements() {
   }
   announcementLoading.value = true
   try {
-    const data = await getAnnouncements({ limit: 4 })
-    announcements.value = Array.isArray(data) ? data : []
+    const [dailyData, importantData] = await Promise.all([
+      getAnnouncements({ limit: 4, levels: 'normal,urgent' }),
+      getAnnouncements({ limit: 8, levels: 'important' })
+    ])
+    announcements.value = Array.isArray(dailyData) ? dailyData : []
+    importantAnnouncements.value = Array.isArray(importantData) ? importantData : []
   } catch (error) {
     announcements.value = []
+    importantAnnouncements.value = []
   } finally {
     announcementLoading.value = false
   }
 }
 
 function openQuickAction(action) {
-  trackBehavior({
-    eventType: 'quick_action_click',
-    pagePath: '/dashboard',
-    module: 'dashboard',
-    targetType: 'quick_action',
-    targetId: action.route,
-    action: 'click',
-    source: 'dashboard',
-    metadata: {
-      title: action.title,
-      route: action.route
-    }
-  })
   router.push(action.route)
 }
 
 function openAnnouncementCenter() {
-  trackBehavior({
-    eventType: 'announcement_center_click',
-    pagePath: '/dashboard',
-    module: 'notification',
-    targetType: 'route',
-    targetId: '/function/announcement',
-    action: 'click',
-    source: 'dashboard'
-  })
   router.push('/function/announcement')
 }
 
-const formatTrendValue = (value) => {
-  const num = Number(value || 0);
-  if (num >= 10000) return `${(num / 10000).toFixed(1)}w`;
-  return `${num.toLocaleString('zh-CN', {maximumFractionDigits: 0})}`;
+function openAnnouncementPublish() {
+  router.push('/function/announcement/publish')
 }
 
 const alertCardClass = (level) => {
@@ -474,29 +398,29 @@ const alertCardClass = (level) => {
 }
 
 const announcementCardClass = (level) => {
-  if (level === 'warning') {
-    return 'border-amber-200 bg-amber-50/60 text-amber-950'
-  }
-  if (level === 'critical') {
+  if (level === 'urgent' || level === 'critical') {
     return 'border-rose-200 bg-rose-50/60 text-rose-950'
+  }
+  if (level === 'important' || level === 'warning') {
+    return 'border-amber-200 bg-amber-50/60 text-amber-950'
   }
   return 'border-sky-200 bg-sky-50/60 text-sky-950'
 }
 
 const announcementIconClass = (level) => {
-  if (level === 'warning') {
-    return 'bg-amber-100 text-amber-700'
-  }
-  if (level === 'critical') {
+  if (level === 'urgent' || level === 'critical') {
     return 'bg-rose-100 text-rose-700'
+  }
+  if (level === 'important' || level === 'warning') {
+    return 'bg-amber-100 text-amber-700'
   }
   return 'bg-sky-100 text-sky-700'
 }
 
 const announcementLevelText = (level) => {
-  if (level === 'critical') return '重要'
-  if (level === 'warning') return '提醒'
-  return '公告'
+  if (level === 'urgent' || level === 'critical') return '紧急公告'
+  if (level === 'important' || level === 'warning') return '重要公告'
+  return '普通公告'
 }
 
 const formatAnnouncementTime = (value) => {

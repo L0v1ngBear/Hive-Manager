@@ -28,10 +28,10 @@ public class TableExportController {
     private static final int MAX_EXPORT_COLUMNS = 80;
     private static final int MAX_CELL_LENGTH = 1000;
     private static final Map<String, String> MODULE_PERMISSION_MAP = Map.ofEntries(
-            Map.entry("order", PermissionCodeEnum.CODE_SALES_ORDER_LIST),
+            Map.entry("order", PermissionCodeEnum.CODE_ORDER_LIST),
             Map.entry("inventory", PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST),
             Map.entry("customer", PermissionCodeEnum.CODE_CUSTOMER_PAGE),
-            Map.entry("approval-order", PermissionCodeEnum.CODE_SALES_ORDER_LIST),
+            Map.entry("approval-order", PermissionCodeEnum.CODE_ORDER_LIST),
             Map.entry("approval-finance", PermissionCodeEnum.CODE_APPROVAL_FINANCE),
             Map.entry("approval-leave", PermissionCodeEnum.CODE_APPROVAL_LEAVE),
             Map.entry("approval-resignation", PermissionCodeEnum.CODE_APPROVAL_RESIGNATION),

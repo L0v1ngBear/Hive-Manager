@@ -3,19 +3,7 @@ import { ElMessage } from 'element-plus'
 import Layout from '@/layout/index.vue'
 import { useUserStore } from '@/stores/user'
 import { buildLoginQuery, normalizeLoginRedirect } from '@/utils/redirect'
-
-const AI_ADVICE_PERMISSIONS = [
-  'dashboard:ai:view',
-  'dashboard:ai:*',
-  'dashboard:*',
-  'dashboard:ai:inventory',
-  'dashboard:ai:order',
-  'dashboard:ai:customer',
-  'dashboard:ai:quality',
-  'dashboard:ai:finance',
-  'dashboard:ai:employee',
-  'dashboard:ai:operation'
-]
+import { routeAccessDenied } from '@/utils/access'
 
 const ANNOUNCEMENT_PERMISSIONS = [
   'notification:announcement:list',
@@ -70,16 +58,16 @@ export const constantRoutes = [
         meta: { title: '总览大盘', icon: 'dashboard', features: ['module.dashboard'] }
       },
       {
-        path: 'dashboard/ai-advices',
-        name: 'DashboardAiAdvice',
-        component: () => import('@/views/dashboard/aiAdvice.vue'),
-        meta: { title: '经营建议', permissions: AI_ADVICE_PERMISSIONS, features: ['aiAdvice'] }
-      },
-      {
         path: 'manual',
         name: 'UserManual',
         component: () => import('@/views/manual/UserManual.vue'),
         meta: { title: '使用手册', features: ['module.manual'] }
+      },
+      {
+        path: 'no-permission',
+        name: 'NoPermission',
+        component: () => import('@/views/NoPermission.vue'),
+        meta: { title: '暂无权限', allowDenied: true }
       }
     ]
   },
@@ -93,8 +81,18 @@ export const constantRoutes = [
         name: 'Announcement',
         component: () => import('@/views/function/announcement/announcement.vue'),
         meta: {
-          title: '企业通知公告',
+          title: '公告查看',
           permissions: ANNOUNCEMENT_PERMISSIONS,
+          features: ['module.dashboard']
+        }
+      },
+      {
+        path: 'announcement/publish',
+        name: 'AnnouncementPublish',
+        component: () => import('@/views/function/announcement/publish.vue'),
+        meta: {
+          title: '发布公告',
+          permissions: ['notification:announcement:publish', 'dashboard:*'],
           features: ['module.dashboard']
         }
       },
@@ -174,7 +172,7 @@ export const constantRoutes = [
         path: 'tenant',
         name: 'TenantManage',
         component: () => import('@/views/function/tenant/tenant.vue'),
-        meta: { title: '租户管理', developerOnly: true }
+        meta: { title: '企业授权', developerOnly: true }
       },
       {
         path: 'customer',
@@ -192,7 +190,13 @@ export const constantRoutes = [
         path: 'order',
         name: 'Order',
         component: () => import('@/views/function/order/order.vue'),
-        meta: { title: '订单管理', permissions: ['sales:order:list', 'production:order:list'], features: ['module.order'] }
+        meta: { title: '订单列表', permissions: ['order:list'], features: ['module.order'] }
+      },
+      {
+        path: 'installation-task',
+        name: 'InstallationTask',
+        component: () => import('@/views/function/installationTask/installationTask.vue'),
+        meta: { title: '安装任务', permissions: ['order:list'], features: ['module.order'] }
       },
       {
         path: 'bad-product',
@@ -210,7 +214,7 @@ export const constantRoutes = [
         component: () => import('@/views/function/approval/approvalCenter.vue'),
         meta: {
           title: '审批中心',
-          permissions: ['approval:leave', 'approval:finance', 'approval:resignation', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'sales:order:list', 'production:order:list'],
+          permissions: ['approval:leave', 'approval:finance', 'approval:resignation', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'order:list', 'badproduct:process'],
           features: ['module.approval']
         }
       }
@@ -225,6 +229,8 @@ const router = createRouter({
 })
 
 const FORCE_PASSWORD_CHANGE_PATH = '/force-password-change'
+const PLATFORM_TENANT_PATH = '/function/tenant'
+const NO_PERMISSION_PATH = '/no-permission'
 
 router.beforeEach((to) => {
   const userStore = useUserStore()
@@ -262,19 +268,21 @@ router.beforeEach((to) => {
     return true
   }
 
-  if (to.meta?.developerOnly && !userStore.isDeveloper) {
-    ElMessage.warning('仅开发者可访问租户管理')
-    return '/dashboard'
+  if (to.path === NO_PERMISSION_PATH || to.meta?.allowDenied) {
+    return true
   }
 
-  if (Array.isArray(to.meta?.features) && to.meta.features.length && !userStore.hasAnyFeature(to.meta.features)) {
-    ElMessage.warning('当前账号暂未启用该功能，请联系企业负责人确认权限配置')
-    return '/dashboard'
+  if (userStore.isPlatformTenant && to.path !== PLATFORM_TENANT_PATH) {
+    return PLATFORM_TENANT_PATH
   }
 
-  if (Array.isArray(to.meta?.permissions) && to.meta.permissions.length && !userStore.hasAnyPermission(to.meta.permissions)) {
-    ElMessage.warning('您暂无权限访问当前页面，请联系企业负责人确认权限配置')
-    return '/dashboard'
+  const deniedReason = routeAccessDenied(userStore, to.meta || {})
+  if (deniedReason) {
+    ElMessage.warning(`${deniedReason}，页面内容已隐藏`)
+    return {
+      path: NO_PERMISSION_PATH,
+      query: { from: to.fullPath }
+    }
   }
 
   return true

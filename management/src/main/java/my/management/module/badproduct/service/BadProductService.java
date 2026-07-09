@@ -9,6 +9,8 @@ import my.hive.common.dto.PageResult;
 import my.hive.common.exception.BusinessException;
 import my.management.common.security.InternalUploadUrlValidator;
 import my.management.common.utils.CodeGeneratorUtil;
+import my.management.module.approval.service.ApprovalAuditorCandidateService;
+import my.management.module.approval.service.ApprovalDefaultAuditorService;
 import my.management.module.badproduct.mapper.BadProductMapper;
 import my.management.module.badproduct.model.dto.BadProductPageRequest;
 import my.management.module.badproduct.model.dto.BadProductProcessRequest;
@@ -17,6 +19,7 @@ import my.management.module.badproduct.model.entity.BadProductRecord;
 import my.management.module.badproduct.model.vo.BadProductVO;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.employee.model.entity.Employee;
+import my.management.module.sys.model.enums.PermissionCodeEnum;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -26,6 +29,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -40,11 +45,23 @@ public class BadProductService {
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 100;
     private static final String BUSINESS_SCOPE_AFTER_SALES = "afterSales";
+    private static final String STATUS_PENDING = "pending";
+    private static final String STATUS_PENDING_AUDIT = "pending_audit";
+    private static final String STATUS_PROCESSED = "processed";
+    private static final String APPROVAL_TYPE_QUALITY = "QUALITY";
+    private static final int MAX_PARALLEL_APPROVERS = 10;
     private static final Set<String> AFTER_SALES_TYPES = Set.of(
-            "after_sales",
-            "return_exchange",
-            "compensation",
-            "customer_complaint"
+            "motor",
+            "manual_track",
+            "electric_track",
+            "fabric",
+            "electric_roller_blind",
+            "manual_roller_blind",
+            "wear_part",
+            "craft",
+            "installation",
+            "measurement",
+            "after_sales_other"
     );
 
     @Value("${server.servlet.context-path:}")
@@ -59,12 +76,17 @@ public class BadProductService {
     @Resource
     private EmployeeMapper employeeMapper;
 
+    @Resource
+    private ApprovalAuditorCandidateService approvalAuditorCandidateService;
+
+    @Resource
+    private ApprovalDefaultAuditorService approvalDefaultAuditorService;
+
     public PageResult<BadProductVO> page(BadProductPageRequest request) {
         if (request == null) {
             request = new BadProductPageRequest();
         }
-        LambdaQueryWrapper<BadProductRecord> wrapper = new LambdaQueryWrapper<BadProductRecord>()
-                .eq(BadProductRecord::getTenantCode, TenantPermissionContext.getTenantCode());
+        LambdaQueryWrapper<BadProductRecord> wrapper = new LambdaQueryWrapper<>();
 
         String status = normalizeQueryValue(request.getStatus());
         String type = normalizeQueryValue(request.getType());
@@ -154,7 +176,7 @@ public class BadProductService {
             entity.setDefectiveId(codeGeneratorUtil.generateCode("DC", 4));
             entity.setCreatorId(userId);
             entity.setCreatorName(operator == null ? "未知用户" : operator.getName());
-            entity.setStatus("pending");
+            entity.setStatus(STATUS_PENDING);
             entity.setCreateTime(resolveBusinessCreateTime(request.getCreateTime()));
         }
 
@@ -163,9 +185,11 @@ public class BadProductService {
         entity.setQuantity(request.getQuantity());
         entity.setLossAmount(request.getLossAmount());
         entity.setDescription(blankToNull(request.getDescription()));
-        entity.setResponsiblePerson(blankToNull(request.getResponsiblePerson()));
-        entity.setProcessMeasure(blankToNull(request.getProcessMeasure()));
-        entity.setImprovementPlan(blankToNull(request.getImprovementPlan()));
+        if (entity.getId() == null || STATUS_PENDING.equals(entity.getStatus())) {
+            entity.setResponsiblePerson(null);
+            entity.setProcessMeasure(null);
+            entity.setImprovementPlan(null);
+        }
         entity.setAttachmentName(normalizeAttachmentName(request.getAttachmentName(), request.getAttachmentUrl()));
         entity.setAttachmentUrl(normalizeBadProductAttachmentUrl(request.getAttachmentUrl(), tenantCode));
         entity.setAttachmentSize(normalizeAttachmentSize(request.getAttachmentSize(), entity.getAttachmentUrl()));
@@ -194,10 +218,84 @@ public class BadProductService {
         if (entity == null) {
             throw new BusinessException("质量记录不存在");
         }
-        entity.setStatus("processed");
+        if (STATUS_PROCESSED.equals(entity.getStatus())) {
+            throw new BusinessException("质量记录已处理，请勿重复提交");
+        }
+        if (hasPendingQualityApproval(entity.getDefectiveId())) {
+            throw new BusinessException("该质量记录已提交审核，请审核完成后再操作");
+        }
+        entity.setStatus(STATUS_PENDING_AUDIT);
         entity.setProcessMethod(request.getMethod());
         entity.setProcessRemark(blankToNull(request.getRemark()));
+        entity.setResponsiblePerson(blankToNull(request.getResponsiblePerson()));
+        entity.setProcessMeasure(blankToNull(request.getProcessMeasure()));
+        entity.setImprovementPlan(blankToNull(request.getImprovementPlan()));
         badProductMapper.updateById(entity);
+
+        List<Long> auditorIds = approvalDefaultAuditorService.resolveAuditorIds(
+                entity.getTenantCode(),
+                APPROVAL_TYPE_QUALITY,
+                TenantPermissionContext.getUserId(),
+                null,
+                null,
+                PermissionCodeEnum.CODE_BADPRODUCT_PROCESS,
+                false);
+        approvalAuditorCandidateService.replaceActiveCandidates(
+                entity.getTenantCode(), APPROVAL_TYPE_QUALITY, qualityApprovalCode(entity.getDefectiveId()), normalizeApprovalAuditorIds(auditorIds));
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void approveProcess(String defectiveId) {
+        BadProductRecord entity = findByDefectiveId(defectiveId);
+        if (!STATUS_PENDING_AUDIT.equals(entity.getStatus())) {
+            throw new BusinessException("当前质量记录不在审核中");
+        }
+        entity.setStatus(STATUS_PROCESSED);
+        badProductMapper.updateById(entity);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void rejectProcessApproval(String defectiveId) {
+        BadProductRecord entity = findByDefectiveId(defectiveId);
+        if (!STATUS_PENDING_AUDIT.equals(entity.getStatus())) {
+            throw new BusinessException("当前质量记录不在审核中");
+        }
+        entity.setStatus(STATUS_PENDING);
+        badProductMapper.updateById(entity);
+    }
+
+    public boolean hasPendingQualityApproval(String defectiveId) {
+        if (defectiveId == null || defectiveId.isBlank()) {
+            return false;
+        }
+        BadProductRecord entity = badProductMapper.selectOne(new LambdaQueryWrapper<BadProductRecord>()
+                .eq(BadProductRecord::getDefectiveId, defectiveId.trim())
+                .last("LIMIT 1"));
+        if (entity == null || !STATUS_PENDING_AUDIT.equals(entity.getStatus())) {
+            return false;
+        }
+        return !approvalAuditorCandidateService.findPendingAuditorIds(
+                entity.getTenantCode(), APPROVAL_TYPE_QUALITY, qualityApprovalCode(entity.getDefectiveId())).isEmpty();
+    }
+
+    public String qualityApprovalCode(String defectiveId) {
+        if (defectiveId == null || defectiveId.isBlank()) {
+            throw new BusinessException("质量编号不能为空");
+        }
+        return defectiveId.trim();
+    }
+
+    public String qualityApprovalType() {
+        return APPROVAL_TYPE_QUALITY;
+    }
+
+    private BadProductRecord findByDefectiveId(String defectiveId) {
+        BadProductRecord entity = badProductMapper.selectOne(new LambdaQueryWrapper<BadProductRecord>()
+                .eq(BadProductRecord::getDefectiveId, defectiveId));
+        if (entity == null) {
+            throw new BusinessException("质量记录不存在");
+        }
+        return entity;
     }
 
     private BadProductVO toVO(BadProductRecord entity) {
@@ -293,12 +391,30 @@ public class BadProductService {
                 || !sameBigDecimal(before.getQuantity(), after.getQuantity())
                 || !sameBigDecimal(before.getLossAmount(), after.getLossAmount())
                 || !Objects.equals(before.getDescription(), after.getDescription())
-                || !Objects.equals(before.getResponsiblePerson(), after.getResponsiblePerson())
-                || !Objects.equals(before.getProcessMeasure(), after.getProcessMeasure())
-                || !Objects.equals(before.getImprovementPlan(), after.getImprovementPlan())
                 || !Objects.equals(before.getAttachmentName(), after.getAttachmentName())
                 || !Objects.equals(before.getAttachmentUrl(), after.getAttachmentUrl())
                 || !Objects.equals(before.getAttachmentSize(), after.getAttachmentSize());
+    }
+
+    private List<Long> normalizeApprovalAuditorIds(List<Long> auditorIds) {
+        if (auditorIds == null || auditorIds.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<Long> ids = new LinkedHashSet<>();
+        Long currentUserId = TenantPermissionContext.getUserId();
+        for (Long auditorId : auditorIds) {
+            if (auditorId == null || auditorId <= 0) {
+                continue;
+            }
+            if (currentUserId != null && currentUserId.equals(auditorId)) {
+                throw new BusinessException("审批人不能选择提交人本人");
+            }
+            ids.add(auditorId);
+        }
+        if (ids.size() > MAX_PARALLEL_APPROVERS) {
+            throw new BusinessException("审批人不能超过 " + MAX_PARALLEL_APPROVERS + " 人");
+        }
+        return new ArrayList<>(ids);
     }
 
     private boolean sameBigDecimal(BigDecimal left, BigDecimal right) {

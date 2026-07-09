@@ -9,10 +9,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import java.util.Set;
-
 @Component
 public class PlatformScopeInterceptor implements HandlerInterceptor {
+
+    private static final String PLATFORM_TENANT_CODE = "super";
+    private static final String PLATFORM_PATH_PREFIX = "/platform/";
+    private static final String INITIAL_PASSWORD_PATH = "/auth/initial-password";
+    private static final String UPLOAD_PATH_PREFIX = "/uploads/";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -22,18 +25,35 @@ public class PlatformScopeInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        if (request.getServletPath().startsWith("/platform/") && !isDeveloperAccount()) {
-            writeErrorResponse(response, "仅开发者可访问租户管理");
+        String path = normalizePath(request.getServletPath());
+        if (isPlatformTenant()) {
+            if (isPlatformAllowedPath(path)) {
+                return true;
+            }
+            writeErrorResponse(response, "平台账号仅可访问租户管理");
+            return false;
+        }
+
+        if (path.startsWith(PLATFORM_PATH_PREFIX)) {
+            writeErrorResponse(response, "当前账号无权访问租户管理");
             return false;
         }
         return true;
     }
 
-    private boolean isDeveloperAccount() {
+    private boolean isPlatformAllowedPath(String path) {
+        return path.startsWith(PLATFORM_PATH_PREFIX)
+                || INITIAL_PASSWORD_PATH.equals(path)
+                || path.startsWith(UPLOAD_PATH_PREFIX);
+    }
+
+    private boolean isPlatformTenant() {
         String tenantCode = TenantPermissionContext.getTenantCode();
-        Set<String> permCodes = TenantPermissionContext.getPermCodes();
-        return "super".equalsIgnoreCase(String.valueOf(tenantCode).trim())
-                && (permCodes.contains("super") || permCodes.contains("developer:super"));
+        return PLATFORM_TENANT_CODE.equalsIgnoreCase(String.valueOf(tenantCode).trim());
+    }
+
+    private String normalizePath(String path) {
+        return path == null ? "" : path.trim();
     }
 
     private void writeErrorResponse(HttpServletResponse response, String msg) throws Exception {

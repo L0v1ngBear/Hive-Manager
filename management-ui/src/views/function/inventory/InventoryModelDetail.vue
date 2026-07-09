@@ -13,7 +13,7 @@
           </div>
           <h1 class="function-page-title break-all">{{ modelCode || '--' }}</h1>
           <p class="function-page-desc">
-            按型号和规格查看每匹布的条码、米数、状态和组织自定义字段，避免在汇总抽屉中堆叠过长明细。
+            按型号和规格查看每匹布的条码、米数、状态和自定义信息，避免在汇总抽屉中堆叠过长明细。
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
@@ -327,7 +327,7 @@ const defaultInventoryDetailTableColumns = computed(() => {
     { key: 'updateTime', label: '更新时间' }
   ]
   if (customInventoryFields.value.length) {
-    columns.push({ key: 'customFields', label: '自定义字段' })
+    columns.push({ key: 'customFields', label: '自定义信息' })
   }
   return columns
 })

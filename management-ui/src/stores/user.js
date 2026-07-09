@@ -5,8 +5,15 @@ import { hasAnyPermission as matchAnyPermission, hasPermission as matchPermissio
 const authStorage = window.sessionStorage
 const persistentStorage = window.localStorage
 const AUTH_KEYS = ['token', 'userInfo', 'permissions', 'features', 'responseKey', 'expireAt', 'mustChangePassword']
+const ORDER_FEATURE_CODE = 'module.order'
 
-const readStorageItem = (key, fallback = '') => authStorage.getItem(key) || persistentStorage.getItem(key) || fallback
+const clearPersistentAuthStorage = () => {
+  AUTH_KEYS.forEach((key) => persistentStorage.removeItem(key))
+}
+
+clearPersistentAuthStorage()
+
+const readStorageItem = (key, fallback = '') => authStorage.getItem(key) || fallback
 
 const readJsonStorageItem = (key, fallback) => {
   try {
@@ -21,20 +28,6 @@ const removeLoginStorage = () => {
     authStorage.removeItem(key)
     persistentStorage.removeItem(key)
   })
-}
-
-const resolveWriteStorage = (remember) => remember ? persistentStorage : authStorage
-
-const resolveActiveStorage = () => {
-  if (authStorage.getItem('token')) {
-    return authStorage
-  }
-  return persistentStorage.getItem('token') ? persistentStorage : authStorage
-}
-
-const clearOtherStorage = (targetStorage) => {
-  const otherStorage = targetStorage === authStorage ? persistentStorage : authStorage
-  AUTH_KEYS.forEach((key) => otherStorage.removeItem(key))
 }
 
 export const useUserStore = defineStore('user', () => {
@@ -55,12 +48,12 @@ export const useUserStore = defineStore('user', () => {
   })
   const currentTenantLogoUrl = computed(() => String(userInfo.value?.tenantLogoUrl || '').trim())
   const isDeveloper = computed(() => Boolean(userInfo.value?.developer))
+  const isPlatformTenant = computed(() => currentTenantCode.value.toLowerCase() === 'super')
   const responseKey = ref(readStorageItem('responseKey'))
   const expireAt = ref(readStorageItem('expireAt'))
   const mustChangePassword = ref(readStorageItem('mustChangePassword') === '1')
 
-  const setLoginInfo = (loginData, options = {}) => {
-    const targetStorage = resolveWriteStorage(Boolean(options.remember))
+  const setLoginInfo = (loginData) => {
     token.value = loginData?.token || ''
     userInfo.value = loginData
       ? {
@@ -78,14 +71,14 @@ export const useUserStore = defineStore('user', () => {
     expireAt.value = loginData?.expireAt ? String(loginData.expireAt) : ''
     mustChangePassword.value = Boolean(loginData?.mustChangePassword)
 
-    clearOtherStorage(targetStorage)
-    targetStorage.setItem('token', token.value)
-    targetStorage.setItem('userInfo', JSON.stringify(userInfo.value))
-    targetStorage.setItem('permissions', JSON.stringify(permissions.value))
-    targetStorage.setItem('features', JSON.stringify(features.value))
-    targetStorage.setItem('responseKey', responseKey.value)
-    targetStorage.setItem('expireAt', expireAt.value)
-    targetStorage.setItem('mustChangePassword', mustChangePassword.value ? '1' : '0')
+    clearPersistentAuthStorage()
+    authStorage.setItem('token', token.value)
+    authStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+    authStorage.setItem('permissions', JSON.stringify(permissions.value))
+    authStorage.setItem('features', JSON.stringify(features.value))
+    authStorage.setItem('responseKey', responseKey.value)
+    authStorage.setItem('expireAt', expireAt.value)
+    authStorage.setItem('mustChangePassword', mustChangePassword.value ? '1' : '0')
   }
 
   const renewSession = ({ token: renewedToken, responseKey: renewedResponseKey, expireAt: renewedExpireAt } = {}) => {
@@ -96,11 +89,10 @@ export const useUserStore = defineStore('user', () => {
     responseKey.value = renewedResponseKey
     expireAt.value = renewedExpireAt ? String(renewedExpireAt) : expireAt.value
 
-    const targetStorage = resolveActiveStorage()
-    clearOtherStorage(targetStorage)
-    targetStorage.setItem('token', token.value)
-    targetStorage.setItem('responseKey', responseKey.value)
-    targetStorage.setItem('expireAt', expireAt.value)
+    clearPersistentAuthStorage()
+    authStorage.setItem('token', token.value)
+    authStorage.setItem('responseKey', responseKey.value)
+    authStorage.setItem('expireAt', expireAt.value)
   }
 
   const logout = () => {
@@ -116,9 +108,8 @@ export const useUserStore = defineStore('user', () => {
 
   const markPasswordChanged = () => {
     mustChangePassword.value = false
-    const targetStorage = resolveActiveStorage()
-    clearOtherStorage(targetStorage)
-    targetStorage.setItem('mustChangePassword', '0')
+    clearPersistentAuthStorage()
+    authStorage.setItem('mustChangePassword', '0')
   }
 
   const updateTenantBrand = ({ tenantName, tenantLogoUrl } = {}) => {
@@ -130,22 +121,28 @@ export const useUserStore = defineStore('user', () => {
       tenantName: tenantName ?? userInfo.value.tenantName,
       tenantLogoUrl: tenantLogoUrl ?? userInfo.value.tenantLogoUrl
     }
-    const targetStorage = resolveActiveStorage()
-    clearOtherStorage(targetStorage)
-    targetStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+    clearPersistentAuthStorage()
+    authStorage.setItem('userInfo', JSON.stringify(userInfo.value))
   }
 
   const hasPermission = (permCode) => matchPermission(permissions.value, permCode)
   const hasAnyPermission = (permCodes) => matchAnyPermission(permissions.value, permCodes)
   const hasFeature = (featureCode) => {
-    if (!featureCode) {
+    const normalizedFeatureCode = String(featureCode || '').trim()
+    if (!normalizedFeatureCode) {
+      return true
+    }
+    if (Array.isArray(features.value) && features.value.includes(normalizedFeatureCode)) {
+      return true
+    }
+    if (normalizedFeatureCode === ORDER_FEATURE_CODE && matchPermission(permissions.value, 'order:list')) {
       return true
     }
     // Old sessions do not have feature data yet. Keep base modules usable, but never expose custom modules without an explicit grant.
-    if ((!features.value || features.value.length === 0) && String(featureCode).startsWith('module.')) {
+    if ((!features.value || features.value.length === 0) && normalizedFeatureCode.startsWith('module.')) {
       return true
     }
-    return features.value.includes(featureCode)
+    return false
   }
   const hasAnyFeature = (featureCodes) => {
     if (!Array.isArray(featureCodes) || featureCodes.length === 0) {
@@ -164,6 +161,7 @@ export const useUserStore = defineStore('user', () => {
     currentTenantLabel,
     currentTenantLogoUrl,
     isDeveloper,
+    isPlatformTenant,
     responseKey,
     expireAt,
     mustChangePassword,

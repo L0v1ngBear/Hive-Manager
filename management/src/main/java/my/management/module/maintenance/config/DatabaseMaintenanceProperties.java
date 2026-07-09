@@ -17,10 +17,6 @@ public class DatabaseMaintenanceProperties {
 
     private int operationLogRetentionDays = 90;
 
-    private int behaviorEventRetentionDays = 90;
-
-    private int aiSampleRetentionDays = 365;
-
     private int notificationRetentionDays = 180;
 
     private int printTaskRetentionDays = 180;

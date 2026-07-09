@@ -84,6 +84,8 @@ public class AuthService {
     private static final long ORGANIZATION_JOIN_SMS_EXPIRE_MINUTES = 5L;
     private static final long ORGANIZATION_JOIN_SMS_INTERVAL_SECONDS = 60L;
     private static final String JOIN_CODE_KEY_PART = "organization-join-code";
+    private static final String PLATFORM_TENANT_CODE = "super";
+    private static final String PLATFORM_LOGIN_NAME = "super";
     private static final String DEFAULT_JOIN_ROLE_CODE = "EMPLOYEE";
     private static final String DEFAULT_JOIN_ROLE_NAME = "普通员工";
     private static final String DEFAULT_JOIN_DEPARTMENT = "待分配部门";
@@ -302,7 +304,7 @@ public class AuthService {
         ensureLoginNotLocked(accountFailKey, maxFailCount, "登录失败次数过多，请稍后再试");
         ensureLoginNotLocked(ipFailKey, maxIpFailCount, "当前访问过于频繁，请稍后再试");
 
-        LoginUserRow loginUser = resolveUniqueLoginUser(authMapper.selectLoginUsers(username, usernamePhoneHash, allowedTenantCodes()));
+        LoginUserRow loginUser = resolveUniqueLoginUser(authMapper.selectLoginUsers(username, usernamePhoneHash, loginTenantCodes(username)));
         validatePasswordLogin(loginUser, request.getPassword(), accountFailKey, ipFailKey);
         stringRedisTemplate.delete(accountFailKey);
         stringRedisTemplate.delete(ipFailKey);
@@ -486,6 +488,16 @@ public class AuthService {
         return boundedTenantProperties.allowedTenantCodes();
     }
 
+    private List<String> loginTenantCodes(String username) {
+        List<String> tenantCodes = allowedTenantCodes();
+        if (!PLATFORM_LOGIN_NAME.equalsIgnoreCase(String.valueOf(username).trim())) {
+            return tenantCodes;
+        }
+        LinkedHashSet<String> codes = new LinkedHashSet<>(tenantCodes);
+        codes.add(PLATFORM_TENANT_CODE);
+        return List.copyOf(codes);
+    }
+
     private LoginUserRow resolveUniqueLoginUser(List<LoginUserRow> users) {
         if (users == null || users.isEmpty()) {
             return null;
@@ -659,7 +671,6 @@ public class AuthService {
 
     private Department getOrCreateJoinDepartment(String tenantCode) {
         Department department = departmentMapper.selectOne(new LambdaQueryWrapper<Department>()
-                .eq(Department::getTenantCode, tenantCode)
                 .eq(Department::getDeptName, DEFAULT_JOIN_DEPARTMENT)
                 .eq(Department::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .last("LIMIT 1"));
@@ -681,7 +692,6 @@ public class AuthService {
 
     private Position getOrCreateJoinPosition(String tenantCode, Long departmentId) {
         Position position = positionMapper.selectOne(new LambdaQueryWrapper<Position>()
-                .eq(Position::getTenantCode, tenantCode)
                 .eq(Position::getPositionName, DEFAULT_JOIN_POSITION)
                 .eq(Position::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .last("LIMIT 1"));
@@ -721,7 +731,8 @@ public class AuthService {
 
     private LoginVO buildLoginVO(LoginUserRow loginUser, String rawPassword) {
         if (rawPassword != null && !encryptUtil.isBcryptHash(loginUser.getPassword())) {
-            authMapper.updatePasswordByUserId(loginUser.getUserId(), encryptUtil.encode(rawPassword));
+            authMapper.updatePasswordHashByUserIdAndTenantCode(
+                    loginUser.getUserId(), loginUser.getTenantCode(), encryptUtil.encode(rawPassword));
         }
 
         List<String> permissionList = authMapper.selectPermCodesByUserIdAndTenantCode(loginUser.getUserId(), loginUser.getTenantCode());
@@ -735,18 +746,18 @@ public class AuthService {
         loginVO.setTenantCode(loginUser.getTenantCode());
         loginVO.setTenantName(loginUser.getTenantName());
         loginVO.setTenantLogoUrl(loginUser.getTenantLogoUrl());
-        loginVO.setDeveloper(isDeveloperAccount(loginUser.getTenantCode(), permCodes));
+        loginVO.setDeveloper(isPlatformTenant(loginUser.getTenantCode()));
         loginVO.setMustChangePassword(Objects.equals(loginUser.getMustChangePassword(), 1));
         loginVO.setResponseKey(responseEncryptUtil.buildResponseKey(token));
         loginVO.setPermissions(List.copyOf(permCodes));
-        loginVO.setFeatures(tenantLicenseService.enabledFeatureKeys(loginUser.getTenantCode()));
+        loginVO.setFeatures(isPlatformTenant(loginUser.getTenantCode())
+                ? List.of()
+                : tenantLicenseService.enabledFeatureKeys(loginUser.getTenantCode()));
         return loginVO;
     }
 
-    private boolean isDeveloperAccount(String tenantCode, Set<String> permCodes) {
-        return "super".equalsIgnoreCase(String.valueOf(tenantCode).trim())
-                && permCodes != null
-                && (permCodes.contains("super") || permCodes.contains("developer:super"));
+    private boolean isPlatformTenant(String tenantCode) {
+        return PLATFORM_TENANT_CODE.equalsIgnoreCase(String.valueOf(tenantCode).trim());
     }
 
     private WebScanLoginRedisPayload getWebScanPayload(String sceneKey) {

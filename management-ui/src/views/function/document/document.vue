@@ -64,6 +64,14 @@
       </div>
 
       <div class="flex-1 overflow-y-auto p-4 sm:p-6">
+        <DragAttachmentUpload
+          class="mb-4"
+          title="点击或拖拽文件上传到当前目录"
+          helper-text="支持图片、PDF、Word、Excel、PPT、文本或压缩包"
+          :uploading="documentUploading"
+          :downloadable="false"
+          @select="handleDocumentUpload"
+        />
         <div class="bg-surface-container-lowest rounded-xl border border-outline-variant/20 shadow-sm overflow-hidden min-h-full relative">
           <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
             <span class="material-symbols-outlined text-3xl text-primary animate-spin">progress_activity</span>
@@ -120,7 +128,8 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createFolder, getBreadcrumbs, getDocumentList } from './api/document.js'
+import { createFolder, getBreadcrumbs, getDocumentList, uploadDocumentFile } from './api/document.js'
+import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 
@@ -136,6 +145,7 @@ const {
   resetColumns: resetDocumentTableColumns
 } = useLocalTableColumns('document.list', defaultDocumentTableColumns)
 const loading = ref(false)
+const documentUploading = ref(false)
 const currentParentId = ref(0)
 const documentList = ref([])
 const breadcrumbs = ref([])
@@ -226,6 +236,26 @@ const promptCreateFolder = async () => {
     await fetchDocuments(currentParentId.value)
   } catch {
     // ignore cancel
+  }
+}
+
+const handleDocumentUpload = async (file) => {
+  if (!file) return
+  const maxBytes = 20 * 1024 * 1024
+  if (file.size > maxBytes) {
+    ElMessage.warning('文档文件不能超过 20MB')
+    return
+  }
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('parentId', String(currentParentId.value || 0))
+  documentUploading.value = true
+  try {
+    await uploadDocumentFile(formData)
+    ElMessage.success('文件上传成功')
+    await fetchDocuments(currentParentId.value)
+  } finally {
+    documentUploading.value = false
   }
 }
 

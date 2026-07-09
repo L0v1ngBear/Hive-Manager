@@ -9,7 +9,7 @@
           </div>
           <h1 class="function-page-title">出库单打印与模板</h1>
           <p class="function-page-desc">
-            选择待打印出库单并套用模板，支持浏览器连续纸打印和模板字段自定义排版。
+            选择待打印出库单并套用模板，支持浏览器连续纸打印和模板内容自定义排版。
           </p>
         </div>
 
@@ -24,6 +24,40 @@
           </button>
         </nav>
       </header>
+
+      <section v-if="activeMode === 'print'" class="receipt-print-profile-panel">
+        <div class="profile-intro">
+          <strong>浏览器打印适配</strong>
+          <span>用于适配 241-1 连续纸、A4、热敏纸和不同打印驱动的边距偏移。</span>
+        </div>
+        <label>
+          <span>纸宽(mm)</span>
+          <input v-model.number="receiptPrintProfile.paperWidthMm" type="number" min="20" max="500" step="0.1" @change="persistReceiptPrintProfile" />
+        </label>
+        <label>
+          <span>纸高(mm)</span>
+          <input v-model.number="receiptPrintProfile.paperHeightMm" type="number" min="10" max="500" step="0.1" @change="persistReceiptPrintProfile" />
+        </label>
+        <label>
+          <span>边距(mm)</span>
+          <input v-model.number="receiptPrintProfile.pageMarginMm" type="number" min="0" max="30" step="0.1" @change="persistReceiptPrintProfile" />
+        </label>
+        <label>
+          <span>左右偏移(mm)</span>
+          <input v-model.number="receiptPrintProfile.offsetXmm" type="number" min="-50" max="50" step="0.1" @change="persistReceiptPrintProfile" />
+        </label>
+        <label>
+          <span>上下偏移(mm)</span>
+          <input v-model.number="receiptPrintProfile.offsetYmm" type="number" min="-50" max="50" step="0.1" @change="persistReceiptPrintProfile" />
+        </label>
+        <label>
+          <span>缩放</span>
+          <input v-model.number="receiptPrintProfile.scale" type="number" min="0.5" max="1.5" step="0.01" @change="persistReceiptPrintProfile" />
+        </label>
+        <button class="btn btn-template" @click="syncReceiptProfileWithTemplate">使用模板尺寸</button>
+        <button class="btn btn-template" @click="printReceiptCalibrationPage">校准页</button>
+        <button class="btn btn-cancel" @click="resetReceiptPrintProfile">恢复默认</button>
+      </section>
 
   <div v-if="activeMode === 'print'" class="receipt-workspace">
     <section class="queue-panel">
@@ -375,7 +409,7 @@
             <div class="column-editor">
               <div class="column-editor-head">
                 <strong>列名与排版</strong>
-                <span>字段固定，支持改列名、显隐和调整顺序</span>
+                <span>明细项固定，支持改列名、显隐和调整顺序</span>
               </div>
               <div class="column-editor-list">
                 <div v-for="(column, index) in templateConfig.columns" :key="column.key" class="column-editor-row">
@@ -496,6 +530,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import BusinessTimeCorrectionPanel from '@/components/BusinessTimeCorrectionPanel.vue'
 import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
 import {
+  PRINT_PROFILE_KEYS,
+  buildPrintTransformCss,
+  loadPrintProfile,
+  normalizePrintProfile,
+  openCalibrationPrint,
+  resetPrintProfile,
+  savePrintProfile
+} from '@/utils/printProfile'
+import {
   cancelPrint,
   getPendingPrintOrders,
   getPrintDetail,
@@ -522,6 +565,15 @@ const receiptVariables = ref([])
 const selectedTemplateId = ref(null)
 const templateDraftName = ref('系统默认出库单')
 const templateConfig = ref(defaultTemplateConfig())
+const receiptPrintProfile = ref(loadPrintProfile(PRINT_PROFILE_KEYS.RECEIPT, {
+  paperWidthMm: Number(templateConfig.value.paperWidthMm || 215.9),
+  paperHeightMm: Number(templateConfig.value.paperHeightMm || 139.7)
+}))
+const effectiveReceiptPrintProfile = computed(() => normalizePrintProfile({
+  ...receiptPrintProfile.value,
+  paperWidthMm: receiptPrintProfile.value.paperWidthMm || Number(templateConfig.value.paperWidthMm || 215.9),
+  paperHeightMm: receiptPrintProfile.value.paperHeightMm || Number(templateConfig.value.paperHeightMm || 139.7)
+}))
 const {
   timeCorrectionMode,
   closeTimeCorrectionMode
@@ -817,10 +869,37 @@ const paperStyle = computed(() => ({
   height: `${Number(templateConfig.value.paperHeightMm || 139.7)}mm`
 }))
 
+function persistReceiptPrintProfile() {
+  receiptPrintProfile.value = savePrintProfile(PRINT_PROFILE_KEYS.RECEIPT, effectiveReceiptPrintProfile.value)
+}
+
+function syncReceiptProfileWithTemplate() {
+  receiptPrintProfile.value = savePrintProfile(PRINT_PROFILE_KEYS.RECEIPT, {
+    ...effectiveReceiptPrintProfile.value,
+    paperWidthMm: Number(templateConfig.value.paperWidthMm || 215.9),
+    paperHeightMm: Number(templateConfig.value.paperHeightMm || 139.7)
+  })
+}
+
+function resetReceiptPrintProfile() {
+  receiptPrintProfile.value = resetPrintProfile(PRINT_PROFILE_KEYS.RECEIPT, {
+    paperWidthMm: Number(templateConfig.value.paperWidthMm || 215.9),
+    paperHeightMm: Number(templateConfig.value.paperHeightMm || 139.7)
+  })
+}
+
+function printReceiptCalibrationPage() {
+  persistReceiptPrintProfile()
+  if (!openCalibrationPrint(effectiveReceiptPrintProfile.value, '出库单打印校准页')) {
+    ElMessage.error('浏览器拦截了打印窗口，请允许弹窗后重试')
+  }
+}
+
 async function openBrowserPrint() {
   if (!selectedOrder.value) return
   isPrinting.value = true
   try {
+    persistReceiptPrintProfile()
     await savePrintRevision({ silent: true })
     await nextTick()
     const printable = document.getElementById('print-paper-area')
@@ -895,14 +974,15 @@ function buildPrintHtml(content) {
 }
 
 function printCss() {
-  const width = Number(templateConfig.value.paperWidthMm || 215.9)
-  const height = Number(templateConfig.value.paperHeightMm || 139.7)
+  const contentWidth = Number(templateConfig.value.paperWidthMm || 215.9)
+  const contentHeight = Number(templateConfig.value.paperHeightMm || 139.7)
+  const profile = effectiveReceiptPrintProfile.value
   return `
-    @page { size: ${width}mm ${height}mm; margin: 0; }
+    @page { size: ${profile.paperWidthMm}mm ${profile.paperHeightMm}mm; margin: ${profile.pageMarginMm}mm; }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; background: #fff; color: #000; font-family: SimSun, "宋体", NSimSun, serif; font-weight: 600; text-rendering: geometricPrecision; -webkit-font-smoothing: none; }
     .paper-stack { display: block; }
-    .receipt-page { width: ${width}mm; height: ${height}mm; padding: 6mm 8mm 5mm; page-break-after: always; break-after: page; overflow: hidden; position: relative; background: white; }
+    .receipt-page { width: ${contentWidth}mm; height: ${contentHeight}mm; padding: 6mm 8mm 5mm; page-break-after: always; break-after: page; overflow: hidden; position: relative; background: white; transform: ${buildPrintTransformCss(profile)}; transform-origin: top left; }
     .receipt-page:last-child { page-break-after: auto; break-after: auto; }
     .receipt-top { min-height: 20mm; display: flex; justify-content: center; align-items: flex-start; }
     .receipt-title-block { text-align: center; padding-top: 5mm; }
@@ -996,16 +1076,16 @@ function moveColumn(index, direction) {
 
 function getColumnFieldName(key) {
   const names = {
-    modelCode: '货物名称字段',
-    spec: '规格字段',
-    meters: '米数字段',
+    modelCode: '货物名称项',
+    spec: '规格项',
+    meters: '米数项',
     blank1: '空白数量列',
     blank2: '空白数量列',
     blank3: '空白数量列',
-    totalMeters: '总米数字段',
-    price: '单价字段',
-    amount: '金额字段',
-    remark: '行备注字段'
+    totalMeters: '总米数项',
+    price: '单价项',
+    amount: '金额项',
+    remark: '行备注项'
   }
   return names[key] || key
 }
@@ -1166,7 +1246,7 @@ function buildReceiptTemplateContent(config) {
     '录单日期：${createDate}',
     '制单人：${operator}',
     `列配置：${config.columns.filter((column) => column.visible !== false).map((column) => `${column.label}(${column.key})`).join(' / ')}`,
-    '明细字段：${modelCode} / ${spec} / ${meters} / ${price} / ${amount} / ${remark}',
+    '明细内容：${modelCode} / ${spec} / ${meters} / ${price} / ${amount} / ${remark}',
     '本页：${pageNo}/${totalPages}，合计米数：${pageMeters}，小计：${pageAmount}，总金额：${totalAmount}'
   ].join('\n')
 }
@@ -1207,6 +1287,55 @@ function buildReceiptTemplateContent(config) {
   border-color: #1f3f5f;
   color: #fff;
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
+}
+
+.receipt-print-profile-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(6, minmax(110px, 1fr)) auto auto auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(31, 63, 95, 0.14);
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
+}
+
+.receipt-print-profile-panel .profile-intro {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  color: #0b1f33;
+}
+
+.receipt-print-profile-panel .profile-intro strong {
+  font-size: .95rem;
+  font-weight: 1000;
+}
+
+.receipt-print-profile-panel .profile-intro span,
+.receipt-print-profile-panel label span {
+  color: #64748b;
+  font-size: .75rem;
+  font-weight: 800;
+}
+
+.receipt-print-profile-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+
+.receipt-print-profile-panel input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: .75rem;
+  padding: 0 .65rem;
+  color: #0f172a;
+  font-weight: 800;
+  background: #fff;
 }
 
 .receipt-workspace {
@@ -2160,6 +2289,14 @@ function buildReceiptTemplateContent(config) {
 }
 
 @media (max-width: 1280px) {
+  .receipt-print-profile-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .receipt-print-profile-panel .profile-intro {
+    grid-column: 1 / -1;
+  }
+
   .receipt-preview-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2212,6 +2349,10 @@ function buildReceiptTemplateContent(config) {
 }
 
 @media (max-width: 720px) {
+  .receipt-print-profile-panel {
+    grid-template-columns: 1fr;
+  }
+
   .receipt-workspace,
   .template-workspace {
     padding-left: 0;

@@ -1,28 +1,18 @@
 package my.management.module.dashboard.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.redis.HiveRedisKeyBuilder;
-import my.management.module.ai.model.vo.AiAdviceDailyBriefVO;
-import my.management.module.ai.model.vo.AiBusinessSnapshotVO;
-import my.management.module.ai.model.vo.DashboardAiAdviceVO;
-import my.management.module.ai.service.AiAdvicePermissionService;
-import my.management.module.ai.service.AiAdviceSnapshotService;
-import my.management.module.ai.service.AiAnalysisService;
 import my.management.module.attendance.model.enums.AttendancePunchStatusEnum;
 import my.management.module.dashboard.mapper.DashboardMapper;
 import my.management.module.dashboard.model.vo.DashboardAttendanceAlertRowVO;
-import my.management.module.dashboard.model.vo.DashboardInventoryTrendRowVO;
 import my.management.module.dashboard.model.vo.DashboardOverviewVO;
 import my.management.module.dashboard.model.vo.DashboardPendingPrintRowVO;
-import my.management.module.inventory.model.enums.InventoryOperateTypeEnum;
 import my.management.module.inventory.model.vo.InventoryWarningVO;
 import my.management.module.inventory.service.InventoryWarningCacheService;
-import my.management.module.tenant.model.enums.TenantFeatureEnum;
-import my.management.module.tenant.service.TenantLicenseService;
+import my.management.module.order.service.OrderWarningCacheService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -35,10 +25,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 
 /**
  * 总览大盘服务，负责聚合首页需要的摘要数据，并优先从 Redis 读取缓存结果。
@@ -47,25 +36,13 @@ import java.util.stream.Collectors;
 @Slf4j
 public class DashboardService {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("MM-dd");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("MM-dd HH:mm");
     private static final DateTimeFormatter DAY_PREFIX_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final Duration OVERVIEW_CACHE_TTL = Duration.ofSeconds(90);
-    private static final Duration AI_ADVICE_CACHE_TTL = Duration.ofSeconds(60);
     private static final long SLOW_OVERVIEW_MILLIS = 500L;
-    private static final long SLOW_AI_ADVICE_MILLIS = 1000L;
 
     @Resource
     private DashboardMapper dashboardMapper;
-
-    @Resource
-    private AiAnalysisService aiAnalysisService;
-
-    @Resource
-    private AiAdvicePermissionService aiAdvicePermissionService;
-
-    @Resource
-    private AiAdviceSnapshotService aiAdviceSnapshotService;
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -77,10 +54,10 @@ public class DashboardService {
     private HiveRedisKeyBuilder redisKeyBuilder;
 
     @Resource
-    private TenantLicenseService tenantLicenseService;
+    private InventoryWarningCacheService inventoryWarningCacheService;
 
     @Resource
-    private InventoryWarningCacheService inventoryWarningCacheService;
+    private OrderWarningCacheService orderWarningCacheService;
 
     public DashboardOverviewVO overview() {
         long startNanos = System.nanoTime();
@@ -98,7 +75,6 @@ public class DashboardService {
             DashboardOverviewVO.Visibility visibility = buildVisibility();
             vo.setVisibility(visibility);
             vo.setSummary(buildSummary(tenantCode, userId, visibility));
-            buildTrend(tenantCode, visibility, vo);
             vo.setBusinessAlerts(buildBusinessAlerts(tenantCode, visibility));
             vo.setAttendanceSummary(buildAttendanceSummary(tenantCode, visibility));
             vo.setAttendanceAlerts(buildAttendanceAlerts(tenantCode, visibility));
@@ -111,57 +87,13 @@ public class DashboardService {
         }
     }
 
-    public List<DashboardAiAdviceVO> aiAdvices(boolean refresh) {
-        return aiAdvices(refresh, null);
-    }
-
-    public List<DashboardAiAdviceVO> aiAdvices(boolean refresh, Integer limit) {
-        long startNanos = System.nanoTime();
-        aiAdvicePermissionService.requireAnyView();
-        String tenantCode = TenantPermissionContext.getTenantCode();
-        tenantLicenseService.requireFeatureEnabled(tenantCode, TenantFeatureEnum.CODE_AI_ADVICE, "当前套餐暂未开放经营建议，请联系管理员开通");
-        Long userId = TenantPermissionContext.getUserId();
-        String cacheKey = buildScopedCacheKey("ai-advice", tenantCode, userId);
-
-        try {
-            if (refresh) {
-                stringRedisTemplate.delete(cacheKey);
-            } else {
-                List<DashboardAiAdviceVO> cached = getCachedAiAdvices(cacheKey);
-                if (cached != null) {
-                    return limitAdvices(cached, limit);
-                }
-            }
-
-            List<DashboardAiAdviceVO> advices = aiAdvicePermissionService.filterVisible(
-                    aiAdviceSnapshotService.readSnapshotAdvices(tenantCode)
-            );
-            cacheAiAdvices(cacheKey, advices);
-            return limitAdvices(advices, limit);
-        } finally {
-            logSlowOperation("dashboard ai advice", startNanos, SLOW_AI_ADVICE_MILLIS);
-        }
-    }
-
-    public AiAdviceDailyBriefVO aiBrief(boolean refresh) {
-        return aiAnalysisService.buildDailyBrief(aiAdvices(refresh));
-    }
-
-    public AiBusinessSnapshotVO aiSnapshot() {
-        String tenantCode = TenantPermissionContext.getTenantCode();
-        tenantLicenseService.requireFeatureEnabled(tenantCode, TenantFeatureEnum.CODE_AI_ADVICE, "当前套餐暂未开放经营快照，请联系管理员开通");
-        return aiAnalysisService.buildBusinessSnapshot(tenantCode);
-    }
-
     private DashboardOverviewVO.Visibility buildVisibility() {
         DashboardOverviewVO.Visibility visibility = new DashboardOverviewVO.Visibility();
-        visibility.setOrderVisible(hasAnyPermission("sales:order:list", "sales:order:*", "production:order:list", "production:order:*"));
+        visibility.setOrderVisible(hasOrderPermission());
         visibility.setInventoryVisible(hasAnyPermission("inventory", "inventory:*", "inventory:warning:list", "inventory:trend"));
         visibility.setApprovalVisible(hasAnyPermission("approval:*", "approval:leave:audit", "approval:finance:audit", "approval:leave", "approval:finance"));
         visibility.setReceiptVisible(hasAnyPermission("receipt:print:list", "receipt:print:detail", "receipt:print:mark", "receipt:print:cancel"));
-        visibility.setTrendVisible(Boolean.TRUE.equals(visibility.getInventoryVisible()));
         visibility.setAttendanceVisible(hasAnyPermission("employee:list", "attendance:*", "attendance:record:list"));
-        visibility.setAiAdviceVisible(false);
         return visibility;
     }
 
@@ -173,6 +105,7 @@ public class DashboardService {
             long salesCount = nvl(dashboardMapper.countMonthSalesOrders(tenantCode, startOfMonth));
             long productionCount = nvl(dashboardMapper.countMonthProductionOrders(tenantCode, startOfMonth));
             summary.setMonthOrderCount(salesCount + productionCount);
+            summary.setOrderWarningCount(nvl(orderWarningCacheService.summary(tenantCode).getTotalCount()));
         }
 
         if (Boolean.TRUE.equals(visibility.getInventoryVisible())) {
@@ -191,39 +124,6 @@ public class DashboardService {
         }
 
         return summary;
-    }
-
-    private void buildTrend(String tenantCode, DashboardOverviewVO.Visibility visibility, DashboardOverviewVO vo) {
-        if (!Boolean.TRUE.equals(visibility.getTrendVisible())) {
-            return;
-        }
-
-        LocalDate today = LocalDate.now();
-        LocalDate startDate = today.minusDays(6);
-        List<DashboardInventoryTrendRowVO> rows = dashboardMapper.selectInventoryRecordTrend(
-                tenantCode,
-                startDate.atStartOfDay(),
-                today.plusDays(1).atStartOfDay().minusSeconds(1),
-                InventoryOperateTypeEnum.IN.getCode(),
-                InventoryOperateTypeEnum.EXTERNAL_IMPORT.getCode(),
-                InventoryOperateTypeEnum.OUT.getCode()
-        );
-        Map<LocalDate, DashboardInventoryTrendRowVO> trendMap = rows.stream()
-                .collect(Collectors.toMap(item -> item.getStatDate().toLocalDate(), item -> item, (a, b) -> a));
-
-        List<String> dates = new ArrayList<>();
-        List<BigDecimal> inMeters = new ArrayList<>();
-        List<BigDecimal> outMeters = new ArrayList<>();
-        for (int i = 0; i < 7; i++) {
-            LocalDate date = startDate.plusDays(i);
-            DashboardInventoryTrendRowVO row = trendMap.get(date);
-            dates.add(date.format(DATE_FORMATTER));
-            inMeters.add(scale(row == null ? BigDecimal.ZERO : row.getDayInMeters()));
-            outMeters.add(scale(row == null ? BigDecimal.ZERO : row.getDayOutMeters()));
-        }
-        vo.setTrendDates(dates);
-        vo.setTrendInMeters(inMeters);
-        vo.setTrendOutMeters(outMeters);
     }
 
     private List<DashboardOverviewVO.AlertItem> buildBusinessAlerts(String tenantCode, DashboardOverviewVO.Visibility visibility) {
@@ -329,7 +229,7 @@ public class DashboardService {
     private List<DashboardOverviewVO.QuickAction> buildQuickActions(DashboardOverviewVO.Visibility visibility) {
         List<DashboardOverviewVO.QuickAction> actions = new ArrayList<>();
         if (hasAnyPermission("notification:announcement:publish", "dashboard:*")) {
-            actions.add(buildAction("发布通知", "发布企业通知公告", "/function/announcement", "campaign"));
+            actions.add(buildAction("发布通知", "发布企业通知公告", "/function/announcement/publish", "campaign"));
         }
         if (Boolean.TRUE.equals(visibility.getApprovalVisible())) {
             actions.add(buildAction("审批中心", "处理请假与财务审批", "/function/approval", "fact_check"));
@@ -349,20 +249,6 @@ public class DashboardService {
         return actions;
     }
 
-    private List<DashboardAiAdviceVO> limitAdvices(List<DashboardAiAdviceVO> advices, Integer limit) {
-        if (advices == null || advices.isEmpty()) {
-            return List.of();
-        }
-        if (limit == null) {
-            return advices;
-        }
-        int safeLimit = Math.max(0, Math.min(limit, 50));
-        if (safeLimit == 0) {
-            return List.of();
-        }
-        return advices.stream().limit(safeLimit).toList();
-    }
-
     private DashboardOverviewVO.QuickAction buildAction(String title, String description, String route, String icon) {
         DashboardOverviewVO.QuickAction action = new DashboardOverviewVO.QuickAction();
         action.setTitle(title);
@@ -378,8 +264,20 @@ public class DashboardService {
                 return true;
             }
         }
-        Set<String> currentPermCodes = TenantPermissionContext.getPermCodes();
-        return currentPermCodes.contains("*") || currentPermCodes.contains("*:*");
+        return false;
+    }
+
+    private boolean hasOrderPermission() {
+        if (hasAnyPermission("order:list", "order:detail", "order:*", "order:status:*")) {
+            return true;
+        }
+        Set<String> permCodes = TenantPermissionContext.getPermCodes();
+        if (permCodes == null || permCodes.isEmpty()) {
+            return false;
+        }
+        return permCodes.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(permCode -> permCode.startsWith("order:status:"));
     }
 
     private String buildScopedCacheKey(String cacheName, String tenantCode, Long userId) {
@@ -436,29 +334,9 @@ public class DashboardService {
         }
     }
 
-    private List<DashboardAiAdviceVO> getCachedAiAdvices(String cacheKey) {
-        try {
-            String cached = stringRedisTemplate.opsForValue().get(cacheKey);
-            if (cached == null || cached.isBlank()) {
-                return null;
-            }
-            return objectMapper.readValue(cached, new TypeReference<List<DashboardAiAdviceVO>>() {
-            });
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
     private void cacheOverview(String cacheKey, DashboardOverviewVO value) {
         try {
             stringRedisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(value), OVERVIEW_CACHE_TTL);
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void cacheAiAdvices(String cacheKey, List<DashboardAiAdviceVO> value) {
-        try {
-            stringRedisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(value), AI_ADVICE_CACHE_TTL);
         } catch (Exception ignored) {
         }
     }

@@ -3,20 +3,29 @@
       class="ys-sidebar bg-surface-container-low flex-col relative z-20 transition-all duration-300 ease-in-out border-r border-outline-variant/20"
       :class="[props.mobile ? 'flex h-full w-72' : 'hidden md:flex', props.mobile ? '' : isCollapsed ? 'w-[88px]' : 'w-64']"
   >
-    <div class="h-20 flex items-center shrink-0 overflow-hidden" :class="isCollapsed ? 'justify-center px-0' : 'px-8'">
-      <div class="flex items-center overflow-hidden" :class="isCollapsed ? 'justify-center' : 'gap-3'">
-        <img src="../../../images/logo.png" alt="蜂巢 logo" class="w-12 h-12 rounded-xl object-contain drop-shadow-sm">
-        <h1 v-if="!isCollapsed" class="font-black text-xl tracking-tight text-slate-900 whitespace-nowrap">蜂巢 Hive</h1>
+    <div class="h-20 flex items-center shrink-0 overflow-hidden" :class="isCollapsed ? 'justify-center px-0' : 'px-6'">
+      <div class="sidebar-brand" :class="isCollapsed ? 'sidebar-brand--collapsed' : ''">
+        <span class="sidebar-brand-logo" :class="{ 'sidebar-brand-logo--tenant': tenantLogoUrl }">
+          <img :src="brandLogoUrl" :alt="brandLogoAlt">
+        </span>
+        <div v-if="!isCollapsed" class="min-w-0">
+          <h1 class="sidebar-brand-title">{{ brandTitle }}</h1>
+          <p class="sidebar-brand-subtitle">{{ brandSubtitle }}</p>
+        </div>
       </div>
     </div>
 
     <div
-      v-if="!isCollapsed"
-      class="mx-4 mb-2 rounded-2xl border border-primary/10 bg-white/70 px-4 py-3 shadow-sm shadow-primary/5"
-      :title="userStore.currentTenantName"
+      v-if="!isCollapsed && !userStore.isPlatformTenant"
+      class="sidebar-tenant-card"
+      :title="tenantName"
     >
-      <p class="text-[10px] font-black uppercase tracking-[0.24em] text-primary/55">欢迎你</p>
-      <p class="mt-1 truncate text-sm font-black text-slate-900">{{ userStore.currentTenantName }}</p>
+      <img v-if="tenantLogoUrl" :src="tenantLogoUrl" :alt="`${tenantName} logo`" class="sidebar-tenant-card__logo">
+      <span v-else class="material-symbols-outlined sidebar-tenant-card__icon">domain</span>
+      <div class="min-w-0">
+        <p class="sidebar-tenant-card__eyebrow">欢迎你</p>
+        <p class="sidebar-tenant-card__name">{{ tenantName }}</p>
+      </div>
     </div>
 
     <nav class="flex-1 py-4 overflow-y-auto scrollbar-hide" :class="isCollapsed ? 'px-2' : 'px-4'">
@@ -25,9 +34,17 @@
             v-for="item in primaryMenus"
             :key="item.path"
             :to="item.path"
-            class="relative flex rounded-xl transition-all duration-200 overflow-hidden"
-            :class="linkClass(item.path)"
+            custom
+            v-slot="{ navigate }"
         >
+          <button
+              type="button"
+              class="relative flex w-full rounded-xl transition-all duration-200 overflow-hidden text-left"
+              :class="linkClass(item)"
+              :disabled="item.disabled"
+              :title="item.disabled ? item.disabledReason : item.name"
+              @click="handleMenuNavigate(item, navigate)"
+          >
           <span class="material-symbols-outlined shrink-0 transition-all"
                 :class="isCollapsed ? 'text-[24px]' : 'text-[20px]'">{{ item.icon }}</span>
           <span class="whitespace-nowrap transition-all duration-200"
@@ -39,6 +56,7 @@
               class="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] leading-none text-white shadow-sm shadow-rose-500/25"
               :class="isCollapsed ? 'absolute right-1.5 top-1.5' : 'ml-auto'"
           >{{ approvalPendingCount > 99 ? '99+' : approvalPendingCount }}</span>
+          </button>
         </router-link>
       </div>
 
@@ -63,15 +81,24 @@
               v-for="item in secondaryMenus"
               :key="item.path"
               :to="item.path"
-              class="flex rounded-xl transition-all duration-200 overflow-hidden"
-              :class="linkClass(item.path)"
+              custom
+              v-slot="{ navigate }"
           >
+            <button
+                type="button"
+                class="flex w-full rounded-xl transition-all duration-200 overflow-hidden text-left"
+                :class="linkClass(item)"
+                :disabled="item.disabled"
+                :title="item.disabled ? item.disabledReason : item.name"
+                @click="handleMenuNavigate(item, navigate)"
+            >
             <span class="material-symbols-outlined shrink-0 transition-all"
                   :class="isCollapsed ? 'text-[24px]' : 'text-[20px]'">{{ item.icon }}</span>
             <span class="whitespace-nowrap transition-all duration-200"
                   :class="isCollapsed ? 'text-[10px] font-bold tracking-tighter' : 'text-sm font-medium'">{{
                 item.name
               }}</span>
+            </button>
           </router-link>
         </div>
       </div>
@@ -96,6 +123,8 @@ import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 import {useUserStore} from '@/stores/user'
 import {getApprovalSummary} from '@/views/function/approval/api/approval'
+import {decorateAccessItems} from '@/utils/access'
+import defaultLogo from '../../../images/logo.png'
 
 defineOptions({name: 'Sidebar'})
 
@@ -110,18 +139,12 @@ const route = useRoute()
 const userStore = useUserStore()
 const isCollapsed = ref(!props.mobile)
 const approvalPendingCount = ref(0)
-const AI_ADVICE_PERMISSIONS = [
-  'dashboard:ai:view',
-  'dashboard:ai:*',
-  'dashboard:*',
-  'dashboard:ai:inventory',
-  'dashboard:ai:order',
-  'dashboard:ai:customer',
-  'dashboard:ai:quality',
-  'dashboard:ai:finance',
-  'dashboard:ai:employee',
-  'dashboard:ai:operation'
-]
+const tenantName = computed(() => userStore.currentTenantName)
+const tenantLogoUrl = computed(() => userStore.currentTenantLogoUrl)
+const brandLogoUrl = computed(() => tenantLogoUrl.value || defaultLogo)
+const brandLogoAlt = computed(() => tenantLogoUrl.value ? `${tenantName.value} logo` : '轻巢 Hive logo')
+const brandTitle = computed(() => tenantLogoUrl.value && !userStore.isPlatformTenant ? tenantName.value : '轻巢 Hive')
+const brandSubtitle = computed(() => tenantLogoUrl.value && !userStore.isPlatformTenant ? '企业工作台' : '业务协同系统')
 const ANNOUNCEMENT_PERMISSIONS = [
   'notification:announcement:list',
   'notification:announcement:publish',
@@ -133,9 +156,9 @@ const toggleSidebar = () => {
 
 const menuFeatureMap = {
   '/dashboard': 'module.dashboard',
-  '/dashboard/ai-advices': 'aiAdvice',
   '/function/announcement': 'module.dashboard',
   '/function/order': 'module.order',
+  '/function/installation-task': 'module.order',
   '/function/inventory': 'module.inventory',
   '/function/bad-product': 'module.badProduct',
   '/function/customer': 'module.customer',
@@ -153,14 +176,25 @@ const menuFeatureMap = {
   '/manual': 'module.manual'
 }
 
+const platformTenantMenu = {name: '企业授权', path: '/function/tenant', icon: 'domain', developerOnly: true}
+
 const primaryMenus = computed(() => {
-  return filterMenus([
+  if (userStore.isPlatformTenant) {
+    return [platformTenantMenu]
+  }
+  return resolveMenus([
   {name: '总览大盘', path: '/dashboard', icon: 'dashboard'},
   {
-    name: '订单管理',
+    name: '订单列表',
     path: '/function/order',
     icon: 'list_alt',
-    permissions: ['sales:order:list', 'production:order:list']
+    permissions: ['order:list']
+  },
+  {
+    name: '安装任务',
+    path: '/function/installation-task',
+    icon: 'engineering',
+    permissions: ['order:list']
   },
   {name: '库存管理', path: '/function/inventory', icon: 'storage', permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:in', 'inventory:cloth:out']},
   {name: '质量管理', path: '/function/bad-product', icon: 'warning', permissions: ['badproduct:list', 'badproduct:save', 'badproduct:process']},
@@ -171,38 +205,41 @@ const primaryMenus = computed(() => {
     name: '审批中心',
     path: '/function/approval',
     icon: 'approval',
-    permissions: ['approval:leave', 'approval:finance', 'approval:resignation', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'sales:order:list', 'production:order:list']
+    permissions: ['approval:leave', 'approval:finance', 'approval:resignation', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'order:list', 'badproduct:process']
   },
 ])
 })
 
 const secondaryMenus = computed(() => {
-  return filterMenus([
-  {name: '企业通知公告', path: '/function/announcement', icon: 'campaign', permissions: ANNOUNCEMENT_PERMISSIONS},
-  {name: '经营建议', path: '/dashboard/ai-advices', icon: 'psychology', permissions: AI_ADVICE_PERMISSIONS},
+  if (userStore.isPlatformTenant) {
+    return []
+  }
+  return resolveMenus([
+  {name: '公告查看', path: '/function/announcement', icon: 'campaign', permissions: ANNOUNCEMENT_PERMISSIONS},
   {name: '考勤管理', path: '/function/attendance', icon: 'timer', permissions: ['attendance:record:list', 'attendance:*']},
   {name: '设备巡检', path: '/function/equipment', icon: 'qr_code_scanner', permissions: ['equipment:list', 'equipment:detail', 'equipment:inspection:list']},
   {name: '员工管理', path: '/function/employee', icon: 'people', permissions: ['employee:list']},
   {name: '部门管理', path: '/function/organization', icon: 'account_tree', permissions: ['employee:list']},
   {name: '角色管理', path: '/function/role', icon: 'settings_accessibility', permissions: ['role:list']},
-  {name: '租户管理', path: '/function/tenant', icon: 'domain', developerOnly: true},
+  {name: '企业授权', path: '/function/tenant', icon: 'domain', developerOnly: true},
   {name: '标签模板', path: '/function/label', icon: 'sell', permissions: ['label:template:list']},
   {name: '文档管理', path: '/function/document', icon: 'folder_open', permissions: ['document:list']},
   {name: '使用手册', path: '/manual', icon: 'menu_book'},
 ])
 })
 
-function filterMenus(menus) {
-  return menus.filter((item) => {
-    if (item.developerOnly && !userStore.isDeveloper) {
-      return false
-    }
-    const requiredFeatures = item.features || (menuFeatureMap[item.path] ? [menuFeatureMap[item.path]] : [])
-    if (requiredFeatures.length && !userStore.hasAnyFeature(requiredFeatures)) {
-      return false
-    }
-    return !item.permissions || userStore.hasAnyPermission(item.permissions)
-  })
+function resolveMenus(menus) {
+  if (userStore.isPlatformTenant) {
+    return decorateAccessItems(userStore, menus, menuFeatureMap).filter((item) => item.path === '/function/tenant')
+  }
+  return decorateAccessItems(userStore, menus, menuFeatureMap)
+}
+
+function handleMenuNavigate(item, navigate) {
+  if (item.disabled) {
+    return
+  }
+  navigate()
 }
 
 const showMore = ref(false)
@@ -236,8 +273,12 @@ const toggleMore = () => {
 }
 
 const refreshApprovalPendingCount = async () => {
+  if (userStore.isPlatformTenant) {
+    approvalPendingCount.value = 0
+    return
+  }
   if (!userStore.hasAnyFeature(['module.approval']) ||
-      !userStore.hasAnyPermission(['approval:leave', 'approval:finance', 'approval:resignation', 'sales:order:list', 'production:order:list'])) {
+      !userStore.hasAnyPermission(['approval:leave', 'approval:finance', 'approval:resignation', 'order:list'])) {
     approvalPendingCount.value = 0
     return
   }
@@ -255,8 +296,14 @@ watch(
     {immediate: true, deep: true}
 )
 
-const linkClass = (path) => {
-  const active = route.path.startsWith(path)
+const linkClass = (item) => {
+  const active = route.path.startsWith(item.path)
+  if (item.disabled) {
+    return [
+      'cursor-not-allowed bg-surface-container-highest/40 text-on-surface-variant/35 grayscale opacity-60',
+      isCollapsed.value ? 'flex-col items-center justify-center py-3 gap-1' : 'flex-row items-center gap-3 px-4 py-3',
+    ]
+  }
   return [
     active
         ? 'bg-primary text-white shadow-sm'
@@ -281,5 +328,121 @@ const linkClass = (path) => {
       linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(255, 255, 255, 0.94)),
       radial-gradient(circle at 20% -4%, rgba(31, 63, 95, 0.14), transparent 38%);
   box-shadow: 18px 0 42px rgba(15, 23, 42, 0.07);
+}
+
+.sidebar-brand {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.sidebar-brand--collapsed {
+  width: auto;
+  justify-content: center;
+}
+
+.sidebar-brand-logo {
+  display: inline-flex;
+  width: 3.25rem;
+  height: 3.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 1.1rem;
+  background: #ffffff;
+  box-shadow: 0 14px 28px rgba(15, 31, 51, 0.14), inset 0 0 0 1px rgba(31, 63, 95, 0.08);
+}
+
+.sidebar-brand-logo--tenant {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1.25rem;
+  box-shadow: 0 18px 34px rgba(31, 63, 95, 0.18), inset 0 0 0 1px rgba(37, 99, 235, 0.14);
+}
+
+.sidebar-brand-logo img {
+  width: 86%;
+  height: 86%;
+  object-fit: contain;
+}
+
+.sidebar-brand-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.05rem;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.sidebar-brand-subtitle {
+  margin-top: 0.15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  color: rgba(31, 63, 95, 0.62);
+}
+
+.sidebar-tenant-card {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 1rem 0.6rem;
+  border: 1px solid rgba(31, 63, 95, 0.12);
+  border-radius: 1.25rem;
+  background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(232, 238, 246, 0.82)),
+      radial-gradient(circle at 10% 10%, rgba(37, 99, 235, 0.12), transparent 42%);
+  padding: 0.75rem;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+}
+
+.sidebar-tenant-card__logo,
+.sidebar-tenant-card__icon {
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 auto;
+  border-radius: 0.9rem;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(31, 63, 95, 0.08);
+}
+
+.sidebar-tenant-card__logo {
+  object-fit: contain;
+  padding: 0.22rem;
+}
+
+.sidebar-tenant-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1f3f5f;
+  font-size: 1.25rem;
+}
+
+.sidebar-tenant-card__eyebrow {
+  font-size: 0.62rem;
+  font-weight: 950;
+  letter-spacing: 0.22em;
+  color: rgba(31, 63, 95, 0.58);
+}
+
+.sidebar-tenant-card__name {
+  margin-top: 0.1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  font-weight: 950;
+  color: #0f172a;
 }
 </style>

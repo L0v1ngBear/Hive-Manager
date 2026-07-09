@@ -8,7 +8,7 @@
             价格策略中心
           </div>
           <h1 class="function-page-title">价格管理</h1>
-          <p class="function-page-desc">维护面料 SKU 基准价、客户等级价和指定客户特价，价格会被后端出库金额计算复用。</p>
+          <p class="function-page-desc">维护面料 SKU 基准价、客户等级价和指定客户特价，价格会用于出库金额计算。</p>
         </div>
         <div class="flex items-center gap-3">
           <button @click="downloadTemplate" class="function-action-secondary">

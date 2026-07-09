@@ -42,7 +42,6 @@
           <span>授权状态：{{ subscriptionLabel(tenant.subscriptionStatus) }}</span>
           <span>员工容量：{{ tenant.maxUsers ?? '--' }}</span>
           <span>存储容量：{{ tenant.maxStorageMb ?? '--' }} MB</span>
-          <span>经营建议额度：{{ tenant.maxAiAdvicePerMonth ?? '--' }}</span>
           <span>到期时间：{{ formatDateTime(tenant.subscriptionEndTime) }}</span>
         </div>
 
@@ -60,7 +59,7 @@
             :class="Number(tenant.status) === 1 ? 'ghost-btn--danger' : 'ghost-btn--success'"
             @click="toggleStatus(tenant)"
           >
-            {{ Number(tenant.status) === 1 ? '停用租户' : '启用租户' }}
+            {{ Number(tenant.status) === 1 ? '停用企业' : '启用企业' }}
           </button>
         </div>
       </article>
@@ -91,7 +90,15 @@
 
             <div class="tenant-logo-uploader">
               <span>公司Logo</span>
-              <div class="tenant-logo-uploader__box">
+              <div
+                class="tenant-logo-uploader__box"
+                :class="{ 'tenant-logo-uploader__box--dragging': logoDragging }"
+                @click="triggerLogoUpload"
+                @dragenter.prevent="logoDragging = true"
+                @dragover.prevent="logoDragging = true"
+                @dragleave.prevent="logoDragging = false"
+                @drop.prevent="handleLogoDrop"
+              >
                 <img v-if="profileForm.logoUrl" :src="profileForm.logoUrl" alt="公司logo预览">
                 <span v-else class="material-symbols-outlined">image</span>
               </div>
@@ -105,14 +112,14 @@
               <button class="ghost-btn" :disabled="logoUploading" @click="triggerLogoUpload">
                 {{ logoUploading ? '上传中...' : '上传Logo' }}
               </button>
-              <small>支持 PNG、JPG、WEBP，建议 400×400，最大 2MB。</small>
+              <small>支持点击或拖拽上传 PNG、JPG、WEBP，建议 400×400，最大 2MB。</small>
             </div>
 
             <label>
               <span>租户类型</span>
               <select v-model.number="profileForm.tenantType">
                 <option :value="1">企业客户</option>
-                <option :value="2">内部测试</option>
+                <option :value="2">内部试用</option>
               </select>
             </label>
 
@@ -189,11 +196,6 @@
             <label>
               <span>员工容量</span>
               <input v-model.number="licenseForm.maxUsers" type="number" min="0">
-            </label>
-
-            <label>
-              <span>经营建议额度</span>
-              <input v-model.number="licenseForm.maxAiAdvicePerMonth" type="number" min="0">
             </label>
 
             <label>
@@ -295,6 +297,7 @@ const saving = ref(false)
 const profileSaving = ref(false)
 const ownerSaving = ref(false)
 const logoUploading = ref(false)
+const logoDragging = ref(false)
 const profileTenant = ref(null)
 const editingTenant = ref(null)
 const ownerTenant = ref(null)
@@ -312,7 +315,6 @@ const licenseForm = reactive({
   subscriptionStartTime: '',
   subscriptionEndTime: '',
   maxUsers: 0,
-  maxAiAdvicePerMonth: 0,
   maxStorageMb: 0,
   featureFlags: ''
 })
@@ -359,7 +361,6 @@ function openLicenseEditor(tenant) {
   licenseForm.subscriptionStartTime = toDateTimeLocal(tenant.subscriptionStartTime)
   licenseForm.subscriptionEndTime = toDateTimeLocal(tenant.subscriptionEndTime)
   licenseForm.maxUsers = tenant.maxUsers ?? 0
-  licenseForm.maxAiAdvicePerMonth = tenant.maxAiAdvicePerMonth ?? 0
   licenseForm.maxStorageMb = tenant.maxStorageMb ?? 0
   licenseForm.featureFlags = formatFeatureFlags(tenant.featureFlags)
 }
@@ -408,7 +409,6 @@ async function saveLicense() {
       subscriptionStartTime: fromDateTimeLocal(licenseForm.subscriptionStartTime),
       subscriptionEndTime: fromDateTimeLocal(licenseForm.subscriptionEndTime),
       maxUsers: numericOrZero(licenseForm.maxUsers),
-      maxAiAdvicePerMonth: numericOrZero(licenseForm.maxAiAdvicePerMonth),
       maxStorageMb: numericOrZero(licenseForm.maxStorageMb),
       featureFlags: licenseForm.featureFlags
     })
@@ -452,6 +452,15 @@ function triggerLogoUpload() {
 async function handleLogoFileChange(event) {
   const file = event.target?.files?.[0]
   event.target.value = ''
+  await uploadLogoFile(file)
+}
+
+async function handleLogoDrop(event) {
+  logoDragging.value = false
+  await uploadLogoFile(event.dataTransfer?.files?.[0])
+}
+
+async function uploadLogoFile(file) {
   if (!file || !profileTenant.value) {
     return
   }
@@ -862,6 +871,15 @@ function numericOrZero(value) {
   border: 1px dashed rgba(15, 47, 111, 0.22);
   border-radius: 22px;
   background: #f8fafc;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.tenant-logo-uploader__box:hover,
+.tenant-logo-uploader__box--dragging {
+  border-color: rgba(31, 111, 255, 0.72);
+  box-shadow: 0 16px 34px rgba(31, 111, 255, 0.14);
+  transform: translateY(-1px);
 }
 
 .tenant-logo-uploader__box img {

@@ -21,9 +21,7 @@ public enum TenantFeatureEnum {
     ROLE("module.role", "角色管理", "基础模块", "角色权限和人员授权", true, true),
     LABEL("module.label", "标签打印", "基础模块", "标签模板和小程序打印联动", true, true),
     DOCUMENT("module.document", "文档管理", "基础模块", "企业目录、文件和 OSS 存储", true, true),
-    MANUAL("module.manual", "使用手册", "基础模块", "网页端用户使用说明", true, true),
-    AI_ADVICE("aiAdvice", "经营建议", "智能能力", "经营、员工、客户和风险建议", false, true),
-    ADVANCED_AI("advancedAi", "高级分析", "智能能力", "高维建议、闭环复盘和高级分析", false, false);
+    MANUAL("module.manual", "使用手册", "基础模块", "网页端用户使用说明", true, true);
 
     public static final String CODE_DASHBOARD = "module.dashboard";
     public static final String CODE_ORDER = "module.order";
@@ -40,8 +38,6 @@ public enum TenantFeatureEnum {
     public static final String CODE_LABEL = "module.label";
     public static final String CODE_DOCUMENT = "module.document";
     public static final String CODE_MANUAL = "module.manual";
-    public static final String CODE_AI_ADVICE = "aiAdvice";
-    public static final String CODE_ADVANCED_AI = "advancedAi";
 
     private final String code;
     private final String name;

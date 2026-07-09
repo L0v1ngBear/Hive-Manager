@@ -41,43 +41,8 @@ security:
 platform:
   developer-logins: platform_admin
 
-ai:
-  llm:
-    # 兼容旧配置：等价于 deepseek 配置；新部署建议使用 ai.llm.deepseek。
-    enabled: ${AI_LLM_ENABLED:false}
-    endpoint: ${AI_LLM_ENDPOINT:}
-    api-key: ${AI_LLM_API_KEY:}
-    model: ${AI_LLM_MODEL:}
-    max-advices: ${AI_LLM_MAX_ADVICES:3}
-    timeout-seconds: ${AI_LLM_TIMEOUT_SECONDS:30}
-    temperature: ${AI_LLM_TEMPERATURE:0.2}
-    deepseek:
-      enabled: ${AI_DEEPSEEK_ENABLED:${AI_LLM_ENABLED:false}}
-      endpoint: ${AI_DEEPSEEK_ENDPOINT:https://api.deepseek.com/chat/completions}
-      api-key: ${AI_DEEPSEEK_API_KEY:${AI_LLM_API_KEY:}}
-      model: ${AI_DEEPSEEK_MODEL:deepseek-v4-pro}
-      max-advices: ${AI_DEEPSEEK_MAX_ADVICES:4}
-      timeout-seconds: ${AI_DEEPSEEK_TIMEOUT_SECONDS:45}
-      temperature: ${AI_DEEPSEEK_TEMPERATURE:0.2}
-    self-trained:
-      enabled: ${AI_SELF_TRAINED_ENABLED:false}
-      endpoint: ${AI_SELF_TRAINED_ENDPOINT:}
-      api-key: ${AI_SELF_TRAINED_API_KEY:}
-      model: ${AI_SELF_TRAINED_MODEL:hive-transformer-advice}
-      max-advices: ${AI_SELF_TRAINED_MAX_ADVICES:4}
-      timeout-seconds: ${AI_SELF_TRAINED_TIMEOUT_SECONDS:45}
-      temperature: ${AI_SELF_TRAINED_TEMPERATURE:0.15}
-
 external-api:
   guard:
-    deepseek:
-      max-calls-per-window: ${EXTERNAL_API_DEEPSEEK_MAX_CALLS_PER_WINDOW:120}
-      window-seconds: ${EXTERNAL_API_DEEPSEEK_WINDOW_SECONDS:60}
-      cache-seconds: ${EXTERNAL_API_DEEPSEEK_CACHE_SECONDS:300}
-    self-trained:
-      max-calls-per-window: ${EXTERNAL_API_SELF_TRAINED_MAX_CALLS_PER_WINDOW:60}
-      window-seconds: ${EXTERNAL_API_SELF_TRAINED_WINDOW_SECONDS:60}
-      cache-seconds: ${EXTERNAL_API_SELF_TRAINED_CACHE_SECONDS:300}
     sms:
       max-calls-per-phone-window: ${EXTERNAL_API_SMS_MAX_CALLS_PER_PHONE_WINDOW:5}
       window-seconds: ${EXTERNAL_API_SMS_WINDOW_SECONDS:3600}
@@ -158,8 +123,6 @@ maintenance:
     runtime-audit-notification-backlog-warn-count: ${RUNTIME_AUDIT_NOTIFICATION_BACKLOG_WARN_COUNT:200}
     runtime-audit-notification-backlog-fail-count: ${RUNTIME_AUDIT_NOTIFICATION_BACKLOG_FAIL_COUNT:1000}
     operation-log-retention-days: ${OPERATION_LOG_RETENTION_DAYS:90}
-    behavior-event-retention-days: ${BEHAVIOR_EVENT_RETENTION_DAYS:90}
-    ai-sample-retention-days: ${AI_SAMPLE_RETENTION_DAYS:365}
     notification-retention-days: ${NOTIFICATION_RETENTION_DAYS:180}
     print-task-retention-days: ${PRINT_TASK_RETENTION_DAYS:180}
     order-status-log-retention-days: ${ORDER_STATUS_LOG_RETENTION_DAYS:730}
@@ -170,8 +133,8 @@ hive:
     # BOUNDED = keep tenant_code isolation, but only allow the configured fixed tenants.
     # OPEN is reserved for a future multi-tenant platform and should not be used now.
     mode: ${HIVE_TENANT_MODE:BOUNDED}
-    default-code: ${HIVE_DEFAULT_TENANT_CODE:${HIVE_SINGLE_TENANT_CODE:TENANT_001}}
-    allowed-codes: ${HIVE_ALLOWED_TENANT_CODES:TENANT_001,TENANT_002}
+    default-code: ${HIVE_DEFAULT_TENANT_CODE:${HIVE_SINGLE_TENANT_CODE:}}
+    allowed-codes: ${HIVE_ALLOWED_TENANT_CODES:}
     max-count: ${HIVE_TENANT_MAX_COUNT:2}
   single-tenant:
     enabled: ${HIVE_SINGLE_TENANT_ENABLED:false}

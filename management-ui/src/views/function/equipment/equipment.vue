@@ -9,7 +9,7 @@
           </div>
           <h1 class="function-page-title">设备巡检记录</h1>
           <p class="function-page-desc">
-            建立固定设备二维码，贴到设备后由小程序扫码巡检，巡检记录自动沉淀到设备档案。
+            建立固定设备二维码，贴到设备后由现场人员扫码巡检，巡检记录自动沉淀到设备档案。
           </p>
         </div>
         <div class="flex flex-wrap gap-3">
@@ -394,7 +394,7 @@ async function submitForm() {
 }
 
 async function handleDisable(device) {
-  await ElMessageBox.confirm(`确认停用设备「${device.equipmentName}」？停用后小程序无法继续扫码巡检。`, '停用设备', {
+  await ElMessageBox.confirm(`确认停用设备「${device.equipmentName}」？停用后现场人员无法继续扫码巡检。`, '停用设备', {
     confirmButtonText: '确认停用',
     cancelButtonText: '取消',
     type: 'warning'

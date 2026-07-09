@@ -431,6 +431,65 @@ body {
 /* ==========================================
    父级自适应布局兜底
    ========================================== */
+.responsive-page-frame {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  container-type: inline-size;
+  --responsive-content-max: 112rem;
+  --responsive-section-gap: clamp(0.75rem, 1.4vw, 1.5rem);
+  --responsive-card-gap: clamp(0.75rem, 1.2vw, 1.25rem);
+  --responsive-card-radius: clamp(1rem, 1.4vw, 1.5rem);
+  --responsive-control-height: 2.75rem;
+}
+
+.responsive-page-frame--fluid {
+  --responsive-content-max: 100%;
+}
+
+.responsive-page-frame--dense {
+  --responsive-section-gap: 0.85rem;
+  --responsive-card-gap: 0.75rem;
+}
+
+.responsive-page-frame > *,
+.responsive-page-frame :is(section, article, aside, header, main, div) {
+  min-width: 0;
+}
+
+.responsive-page-frame :is(img, video, canvas, svg) {
+  max-width: 100%;
+}
+
+.responsive-page-frame :is(input, select, textarea, button, .el-input, .el-select, .el-date-editor) {
+  max-width: 100%;
+}
+
+.responsive-page-frame .function-page-container {
+  max-width: var(--responsive-content-max);
+}
+
+.responsive-page-frame .function-page-container.space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: var(--responsive-section-gap);
+}
+
+.responsive-page-frame :is(.function-page-header, .order-page-header-new, .receipt-hero) {
+  min-width: 0;
+}
+
+.responsive-page-frame :is(.function-page-title, .function-page-desc) {
+  overflow-wrap: anywhere;
+}
+
+.responsive-page-frame :is(.stat-card, .category-stat-card, .inventory-side-card, .queue-panel, .preview-panel, .template-main-card) {
+  min-width: 0;
+  border-radius: var(--responsive-card-radius);
+}
+
+.responsive-page-frame :is(.box-input, .el-input__wrapper, .el-select__wrapper) {
+  min-height: var(--responsive-control-height);
+}
+
 .function-page-shell .overflow-x-auto {
   scrollbar-gutter: stable;
 }
@@ -501,6 +560,22 @@ body {
 }
 
 @media (max-width: 1280px) {
+  .responsive-page-frame :is(
+    .order-summary-grid-new,
+    .order-category-summary-grid-new,
+    .print-tabs,
+    .print-workbench,
+    .receipt-workspace,
+    .template-workspace
+  ) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .responsive-page-frame :is(.order-title-row, .template-page-head, .preview-head) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .function-page-shell .responsive-data-table th,
   .function-page-shell .responsive-data-table td {
     padding-left: 0.75rem !important;
@@ -509,6 +584,34 @@ body {
 }
 
 @media (max-width: 900px) {
+  .responsive-page-frame {
+    --responsive-control-height: 2.9rem;
+  }
+
+  .responsive-page-frame .function-page-container > .grid,
+  .responsive-page-frame .function-page-container > section.grid,
+  .responsive-page-frame .function-page-container > div.grid,
+  .responsive-page-frame .function-page-container :is(.order-filter-grid, .print-editor-grid, .template-grid, .receipt-preview-layout) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .responsive-page-frame :is(.function-page-header, .order-title-row, .template-page-head, .drawer-head) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .responsive-page-frame :is(.order-header-button-row, .receipt-actions, .template-actions, .drawer-head-actions) {
+    width: 100%;
+  }
+
+  .responsive-page-frame :is(.order-header-button-row, .receipt-actions, .template-actions, .drawer-head-actions) > * {
+    flex: 1 1 12rem;
+  }
+
+  .responsive-page-frame :is(.box-input, .function-action-primary, .function-action-secondary, .function-action-dark, .btn) {
+    min-height: var(--responsive-control-height);
+  }
+
   .function-page-shell .responsive-table-wrap {
     overflow: visible !important;
   }
@@ -589,6 +692,11 @@ body {
 }
 
 @media (max-width: 768px) {
+  .responsive-page-frame {
+    --responsive-section-gap: 0.75rem;
+    --responsive-card-gap: 0.75rem;
+  }
+
   .function-page-title {
     font-size: clamp(1.5rem, 8vw, 2rem);
   }

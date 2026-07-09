@@ -1,6 +1,7 @@
 package my.management.common.config;
 
 import jakarta.annotation.Resource;
+import my.hive.common.web.TenantUploadResourceResolver;
 import my.hive.common.utils.TokenUtil;
 import my.management.common.interceptor.AuthTokenInterceptor;
 import my.management.common.interceptor.PlatformScopeInterceptor;
@@ -39,6 +40,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
             "/swagger-ui/**",
             "/swagger-resources/**",
             "/webjars/**",
+            "/uploads/tenant-logo/**",
             "/favicon.ico",
             "/error"
     };
@@ -85,7 +87,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         String uploadLocation = Path.of(uploadRoot).toAbsolutePath().normalize().toUri().toString();
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations(uploadLocation);
+                .addResourceLocations(uploadLocation)
+                .resourceChain(true)
+                .addResolver(new TenantUploadResourceResolver());
     }
 
     private String[] resolveAllowedOrigins() {

@@ -1,8 +1,9 @@
 package my.management.module.approval.model.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+
+import java.util.List;
 
 @Data
 public class ApprovalDefaultAuditorSaveRequest {
@@ -10,6 +11,7 @@ public class ApprovalDefaultAuditorSaveRequest {
     @NotBlank(message = "approval type is required")
     private String approvalType;
 
-    @NotNull(message = "default auditor is required")
     private Long auditorId;
+
+    private List<Long> auditorIds;
 }

@@ -15,12 +15,6 @@ public class DashboardOverviewVO {
 
     private Visibility visibility = new Visibility();
 
-    private List<String> trendDates = new ArrayList<>();
-
-    private List<BigDecimal> trendInMeters = new ArrayList<>();
-
-    private List<BigDecimal> trendOutMeters = new ArrayList<>();
-
     private List<AlertItem> businessAlerts = new ArrayList<>();
 
     private List<AttendanceAlert> attendanceAlerts = new ArrayList<>();
@@ -36,6 +30,7 @@ public class DashboardOverviewVO {
         private Long pendingApprovalCount = 0L;
         private Long pendingPrintCount = 0L;
         private Long inventoryWarningCount = 0L;
+        private Long orderWarningCount = 0L;
     }
 
     @Data
@@ -46,7 +41,6 @@ public class DashboardOverviewVO {
         private Boolean receiptVisible = Boolean.FALSE;
         private Boolean trendVisible = Boolean.FALSE;
         private Boolean attendanceVisible = Boolean.FALSE;
-        private Boolean aiAdviceVisible = Boolean.FALSE;
     }
 
     @Data

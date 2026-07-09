@@ -35,14 +35,17 @@
               v-model="form.permissionIds"
               :data="allPermissions"
               node-key="id"
+              value-key="id"
               multiple
+              show-checkbox
               collapse-tags
               collapse-tags-tooltip
+              check-on-click-node
+              :render-after-expand="false"
               :props="{ value: 'id', label: 'permName', children: 'children' }"
               :placeholder="isLoadingPerms ? '正在加载权限列表...' : '点击选择系统权限'"
               class="atelier-tree-select w-full"
               filterable
-              check-strictly
               :loading="isLoadingPerms"
             >
               <template #default="scope">
@@ -119,15 +122,11 @@ async function submit() {
     ElMessage.warning(permissionLoadError.value)
     return
   }
-  if (!form.value.permissionIds.length) {
-    ElMessage.warning('请至少分配一个权限项')
-    return
-  }
   isSubmitting.value = true
   try {
     await createRole({
       roleName: form.value.roleName.trim(),
-      permissionIds: form.value.permissionIds
+      permissionIds: [...new Set(form.value.permissionIds || [])]
     })
     ElMessage.success(`角色【${form.value.roleName}】已成功创建`)
     emit('success')

@@ -16,6 +16,7 @@ import my.management.module.approval.model.dto.FinanceSubmitRequest;
 import my.management.module.approval.model.dto.LeaveAuditRequest;
 import my.management.module.approval.model.dto.OrderApprovalAuditRequest;
 import my.management.module.approval.model.dto.ApprovalDefaultAuditorSaveRequest;
+import my.management.module.approval.model.dto.QualityAuditRequest;
 import my.management.module.approval.model.dto.ResignationAuditRequest;
 import my.management.module.approval.model.dto.ResignationSubmitRequest;
 import my.management.module.approval.model.vo.ApprovalSummaryVO;
@@ -25,6 +26,7 @@ import my.management.module.approval.model.vo.FinanceApprovalVO;
 import my.management.module.approval.model.vo.LeaveApprovalListVO;
 import my.management.module.approval.model.vo.LeaveDetailVO;
 import my.management.module.approval.model.vo.OrderApprovalVO;
+import my.management.module.approval.model.vo.QualityApprovalVO;
 import my.management.module.approval.model.vo.ResignationApprovalVO;
 import my.management.module.approval.service.ApprovalDefaultAuditorService;
 import my.management.module.approval.service.ApprovalService;
@@ -183,21 +185,41 @@ public class ApprovalController {
         return Result.success(null);
     }
 
+    @GetMapping("/quality/list")
+    @RequirePermission(value = PermissionCodeEnum.CODE_BADPRODUCT_PROCESS, message = "您没有权限查看质量审核列表")
+    public Result<List<QualityApprovalVO>> listQualityApprovals(@RequestParam(required = false) Integer limit) {
+        return Result.success(approvalService.listQualityApprovals(limit));
+    }
+
+    @GetMapping("/quality/{defectiveId}")
+    @RequirePermission(value = PermissionCodeEnum.CODE_BADPRODUCT_PROCESS, message = "您没有权限查看质量审核详情")
+    public Result<QualityApprovalVO> getQualityApprovalDetail(@NotBlank @PathVariable String defectiveId) {
+        return Result.success(approvalService.getQualityApprovalDetail(defectiveId));
+    }
+
+    @PostMapping("/quality/audit")
+    @RequirePermission(value = PermissionCodeEnum.CODE_BADPRODUCT_PROCESS, message = "您没有权限处理质量审核")
+    @CollectLog(module = "approval", action = "audit_quality", bizType = "quality_approval", bizNo = "#request.defectiveId", description = "管理端审核质量处理")
+    public Result<Void> auditQuality(@Valid @RequestBody QualityAuditRequest request) {
+        approvalService.auditQuality(request);
+        return Result.success(null);
+    }
+
     @GetMapping("/order/list")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限查看订单审批列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限查看订单审批列表")
     public Result<List<OrderApprovalVO>> listOrderApprovals(@RequestParam(required = false) Integer limit) {
         return Result.success(approvalService.listOrderApprovals(limit));
     }
 
     @GetMapping("/order/{orderType}/{orderId}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_DETAIL, message = "您没有权限查看订单审批详情")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_DETAIL, message = "您没有权限查看订单审批详情")
     public Result<OrderApprovalVO> getOrderApprovalDetail(@NotBlank @PathVariable String orderType,
                                                           @NotBlank @PathVariable String orderId) {
         return Result.success(approvalService.getOrderApprovalDetail(orderType, orderId));
     }
 
     @PostMapping("/order/audit")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_STATUS, message = "您没有权限处理订单审批")
+    @RequirePermission(value = PermissionCodeEnum.CODE_APPROVAL_ORDER_AUDIT, message = "您没有权限处理订单审批")
     @CollectLog(module = "approval", action = "audit_order", bizType = "order_approval", bizNo = "#request.orderId", description = "管理端确认待审批订单")
     public Result<Void> auditOrder(@Valid @RequestBody OrderApprovalAuditRequest request) {
         approvalService.auditOrder(request);

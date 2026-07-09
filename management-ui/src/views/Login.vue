@@ -143,9 +143,9 @@
                     type="checkbox"
                     class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/20"
                 />
-                <span>记住登录状态</span>
+                <span>记住账号</span>
               </label>
-              <span class="text-xs font-medium text-slate-500">仅保存登录状态和账号，不保存密码</span>
+              <span class="text-xs font-medium text-slate-500">仅保存账号，不保存密码和登录密钥</span>
             </div>
 
             <div class="pt-4 space-y-4">
@@ -563,7 +563,7 @@ function startPolling() {
       }
       if (scanStatus.value === 'CONFIRMED' || scanStatus.value === 'USED') {
         clearPolling()
-        scanMessage.value = statusData.message || '网页端已完成登录'
+        scanMessage.value = statusData.message || '电脑端已完成登录'
         return
       }
       if (scanStatus.value === 'EXPIRED') {
@@ -618,7 +618,7 @@ function stopScanLoginFlow() {
   scanSession.qrCodeDataUrl = ''
   scanSession.expireAt = 0
   scanStatus.value = 'CONFIRMED'
-  scanMessage.value = '网页端已登录'
+  scanMessage.value = '电脑端已登录'
 }
 
 function finishLogin(loginData, options = {}) {

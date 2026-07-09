@@ -65,9 +65,33 @@ export function updateSalesOrder(orderId, data) {
   })
 }
 
+export function advanceSalesOrderNextStage(orderId, data) {
+  return request({
+    url: `/order/sales/next/${orderId}`,
+    method: 'post',
+    data
+  })
+}
+
+export function rollbackSalesOrder(orderId, data) {
+  return request({
+    url: `/order/sales/rollback/${orderId}`,
+    method: 'post',
+    data
+  })
+}
+
 export function createSalesOrderFlowPrintTask(data) {
   return request({
     url: '/order/sales/flow-print-task',
+    method: 'post',
+    data
+  })
+}
+
+export function correctSalesOrderLogTime(logId, data) {
+  return request({
+    url: `/order/sales/log/${logId}/time`,
     method: 'post',
     data
   })
@@ -162,9 +186,25 @@ export function updateProductionOrder(orderId, data) {
   })
 }
 
+export function rollbackProductionOrder(orderId, data) {
+  return request({
+    url: `/order/production/rollback/${orderId}`,
+    method: 'post',
+    data
+  })
+}
+
 export function createProductionOrderFlowPrintTask(data) {
   return request({
     url: '/order/production/flow-print-task',
+    method: 'post',
+    data
+  })
+}
+
+export function correctProductionOrderLogTime(logId, data) {
+  return request({
+    url: `/order/production/log/${logId}/time`,
     method: 'post',
     data
   })

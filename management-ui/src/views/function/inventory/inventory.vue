@@ -27,7 +27,7 @@
             class="inventory-secondary-btn"
           >
             <span class="material-symbols-outlined text-[20px]">description</span>
-            字段说明
+            导入说明
           </button>
           <button
             v-permission="'inventory:cloth:in'"
@@ -318,7 +318,6 @@
     </transition>
 
     <input ref="importInputRef" type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="handleImportChange" />
-    <input ref="imageRecognitionInputRef" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="handleImageRecognitionChange" />
 
     <aside class="inventory-drawer" :class="detailVisible ? 'translate-x-0' : 'translate-x-full'">
       <div class="h-1.5 w-full bg-blue-600"></div>
@@ -374,7 +373,7 @@
             <div class="min-w-0 flex-1">
               <h4 class="text-sm font-black text-slate-900">单匹布明细已拆分为独立页面</h4>
               <p class="mt-1 text-xs leading-5 text-slate-500">
-                当前型号共 {{ detailRecord.rollCount || 0 }} 匹布。为避免明细过长影响抽屉体验，请进入独立页面查看条码、米数、自定义字段和出库操作。
+                当前型号共 {{ detailRecord.rollCount || 0 }} 匹布。为避免明细过长影响抽屉体验，请进入独立页面查看条码、米数、自定义信息和出库操作。
               </p>
             </div>
           </div>
@@ -397,7 +396,7 @@
             <span class="material-symbols-outlined text-emerald-500">add_circle</span>
             新增入库
           </h3>
-          <p class="mt-1.5 text-xs text-slate-500">条码不填时系统会自动生成唯一标识号，打印标签请在小程序端完成。</p>
+          <p class="mt-1.5 text-xs text-slate-500">条码不填时系统会自动生成唯一标识号，标签打印请到现场打印页完成。</p>
         </div>
         <div class="inventory-drawer-actions">
           <button @click="closeInDrawer" class="inventory-close-btn">
@@ -457,8 +456,8 @@
 
         <div v-if="customInventoryFields.length" class="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
           <div>
-            <h4 class="text-sm font-black text-slate-800">组织自定义字段</h4>
-            <p class="mt-1 text-xs text-slate-500">这些字段只属于当前组织，用于适配客户原有库存台账。</p>
+            <h4 class="text-sm font-black text-slate-800">自定义信息项</h4>
+            <p class="mt-1 text-xs text-slate-500">这些信息项只属于当前组织，用于适配原有库存台账。</p>
           </div>
           <label v-for="field in customInventoryFields" :key="field.key" class="block">
             <span class="inventory-field-label">
@@ -489,13 +488,26 @@
             <span class="material-symbols-outlined text-blue-500">photo_camera</span>
             图片识别入库
           </h3>
-          <p class="mt-1.5 text-xs text-slate-500">先上传图片，系统带出候选字段；确认前请人工核对，避免错入库。</p>
+          <p class="mt-1.5 text-xs text-slate-500">先上传图片，系统带出候选信息；确认前请人工核对，避免错入库。</p>
         </div>
         <button @click="imageRecognitionVisible = false" class="inventory-close-btn">
           <span class="material-symbols-outlined">close</span>
         </button>
       </div>
       <div class="flex-1 space-y-5 overflow-y-auto p-6">
+        <DragAttachmentUpload
+          title="点击或拖拽上传码单、库存卡或布匹标签照片"
+          helper-text="支持 PNG、JPG、JPEG、WEBP，单张不超过 5MB；识别后需要人工核对"
+          accept="image/png,image/jpeg,image/webp"
+          icon="photo_camera"
+          :uploading="imageRecognitionUploading"
+          :file-name="imageRecognitionResult.fileName"
+          :file-url="imageRecognitionResult.fileUrl"
+          :file-size="imageRecognitionResult.fileSize"
+          :downloadable="false"
+          @select="handleImageRecognitionFile"
+          @remove="clearImageRecognitionResult"
+        />
         <div class="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
           <div class="flex items-start gap-3">
             <span class="material-symbols-outlined rounded-xl bg-white p-2 text-blue-600 shadow-sm">info</span>
@@ -557,7 +569,7 @@
           </div>
 
           <div v-if="customInventoryFields.length" class="space-y-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-            <h5 class="text-xs font-black text-slate-700">组织自定义字段</h5>
+            <h5 class="text-xs font-black text-slate-700">自定义信息项</h5>
             <label v-for="field in customInventoryFields" :key="field.key" class="block">
               <span class="inventory-field-label">
                 {{ field.label }}
@@ -659,6 +671,7 @@ import { customTenantFields, defaultTenantFieldConfig, mergeTenantFieldConfig } 
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import DateFilterInput from '@/components/DateFilterInput.vue'
 import BusinessTimeCorrectionPanel from '@/components/BusinessTimeCorrectionPanel.vue'
+import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
 import {
@@ -708,7 +721,7 @@ const imageRecognitionVisible = ref(false)
 const detailRecord = ref(null)
 const outPreview = ref(null)
 const importInputRef = ref(null)
-const imageRecognitionInputRef = ref(null)
+const imageRecognitionUploading = ref(false)
 const inForm = reactive({ barcode: '', modelCode: '', spec: '', meters: '', inTime: '', customFields: {} })
 const outForm = reactive({ barcode: '', meters: '' })
 const {
@@ -983,14 +996,14 @@ async function lookupBarcode() {
 }
 
 function triggerImageRecognition() {
-  imageRecognitionInputRef.value?.click()
+  imageRecognitionVisible.value = true
 }
 
-async function handleImageRecognitionChange(event) {
-  const [file] = event.target.files || []
+async function handleImageRecognitionFile(file) {
   if (!file) return
   try {
     validateRecognitionFile(file)
+    imageRecognitionUploading.value = true
     const result = await recognizeInventoryImage(file)
     Object.assign(imageRecognitionResult, {
       fileName: result?.fileName || file.name,
@@ -1009,8 +1022,13 @@ async function handleImageRecognitionChange(event) {
       ElMessage.error(error?.msg || error?.message || '图片识别失败')
     }
   } finally {
-    event.target.value = ''
+    imageRecognitionUploading.value = false
   }
+}
+
+function clearImageRecognitionResult() {
+  Object.assign(imageRecognitionResult, { fileName: '', fileUrl: '', fileSize: 0, confidence: 0, message: '' })
+  imageRecognitionCandidates.value = []
 }
 
 function validateRecognitionFile(file) {
@@ -1085,10 +1103,10 @@ function validateInboundPayload(payload, options = {}) {
   for (const field of customInventoryFields.value) {
     const value = String(payload.customFields?.[field.key] || '').trim()
     if (field.required && !value) {
-      return warn(`请填写自定义字段：${field.label}`, `custom.${field.key}`)
+      return warn(`请填写自定义信息：${field.label}`, `custom.${field.key}`)
     }
     if (field.fieldType === 'number' && value && !Number.isFinite(Number(value))) {
-      return warn(`自定义字段必须是数字：${field.label}`, `custom.${field.key}`)
+      return warn(`自定义信息必须是数字：${field.label}`, `custom.${field.key}`)
     }
     if (value) customFields[field.key] = value
   }
@@ -1185,7 +1203,7 @@ async function submitOut() {
 
 async function handleTemplateDownload() {
   const blob = await downloadInventoryImportTemplate()
-  await downloadBlob(blob, '外部库存导入字段说明.xlsx')
+  await downloadBlob(blob, '外部库存导入说明.xlsx')
 }
 
 function triggerImport() {
@@ -1230,7 +1248,7 @@ async function downloadBlob(blob, fileName) {
     const header = new Uint8Array(await blob.slice(0, 4).arrayBuffer())
     const isZipBasedExcel = header.length >= 2 && header[0] === 0x50 && header[1] === 0x4b
     if (!isZipBasedExcel) {
-      ElMessage.error('下载失败：服务端返回的不是有效 Excel 文件')
+      ElMessage.error('下载失败：文件内容不是有效 Excel')
       return
     }
   }

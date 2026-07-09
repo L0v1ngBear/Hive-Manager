@@ -76,9 +76,6 @@ public class DatabaseMaintenanceService {
         try {
             tableResults.add(cleanupTable("operation_log", "create_time",
                     properties.getOperationLogRetentionDays(), ""));
-            tableResults.add(cleanupTable("behavior_event", "create_time",
-                    properties.getBehaviorEventRetentionDays(), ""));
-            tableResults.add(cleanupAiSamples());
             tableResults.add(cleanupNotifications());
             tableResults.add(cleanupPrintTasks());
             tableResults.add(cleanupTable("sales_order_status_log", "create_time",
@@ -132,9 +129,6 @@ public class DatabaseMaintenanceService {
         List<Map<String, Object>> candidates = new ArrayList<>();
         candidates.add(countCandidate("operation_log", "create_time",
                 properties.getOperationLogRetentionDays(), ""));
-        candidates.add(countCandidate("behavior_event", "create_time",
-                properties.getBehaviorEventRetentionDays(), ""));
-        candidates.add(countAiSampleCandidate());
         candidates.add(countNotificationCandidate());
         candidates.add(countPrintTaskCandidate());
         candidates.add(countCandidate("sales_order_status_log", "create_time",
@@ -295,7 +289,6 @@ public class DatabaseMaintenanceService {
         totalBytes = totalBytes.add(addGrowthSource(sources, "notification_record", "create_time", 2048, cutoff));
         totalBytes = totalBytes.add(addGrowthSource(sources, "print_task", "create_time", 2048, cutoff));
         totalBytes = totalBytes.add(addGrowthSource(sources, "system_event", "create_time", 1536, cutoff));
-        totalBytes = totalBytes.add(addGrowthSource(sources, "behavior_event", "create_time", 1536, cutoff));
 
         BigDecimal monthlyGrowthMb = totalBytes
                 .multiply(safePositiveFactor(properties.getCapacityEstimateSafetyFactor(), 1.45))
@@ -416,14 +409,6 @@ public class DatabaseMaintenanceService {
         return BigDecimal.valueOf(bytes).divide(MB_BYTES, 2, RoundingMode.HALF_UP);
     }
 
-    private Map<String, Object> countAiSampleCandidate() {
-        if (!tableExists("ai_advice_training_sample") || !columnExists("ai_advice_training_sample", "label_status")) {
-            return skipped("ai_advice_training_sample", "table or label_status column missing");
-        }
-        return countCandidate("ai_advice_training_sample", "update_time",
-                properties.getAiSampleRetentionDays(), "`label_status` IN ('unlabeled','ignored')");
-    }
-
     private Map<String, Object> countNotificationCandidate() {
         if (!tableExists("notification_record")) {
             return skipped("notification_record", "table missing");
@@ -445,14 +430,6 @@ public class DatabaseMaintenanceService {
         }
         return countCandidate("print_task", "create_time",
                 properties.getPrintTaskRetentionDays(), "`status` IN ('SUCCESS','FAILED','CANCELLED','DONE')");
-    }
-
-    private Map<String, Object> cleanupAiSamples() {
-        if (!tableExists("ai_advice_training_sample") || !columnExists("ai_advice_training_sample", "label_status")) {
-            return skipped("ai_advice_training_sample", "table or label_status column missing");
-        }
-        return cleanupTable("ai_advice_training_sample", "update_time",
-                properties.getAiSampleRetentionDays(), "`label_status` IN ('unlabeled','ignored')");
     }
 
     private Map<String, Object> cleanupNotifications() {

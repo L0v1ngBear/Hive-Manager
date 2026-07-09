@@ -366,7 +366,6 @@ public class TenantManageService {
     private void upsertOwnerEmployeeExt(Long userId, String tenantCode) {
         EmployeeExt ext = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>()
                 .eq(EmployeeExt::getUserId, userId)
-                .eq(EmployeeExt::getTenantCode, tenantCode)
                 .last("LIMIT 1"));
         if (ext == null) {
             ext = new EmployeeExt();
@@ -614,7 +613,6 @@ public class TenantManageService {
         vo.setSubscriptionStartTime(tenant.getSubscriptionStartTime());
         vo.setSubscriptionEndTime(tenant.getSubscriptionEndTime());
         vo.setMaxUsers(tenant.getMaxUsers());
-        vo.setMaxAiAdvicePerMonth(tenant.getMaxAiAdvicePerMonth());
         vo.setMaxStorageMb(tenant.getMaxStorageMb());
         vo.setFeatureFlags(tenant.getFeatureFlags());
         vo.setEnabledFeatures(tenantLicenseService.enabledFeatureKeys(tenant.getTenantCode()));

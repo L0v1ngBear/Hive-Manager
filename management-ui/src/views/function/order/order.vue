@@ -33,7 +33,13 @@
             重新更新预警
           </button>
 
-          <button class="function-action-primary px-6 py-4" @click="openCreate">
+          <button
+              class="function-action-primary px-6 py-4"
+              :class="permissionDisabledClass(!canCreateCurrentOrder)"
+              :disabled="!canCreateCurrentOrder"
+              :title="canCreateCurrentOrder ? '新建订单' : '当前账号暂无创建订单权限'"
+              @click="openCreate"
+          >
             新建订单
           </button>
         </div>
@@ -77,7 +83,7 @@
             :key="status.value || 'all'"
             type="button"
             class="status-chip"
-            :class="[!filters.staleOnly && filters.status === status.value ? 'status-chip-active' : '', statusChipClass(status.value)]"
+            :class="[!filters.staleOnly && !filters.invoiceStatus && filters.status === status.value ? 'status-chip-active' : '', statusChipClass(status.value)]"
             @click="selectStatus(status.value)"
         >
           <span>{{ status.label }}</span>
@@ -112,8 +118,8 @@
         </select>
         <select v-model="filters.invoiceStatus" class="box-input xl:col-span-2">
           <option value="">全部开票</option>
-          <option value="1">已开票</option>
-          <option value="0">未开票</option>
+          <option value="1">已开票订单（{{ salesSummary.invoice_paid || 0 }}）</option>
+          <option value="0">未开票订单（{{ salesSummary.invoice_unpaid || 0 }}）</option>
         </select>
         <div class="order-filter-actions flex flex-wrap items-center gap-2 md:col-span-2 xl:col-span-12">
           <div class="order-query-actions">
@@ -318,10 +324,40 @@
                 <button class="icon-btn text-secondary" @click.stop="openDetail(row.orderId)">
                   <span class="material-symbols-outlined text-[18px]">visibility</span>
                 </button>
-                <button class="icon-btn text-primary" title="补打流转码" @click.stop="openFlowCode(row)">
+                <button
+                    class="icon-btn text-primary"
+                    :class="permissionDisabledClass(!canPrintOrderFlowCode(row))"
+                    :disabled="!canPrintOrderFlowCode(row)"
+                    :title="canPrintOrderFlowCode(row) ? '补打流转码' : '当前账号暂无补打流转码权限'"
+                    @click.stop="openFlowCode(row)"
+                >
                   <span class="material-symbols-outlined text-[18px]">qr_code_2</span>
                 </button>
-                <button class="icon-btn text-primary" @click.stop="openEdit(row.orderId)">
+                <button
+                    class="icon-btn text-success"
+                    :class="permissionDisabledClass(!canAdvanceSalesOrder(row))"
+                    :disabled="!canAdvanceSalesOrder(row)"
+                    :title="canAdvanceSalesOrder(row) ? advanceSalesOrderTitle(row) : '当前账号暂无推进该订单权限'"
+                    @click.stop="advanceSalesOrder(row)"
+                >
+                  <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+                </button>
+                <button
+                    class="icon-btn text-amber-600"
+                    :class="permissionDisabledClass(!canRollbackOrder(row))"
+                    :disabled="!canRollbackOrder(row)"
+                    :title="canRollbackOrder(row) ? rollbackOrderTitle(row) : '当前账号暂无回退该订单权限'"
+                    @click.stop="rollbackOrder(row)"
+                >
+                  <span class="material-symbols-outlined text-[18px]">undo</span>
+                </button>
+                <button
+                    class="icon-btn text-primary"
+                    :class="permissionDisabledClass(!canEditOrder(row))"
+                    :disabled="!canEditOrder(row)"
+                    :title="canEditOrder(row) ? '编辑订单' : '当前账号暂无编辑该订单权限'"
+                    @click.stop="openEdit(row.orderId, row)"
+                >
                   <span class="material-symbols-outlined text-[18px]">edit</span>
                 </button>
               </div>
@@ -442,7 +478,7 @@
                 <div v-for="item in salesDetail.items || []" :key="item.id" class="detail-item">
                   <div class="font-bold text-primary">{{ item.modelCode || '未填写型号' }}</div>
                   <div class="mt-1 text-sm text-on-surface-variant">
-                    克重：{{ formatNumber(item.weight) || '未填写' }} / 规格：{{ item.spec || '未填写' }} /
+                    类别：{{ item.weight || '未填写' }} / 规格：{{ item.spec || '未填写' }} /
                     数量：{{ formatNumber(item.quantity) || '未填写' }}
                   </div>
                 </div>
@@ -466,6 +502,21 @@
                         <span v-if="index === 0" class="status-log-current">最新</span>
                       </div>
                       <div class="status-log-time">{{ formatDateTime(log.createTime) }}</div>
+                      <div v-if="timeCorrectionMode" class="status-log-time-editor">
+                        <input
+                          :value="statusLogEditValue('sales', log)"
+                          type="datetime-local"
+                          step="1"
+                          @input="setStatusLogEditValue('sales', log, $event.target.value)"
+                        />
+                        <button
+                          type="button"
+                          :disabled="!log.id || statusLogSavingKey === statusLogKey('sales', log)"
+                          @click="saveStatusLogTime('sales', log)"
+                        >
+                          {{ statusLogSavingKey === statusLogKey('sales', log) ? '保存中' : '保存时间' }}
+                        </button>
+                      </div>
                       <div v-if="log.operatorName || log.operator" class="status-log-meta">
                         操作人：{{ log.operatorName || log.operator }}
                       </div>
@@ -551,6 +602,21 @@
                         <span v-if="index === 0" class="status-log-current">最新</span>
                       </div>
                       <div class="status-log-time">{{ formatDateTime(log.createTime) }}</div>
+                      <div v-if="timeCorrectionMode" class="status-log-time-editor">
+                        <input
+                          :value="statusLogEditValue('production', log)"
+                          type="datetime-local"
+                          step="1"
+                          @input="setStatusLogEditValue('production', log, $event.target.value)"
+                        />
+                        <button
+                          type="button"
+                          :disabled="!log.id || statusLogSavingKey === statusLogKey('production', log)"
+                          @click="saveStatusLogTime('production', log)"
+                        >
+                          {{ statusLogSavingKey === statusLogKey('production', log) ? '保存中' : '保存时间' }}
+                        </button>
+                      </div>
                       <div v-if="log.operatorName || log.operator" class="status-log-meta">
                         操作人：{{ log.operatorName || log.operator }}
                       </div>
@@ -646,7 +712,7 @@
                   </p>
                 </div>
                 <div>
-                  <label class="field-label">交付日期 *</label>
+                  <label class="field-label">{{ salesForm.orderCategory === 'drawing_budget' ? '交付日期' : '交付日期 *' }}</label>
                   <input v-model="salesForm.deliveryDate" data-field="sales.deliveryDate" class="box-input" type="date"/>
                 </div>
                 <div>
@@ -656,7 +722,7 @@
                 <div>
                   <label class="field-label">订单小项</label>
                   <select v-model="salesForm.orderCategory" class="box-input">
-                    <option v-for="option in productionOrderCategoryOptions" :key="option.value" :value="option.value">
+                    <option v-for="option in orderCategoryOptions" :key="option.value" :value="option.value">
                       {{ option.label }}
                     </option>
                   </select>
@@ -673,8 +739,12 @@
                     <input v-model.trim="item.modelCode" :data-field="`sales.items.${index}.modelCode`" class="box-input" placeholder="型号" type="text"/>
                     <input v-model.number="item.quantity" :data-field="`sales.items.${index}.quantity`" class="box-input" placeholder="数量" type="number" min="0.01"
                            step="0.01"/>
-                    <input v-model.number="item.weight" :data-field="`sales.items.${index}.weight`" class="box-input" placeholder="克重" type="number" min="0.01"
-                           step="0.01"/>
+                    <select v-model="item.weight" :data-field="`sales.items.${index}.weight`" class="box-input">
+                      <option value="">请选择类别</option>
+                      <option v-for="option in productCategoryOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </option>
+                    </select>
                     <input v-model.number="item.spec" :data-field="`sales.items.${index}.spec`" class="box-input" placeholder="规格" type="number" min="0.01"
                            step="0.01"/>
                   </div>
@@ -687,7 +757,11 @@
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label class="field-label">订单状态</label>
-                  <select v-model="salesForm.status" class="box-input">
+                  <select
+                    v-model="salesForm.status"
+                    class="box-input"
+                    :disabled="formMode === 'create' && salesForm.orderCategory === 'special_order'"
+                  >
                     <option v-for="status in salesStatuses" :key="status.value" :value="status.value">{{
                         status.label
                       }}
@@ -716,32 +790,24 @@
               </div>
               <div>
                 <label class="field-label">订单附件</label>
-                <input
-                    ref="salesAttachmentInputRef"
-                    type="file"
-                    class="hidden"
-                    accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
-                    @change="handleSalesAttachmentChange"
+                <DragAttachmentUpload
+                  v-if="canEditCurrentSalesForm"
+                  title="上传合同、客户需求或沟通截图"
+                  helper-text="支持拖拽上传，单个文件不超过 10MB"
+                  :uploading="salesAttachmentUploading"
+                  :file-name="salesForm.attachmentName"
+                  :file-url="salesForm.attachmentUrl"
+                  :file-size="salesForm.attachmentSize"
+                  @select="handleSalesAttachmentFile"
+                  @download="openSalesAttachment"
+                  @remove="removeSalesAttachment"
                 />
-                <div class="attachment-uploader" @click="triggerSalesAttachmentUpload">
-                  <div class="flex items-center gap-3">
-                    <span class="material-symbols-outlined text-2xl text-primary">
-                      {{ salesAttachmentUploading ? 'progress_activity' : 'upload_file' }}
-                    </span>
-                    <div class="min-w-0 flex-1">
-                      <p class="truncate text-sm font-bold text-primary">
-                        {{ salesForm.attachmentName || '上传合同、客户需求或沟通截图' }}
-                      </p>
-                      <p class="mt-1 text-xs text-on-surface-variant">
-                        支持 PDF、图片、Word、Excel、文本或压缩包，单个不超过 10MB
-                        <template v-if="salesForm.attachmentSize"> · {{ formatFileSize(salesForm.attachmentSize) }}</template>
-                      </p>
-                    </div>
-                  </div>
-                  <div v-if="salesForm.attachmentUrl" class="mt-3 flex gap-2">
-                    <span class="attachment-action text-primary">已上传</span>
-                    <button type="button" class="attachment-action text-error" @click.stop="removeSalesAttachment">移除附件</button>
-                  </div>
+                <div
+                  v-else
+                  class="rounded-2xl border border-dashed border-outline-variant/30 bg-surface-container-low px-4 py-6 text-sm font-bold text-on-surface-variant/60 grayscale"
+                  title="当前账号暂无上传订单附件权限"
+                >
+                  当前账号暂无上传订单附件权限
                 </div>
               </div>
             </template>
@@ -867,8 +933,9 @@
             <button class="rounded-lg px-5 py-2.5 text-sm font-bold text-secondary hover:bg-surface-container-high"
                     @click="closeForm">取消
             </button>
-            <button :disabled="submitting"
+            <button :disabled="submitting || !canSubmitCurrentForm"
                     class="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-on-primary disabled:opacity-50"
+                    :title="canSubmitCurrentForm ? '' : '当前账号没有该阶段订单维护权限'"
                     @click="submitForm">
               {{ formMode === 'create' ? '提交创建' : '保存修改' }}
             </button>
@@ -884,15 +951,20 @@
 import {computed, onMounted, reactive, ref, watch} from 'vue'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {useRoute} from 'vue-router'
+import {useUserStore} from '@/stores/user'
 import {getCustomerOptions} from '../customer/api/customer'
 import {warnAndFocusField} from '@/utils/formFocus'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import DateFilterInput from '@/components/DateFilterInput.vue'
 import BusinessTimeCorrectionPanel from '@/components/BusinessTimeCorrectionPanel.vue'
+import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
 import { exportRowsToExcel } from '@/utils/tableExport'
 import {
+  advanceSalesOrderNextStage,
+  correctProductionOrderLogTime,
+  correctSalesOrderLogTime,
   createProductionOrder,
   createProductionOrderFlowPrintTask,
   createSalesOrder,
@@ -904,6 +976,8 @@ import {
   getOrderWarningSummary,
   refreshSalesOrderWarning,
   refreshSalesOrderWarnings,
+  rollbackProductionOrder as submitProductionOrderRollback,
+  rollbackSalesOrder as submitSalesOrderRollback,
   getSalesOrderDetail,
   getSalesOrderPage,
   getSalesOrderStatusSummary,
@@ -915,6 +989,7 @@ import {
 } from './api/order'
 
 const route = useRoute()
+const userStore = useUserStore()
 const defaultOrderTableColumns = [
   {key: 'orderNo', label: '编号'},
   {key: 'customer', label: '客户 / 项目'},
@@ -933,6 +1008,7 @@ const MAX_ORDER_EXPORT_ROWS = 2000
 const orderTableColumnCount = computed(() => orderTableColumns.value.length + 1)
 const orderColumnClass = (key) => `order-column-${key}`
 const salesStatuses = [
+  {value: 'pending_cancel', label: '取消审核中'},
   {value: 'budgeting', label: '预算中'},
   {value: 'pending_confirm', label: '待确认'},
   {value: 'pending_pay', label: '待收款'},
@@ -964,12 +1040,30 @@ const processOptions = [
   {value: 9, label: '成品发货'}
 ]
 const orderCategoryOptions = [
+  {value: 'drawing_budget', label: '图纸预算'},
   {value: 'sample_room', label: '样板间'},
   {value: 'bulk', label: '大货'},
   {value: 'replenishment', label: '增补'},
-  {value: 'drawing_budget', label: '图纸预算'}
+  {value: 'special_order', label: '特殊订单'}
 ]
-const productionOrderCategoryOptions = orderCategoryOptions.filter(option => option.value !== 'drawing_budget')
+
+const productCategoryOptions = [
+  '窗帘面布',
+  '窗帘里布',
+  '窗纱',
+  '手动轨道',
+  '电动轨道',
+  '安装费',
+  '帘幔',
+  '魔术贴',
+  '卷帘',
+  '香格里拉帘',
+  '其他成品帘',
+  '定制窗帘',
+  '开合帘电机',
+  '卷管电机'
+].map(value => ({value, label: value}))
+const productionOrderCategoryOptions = orderCategoryOptions.filter(option => !['drawing_budget', 'special_order'].includes(option.value))
 
 const filters = reactive({
   keyword: '',
@@ -1017,6 +1111,8 @@ const detailVisible = ref(false)
 const detailLoading = ref(false)
 const salesDetail = ref(null)
 const productionDetail = ref(null)
+const statusLogTimeEdits = reactive({})
+const statusLogSavingKey = ref('')
 const customerOptions = ref([])
 const customerDropdownVisible = ref(false)
 const projectDropdownVisible = ref(false)
@@ -1034,13 +1130,78 @@ const {
 })
 const salesForm = reactive(defaultSalesForm())
 const productionForm = reactive(defaultProductionForm())
-const salesAttachmentInputRef = ref(null)
 const salesAttachmentUploading = ref(false)
 const latestOrderFlowPrintTask = ref(null)
 
-const currentStatuses = computed(() => salesStatuses)
-const currentState = computed(() => salesState)
-const currentSummary = computed(() => salesSummary)
+const ORDER_ALL_PERMISSION = 'order:*'
+const ORDER_CREATE_PERMISSIONS = [ORDER_ALL_PERMISSION, 'order:create']
+const ORDER_STATUS_PERMISSION_PREFIX = 'order:status:'
+
+function hasAnyOrderPermission(permissions) {
+  return userStore.hasAnyPermission(permissions)
+}
+
+function normalizeOrderStatusPermission(status) {
+  return String(status || '').trim().replace(/_/g, '-')
+}
+
+function orderStatusPermissions(status) {
+  const normalizedStatus = normalizeOrderStatusPermission(status)
+  return normalizedStatus
+      ? [ORDER_ALL_PERMISSION, `${ORDER_STATUS_PERMISSION_PREFIX}${normalizedStatus}`]
+      : [ORDER_ALL_PERMISSION]
+}
+
+function canMutateOrderStatus(status) {
+  return hasAnyOrderPermission(orderStatusPermissions(status))
+}
+
+const canCreateCurrentOrder = computed(() => hasAnyOrderPermission(ORDER_CREATE_PERMISSIONS))
+const canEditCurrentSalesForm = computed(() => formMode.value === 'create'
+    ? canCreateCurrentOrder.value
+    : canMutateOrderStatus(salesForm.status))
+const canSubmitCurrentForm = computed(() => currentTab.value === 'production'
+    ? (formMode.value === 'create'
+        ? canCreateCurrentOrder.value
+        : canMutateOrderStatus(productionForm.status))
+    : canEditCurrentSalesForm.value)
+
+function canEditOrder(row = {}) {
+  return canMutateOrderStatus(row.status)
+}
+
+function canPrintOrderFlowCode(row = {}) {
+  return canEditOrder(row)
+}
+
+function canAdvanceSalesOrder(row = {}) {
+  if (currentTab.value !== 'sales') {
+    return false
+  }
+  const targetStatus = nextSalesStatus(row)
+  return Boolean(targetStatus && canMutateOrderStatus(row.status))
+}
+
+function canRollbackOrder(row = {}) {
+  if (currentTab.value === 'production') {
+    const targetStatus = previousProductionStatus(row)
+    return Boolean(row?.orderId && targetStatus && canMutateOrderStatus(row.status))
+  }
+  const targetStatus = previousSalesStatus(row)
+  return Boolean(row?.orderId && targetStatus && canMutateOrderStatus(row.status))
+}
+
+function permissionDisabledClass(disabled) {
+  return disabled ? 'permission-action-disabled' : ''
+}
+
+function warnNoOrderStagePermission() {
+  ElMessage.warning('当前账号没有该订单状态维护权限')
+}
+
+const currentStatuses = computed(() => currentTab.value === 'production' ? productionStatuses : salesStatuses)
+const currentState = computed(() => currentTab.value === 'production' ? productionState : salesState)
+const currentSummary = computed(() => currentTab.value === 'production' ? productionSummary : salesSummary)
 const currentStatusTabs = computed(() => [
   {value: '', label: '全部订单', count: currentSummary.value.total || 0},
   ...currentStatuses.value.map(status => ({
@@ -1064,6 +1225,8 @@ const summaryCards = computed(() => {
     {key: 'sales-pay', tab: 'sales', label: '待收款订单', status: 'pending_pay', count: salesSummary.pending_pay || 0, hint: '待收款跟进'},
     {key: 'sales-ship', tab: 'sales', label: '待发货订单', status: 'pending_ship', count: salesSummary.pending_ship || 0, hint: '待安排发货'},
     {key: 'sales-shipped', tab: 'sales', label: '已发货订单', status: 'shipped', count: salesSummary.shipped || 0, hint: '物流已录入'},
+    {key: 'sales-invoice-paid', tab: 'sales', label: '已开票订单', invoiceStatus: '1', count: salesSummary.invoice_paid || 0, hint: '已完成开票'},
+    {key: 'sales-invoice-unpaid', tab: 'sales', label: '未开票订单', invoiceStatus: '0', count: salesSummary.invoice_unpaid || 0, hint: '待补充开票'},
     {key: 'sales-stale', tab: 'sales', label: '未更新预警', staleOnly: true, count: orderWarningSummary.salesCount || 0, hint: orderWarningHint.value}
   ]
 })
@@ -1075,10 +1238,12 @@ const categorySummaryCards = computed(() => orderCategoryOptions.map(option => (
   hint: option.value === 'sample_room'
       ? '样板订单'
       : option.value === 'replenishment'
-          ? '补充订单'
+          ? '增补订单'
           : option.value === 'drawing_budget'
               ? '图纸预算订单'
-              : '大货订单'
+              : option.value === 'special_order'
+                  ? '特殊订单'
+                  : '大货订单'
 })))
 const selectedCustomerOption = computed(() => {
   const customerName = normalizeText(salesForm.customerName)
@@ -1125,7 +1290,7 @@ const currentOrderFlowCode = computed(() => {
 
 onMounted(async () => {
   applyRouteSearch()
-  await Promise.all([loadSalesOrders(), loadOrderSummaries(), loadCustomerOptions()])
+  await Promise.all([refreshCurrentTab(), loadOrderSummaries(), loadCustomerOptions()])
 })
 
 watch(
@@ -1149,14 +1314,25 @@ watch(
     if (['budgeting', 'budget_completed'].includes(salesForm.status)) {
       salesForm.status = 'pending_confirm'
     }
+    if (category === 'special_order') {
+      if (formMode.value === 'create') {
+        salesForm.status = 'pending_confirm'
+      }
+      salesForm.createProductionOrder = 0
+    }
   }
 )
 
 function applyRouteSearch() {
+  const routeTab = String(route.query.tab || '').trim()
+  if (routeTab === 'production' || routeTab === 'sales') {
+    currentTab.value = routeTab
+  }
   const routeKeyword = String(route.query.keyword || route.query.q || '').trim()
   if (routeKeyword !== filters.keyword) {
     filters.keyword = routeKeyword
     salesState.page = 1
+    productionState.page = 1
   }
 }
 
@@ -1378,20 +1554,32 @@ function chooseProductionProject(projectName) {
 }
 
 function switchTab(tabId) {
-  currentTab.value = 'sales'
-  if (tabId !== 'sales') {
-    resetFilters(false)
+  const nextTab = tabId === 'production' ? 'production' : 'sales'
+  if (currentTab.value === nextTab) {
+    return
   }
+  currentTab.value = nextTab
+  resetFilters(false)
+  refreshCurrentTab()
 }
 
 async function selectSummaryCard(card) {
   if (!card) return
   if (card.staleOnly) {
     filters.status = ''
+    filters.invoiceStatus = ''
     filters.staleOnly = true
     await refreshCurrentTab()
     return
   }
+  if (card.invoiceStatus !== undefined) {
+    filters.staleOnly = false
+    filters.status = ''
+    filters.invoiceStatus = card.invoiceStatus
+    await refreshCurrentTab()
+    return
+  }
+  filters.invoiceStatus = ''
   filters.staleOnly = false
   await selectStatus(card.status || '')
 }
@@ -1402,6 +1590,7 @@ async function selectStatus(status) {
     return
   }
   filters.staleOnly = false
+  filters.invoiceStatus = ''
   filters.status = nextStatus
   await refreshCurrentTab()
 }
@@ -1420,7 +1609,10 @@ function isSummaryCardActive(card) {
   if (card.staleOnly) {
     return Boolean(filters.staleOnly)
   }
-  return !filters.staleOnly && card.status === filters.status
+  if (card.invoiceStatus !== undefined) {
+    return !filters.staleOnly && filters.invoiceStatus === card.invoiceStatus
+  }
+  return !filters.staleOnly && !filters.invoiceStatus && card.status === filters.status
 }
 
 async function resetFilters(refresh = true) {
@@ -1437,18 +1629,24 @@ async function resetFilters(refresh = true) {
   filters.createEnd = ''
   filters.staleOnly = false
   salesState.page = 1
+  productionState.page = 1
   if (refresh) {
     await refreshCurrentTab()
   }
 }
 
 async function refreshCurrentTab() {
+  if (currentTab.value === 'production') {
+    productionState.page = 1
+    await loadProductionOrders()
+    return
+  }
   salesState.page = 1
   await loadSalesOrders()
 }
 
 async function loadOrderSummaries() {
-  await Promise.all([loadSalesSummary(), loadOrderWarningSummary()])
+  await Promise.all([loadSalesSummary(), loadProductionSummary(), loadOrderWarningSummary()])
 }
 
 async function loadSalesSummary() {
@@ -1759,8 +1957,15 @@ async function openDetail(orderId) {
   detailLoading.value = true
   salesDetail.value = null
   productionDetail.value = null
+  clearStatusLogTimeEdits()
   try {
-    salesDetail.value = await getSalesOrderDetail(orderId)
+    if (currentTab.value === 'production') {
+      productionDetail.value = await getProductionOrderDetail(orderId)
+      hydrateStatusLogTimeEdits('production', productionDetail.value?.logs || [])
+    } else {
+      salesDetail.value = await getSalesOrderDetail(orderId)
+      hydrateStatusLogTimeEdits('sales', salesDetail.value?.logs || [])
+    }
   } catch (error) {
     detailVisible.value = false
     ElMessage.error(error?.message || '订单详情加载失败，请稍后重试')
@@ -1771,9 +1976,14 @@ async function openDetail(orderId) {
 
 function closeDetail() {
   detailVisible.value = false
+  clearStatusLogTimeEdits()
 }
 
 async function openFlowCode(row) {
+  if (!canPrintOrderFlowCode(row)) {
+    warnNoOrderStagePermission()
+    return
+  }
   if (!row?.orderId) {
     ElMessage.warning('订单信息异常，无法补打流转码')
     return
@@ -1784,19 +1994,210 @@ async function openFlowCode(row) {
   ElMessage.success('已创建补打任务，请到小程序待打印队列处理')
 }
 
+const normalSalesStatusFlow = ['pending_confirm', 'pending_pay', 'pending_material', 'producing', 'pending_ship', 'shipped', 'completed']
+const drawingBudgetStatusFlow = ['budgeting', 'budget_completed']
+const productionStatusFlow = ['pending_confirm', 'pending_pay', 'pending_material', 'producing', 'pending_ship', 'shipped', 'completed']
+
+function nextSalesStatus(row = {}) {
+  const flow = row.orderCategory === 'drawing_budget' ? drawingBudgetStatusFlow : normalSalesStatusFlow
+  const currentIndex = flow.indexOf(row.status)
+  if (currentIndex < 0 || currentIndex >= flow.length - 1) {
+    return ''
+  }
+  return flow[currentIndex + 1]
+}
+
+function previousSalesStatus(row = {}) {
+  const flow = row.orderCategory === 'drawing_budget' ? drawingBudgetStatusFlow : normalSalesStatusFlow
+  const currentIndex = flow.indexOf(row.status)
+  if (currentIndex <= 0) {
+    return ''
+  }
+  return flow[currentIndex - 1]
+}
+
+function previousProductionStatus(row = {}) {
+  const currentIndex = productionStatusFlow.indexOf(row.status)
+  if (currentIndex <= 0) {
+    return ''
+  }
+  return productionStatusFlow[currentIndex - 1]
+}
+
+function isSalesMaterialApprovalTransition(row = {}, targetStatus = nextSalesStatus(row)) {
+  return row.status === 'pending_pay' && targetStatus === 'pending_material'
+}
+
+function advanceSalesOrderTitle(row = {}) {
+  const targetStatus = nextSalesStatus(row)
+  if (!targetStatus) {
+    return ''
+  }
+  return isSalesMaterialApprovalTransition(row, targetStatus)
+      ? '提交订单审批'
+      : `推进到${salesStatusLabel(targetStatus)}`
+}
+
+function rollbackOrderTitle(row = {}) {
+  if (currentTab.value === 'production') {
+    const targetStatus = previousProductionStatus(row)
+    return targetStatus ? `提交回退审批：回退到${productionStatusLabel(targetStatus)}` : ''
+  }
+  const targetStatus = previousSalesStatus(row)
+  return targetStatus ? `提交回退审批：回退到${salesStatusLabel(targetStatus)}` : ''
+}
+
+async function advanceSalesOrder(row = {}) {
+  const targetStatus = nextSalesStatus(row)
+  if (!row.orderId || !targetStatus) {
+    return
+  }
+  if (!canMutateOrderStatus(row.status)) {
+    warnNoOrderStagePermission()
+    return
+  }
+  const approvalTransition = isSalesMaterialApprovalTransition(row, targetStatus)
+  const payload = {}
+  try {
+  if (targetStatus === 'shipped') {
+    const companyResult = await ElMessageBox.prompt('请输入物流公司', '发货信息', {
+      confirmButtonText: '继续',
+      cancelButtonText: '取消',
+      inputValue: row.expressCompany || ''
+    })
+    const expressCompany = String(companyResult.value || '').trim()
+    if (!expressCompany) {
+      ElMessage.warning('物流公司不能为空')
+      return
+    }
+    const noResult = await ElMessageBox.prompt('请输入物流单号', '发货信息', {
+      confirmButtonText: '确认推进',
+      cancelButtonText: '取消',
+      inputValue: row.expressNo || ''
+    })
+    const expressNo = String(noResult.value || '').trim()
+    if (!expressNo) {
+      ElMessage.warning('物流单号不能为空')
+      return
+    }
+    payload.expressCompany = expressCompany
+    payload.expressNo = expressNo
+  } else if (approvalTransition) {
+    await ElMessageBox.confirm('待收款订单需要先提交订单审批，审批通过后才会进入备料中。', '提交订单审批', {
+      confirmButtonText: '提交审批',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } else {
+    await ElMessageBox.confirm(`确认将订单推进到“${salesStatusLabel(targetStatus)}”？`, '推进订单阶段', {
+      confirmButtonText: '确认推进',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  }
+  } catch (error) {
+    return
+  }
+  await advanceSalesOrderNextStage(row.orderId, payload)
+  ElMessage.success(approvalTransition ? '已提交订单审批，审批通过后进入备料中' : '订单已推进到下一阶段')
+  await loadSalesOrders()
+  await loadOrderSummaries()
+}
+
+async function rollbackSalesOrder(row = {}) {
+  const targetStatus = previousSalesStatus(row)
+  if (!row.orderId || !targetStatus) {
+    return
+  }
+  if (!canMutateOrderStatus(row.status)) {
+    warnNoOrderStagePermission()
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+        `确认提交回退审批？审批通过后订单将从“${salesStatusLabel(row.status)}”回退到“${salesStatusLabel(targetStatus)}”。`,
+        '提交回退审批',
+        {
+          confirmButtonText: '提交审批',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+    )
+  } catch (error) {
+    return
+  }
+  await submitSalesOrderRollback(row.orderId, {
+    status: targetStatus
+  })
+  ElMessage.success('已提交订单回退审批，审批通过后自动回退')
+  await loadSalesOrders()
+  await loadOrderSummaries()
+}
+
+async function rollbackProductionOrder(row = {}) {
+  const targetStatus = previousProductionStatus(row)
+  if (!row.orderId || !targetStatus) {
+    return
+  }
+  if (!canMutateOrderStatus(row.status)) {
+    warnNoOrderStagePermission()
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+        `确认提交回退审批？审批通过后生产订单将从“${productionStatusLabel(row.status)}”回退到“${productionStatusLabel(targetStatus)}”。`,
+        '提交回退审批',
+        {
+          confirmButtonText: '提交审批',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+    )
+  } catch (error) {
+    return
+  }
+  await submitProductionOrderRollback(row.orderId, {
+    status: targetStatus
+  })
+  ElMessage.success('已提交生产订单回退审批，审批通过后自动回退')
+  await loadProductionOrders()
+  await loadOrderSummaries()
+}
+
+async function rollbackOrder(row = {}) {
+  if (currentTab.value === 'production') {
+    await rollbackProductionOrder(row)
+    return
+  }
+  await rollbackSalesOrder(row)
+}
+
 function openCreate() {
+  if (!canCreateCurrentOrder.value) {
+    warnNoOrderStagePermission()
+    return
+  }
   formMode.value = 'create'
   editingOrderId.value = ''
   resetSalesForm()
   formVisible.value = true
 }
 
-async function openEdit(orderId) {
+async function openEdit(orderId, row = {}) {
+  if (row.status && !canEditOrder(row)) {
+    warnNoOrderStagePermission()
+    return
+  }
   formMode.value = 'edit'
   editingOrderId.value = orderId
   formVisible.value = true
   resetSalesForm()
   const detail = await getSalesOrderDetail(orderId)
+  if (!canMutateOrderStatus(detail.status)) {
+    warnNoOrderStagePermission()
+    closeForm()
+    return
+  }
   salesForm.customerName = detail.customerName || ''
   salesForm.customerPhone = detail.customerPhone || ''
   salesForm.projectName = detail.projectName || ''
@@ -1817,7 +2218,7 @@ async function openEdit(orderId) {
       ? detail.items.map(item => ({
         modelCode: item.modelCode || '',
         quantity: num(item.quantity),
-        weight: num(item.weight),
+        weight: item.weight || '',
         spec: num(item.spec)
       }))
       : []
@@ -1840,18 +2241,16 @@ function removeSalesItem(index) {
   salesForm.items.splice(index, 1)
 }
 
-function triggerSalesAttachmentUpload() {
-  salesAttachmentInputRef.value?.click()
-}
-
-async function handleSalesAttachmentChange(event) {
-  const file = event.target.files?.[0]
+async function handleSalesAttachmentFile(file) {
+  if (!canEditCurrentSalesForm.value) {
+    warnNoOrderStagePermission()
+    return
+  }
   if (!file) {
     return
   }
   if (file.size > 10 * 1024 * 1024) {
     ElMessage.warning('订单附件不能超过 10MB')
-    event.target.value = ''
     return
   }
 
@@ -1866,7 +2265,6 @@ async function handleSalesAttachmentChange(event) {
     ElMessage.success('订单附件上传成功')
   } finally {
     salesAttachmentUploading.value = false
-    event.target.value = ''
   }
 }
 
@@ -1896,16 +2294,29 @@ async function openAttachmentUrl(url, name) {
 }
 
 async function submitForm() {
+  if (!canSubmitCurrentForm.value) {
+    warnNoOrderStagePermission()
+    return
+  }
   submitting.value = true
   try {
     validateSalesForm()
     const payload = buildSalesPayload()
+    const specialOrderCreate = formMode.value === 'create' && payload.orderCategory === 'special_order'
+    const cancelApprovalSubmit = formMode.value !== 'create' && payload.status === 'cancelled'
     if (formMode.value === 'create') {
       await createSalesOrder(payload)
     } else {
       await saveSalesOrder(editingOrderId.value, payload)
     }
-    ElMessage.success(formMode.value === 'create' ? '订单创建成功' : '订单保存成功')
+    if (cancelApprovalSubmit) {
+      ElMessage.success('已提交取消审核，审批通过后取消成功')
+      closeForm()
+      await loadSalesOrders()
+      await loadOrderSummaries()
+      return
+    }
+    ElMessage.success(specialOrderCreate ? '特殊订单已提交审核，审核通过后创建成功' : (formMode.value === 'create' ? '订单创建成功' : '订单保存成功'))
     closeForm()
     await loadSalesOrders()
     await loadOrderSummaries()
@@ -1917,7 +2328,7 @@ async function submitForm() {
 function validateSalesForm() {
   if (!salesForm.customerName.trim()) fail('请输入客户名称', 'sales.customerName')
   if (!salesForm.projectName.trim()) fail('请输入项目名称', 'sales.projectName')
-  if (!salesForm.deliveryDate) fail('请选择交付日期', 'sales.deliveryDate')
+  if (salesForm.orderCategory !== 'drawing_budget' && !salesForm.deliveryDate) fail('请选择交付日期', 'sales.deliveryDate')
   validateCreateTimeInput(salesForm.createTime)
   if (salesForm.status === 'shipped' && !String(salesForm.expressCompany || '').trim()) {
     fail('订单变更为已发货时必须填写物流公司', 'sales.expressCompany')
@@ -1943,7 +2354,7 @@ function buildSalesPayload() {
       .map(item => ({
         modelCode: blank(item.modelCode),
         quantity: optionalNumber(item.quantity),
-        weight: optionalNumber(item.weight),
+        weight: blank(item.weight),
         spec: optionalNumber(item.spec)
       }))
   return {
@@ -1962,7 +2373,7 @@ function buildSalesPayload() {
     attachmentUrl: blank(salesForm.attachmentUrl),
     attachmentSize: salesForm.attachmentSize || null,
     status: salesForm.status,
-    createProductionOrder: formMode.value === 'create' && orderCategory !== 'drawing_budget'
+    createProductionOrder: formMode.value === 'create' && !['drawing_budget', 'special_order'].includes(orderCategory)
         ? Number(salesForm.createProductionOrder || 0)
         : 0,
     items: normalizedItems
@@ -2031,6 +2442,24 @@ function validateCreateTimeInput(value) {
   }
 }
 
+function validateBusinessTimeInput(value, fieldName = '业务时间') {
+  const text = String(value || '').trim()
+  if (!text) {
+    throw new Error(`${fieldName}不能为空`)
+  }
+  const normalized = text.replace(' ', 'T')
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(normalized)) {
+    throw new Error(`${fieldName}格式不正确，请选择完整日期和时间`)
+  }
+  const timestamp = new Date(normalized).getTime()
+  if (!Number.isFinite(timestamp)) {
+    throw new Error(`${fieldName}无效，请重新选择`)
+  }
+  if (timestamp > Date.now() + 60 * 1000) {
+    throw new Error(`${fieldName}不能晚于当前时间`)
+  }
+}
+
 function formatCreateTimePayload(value) {
   const text = String(value || '').trim()
   if (!text) {
@@ -2038,6 +2467,70 @@ function formatCreateTimePayload(value) {
   }
   const normalized = text.replace('T', ' ')
   return normalized.length === 16 ? `${normalized}:00` : normalized.slice(0, 19)
+}
+
+function statusLogKey(type, log = {}) {
+  return `${type}:${log.id || log.createTime || ''}`
+}
+
+function statusLogEditValue(type, log = {}) {
+  const key = statusLogKey(type, log)
+  return statusLogTimeEdits[key] ?? toDateTimeLocal(log.createTime)
+}
+
+function setStatusLogEditValue(type, log = {}, value) {
+  statusLogTimeEdits[statusLogKey(type, log)] = value
+}
+
+function hydrateStatusLogTimeEdits(type, logs = []) {
+  logs.forEach(log => {
+    statusLogTimeEdits[statusLogKey(type, log)] = toDateTimeLocal(log.createTime)
+  })
+}
+
+function clearStatusLogTimeEdits() {
+  Object.keys(statusLogTimeEdits).forEach(key => {
+    delete statusLogTimeEdits[key]
+  })
+}
+
+async function saveStatusLogTime(type, log = {}) {
+  if (!log.id) {
+    ElMessage.warning('流转记录异常，无法修正时间')
+    return
+  }
+  const key = statusLogKey(type, log)
+  const value = statusLogEditValue(type, log)
+  try {
+    validateBusinessTimeInput(value, '流转记录时间')
+  } catch (error) {
+    ElMessage.warning(error?.message || '流转记录时间不正确')
+    return
+  }
+  statusLogSavingKey.value = key
+  try {
+    const payload = { createTime: formatCreateTimePayload(value) }
+    if (type === 'production') {
+      await correctProductionOrderLogTime(log.id, payload)
+      const orderId = productionDetail.value?.orderId
+      if (orderId) {
+        productionDetail.value = await getProductionOrderDetail(orderId)
+        clearStatusLogTimeEdits()
+        hydrateStatusLogTimeEdits('production', productionDetail.value?.logs || [])
+      }
+    } else {
+      await correctSalesOrderLogTime(log.id, payload)
+      const orderId = salesDetail.value?.orderId
+      if (orderId) {
+        salesDetail.value = await getSalesOrderDetail(orderId)
+        clearStatusLogTimeEdits()
+        hydrateStatusLogTimeEdits('sales', salesDetail.value?.logs || [])
+      }
+    }
+    ElMessage.success('流转记录时间已修正')
+  } finally {
+    statusLogSavingKey.value = ''
+  }
 }
 
 function normalizeText(value) {
@@ -2098,10 +2591,10 @@ function salesRowItems(row = {}) {
 
 function salesItemText(item = {}) {
   const model = normalizeText(item.modelCode) || '未填写型号'
-  const weight = formatNumber(item.weight)
+  const category = normalizeText(item.weight)
   const spec = formatNumber(item.spec) || normalizeText(item.spec)
   const quantity = formatNumber(item.quantity) || '未填写数量'
-  return `${model} / ${weight ? `${weight}克` : '未填写克重'} / ${spec ? `${spec}规格` : '未填写规格'} × ${quantity}`
+  return `${model} / ${category || '未填写类别'} / ${spec ? `${spec}规格` : '未填写规格'} × ${quantity}`
 }
 
 function salesCoreTitle(row = {}) {
@@ -2135,6 +2628,19 @@ function formatDateTime(value) {
   return String(value).replace('T', ' ').slice(0, 19)
 }
 
+function buildOrderFlowQrTextForWeb(order = {}, orderType = 'sales', flowScanCode = '') {
+  if (!flowScanCode) return ''
+  return JSON.stringify({
+    version: '1',
+    codeType: 'order_flow',
+    orderType,
+    orderId: String(order.orderId || '').trim(),
+    flowCode: String(order.flowCode || '').trim(),
+    flowScanCode,
+    generatedAt: new Date().toISOString()
+  })
+}
+
 function buildOrderFlowCode(order, orderType = 'sales') {
   if (!order?.orderId) {
     return {
@@ -2152,7 +2658,7 @@ function buildOrderFlowCode(order, orderType = 'sales') {
     taskNo: '',
     orderId: String(order.orderId || '').trim(),
     barcode: flowScanCode,
-    qrText: flowScanCode,
+    qrText: buildOrderFlowQrTextForWeb(order, orderType, flowScanCode),
     orderTypeLabel: '订单流转',
     currentStatusLabel: orderType === 'production' ? productionStatusLabel(order.status) : salesStatusLabel(order.status),
     orderCategoryLabel: orderCategoryLabel(order.orderCategory)
@@ -2208,6 +2714,7 @@ function statusChipClass(status) {
 
 function summaryCardClass(card = {}) {
   if (card.staleOnly) return 'stat-card-warning'
+  if (card.invoiceStatus !== undefined) return Number(card.invoiceStatus) === 1 ? 'stat-card-invoice-paid' : 'stat-card-invoice-unpaid'
   return card.status ? `stat-card-status-${statusToken(card.status)}` : 'stat-card-status-all'
 }
 
@@ -2234,6 +2741,7 @@ function orderProgress(row = {}) {
       pending_ship: 78,
       shipped: 90,
       completed: 100,
+      pending_cancel: 0,
       cancelled: 0
     }
     : {
@@ -2246,6 +2754,7 @@ function orderProgress(row = {}) {
       pending_ship: 72,
       shipped: 88,
       completed: 100,
+      pending_cancel: 0,
       cancelled: 0
     }
   const percent = Math.max(0, Math.min(100, Number(baseMap[status] ?? 8)))
@@ -2441,6 +2950,12 @@ function productionProcessText(row = {}) {
   border: 1px solid rgba(71, 85, 105, .18);
   background: rgba(248, 250, 252, .96);
   color: #475569;
+}
+
+.order-status-pending_cancel {
+  border: 1px solid rgba(249, 115, 22, .22);
+  background: rgba(255, 247, 237, .96);
+  color: #ea580c;
 }
 
 .order-status-cancelled {
@@ -2746,34 +3261,16 @@ function productionProcessText(row = {}) {
   --order-row-text: #475569;
 }
 
+.order-row-status-pending_cancel {
+  --order-row-bg: rgba(249, 115, 22, .10);
+  --order-row-accent: rgba(234, 88, 12, .58);
+  --order-row-text: #ea580c;
+}
+
 .order-row-status-cancelled {
   --order-row-bg: rgba(239, 68, 68, .10);
   --order-row-accent: rgba(220, 38, 38, .58);
   --order-row-text: #b91c1c;
-}
-
-.attachment-uploader {
-  margin-top: .5rem;
-  cursor: pointer;
-  border-radius: 1rem;
-  border: 1px dashed rgba(31, 111, 255, .35);
-  background: linear-gradient(135deg, rgba(31, 63, 95, .07), rgba(143, 110, 61, .06));
-  padding: 1rem;
-  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease
-}
-
-.attachment-uploader:hover {
-  border-color: rgb(var(--primary));
-  box-shadow: 0 12px 28px rgba(31, 111, 255, .12);
-  transform: translateY(-1px)
-}
-
-.attachment-action {
-  border-radius: .625rem;
-  background: rgba(255, 255, 255, .8);
-  padding: .375rem .75rem;
-  font-size: .75rem;
-  font-weight: 800
 }
 
 .order-page-header-new {
@@ -3125,6 +3622,21 @@ function productionProcessText(row = {}) {
   --order-card-soft: rgba(71, 85, 105, .10);
 }
 
+.stat-card-status-pending_cancel {
+  --order-card-color: #ea580c;
+  --order-card-soft: rgba(249, 115, 22, .13);
+}
+
+.stat-card-invoice-paid {
+  --order-card-color: #16a34a;
+  --order-card-soft: rgba(34, 197, 94, .13);
+}
+
+.stat-card-invoice-unpaid {
+  --order-card-color: #dc2626;
+  --order-card-soft: rgba(220, 38, 38, .11);
+}
+
 .stat-card-status-cancelled,
 .stat-card-warning {
   --order-card-color: #dc2626;
@@ -3227,6 +3739,11 @@ function productionProcessText(row = {}) {
 .status-chip-status-completed {
   --status-chip-color: #475569;
   --status-chip-soft: rgba(71, 85, 105, .10);
+}
+
+.status-chip-status-pending_cancel {
+  --status-chip-color: #ea580c;
+  --status-chip-soft: rgba(249, 115, 22, .13);
 }
 
 .status-chip-status-cancelled {
@@ -3409,6 +3926,23 @@ function productionProcessText(row = {}) {
 .order-row-actions .icon-btn:hover {
   transform: translateY(-1px);
   background: rgba(255, 255, 255, .9);
+}
+
+.permission-action-disabled,
+.permission-action-disabled:hover,
+.order-table-row .permission-action-disabled,
+.order-table-row .permission-action-disabled .material-symbols-outlined {
+  color: rgba(100, 116, 139, .5) !important;
+  cursor: not-allowed !important;
+  filter: grayscale(1);
+  opacity: .55;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.permission-action-disabled:hover,
+.order-row-actions .permission-action-disabled:hover {
+  background: rgba(226, 232, 240, .45);
 }
 
 .page-btn {
@@ -3615,6 +4149,51 @@ function productionProcessText(row = {}) {
   margin-top: .35rem;
   font-size: .78rem;
   color: rgb(var(--on-surface-variant))
+}
+
+.status-log-time-editor {
+  margin-top: .65rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+  border-radius: .75rem;
+  border: 1px solid rgba(31, 63, 95, .16);
+  background: rgba(241, 245, 249, .86);
+  padding: .55rem;
+}
+
+.status-log-time-editor input {
+  min-width: 220px;
+  flex: 1 1 220px;
+  border-radius: .65rem;
+  border: 1px solid rgba(148, 163, 184, .32);
+  background: #fff;
+  padding: .55rem .7rem;
+  font-size: .8rem;
+  font-weight: 800;
+  color: rgb(var(--primary));
+  outline: none;
+}
+
+.status-log-time-editor input:focus {
+  border-color: rgba(31, 63, 95, .62);
+  box-shadow: 0 0 0 3px rgba(31, 63, 95, .1);
+}
+
+.status-log-time-editor button {
+  border-radius: .65rem;
+  border: 1px solid rgba(31, 63, 95, .16);
+  background: rgb(var(--primary));
+  padding: .55rem .85rem;
+  font-size: .78rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.status-log-time-editor button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
 }
 
 .status-log-remark {

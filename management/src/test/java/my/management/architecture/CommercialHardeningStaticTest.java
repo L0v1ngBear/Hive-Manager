@@ -12,13 +12,37 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CommercialHardeningStaticTest {
 
     private static final Path MAIN_SOURCE = Path.of("src", "main", "java");
     private static final Pattern SELECT_STAR = Pattern.compile("(?is)SELECT\\s+\\*\\s+FROM");
+    private static final Pattern RAW_SMS_PHONE_LOG = Pattern.compile("(?s)log\\.(info|debug|warn|error)\\([^;]*(?<!maskPhone\\()message\\.phone\\(\\)");
+    private static final Pattern RAW_SMS_CONTENT_LOG = Pattern.compile("(?s)log\\.(info|debug|warn|error)\\([^;]*(?<!textLength\\()message\\.content\\(\\)");
+    private static final Pattern SENSITIVE_OPERATION_BIZ_NO = Pattern.compile(
+            "@CollectLog\\([^\\n]*bizNo\\s*=\\s*\"#[^\"]*(phone|mobile|password|token|secret|authorization|openid|sessionkey|username|account|scenekey)[^\"]*\"",
+            Pattern.CASE_INSENSITIVE);
     private static final List<String> FORBIDDEN_TEXT = List.of("@Scheduled", "companyAttendanceRule");
+    private static final List<String> REMOVED_FEATURE_MARKERS = List.of(
+            "module." + "a" + "i",
+            "A" + "i" + "Advice",
+            "A" + "i" + "Analysis",
+            "Dashboard" + "A" + "i",
+            "a" + "i_advice",
+            "A" + "I_ADVICE",
+            "dashboard:" + "a" + "i",
+            "a" + "iAdvice",
+            "advanced" + "A" + "i",
+            "A" + "I " + "\u5efa\u8bae",
+            "A" + "I " + "\u4e2a\u6027\u5316",
+            "behavior" + "_event",
+            "behavior" + "-events",
+            "Behavior" + "Event",
+            "\u7ecf\u8425\u5efa\u8bae",
+            "\u667a\u80fd\u5efa\u8bae"
+    );
 
     @Test
     void sourceShouldNotReintroduceLegacySchedulerOrCacheKey() throws IOException {
@@ -28,6 +52,20 @@ class CommercialHardeningStaticTest {
             for (String forbidden : FORBIDDEN_TEXT) {
                 if (content.contains(forbidden)) {
                     violations.add(file + " contains " + forbidden);
+                }
+            }
+        }
+        assertTrue(violations.isEmpty(), String.join(System.lineSeparator(), violations));
+    }
+
+    @Test
+    void sourceAndResourcesShouldNotReintroduceRemovedCommercialFeature() throws IOException {
+        List<String> violations = new ArrayList<>();
+        for (Path file : sourceAndResourceFiles()) {
+            String content = Files.readString(file, StandardCharsets.UTF_8);
+            for (String marker : REMOVED_FEATURE_MARKERS) {
+                if (content.contains(marker)) {
+                    violations.add(file + " contains removed feature marker: " + marker);
                 }
             }
         }
@@ -54,9 +92,298 @@ class CommercialHardeningStaticTest {
                 Map.entry("my/management/controller/EmployeeController.java", List.of("/create", "/update", "/change-status", "/batch-update", "/import")),
                 Map.entry("my/management/controller/OrderController.java", List.of("/sales/create", "/sales/save/{orderId}", "/sales/update/{orderId}", "/production/create", "/production/save/{orderId}", "/production/update/{orderId}")),
                 Map.entry("my/management/controller/RoleController.java", List.of("/create", "/role/update")),
-                Map.entry("my/management/controller/ReceiptPrintController.java", List.of("/print/update", "/print/mark-printed", "/print/cancel", "/template/save", "/template/{id}/default"))
+                Map.entry("my/management/controller/ReceiptPrintController.java", List.of("/print/update", "/print/mark-printed", "/print/cancel", "/template/save", "/template/{id}/default")),
+                Map.entry("my/management/controller/TenantManageController.java", List.of("/{id}/profile", "/{id}/logo", "/{id}/license", "/{id}/status", "/{id}/owner-account"))
         );
         assertCriticalMappingsAudited(criticalMappings);
+    }
+
+    @Test
+    void tenantManualCustomWriteShouldRequireDocumentEditPermission() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/controller/TenantManualController.java");
+        String annotationBlock = annotationBlockForMapping(file, "@PostMapping(\"/custom\")");
+        assertTrue(annotationBlock.contains("@RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_RENAME"),
+                "Custom tenant manual save must require document edit permission: " + file);
+    }
+
+    @Test
+    void notificationAnnouncementAndSyncEndpointsShouldRequireExplicitPermission() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/controller/NotificationController.java");
+
+        String announcementsBlock = annotationBlockForMapping(file, "@GetMapping(\"/announcements\")");
+        assertTrue(announcementsBlock.contains("@RequirePermission(value = PermissionCodeEnum.CODE_NOTIFICATION_ANNOUNCEMENT_LIST"),
+                "Enterprise announcement list must require notification announcement list permission: " + file);
+
+        String syncBlock = annotationBlockForMapping(file, "@PostMapping(\"/sync\")");
+        assertTrue(syncBlock.contains("@RequirePermission(value = PermissionCodeEnum.CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH"),
+                "Manual notification sync mutates tenant-wide notification records and must require an explicit admin permission: " + file);
+    }
+
+    @Test
+    void smsSenderLogsShouldNotExposeRawPhoneOrMessageContent() throws IOException {
+        List<Path> smsSenders = List.of(
+                MAIN_SOURCE.resolve("my/management/module/notification/sms/ConsoleSmsSender.java"),
+                MAIN_SOURCE.resolve("my/management/module/notification/sms/AliyunSmsSender.java")
+        );
+        for (Path file : smsSenders) {
+            String content = Files.readString(file, StandardCharsets.UTF_8);
+            assertFalse(RAW_SMS_PHONE_LOG.matcher(content).find(),
+                    "SMS logs must mask phone numbers before writing logs: " + file);
+            assertFalse(RAW_SMS_CONTENT_LOG.matcher(content).find(),
+                    "SMS logs must not write raw message content: " + file);
+        }
+    }
+
+    @Test
+    void operationLogBizNoShouldNotUseSensitiveFields() throws IOException {
+        List<String> violations = new ArrayList<>();
+        for (Path file : javaFiles()) {
+            String content = Files.readString(file, StandardCharsets.UTF_8);
+            if (SENSITIVE_OPERATION_BIZ_NO.matcher(content).find()) {
+                violations.add(file.toString());
+            }
+        }
+        assertTrue(violations.isEmpty(), "Operation log bizNo is stored separately from sanitized args; do not use sensitive fields:\n"
+                + String.join(System.lineSeparator(), violations));
+    }
+
+    @Test
+    void authOperationLogsShouldNotRecordCredentialPayloads() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/controller/AuthController.java");
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        List<String> sensitiveActions = List.of(
+                "action = \"login\"",
+                "action = \"password_reset_code\"",
+                "action = \"password_reset\"",
+                "action = \"initial_password_change\"",
+                "action = \"scan_login_confirm\""
+        );
+        List<String> violations = sensitiveActions.stream()
+                .filter(action -> {
+                    int actionIndex = content.indexOf(action);
+                    if (actionIndex < 0) {
+                        return true;
+                    }
+                    int annotationStart = content.lastIndexOf("@CollectLog", actionIndex);
+                    int annotationEnd = content.indexOf(")", actionIndex);
+                    if (annotationStart < 0 || annotationEnd < 0) {
+                        return true;
+                    }
+                    String annotation = content.substring(annotationStart, annotationEnd);
+                    return !annotation.contains("recordArgs = false");
+                })
+                .toList();
+        assertTrue(violations.isEmpty(), "Auth operation logs must not record credential or login-code request payloads: " + violations);
+    }
+
+    @Test
+    void orderAttachmentFilenameValidationShouldRejectPathSeparators() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/module/order/service/OrderService.java");
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertTrue(content.contains("originalFilename.contains(\"..\")")
+                        && content.contains("originalFilename.contains(\"/\")")
+                        && content.contains("originalFilename.contains(\"\\\\\")"),
+                "Order attachment upload must reject traversal and path separators: " + file);
+    }
+
+    @Test
+    void businessAttachmentUploadsShouldRejectZeroByteFiles() throws IOException {
+        Map<String, String> uploadServices = Map.of(
+                "my/management/common/storage/BusinessAttachmentService.java", "Business attachment upload",
+                "my/management/module/order/service/OrderService.java", "Order attachment upload"
+        );
+        for (Map.Entry<String, String> entry : uploadServices.entrySet()) {
+            Path file = MAIN_SOURCE.resolve(entry.getKey());
+            String content = Files.readString(file, StandardCharsets.UTF_8);
+            assertTrue(content.contains("file.getSize() <= 0"),
+                    entry.getValue() + " must explicitly reject zero-byte files before storing: " + file);
+        }
+    }
+
+    @Test
+    void installationTaskAttachmentUrlShouldStayInsideTenantUploadDirectory() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/module/installation/service/InstallationTaskService.java");
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertTrue(content.contains("InternalUploadUrlValidator.normalizeStoredUploadUrl"),
+                "Installation task attachment URL stored from status updates must be normalized by InternalUploadUrlValidator: " + file);
+        assertTrue(content.contains("tenantCode") && content.contains("\"installation-task\""),
+                "Installation task attachment URL validation must bind to current tenant and installation-task module: " + file);
+        assertTrue(content.contains("attachmentSize < 0"),
+                "Installation task attachment size from clients must reject negative values: " + file);
+    }
+
+    @Test
+    void documentNameUniquenessShouldBeScopedByTenant() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/module/document/service/DocumentService.java");
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        int methodIndex = content.indexOf("private void ensureNameNotExists");
+        assertTrue(methodIndex >= 0, "DocumentService must keep central name uniqueness validation: " + file);
+        String methodBody = content.substring(methodIndex, Math.min(content.length(), methodIndex + 900));
+        assertTrue(methodBody.contains("queryWrapper.eq(Document::getTenantCode, tenantCode)"),
+                "Document name uniqueness must include tenantCode to avoid cross-tenant blocking: " + file);
+    }
+
+    @Test
+    void documentListReadsShouldBeScopedByTenant() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/module/document/service/DocumentService.java");
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        int methodIndex = content.indexOf("public List<Document> selectDocumentByParentId");
+        assertTrue(methodIndex >= 0, "DocumentService must keep central document list method: " + file);
+        String methodBody = content.substring(methodIndex, Math.min(content.length(), methodIndex + 700));
+        assertTrue(methodBody.contains("queryWrapper.eq(Document::getTenantCode, tenantCode)"),
+                "Document list reads must include tenantCode to avoid cross-tenant document leakage: " + file);
+    }
+
+    @Test
+    void tenantFieldConfigReadsShouldBeScopedByTenant() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/module/tenant/service/TenantFieldConfigService.java");
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        int methodIndex = content.indexOf("private List<TenantFieldConfigVO> listByTenant");
+        assertTrue(methodIndex >= 0, "Tenant field configuration must keep a central tenant-scoped read method: " + file);
+        String methodBody = content.substring(methodIndex, Math.min(content.length(), methodIndex + 700));
+        assertTrue(methodBody.contains(".eq(TenantFieldConfig::getTenantCode, tenantCode)"),
+                "Tenant field configuration reads must include tenantCode to avoid cross-tenant field leakage: " + file);
+    }
+
+    @Test
+    void customerSearchSubqueriesShouldBeScopedByTenant() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/module/customer/service/CustomerService.java");
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertTrue(content.contains("FROM customer_project WHERE tenant_code = {1}"),
+                "Customer project keyword subqueries must explicitly filter tenantCode: " + file);
+        assertTrue(content.contains("FROM customer_contact WHERE tenant_code = {1}"),
+                "Customer contact keyword subqueries must explicitly filter tenantCode: " + file);
+    }
+
+    @Test
+    void customerCrudShouldKeepExplicitTenantBoundary() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/module/customer/service/CustomerService.java");
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertTrue(content.contains(".eq(Customer::getTenantCode, tenantCode)"),
+                "Customer parent queries must explicitly filter tenantCode: " + file);
+        assertTrue(content.contains(".eq(CustomerContact::getTenantCode, tenantCode)"),
+                "Customer contact queries/deletes must explicitly filter tenantCode: " + file);
+        assertTrue(content.contains(".eq(CustomerProject::getTenantCode, tenantCode)"),
+                "Customer project queries/deletes must explicitly filter tenantCode: " + file);
+    }
+
+    @Test
+    void passwordHashUpgradeShouldStayScopedByTenant() throws IOException {
+        Path mapper = MAIN_SOURCE.resolve("my/management/module/auth/mapper/AuthMapper.java");
+        String mapperContent = Files.readString(mapper, StandardCharsets.UTF_8);
+        assertFalse(mapperContent.contains("@Update(\"UPDATE user SET password = #{password} WHERE id = #{userId}\")"),
+                "Password hash upgrades must not write user rows without tenantCode: " + mapper);
+        assertTrue(mapperContent.contains("updatePasswordHashByUserIdAndTenantCode"),
+                "AuthMapper must expose a tenant-scoped password hash upgrade method: " + mapper);
+
+        Path service = MAIN_SOURCE.resolve("my/management/module/auth/service/AuthService.java");
+        String serviceContent = Files.readString(service, StandardCharsets.UTF_8);
+        assertTrue(serviceContent.contains("authMapper.updatePasswordHashByUserIdAndTenantCode("),
+                "Login password hash upgrade must call the tenant-scoped method: " + service);
+    }
+
+    @Test
+    void userRoleNameQueriesShouldJoinRolesWithinTenant() throws IOException {
+        Path mapper = MAIN_SOURCE.resolve("my/management/module/sys/mapper/SysUserRoleMapper.java");
+        String content = Files.readString(mapper, StandardCharsets.UTF_8);
+        assertFalse(content.contains("\"INNER JOIN sys_role r ON ur.role_id = r.id \","),
+                "Role name joins must not join sys_role by role_id alone: " + mapper);
+        assertTrue(content.contains("INNER JOIN sys_role r ON ur.role_id = r.id AND r.tenant_code = ur.tenant_code"),
+                "Role name joins must bind sys_role to the same tenant as sys_user_role: " + mapper);
+    }
+
+    @Test
+    void platformTenantManagementShouldStayBehindAuthenticatedPlatformScope() throws IOException {
+        Path controller = MAIN_SOURCE.resolve("my/management/controller/TenantManageController.java");
+        String controllerContent = Files.readString(controller, StandardCharsets.UTF_8);
+        assertTrue(controllerContent.contains("@RequestMapping(\"/platform/tenants\")"),
+                "Tenant management endpoints must stay under the platform path: " + controller);
+
+        Path webMvcConfig = MAIN_SOURCE.resolve("my/management/common/config/WebMvcConfig.java");
+        String webMvcContent = Files.readString(webMvcConfig, StandardCharsets.UTF_8);
+        int authIndex = webMvcContent.indexOf("registry.addInterceptor(authTokenInterceptor)");
+        int platformIndex = webMvcContent.indexOf("registry.addInterceptor(platformScopeInterceptor)");
+        assertTrue(authIndex >= 0, "AuthTokenInterceptor must be registered for management APIs: " + webMvcConfig);
+        assertTrue(platformIndex > authIndex, "PlatformScopeInterceptor must run after authentication context is initialized: " + webMvcConfig);
+        String interceptorBlock = webMvcContent.substring(authIndex, Math.min(webMvcContent.length(), platformIndex + 160));
+        assertTrue(interceptorBlock.contains(".addPathPatterns(\"/**\")") && interceptorBlock.contains(".excludePathPatterns(PUBLIC_PATHS)"),
+                "Authentication and platform scope interceptors must both protect all non-public paths: " + webMvcConfig);
+
+        Path platformInterceptor = MAIN_SOURCE.resolve("my/management/common/interceptor/PlatformScopeInterceptor.java");
+        String platformContent = Files.readString(platformInterceptor, StandardCharsets.UTF_8);
+        assertTrue(platformContent.contains("PLATFORM_TENANT_CODE = \"super\"")
+                        && platformContent.contains("PLATFORM_PATH_PREFIX = \"/platform/\"")
+                        && platformContent.contains("if (path.startsWith(PLATFORM_PATH_PREFIX))")
+                        && platformContent.contains("HttpStatus.FORBIDDEN"),
+                "Platform tenant management must reject non-platform tenants with a 403 response: " + platformInterceptor);
+    }
+
+    @Test
+    void platformTenantOwnerBootstrapShouldScopeOrganizationSeedsByTenant() throws IOException {
+        Path service = MAIN_SOURCE.resolve("my/management/module/tenant/service/TenantManageService.java");
+        String content = Files.readString(service, StandardCharsets.UTF_8);
+
+        int departmentIndex = content.indexOf("private Department getOrCreateOwnerDepartment");
+        assertTrue(departmentIndex >= 0, "Tenant owner bootstrap must keep central department seed method: " + service);
+        String departmentBody = content.substring(departmentIndex, Math.min(content.length(), departmentIndex + 800));
+        assertTrue(departmentBody.contains(".eq(Department::getTenantCode, tenantCode)"),
+                "Owner department seed lookup must include tenantCode to avoid cross-tenant department reuse: " + service);
+
+        int positionIndex = content.indexOf("private Position getOrCreateOwnerPosition");
+        assertTrue(positionIndex >= 0, "Tenant owner bootstrap must keep central position seed method: " + service);
+        String positionBody = content.substring(positionIndex, Math.min(content.length(), positionIndex + 800));
+        assertTrue(positionBody.contains(".eq(Position::getTenantCode, tenantCode)"),
+                "Owner position seed lookup must include tenantCode to avoid cross-tenant position reuse: " + service);
+    }
+
+    @Test
+    void managementListEndpointsShouldCapPaginationAndLimits() throws IOException {
+        assertSourceContains("my/management/module/sys/service/RoleService.java",
+                List.of("MAX_PAGE_SIZE = 200", "safePageSize(size)", "Math.min(pageSize, MAX_PAGE_SIZE)"));
+        assertSourceContains("my/management/module/employee/service/EmployeeService.java",
+                List.of("MAX_PAGE_SIZE = 200", "safePageSize(query.getSize())", "Math.min(pageSize, MAX_PAGE_SIZE)", "Math.min(limit, 50)"));
+        assertSourceContains("my/management/module/customer/service/CustomerService.java",
+                List.of("MAX_PAGE_SIZE = 200", "safePageSize(request.getPageSize())", "Math.min(pageSize, MAX_PAGE_SIZE)"));
+        assertSourceContains("my/management/module/price/service/PriceService.java",
+                List.of("safeSize(request.getSize())", "Math.min(size, 100)"));
+        assertSourceContains("my/management/module/order/service/OrderService.java",
+                List.of("MAX_PAGE_SIZE = 200L", "safeSize(request.getPageSize())", "Math.min(pageSize, MAX_PAGE_SIZE)"));
+        assertSourceContains("my/management/module/badproduct/service/BadProductService.java",
+                List.of("MAX_PAGE_SIZE = 100", "safePageSize(request.getPageSize())", "Math.min(pageSize, MAX_PAGE_SIZE)"));
+        assertSourceContains("my/management/module/equipment/service/EquipmentService.java",
+                List.of("MAX_PAGE_SIZE = 200", "safePageSize(safeRequest.getPageSize())", "Math.min(pageSize, MAX_PAGE_SIZE)"));
+        assertSourceContains("my/management/module/attendance/service/AttendanceManageService.java",
+                List.of("MAX_PAGE_SIZE = 200L", "normalizeRequest(request, MAX_PAGE_SIZE)", "Math.min(request.getPageSize(), maxPageSize)"));
+        assertSourceContains("my/management/module/installation/service/InstallationTaskService.java",
+                List.of("Math.min(safeRequest.getSize(), 100L)"));
+        assertSourceContains("my/management/module/approval/service/ApprovalService.java",
+                List.of("MAX_APPROVAL_LIST_LIMIT = 500", "safeApprovalListLimit(limit)", "Math.min(limit, MAX_APPROVAL_LIST_LIMIT)",
+                        "MAX_AUDITOR_OPTION_LIMIT = 50", "safeAuditorOptionLimit(limit)", "Math.min(limit, MAX_AUDITOR_OPTION_LIMIT)"));
+        assertSourceContains("my/management/module/notification/service/NotificationService.java",
+                List.of("Math.min(Math.max(request.getPageSize() == null ? 20 : request.getPageSize(), 1), 100)"));
+        assertSourceContains("my/management/module/notification/service/EnterpriseAnnouncementService.java",
+                List.of("Math.min(Math.max(limit == null ? 5 : limit, 1), 50)"));
+    }
+
+    @Test
+    void webPrintTaskEndpointsShouldBackLabelPrintPage() throws IOException {
+        Path localController = MAIN_SOURCE.resolve("my/management/controller/PrintTaskManagementController.java");
+        assertTrue(Files.notExists(localController), "Print task endpoints must stay in hive-backend-common to avoid duplicate controller beans: " + localController);
+
+        Path commonController = commonPrintTaskController();
+        assertTrue(Files.exists(commonController), "Common print task controller must exist: " + commonController.toAbsolutePath().normalize());
+        String content = Files.readString(commonController, StandardCharsets.UTF_8);
+        List<String> requiredMappings = List.of(
+                "@RequestMapping(\"/print-task\")",
+                "@GetMapping(\"/pending\")",
+                "@GetMapping(\"/recent\")",
+                "@GetMapping(\"/pending-count\")",
+                "@PostMapping(\"/report\")"
+        );
+        List<String> violations = requiredMappings.stream()
+                .filter(mapping -> !content.contains(mapping))
+                .toList();
+        assertTrue(violations.isEmpty(), "Web label print page calls must be backed by management endpoints: " + violations);
     }
 
     private static void assertCriticalMappingsAudited(Map<String, List<String>> criticalMappings) throws IOException {
@@ -68,6 +395,12 @@ class CommercialHardeningStaticTest {
                 int mappingIndex = content.indexOf("@PostMapping(\"" + mapping + "\")");
                 if (mappingIndex < 0) {
                     mappingIndex = content.indexOf("@DeleteMapping(\"" + mapping + "\")");
+                }
+                if (mappingIndex < 0) {
+                    mappingIndex = content.indexOf("@PutMapping(\"" + mapping + "\")");
+                }
+                if (mappingIndex < 0) {
+                    mappingIndex = content.indexOf("@PatchMapping(\"" + mapping + "\")");
                 }
                 if (mappingIndex < 0) {
                     violations.add(file + " missing mapping " + mapping);
@@ -83,6 +416,23 @@ class CommercialHardeningStaticTest {
         assertTrue(violations.isEmpty(), "Critical write endpoints must be audited:\n" + String.join(System.lineSeparator(), violations));
     }
 
+    private static String annotationBlockForMapping(Path file, String mappingExpression) throws IOException {
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        int mappingIndex = content.indexOf(mappingExpression);
+        assertTrue(mappingIndex >= 0, file + " missing mapping " + mappingExpression);
+        int methodIndex = content.indexOf("public ", mappingIndex);
+        return content.substring(mappingIndex, methodIndex < 0 ? Math.min(content.length(), mappingIndex + 500) : methodIndex);
+    }
+
+    private static void assertSourceContains(String relativePath, List<String> requiredMarkers) throws IOException {
+        Path file = MAIN_SOURCE.resolve(relativePath);
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        List<String> missing = requiredMarkers.stream()
+                .filter(marker -> !content.contains(marker))
+                .toList();
+        assertTrue(missing.isEmpty(), file + " missing commercial hardening markers: " + missing);
+    }
+
     private static List<Path> javaFiles() throws IOException {
         if (!Files.exists(MAIN_SOURCE)) {
             return List.of();
@@ -92,5 +442,40 @@ class CommercialHardeningStaticTest {
                     .filter(path -> path.toString().endsWith(".java"))
                     .toList();
         }
+    }
+
+    private static List<Path> sourceAndResourceFiles() throws IOException {
+        List<Path> roots = List.of(Path.of("src", "main", "java"), Path.of("src", "main", "resources"));
+        List<Path> files = new ArrayList<>();
+        for (Path root : roots) {
+            if (!Files.exists(root)) {
+                continue;
+            }
+            try (Stream<Path> stream = Files.walk(root)) {
+                files.addAll(stream
+                        .filter(Files::isRegularFile)
+                        .filter(path -> {
+                            String name = path.toString();
+                            return name.endsWith(".java")
+                                    || name.endsWith(".yaml")
+                                    || name.endsWith(".yml")
+                                    || name.endsWith(".sql")
+                                    || name.endsWith(".md");
+                        })
+                        .toList());
+            }
+        }
+        return files;
+    }
+
+    private static Path commonPrintTaskController() {
+        List<Path> candidates = List.of(
+                Path.of("..", "..", "HiveCommon", "hive-backend-common", "src", "main", "java", "my", "hive", "common", "print", "PrintTaskController.java"),
+                Path.of("..", "hive-backend-common", "src", "main", "java", "my", "hive", "common", "print", "PrintTaskController.java")
+        );
+        return candidates.stream()
+                .filter(Files::exists)
+                .findFirst()
+                .orElse(candidates.get(0));
     }
 }

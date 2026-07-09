@@ -37,7 +37,7 @@ spring:
     connection-timeout: ${RABBITMQ_CONNECTION_TIMEOUT:5s}
     listener:
       simple:
-        # RabbitMQ 短暂不可用时不让业务服务启动失败，监听器会后台重连。
+        # Let the service start and reconnect if RabbitMQ is temporarily unavailable.
         missing-queues-fatal: false
 
 hive:
@@ -63,6 +63,7 @@ hive:
     max-title-length: ${SYSTEM_EVENT_MAX_TITLE_LENGTH:180}
     max-content-length: ${SYSTEM_EVENT_MAX_CONTENT_LENGTH:1000}
     max-json-length: ${SYSTEM_EVENT_MAX_JSON_LENGTH:4000}
+
 springdoc:
   api-docs:
     enabled: false

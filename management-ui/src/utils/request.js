@@ -87,9 +87,7 @@ service.interceptors.response.use(
         applyRenewedSession(response, userStore)
 
         if (res.code !== 200) {
-            if (!response.config?.silent) {
-                ElMessage.error(res.msg || '系统异常')
-            }
+            handleBusinessError(res, response.config, userStore)
             return Promise.reject(res)
         }
         return res.data
@@ -104,19 +102,7 @@ service.interceptors.response.use(
             return Promise.reject(error)
         }
 
-        if (status === 401) {
-            userStore.logout()
-            if (!isLoginPath(currentPath)) {
-                ElMessage.error(error.response?.data?.msg || '登录状态已失效，请重新登录')
-                router.push({path: '/login', query: buildLoginQuery(currentPath)})
-            }
-        } else if (status === 403) {
-            ElMessage.warning(error.response?.data?.msg || '您暂无权限访问当前功能，请联系企业负责人确认权限配置')
-        } else if (status === 400) {
-            ElMessage.error(error.response?.data?.msg || '非法请求')
-        } else {
-            ElMessage.error(error.response?.data?.msg || '网络错误')
-        }
+        handleHttpError(error, userStore, currentPath)
         return Promise.reject(error)
     }
 )
@@ -236,6 +222,102 @@ function isQueryMethod(method) {
     return normalized === 'get' || normalized === 'head' || normalized === 'options'
 }
 
+function normalizeMessage(message) {
+    const text = String(message || '').trim()
+    return text && text !== 'success' ? text : ''
+}
+
+function resolveBusinessTip({ code, status, message }) {
+    const bizCode = Number(code || status || 0)
+    const baseMessage = normalizeMessage(message)
+    if (bizCode === 401) {
+        return {
+            level: 'error',
+            message: baseMessage || '登录状态已失效，请重新登录后继续操作'
+        }
+    }
+    if (bizCode === 403) {
+        if (/平台账号|租户管理/.test(baseMessage)) {
+            return {
+                level: 'warning',
+                message: `访问范围受限：${baseMessage || '当前账号不能访问该功能'}`
+            }
+        }
+        if (/组织|租户|套餐|授权|到期|停用/.test(baseMessage) && !/权限|无权/.test(baseMessage)) {
+            return {
+                level: 'warning',
+                message: `组织状态受限：${baseMessage || '当前组织暂不能使用该功能'}`
+            }
+        }
+        return {
+            level: 'warning',
+            message: `权限不足：${baseMessage || '当前账号没有该功能权限'}。如需使用，请联系管理员在角色管理中分配权限。`
+        }
+    }
+    if (bizCode === 400) {
+        return {
+            level: 'error',
+            message: baseMessage || '提交内容不完整或格式不正确，请检查后再试'
+        }
+    }
+    if (bizCode >= 500) {
+        return {
+            level: 'error',
+            message: baseMessage || '系统处理失败，请稍后重试；如持续出现，请联系管理员处理'
+        }
+    }
+    return {
+        level: 'error',
+        message: baseMessage || '操作失败，请稍后重试'
+    }
+}
+
+function showBusinessTip(tip) {
+    const message = tip?.message || '操作失败，请稍后重试'
+    const level = tip?.level || 'error'
+    ElMessage[level]({
+        message,
+        duration: level === 'warning' ? 5000 : 4000,
+        showClose: true
+    })
+}
+
+function handleBusinessError(res, config, userStore) {
+    if (config?.silent) {
+        return
+    }
+    const tip = resolveBusinessTip({ code: res?.code, message: res?.msg || res?.message })
+    if (Number(res?.code) === 401) {
+        const currentPath = router.currentRoute.value.fullPath
+        userStore.logout()
+        if (!isLoginPath(currentPath)) {
+            showBusinessTip(tip)
+            router.push({ path: '/login', query: buildLoginQuery(currentPath) })
+        }
+        return
+    }
+    showBusinessTip(tip)
+}
+
+function handleHttpError(error, userStore, currentPath) {
+    const status = error.response?.status
+    const payload = error.response?.data || {}
+    const tip = resolveBusinessTip({
+        code: payload.code,
+        status,
+        message: payload.msg || payload.message || error.message
+    })
+    if (status === 401) {
+        userStore.logout()
+        if (!isLoginPath(currentPath)) {
+            showBusinessTip(tip)
+            router.push({ path: '/login', query: buildLoginQuery(currentPath) })
+        }
+        return
+    }
+    showBusinessTip(tip)
+}
+
 function applyRenewedSession(response, userStore) {
     const renewedToken = getResponseHeader(response.headers, 'X-Auth-Renewed-Token')
     const renewedResponseKey = getResponseHeader(response.headers, 'X-Auth-Renewed-Response-Key')
@@ -264,7 +346,7 @@ async function assertBlobResponseOk(response, userStore) {
         return
     }
     if (blob.size === 0) {
-        const msg = '文件下载失败，服务端返回了空文件'
+        const msg = '文件下载失败，系统返回了空文件'
         ElMessage.error(msg)
         throw createDisplayedError(msg)
     }
@@ -293,7 +375,7 @@ function getBlobContentType(response, blob) {
 async function resolveBlobErrorMessage(blob, userStore) {
     const text = await blob.text()
     if (!text) {
-        return '文件下载失败，服务端未返回有效文件'
+        return '文件下载失败，系统未返回有效文件'
     }
     try {
         const payload = JSON.parse(text)

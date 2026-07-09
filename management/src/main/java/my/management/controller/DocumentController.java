@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 /**
  * DocumentController 是管理端后端请求入口控制类，负责接收请求并调用对应服务。
  */
-    // 文件内容存储已预留扩展点，后续接入 OSS 时保持当前接口契约不变。
+    // 文件内容统一存储在服务器本地 uploads 目录，接口契约保持稳定。
 @org.springframework.stereotype.Controller
 @org.springframework.web.bind.annotation.ResponseBody
 @RestController

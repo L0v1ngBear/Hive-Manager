@@ -26,6 +26,7 @@ public class MybatisPlusConfig {
             "tenant",
             "user",
             "sys_user_role",
+            "sys_user_permission",
             "sys_role",
             "sys_role_permission",
             "sys_permission"

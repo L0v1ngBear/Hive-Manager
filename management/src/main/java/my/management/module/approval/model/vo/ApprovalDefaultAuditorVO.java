@@ -2,6 +2,8 @@ package my.management.module.approval.model.vo;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class ApprovalDefaultAuditorVO {
 
@@ -12,6 +14,8 @@ public class ApprovalDefaultAuditorVO {
     private String permissionCode;
 
     private Long auditorId;
+
+    private List<Long> auditorIds;
 
     private String auditorName;
 

@@ -131,6 +131,28 @@ export function auditResignationApproval(data) {
   })
 }
 
+export function listQualityApprovals() {
+  return request({
+    url: '/approval/quality/list',
+    method: 'get',
+  })
+}
+
+export function getQualityApprovalDetail(defectiveId) {
+  return request({
+    url: `/approval/quality/${defectiveId}`,
+    method: 'get',
+  })
+}
+
+export function auditQualityApproval(data) {
+  return request({
+    url: '/approval/quality/audit',
+    method: 'post',
+    data,
+  })
+}
+
 export function listOrderApprovals() {
   return request({
     url: '/approval/order/list',

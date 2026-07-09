@@ -2,6 +2,8 @@ package my.management.module.order.model.dto;
 
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * 生产订单更新请求，用于状态、工序和备注维护。
  */
@@ -15,4 +17,7 @@ public class ProductionOrderUpdateRequest {
     private String operateType;
 
     private String remark;
+
+    /** 回退审批人，未传时使用默认订单审批人 */
+    private List<Long> auditorIds;
 }

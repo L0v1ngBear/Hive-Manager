@@ -70,10 +70,3 @@ SET task_status = 'DONE',
 WHERE read_flag = 1
   AND task_status = 'PENDING'
   AND close_result IS NULL;
-
--- 旧版本 AI 通知是租户广播，升级为按接收人授权推送后，关闭旧广播，避免普通员工看到高维经营建议。
-UPDATE notification_record
-SET status = 0,
-    update_time = NOW()
-WHERE biz_type = 'AI_ADVICE'
-  AND receiver_user_id IS NULL;

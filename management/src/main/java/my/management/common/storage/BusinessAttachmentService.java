@@ -24,7 +24,7 @@ public class BusinessAttachmentService {
 
     private static final long MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024L;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final Set<String> ALLOWED_MODULES = Set.of("sales-order", "bad-product", "finance", "inventory-recognition", "tenant-logo");
+    private static final Set<String> ALLOWED_MODULES = Set.of("sales-order", "bad-product", "finance", "inventory-recognition", "tenant-logo", "installation-task");
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             "pdf", "png", "jpg", "jpeg", "webp",
             "doc", "docx", "xls", "xlsx", "csv",
@@ -41,6 +41,9 @@ public class BusinessAttachmentService {
         String normalizedModule = normalizeModule(module);
         if (file == null || file.isEmpty()) {
             throw new BusinessException("请选择需要上传的附件");
+        }
+        if (file.getSize() <= 0) {
+            throw new BusinessException("附件内容为空，无法上传");
         }
         if (file.getSize() > MAX_ATTACHMENT_SIZE) {
             throw new BusinessException("附件大小不能超过 10MB");

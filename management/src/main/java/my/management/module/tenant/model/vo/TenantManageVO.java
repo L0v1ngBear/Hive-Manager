@@ -36,8 +36,6 @@ public class TenantManageVO {
 
     private Integer maxUsers;
 
-    private Integer maxAiAdvicePerMonth;
-
     private Integer maxStorageMb;
 
     private String featureFlags;

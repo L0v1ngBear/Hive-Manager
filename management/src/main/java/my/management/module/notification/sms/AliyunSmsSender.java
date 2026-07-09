@@ -70,11 +70,11 @@ public class AliyunSmsSender implements SmsSender {
             boolean success = SUCCESS_CODE.equalsIgnoreCase(resultCode);
             if (!success) {
                 String resultMessage = response == null || response.getBody() == null ? "empty response" : response.getBody().getMessage();
-                log.warn("Aliyun SMS send failed, phone={}, code={}, message={}", message.phone(), resultCode, resultMessage);
+                log.warn("Aliyun SMS send failed, phone={}, code={}, message={}", maskPhone(message.phone()), resultCode, resultMessage);
             }
             return success;
         } catch (Exception exception) {
-            log.error("Aliyun SMS send exception, phone={}", message.phone(), exception);
+            log.error("Aliyun SMS send exception, phone={}", maskPhone(message.phone()), exception);
             return false;
         }
     }
@@ -108,5 +108,13 @@ public class AliyunSmsSender implements SmsSender {
 
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
+    }
+
+    private String maskPhone(String phone) {
+        String normalized = phone == null ? "" : phone.trim();
+        if (normalized.length() <= 7) {
+            return "***";
+        }
+        return normalized.substring(0, 3) + "****" + normalized.substring(normalized.length() - 4);
     }
 }

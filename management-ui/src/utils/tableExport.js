@@ -50,7 +50,7 @@ function downloadBlob(blob, fileName) {
 
 async function ensureXlsxBlob(blob) {
   if (typeof Blob === 'undefined' || !(blob instanceof Blob) || blob.size === 0) {
-    throw new Error('导出失败，服务端未返回有效 Excel 文件')
+    throw new Error('导出失败，系统未返回有效 Excel 文件')
   }
   const contentType = String(blob.type || '').toLowerCase()
   if (contentType.includes('json') || contentType.includes('text') || contentType.includes('html')) {
@@ -59,14 +59,14 @@ async function ensureXlsxBlob(blob) {
   const signature = new Uint8Array(await blob.slice(0, 4).arrayBuffer())
   const isXlsxZip = signature[0] === 0x50 && signature[1] === 0x4b
   if (!isXlsxZip) {
-    throw new Error('导出失败，服务端未返回有效 Excel 文件，请刷新后重试')
+    throw new Error('导出失败，系统未返回有效 Excel 文件，请刷新后重试')
   }
 }
 
 async function extractBlobErrorMessage(blob) {
   const text = await blob.text()
   if (!text) {
-    return '导出失败，服务端未返回有效 Excel 文件'
+    return '导出失败，系统未返回有效 Excel 文件'
   }
   try {
     const payload = JSON.parse(text)
@@ -116,12 +116,33 @@ function collectTableData(table, maxRows) {
     if (row.some(Boolean)) {
       rows.push(row)
       if (rows.length > maxRows) {
-        throw new Error(`当前页可导出数据不能超过 ${maxRows} 行，请缩小筛选范围或使用服务端全量导出`)
+        throw new Error(`当前页可导出数据不能超过 ${maxRows} 行，请缩小筛选范围或使用全量导出`)
       }
     }
   })
 
   return { headers, rows }
+}
+
+async function downloadTableExport({ title, fileName, sheetName, sourceModule, headers, rows, timeout }) {
+  const baseName = safeFileName(fileName || title)
+  const outputFileName = `${baseName}_${timestamp()}.xlsx`
+  const blob = await request({
+    url: '/export/table',
+    method: 'post',
+    data: {
+      sheetName: safeFileName(sheetName || title).slice(0, 31) || 'Sheet1',
+      fileName: outputFileName,
+      sourceModule: sourceModule || '',
+      headers,
+      rows
+    },
+    responseType: 'blob',
+    timeout
+  })
+
+  await ensureXlsxBlob(blob)
+  downloadBlob(blob, outputFileName)
 }
 
 export async function exportTableElementToExcel(table, options = {}) {
@@ -139,24 +160,15 @@ export async function exportTableElementToExcel(table, options = {}) {
   }
 
   const title = options.title || getTableTitle(table)
-  const baseName = safeFileName(options.fileName || title)
-  const fileName = `${baseName}_${timestamp()}.xlsx`
-  const blob = await request({
-    url: '/export/table',
-    method: 'post',
-    data: {
-      sheetName: safeFileName(options.sheetName || title).slice(0, 31) || 'Sheet1',
-      fileName,
-      sourceModule: options.sourceModule || '',
-      headers,
-      rows
-    },
-    responseType: 'blob',
+  await downloadTableExport({
+    title,
+    fileName: options.fileName,
+    sheetName: options.sheetName,
+    sourceModule: options.sourceModule,
+    headers,
+    rows,
     timeout: 30000
   })
-
-  await ensureXlsxBlob(blob)
-  downloadBlob(blob, fileName)
 }
 
 export async function exportRowsToExcel(options = {}) {
@@ -172,22 +184,13 @@ export async function exportRowsToExcel(options = {}) {
   }
 
   const title = options.title || '列表数据'
-  const baseName = safeFileName(options.fileName || title)
-  const fileName = `${baseName}_${timestamp()}.xlsx`
-  const blob = await request({
-    url: '/export/table',
-    method: 'post',
-    data: {
-      sheetName: safeFileName(options.sheetName || title).slice(0, 31) || 'Sheet1',
-      fileName,
-      sourceModule: options.sourceModule || '',
-      headers,
-      rows
-    },
-    responseType: 'blob',
+  await downloadTableExport({
+    title,
+    fileName: options.fileName,
+    sheetName: options.sheetName,
+    sourceModule: options.sourceModule,
+    headers,
+    rows,
     timeout: Number(options.timeout || 60000)
   })
-
-  await ensureXlsxBlob(blob)
-  downloadBlob(blob, fileName)
 }

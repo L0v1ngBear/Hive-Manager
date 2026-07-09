@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.exception.BusinessException;
 import my.management.common.enums.BinaryFlagEnum;
+import my.management.common.enums.DeleteFlagEnum;
 import my.management.common.utils.CodeGeneratorUtil;
 import my.management.common.utils.PermissionCacheUtil;
 import my.management.module.sys.mapper.SysPermissionMapper;
@@ -30,7 +31,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 /**
@@ -98,7 +101,8 @@ public class RoleService {
 
     public List<SysPermissionTreeVO> selectAllPermissionTree() {
         LambdaQueryWrapper<SysPermission> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByAsc(SysPermission::getParentId)
+        wrapper.eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
+                .orderByAsc(SysPermission::getParentId)
                 .orderByAsc(SysPermission::getSort)
                 .orderByAsc(SysPermission::getId);
         List<SysPermission> permissionList = sysPermissionMapper.selectList(wrapper);
@@ -144,9 +148,14 @@ public class RoleService {
 
     @Transactional(rollbackFor = Exception.class)
     public void createNewRole(SysRoleAddRequest request) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        List<Long> permissionIds = normalizePermissionIds(request.getPermissionIds());
+        validateAssignablePermissionIds(permissionIds);
+
         Long count = sysRoleMapper.selectCount(new LambdaQueryWrapper<SysRole>()
-                .eq(SysRole::getTenantCode, TenantPermissionContext.getTenantCode())
-                .eq(SysRole::getRoleName, request.getRoleName()));
+                .eq(SysRole::getTenantCode, tenantCode)
+                .eq(SysRole::getRoleName, request.getRoleName())
+                .eq(SysRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
         if (count > 0) {
             throw new BusinessException("role already exists");
         }
@@ -154,15 +163,15 @@ public class RoleService {
         SysRole role = new SysRole();
         role.setRoleCode(codeGeneratorUtil.generateRoleCode());
         role.setRoleName(request.getRoleName());
-        role.setTenantCode(TenantPermissionContext.getTenantCode());
+        role.setTenantCode(tenantCode);
         role.setIsSystem(BinaryFlagEnum.NO.getCode());
         sysRoleMapper.insert(role);
 
-        if (CollectionUtils.isEmpty(request.getPermissionIds())) {
+        if (CollectionUtils.isEmpty(permissionIds)) {
             return;
         }
 
-        List<SysRolePermission> list = request.getPermissionIds().stream()
+        List<SysRolePermission> list = permissionIds.stream()
                 .map(pid -> {
                     SysRolePermission rp = new SysRolePermission();
                     rp.setRoleId(role.getId());
@@ -170,20 +179,25 @@ public class RoleService {
                     return rp;
                 })
                 .toList();
-        sysRolePermissionMapper.insertBatch(list);
+        sysRolePermissionMapper.upsertBatch(list);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void updateRole(@Valid SysRoleUpdateRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
+        requireTenantRole(tenantCode, request.getRoleId());
+        List<Long> permissionIds = normalizePermissionIds(request.getPermissionIds());
+        validateAssignablePermissionIds(permissionIds);
+
         sysRolePermissionMapper.delete(new LambdaQueryWrapper<SysRolePermission>()
                 .eq(SysRolePermission::getRoleId, request.getRoleId()));
 
-        if (CollectionUtils.isEmpty(request.getPermissionIds())) {
+        if (CollectionUtils.isEmpty(permissionIds)) {
+            evictRoleUsersPermissionCache(tenantCode, request.getRoleId());
             return;
         }
 
-        sysRolePermissionMapper.insertBatch(request.getPermissionIds().stream()
+        sysRolePermissionMapper.upsertBatch(permissionIds.stream()
                 .map(pid -> {
                     SysRolePermission rp = new SysRolePermission();
                     rp.setRoleId(request.getRoleId());
@@ -195,11 +209,15 @@ public class RoleService {
     }
 
     public Set<Long> getRolePermissionIds(Long roleId) {
-        return sysRolePermissionMapper.selectList(new LambdaQueryWrapper<SysRolePermission>()
-                        .eq(SysRolePermission::getRoleId, roleId))
+        requireTenantRole(TenantPermissionContext.getTenantCode(), roleId);
+        Set<Long> permissionIds = sysRolePermissionMapper.selectList(new LambdaQueryWrapper<SysRolePermission>()
+                        .eq(SysRolePermission::getRoleId, roleId)
+                        .eq(SysRolePermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()))
                 .stream()
                 .map(SysRolePermission::getPermissionId)
-                .collect(Collectors.toSet());
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return expandAssignablePermissionIds(permissionIds);
     }
 
     private void sortTree(List<SysPermissionTreeVO> nodes) {
@@ -233,5 +251,125 @@ public class RoleService {
     private void evictRoleUsersPermissionCache(String tenantCode, Long roleId) {
         List<Long> userIds = sysUserRoleMapper.selectUserIdsByRoleId(tenantCode, roleId);
         userIds.forEach(userId -> permissionCacheUtil.evict(tenantCode, userId));
+    }
+
+    private Set<Long> expandAssignablePermissionIds(Set<Long> permissionIds) {
+        if (CollectionUtils.isEmpty(permissionIds)) {
+            return new LinkedHashSet<>();
+        }
+        List<SysPermission> permissions = sysPermissionMapper.selectList(new LambdaQueryWrapper<SysPermission>()
+                .eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
+                .orderByAsc(SysPermission::getParentId)
+                .orderByAsc(SysPermission::getSort)
+                .orderByAsc(SysPermission::getId));
+        if (CollectionUtils.isEmpty(permissions)) {
+            return permissionIds;
+        }
+
+        Map<Long, SysPermission> permissionMap = new LinkedHashMap<>();
+        Map<Long, List<SysPermission>> childMap = new LinkedHashMap<>();
+        for (SysPermission permission : permissions) {
+            if (permission == null || permission.getId() == null) {
+                continue;
+            }
+            permissionMap.put(permission.getId(), permission);
+            Long parentId = permission.getParentId();
+            if (parentId != null && parentId > 0) {
+                childMap.computeIfAbsent(parentId, key -> new ArrayList<>()).add(permission);
+            }
+        }
+
+        Set<Long> expandedPermissionIds = new LinkedHashSet<>();
+        for (Long permissionId : permissionIds) {
+            SysPermission permission = permissionMap.get(permissionId);
+            addPermissionWithChildren(permission, childMap, expandedPermissionIds, new HashSet<>());
+            addWildcardCoveredPermissions(permission, permissions, childMap, expandedPermissionIds);
+        }
+        return expandedPermissionIds;
+    }
+
+    private void addWildcardCoveredPermissions(SysPermission permission,
+                                               List<SysPermission> permissions,
+                                               Map<Long, List<SysPermission>> childMap,
+                                               Set<Long> expandedPermissionIds) {
+        if (permission == null || permission.getPermCode() == null || !permission.getPermCode().endsWith(":*")) {
+            return;
+        }
+        String prefix = permission.getPermCode().substring(0, permission.getPermCode().length() - 1);
+        for (SysPermission candidate : permissions) {
+            if (candidate == null || candidate.getPermCode() == null || !candidate.getPermCode().startsWith(prefix)) {
+                continue;
+            }
+            addPermissionWithChildren(candidate, childMap, expandedPermissionIds, new HashSet<>());
+        }
+    }
+
+    private void addPermissionWithChildren(SysPermission permission,
+                                           Map<Long, List<SysPermission>> childMap,
+                                           Set<Long> expandedPermissionIds,
+                                           Set<Long> visitedPermissionIds) {
+        if (permission == null || permission.getId() == null || !visitedPermissionIds.add(permission.getId())) {
+            return;
+        }
+        if (isAssignablePermission(permission)) {
+            expandedPermissionIds.add(permission.getId());
+        }
+        for (SysPermission child : childMap.getOrDefault(permission.getId(), Collections.emptyList())) {
+            addPermissionWithChildren(child, childMap, expandedPermissionIds, visitedPermissionIds);
+        }
+    }
+
+    private SysRole requireTenantRole(String tenantCode, Long roleId) {
+        if (roleId == null || roleId <= 0) {
+            throw new BusinessException("角色不存在或不属于当前组织");
+        }
+        SysRole role = sysRoleMapper.selectOne(new LambdaQueryWrapper<SysRole>()
+                .eq(SysRole::getId, roleId)
+                .eq(SysRole::getTenantCode, tenantCode)
+                .eq(SysRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
+                .last("LIMIT 1"));
+        if (role == null) {
+            throw new BusinessException("角色不存在或不属于当前组织");
+        }
+        return role;
+    }
+
+    private List<Long> normalizePermissionIds(List<Long> permissionIds) {
+        if (permissionIds == null || permissionIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return permissionIds.stream()
+                .filter(Objects::nonNull)
+                .filter(permissionId -> permissionId > 0)
+                .distinct()
+                .toList();
+    }
+
+    private void validateAssignablePermissionIds(List<Long> permissionIds) {
+        if (permissionIds == null || permissionIds.isEmpty()) {
+            return;
+        }
+        List<SysPermission> permissions = sysPermissionMapper.selectList(new LambdaQueryWrapper<SysPermission>()
+                .in(SysPermission::getId, permissionIds)
+                .eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
+        Set<Long> validPermissionIds = new HashSet<>();
+        for (SysPermission permission : permissions) {
+            if (permission == null || permission.getId() == null) {
+                continue;
+            }
+            if (!isAssignablePermission(permission)) {
+                continue;
+            }
+            validPermissionIds.add(permission.getId());
+        }
+        if (validPermissionIds.size() != permissionIds.size()) {
+            throw new BusinessException("存在不可分配或无效的权限");
+        }
+    }
+
+    private boolean isAssignablePermission(SysPermission permission) {
+        return permission != null
+                && permission.getId() != null
+                && !HIDDEN_ASSIGNABLE_PERMISSION_CODES.contains(permission.getPermCode());
     }
 }

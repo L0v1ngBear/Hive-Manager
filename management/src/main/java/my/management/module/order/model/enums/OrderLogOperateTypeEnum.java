@@ -7,6 +7,8 @@ public enum OrderLogOperateTypeEnum {
     CREATE("create"),
     STATUS_CHANGE("status_change"),
     PROCESS_CHANGE("process_change"),
+    ROLLBACK_PENDING("rollback_pending"),
+    ROLLBACK_APPROVED("rollback_approved"),
     SYNC("sync");
 
     private final String code;

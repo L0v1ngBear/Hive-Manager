@@ -6,8 +6,6 @@ import java.time.LocalDateTime;
 
 /**
  * 通知接收人视图。
- *
- * <p>AI 经营建议属于管理层决策信息，只会推送给拥有 AI 建议权限的用户。</p>
  */
 @Data
 public class NotificationReceiverVO {
@@ -24,6 +22,6 @@ public class NotificationReceiverVO {
 
     private LocalDateTime readTime;
 
-    /** 该用户拥有的 AI 建议权限码，多个权限使用英文逗号分隔。 */
+    /** 该用户拥有的权限码，多个权限使用英文逗号分隔。 */
     private String permissionCodes;
 }

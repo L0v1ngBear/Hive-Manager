@@ -105,7 +105,6 @@ public class InventorySettingService {
 
     private void invalidateDashboardCache(String tenantCode) {
         redisCacheHelper.deleteByPattern(redisKeyBuilder.cachePattern("management", "dashboard", "overview", tenantCode, "*"));
-        redisCacheHelper.deleteByPattern(redisKeyBuilder.cachePattern("management", "dashboard", "ai-advice", tenantCode, "*"));
     }
 
     private void invalidateInventoryWarningCache(String tenantCode) {

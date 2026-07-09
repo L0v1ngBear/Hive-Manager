@@ -10,7 +10,7 @@
     <div class="flex min-w-0 flex-1 items-center gap-3 md:gap-6 max-w-2xl md:ml-0">
       <h2 class="text-xl font-bold text-on-surface hidden lg:block">{{ pageTitle }}</h2>
 
-      <div class="relative flex-1 group max-w-md hidden md:block">
+      <div v-if="!userStore.isPlatformTenant" class="relative flex-1 group max-w-md hidden md:block">
         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">search</span>
         <input
           v-model.trim="keyword"
@@ -27,13 +27,16 @@
           <button
             v-for="item in filteredMenus"
             :key="`${item.path}-${item.label || item.name}`"
-            class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-primary-container"
-            @click="goRoute(item.to || item.path)"
+            class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors"
+            :class="searchItemClass(item)"
+            :disabled="item.disabled"
+            :title="item.disabled ? item.disabledReason : item.desc"
+            @click="handleSearchItemClick(item)"
           >
-            <span class="material-symbols-outlined text-primary text-[20px]">{{ item.icon }}</span>
+            <span class="material-symbols-outlined text-[20px]" :class="item.disabled ? 'text-on-surface-variant/40' : 'text-primary'">{{ item.icon }}</span>
             <span class="min-w-0 flex-1">
-              <strong class="block truncate text-on-surface">{{ item.label || item.name }}</strong>
-              <small class="block truncate text-on-surface-variant">{{ item.desc }}</small>
+              <strong class="block truncate" :class="item.disabled ? 'text-on-surface-variant/45' : 'text-on-surface'">{{ item.label || item.name }}</strong>
+              <small class="block truncate" :class="item.disabled ? 'text-on-surface-variant/35' : 'text-on-surface-variant'">{{ item.disabled ? item.disabledReason : item.desc }}</small>
             </span>
             <span class="material-symbols-outlined text-on-surface-variant text-[18px]">arrow_forward</span>
           </button>
@@ -42,21 +45,26 @@
     </div>
 
     <div class="flex items-center gap-2 md:gap-4">
-      <div class="tenant-chip" :title="tenantTooltip">
-        <img v-if="tenantLogoUrl" :src="tenantLogoUrl" alt="公司logo" class="tenant-chip__logo">
-        <span v-else class="material-symbols-outlined">waving_hand</span>
-        <span class="tenant-chip__label">欢迎你</span>
-        <span class="tenant-chip__name">{{ tenantName }}</span>
+      <div class="tenant-chip" :class="{ 'tenant-chip--branded': tenantLogoUrl }" :title="tenantTooltip">
+        <span v-if="tenantLogoUrl" class="tenant-chip__logo-frame">
+          <img :src="tenantLogoUrl" alt="公司logo" class="tenant-chip__logo">
+        </span>
+        <span v-else class="material-symbols-outlined tenant-chip__fallback-icon">waving_hand</span>
+        <span class="tenant-chip__text">
+          <span class="tenant-chip__label">欢迎你</span>
+          <span class="tenant-chip__name">{{ tenantName }}</span>
+        </span>
       </div>
 
       <button
+        v-if="!userStore.isPlatformTenant"
         class="md:hidden w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors"
         @click.stop="toggleMobileSearch"
       >
         <span class="material-symbols-outlined">search</span>
       </button>
 
-      <div class="relative z-[1100]">
+      <div v-if="!userStore.isPlatformTenant" class="relative z-[1100]">
       <button
         class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors relative"
         @click="toggleNotifications"
@@ -73,7 +81,11 @@
               <p class="text-sm font-black text-on-surface">待办通知</p>
               <p class="text-xs text-on-surface-variant">{{ pendingNotifications.length ? `有 ${pendingNotifications.length} 条需要处理` : '当前没有新的待办' }}</p>
             </div>
-            <button class="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container" @click="refreshNotifications(true)">
+            <button
+              v-permission="'notification:announcement:publish'"
+              class="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container"
+              @click="refreshNotifications(true)"
+            >
               刷新
             </button>
           </div>
@@ -126,17 +138,21 @@
           v-if="userMenuOpen"
           class="absolute right-0 top-[calc(100%+12px)] z-[1200] w-[min(16rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/10"
         >
-          <div class="border-b border-outline-variant/30 px-4 py-4">
-            <p class="text-sm font-black text-on-surface">{{ displayName }}</p>
-            <p class="mt-1 text-xs text-on-surface-variant">组织：{{ tenantName }}</p>
+          <div class="user-menu-brand border-b border-outline-variant/30 px-4 py-4">
+            <img v-if="tenantLogoUrl" :src="tenantLogoUrl" alt="公司logo" class="user-menu-brand__logo">
+            <span v-else class="material-symbols-outlined user-menu-brand__icon">domain</span>
+            <div class="min-w-0">
+              <p class="truncate text-sm font-black text-on-surface">{{ displayName }}</p>
+              <p class="mt-1 truncate text-xs font-bold text-on-surface-variant">组织：{{ tenantName }}</p>
+            </div>
           </div>
-          <button v-if="canAccessSearchTarget('/dashboard')" class="navbar-menu-item" @click="goRoute('/dashboard')">
+          <button v-if="canAccessSearchTarget('/dashboard')" class="navbar-menu-item" :class="menuItemDisabledClass('/dashboard')" :disabled="isSearchTargetDisabled('/dashboard')" @click="goSearchTarget('/dashboard')">
             <span class="material-symbols-outlined">dashboard</span>回到总览大盘
           </button>
-          <button v-if="canAccessSearchTarget('/function/approval')" class="navbar-menu-item" @click="goApproval">
+          <button v-if="canAccessSearchTarget('/function/approval')" class="navbar-menu-item" :class="menuItemDisabledClass('/function/approval')" :disabled="isSearchTargetDisabled('/function/approval')" @click="goApproval">
             <span class="material-symbols-outlined">approval</span>查看审批中心
           </button>
-          <button v-if="canAccessSearchTarget('/manual')" class="navbar-menu-item" @click="goRoute('/manual')">
+          <button v-if="canAccessSearchTarget('/manual')" class="navbar-menu-item" :class="menuItemDisabledClass('/manual')" :disabled="isSearchTargetDisabled('/manual')" @click="goSearchTarget('/manual')">
             <span class="material-symbols-outlined">menu_book</span>使用手册
           </button>
           <button class="navbar-menu-item text-error" @click="handleLogout">
@@ -146,7 +162,7 @@
       </div>
     </div>
 
-    <div v-if="mobileSearchOpen" class="w-full md:hidden">
+    <div v-if="!userStore.isPlatformTenant && mobileSearchOpen" class="w-full md:hidden">
       <div class="relative">
         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
         <input
@@ -164,13 +180,16 @@
           <button
             v-for="item in filteredMenus"
             :key="`mobile-${item.path}-${item.label || item.name}`"
-            class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-primary-container"
-            @click="goRoute(item.to || item.path)"
+            class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors"
+            :class="searchItemClass(item)"
+            :disabled="item.disabled"
+            :title="item.disabled ? item.disabledReason : item.desc"
+            @click="handleSearchItemClick(item)"
           >
-            <span class="material-symbols-outlined text-primary text-[20px]">{{ item.icon }}</span>
+            <span class="material-symbols-outlined text-[20px]" :class="item.disabled ? 'text-on-surface-variant/40' : 'text-primary'">{{ item.icon }}</span>
             <span class="min-w-0 flex-1">
-              <strong class="block truncate text-on-surface">{{ item.label || item.name }}</strong>
-              <small class="block truncate text-on-surface-variant">{{ item.desc }}</small>
+              <strong class="block truncate" :class="item.disabled ? 'text-on-surface-variant/45' : 'text-on-surface'">{{ item.label || item.name }}</strong>
+              <small class="block truncate" :class="item.disabled ? 'text-on-surface-variant/35' : 'text-on-surface-variant'">{{ item.disabled ? item.disabledReason : item.desc }}</small>
             </span>
             <span class="material-symbols-outlined text-on-surface-variant text-[18px]">arrow_forward</span>
           </button>
@@ -186,7 +205,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { closeNotificationTask, getUnreadNotifications, markNotificationRead, syncNotifications } from '@/api/notification.js'
-import { trackBehavior } from '@/utils/behavior'
+import {decorateAccessItems, resolveAccessState} from '@/utils/access'
 
 defineOptions({ name: 'Navbar' });
 
@@ -196,18 +215,6 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const navbarRef = ref(null)
-const AI_ADVICE_PERMISSIONS = [
-  'dashboard:ai:view',
-  'dashboard:ai:*',
-  'dashboard:*',
-  'dashboard:ai:inventory',
-  'dashboard:ai:order',
-  'dashboard:ai:customer',
-  'dashboard:ai:quality',
-  'dashboard:ai:finance',
-  'dashboard:ai:employee',
-  'dashboard:ai:operation'
-]
 const ANNOUNCEMENT_PERMISSIONS = [
   'notification:announcement:list',
   'notification:announcement:publish',
@@ -215,7 +222,6 @@ const ANNOUNCEMENT_PERMISSIONS = [
 ]
 const menuFeatureMap = {
   '/dashboard': 'module.dashboard',
-  '/dashboard/ai-advices': 'aiAdvice',
   '/function/announcement': 'module.dashboard',
   '/function/order': 'module.order',
   '/function/inventory': 'module.inventory',
@@ -247,30 +253,32 @@ const tenantName = computed(() => userStore.currentTenantName)
 const tenantLogoUrl = computed(() => userStore.currentTenantLogoUrl)
 const tenantTooltip = computed(() => `欢迎你：${userStore.currentTenantLabel}`)
 const roleLabel = computed(() => '运营管理')
+const canSyncNotifications = computed(() => userStore.hasPermission('notification:announcement:publish'))
 const avatarText = computed(() => {
   const name = displayName.value.trim()
   return name ? name.slice(0, 1).toUpperCase() : 'U'
 })
 
 const searchableMenus = computed(() => {
-  return filterMenus([
+  return resolveMenus([
   { name: '总览大盘', path: '/dashboard', icon: 'dashboard', desc: '查看经营总览、企业公告和关键待办' },
   { name: '使用手册', path: '/manual', icon: 'menu_book', desc: '查看系统使用流程、打印说明和常见问题' },
-  { name: '企业通知公告', path: '/function/announcement', icon: 'campaign', desc: '发布并查看企业通知公告', permissions: ANNOUNCEMENT_PERMISSIONS },
-  { name: '经营建议', path: '/dashboard/ai-advices', icon: 'psychology', desc: '查看库存、订单、客户、质量等经营洞察', permissions: AI_ADVICE_PERMISSIONS },
-  { name: '订单管理', path: '/function/order', icon: 'list_alt', desc: '订单创建、履约和状态流转', permissions: ['sales:order:list', 'production:order:list'] },
+  { name: '公告查看', path: '/function/announcement', icon: 'campaign', desc: '查看企业公告和员工已读状态', permissions: ANNOUNCEMENT_PERMISSIONS },
+  { name: '发布公告', path: '/function/announcement/publish', icon: 'edit_notifications', desc: '发布普通、紧急或重要公告', permissions: ['notification:announcement:publish', 'dashboard:*'] },
+  { name: '订单列表', path: '/function/order', icon: 'list_alt', desc: '订单创建、履约和状态流转', permissions: ['order:list'] },
+  { name: '安装任务', path: '/function/installation-task', icon: 'engineering', desc: '安装状态跟进和验收记录', permissions: ['order:list'] },
   { name: '库存管理', path: '/function/inventory', icon: 'inventory_2', desc: '布匹入库、出库、库存预警和流水', permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:in', 'inventory:cloth:out'] },
   { name: '质量管理', path: '/function/bad-product', icon: 'report_problem', desc: '质量异常登记、处理闭环和损失跟踪', permissions: ['badproduct:list', 'badproduct:save', 'badproduct:process'] },
   { name: '客户管理', path: '/function/customer', icon: 'handshake', desc: '客户档案、联系人和合作项目维护', permissions: ['customer:page'] },
   { name: '价格管理', path: '/function/price', icon: 'sell', desc: 'SKU 基准价、客户等级价和特价维护', permissions: ['price:list'] },
   { name: '出库单打印', path: '/function/receipt', icon: 'print', desc: '待打印出库单、连续纸模板和打印确认', permissions: ['receipt:print:list'] },
-  { name: '审批中心', path: '/function/approval', icon: 'approval', desc: '请假、财务、离职和订单审批待办处理', permissions: ['approval:leave', 'approval:finance', 'approval:resignation', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'sales:order:list', 'production:order:list'] },
-  { name: '考勤管理', path: '/function/attendance', icon: 'fingerprint', desc: '小程序打卡记录、规则配置和异常统计', permissions: ['attendance:record:list', 'attendance:*'] },
+  { name: '审批中心', path: '/function/approval', icon: 'approval', desc: '请假、财务、离职和订单审批待办处理', permissions: ['approval:leave', 'approval:finance', 'approval:resignation', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'order:list', 'badproduct:process'] },
+  { name: '考勤管理', path: '/function/attendance', icon: 'fingerprint', desc: '移动打卡记录、规则配置和异常统计', permissions: ['attendance:record:list', 'attendance:*'] },
   { name: '员工管理', path: '/function/employee', icon: 'groups', desc: '员工名录、组织架构和人员状态', permissions: ['employee:list'] },
   { name: '部门管理', path: '/function/organization', icon: 'account_tree', desc: '维护部门层级、负责人和部门成员归属', permissions: ['employee:list'] },
   { name: '角色管理', path: '/function/role', icon: 'admin_panel_settings', desc: '角色权限配置和员工授权', permissions: ['role:list'] },
-  { name: '租户管理', path: '/function/tenant', icon: 'domain', desc: '查看企业授权、启停状态和功能开关', developerOnly: true },
-  { name: '标签模板', path: '/function/label', icon: 'sell', desc: '标签模板可视化设计与小程序打印联动', permissions: ['label:template:list'] },
+  { name: '企业授权', path: '/function/tenant', icon: 'domain', desc: '查看企业授权、启停状态和功能开关', developerOnly: true },
+  { name: '标签模板', path: '/function/label', icon: 'sell', desc: '标签模板设计与现场打印联动', permissions: ['label:template:list'] },
   { name: '文档管理', path: '/function/document', icon: 'folder_open', desc: '企业文档目录和文件管理', permissions: ['document:list'] }
 ])
 })
@@ -288,17 +296,11 @@ const filteredMenus = computed(() => {
     .slice(0, 8)
 })
 
-function filterMenus(menus) {
-  return menus.filter((item) => {
-    if (item.developerOnly && !userStore.isDeveloper) {
-      return false
-    }
-    const requiredFeatures = item.features || (menuFeatureMap[item.path] ? [menuFeatureMap[item.path]] : [])
-    if (requiredFeatures.length && !userStore.hasAnyFeature(requiredFeatures)) {
-      return false
-    }
-    return !item.permissions || userStore.hasAnyPermission(item.permissions)
-  })
+function resolveMenus(menus) {
+  if (userStore.isPlatformTenant) {
+    return decorateAccessItems(userStore, menus, menuFeatureMap).filter((item) => item.path === '/function/tenant')
+  }
+  return decorateAccessItems(userStore, menus, menuFeatureMap)
 }
 
 function buildSmartSearchResults(rawKeyword) {
@@ -309,12 +311,12 @@ function buildSmartSearchResults(rawKeyword) {
   if (/^(SO|XS|SALE|PO|SC|PROD|CK)\w+/i.test(value)) {
     const orderTab = upper.startsWith('PO') || upper.startsWith('SC') || upper.startsWith('PROD') ? 'production' : 'sales'
     directResults.push({
-      name: '订单管理',
+      name: '订单列表',
       label: `查找订单：${value}`,
       path: '/function/order',
       to: { path: '/function/order', query: { keyword: value, tab: orderTab } },
       icon: 'list_alt',
-      desc: '直接进入订单管理并按订单号筛选'
+      desc: '直接进入订单列表并按订单号筛选'
     })
   }
 
@@ -364,7 +366,7 @@ function buildSmartSearchResults(rawKeyword) {
     }
   )
 
-  const allowedDirectResults = directResults.filter((item) => canAccessSearchTarget(item.path))
+  const allowedDirectResults = directResults.map((item) => decorateSearchItem(item))
   const moduleResults = searchableMenus.value.map((item) => ({
     ...item,
     label: `进入${item.name}`,
@@ -373,29 +375,64 @@ function buildSmartSearchResults(rawKeyword) {
   return [...allowedDirectResults, ...moduleResults]
 }
 
+function decorateSearchItem(item) {
+  const menuItem = targetMenu(item.path)
+  if (menuItem) {
+    return {
+      ...item,
+      disabled: menuItem.disabled,
+      disabledReason: menuItem.disabledReason
+    }
+  }
+  return resolveAccessState(userStore, item, menuFeatureMap)
+}
+
+function targetMenu(path) {
+  return searchableMenus.value.find((item) => item.path === path)
+}
+
 function canAccessSearchTarget(path) {
-  return searchableMenus.value.some((item) => item.path === path)
+  return Boolean(targetMenu(path))
+}
+
+function isSearchTargetDisabled(path) {
+  return Boolean(targetMenu(path)?.disabled)
+}
+
+function menuItemDisabledClass(path) {
+  return isSearchTargetDisabled(path) ? 'navbar-menu-item--disabled' : ''
+}
+
+function searchItemClass(item) {
+  return item.disabled
+    ? 'cursor-not-allowed bg-surface-container-highest/40 opacity-60 grayscale'
+    : 'hover:bg-primary-container'
 }
 
 function goFirstSearchResult() {
-  if (filteredMenus.value.length) {
-    const first = filteredMenus.value[0]
-    trackBehavior({
-      eventType: 'global_search',
-      pagePath: route.fullPath,
-      module: 'navbar',
-      targetType: 'search_result',
-      targetId: first.path,
-      action: 'enter',
-      source: 'navbar_search',
-      metadata: {
-        keyword: keyword.value,
-        label: first.label || first.name,
-        route: first.to || first.path
-      }
-    })
-    goRoute(first.to || first.path)
+  const first = filteredMenus.value.find((item) => !item.disabled)
+  if (first) {
+    handleSearchItemClick(first)
+  } else if (filteredMenus.value.length) {
+    ElMessage.warning('当前账号暂无权限打开这些入口')
   }
+}
+
+function handleSearchItemClick(item) {
+  if (item.disabled) {
+    ElMessage.warning(item.disabledReason || '当前账号暂无权限')
+    return
+  }
+  goRoute(item.to || item.path)
+}
+
+function goSearchTarget(path) {
+  const item = targetMenu(path)
+  if (item?.disabled) {
+    ElMessage.warning(item.disabledReason || '当前账号暂无权限')
+    return
+  }
+  goRoute(path)
 }
 
 function goRoute(target) {
@@ -415,7 +452,7 @@ function toggleMobileSearch() {
 }
 
 function goApproval() {
-  goRoute('/function/approval')
+  goSearchTarget('/function/approval')
 }
 
 async function toggleNotifications() {
@@ -429,8 +466,12 @@ async function toggleNotifications() {
 }
 
 async function refreshNotifications(sync = false) {
+  if (userStore.isPlatformTenant) {
+    pendingNotifications.value = []
+    return
+  }
   try {
-    if (sync) {
+    if (sync && canSyncNotifications.value) {
       await syncNotifications()
     }
     const list = await getUnreadNotifications()
@@ -450,18 +491,6 @@ async function refreshNotifications(sync = false) {
 }
 
 async function openNotification(item) {
-  trackBehavior({
-    eventType: 'notification_open',
-    pagePath: route.fullPath,
-    module: 'notification',
-    targetType: 'notification',
-    targetId: String(item.id),
-    action: 'open',
-    source: 'navbar',
-    metadata: {
-      route: item.route || '/dashboard'
-    }
-  })
   try {
     await markNotificationRead(item.id)
   } catch {
@@ -477,21 +506,6 @@ async function closeNotification(item, taskStatus) {
       ? '已在待办入口标记完成，并记录处理结果。'
       : '已在待办入口标记跳过，系统会减少类似提醒。'
     await closeNotificationTask(item.id, { taskStatus, closeNote })
-    trackBehavior({
-      eventType: 'notification_close',
-      pagePath: route.fullPath,
-      module: 'notification',
-      targetType: 'notification',
-      targetId: String(item.id),
-      action: taskStatus === 'DONE' ? 'done' : 'ignored',
-      source: 'navbar',
-      metadata: {
-        title: item.title,
-        type: item.type,
-        route: item.route || '/dashboard',
-        closeNote
-      }
-    })
     ElMessage.success(taskStatus === 'DONE' ? '已完成，系统会同步记录处理结果' : '已跳过，系统会减少类似提醒')
     await refreshNotifications()
   } catch (error) {
@@ -520,9 +534,6 @@ function resolveNotificationType(item) {
   }
   if (item.level === 'warning') {
     return '预警'
-  }
-  if (item.type === 'AI_ADVICE') {
-    return '建议'
   }
   return '提醒'
 }
@@ -571,6 +582,17 @@ onBeforeUnmount(() => {
   background: #e8eef6;
 }
 
+.navbar-menu-item--disabled {
+  cursor: not-allowed;
+  color: rgba(100, 116, 139, 0.45);
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+.navbar-menu-item--disabled:hover {
+  background: transparent;
+}
+
 .local-avatar {
   display: inline-flex;
   width: 2.5rem;
@@ -587,54 +609,112 @@ onBeforeUnmount(() => {
 
 .tenant-chip {
   display: inline-flex;
-  max-width: min(20rem, 36vw);
+  max-width: min(24rem, 38vw);
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.68rem;
   overflow: hidden;
-  border: 1px solid rgba(37, 99, 235, 0.16);
+  border: 1px solid rgba(31, 63, 95, 0.16);
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(239, 246, 255, 0.92), rgba(255, 255, 255, 0.86));
-  padding: 0.45rem 0.7rem;
+  background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(232, 238, 246, 0.82)),
+      radial-gradient(circle at 12% 18%, rgba(37, 99, 235, 0.12), transparent 38%);
+  padding: 0.42rem 0.9rem 0.42rem 0.48rem;
   color: #0f2f6f;
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 14px 30px rgba(31, 63, 95, 0.1);
 }
 
-.tenant-chip .material-symbols-outlined {
-  font-size: 1rem;
+.tenant-chip--branded {
+  padding-left: 0.42rem;
+}
+
+.tenant-chip__logo-frame,
+.tenant-chip__fallback-icon {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.9rem;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(15, 47, 111, 0.08), 0 8px 18px rgba(31, 63, 95, 0.1);
+}
+
+.tenant-chip__fallback-icon {
+  font-size: 1.05rem;
   color: #2563eb;
 }
 
 .tenant-chip__logo {
-  width: 1.35rem;
-  height: 1.35rem;
-  flex: 0 0 auto;
-  border-radius: 0.45rem;
+  width: 82%;
+  height: 82%;
   object-fit: contain;
-  background: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(15, 47, 111, 0.08);
+}
+
+.tenant-chip__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.08;
 }
 
 .tenant-chip__label {
-  flex: 0 0 auto;
-  font-size: 0.65rem;
-  font-weight: 900;
-  color: rgba(15, 47, 111, 0.58);
+  font-size: 0.62rem;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+  color: rgba(15, 47, 111, 0.55);
 }
 
 .tenant-chip__name {
   min-width: 0;
-  max-width: 8.5rem;
+  max-width: 11.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.82rem;
-  font-weight: 900;
+  font-size: 0.9rem;
+  font-weight: 950;
+}
+
+.user-menu-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-menu-brand__logo,
+.user-menu-brand__icon {
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: 0 0 auto;
+  border-radius: 0.9rem;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(15, 47, 111, 0.08), 0 10px 20px rgba(31, 63, 95, 0.1);
+}
+
+.user-menu-brand__logo {
+  object-fit: contain;
+  padding: 0.22rem;
+}
+
+.user-menu-brand__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1f3f5f;
+  font-size: 1.25rem;
 }
 
 @media (max-width: 767px) {
   .tenant-chip {
     max-width: calc(100vw - 12rem);
     padding: 0.4rem 0.55rem;
+    gap: 0.45rem;
+  }
+
+  .tenant-chip__logo-frame,
+  .tenant-chip__fallback-icon {
+    width: 1.8rem;
+    height: 1.8rem;
   }
 
   .tenant-chip__label {

@@ -45,13 +45,6 @@ export function closeNotificationTask(id, data) {
   })
 }
 
-export function syncAiNotifications() {
-  return request({
-    url: '/notifications/sync-ai',
-    method: 'post'
-  })
-}
-
 export function syncNotifications() {
   return request({
     url: '/notifications/sync',

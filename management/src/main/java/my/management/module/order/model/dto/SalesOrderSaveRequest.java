@@ -62,6 +62,8 @@ public class SalesOrderSaveRequest {
 
     private Integer createProductionOrder;
 
+    private List<Long> auditorIds;
+
     @Valid
     private List<ItemDTO> items;
 
@@ -77,7 +79,7 @@ public class SalesOrderSaveRequest {
 
         private BigDecimal quantity;
 
-        private Float weight;
+        private String weight;
 
         private Float spec;
     }

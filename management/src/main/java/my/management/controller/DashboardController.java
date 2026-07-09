@@ -1,29 +1,15 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
-import my.hive.common.annotation.CollectLog;
-import my.hive.common.annotation.RequirePermission;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
 import my.hive.common.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.tenant.model.enums.TenantFeatureEnum;
-import my.management.module.ai.model.dto.AiAdviceFeedbackRequest;
-import my.management.module.ai.model.vo.AiAdviceDailyBriefVO;
-import my.management.module.ai.model.vo.AiAdviceEvolutionReportVO;
-import my.management.module.ai.model.vo.AiBusinessSnapshotVO;
-import my.management.module.ai.model.vo.DashboardAiAdviceVO;
-import my.management.module.ai.service.AiAdviceEvolutionService;
-import my.management.module.ai.service.AiAdviceFeedbackService;
 import my.management.module.dashboard.model.vo.DashboardOverviewVO;
 import my.management.module.dashboard.service.DashboardService;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 /**
  * DashboardController 是管理端后端请求入口控制类，负责接收请求并调用对应服务。
  */
@@ -35,44 +21,8 @@ public class DashboardController {
     @Resource
     private DashboardService dashboardService;
 
-    @Resource
-    private AiAdviceFeedbackService aiAdviceFeedbackService;
-
-    @Resource
-    private AiAdviceEvolutionService aiAdviceEvolutionService;
-
     @GetMapping("/overview")
     public Result<DashboardOverviewVO> overview() {
         return Result.success(dashboardService.overview());
-    }
-
-    @GetMapping("/ai-advices")
-    public Result<List<DashboardAiAdviceVO>> aiAdvices(@RequestParam(defaultValue = "false") Boolean refresh,
-                                                       @RequestParam(required = false) Integer limit) {
-        return Result.success(dashboardService.aiAdvices(Boolean.TRUE.equals(refresh), limit));
-    }
-
-    @GetMapping("/ai-brief")
-    public Result<AiAdviceDailyBriefVO> aiBrief(@RequestParam(defaultValue = "false") Boolean refresh) {
-        return Result.success(dashboardService.aiBrief(Boolean.TRUE.equals(refresh)));
-    }
-
-    @GetMapping("/ai-snapshot")
-    @RequirePermission(value = PermissionCodeEnum.CODE_DASHBOARD_AI_VIEW, message = "您没有权限查看经营快照")
-    public Result<AiBusinessSnapshotVO> aiSnapshot() {
-        return Result.success(dashboardService.aiSnapshot());
-    }
-
-    @GetMapping("/ai-evolution")
-    @RequirePermission(value = PermissionCodeEnum.CODE_DASHBOARD_AI_VIEW, message = "您没有权限查看经营建议评估")
-    public Result<AiAdviceEvolutionReportVO> aiEvolution() {
-        return Result.success(aiAdviceEvolutionService.report());
-    }
-
-    @PostMapping("/ai-advices/feedback")
-    @CollectLog(module = "ai_advice", action = "feedback", bizType = "ai_advice_training_sample", bizNo = "#request.sampleKey", description = "提交经营建议反馈")
-    public Result<Void> aiAdviceFeedback(@RequestBody AiAdviceFeedbackRequest request) {
-        aiAdviceFeedbackService.feedback(request);
-        return Result.success(null);
     }
 }

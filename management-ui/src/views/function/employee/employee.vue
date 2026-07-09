@@ -178,7 +178,7 @@
           <table class="employee-table responsive-data-table w-full text-left border-collapse">
             <colgroup>
               <col v-for="field in visibleEmployeeColumns" :key="field.key" :style="employeeColumnStyle(field.key)" />
-              <col style="width: 92px" />
+              <col style="width: 124px" />
             </colgroup>
             <thead>
             <tr class="bg-surface-container/30 text-on-surface-variant border-b border-surface-variant/50">
@@ -242,6 +242,9 @@
                   <button v-permission="'employee:update'" @click.stop="openEditDrawer(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="编辑">
                     <span class="material-symbols-outlined text-[18px]">edit</span>
                   </button>
+                  <button v-permission="'employee:update'" @click.stop="openPermissionDrawer(emp)" class="p-1.5 hover:bg-white rounded-md text-primary" title="单独权限">
+                    <span class="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -287,6 +290,7 @@
 
     <input ref="importInputRef" type="file" accept=".xlsx" class="hidden" @change="handleImportChange" />
     <EmployeeCreate :visible="isDrawerOpen" :employee-id="editingEmployeeId" @close="closeDrawer" @success="handleCreateSuccess" />
+    <EmployeePermissionDrawer ref="permissionDrawerRef" @updated="fetchEmployees" />
 
     <transition name="fade">
       <div
@@ -396,6 +400,7 @@ import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import DateFilterInput from '@/components/DateFilterInput.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import EmployeeCreate from './employeeCreate.vue'
+import EmployeePermissionDrawer from './EmployeePermissionDrawer.vue'
 import {
   downloadEmployeeImportTemplate,
   createOrganizationJoinCode,
@@ -413,6 +418,7 @@ const route = useRoute()
 // --- 状态定义 ---
 const isDrawerOpen = ref(false)
 const editingEmployeeId = ref(null)
+const permissionDrawerRef = ref(null)
 const importInputRef = ref(null)
 const loading = ref(false)
 const isOrganizationDrawerOpen = ref(false)
@@ -637,7 +643,7 @@ const showEmployeeDetail = async (id) => {
   const detail = await getEmployeeDetail(id)
   const detailLines = employeeDetailLines(detail)
   ElMessageBox.alert(
-      detailLines.length ? detailLines.join('\n') : '暂无可展示字段',
+      detailLines.length ? detailLines.join('\n') : '暂无可展示信息',
       detail.name || tenantFieldLabel(employeeFieldConfig.value, 'name', '员工详情'),
       { confirmButtonText: '关闭' }
   )
@@ -651,6 +657,10 @@ const openCreateDrawer = () => {
 const openEditDrawer = (id) => {
   editingEmployeeId.value = id
   isDrawerOpen.value = true
+}
+
+const openPermissionDrawer = (employee) => {
+  permissionDrawerRef.value?.open(employee)
 }
 
 const closeDrawer = () => {
@@ -700,7 +710,7 @@ const handleCreateJoinCode = async () => {
   const code = data?.organizationCode || ''
   const expiresInMinutes = Math.ceil(Number(data?.expiresInSeconds || 900) / 60)
   await ElMessageBox.alert(
-    `组织码：${code}\n有效期：${expiresInMinutes} 分钟\n\n员工在小程序或网页登录页加入组织时，需要填写姓名和该组织码。`,
+    `组织码：${code}\n有效期：${expiresInMinutes} 分钟\n\n员工在手机端或电脑端登录页加入组织时，需要填写姓名和该组织码。`,
     '组织加入码',
     { confirmButtonText: '知道了' }
   )

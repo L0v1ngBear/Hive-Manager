@@ -26,7 +26,20 @@ public class ConsoleSmsSender implements SmsSender {
         if (!Boolean.TRUE.equals(smsProperties.getEnabled()) || message == null || message.phone() == null) {
             return false;
         }
-        log.warn("DEV SMS ONLY, phone={}, title={}, content={}", message.phone(), message.title(), message.content());
+        log.warn("DEV SMS ONLY, phone={}, title={}, contentLength={}",
+                maskPhone(message.phone()), message.title(), textLength(message.content()));
         return true;
+    }
+
+    private String maskPhone(String phone) {
+        String normalized = phone == null ? "" : phone.trim();
+        if (normalized.length() <= 7) {
+            return "***";
+        }
+        return normalized.substring(0, 3) + "****" + normalized.substring(normalized.length() - 4);
+    }
+
+    private int textLength(String value) {
+        return value == null ? 0 : value.length();
     }
 }

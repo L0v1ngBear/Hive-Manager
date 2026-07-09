@@ -13,6 +13,7 @@ import my.management.module.order.model.dto.ProductionOrderPageRequest;
 import my.management.module.order.model.dto.ProductionOrderSaveRequest;
 import my.management.module.order.model.dto.ProductionOrderUpdateRequest;
 import my.management.module.order.model.dto.OrderFlowPrintTaskRequest;
+import my.management.module.order.model.dto.OrderStatusLogTimeCorrectionRequest;
 import my.management.module.order.model.dto.OrderWarningSettingUpdateRequest;
 import my.management.module.order.model.dto.SalesOrderPageRequest;
 import my.management.module.order.model.dto.SalesOrderSaveRequest;
@@ -60,39 +61,39 @@ public class OrderController {
     private OrderService orderService;
 
     @GetMapping("/sales/page")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限查看销售订单列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限查看订单列表")
     public Result<PageResult<SalesOrderPageVO>> salesPage(SalesOrderPageRequest request) {
         return Result.success(toPageResult(orderService.pageSalesOrders(request)));
     }
 
     @GetMapping("/sales/status-summary")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限查看销售订单统计")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限查看订单统计")
     public Result<Map<String, Long>> salesStatusSummary() {
         return Result.success(orderService.countSalesOrderStatuses());
     }
 
     @GetMapping("/sales/detail/{orderId}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_DETAIL, message = "您没有权限查看销售订单详情")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_DETAIL, message = "您没有权限查看订单详情")
     public Result<SalesOrderDetailVO> salesDetail(@PathVariable String orderId) {
         return Result.success(orderService.getSalesOrderDetail(orderId));
     }
 
     @PostMapping("/sales/create")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_STATUS, message = "您没有权限创建销售订单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_CREATE, message = "您没有权限创建订单")
     @CollectLog(module = "order", action = "create_sales", bizType = "sales_order", description = "管理端创建销售订单")
     public Result<String> createSales(@RequestBody @Valid SalesOrderSaveRequest request) {
         return Result.success(orderService.createSalesOrder(request));
     }
 
     @PostMapping("/sales/attachment/upload")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_STATUS, message = "您没有权限上传销售订单附件")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_CREATE, message = "您没有权限上传订单附件")
     @CollectLog(module = "order", action = "upload_sales_attachment", bizType = "sales_order_attachment", description = "管理端上传销售订单附件")
     public Result<SalesOrderAttachmentVO> uploadSalesAttachment(@RequestParam("file") MultipartFile file) {
         return Result.success(orderService.uploadSalesAttachment(file));
     }
 
     @GetMapping("/sales/attachment/download")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_DETAIL, message = "您没有权限下载销售订单附件")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_DETAIL, message = "您没有权限下载订单附件")
     public ResponseEntity<org.springframework.core.io.Resource> downloadSalesAttachment(@RequestParam String url,
                                                                                        @RequestParam(required = false) String name) {
         org.springframework.core.io.Resource resource = orderService.loadSalesAttachment(url);
@@ -106,7 +107,7 @@ public class OrderController {
     }
 
     @PostMapping("/sales/save/{orderId}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_STATUS, message = "您没有权限编辑销售订单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限编辑订单")
     @CollectLog(module = "order", action = "save_sales", bizType = "sales_order", bizNo = "#orderId", description = "管理端保存销售订单")
     public Result<Void> saveSales(@PathVariable String orderId, @RequestBody @Valid SalesOrderSaveRequest request) {
         orderService.saveSalesOrder(orderId, request);
@@ -114,34 +115,58 @@ public class OrderController {
     }
 
     @PostMapping("/sales/update/{orderId}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_STATUS, message = "您没有权限更新销售订单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限更新订单")
     @CollectLog(module = "order", action = "update_sales_status", bizType = "sales_order", bizNo = "#orderId", description = "管理端更新销售订单状态")
     public Result<Void> updateSales(@PathVariable String orderId, @RequestBody SalesOrderUpdateRequest request) {
         orderService.updateSalesOrder(orderId, request);
         return Result.success(null);
     }
 
+    @PostMapping("/sales/next/{orderId}")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限推进订单")
+    @CollectLog(module = "order", action = "advance_sales_status", bizType = "sales_order", bizNo = "#orderId", description = "管理端推进销售订单到下一阶段")
+    public Result<Void> advanceSales(@PathVariable String orderId, @RequestBody(required = false) SalesOrderUpdateRequest request) {
+        orderService.advanceSalesOrderToNextStage(orderId, request == null ? new SalesOrderUpdateRequest() : request);
+        return Result.success(null);
+    }
+
+    @PostMapping("/sales/rollback/{orderId}")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限提交订单回退审批")
+    @CollectLog(module = "order", action = "submit_sales_rollback", bizType = "sales_order", bizNo = "#orderId", description = "管理端提交销售订单回退审批")
+    public Result<Void> rollbackSales(@PathVariable String orderId, @RequestBody(required = false) SalesOrderUpdateRequest request) {
+        orderService.submitSalesOrderRollbackApproval(orderId, request == null ? new SalesOrderUpdateRequest() : request);
+        return Result.success(null);
+    }
+
     @GetMapping("/sales/log/{orderId}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_DETAIL, message = "您没有权限查看销售订单日志")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_DETAIL, message = "您没有权限查看订单日志")
     public Result<List<SalesOrderStatusLogVO>> salesLog(@PathVariable String orderId) {
         return Result.success(orderService.listSalesLogs(orderId));
     }
 
+    @PostMapping("/sales/log/{logId}/time")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限修正订单流转时间")
+    public Result<Void> correctSalesLogTime(@PathVariable Long logId,
+                                            @RequestBody @Valid OrderStatusLogTimeCorrectionRequest request) {
+        orderService.correctSalesLogTime(logId, request);
+        return Result.success(null);
+    }
+
     @PostMapping("/sales/flow-print-task")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_STATUS, message = "您没有权限生成销售订单流转码")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限生成订单流转码")
     @CollectLog(module = "order", action = "create_sales_flow_print_task", bizType = "sales_order", bizNo = "#request.orderId", description = "管理端创建销售订单流转码打印任务")
     public Result<OrderFlowPrintTaskVO> createSalesFlowPrintTask(@RequestBody @Valid OrderFlowPrintTaskRequest request) {
         return Result.success(orderService.createSalesOrderFlowPrintTask(request));
     }
 
     @GetMapping("/production/page")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_LIST, message = "您没有权限查看生产订单列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限查看订单列表")
     public Result<PageResult<ProductionOrderPageVO>> productionPage(ProductionOrderPageRequest request) {
         return Result.success(toPageResult(orderService.pageProductionOrders(request)));
     }
 
     @GetMapping("/production/status-summary")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_LIST, message = "您没有权限查看生产订单统计")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限查看订单统计")
     public Result<Map<String, Long>> productionStatusSummary() {
         return Result.success(orderService.countProductionOrderStatuses());
     }
@@ -160,47 +185,47 @@ public class OrderController {
     }
 
     @GetMapping("/warning/summary")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限查看订单预警统计")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限查看订单预警统计")
     public Result<OrderWarningSummaryVO> warningSummary() {
         return Result.success(orderService.getOrderWarningSummary());
     }
 
     @PostMapping("/warning/refresh")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限刷新订单预警")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限刷新订单预警")
     @CollectLog(module = "order", action = "refresh_warning", bizType = "order_warning", description = "管理端重新更新订单预警")
     public Result<OrderWarningSummaryVO> refreshWarningSummary() {
         return Result.success(orderService.refreshOrderWarningSummary());
     }
 
     @PostMapping("/warning/sales/refresh")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限刷新销售订单预警")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限刷新订单预警")
     @CollectLog(module = "order", action = "refresh_sales_warning", bizType = "order_warning", description = "管理端重新计时销售订单预警")
     public Result<OrderWarningSummaryVO> refreshSalesWarnings() {
         return Result.success(orderService.refreshSalesOrderWarnings());
     }
 
     @PostMapping("/warning/sales/{orderId}/refresh")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限刷新销售订单预警")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限刷新订单预警")
     @CollectLog(module = "order", action = "refresh_sales_order_warning", bizType = "sales_order", bizNo = "#orderId", description = "管理端重新计时单个销售订单预警")
     public Result<OrderWarningSummaryVO> refreshSalesOrderWarning(@PathVariable String orderId) {
         return Result.success(orderService.refreshSalesOrderWarning(orderId));
     }
 
     @GetMapping("/production/detail/{orderId}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_DETAIL, message = "您没有权限查看生产订单详情")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_DETAIL, message = "您没有权限查看订单详情")
     public Result<ProductionOrderDetailVO> productionDetail(@PathVariable String orderId) {
         return Result.success(orderService.getProductionOrderDetail(orderId));
     }
 
     @PostMapping("/production/create")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_STATUS, message = "您没有权限创建生产订单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_CREATE, message = "您没有权限创建订单")
     @CollectLog(module = "order", action = "create_production", bizType = "production_order", description = "管理端创建生产订单")
     public Result<String> createProduction(@RequestBody @Valid ProductionOrderSaveRequest request) {
         return Result.success(orderService.createProductionOrder(request));
     }
 
     @PostMapping("/production/save/{orderId}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_STATUS, message = "您没有权限编辑生产订单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限编辑订单")
     @CollectLog(module = "order", action = "save_production", bizType = "production_order", bizNo = "#orderId", description = "管理端保存生产订单")
     public Result<Void> saveProduction(@PathVariable String orderId, @RequestBody @Valid ProductionOrderSaveRequest request) {
         orderService.saveProductionOrder(orderId, request);
@@ -208,28 +233,44 @@ public class OrderController {
     }
 
     @GetMapping("/production/log/{orderId}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_LOG, message = "您没有权限查看生产订单日志")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_DETAIL, message = "您没有权限查看订单日志")
     public Result<List<ProductionOrderStatusLogVO>> productionLog(@PathVariable String orderId) {
         return Result.success(orderService.listProductionLogs(orderId));
     }
 
+    @PostMapping("/production/log/{logId}/time")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限修正订单流转时间")
+    public Result<Void> correctProductionLogTime(@PathVariable Long logId,
+                                                 @RequestBody @Valid OrderStatusLogTimeCorrectionRequest request) {
+        orderService.correctProductionLogTime(logId, request);
+        return Result.success(null);
+    }
+
     @PostMapping("/production/update/{orderId}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_STATUS, message = "您没有权限更新生产订单")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限更新订单")
     @CollectLog(module = "order", action = "update_production_status", bizType = "production_order", bizNo = "#orderId", description = "管理端更新生产订单状态")
     public Result<Void> updateProduction(@PathVariable String orderId, @RequestBody ProductionOrderUpdateRequest request) {
         orderService.updateProductionOrder(orderId, request);
         return Result.success(null);
     }
 
+    @PostMapping("/production/rollback/{orderId}")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限提交订单回退审批")
+    @CollectLog(module = "order", action = "submit_production_rollback", bizType = "production_order", bizNo = "#orderId", description = "管理端提交生产订单回退审批")
+    public Result<Void> rollbackProduction(@PathVariable String orderId, @RequestBody(required = false) ProductionOrderUpdateRequest request) {
+        orderService.submitProductionOrderRollbackApproval(orderId, request == null ? new ProductionOrderUpdateRequest() : request);
+        return Result.success(null);
+    }
+
     @PostMapping("/production/flow-print-task")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRODUCTION_ORDER_STATUS, message = "您没有权限生成生产订单流转码")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限生成订单流转码")
     @CollectLog(module = "order", action = "create_production_flow_print_task", bizType = "production_order", bizNo = "#request.orderId", description = "管理端创建生产订单流转码打印任务")
     public Result<OrderFlowPrintTaskVO> createProductionFlowPrintTask(@RequestBody @Valid OrderFlowPrintTaskRequest request) {
         return Result.success(orderService.createProductionOrderFlowPrintTask(request));
     }
 
     @GetMapping("/health")
-    @RequirePermission(value = PermissionCodeEnum.CODE_SALES_ORDER_LIST, message = "您没有权限查看订单模块检查结果")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ORDER_LIST, message = "您没有权限查看订单模块检查结果")
     public Result<Map<String, Object>> health() {
         return Result.success(orderService.checkOrderTables());
     }

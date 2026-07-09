@@ -110,7 +110,6 @@ public class PriceService {
         stats.setAveragePrice(nvl(stats.getAveragePrice()));
         stats.setPendingCount(nvl(stats.getPendingCount()));
         Long overrideCount = priceCustomerOverrideMapper.selectCount(new LambdaQueryWrapper<PriceCustomerOverride>()
-                .eq(PriceCustomerOverride::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(PriceCustomerOverride::getIsDeleted, 0));
         stats.setOverrideCount(nvl(overrideCount));
         return stats;
@@ -122,7 +121,6 @@ public class PriceService {
         PriceSku sku = request.getId() == null ? null : priceSkuMapper.selectById(request.getId());
         if (sku == null) {
             sku = priceSkuMapper.selectOne(new LambdaQueryWrapper<PriceSku>()
-                    .eq(PriceSku::getTenantCode, tenantCode)
                     .eq(PriceSku::getModelCode, request.getModelCode())
                     .eq(PriceSku::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                     .last("LIMIT 1"));
@@ -199,7 +197,6 @@ public class PriceService {
 
     public List<CustomerOptionVO> customerOptions(String keyword) {
         LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<Customer>()
-                .eq(Customer::getTenantCode, TenantPermissionContext.getTenantCode())
                 .orderByDesc(Customer::getId)
                 .last("LIMIT 50");
         if (StringUtils.hasText(keyword)) {
@@ -448,8 +445,7 @@ public class PriceService {
             request = new PricePageRequest();
         }
         LambdaQueryWrapper<PriceSku> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PriceSku::getTenantCode, TenantPermissionContext.getTenantCode())
-                .eq(PriceSku::getIsDeleted, 0)
+        wrapper.eq(PriceSku::getIsDeleted, 0)
                 .orderByDesc(PriceSku::getUpdateTime);
         // 分类字段已下线，这里只保留关键词和状态两个有效筛选入口。
         if (StringUtils.hasText(request.getKeyword())) {

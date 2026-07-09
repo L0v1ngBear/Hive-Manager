@@ -45,6 +45,7 @@ public class LabelTemplateService {
     private static final BigDecimal DEFAULT_HEIGHT_MM = new BigDecimal("50");
     private static final List<LabelTemplateVariableVO> LABEL_VARIABLES = List.of(
             new LabelTemplateVariableVO("条码", "barcode", "barcode", "CL20260421001"),
+            new LabelTemplateVariableVO("布匹二维码", "labelQrPayload", "qrcode", "{\"version\":\"1\",\"codeType\":\"inventory_barcode\",\"barcode\":\"CL20260421001\"}"),
             new LabelTemplateVariableVO("型号", "modelCode", "text", "M-2026-A"),
             new LabelTemplateVariableVO("米数", "meters", "text", "120.50"),
             new LabelTemplateVariableVO("规格", "spec", "text", "160"),
@@ -71,8 +72,8 @@ public class LabelTemplateService {
             new LabelTemplateVariableVO("总金额", "totalAmount", "text", "7855.05")
     );
     private static final List<LabelTemplateVariableVO> ORDER_FLOW_VARIABLES = List.of(
-            new LabelTemplateVariableVO("流转条码", "flowBarcode", "barcode", "SO202605190001"),
-            new LabelTemplateVariableVO("流转二维码", "flowQrPayload", "qrcode", "SO202605190001"),
+            new LabelTemplateVariableVO("流转条码", "flowBarcode", "barcode", "HIVE_ORDER_FLOW:sales:FLOW202605190001:SO202605190001"),
+            new LabelTemplateVariableVO("流转二维码", "flowQrPayload", "qrcode", "{\"version\":\"1\",\"codeType\":\"order_flow\",\"orderId\":\"SO202605190001\",\"orderType\":\"sales\",\"flowScanCode\":\"HIVE_ORDER_FLOW:sales:FLOW202605190001:SO202605190001\"}"),
             new LabelTemplateVariableVO("订单编号", "orderId", "text", "SO202605190001"),
             new LabelTemplateVariableVO("订单类型", "orderTypeLabel", "text", "销售订单"),
             new LabelTemplateVariableVO("当前状态", "currentStatusText", "text", "待确认"),
@@ -83,7 +84,7 @@ public class LabelTemplateService {
     );
     private static final List<LabelTemplateVariableVO> EQUIPMENT_INSPECTION_VARIABLES = List.of(
             new LabelTemplateVariableVO("设备编码", "equipmentCode", "barcode", "EQ202605190001"),
-            new LabelTemplateVariableVO("固定巡检码", "inspectionQrPayload", "qrcode", "EQ202605190001"),
+            new LabelTemplateVariableVO("固定巡检码", "inspectionQrPayload", "qrcode", "HIVE_EQUIPMENT:EQ202605190001"),
             new LabelTemplateVariableVO("设备名称", "equipmentName", "text", "定型机01"),
             new LabelTemplateVariableVO("设备类型", "equipmentType", "text", "生产设备"),
             new LabelTemplateVariableVO("设备位置", "location", "text", "一车间"),
@@ -476,7 +477,10 @@ public class LabelTemplateService {
                 .eq(LabelTemplate::getPrintType, template.getPrintType())
                 .ne(LabelTemplate::getId, template.getId())
                 .set(LabelTemplate::getIsDefault, 0);
-        labelTemplateMapper.update(null, updateWrapper);
+        runIgnoringTenant(() -> {
+            labelTemplateMapper.update(null, updateWrapper);
+            return null;
+        });
     }
 
     private LabelTemplateVO toVO(LabelTemplate template) {

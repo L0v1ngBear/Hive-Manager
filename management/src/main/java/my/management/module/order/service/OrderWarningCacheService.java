@@ -125,16 +125,14 @@ public class OrderWarningCacheService {
 
     private long countSalesByCategory(String tenantCode, String category, int days) {
         return safeCount(salesOrderMapper.selectCount(new LambdaQueryWrapper<SalesOrder>()
-                .eq(SalesOrder::getTenantCode, tenantCode)
                 .eq(SalesOrder::getOrderCategory, category)
                 .notIn(SalesOrder::getStatus, OrderStatusEnum.COMPLETED.getCode(),
-                        OrderStatusEnum.CANCELLED.getCode(), OrderStatusEnum.BUDGET_COMPLETED.getCode())
+                        OrderStatusEnum.PENDING_CANCEL.getCode(), OrderStatusEnum.CANCELLED.getCode(), OrderStatusEnum.BUDGET_COMPLETED.getCode())
                 .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(days))));
     }
 
     private long countOtherSales(String tenantCode, int days) {
         return safeCount(salesOrderMapper.selectCount(new LambdaQueryWrapper<SalesOrder>()
-                .eq(SalesOrder::getTenantCode, tenantCode)
                 .and(category -> category.isNull(SalesOrder::getOrderCategory)
                         .or()
                         .notIn(SalesOrder::getOrderCategory,
@@ -143,13 +141,12 @@ public class OrderWarningCacheService {
                                 OrderCategoryEnum.REPLENISHMENT.getCode(),
                                 OrderCategoryEnum.DRAWING_BUDGET.getCode()))
                 .notIn(SalesOrder::getStatus, OrderStatusEnum.COMPLETED.getCode(),
-                        OrderStatusEnum.CANCELLED.getCode(), OrderStatusEnum.BUDGET_COMPLETED.getCode())
+                        OrderStatusEnum.PENDING_CANCEL.getCode(), OrderStatusEnum.CANCELLED.getCode(), OrderStatusEnum.BUDGET_COMPLETED.getCode())
                 .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(days))));
     }
 
     private long countProductionByCategory(String tenantCode, String category, int days) {
         return safeCount(productionOrderMapper.selectCount(new LambdaQueryWrapper<ProductionOrder>()
-                .eq(ProductionOrder::getTenantCode, tenantCode)
                 .eq(ProductionOrder::getOrderCategory, category)
                 .ne(ProductionOrder::getStatus, OrderStatusEnum.COMPLETED.getCode())
                 .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(days))));
@@ -157,7 +154,6 @@ public class OrderWarningCacheService {
 
     private long countOtherProduction(String tenantCode, int days) {
         return safeCount(productionOrderMapper.selectCount(new LambdaQueryWrapper<ProductionOrder>()
-                .eq(ProductionOrder::getTenantCode, tenantCode)
                 .and(category -> category.isNull(ProductionOrder::getOrderCategory)
                         .or()
                         .notIn(ProductionOrder::getOrderCategory,

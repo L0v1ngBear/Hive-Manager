@@ -12,21 +12,17 @@ import my.management.common.enums.CommonStatusEnum;
 import my.management.common.enums.DeleteFlagEnum;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.tenant.mapper.TenantMapper;
-import my.management.module.tenant.mapper.TenantUsageMeterMapper;
 import my.management.module.tenant.model.dto.TenantLicenseUpdateRequest;
 import my.management.module.tenant.model.entity.Tenant;
-import my.management.module.tenant.model.entity.TenantUsageMeter;
 import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.tenant.model.enums.TenantPlanEnum;
 import my.management.module.tenant.model.enums.TenantSubscriptionStatusEnum;
-import my.management.module.tenant.model.enums.TenantUsageMeterEnum;
 import my.management.module.tenant.model.vo.TenantFeatureOptionVO;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -53,9 +49,6 @@ public class TenantLicenseService {
     private TenantMapper tenantMapper;
 
     @Resource
-    private TenantUsageMeterMapper tenantUsageMeterMapper;
-
-    @Resource
     private EmployeeMapper employeeMapper;
 
     @Resource
@@ -75,7 +68,6 @@ public class TenantLicenseService {
         tenant.setSubscriptionStartTime(LocalDateTime.now());
         tenant.setSubscriptionEndTime(LocalDateTime.now().plusDays(30));
         tenant.setMaxUsers(plan.getMaxUsers());
-        tenant.setMaxAiAdvicePerMonth(plan.getMaxAiAdvicePerMonth());
         tenant.setMaxStorageMb(plan.getStorageQuotaMb());
         tenant.setFeatureFlags(defaultFeatureFlags(plan.getCode()));
     }
@@ -95,7 +87,6 @@ public class TenantLicenseService {
                 : request.getSubscriptionStartTime());
         tenant.setSubscriptionEndTime(request.getSubscriptionEndTime());
         tenant.setMaxUsers(resolveLimit(request.getMaxUsers(), plan.getMaxUsers(), 9999));
-        tenant.setMaxAiAdvicePerMonth(resolveLimit(request.getMaxAiAdvicePerMonth(), plan.getMaxAiAdvicePerMonth(), 100000));
         tenant.setMaxStorageMb(resolveLimit(request.getMaxStorageMb(), plan.getStorageQuotaMb(), 102400));
         tenant.setFeatureFlags(normalizeFeatureFlags(request.getFeatureFlags(), planCode));
     }
@@ -154,59 +145,6 @@ public class TenantLicenseService {
             features.add(feature(item));
         }
         return features;
-    }
-
-    public boolean tryConsumeAiAdviceQuota(String tenantCode) {
-        Tenant tenant = requireTenant(tenantCode);
-        if (!isTenantUsable(tenant) || !isFeatureEnabled(tenant, TenantFeatureEnum.CODE_AI_ADVICE)) {
-            return false;
-        }
-        Integer maxAiAdvicePerMonth = tenant.getMaxAiAdvicePerMonth();
-        if (maxAiAdvicePerMonth == null) {
-            return true;
-        }
-        if (maxAiAdvicePerMonth <= 0) {
-            return false;
-        }
-        return tryConsumeUsageMeter(tenantCode, TenantUsageMeterEnum.AI_ADVICE.getCode(), currentMonthKey(), maxAiAdvicePerMonth);
-    }
-
-    private boolean tryConsumeUsageMeter(String tenantCode, String meterType, String periodKey, int limitCount) {
-        try {
-            TenantUsageMeter meter = tenantUsageMeterMapper.selectOne(new LambdaQueryWrapper<TenantUsageMeter>()
-                    .eq(TenantUsageMeter::getTenantCode, tenantCode)
-                    .eq(TenantUsageMeter::getMeterType, meterType)
-                    .eq(TenantUsageMeter::getPeriodKey, periodKey)
-                    .last("LIMIT 1"));
-            LocalDateTime now = LocalDateTime.now();
-            if (meter == null) {
-                meter = new TenantUsageMeter();
-                meter.setTenantCode(tenantCode);
-                meter.setMeterType(meterType);
-                meter.setPeriodKey(periodKey);
-                meter.setUsedCount(1);
-                meter.setLimitCount(limitCount);
-                meter.setCreateTime(now);
-                meter.setUpdateTime(now);
-                tenantUsageMeterMapper.insert(meter);
-                return true;
-            }
-
-            meter.setLimitCount(limitCount);
-            int usedCount = meter.getUsedCount() == null ? 0 : meter.getUsedCount();
-            if (usedCount >= limitCount) {
-                meter.setUpdateTime(now);
-                tenantUsageMeterMapper.updateById(meter);
-                return false;
-            }
-            meter.setUsedCount(usedCount + 1);
-            meter.setUpdateTime(now);
-            tenantUsageMeterMapper.updateById(meter);
-            return true;
-        } catch (Exception ex) {
-            log.warn("tenant usage meter unavailable, tenantCode={}, meterType={}", tenantCode, meterType, ex);
-            return true;
-        }
     }
 
     private TenantFeatureOptionVO feature(TenantFeatureEnum feature) {
@@ -320,7 +258,6 @@ public class TenantLicenseService {
     }
 
     private String defaultFeatureFlags(String planCode) {
-        boolean advancedAi = TenantPlanEnum.of(planCode).isAdvancedAiIncluded();
         return "{"
                 + "\"modules\":{"
                 + "\"dashboard\":true,"
@@ -339,8 +276,6 @@ public class TenantLicenseService {
                 + "\"equipment\":true,"
                 + "\"manual\":true"
                 + "},"
-                + "\"aiAdvice\":true,"
-                + "\"advancedAi\":" + advancedAi + ","
                 + "\"custom\":{}"
                 + "}";
     }
@@ -386,12 +321,7 @@ public class TenantLicenseService {
     }
 
     private Set<String> baseFeatureKeys(String planCode) {
-        LinkedHashSet<String> features = new LinkedHashSet<>(BASE_MODULE_FEATURES);
-        features.add(TenantFeatureEnum.CODE_AI_ADVICE);
-        if (TenantPlanEnum.of(planCode).isAdvancedAiIncluded()) {
-            features.add(TenantFeatureEnum.CODE_ADVANCED_AI);
-        }
-        return features;
+        return new LinkedHashSet<>(BASE_MODULE_FEATURES);
     }
 
     private void applyFeatureNode(JsonNode node, String path, Set<String> enabled, boolean strict) {
@@ -465,10 +395,6 @@ public class TenantLicenseService {
             return null;
         }
         return featureKey;
-    }
-
-    private String currentMonthKey() {
-        return YearMonth.now().toString().replace("-", "");
     }
 
     private LocalDateTime defaultStartTime(LocalDateTime existed) {

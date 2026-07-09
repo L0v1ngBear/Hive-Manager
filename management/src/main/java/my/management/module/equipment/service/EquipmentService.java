@@ -221,8 +221,8 @@ public class EquipmentService {
         inspectionRecordMapper.insert(record);
 
         equipmentDeviceMapper.update(null, new LambdaUpdateWrapper<EquipmentDevice>()
-                .eq(EquipmentDevice::getId, device.getId())
                 .eq(EquipmentDevice::getTenantCode, device.getTenantCode())
+                .eq(EquipmentDevice::getId, device.getId())
                 .set(EquipmentDevice::getLastInspectionTime, inspectionTime)
                 .set(EquipmentDevice::getUpdateTime, LocalDateTime.now()));
         return toRecordVO(record);

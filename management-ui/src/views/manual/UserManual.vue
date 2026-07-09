@@ -2,29 +2,30 @@
   <section class="manual-page">
     <div class="manual-hero">
       <div class="manual-hero__copy">
-        <span class="manual-kicker">使用手册</span>
-        <h1>蜂巢 Hive 操作指南</h1>
-        <p>
-          按照“基础资料先完善、现场扫码少录入、审批打印可追溯、异常预警集中处理”的方式使用，
-          能让订单、库存、考勤、审批、质量和打印形成稳定闭环。
-        </p>
-        <div class="manual-hero__badges">
-          <span>订单流转</span>
-          <span>库存扫码</span>
-          <span>审批待办</span>
-          <span>打印追溯</span>
-          <span>经营提醒</span>
+        <button type="button" class="manual-edit-btn manual-hero__edit" @click="openHeroEditor">
+          <span class="material-symbols-outlined">edit</span>
+          编辑
+        </button>
+        <span class="manual-kicker">{{ manualConfig.hero.kicker }}</span>
+        <h1>{{ manualConfig.hero.title }}</h1>
+        <p>{{ manualConfig.hero.intro }}</p>
+        <div v-if="manualConfig.hero.badges?.length" class="manual-hero__badges">
+          <span v-for="badge in manualConfig.hero.badges" :key="badge">{{ badge }}</span>
         </div>
       </div>
       <div class="manual-hero__card">
-        <span class="material-symbols-outlined">route</span>
-        <strong>推荐首次使用顺序</strong>
-        <p>账号登录 → 修改初始密码 → 员工/部门/角色 → 客户项目 → 订单 → 库存入库 → 模板打印 → 审批与通知</p>
+        <span class="material-symbols-outlined">{{ manualConfig.hero.cardIcon }}</span>
+        <strong>{{ manualConfig.hero.cardTitle }}</strong>
+        <p>{{ manualConfig.hero.cardText }}</p>
       </div>
     </div>
 
     <div class="manual-grid">
-      <article v-for="item in quickGuides" :key="item.title" class="manual-card">
+      <article v-for="(item, index) in quickGuides" :key="item.title" class="manual-card">
+        <button type="button" class="manual-edit-btn manual-card__edit" @click.stop="openQuickGuideEditor(index)">
+          <span class="material-symbols-outlined">edit</span>
+          编辑
+        </button>
         <div class="manual-card__icon">
           <span class="material-symbols-outlined">{{ item.icon }}</span>
         </div>
@@ -46,24 +47,32 @@
           <span class="material-symbols-outlined">{{ section.icon }}</span>
           {{ section.title }}
         </button>
+        <button class="manual-toc__item" @click="scrollToSection('custom-manual')">
+          <span class="material-symbols-outlined">edit_note</span>
+          {{ manualConfig.customManual.title }}
+        </button>
       </aside>
 
       <div class="manual-content">
-        <section v-for="section in sections" :id="section.id" :key="section.id" class="manual-section">
+        <section v-for="(section, sectionIndex) in sections" :id="section.id" :key="section.id" class="manual-section">
           <div class="manual-section__head">
             <span class="material-symbols-outlined">{{ section.icon }}</span>
             <div>
               <h2>{{ section.title }}</h2>
               <p>{{ section.summary }}</p>
             </div>
+            <button type="button" class="manual-edit-btn manual-section__edit" @click="openSectionEditor(sectionIndex)">
+              <span class="material-symbols-outlined">edit</span>
+              编辑
+            </button>
           </div>
 
           <div class="manual-steps">
             <div v-for="step in section.steps" :key="step.title" class="manual-step">
               <strong>{{ step.title }}</strong>
               <p>{{ step.content }}</p>
-              <ul v-if="stepDetailList(section.id, step.title).length" class="manual-detail-list">
-                <li v-for="detail in stepDetailList(section.id, step.title)" :key="detail">{{ detail }}</li>
+              <ul v-if="stepDetailList(section.id, step).length" class="manual-detail-list">
+                <li v-for="detail in stepDetailList(section.id, step)" :key="detail">{{ detail }}</li>
               </ul>
             </div>
           </div>
@@ -80,35 +89,152 @@
           </div>
         </section>
 
+        <section id="custom-manual" class="manual-section manual-custom-section">
+          <div class="manual-section__head">
+            <span class="material-symbols-outlined">edit_note</span>
+            <div>
+              <h2>{{ manualConfig.customManual.title }}</h2>
+              <p>{{ manualConfig.customManual.summary }}</p>
+            </div>
+            <button type="button" class="manual-edit-btn manual-section__edit" @click="openCustomManualWindowEditor">
+              <span class="material-symbols-outlined">edit</span>
+              编辑
+            </button>
+          </div>
+
+          <div v-loading="customManualLoading" class="manual-custom-editor">
+            <div class="manual-custom-toolbar">
+              <div>
+                <strong>{{ manualConfig.customManual.label }}</strong>
+                <p>{{ manualConfig.customManual.helper }}</p>
+              </div>
+              <span v-if="customManualSavedAt" class="manual-custom-saved">上次保存：{{ customManualSavedAt }}</span>
+            </div>
+            <textarea
+              v-model="customManualDraft"
+              rows="12"
+              maxlength="120000"
+              placeholder="示例：&#10;1. 新订单由销售负责人录入，提交前确认客户、项目、交期。&#10;2. 仓库入库后当天完成标签打印并贴标。&#10;3. 质量异常必须上传现场图片并填写处理结果。"
+            ></textarea>
+            <div class="manual-custom-actions">
+              <button type="button" class="manual-secondary-btn" :disabled="customManualSaving" @click="resetCustomManualTemplate">填入推荐模板</button>
+              <button type="button" class="manual-secondary-btn" :disabled="customManualSaving" @click="exportCustomManual">导出手册</button>
+              <button type="button" class="manual-danger-btn" :disabled="customManualSaving" @click="clearCustomManual">清空</button>
+              <button type="button" class="manual-primary-btn" :disabled="customManualSaving" @click="saveCustomManual">
+                {{ customManualSaving ? '保存中...' : '保存' }}
+              </button>
+            </div>
+          </div>
+        </section>
+
         <section class="manual-section faq-section">
           <div class="manual-section__head">
             <span class="material-symbols-outlined">help</span>
             <div>
-              <h2>常见问题</h2>
-              <p>遇到登录、权限、扫码、打印、导入导出或数据不一致时，优先从这里排查。</p>
+              <h2>{{ manualConfig.faqWindow.title }}</h2>
+              <p>{{ manualConfig.faqWindow.summary }}</p>
+            </div>
+            <div class="manual-section__actions">
+              <button type="button" class="manual-edit-btn" @click="openFaqWindowEditor">
+                <span class="material-symbols-outlined">edit</span>
+                编辑
+              </button>
+              <button type="button" class="manual-edit-btn" @click="openNewFaqEditor">
+                <span class="material-symbols-outlined">add</span>
+                新增
+              </button>
             </div>
           </div>
 
           <div class="faq-list">
-            <details v-for="faq in faqs" :key="faq.question">
+            <details v-for="(faq, faqIndex) in faqs" :key="faq.question">
               <summary>{{ faq.question }}</summary>
               <p>{{ faq.answer }}</p>
+              <button type="button" class="manual-inline-edit" @click="openFaqEditor(faqIndex)">
+                <span class="material-symbols-outlined">edit</span>
+                编辑
+              </button>
             </details>
           </div>
         </section>
+      </div>
+    </div>
+
+    <div v-if="manualEditor.open" class="manual-editor-mask" @click.self="closeManualEditor">
+      <div class="manual-editor-dialog">
+        <div class="manual-editor-head">
+          <h3>{{ manualEditor.title }}</h3>
+          <button type="button" @click="closeManualEditor">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div class="manual-editor-fields">
+          <label v-for="field in manualEditor.fields" :key="field.key" class="manual-editor-field">
+            <span>{{ field.label }}</span>
+            <textarea
+              v-if="field.type === 'textarea'"
+              v-model="manualEditor.form[field.key]"
+              :rows="field.rows || 4"
+            ></textarea>
+            <input v-else v-model="manualEditor.form[field.key]" type="text" />
+            <small v-if="field.hint">{{ field.hint }}</small>
+          </label>
+        </div>
+
+        <div class="manual-editor-actions">
+          <button type="button" class="manual-secondary-btn" :disabled="customManualSaving" @click="closeManualEditor">取消</button>
+          <button type="button" class="manual-primary-btn" :disabled="customManualSaving" @click="saveManualEditor">
+            {{ customManualSaving ? '保存中...' : '保存' }}
+          </button>
+        </div>
       </div>
     </div>
   </section>
 </template>
 
 <script setup>
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { getCustomManual, saveCustomManualContent } from './api/manual'
 
 defineOptions({ name: 'UserManual' })
 
 const router = useRouter()
 
-const quickGuides = [
+const customManualDraft = ref('')
+const customManualSavedAt = ref('')
+const customManualLoading = ref(false)
+const customManualSaving = ref(false)
+
+const recommendedCustomManual = `# 企业内部操作补充
+
+## 订单
+1. 新订单由销售负责人录入，提交前确认客户、项目、交付时间和订单小项。
+2. 需要审批的订单先提交审批，审批通过后再进入后续流转。
+3. 发货前必须确认物流信息，并把异常情况写入备注。
+
+## 库存
+1. 入库后当天完成标签打印并贴标。
+2. 部分出库后必须补打剩余标签，避免后续扫码米数不一致。
+3. 库存预警由仓库负责人每日处理。
+
+## 质量与售后
+1. 质量异常必须填写问题类型、责任人、处理结果。
+2. 需要留证时上传现场图片或附件。
+3. 高频问题每周复盘一次，并写明改进措施。
+
+## 审批
+1. 审批人收到待办后应在当天处理。
+2. 驳回时必须写清楚原因，方便业务人员修改。
+3. 离职审批通过后，管理员及时回收权限。`
+
+onMounted(() => {
+  loadCustomManual()
+})
+
+const DEFAULT_QUICK_GUIDES = [
   {
     icon: 'verified_user',
     title: '账号安全先完成',
@@ -131,7 +257,7 @@ const quickGuides = [
   }
 ]
 
-const sections = [
+const DEFAULT_SECTIONS = [
   {
     id: 'start',
     icon: 'rocket_launch',
@@ -145,7 +271,7 @@ const sections = [
       },
       {
         title: '2. 员工加入组织',
-        content: '小程序用户可通过组织码加入，加入时需要填写真实姓名。组织码由网页端管理员生成，短时间有效，过期后需重新生成。'
+        content: '员工可通过组织码加入，加入时需要填写真实姓名。组织码由管理员生成，短时间有效，过期后需重新生成。'
       },
       {
         title: '3. 管理员分配权限',
@@ -167,14 +293,14 @@ const sections = [
       },
       {
         title: '角色与权限',
-        content: '角色管理用于控制菜单和接口权限。普通员工只给基础查看和本人业务权限，管理类权限只分配给对应负责人。'
+        content: '角色管理用于控制菜单和操作权限。普通员工只给基础查看和本人业务权限，管理类权限只分配给对应负责人。'
       },
       {
         title: '客户与项目',
         content: '客户管理中维护客户名称、联系人、电话、项目和项目负责人。订单选择客户后，会优先从客户项目中带出业务信息。'
       }
     ],
-    tips: ['客户、项目、员工姓名尽量使用正式名称', '项目负责人会影响后续跟进责任', '字段展示可按企业习惯配置']
+    tips: ['客户、项目、员工姓名尽量使用正式名称', '项目负责人会影响后续跟进责任', '信息展示可按企业习惯配置']
   },
   {
     id: 'order',
@@ -189,7 +315,7 @@ const sections = [
       },
       {
         title: '2. 审批与状态流转',
-        content: '待确认、待收款、备料中、生产中、待发货、已发货、已完成按顺序推进；待收款转生产中需要订单审批。'
+        content: '待确认、待收款、备料中、生产中、待发货、已发货、已完成按顺序推进；待收款转备料中需要订单审批。'
       },
       {
         title: '3. 生产工序',
@@ -214,7 +340,7 @@ const sections = [
       },
       {
         title: '设备巡检码',
-        content: '设备巡检码是固定码，打印一次贴在设备上即可。现场人员扫码后填写巡检结果，管理端可查看巡检记录。'
+        content: '设备巡检码是固定码，打印一次贴在设备上即可。现场人员扫码后填写巡检结果，负责人可查看巡检记录。'
       }
     ],
     tips: ['二维码和条形码都可用于扫码', '条码内容只保留业务识别信息', '扫码失败时先确认网络和权限']
@@ -239,18 +365,18 @@ const sections = [
         content: '用户可设置型号库存低于多少米时预警。系统采用按需判断，进入相关页面或业务触发时生成预警，避免无意义轮询。'
       }
     ],
-    tips: ['导入第三方库存前先下载字段说明', '导入失败会给出错误原因', '库存流水是排查账实差异的第一依据']
+    tips: ['导入第三方库存前先下载导入说明', '导入失败会给出错误原因', '库存流水是排查账实差异的第一依据']
   },
   {
     id: 'print',
     icon: 'print',
     title: '打印与模板',
-    summary: '标签、订单流转码和出库单均可追溯，网页端负责配置和预览，小程序负责蓝牙标签打印。',
+    summary: '标签、订单流转码和出库单均可追溯，电脑端负责配置和预览，手机端负责现场蓝牙标签打印。',
     route: '/function/receipt',
     steps: [
       {
         title: '标签模板',
-        content: '标签模板页面配置字段、条码、二维码、字号和位置。库存标签、订单流转码会读取模板生成打印任务。'
+        content: '标签模板页面配置打印内容、条码、二维码、字号和位置。库存标签、订单流转码会读取模板生成打印任务。'
       },
       {
         title: '出库单打印',
@@ -261,7 +387,7 @@ const sections = [
         content: '小程序完成蓝牙打印或网页完成出库单打印后，需要确认已打印。失败、跳过和补打都会记录状态，便于排查。'
       }
     ],
-    tips: ['网页端不连接蓝牙打印机', '标签打印统一走小程序蓝牙', '出库单适合浏览器连接纸张打印机']
+    tips: ['电脑端负责配置模板', '标签打印统一使用现场蓝牙打印', '出库单适合浏览器连接纸张打印机']
   },
   {
     id: 'approval',
@@ -276,7 +402,7 @@ const sections = [
       },
       {
         title: '订单审批',
-        content: '待收款订单需要进入生产中时发起订单审批。审批通过后订单状态推进，并自动生成订单流转码打印任务。'
+        content: '待收款订单需要进入备料中时发起订单审批。审批通过后订单状态推进，并自动生成订单流转码打印任务。'
       },
       {
         title: '员工相关审批',
@@ -289,12 +415,12 @@ const sections = [
     id: 'attendance',
     icon: 'fingerprint',
     title: '考勤管理',
-    summary: '考勤规则由管理端维护，小程序用于员工现场打卡。',
+    summary: '考勤规则由管理员维护，手机端用于员工现场打卡。',
     route: '/function/attendance',
     steps: [
       {
         title: '配置规则',
-        content: '设置上班、下班和加班时间段。公司经纬度需要在管理端手动维护，小程序按规则进行打卡判断。'
+        content: '设置上班、下班和加班时间段。公司位置需要由管理员维护，手机端按规则进行打卡判断。'
       },
       {
         title: '查看异常',
@@ -324,7 +450,7 @@ const sections = [
       },
       {
         title: '附件留痕',
-        content: '需要留证的页面支持上传图片或文件。小程序端通常上传图片，网页端可上传文档和图片。'
+        content: '需要留证的页面支持上传图片或文件。手机端通常上传现场图片，电脑端可上传文档和图片。'
       }
     ],
     tips: ['质量问题尽量关联订单', '处理后补充改进方案', '高频问题应在周会复盘']
@@ -333,7 +459,7 @@ const sections = [
     id: 'dashboard',
     icon: 'dashboard',
     title: '总览与通知',
-    summary: '总览大盘展示经营概况、企业公告、库存趋势、业务提醒和考勤异常。',
+    summary: '总览大盘展示经营概况、企业公告、重要公告、业务提醒和考勤异常。',
     route: '/dashboard',
     steps: [
       {
@@ -352,28 +478,6 @@ const sections = [
     tips: ['总览用于发现问题，不替代明细页', '点击提醒可进入对应业务页面', '通知未读人员需要及时跟进']
   },
   {
-    id: 'ai',
-    icon: 'psychology',
-    title: '经营建议',
-    summary: '经营建议面向老板和管理层，用于辅助分析订单、客户、员工、质量和经营风险。',
-    route: '/dashboard/ai-advices',
-    steps: [
-      {
-        title: '建议生成',
-        content: '系统会按业务数据定期生成建议，也可由管理层进入建议中心查看最新建议。建议内容会尽量聚焦业务问题和处理动作。'
-      },
-      {
-        title: '使用方式',
-        content: '先看建议标题和风险等级，再看涉及部门、原因和处理建议。需要执行的事项应转为责任人跟进。'
-      },
-      {
-        title: '持续优化',
-        content: '建议处理结果会沉淀为业务反馈，后续用于优化建议质量。经营建议只辅助决策，最终处理以业务负责人判断为准。'
-      }
-    ],
-    tips: ['高权限用户才能查看高维建议', '建议不展示无关技术信息', '重要建议要形成闭环记录']
-  },
-  {
     id: 'import-export',
     icon: 'file_download',
     title: '导入导出',
@@ -381,11 +485,11 @@ const sections = [
     steps: [
       {
         title: '导入前检查',
-        content: '先下载字段说明或模板，确认必填字段、格式、日期和数字单位。导入第三方系统数据时，优先整理字段再上传。'
+        content: '先下载导入说明或模板，确认必填信息、格式、日期和数字单位。导入第三方系统数据时，优先整理信息再上传。'
       },
       {
         title: '导入失败处理',
-        content: '如果文件格式、字段或数据不合法，页面会提示错误原因。根据错误行修正后重新上传，不要直接覆盖原始文件。'
+        content: '如果文件格式、信息或数据不合法，页面会提示错误原因。根据错误行修正后重新上传，不要直接覆盖原始文件。'
       },
       {
         title: '导出数据',
@@ -398,7 +502,7 @@ const sections = [
     id: 'mini',
     icon: 'phone_iphone',
     title: '小程序联动',
-    summary: '小程序适合现场人员使用，网页端适合管理配置和经营分析。',
+    summary: '手机端适合现场人员使用，电脑端适合管理配置和经营分析。',
     steps: [
       {
         title: '登录与加入',
@@ -410,52 +514,31 @@ const sections = [
       },
       {
         title: '双端同步',
-        content: '网页端维护客户、订单、库存、审批和模板后，小程序会按权限展示对应功能。现场操作会同步回网页端。'
+        content: '电脑端维护客户、订单、库存、审批和模板后，手机端会按权限展示对应功能。现场操作会同步回电脑端。'
       }
     ],
-    tips: ['发布小程序前确认接口环境', '体验版和正式版应连接公网接口', '小程序样式会按机型自适应']
-  },
-  {
-    id: 'hidden-time',
-    icon: 'edit_calendar',
-    title: '业务时间修正',
-    summary: '少数历史补录或业务修正场景需要调整创建时间，入口默认隐藏。',
-    steps: [
-      {
-        title: '开启方式',
-        content: '在订单、库存入库、质量记录或出库单打印编辑区域，按 Ctrl + Alt + T 开启业务时间修正，再按一次关闭。'
-      },
-      {
-        title: '适用场景',
-        content: '用于历史单据补录、业务日期修正或打印日期修正。普通新增和编辑不需要使用该模式。'
-      },
-      {
-        title: '注意事项',
-        content: '时间修正属于受控操作，请确认业务原因后再保存。不要用它修改无关字段或规避正常审批流程。'
-      }
-    ],
-    tips: ['该入口不会摆在页面明面上', '只给确有需要的管理人员使用', '修正前建议确认原始业务凭证']
+    tips: ['上线前确认员工可正常登录和访问', '正式使用前确认业务入口正确', '手机端样式会按机型自适应']
   }
 ]
 
-const detailedSteps = {
+const DEFAULT_DETAILED_STEPS = {
   'start::1. 登录并修改密码': [
-    '网页端登录后如果系统提示修改初始密码，请先完成新密码设置，再进入业务页面。',
+    '电脑端登录后如果系统提示修改初始密码，请先完成新密码设置，再进入业务页面。',
     '密码建议包含大小写字母、数字或符号，不要使用姓名、手机号、生日等容易被猜到的信息。',
     '忘记密码时，在登录页点击忘记密码，通过手机号短信验证码完成身份校验后重置密码。',
     '如果手机号无法收到验证码，先确认员工资料中手机号是否正确，再联系管理员处理。'
   ],
   'start::2. 员工加入组织': [
-    '管理员在网页端生成组织码后，员工在小程序加入组织页面输入组织码和本人姓名。',
+    '管理员生成组织码后，员工在手机端加入组织页面输入组织码和本人姓名。',
     '组织码有短时有效期，过期后不能继续使用，需要管理员重新生成。',
-    '员工填写的姓名会同步到系统人员信息，便于管理端识别和后续分配权限。',
+    '员工填写的姓名会同步到人员信息，便于管理员识别和后续分配权限。',
     '一个手机号默认对应一个员工账号，离职后应由管理员处理离职状态，不建议重复创建新账号。'
   ],
   'start::3. 管理员分配权限': [
     '员工加入组织后默认只具备普通员工基础身份，不能直接访问管理功能。',
     '管理员进入员工管理，编辑员工角色、部门、直属负责人和在职状态。',
     '仓库、销售、生产、财务、审批、质量等角色应按岗位最小权限分配。',
-    '分配后让员工重新进入小程序或刷新网页端，确认功能入口是否出现。'
+    '分配后让员工重新进入手机端或刷新电脑端，确认功能入口是否出现。'
   ],
 
   'base::部门与负责人': [
@@ -467,7 +550,7 @@ const detailedSteps = {
   'base::角色与权限': [
     '角色代表一组权限，例如普通员工、仓库管理员、订单管理员、审批负责人等。',
     '不要把高级管理权限或关键配置权限分配给普通业务人员。',
-    '新建角色后，应先用普通账号验证菜单、接口和小程序入口是否符合预期。',
+    '新建角色后，应先用普通账号验证菜单、操作和小程序入口是否符合预期。',
     '权限调整后，建议让员工重新登录，避免旧登录状态缓存导致看不到最新权限。'
   ],
   'base::客户与项目': [
@@ -480,13 +563,13 @@ const detailedSteps = {
   'order::1. 新建订单': [
     '进入订单管理，点击新建订单，按要求填写客户名称、项目名称、交付日期、订单小项和商品明细。',
     '客户和项目支持下拉选择；如果没有对应客户或项目，可直接输入新内容，保存后会沉淀到客户管理。',
-    '订单小项用于区分样板间、大货和补单，后续统计、筛选和流转都会使用该字段。',
+    '订单小项用于区分样板间、大货和补单，后续统计、筛选和流转都会使用该信息。',
     '品牌、型号、克重、规格、数量和金额尽量填写完整，减少后续生产和出库环节反复确认。',
     '必填项未填写时页面会提示并定位到对应输入框。'
   ],
   'order::2. 审批与状态流转': [
     '新订单一般从待确认开始，确认后进入待收款或后续环节。',
-    '待收款订单如果需要转入生产中，必须走订单审批，审批通过后系统才允许状态推进。',
+    '待收款订单如果需要转入备料中，必须走订单审批，审批通过后系统才允许状态推进。',
     '审批通过后会自动生成订单流转码打印任务，现场人员打印并贴到订单资料上。',
     '已发货状态需要填写物流公司和物流单号，否则系统会拦截，避免发货信息缺失。',
     '取消订单前应确认是否已经产生库存出库、打印任务或财务记录。'
@@ -494,7 +577,7 @@ const detailedSteps = {
   'order::3. 生产工序': [
     '订单进入生产中后，按工序逐步推进，不支持跳级或倒退。',
     '每个工序完成后可通过小程序扫码更新，减少工人手动查找订单。',
-    '如果某个工序操作错误，应由有权限的管理人员在网页端核对后处理。',
+    '如果某个工序操作错误，应由有权限的管理人员在电脑端核对后处理。',
     '生产工序完成到成品发货后，订单才适合进入待发货或已发货流程。',
     '工序记录会成为后续交付延误、质量问题和责任复盘的重要依据。'
   ],
@@ -514,14 +597,14 @@ const detailedSteps = {
   ],
   'scan::设备巡检码': [
     '设备巡检码是固定码，只需打印一次贴在设备明显位置。',
-    '员工扫码后填写巡检结果、异常描述和图片，管理端可查看巡检记录。',
+    '员工扫码后填写巡检结果、异常描述和图片，负责人可查看巡检记录。',
     '设备更换、报废或迁移位置时，应同步更新设备资料，避免扫码后关联错误设备。',
     '巡检异常建议进入通知/待办，确保维修或负责人及时处理。'
   ],
 
   'inventory::入库': [
     '手动入库适合少量新增；批量导入适合客户已有库存一次性迁入。',
-    '第三方系统导出的库存文件要先核对字段，确认型号、规格、米数、条码等信息。',
+    '第三方系统导出的库存文件要先核对信息项，确认型号、规格、米数、条码等信息。',
     '图片识别入库适合现场拍照提取信息，识别结果保存前仍需人工确认。',
     '条码为空时系统自动生成；如果客户已有条码，可录入原条码，但要保证唯一。',
     '入库完成后建议立即打印标签，避免布匹已上架但没有可扫码标签。'
@@ -540,8 +623,8 @@ const detailedSteps = {
   ],
 
   'print::标签模板': [
-    '进入标签模板页面，可配置文本、条码、二维码、字号、宽高和字段位置。',
-    '库存标签、订单流转码和其他标签应使用业务字段，不要把非业务字段打印给客户。',
+    '进入标签模板页面，可配置文本、条码、二维码、字号、宽高和内容位置。',
+    '库存标签、订单流转码和其他标签应使用业务信息，不要把无关内容打印给客户。',
     '模板调整后建议用一张预览标签确认位置、字体和扫描效果。',
     '如果打印偏移，优先检查模板尺寸、打印机纸张尺寸和小程序打印参数。'
   ],
@@ -565,10 +648,10 @@ const detailedSteps = {
     '已处理的审批不会重复处理，避免多人重复审批同一单据。'
   ],
   'approval::订单审批': [
-    '待收款订单转生产中时，需要走订单审批。',
+    '待收款订单转备料中时，需要走订单审批。',
     '审批通过后订单进入下一状态，同时自动生成订单流转码待打印任务。',
     '审批驳回后应回到订单管理修改客户、金额、交付或备注等业务信息。',
-    '订单审批记录用于复盘为什么某个订单进入生产或被拦截。'
+    '订单审批记录用于复盘为什么某个订单进入后续阶段或被拦截。'
   ],
   'approval::员工相关审批': [
     '请假审批通过后会同步到考勤判断，避免员工请假当天被误判为缺勤。',
@@ -579,7 +662,7 @@ const detailedSteps = {
 
   'attendance::配置规则': [
     '考勤规则包括上班打卡时间段、下班打卡时间段和加班时间段。',
-    '公司经纬度由管理员在管理端手动维护，小程序打卡时按位置进行判断。',
+    '公司位置由管理员维护，员工打卡时按位置进行判断。',
     '规则修改后建议通知员工，避免员工按旧时间打卡导致异常。',
     '如果企业有多个地点，建议先统一规则，再根据实际业务扩展地点配置。'
   ],
@@ -609,16 +692,16 @@ const detailedSteps = {
     '高频售后问题应按客户、型号和生产工序维度复盘。'
   ],
   'quality::附件留痕': [
-    '网页端可上传图片、文档或表格；小程序端通常上传现场图片。',
+    '电脑端可上传图片、文档或表格；手机端通常上传现场图片。',
     '附件用于证明问题、处理过程和客户反馈，不要上传无关或敏感文件。',
     '上传失败时检查文件大小、格式和网络，再重新上传。',
-    '后续如果使用 OSS，文件会由统一上传体系管理。'
+    '文件统一进入系统上传目录管理，下载和查看都走系统权限校验。'
   ],
 
   'dashboard::查看今日概况': [
     '总览大盘适合每天开工前快速查看订单、库存、待办和考勤。',
     '大盘只展示关键趋势和异常，不替代订单、库存等明细页面。',
-    '切换页面后回来如果看到空白或加载慢，可先刷新页面确认网络和接口状态。',
+    '切换页面后回来如果看到空白或加载慢，可先刷新页面确认网络和服务状态。',
     '经营指标需要真实业务数据支撑，新系统刚启用时部分图表为空是正常情况。'
   ],
   'dashboard::发布企业通知': [
@@ -634,91 +717,53 @@ const detailedSteps = {
     '如果预警重复出现，说明规则或业务流程需要复盘优化。'
   ],
 
-  'ai::建议生成': [
-    '经营建议会读取订单、库存、客户、质量、审批等经营数据生成建议。',
-    '建议触发不依赖用户频繁点击刷新，而应由系统按规则或调度生成。',
-    '智能建议启用后，建议内容会更偏业务分析和处理动作。',
-    '页面只展示业务结论、影响范围和处理动作。'
-  ],
-  'ai::使用方式': [
-    '先看风险等级，再看涉及部门和建议动作。',
-    '建议不能替代负责人判断，特别是涉及客户承诺、赔付和资金事项。',
-    '可把重要建议拆成责任人、截止时间和处理结果，形成管理闭环。',
-    '高维建议仅对高权限管理人员展示。'
-  ],
-  'ai::持续优化': [
-    '建议处理结果会沉淀为样本，后续用于优化建议质量。',
-    '如果建议不准确，应反馈真实原因和处理结果。',
-    '后续可接入更多经营指标，例如员工效率、客户复购、售后率和库存周转。',
-    '经营建议质量依赖高质量业务数据，数据越规范建议越可靠。'
-  ],
-
   'import-export::导入前检查': [
-    '导入前先下载字段说明，确认哪些字段必填、哪些字段可选。',
-    '日期建议统一为 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，数字字段不要带中文单位。',
+    '导入前先下载导入说明，确认哪些信息必填、哪些信息可选。',
+    '日期建议统一为 yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss，数字信息不要带中文单位。',
     '第三方系统导出的库存、员工或客户数据，建议先另存为 xlsx。',
     '导入前保留原始文件副本，避免处理失败后无法恢复原始数据。'
   ],
   'import-export::导入失败处理': [
-    '系统会尽量提示具体错误原因，例如字段缺失、数值不合法、重复条码、日期格式错误。',
+    '系统会尽量提示具体错误原因，例如信息缺失、数值不合法、重复条码、日期格式错误。',
     '根据错误提示修正对应行，不要盲目删除数据或覆盖线上数据。',
     '如果错误较多，先导入少量样例验证格式，再批量导入。',
     '重要历史数据导入前建议先在独立环境验证一次。'
   ],
   'import-export::导出数据': [
     '当前页导出适合快速查看；全部页导出适合归档和对账。',
-    '全部页导出会经过后端生成标准 Excel，避免浏览器伪造表格导致文件打不开。',
+    '全部页导出会生成标准 Excel，避免浏览器表格格式导致文件打不开。',
     '如果数据量很大，先按日期、状态、客户、型号等条件筛选。',
     '导出的文件包含业务数据，请按公司数据安全要求保存。'
   ],
 
   'mini::登录与加入': [
-    '微信一键登录授权手机号后，后端会查找或创建用户信息。',
+    '微信一键登录授权手机号后，系统会查找或创建用户信息。',
     '没有加入组织的用户只能看到加入组织入口，不能使用业务功能。',
     '加入组织时填写真实姓名，管理员审核或分配权限后才能看到对应菜单。',
-    '账号密码登录与网页端账号体系对齐，不再要求用户输入额外组织信息。'
+    '账号密码登录与电脑端账号体系对齐，不再要求用户输入额外组织信息。'
   ],
   'mini::现场操作': [
     '考勤打卡适合员工每天使用，订单扫码适合生产和发货现场使用。',
     '库存扫码出入库适合仓库人员，质量登记适合质检或售后人员。',
-    '蓝牙打印用于库存标签和订单流转码，网页端只负责生成任务和模板。',
+    '蓝牙打印用于库存标签和订单流转码，电脑端负责生成任务和模板。',
     '现场操作失败时先看提示，再确认网络、权限、扫码内容和打印机连接。'
   ],
   'mini::双端同步': [
-    '网页端创建或修改的订单、库存、模板、权限会同步影响小程序展示。',
-    '小程序产生的打卡、扫码、打印和质量记录会同步回网页端。',
+    '电脑端创建或修改的订单、库存、模板、权限会同步影响手机端展示。',
+    '手机端产生的打卡、扫码、打印和质量记录会同步回电脑端。',
     '如果双端显示不一致，优先重新登录或下拉刷新小程序页面。',
-    '上线前应确认小程序正式版接口指向公网地址。'
-  ],
-
-  'hidden-time::开启方式': [
-    '打开对应新增或编辑抽屉，按 Ctrl + Alt + T，页面提示已开启业务时间修正。',
-    '开启后会出现业务时间输入框，选择需要修正的业务日期或时间。',
-    '再次按 Ctrl + Alt + T 会关闭模式；关闭后隐藏时间修正区域。',
-    '出库单打印页面如果只修改时间，可点击保存时间。'
-  ],
-  'hidden-time::适用场景': [
-    '历史订单补录，需要把业务时间调整为真实发生时间。',
-    '库存历史入库补录，需要修正入库日期。',
-    '出库单打印前发现业务日期不准确，需要修正打印业务日期。',
-    '质量或售后记录补录，需要记录真实发生时间。'
-  ],
-  'hidden-time::注意事项': [
-    '业务时间修正不是常规编辑功能，不建议普通员工使用。',
-    '修正前应确认合同、出入库凭证、客户单据或线下记录。',
-    '不要用该功能规避审批、隐藏错误或随意修改业务时间。',
-    '如果需要大批量修正历史数据，应先规划导入方案，不要逐条手工改。'
+    '上线前应确认员工使用的是正式入口。'
   ]
 }
 
-const faqs = [
+const DEFAULT_FAQS = [
   {
     question: '为什么我看不到某个菜单？',
-    answer: '菜单和接口都受角色权限控制。请联系管理员确认员工已加入组织、状态为在职，并绑定了对应角色。'
+    answer: '菜单和操作都受角色权限控制。请联系管理员确认员工已加入组织、状态为在职，并绑定了对应角色。'
   },
   {
     question: '小程序显示已加入但仍提示无权限怎么办？',
-    answer: '加入组织只代表账号已进入企业，不代表拥有业务权限。需要管理员在网页端员工管理中分配普通员工或对应岗位角色。'
+    answer: '加入组织只代表账号已进入企业，不代表拥有业务权限。需要管理员在员工管理中分配普通员工或对应岗位角色。'
   },
   {
     question: '为什么订单流转码不是创建订单时就打印？',
@@ -734,15 +779,15 @@ const faqs = [
   },
   {
     question: '导入文件打不开或提示格式不对怎么办？',
-    answer: '请确认文件为标准 Excel 格式，不要把网页表格伪装成 xls。建议先下载字段说明，再用 Excel 另存为 xlsx 后导入。'
+    answer: '请确认文件为标准 Excel 格式，不要把网页表格伪装成 xls。建议先下载导入说明，再用 Excel 另存为 xlsx 后导入。'
   },
   {
     question: '微信一键登录为什么不需要短信验证码？',
-    answer: '微信一键登录使用小程序手机号授权能力，微信返回一次性授权 code，后端换取手机号后匹配系统用户，不走短信验证码。'
+    answer: '微信一键登录使用小程序手机号授权能力，系统校验手机号后匹配用户，不走短信验证码。'
   },
   {
-    question: '库存趋势或大盘数据为空怎么办？',
-    answer: '先确认是否已有真实出入库、订单或考勤数据；再确认定时任务和接口是否正常。没有业务数据时，大盘会展示空状态。'
+    question: '大盘数据为空怎么办？',
+    answer: '先确认是否已有真实订单、库存、审批或考勤数据；再确认提醒任务和服务是否正常。没有业务数据时，大盘会展示空状态。'
   },
   {
     question: '打印失败怎么办？',
@@ -754,6 +799,606 @@ const faqs = [
   }
 ]
 
+const MANUAL_CONFIG_TYPE = 'hive-full-manual'
+const manualConfig = ref(createDefaultManualConfig())
+const manualEditor = ref(createManualEditorState())
+
+const quickGuides = computed(() => manualConfig.value.quickGuides || [])
+const sections = computed(() => manualConfig.value.sections || [])
+const faqs = computed(() => manualConfig.value.faqs || [])
+
+function createManualEditorState() {
+  return {
+    open: false,
+    type: '',
+    title: '',
+    index: -1,
+    fields: [],
+    form: {}
+  }
+}
+
+function createDefaultManualConfig() {
+  const defaultSections = cloneManual(DEFAULT_SECTIONS).map((section) => ({
+    ...section,
+    steps: (section.steps || []).map((step) => ({
+      ...step,
+      details: cloneManual(DEFAULT_DETAILED_STEPS[`${section.id}::${step.title}`] || [])
+    }))
+  }))
+
+  return {
+    type: MANUAL_CONFIG_TYPE,
+    version: 1,
+    hero: {
+      kicker: '使用手册',
+      title: '蜂巢 Hive 操作指南',
+      intro: '按照“基础资料先完善、现场扫码少录入、审批打印可追溯、异常预警集中处理”的方式使用，能让订单、库存、考勤、审批、质量和打印形成稳定闭环。',
+      badges: ['订单流转', '库存扫码', '审批待办', '打印追溯', '经营提醒'],
+      cardIcon: 'route',
+      cardTitle: '推荐首次使用顺序',
+      cardText: '账号登录 → 修改初始密码 → 员工/部门/角色 → 客户项目 → 订单 → 库存入库 → 模板打印 → 审批与通知'
+    },
+    quickGuides: cloneManual(DEFAULT_QUICK_GUIDES),
+    sections: defaultSections,
+    faqWindow: {
+      title: '常见问题',
+      summary: '遇到登录、权限、扫码、打印、导入导出或数据不一致时，优先从这里排查。'
+    },
+    faqs: cloneManual(DEFAULT_FAQS),
+    customManual: {
+      title: '企业自定义手册',
+      summary: '这里用于维护企业自己的操作约定、岗位分工、打印规范和内部注意事项，保存后同组织用户可见。',
+      label: '内部补充说明',
+      helper: '建议写给员工能直接照做的步骤，不放内部编号、密钥、服务地址等敏感信息。',
+      content: ''
+    }
+  }
+}
+
+function cloneManual(value) {
+  return JSON.parse(JSON.stringify(value))
+}
+
+function normalizeManualConfig(content) {
+  const defaults = createDefaultManualConfig()
+  const source = String(content || '').trim()
+  if (!source) {
+    return defaults
+  }
+
+  let parsed = null
+  try {
+    parsed = JSON.parse(source)
+  } catch {
+    defaults.customManual.content = source
+    return defaults
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    defaults.customManual.content = source
+    return defaults
+  }
+
+  const looksStructured = parsed.type === MANUAL_CONFIG_TYPE || parsed.hero || parsed.quickGuides || parsed.sections || parsed.faqWindow || parsed.faqs || parsed.customManual
+  if (!looksStructured) {
+    defaults.customManual.content = source
+    return defaults
+  }
+
+  return {
+    type: MANUAL_CONFIG_TYPE,
+    version: 1,
+    hero: normalizeHero(parsed.hero, defaults.hero),
+    quickGuides: normalizeQuickGuides(parsed.quickGuides, defaults.quickGuides),
+    sections: normalizeSections(parsed.sections, defaults.sections, parsed.detailedSteps),
+    faqWindow: normalizeFaqWindow(parsed.faqWindow, defaults.faqWindow),
+    faqs: normalizeFaqs(parsed.faqs, defaults.faqs),
+    customManual: normalizeCustomManual(parsed.customManual, defaults.customManual)
+  }
+}
+
+function normalizeHero(hero, fallback) {
+  return {
+    kicker: cleanText(hero?.kicker, fallback.kicker),
+    title: cleanText(hero?.title, fallback.title),
+    intro: cleanText(hero?.intro, fallback.intro),
+    badges: normalizeTextArray(hero?.badges, fallback.badges),
+    cardIcon: cleanText(hero?.cardIcon, fallback.cardIcon),
+    cardTitle: cleanText(hero?.cardTitle, fallback.cardTitle),
+    cardText: cleanText(hero?.cardText, fallback.cardText)
+  }
+}
+
+function normalizeQuickGuides(items, fallback) {
+  const source = Array.isArray(items) && items.length ? items : fallback
+  return source.map((item, index) => {
+    const base = fallback[index] || { icon: 'article', title: `快捷入口${index + 1}`, desc: '' }
+    return {
+      icon: cleanText(item?.icon, base.icon),
+      title: cleanText(item?.title, base.title),
+      desc: cleanText(item?.desc, base.desc)
+    }
+  })
+}
+
+function normalizeSections(items, fallback, legacyDetails = {}) {
+  const source = Array.isArray(items) && items.length ? items : fallback
+  return source.map((item, index) => {
+    const base = fallback[index] || {
+      id: `manual-section-${index + 1}`,
+      icon: 'article',
+      title: `章节${index + 1}`,
+      summary: '',
+      route: '',
+      steps: [],
+      tips: []
+    }
+    const id = cleanText(item?.id, base.id || `manual-section-${index + 1}`)
+
+    return {
+      id,
+      icon: cleanText(item?.icon, base.icon),
+      title: cleanText(item?.title, base.title),
+      summary: cleanText(item?.summary, base.summary),
+      route: typeof item?.route === 'string' ? item.route.trim() : (base.route || ''),
+      steps: normalizeSteps(item?.steps, base.steps || [], id, base.id, legacyDetails),
+      tips: normalizeTextArray(item?.tips, base.tips || [])
+    }
+  })
+}
+
+function normalizeSteps(items, fallback, sectionId, fallbackSectionId, legacyDetails = {}) {
+  const source = Array.isArray(items) && items.length ? items : fallback
+  return source.map((item, index) => {
+    const base = fallback[index] || { title: `步骤${index + 1}`, content: '', details: [] }
+    const title = cleanText(item?.title, base.title)
+    const details = item?.details
+      || legacyDetails?.[`${sectionId}::${title}`]
+      || legacyDetails?.[`${fallbackSectionId}::${base.title}`]
+      || base.details
+      || []
+
+    return {
+      title,
+      content: cleanText(item?.content, base.content),
+      details: normalizeTextArray(details, [])
+    }
+  })
+}
+
+function normalizeFaqs(items, fallback) {
+  const source = Array.isArray(items) && items.length ? items : fallback
+  return source.map((item, index) => {
+    const base = fallback[index] || { question: `问题${index + 1}`, answer: '' }
+    return {
+      question: cleanText(item?.question, base.question),
+      answer: cleanText(item?.answer, base.answer)
+    }
+  })
+}
+
+function normalizeFaqWindow(value, fallback) {
+  return {
+    title: cleanText(value?.title, fallback.title),
+    summary: cleanText(value?.summary, fallback.summary)
+  }
+}
+
+function normalizeCustomManual(value, fallback) {
+  return {
+    title: cleanText(value?.title, fallback.title),
+    summary: cleanText(value?.summary, fallback.summary),
+    label: cleanText(value?.label, fallback.label),
+    helper: cleanText(value?.helper, fallback.helper),
+    content: typeof value?.content === 'string' ? value.content : ''
+  }
+}
+
+function cleanText(value, fallback = '') {
+  const text = String(value ?? '').trim()
+  return text || fallback
+}
+
+function normalizeTextArray(value, fallback = []) {
+  if (Array.isArray(value)) {
+    const items = value.map((item) => String(item ?? '').trim()).filter(Boolean)
+    return items
+  }
+  if (typeof value === 'string') {
+    const items = splitTextLines(value)
+    return items
+  }
+  return cloneManual(fallback)
+}
+
+function splitTextLines(value) {
+  return String(value || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function openManualEditor(options) {
+  manualEditor.value = {
+    open: true,
+    type: options.type,
+    title: options.title,
+    index: typeof options.index === 'number' ? options.index : -1,
+    fields: options.fields || [],
+    form: { ...(options.form || {}) }
+  }
+}
+
+function closeManualEditor() {
+  manualEditor.value = createManualEditorState()
+}
+
+function openHeroEditor() {
+  const hero = manualConfig.value.hero
+  openManualEditor({
+    type: 'hero',
+    title: '编辑顶部说明',
+    fields: [
+      { key: 'kicker', label: '角标' },
+      { key: 'title', label: '标题' },
+      { key: 'intro', label: '说明', type: 'textarea', rows: 4 },
+      { key: 'badgesText', label: '标签', type: 'textarea', rows: 4, hint: '每行一个标签' },
+      { key: 'cardIcon', label: '右侧图标' },
+      { key: 'cardTitle', label: '右侧标题' },
+      { key: 'cardText', label: '右侧说明', type: 'textarea', rows: 4 }
+    ],
+    form: {
+      kicker: hero.kicker,
+      title: hero.title,
+      intro: hero.intro,
+      badgesText: (hero.badges || []).join('\n'),
+      cardIcon: hero.cardIcon,
+      cardTitle: hero.cardTitle,
+      cardText: hero.cardText
+    }
+  })
+}
+
+function openQuickGuideEditor(index) {
+  const item = quickGuides.value[index]
+  openManualEditor({
+    type: 'quick-guide',
+    title: '编辑快捷卡片',
+    index,
+    fields: [
+      { key: 'icon', label: '图标' },
+      { key: 'title', label: '标题' },
+      { key: 'desc', label: '说明', type: 'textarea', rows: 4 }
+    ],
+    form: {
+      icon: item?.icon || 'article',
+      title: item?.title || '',
+      desc: item?.desc || ''
+    }
+  })
+}
+
+function openSectionEditor(index) {
+  const section = sections.value[index]
+  openManualEditor({
+    type: 'section',
+    title: '编辑手册章节',
+    index,
+    fields: [
+      { key: 'icon', label: '图标' },
+      { key: 'title', label: '章节标题' },
+      { key: 'summary', label: '章节说明', type: 'textarea', rows: 3 },
+      { key: 'route', label: '跳转路径' },
+      { key: 'stepsText', label: '操作步骤', type: 'textarea', rows: 7, hint: '每行一个步骤，格式：步骤标题 | 步骤说明' },
+      { key: 'detailsText', label: '步骤明细', type: 'textarea', rows: 8, hint: '每行一个明细，格式：步骤标题 | 明细内容' },
+      { key: 'tipsText', label: '提示标签', type: 'textarea', rows: 4, hint: '每行一个提示' }
+    ],
+    form: {
+      icon: section?.icon || 'article',
+      title: section?.title || '',
+      summary: section?.summary || '',
+      route: section?.route || '',
+      stepsText: formatStepsForEditor(section?.steps || []),
+      detailsText: formatDetailsForEditor(section?.steps || []),
+      tipsText: (section?.tips || []).join('\n')
+    }
+  })
+}
+
+function openCustomManualWindowEditor() {
+  const customManual = manualConfig.value.customManual
+  openManualEditor({
+    type: 'custom-window',
+    title: '编辑自定义手册窗口',
+    fields: [
+      { key: 'title', label: '标题' },
+      { key: 'summary', label: '说明', type: 'textarea', rows: 4 },
+      { key: 'label', label: '编辑区标题' },
+      { key: 'helper', label: '编辑区说明', type: 'textarea', rows: 4 }
+    ],
+    form: {
+      title: customManual.title,
+      summary: customManual.summary,
+      label: customManual.label,
+      helper: customManual.helper
+    }
+  })
+}
+
+function openFaqEditor(index) {
+  const faq = faqs.value[index]
+  openManualEditor({
+    type: 'faq',
+    title: '编辑常见问题',
+    index,
+    fields: [
+      { key: 'question', label: '问题' },
+      { key: 'answer', label: '回答', type: 'textarea', rows: 6 }
+    ],
+    form: {
+      question: faq?.question || '',
+      answer: faq?.answer || ''
+    }
+  })
+}
+
+function openFaqWindowEditor() {
+  const faqWindow = manualConfig.value.faqWindow
+  openManualEditor({
+    type: 'faq-window',
+    title: '编辑常见问题窗口',
+    fields: [
+      { key: 'title', label: '标题' },
+      { key: 'summary', label: '说明', type: 'textarea', rows: 4 }
+    ],
+    form: {
+      title: faqWindow.title,
+      summary: faqWindow.summary
+    }
+  })
+}
+
+function openNewFaqEditor() {
+  openManualEditor({
+    type: 'faq-create',
+    title: '新增常见问题',
+    fields: [
+      { key: 'question', label: '问题' },
+      { key: 'answer', label: '回答', type: 'textarea', rows: 6 }
+    ],
+    form: {
+      question: '',
+      answer: ''
+    }
+  })
+}
+
+function formatStepsForEditor(steps) {
+  return steps.map((step) => `${step.title || ''} | ${step.content || ''}`).join('\n')
+}
+
+function formatDetailsForEditor(steps) {
+  return steps
+    .flatMap((step) => (step.details || []).map((detail) => `${step.title || ''} | ${detail}`))
+    .join('\n')
+}
+
+async function saveManualEditor() {
+  const editor = manualEditor.value
+  if (!editor.open || customManualSaving.value) {
+    return
+  }
+  applyManualEditor(editor)
+  const saved = await saveManualConfig('使用手册已保存')
+  if (saved) {
+    closeManualEditor()
+  }
+}
+
+function applyManualEditor(editor) {
+  const form = editor.form || {}
+
+  if (editor.type === 'hero') {
+    manualConfig.value = {
+      ...manualConfig.value,
+      hero: {
+        kicker: cleanText(form.kicker, manualConfig.value.hero.kicker),
+        title: cleanText(form.title, manualConfig.value.hero.title),
+        intro: cleanText(form.intro, manualConfig.value.hero.intro),
+        badges: normalizeTextArray(form.badgesText, manualConfig.value.hero.badges),
+        cardIcon: cleanText(form.cardIcon, manualConfig.value.hero.cardIcon),
+        cardTitle: cleanText(form.cardTitle, manualConfig.value.hero.cardTitle),
+        cardText: cleanText(form.cardText, manualConfig.value.hero.cardText)
+      }
+    }
+    return
+  }
+
+  if (editor.type === 'quick-guide') {
+    const items = cloneManual(quickGuides.value)
+    items[editor.index] = {
+      icon: cleanText(form.icon, 'article'),
+      title: cleanText(form.title, `快捷入口${editor.index + 1}`),
+      desc: cleanText(form.desc, '')
+    }
+    manualConfig.value = { ...manualConfig.value, quickGuides: items }
+    return
+  }
+
+  if (editor.type === 'section') {
+    const items = cloneManual(sections.value)
+    const current = items[editor.index] || {}
+    const steps = parseStepsEditor(form.stepsText, current.steps || [])
+    const detailsMap = parseStepDetailsEditor(form.detailsText)
+    items[editor.index] = {
+      ...current,
+      icon: cleanText(form.icon, current.icon || 'article'),
+      title: cleanText(form.title, current.title || `章节${editor.index + 1}`),
+      summary: cleanText(form.summary, current.summary || ''),
+      route: typeof form.route === 'string' ? form.route.trim() : '',
+      steps: steps.map((step) => ({
+        ...step,
+        details: detailsMap.get(step.title) || []
+      })),
+      tips: normalizeTextArray(form.tipsText, [])
+    }
+    manualConfig.value = { ...manualConfig.value, sections: items }
+    return
+  }
+
+  if (editor.type === 'custom-window') {
+    manualConfig.value = {
+      ...manualConfig.value,
+      customManual: {
+        ...manualConfig.value.customManual,
+        title: cleanText(form.title, manualConfig.value.customManual.title),
+        summary: cleanText(form.summary, manualConfig.value.customManual.summary),
+        label: cleanText(form.label, manualConfig.value.customManual.label),
+        helper: cleanText(form.helper, manualConfig.value.customManual.helper)
+      }
+    }
+    return
+  }
+
+  if (editor.type === 'faq-window') {
+    manualConfig.value = {
+      ...manualConfig.value,
+      faqWindow: {
+        title: cleanText(form.title, manualConfig.value.faqWindow.title),
+        summary: cleanText(form.summary, manualConfig.value.faqWindow.summary)
+      }
+    }
+    return
+  }
+
+  if (editor.type === 'faq' || editor.type === 'faq-create') {
+    const items = cloneManual(faqs.value)
+    const faq = {
+      question: cleanText(form.question, `问题${items.length + 1}`),
+      answer: cleanText(form.answer, '')
+    }
+    if (editor.type === 'faq-create') {
+      items.push(faq)
+    } else {
+      items[editor.index] = faq
+    }
+    manualConfig.value = { ...manualConfig.value, faqs: items }
+  }
+}
+
+function parseStepsEditor(value, fallbackSteps) {
+  const lines = splitTextLines(value)
+  if (!lines.length) {
+    return cloneManual(fallbackSteps).map((step) => ({ ...step, details: [] }))
+  }
+
+  return lines.map((line, index) => {
+    const [rawTitle, ...contentParts] = line.split('|')
+    return {
+      title: cleanText(rawTitle, `步骤${index + 1}`),
+      content: cleanText(contentParts.join('|'), fallbackSteps[index]?.content || ''),
+      details: []
+    }
+  })
+}
+
+function parseStepDetailsEditor(value) {
+  const detailsMap = new Map()
+  splitTextLines(value).forEach((line) => {
+    const [rawTitle, ...detailParts] = line.split('|')
+    const title = cleanText(rawTitle, '')
+    const detail = cleanText(detailParts.join('|'), '')
+    if (!title || !detail) {
+      return
+    }
+    const existing = detailsMap.get(title) || []
+    existing.push(detail)
+    detailsMap.set(title, existing)
+  })
+  return detailsMap
+}
+
+function createManualPayload() {
+  return {
+    ...cloneManual(manualConfig.value),
+    type: MANUAL_CONFIG_TYPE,
+    version: 1,
+    customManual: {
+      ...cloneManual(manualConfig.value.customManual),
+      content: customManualDraft.value || ''
+    }
+  }
+}
+
+async function saveManualConfig(successMessage = '使用手册已保存') {
+  if (customManualSaving.value) {
+    return false
+  }
+  customManualSaving.value = true
+  try {
+    const payload = createManualPayload()
+    const content = JSON.stringify(payload)
+    const manual = await saveCustomManualContent(content)
+    manualConfig.value = normalizeManualConfig(manual?.content || content)
+    customManualDraft.value = manualConfig.value.customManual.content || ''
+    customManualSavedAt.value = manual?.savedAt || formatLocalDateTime(new Date())
+    ElMessage.success(successMessage)
+    return true
+  } catch {
+    ElMessage.error('保存失败，请稍后重试')
+    return false
+  } finally {
+    customManualSaving.value = false
+  }
+}
+
+function buildManualMarkdown() {
+  const manual = createManualPayload()
+  const lines = [
+    `# ${manual.hero.title}`,
+    '',
+    manual.hero.intro,
+    '',
+    `> ${manual.hero.cardTitle}：${manual.hero.cardText}`,
+    ''
+  ]
+
+  if (manual.hero.badges?.length) {
+    lines.push(`标签：${manual.hero.badges.join('、')}`, '')
+  }
+
+  lines.push('## 快捷说明', '')
+  manual.quickGuides.forEach((item) => {
+    lines.push(`### ${item.title}`, item.desc, '')
+  })
+
+  manual.sections.forEach((section) => {
+    lines.push(`## ${section.title}`, '', section.summary, '')
+    section.steps.forEach((step) => {
+      lines.push(`### ${step.title}`, step.content)
+      ;(step.details || []).forEach((detail) => lines.push(`- ${detail}`))
+      lines.push('')
+    })
+    if (section.tips?.length) {
+      lines.push(`提示：${section.tips.join('、')}`, '')
+    }
+  })
+
+  if (manual.customManual.content?.trim()) {
+    lines.push(`## ${manual.customManual.title}`, '', manual.customManual.content.trim(), '')
+  }
+
+  if (manual.faqs?.length) {
+    lines.push('## 常见问题', '')
+    manual.faqs.forEach((faq) => {
+      lines.push(`### ${faq.question}`, faq.answer, '')
+    })
+  }
+
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n')
+}
+
 function scrollToSection(id) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
@@ -762,8 +1407,76 @@ function goRoute(path) {
   router.push(path)
 }
 
-function stepDetailList(sectionId, title) {
-  return detailedSteps[`${sectionId}::${title}`] || []
+function stepDetailList(sectionId, step) {
+  if (typeof step === 'string') {
+    return []
+  }
+  return Array.isArray(step?.details) ? step.details.filter(Boolean) : []
+}
+
+async function loadCustomManual() {
+  customManualLoading.value = true
+  try {
+    const manual = await getCustomManual()
+    manualConfig.value = normalizeManualConfig(manual?.content || '')
+    customManualDraft.value = manualConfig.value.customManual.content || ''
+    customManualSavedAt.value = manual?.savedAt || ''
+  } catch {
+    ElMessage.warning('企业自定义手册加载失败，请稍后重试')
+  } finally {
+    customManualLoading.value = false
+  }
+}
+
+async function saveCustomManual() {
+  await saveManualConfig('企业自定义手册已保存')
+}
+
+function resetCustomManualTemplate() {
+  if (customManualDraft.value.trim() && !window.confirm('当前内容会被推荐模板覆盖，确认继续吗？')) {
+    return
+  }
+  customManualDraft.value = recommendedCustomManual
+  ElMessage.success('已填入推荐模板，可继续编辑后保存')
+}
+
+function exportCustomManual() {
+  const content = buildManualMarkdown().trim()
+  if (!content) {
+    ElMessage.warning('暂无可导出的手册内容')
+    return
+  }
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `企业自定义使用手册_${formatFileDate(new Date())}.md`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+  ElMessage.success('使用手册已导出')
+}
+
+function clearCustomManual() {
+  if (!customManualDraft.value.trim()) {
+    return
+  }
+  if (!window.confirm('确认清空当前企业自定义手册吗？')) {
+    return
+  }
+  customManualDraft.value = ''
+  saveCustomManual()
+}
+
+function formatLocalDateTime(date) {
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function formatFileDate(date) {
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}`
 }
 </script>
 
@@ -788,6 +1501,47 @@ function stepDetailList(sectionId, title) {
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.10);
 }
 
+.manual-hero__copy,
+.manual-card,
+.manual-section {
+  position: relative;
+}
+
+.manual-edit-btn,
+.manual-inline-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  border: 1px solid rgba(31, 63, 95, 0.14);
+  border-radius: 999px;
+  padding: 0.36rem 0.62rem;
+  color: #1f3f5f;
+  background: rgba(255, 255, 255, 0.88);
+  font-size: 0.76rem;
+  font-weight: 950;
+  transition: 0.18s ease;
+}
+
+.manual-edit-btn .material-symbols-outlined,
+.manual-inline-edit .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+.manual-edit-btn:hover,
+.manual-inline-edit:hover {
+  transform: translateY(-1px);
+  border-color: rgba(31, 63, 95, 0.28);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
+}
+
+.manual-hero__edit,
+.manual-card__edit {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
 .manual-kicker {
   display: inline-flex;
   margin-bottom: 1rem;
@@ -805,7 +1559,7 @@ function stepDetailList(sectionId, title) {
   color: #0f172a;
   font-size: clamp(2.2rem, 5vw, 4.4rem);
   font-weight: 1000;
-  letter-spacing: -0.08em;
+  letter-spacing: 0;
   line-height: 0.98;
 }
 
@@ -972,6 +1726,23 @@ function stepDetailList(sectionId, title) {
   margin-bottom: 1.25rem;
 }
 
+.manual-section__head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.manual-section__edit {
+  flex-shrink: 0;
+}
+
+.manual-section__actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
 .manual-steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1060,6 +1831,222 @@ function stepDetailList(sectionId, title) {
   font-weight: 1000;
 }
 
+.manual-inline-edit {
+  margin-top: 0.65rem;
+}
+
+.manual-custom-section {
+  background:
+    radial-gradient(circle at 90% 10%, rgba(31, 63, 95, 0.10), transparent 30%),
+    rgba(251, 252, 254, 0.96);
+}
+
+.manual-custom-editor {
+  display: grid;
+  gap: 1rem;
+  border-radius: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.82);
+}
+
+.manual-custom-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.manual-custom-toolbar strong {
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 1000;
+}
+
+.manual-custom-toolbar p {
+  margin-top: 0.25rem;
+}
+
+.manual-custom-saved {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0.36rem 0.72rem;
+  background: rgba(31, 63, 95, 0.10);
+  color: #1f3f5f;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.manual-custom-editor textarea {
+  width: 100%;
+  min-height: 18rem;
+  resize: vertical;
+  border: 1px solid rgba(200, 211, 223, 0.82);
+  border-radius: 1.1rem;
+  padding: 1rem;
+  color: #0f172a;
+  background: rgba(248, 250, 252, 0.92);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.8;
+  outline: none;
+  transition: 0.18s ease;
+}
+
+.manual-custom-editor textarea:focus {
+  border-color: rgba(31, 63, 95, 0.55);
+  box-shadow: 0 0 0 4px rgba(31, 63, 95, 0.08);
+}
+
+.manual-custom-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.manual-primary-btn,
+.manual-secondary-btn,
+.manual-danger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.72rem 1.05rem;
+  font-weight: 1000;
+  transition: 0.18s ease;
+}
+
+.manual-primary-btn {
+  border: none;
+  color: #ffffff;
+  background: #0f172a;
+}
+
+.manual-secondary-btn {
+  border: 1px solid rgba(31, 63, 95, 0.16);
+  color: #1f3f5f;
+  background: #ffffff;
+}
+
+.manual-danger-btn {
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  color: #b91c1c;
+  background: rgba(254, 242, 242, 0.86);
+}
+
+.manual-primary-btn:hover,
+.manual-secondary-btn:hover,
+.manual-danger-btn:hover {
+  transform: translateY(-1px);
+}
+
+.manual-editor-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.manual-editor-dialog {
+  display: grid;
+  width: min(42rem, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background: #ffffff;
+  box-shadow: 0 26px 78px rgba(15, 23, 42, 0.22);
+}
+
+.manual-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.86);
+  padding: 1rem 1.15rem;
+}
+
+.manual-editor-head h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 1000;
+}
+
+.manual-editor-head button {
+  display: inline-flex;
+  width: 2.2rem;
+  height: 2.2rem;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  color: #334155;
+  background: #f1f5f9;
+}
+
+.manual-editor-fields {
+  display: grid;
+  gap: 0.9rem;
+  overflow-y: auto;
+  padding: 1.1rem;
+}
+
+.manual-editor-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.manual-editor-field > span {
+  color: #334155;
+  font-size: 0.84rem;
+  font-weight: 950;
+}
+
+.manual-editor-field input,
+.manual-editor-field textarea {
+  width: 100%;
+  border: 1px solid rgba(200, 211, 223, 0.92);
+  border-radius: 0.95rem;
+  padding: 0.72rem 0.85rem;
+  color: #0f172a;
+  background: #f8fafc;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.7;
+  outline: none;
+  transition: 0.18s ease;
+}
+
+.manual-editor-field textarea {
+  resize: vertical;
+}
+
+.manual-editor-field input:focus,
+.manual-editor-field textarea:focus {
+  border-color: rgba(31, 63, 95, 0.48);
+  box-shadow: 0 0 0 4px rgba(31, 63, 95, 0.08);
+}
+
+.manual-editor-field small {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.manual-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  border-top: 1px solid rgba(226, 232, 240, 0.86);
+  padding: 0.9rem 1.1rem;
+}
+
 @media (max-width: 1180px) {
   .manual-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1094,6 +2081,52 @@ function stepDetailList(sectionId, title) {
   .manual-hero {
     border-radius: 1.5rem;
     padding: 1.25rem;
+  }
+
+  .manual-custom-toolbar {
+    flex-direction: column;
+  }
+
+  .manual-custom-actions {
+    justify-content: stretch;
+  }
+
+  .manual-section__head {
+    flex-wrap: wrap;
+  }
+
+  .manual-section__edit {
+    width: 100%;
+  }
+
+  .manual-section__actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .manual-section__actions .manual-edit-btn {
+    flex: 1;
+  }
+
+  .manual-hero__edit,
+  .manual-card__edit {
+    position: static;
+    justify-self: flex-start;
+    margin-bottom: 0.65rem;
+  }
+
+  .manual-editor-dialog {
+    max-height: calc(100vh - 1rem);
+  }
+
+  .manual-editor-actions {
+    flex-direction: column-reverse;
+  }
+
+  .manual-primary-btn,
+  .manual-secondary-btn,
+  .manual-danger-btn {
+    width: 100%;
   }
 }
 </style>

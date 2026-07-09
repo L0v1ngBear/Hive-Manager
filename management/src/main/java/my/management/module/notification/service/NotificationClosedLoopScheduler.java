@@ -35,7 +35,7 @@ public class NotificationClosedLoopScheduler {
     private SystemEventPublisher systemEventPublisher;
 
     @XxlJob("notificationClosedLoopJob")
-    public void syncAiAdviceNotifications() {
+    public void syncClosedLoopNotifications() {
         int syncedTenantCount = 0;
         int failedTenantCount = 0;
         try {
@@ -55,7 +55,6 @@ public class NotificationClosedLoopScheduler {
                 }
                 try {
                     notificationService.syncBusinessWarningNotifications(tenant.getTenantCode());
-                    notificationService.syncAiAdviceNotifications(tenant.getTenantCode());
                     syncedTenantCount++;
                 } catch (Exception ex) {
                     failedTenantCount++;

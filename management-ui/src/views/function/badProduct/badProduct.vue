@@ -14,6 +14,7 @@
         </div>
         <div class="flex items-center gap-3">
           <button
+            v-permission="'badproduct:save'"
             @click="openCreate"
             class="function-action-primary"
           >
@@ -72,6 +73,7 @@
             <select v-model="query.status" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none">
               <option value="">全部状态</option>
               <option value="pending">待处理</option>
+              <option value="pending_audit">审核中</option>
               <option value="processed">已处理</option>
             </select>
             <select v-model="query.type" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none">
@@ -146,7 +148,7 @@
                   <template v-else-if="column.key === 'orderId'">{{ item.orderId || '未关联' }}</template>
                   <template v-else-if="column.key === 'type'">{{ typeLabel(item.type) }}</template>
                   <template v-else-if="column.key === 'quantity'">{{ money(item.quantity) }}</template>
-                  <template v-else-if="column.key === 'lossAmount'">¥{{ money(item.lossAmount) }}</template>
+                  <template v-else-if="column.key === 'lossAmount'">{{ lossAmountLabel(item.lossAmount) }}</template>
                   <template v-else-if="column.key === 'creator'">{{ item.creator || '--' }}</template>
                   <template v-else-if="column.key === 'status'">
                     <span :class="statusClass(item.status)" class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold">
@@ -159,11 +161,12 @@
                   <button @click.stop="openDetail(item)" class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-xs font-bold">
                     详情
                   </button>
-                  <button @click.stop="openEdit(item)" class="text-secondary hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-xs font-bold">
+                  <button v-permission="'badproduct:save'" @click.stop="openEdit(item)" class="text-secondary hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-xs font-bold">
                     编辑
                   </button>
                   <button
-                    v-if="item.status !== 'processed'"
+                    v-if="item.status === 'pending'"
+                    v-permission="'badproduct:process'"
                     @click.stop="openProcess(item)"
                     class="text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 rounded-lg text-xs font-bold"
                   >
@@ -222,7 +225,7 @@
           </div>
           <div class="bg-surface-container-low p-4 rounded-xl">
             <span class="text-[10px] text-on-surface-variant font-bold">损失金额</span>
-            <p class="text-xl font-black text-primary">¥{{ money(detailRecord.lossAmount) }}</p>
+            <p class="text-xl font-black text-primary">{{ lossAmountLabel(detailRecord.lossAmount) }}</p>
           </div>
         </div>
 
@@ -318,7 +321,14 @@
         </label>
         <label class="block">
           <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">损失金额</span>
-          <input v-model.trim="form.lossAmount" data-field="badProduct.lossAmount" type="number" min="0" step="0.01" class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary" placeholder="请输入损失金额" />
+          <select
+            v-model="form.lossAmount"
+            data-field="badProduct.lossAmount"
+            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary"
+          >
+            <option value="">请选择损失金额档位</option>
+            <option v-for="item in lossAmountOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+          </select>
         </label>
         <label class="block">
           <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">问题描述</span>
@@ -329,62 +339,25 @@
             placeholder="请输入质量问题说明"
           />
         </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">负责人员</span>
-          <input
-            v-model.trim="form.responsiblePerson"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary"
-            placeholder="请输入负责人员"
+        <div>
+          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">附件凭证</span>
+          <DragAttachmentUpload
+            class="mt-2"
+            title="上传图片、PDF、Word、Excel、文本或压缩包"
+            helper-text="支持拖拽上传，单个文件不超过 10MB"
+            :uploading="attachmentUploading"
+            :file-name="form.attachmentName"
+            :file-url="form.attachmentUrl"
+            :file-size="form.attachmentSize"
+            @select="handleAttachmentFile"
+            @download="openAttachment(form.attachmentUrl, form.attachmentName)"
+            @remove="removeAttachment"
           />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">处理措施</span>
-          <textarea
-            v-model.trim="form.processMeasure"
-            rows="3"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
-            placeholder="请输入处理措施"
-          />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">改进方案</span>
-          <textarea
-            v-model.trim="form.improvementPlan"
-            rows="3"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
-            placeholder="请输入改进方案"
-          />
-        </label>
-        <div class="rounded-xl border border-outline-variant/40 bg-surface-container-lowest p-4">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">附件凭证</p>
-              <p class="mt-1 text-xs text-on-surface-variant">可上传图片、PDF、Word、Excel、文本或压缩包，单个文件不超过 10MB。</p>
-            </div>
-            <button
-              type="button"
-              class="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
-              :disabled="attachmentUploading"
-              @click="triggerAttachmentUpload"
-            >
-              {{ attachmentUploading ? '上传中...' : '上传附件' }}
-            </button>
-          </div>
-          <input ref="attachmentInputRef" type="file" class="hidden" @change="handleAttachmentChange" />
-          <div v-if="form.attachmentUrl" class="mt-3 flex items-center justify-between gap-3 rounded-lg bg-primary/5 px-3 py-2">
-            <button type="button" class="truncate text-left text-sm font-bold text-primary hover:underline" @click="openAttachment(form.attachmentUrl, form.attachmentName)">
-              {{ form.attachmentName || '查看附件' }}
-            </button>
-            <div class="flex items-center gap-2 shrink-0">
-              <span class="text-xs text-on-surface-variant">{{ formatFileSize(form.attachmentSize) }}</span>
-              <button type="button" class="text-xs font-bold text-rose-600" @click="removeAttachment">移除</button>
-            </div>
-          </div>
         </div>
       </div>
       <div class="p-6 border-t border-outline-variant/30 flex gap-3">
         <button @click="closeForm" class="flex-1 px-4 py-3 rounded-xl bg-surface-container-high text-on-surface font-bold text-sm">取消</button>
-        <button @click="submitForm" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-md">保存</button>
+        <button v-permission="'badproduct:save'" @click="submitForm" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-md">保存</button>
       </div>
     </aside>
 
@@ -408,12 +381,41 @@
           <p><span class="text-on-surface-variant">当前状态：</span>{{ statusLabel(processingRecord.status) }}</p>
         </div>
         <label class="block">
+          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">负责人员</span>
+          <input
+            v-model.trim="processForm.responsiblePerson"
+            data-field="badProduct.responsiblePerson"
+            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary"
+            placeholder="请输入负责人员"
+          />
+        </label>
+        <label class="block">
           <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">处理方式</span>
           <input
             v-model.trim="processForm.method"
             data-field="badProduct.processMethod"
             class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary"
             placeholder="例如报废、返工、让步接收"
+          />
+        </label>
+        <label class="block">
+          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">处理措施</span>
+          <textarea
+            v-model.trim="processForm.processMeasure"
+            data-field="badProduct.processMeasure"
+            rows="3"
+            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
+            placeholder="请输入处理措施"
+          />
+        </label>
+        <label class="block">
+          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">改进方案</span>
+          <textarea
+            v-model.trim="processForm.improvementPlan"
+            data-field="badProduct.improvementPlan"
+            rows="3"
+            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
+            placeholder="请输入改进方案"
           />
         </label>
         <label class="block">
@@ -428,7 +430,7 @@
       </div>
       <div class="p-6 border-t border-outline-variant/30 flex gap-3">
         <button @click="closeProcess" class="flex-1 px-4 py-3 rounded-xl bg-surface-container-high text-on-surface font-bold text-sm">取消</button>
-        <button @click="submitProcess" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-md">确认处理</button>
+        <button v-permission="'badproduct:process'" @click="submitProcess" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-md">提交审核</button>
       </div>
     </aside>
   </div>
@@ -448,22 +450,41 @@ import { warnAndFocusField } from '@/utils/formFocus'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import DateFilterInput from '@/components/DateFilterInput.vue'
 import BusinessTimeCorrectionPanel from '@/components/BusinessTimeCorrectionPanel.vue'
+import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
 
 const qualityTypeOptions = [
-  { value: 'quality', label: '质量问题' },
-  { value: 'damage', label: '运输破损' },
-  { value: 'wrong', label: '生产错误' },
-  { value: 'other', label: '其他原因' }
+  { value: 'raw_material', label: '原材料' },
+  { value: 'process_standard', label: '工艺标准' },
+  { value: 'process_flow', label: '工艺流程' },
+  { value: 'other', label: '其他' }
 ]
 const afterSalesTypeOptions = [
-  { value: 'after_sales', label: '售后问题' },
-  { value: 'return_exchange', label: '退换货' },
-  { value: 'compensation', label: '赔付协商' },
-  { value: 'customer_complaint', label: '客户投诉' }
+  { value: 'motor', label: '电机' },
+  { value: 'manual_track', label: '手动轨道' },
+  { value: 'electric_track', label: '电动轨道' },
+  { value: 'fabric', label: '面料' },
+  { value: 'electric_roller_blind', label: '电动卷帘' },
+  { value: 'manual_roller_blind', label: '手动卷帘' },
+  { value: 'wear_part', label: '易损件' },
+  { value: 'craft', label: '工艺' },
+  { value: 'installation', label: '安装' },
+  { value: 'measurement', label: '测量' },
+  { value: 'after_sales_other', label: '其他' }
 ]
 const allTypeOptions = [...qualityTypeOptions, ...afterSalesTypeOptions]
+const lossAmountOptions = [
+  { value: '25', label: '0-50' },
+  { value: '100', label: '50-200' },
+  { value: '350', label: '200-500' },
+  { value: '1250', label: '500-2000' },
+  { value: '3500', label: '2000-5000' },
+  { value: '5001', label: '5000以上' }
+]
 const scopeOptions = [
   {
     value: 'quality',
@@ -479,7 +500,7 @@ const scopeOptions = [
     createTitle: '新增质量记录',
     editTitle: '编辑质量记录',
     processTitle: '处理质量记录',
-    formSubtitle: '保存后会写入真实质量台账。',
+    formSubtitle: '保存后会形成质量记录。',
     icon: 'fact_check'
   },
   {
@@ -496,7 +517,7 @@ const scopeOptions = [
     createTitle: '新增售后记录',
     editTitle: '编辑售后记录',
     processTitle: '处理售后记录',
-    formSubtitle: '保存后会写入真实售后台账。',
+    formSubtitle: '保存后会形成售后记录。',
     icon: 'support_agent'
   }
 ]
@@ -528,10 +549,15 @@ const formVisible = ref(false)
 const editingRecord = ref(null)
 const processVisible = ref(false)
 const processingRecord = ref(null)
-const attachmentInputRef = ref(null)
 const attachmentUploading = ref(false)
 const form = reactive(createEmptyForm())
-const processForm = reactive({ method: '', remark: '' })
+const processForm = reactive({
+  responsiblePerson: '',
+  method: '',
+  processMeasure: '',
+  improvementPlan: '',
+  remark: ''
+})
 const {
   timeCorrectionMode,
   closeTimeCorrectionMode
@@ -620,23 +646,34 @@ function openDetail(record) {
   detailVisible.value = true
 }
 
+function ensurePermission(permission) {
+  if (userStore.hasPermission(permission)) {
+    return true
+  }
+  ElMessage.warning('当前账号暂无权限')
+  return false
+}
+
 function openCreate() {
+  if (!ensurePermission('badproduct:save')) {
+    return
+  }
   resetForm()
   editingRecord.value = null
   formVisible.value = true
 }
 
 function openEdit(record) {
+  if (!ensurePermission('badproduct:save')) {
+    return
+  }
   editingRecord.value = record
   form.defectiveId = record.defectiveId
   form.orderId = record.orderId || ''
-  form.type = record.type || 'quality'
+  form.type = normalizeTypeForScope(record.type)
   form.quantity = record.quantity == null ? '' : String(record.quantity)
-  form.lossAmount = record.lossAmount == null ? '' : String(record.lossAmount)
+  form.lossAmount = normalizeLossAmountBucketValue(record.lossAmount)
   form.description = record.description || ''
-  form.responsiblePerson = record.responsiblePerson || ''
-  form.processMeasure = record.processMeasure || ''
-  form.improvementPlan = record.improvementPlan || ''
   form.attachmentName = record.attachmentName || ''
   form.attachmentUrl = record.attachmentUrl || ''
   form.attachmentSize = record.attachmentSize || null
@@ -652,17 +689,18 @@ function closeForm() {
 }
 
 function openProcess(record) {
+  if (!ensurePermission('badproduct:process')) {
+    return
+  }
   processingRecord.value = record
-  processForm.method = ''
-  processForm.remark = ''
+  resetProcessForm(record)
   processVisible.value = true
 }
 
 function closeProcess() {
   processVisible.value = false
   processingRecord.value = null
-  processForm.method = ''
-  processForm.remark = ''
+  resetProcessForm()
 }
 
 function closePanels() {
@@ -671,18 +709,15 @@ function closePanels() {
   closeProcess()
 }
 
-function triggerAttachmentUpload() {
-  attachmentInputRef.value?.click()
-}
-
-async function handleAttachmentChange(event) {
-  const file = event.target.files?.[0]
+async function handleAttachmentFile(file) {
+  if (!ensurePermission('badproduct:save')) {
+    return
+  }
   if (!file) {
     return
   }
   if (file.size > 10 * 1024 * 1024) {
     ElMessage.warning('附件不能超过 10MB')
-    event.target.value = ''
     return
   }
 
@@ -697,7 +732,6 @@ async function handleAttachmentChange(event) {
     ElMessage.success('附件上传成功')
   } finally {
     attachmentUploading.value = false
-    event.target.value = ''
   }
 }
 
@@ -723,6 +757,9 @@ async function openAttachment(url, name) {
 }
 
 async function submitForm() {
+  if (!ensurePermission('badproduct:save')) {
+    return
+  }
   if (!form.quantity || Number(form.quantity) <= 0) {
     return warnAndFocusField('请填写有效的异常数量', 'badProduct.quantity')
   }
@@ -740,9 +777,6 @@ async function submitForm() {
     quantity: Number(form.quantity),
     lossAmount: Number(form.lossAmount),
     description: form.description || undefined,
-    responsiblePerson: form.responsiblePerson || undefined,
-    processMeasure: form.processMeasure || undefined,
-    improvementPlan: form.improvementPlan || undefined,
     attachmentName: form.attachmentName || undefined,
     attachmentUrl: form.attachmentUrl || undefined,
     attachmentSize: form.attachmentSize || undefined,
@@ -754,30 +788,67 @@ async function submitForm() {
 }
 
 async function submitProcess() {
+  if (!ensurePermission('badproduct:process')) {
+    return
+  }
+  if (!processForm.responsiblePerson) {
+    return warnAndFocusField('请填写负责人员', 'badProduct.responsiblePerson')
+  }
   if (!processForm.method) {
     return warnAndFocusField('请填写处理方式', 'badProduct.processMethod')
+  }
+  if (!processForm.processMeasure) {
+    return warnAndFocusField('请填写处理措施', 'badProduct.processMeasure')
+  }
+  if (!processForm.improvementPlan) {
+    return warnAndFocusField('请填写改进方案', 'badProduct.improvementPlan')
   }
 
   await processBadProduct({
     defectiveId: processingRecord.value?.defectiveId,
     method: processForm.method,
+    responsiblePerson: processForm.responsiblePerson,
+    processMeasure: processForm.processMeasure,
+    improvementPlan: processForm.improvementPlan,
     remark: processForm.remark || undefined
   })
-  ElMessage.success('质量记录已处理')
+  ElMessage.success('质量处理已提交审核')
   closeProcess()
   await fetchData()
 }
 
 function typeLabel(value) {
-  return allTypeOptions.find((item) => item.value === value)?.label || '其他原因'
+  return allTypeOptions.find((item) => item.value === value)?.label || '其他'
+}
+
+function normalizeLossAmountBucketValue(value) {
+  const number = Number(value || 0)
+  if (!Number.isFinite(number) || number <= 0) {
+    return ''
+  }
+  if (number <= 50) return '25'
+  if (number <= 200) return '100'
+  if (number <= 500) return '350'
+  if (number <= 2000) return '1250'
+  if (number <= 5000) return '3500'
+  return '5001'
+}
+
+function lossAmountLabel(value) {
+  const bucketValue = normalizeLossAmountBucketValue(value)
+  return lossAmountOptions.find((item) => item.value === bucketValue)?.label || '--'
 }
 
 function statusLabel(value) {
-  return value === 'processed' ? '已处理' : '待处理'
+  if (value === 'processed') return '已处理'
+  if (value === 'pending_audit') return '审核中'
+  return '待处理'
 }
 
 function statusClass(value) {
-  return value === 'processed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+  if (value === 'processed') return 'bg-emerald-100 text-emerald-700'
+  if (value === 'pending_audit') return 'bg-sky-100 text-sky-700'
+  return 'bg-amber-100 text-amber-700'
 }
 
 function formatDateTime(value) {
@@ -842,22 +913,36 @@ function resetForm() {
   Object.assign(form, createEmptyForm())
 }
 
+function resetProcessForm(record = null) {
+  processForm.responsiblePerson = record?.responsiblePerson || ''
+  processForm.method = record?.processMethod || ''
+  processForm.processMeasure = record?.processMeasure || ''
+  processForm.improvementPlan = record?.improvementPlan || ''
+  processForm.remark = record?.processRemark || ''
+}
+
 function createEmptyForm() {
   return {
     defectiveId: '',
     orderId: '',
-    type: activeScope.value === 'afterSales' ? 'after_sales' : 'quality',
+    type: defaultTypeForScope(),
     quantity: '',
     lossAmount: '',
     description: '',
-    responsiblePerson: '',
-    processMeasure: '',
-    improvementPlan: '',
     attachmentName: '',
     attachmentUrl: '',
     attachmentSize: null,
     createTime: ''
   }
+}
+
+function defaultTypeForScope() {
+  return activeScope.value === 'afterSales' ? 'motor' : 'raw_material'
+}
+
+function normalizeTypeForScope(value) {
+  const options = activeScope.value === 'afterSales' ? afterSalesTypeOptions : qualityTypeOptions
+  return options.some((item) => item.value === value) ? value : defaultTypeForScope()
 }
 </script>
 

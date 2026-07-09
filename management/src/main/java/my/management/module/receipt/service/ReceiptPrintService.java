@@ -78,7 +78,6 @@ public class ReceiptPrintService {
     public OutboundPrintDetailVO detail(String orderNo) {
         OutboundOrder order = requireOrder(orderNo);
         List<OutboundItem> items = outboundItemMapper.selectList(new LambdaQueryWrapper<OutboundItem>()
-                .eq(OutboundItem::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(OutboundItem::getOrderId, order.getId())
                 .orderByAsc(OutboundItem::getId));
 
@@ -121,7 +120,6 @@ public class ReceiptPrintService {
         }
         String tenantCode = TenantPermissionContext.getTenantCode();
         OutboundOrder order = outboundOrderMapper.selectOne(new LambdaQueryWrapper<OutboundOrder>()
-                .eq(OutboundOrder::getTenantCode, tenantCode)
                 .eq(OutboundOrder::getId, request.getId())
                 .eq(OutboundOrder::getOrderStatus, 1)
                 .eq(OutboundOrder::getPrintStatus, 0)
@@ -187,7 +185,6 @@ public class ReceiptPrintService {
 
     private void updateStatus(String orderNo, Integer orderStatus, Integer printStatus, String errorMsg) {
         LambdaUpdateWrapper<OutboundOrder> wrapper = new LambdaUpdateWrapper<OutboundOrder>()
-                .eq(OutboundOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(OutboundOrder::getOrderNo, orderNo)
                 .eq(OutboundOrder::getOrderStatus, 1)
                 .eq(OutboundOrder::getPrintStatus, 0)
@@ -202,7 +199,6 @@ public class ReceiptPrintService {
 
     private OutboundOrder requireOrder(String orderNo) {
         OutboundOrder order = outboundOrderMapper.selectOne(new LambdaQueryWrapper<OutboundOrder>()
-                .eq(OutboundOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(OutboundOrder::getOrderNo, orderNo)
                 .eq(OutboundOrder::getOrderStatus, 1)
                 .eq(OutboundOrder::getPrintStatus, 0)
@@ -215,7 +211,6 @@ public class ReceiptPrintService {
 
     private void ensureOrderNoAvailable(String tenantCode, Long currentOrderId, String orderNo) {
         Long count = outboundOrderMapper.selectCount(new LambdaQueryWrapper<OutboundOrder>()
-                .eq(OutboundOrder::getTenantCode, tenantCode)
                 .eq(OutboundOrder::getOrderNo, orderNo)
                 .ne(OutboundOrder::getId, currentOrderId));
         if (count != null && count > 0) {
@@ -263,7 +258,6 @@ public class ReceiptPrintService {
 
     private void savePrintItems(String tenantCode, Long orderId, List<OutboundPrintItemUpdateRequest> itemRequests) {
         List<OutboundItem> currentItems = outboundItemMapper.selectList(new LambdaQueryWrapper<OutboundItem>()
-                .eq(OutboundItem::getTenantCode, tenantCode)
                 .eq(OutboundItem::getOrderId, orderId)
                 .orderByAsc(OutboundItem::getId));
         Map<Long, OutboundItem> currentItemMap = new HashMap<>();
@@ -304,7 +298,6 @@ public class ReceiptPrintService {
         for (OutboundItem item : currentItems) {
             if (!keptIds.contains(item.getId())) {
                 outboundItemMapper.delete(new LambdaQueryWrapper<OutboundItem>()
-                        .eq(OutboundItem::getTenantCode, tenantCode)
                         .eq(OutboundItem::getOrderId, orderId)
                         .eq(OutboundItem::getId, item.getId()));
             }

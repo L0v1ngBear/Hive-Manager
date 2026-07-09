@@ -6,17 +6,6 @@ import '@fontsource/material-symbols-outlined/400.css'
 import 'element-plus/dist/index.css'
 import './style.css'
 import permissionDirective from '@/directives/permission'
-import { flushBehavior, trackPageView } from '@/utils/behavior'
-
-router.afterEach((to) => {
-  if (to.path !== '/login') {
-    trackPageView(to)
-  }
-})
-
-window.addEventListener('beforeunload', () => {
-  flushBehavior()
-})
 
 const app = createApp(App)
 

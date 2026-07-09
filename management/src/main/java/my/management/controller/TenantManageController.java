@@ -2,6 +2,7 @@ package my.management.controller;
 
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
+import my.hive.common.annotation.CollectLog;
 import my.hive.common.dto.Result;
 import my.management.module.tenant.model.dto.TenantLicenseUpdateRequest;
 import my.management.module.tenant.model.dto.TenantOwnerAccountRequest;
@@ -40,30 +41,35 @@ public class TenantManageController {
     }
 
     @PutMapping("/{id}/profile")
+    @CollectLog(module = "platform_tenant", action = "update_profile", bizType = "tenant", bizNo = "#id", description = "平台端更新租户资料")
     public Result<TenantManageVO> updateProfile(@PathVariable Long id,
                                                 @Valid @RequestBody TenantProfileUpdateRequest request) {
         return Result.success(tenantManageService.updateProfile(id, request));
     }
 
     @PostMapping("/{id}/logo")
+    @CollectLog(module = "platform_tenant", action = "upload_logo", bizType = "tenant", bizNo = "#id", description = "平台端上传租户 Logo", recordArgs = false)
     public Result<TenantManageVO> uploadLogo(@PathVariable Long id,
                                              @RequestParam("file") MultipartFile file) {
         return Result.success(tenantManageService.uploadLogo(id, file));
     }
 
     @PutMapping("/{id}/license")
+    @CollectLog(module = "platform_tenant", action = "update_license", bizType = "tenant", bizNo = "#id", description = "平台端更新租户授权")
     public Result<TenantManageVO> updateLicense(@PathVariable Long id,
                                                 @Valid @RequestBody TenantLicenseUpdateRequest request) {
         return Result.success(tenantManageService.updateLicense(id, request));
     }
 
     @PutMapping("/{id}/status")
+    @CollectLog(module = "platform_tenant", action = "update_status", bizType = "tenant", bizNo = "#id", description = "平台端更新租户状态")
     public Result<TenantManageVO> updateStatus(@PathVariable Long id,
                                                @Valid @RequestBody TenantStatusUpdateRequest request) {
         return Result.success(tenantManageService.updateStatus(id, request));
     }
 
     @PutMapping("/{id}/owner-account")
+    @CollectLog(module = "platform_tenant", action = "reassign_owner_account", bizType = "tenant", bizNo = "#id", description = "平台端重置租户负责人账号")
     public Result<TenantManageVO> reassignOwnerAccount(@PathVariable Long id,
                                                        @Valid @RequestBody TenantOwnerAccountRequest request) {
         return Result.success(tenantManageService.reassignOwnerAccount(id, request));

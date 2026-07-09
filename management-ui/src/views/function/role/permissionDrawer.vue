@@ -55,6 +55,8 @@
                 collapse-tags
                 collapse-tags-tooltip
                 filterable
+                check-on-click-node
+                :render-after-expand="false"
                 :props="{ value: 'id', label: 'permName', children: 'children' }"
                 placeholder="请展开选择系统权限"
                 class="atelier-tree-select w-full"

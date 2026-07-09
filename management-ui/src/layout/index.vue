@@ -13,8 +13,10 @@
 
       <main ref="mainRef" class="ys-app-main flex-1 min-h-0 overflow-y-auto">
         <div class="ys-app-content-frame">
-          <router-view v-slot="{ Component }">
-            <component :is="Component" />
+          <router-view v-slot="{ Component, route }">
+            <ResponsivePageFrame :route="route">
+              <component :is="Component" />
+            </ResponsivePageFrame>
           </router-view>
         </div>
       </main>
@@ -35,6 +37,7 @@ defineOptions({ name: 'Layout' });
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import ResponsivePageFrame from '@/components/ResponsivePageFrame.vue';
 import Sidebar from './components/Sidebar.vue';
 import Navbar from './components/Navbar.vue';
 

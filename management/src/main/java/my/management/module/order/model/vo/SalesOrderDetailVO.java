@@ -63,7 +63,7 @@ public class SalesOrderDetailVO {
 
         private String modelCode;
 
-        private Float weight;
+        private String weight;
 
         private String spec;
 
