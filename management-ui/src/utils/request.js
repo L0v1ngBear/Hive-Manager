@@ -95,7 +95,6 @@ service.interceptors.response.use(
     (error) => {
         finishGlobalLoading(error.config)
         const userStore = useUserStore()
-        const status = error.response?.status
         const currentPath = router.currentRoute.value.fullPath
 
         if (error.config?.silent) {
@@ -382,7 +381,7 @@ async function resolveBlobErrorMessage(blob, userStore) {
         if (payload?.data) {
             try {
                 payload.data = await decryptPayload(userStore.responseKey, payload.data)
-            } catch (error) {
+            } catch {
                 // Blob errors may already be plain JSON; keep the original message if decrypt is not needed.
             }
         }
@@ -391,7 +390,7 @@ async function resolveBlobErrorMessage(blob, userStore) {
             || payload?.data?.msg
             || payload?.data?.message
             || '文件下载失败，请稍后重试'
-    } catch (error) {
+    } catch {
         return text.replace(/\s+/g, ' ').trim().slice(0, 160) || '文件下载失败，请稍后重试'
     }
 }

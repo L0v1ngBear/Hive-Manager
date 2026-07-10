@@ -90,7 +90,7 @@ class CommercialHardeningStaticTest {
                 Map.entry("my/management/controller/AuthController.java", List.of("/login", "/password-reset", "/initial-password", "/scan-login/confirm")),
                 Map.entry("my/management/controller/ApprovalController.java", List.of("/leave/audit", "/finance/audit", "/finance/submit", "/resignation/submit", "/resignation/audit")),
                 Map.entry("my/management/controller/EmployeeController.java", List.of("/create", "/update", "/change-status", "/batch-update", "/import")),
-                Map.entry("my/management/controller/OrderController.java", List.of("/sales/create", "/sales/save/{orderId}", "/sales/update/{orderId}", "/production/create", "/production/save/{orderId}", "/production/update/{orderId}")),
+                Map.entry("my/management/controller/OrderController.java", List.of("/create", "/save/{orderId}", "/update/{orderId}")),
                 Map.entry("my/management/controller/RoleController.java", List.of("/create", "/role/update")),
                 Map.entry("my/management/controller/ReceiptPrintController.java", List.of("/print/update", "/print/mark-printed", "/print/cancel", "/template/save", "/template/{id}/default")),
                 Map.entry("my/management/controller/TenantManageController.java", List.of("/{id}/profile", "/{id}/logo", "/{id}/license", "/{id}/status", "/{id}/owner-account"))
@@ -104,6 +104,117 @@ class CommercialHardeningStaticTest {
         String annotationBlock = annotationBlockForMapping(file, "@PostMapping(\"/custom\")");
         assertTrue(annotationBlock.contains("@RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_RENAME"),
                 "Custom tenant manual save must require document edit permission: " + file);
+    }
+
+    @Test
+    void orderControllerShouldExposeOneCanonicalOrderApi() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/controller/OrderController.java");
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        for (String mapping : List.of(
+                "@GetMapping(\"/page\")",
+                "@GetMapping(\"/status-summary\")",
+                "@GetMapping(\"/detail/{orderId}\")",
+                "@PostMapping(\"/create\")",
+                "@PostMapping(\"/save/{orderId}\")",
+                "@PostMapping(\"/update/{orderId}\")",
+                "@PostMapping(\"/next/{orderId}\")",
+                "@PostMapping(\"/rollback/{orderId}\")",
+                "@PostMapping(\"/flow-print-task\")")) {
+            assertTrue(content.contains(mapping), "Canonical order controller is missing mapping " + mapping);
+        }
+        assertFalse(content.contains("\"/sales/"), "Order controller must not expose retired sales-order routes");
+        assertFalse(content.contains("\"/production/"), "Order controller must not expose retired production-order routes");
+    }
+
+    @Test
+    void canonicalOrderResponseShouldIncludeAggregatedFulfillmentProgress() throws IOException {
+        for (String voFile : List.of(
+                "my/management/module/order/model/vo/SalesOrderPageVO.java",
+                "my/management/module/order/model/vo/SalesOrderDetailVO.java")) {
+            Path file = MAIN_SOURCE.resolve(voFile);
+            String content = Files.readString(file, StandardCharsets.UTF_8);
+            for (String field : List.of(
+                    "fulfillmentTracked",
+                    "fulfillmentRecordCount",
+                    "processText",
+                    "currentProcessText",
+                    "completedProcessText",
+                    "processProgressPercent",
+                    "processSteps")) {
+                assertTrue(content.contains(field), "Canonical order response is missing " + field + ": " + file);
+            }
+        }
+
+        Path service = MAIN_SOURCE.resolve("my/management/module/order/service/OrderService.java");
+        String serviceContent = Files.readString(service, StandardCharsets.UTF_8);
+        assertTrue(serviceContent.contains("buildFulfillmentMap(orders)"),
+                "Order page must batch-load fulfillment records instead of issuing one query per row: " + service);
+        assertTrue(serviceContent.contains(".in(ProductionOrder::getSalesOrderId, orderIds)"),
+                "Fulfillment records must be loaded by canonical order ids: " + service);
+        assertTrue(serviceContent.contains("applyFulfillmentView(vo"),
+                "Order page and detail responses must apply the aggregated fulfillment view: " + service);
+    }
+
+    @Test
+    void unifiedOrderMetricsShouldNotCountFulfillmentRowsAsOrders() throws IOException {
+        Path warningSummary = MAIN_SOURCE.resolve("my/management/module/order/model/vo/OrderWarningSummaryVO.java");
+        String warningSummaryContent = Files.readString(warningSummary, StandardCharsets.UTF_8);
+        assertTrue(warningSummaryContent.contains("orderCount"),
+                "Unified order warning summary must expose one canonical order count");
+        assertFalse(warningSummaryContent.contains("salesCount"),
+                "Unified order warning summary must not expose a sales-order count");
+        assertFalse(warningSummaryContent.contains("productionCount"),
+                "Fulfillment rows must not be exposed as a second order count");
+
+        Path warningCache = MAIN_SOURCE.resolve("my/management/module/order/service/OrderWarningCacheService.java");
+        String warningCacheContent = Files.readString(warningCache, StandardCharsets.UTF_8);
+        assertFalse(warningCacheContent.contains("ProductionOrderMapper"),
+                "Order warnings must count canonical orders only");
+        assertFalse(warningCacheContent.contains("countProduction"),
+                "Order warnings must not count fulfillment rows as separate orders");
+
+        Path dashboard = MAIN_SOURCE.resolve("my/management/module/dashboard/service/DashboardService.java");
+        String dashboardContent = Files.readString(dashboard, StandardCharsets.UTF_8);
+        assertFalse(dashboardContent.contains("countMonthProductionOrders"),
+                "Dashboard month order count must not add fulfillment row count");
+
+        Path notification = MAIN_SOURCE.resolve("my/management/module/notification/service/NotificationService.java");
+        String notificationContent = Files.readString(notification, StandardCharsets.UTF_8);
+        assertFalse(notificationContent.contains("其中销售订单"),
+                "Order warning notifications must use the unified order concept");
+        assertFalse(notificationContent.contains("生产订单 "),
+                "Order warning notifications must not expose fulfillment rows as orders");
+    }
+
+    @Test
+    void managementOrderDataShouldRequireStatusPermission() throws IOException {
+        Path service = MAIN_SOURCE.resolve("my/management/module/order/service/OrderService.java");
+        String content = Files.readString(service, StandardCharsets.UTF_8);
+        int methodIndex = content.indexOf("private boolean hasOrderStatusAccess");
+        int methodEnd = content.indexOf("\n    }", methodIndex);
+        assertTrue(methodIndex >= 0 && methodEnd > methodIndex, "OrderService must keep centralized status permission checks");
+        String methodBody = content.substring(methodIndex, methodEnd);
+        assertFalse(methodBody.contains("CODE_ORDER_LIST"),
+                "order:list grants page entry but must not grant access to every order status");
+        assertFalse(content.contains("LEGACY_ORDER_STATUS_PERMISSIONS"),
+                "Retired order permission families must not bypass status permissions");
+
+        Path dashboardMapper = MAIN_SOURCE.resolve("my/management/module/dashboard/mapper/DashboardMapper.java");
+        String mapperContent = Files.readString(dashboardMapper, StandardCharsets.UTF_8);
+        assertTrue(mapperContent.contains("<foreach collection='statuses'"),
+                "Dashboard order counters must filter by the current user's permitted statuses");
+    }
+
+    @Test
+    void unifiedOrderPrintingShouldNotCreateFulfillmentPrintTasks() throws IOException {
+        Path service = MAIN_SOURCE.resolve("my/management/module/order/service/OrderService.java");
+        String content = Files.readString(service, StandardCharsets.UTF_8);
+        assertFalse(content.contains("createProductionOrderFlowPrintTask"),
+                "Unified order printing must not expose a production-order print entry point");
+        assertFalse(content.contains("buildProductionOrderFlowPrintPayload"),
+                "Unified order printing must not generate fulfillment QR payloads");
+        assertFalse(content.contains("\"production_order\""),
+                "Unified order printing must only enqueue canonical sales-order tasks");
     }
 
     @Test

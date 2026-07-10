@@ -138,17 +138,6 @@ public class OrderService {
     private static final Set<String> ALLOWED_ATTACHMENT_EXTENSIONS = Set.of(
             "pdf", "png", "jpg", "jpeg", "webp", "doc", "docx", "xls", "xlsx", "txt", "zip", "rar"
     );
-    private static final Set<String> LEGACY_ORDER_LIST_PERMISSIONS = Set.of(
-            "sales:order:list", "sales:order:detail", "sales:order:status",
-            "sales:order:pre-confirm", "sales:order:fulfillment",
-            "production:order:list", "production:order:detail", "production:order:log",
-            "production:order:status", "production:order:pre-production", "production:order:fulfillment"
-    );
-    private static final Set<String> LEGACY_ORDER_STATUS_PERMISSIONS = Set.of(
-            "sales:order:status", "sales:order:pre-confirm", "sales:order:fulfillment",
-            "production:order:status", "production:order:pre-production", "production:order:fulfillment"
-    );
-
     @Resource
     private SalesOrderMapper salesOrderMapper;
 
@@ -224,32 +213,6 @@ public class OrderService {
         return buildOrderFlowPrintTaskVO(taskNo, order.getOrderId(), "sales", payload);
     }
 
-    public OrderFlowPrintTaskVO createProductionOrderFlowPrintTask(OrderFlowPrintTaskRequest request) {
-        String orderId = requireOrderId(request);
-        ProductionOrder order = findProductionOrder(orderId);
-        assertProductionOrderStagePermission(order, order.getStatus());
-        Map<String, Object> payload = buildProductionOrderFlowPrintPayload(order);
-        String taskNo = printTaskService.createTask(
-                "order_flow",
-                "production_order",
-                order.getOrderId(),
-                order.getSalesOrderId(),
-                payload,
-                null,
-                null,
-                "网页端创建生产订单流转码，请在小程序端蓝牙打印");
-        if (!StringUtils.hasText(taskNo)) {
-            throw new BusinessException("订单流转码打印任务创建失败");
-        }
-        payload.put("printTaskNo", taskNo);
-        return buildOrderFlowPrintTaskVO(taskNo, order.getOrderId(), "production", payload);
-    }
-
-    public void enqueueProductionOrderFlowPrintTaskAfterApproval(String orderId) {
-        ProductionOrder order = findProductionOrder(orderId);
-        enqueueProductionOrderFlowPrintTaskIfAbsent(order, "订单审批通过，自动生成生产订单流转码待打印任务");
-    }
-
     private void enqueueSalesOrderFlowPrintTaskIfAbsent(SalesOrder order, String reason) {
         Map<String, Object> payload = buildSalesOrderFlowPrintPayload(order);
         String taskNo = printTaskService.createTaskIfAbsent(
@@ -257,22 +220,6 @@ public class OrderService {
                 "sales_order",
                 order.getOrderId(),
                 order.getOrderId(),
-                payload,
-                null,
-                null,
-                reason);
-        if (!StringUtils.hasText(taskNo)) {
-            throw new BusinessException("订单审批已通过，但流转码打印任务创建失败，请重试");
-        }
-    }
-
-    private void enqueueProductionOrderFlowPrintTaskIfAbsent(ProductionOrder order, String reason) {
-        Map<String, Object> payload = buildProductionOrderFlowPrintPayload(order);
-        String taskNo = printTaskService.createTaskIfAbsent(
-                "order_flow",
-                "production_order",
-                order.getOrderId(),
-                order.getSalesOrderId(),
                 payload,
                 null,
                 null,
@@ -403,6 +350,7 @@ public class OrderService {
         Page<SalesOrder> source = salesOrderMapper.selectPage(page, wrapper);
         List<SalesOrder> orders = source.getRecords();
         Map<String, List<SalesOrderDetail>> detailMap = buildSalesDetailMap(orders);
+        Map<String, List<ProductionOrder>> fulfillmentMap = buildFulfillmentMap(orders);
 
         List<SalesOrderPageVO> records = orders.stream().map(order -> {
             SalesOrderPageVO vo = new SalesOrderPageVO();
@@ -410,6 +358,7 @@ public class OrderService {
             List<SalesOrderDetail> details = detailMap.getOrDefault(order.getOrderId(), Collections.emptyList());
             vo.setDetailCount(details.size());
             vo.setItems(details.stream().map(this::toSalesOrderPageItem).toList());
+            applyFulfillmentView(vo, fulfillmentMap.getOrDefault(order.getOrderId(), Collections.emptyList()), order.getStatus());
             markSalesStaleWarning(vo, order, orderSettingService.staleWarningDays(tenantCode, order.getOrderCategory()));
             return vo;
         }).toList();
@@ -453,6 +402,13 @@ public class OrderService {
         return result;
     }
 
+    public Set<String> currentPermittedOrderStatuses() {
+        Set<String> permittedStatuses = permittedOrderStatuses(SALES_STATUS_CODES);
+        return permittedStatuses == null
+                ? new LinkedHashSet<>(SALES_STATUS_CODES)
+                : new LinkedHashSet<>(permittedStatuses);
+    }
+
     public SalesOrderDetailVO getSalesOrderDetail(String orderId) {
         SalesOrder order = findSalesOrder(orderId);
         assertSalesOrderStagePermission(order, order.getStatus());
@@ -462,6 +418,8 @@ public class OrderService {
 
         SalesOrderDetailVO vo = new SalesOrderDetailVO();
         BeanUtils.copyProperties(order, vo);
+        Map<String, List<ProductionOrder>> fulfillmentMap = buildFulfillmentMap(List.of(order));
+        applyFulfillmentView(vo, fulfillmentMap.getOrDefault(order.getOrderId(), Collections.emptyList()), order.getStatus());
         vo.setItems(details.stream().map(detail -> {
             SalesOrderDetailVO.ItemVO itemVO = new SalesOrderDetailVO.ItemVO();
             BeanUtils.copyProperties(detail, itemVO);
@@ -788,7 +746,6 @@ public class OrderService {
             return;
         }
         enqueueSalesOrderFlowPrintTaskIfAbsent(order, "订单审批通过，自动生成销售订单流转码待打印任务");
-        enqueueLinkedProductionOrderFlowPrintTasksIfApproved(order);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -914,21 +871,24 @@ public class OrderService {
     }
 
     public OrderWarningSummaryVO getOrderWarningSummary() {
-        return orderWarningCacheService.summary(TenantPermissionContext.getTenantCode());
+        return orderWarningCacheService.summary(
+                TenantPermissionContext.getTenantCode(), currentPermittedOrderStatuses());
     }
 
     public OrderWarningSummaryVO refreshOrderWarningSummary() {
         String tenantCode = TenantPermissionContext.getTenantCode();
         orderWarningCacheService.invalidate(tenantCode);
-        return orderWarningCacheService.summary(tenantCode);
+        return orderWarningCacheService.summary(tenantCode, currentPermittedOrderStatuses());
     }
 
     @Transactional
-    public OrderWarningSummaryVO refreshSalesOrderWarnings() {
+    public OrderWarningSummaryVO refreshOrderWarnings() {
         String tenantCode = TenantPermissionContext.getTenantCode();
         LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<SalesOrder>()
                 .select(SalesOrder::getOrderId);
         applySalesStaleWarningFilter(wrapper, tenantCode);
+        Set<String> permittedStatuses = currentPermittedOrderStatuses();
+        applyOrderStatusPermissionFilter(wrapper, SalesOrder::getStatus, permittedStatuses);
         List<String> orderIds = salesOrderMapper.selectList(wrapper).stream()
                 .map(SalesOrder::getOrderId)
                 .filter(StringUtils::hasText)
@@ -943,11 +903,11 @@ public class OrderService {
             }
         }
         orderWarningCacheService.invalidate(tenantCode);
-        return orderWarningCacheService.summary(tenantCode);
+        return orderWarningCacheService.summary(tenantCode, permittedStatuses);
     }
 
     @Transactional
-    public OrderWarningSummaryVO refreshSalesOrderWarning(String orderId) {
+    public OrderWarningSummaryVO refreshOrderWarning(String orderId) {
         if (!StringUtils.hasText(orderId)) {
             throw new BusinessException("订单编号不能为空");
         }
@@ -957,7 +917,7 @@ public class OrderService {
                 .eq(SalesOrder::getOrderId, order.getOrderId())
                 .set(SalesOrder::getUpdateTime, LocalDateTime.now()));
         orderWarningCacheService.invalidate(tenantCode);
-        return orderWarningCacheService.summary(tenantCode);
+        return orderWarningCacheService.summary(tenantCode, currentPermittedOrderStatuses());
     }
 
     public ProductionOrderDetailVO getProductionOrderDetail(String orderId) {
@@ -1542,17 +1502,6 @@ public class OrderService {
         }
     }
 
-    private void enqueueLinkedProductionOrderFlowPrintTasksIfApproved(SalesOrder salesOrder) {
-        if (!STATUS_PRODUCING.equals(salesOrder.getStatus())) {
-            return;
-        }
-        List<ProductionOrder> linkedOrders = productionOrderMapper.selectList(new LambdaQueryWrapper<ProductionOrder>()
-                .eq(ProductionOrder::getSalesOrderId, salesOrder.getOrderId()));
-        for (ProductionOrder linkedOrder : linkedOrders) {
-            enqueueProductionOrderFlowPrintTaskIfAbsent(linkedOrder, "订单审批通过，自动生成生产订单流转码待打印任务");
-        }
-    }
-
     /**
      * 生产订单只回写销售订单的共享状态，避免把备料中、生产中这类内部状态写回销售侧。
      * 当生产单回写已发货时，销售单必须已经具备完整物流信息。
@@ -1618,26 +1567,6 @@ public class OrderService {
                 firstItem == null ? order.getGoodsDesc() : firstItem.getModelCode());
         payload.put("customerPhone", safePrintText(order.getCustomerPhone(), ""));
         payload.put("deliveryDate", safePrintText(order.getDeliveryDate(), ""));
-        payload.put("printReason", "订单流转码待打印");
-        payload.put("flowQrPayload", buildOrderFlowQrText(payload));
-        return payload;
-    }
-
-    private Map<String, Object> buildProductionOrderFlowPrintPayload(ProductionOrder order) {
-        Map<String, Object> payload = baseOrderFlowPrintPayload(
-                order.getOrderId(),
-                "production",
-                "订单流转",
-                order.getStatus(),
-                order.getOrderCategory(),
-                order.getCustomerName(),
-                order.getProjectName(),
-                order.getBrandName(),
-                order.getModelCode());
-        payload.put("salesOrderId", safePrintText(order.getSalesOrderId(), ""));
-        payload.put("process", order.getProcess());
-        payload.put("processText", productionProcessLabel(order.getProcess()));
-        payload.put("deliveryDate", order.getDeliveryDate() == null ? "" : DATE_TIME_FORMATTER.format(order.getDeliveryDate()));
         payload.put("printReason", "订单流转码待打印");
         payload.put("flowQrPayload", buildOrderFlowQrText(payload));
         return payload;
@@ -1912,6 +1841,71 @@ public class OrderService {
                         .orderByAsc(SalesOrderDetail::getId))
                 .stream()
                 .collect(Collectors.groupingBy(SalesOrderDetail::getOrderId, LinkedHashMap::new, Collectors.toList()));
+    }
+
+    private Map<String, List<ProductionOrder>> buildFulfillmentMap(List<SalesOrder> orders) {
+        if (orders == null || orders.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<String> orderIds = orders.stream()
+                .map(SalesOrder::getOrderId)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .toList();
+        if (orderIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return productionOrderMapper.selectList(new LambdaQueryWrapper<ProductionOrder>()
+                        .eq(ProductionOrder::getTenantCode, TenantPermissionContext.getTenantCode())
+                        .in(ProductionOrder::getSalesOrderId, orderIds)
+                        .orderByAsc(ProductionOrder::getId))
+                .stream()
+                .filter(order -> StringUtils.hasText(order.getSalesOrderId()))
+                .collect(Collectors.groupingBy(ProductionOrder::getSalesOrderId,
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+    }
+
+    private void applyFulfillmentView(SalesOrderPageVO vo,
+                                      List<ProductionOrder> fulfillmentRecords,
+                                      String canonicalStatus) {
+        FulfillmentSnapshot snapshot = fulfillmentSnapshot(fulfillmentRecords, canonicalStatus);
+        vo.setFulfillmentTracked(snapshot.tracked());
+        vo.setFulfillmentRecordCount(snapshot.recordCount());
+        vo.setProcess(snapshot.process());
+        vo.setProcessText(snapshot.view().processText());
+        vo.setCurrentProcessText(snapshot.view().currentProcessText());
+        vo.setCompletedProcessText(snapshot.view().completedProcessText());
+        vo.setProcessProgressPercent(snapshot.view().progressPercent());
+        vo.setProcessSteps(snapshot.view().steps());
+    }
+
+    private void applyFulfillmentView(SalesOrderDetailVO vo,
+                                      List<ProductionOrder> fulfillmentRecords,
+                                      String canonicalStatus) {
+        FulfillmentSnapshot snapshot = fulfillmentSnapshot(fulfillmentRecords, canonicalStatus);
+        vo.setFulfillmentTracked(snapshot.tracked());
+        vo.setFulfillmentRecordCount(snapshot.recordCount());
+        vo.setProcess(snapshot.process());
+        vo.setProcessText(snapshot.view().processText());
+        vo.setCurrentProcessText(snapshot.view().currentProcessText());
+        vo.setCompletedProcessText(snapshot.view().completedProcessText());
+        vo.setProcessProgressPercent(snapshot.view().progressPercent());
+        vo.setProcessSteps(snapshot.view().steps());
+    }
+
+    private FulfillmentSnapshot fulfillmentSnapshot(List<ProductionOrder> fulfillmentRecords,
+                                                     String canonicalStatus) {
+        List<ProductionOrder> records = fulfillmentRecords == null ? Collections.emptyList() : fulfillmentRecords;
+        Integer process = records.stream().anyMatch(order -> order.getProcess() == null)
+                ? null
+                : records.stream().map(ProductionOrder::getProcess).min(Integer::compareTo).orElse(null);
+        return new FulfillmentSnapshot(
+                !records.isEmpty(),
+                records.size(),
+                process,
+                buildProductionProcessView(canonicalStatus, process)
+        );
     }
 
     private SalesOrderPageVO.ItemVO toSalesOrderPageItem(SalesOrderDetail detail) {
@@ -2254,6 +2248,14 @@ public class OrderService {
     ) {
     }
 
+    private record FulfillmentSnapshot(
+            boolean tracked,
+            int recordCount,
+            Integer process,
+            ProductionProcessView view
+    ) {
+    }
+
     private String resolveCurrentUser() {
         Long userId = TenantPermissionContext.getUserId();
         return userId == null ? "system" : String.valueOf(userId);
@@ -2331,11 +2333,7 @@ public class OrderService {
         if (matchesPermission(permCodes, requiredPermission, "!")) {
             return false;
         }
-        if (matchesPermission(permCodes, PermissionCodeEnum.CODE_ORDER_LIST, "!")) {
-            return false;
-        }
-        return matchesPermission(permCodes, requiredPermission, "")
-                || matchesPermission(permCodes, PermissionCodeEnum.CODE_ORDER_LIST, "");
+        return matchesPermission(permCodes, requiredPermission, "");
     }
 
     private boolean matchesPermission(Set<String> permCodes, String permCode, String prefix) {
@@ -2356,30 +2354,6 @@ public class OrderService {
                 return true;
             }
             lastColonIndex = codePrefix.lastIndexOf(":");
-        }
-        if (PermissionCodeEnum.CODE_ORDER_LIST.equals(normalizedPermCode)) {
-            return matchesLegacyOrderListPermission(permCodes, prefix);
-        }
-        if (normalizedPermCode.startsWith(PermissionCodeEnum.CODE_ORDER_STATUS_PREFIX)) {
-            return matchesLegacyOrderStatusPermission(permCodes, prefix);
-        }
-        return false;
-    }
-
-    private boolean matchesLegacyOrderListPermission(Set<String> permCodes, String prefix) {
-        for (String legacyPermission : LEGACY_ORDER_LIST_PERMISSIONS) {
-            if (matchesPermission(permCodes, legacyPermission, prefix)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean matchesLegacyOrderStatusPermission(Set<String> permCodes, String prefix) {
-        for (String legacyPermission : LEGACY_ORDER_STATUS_PERMISSIONS) {
-            if (matchesPermission(permCodes, legacyPermission, prefix)) {
-                return true;
-            }
         }
         return false;
     }

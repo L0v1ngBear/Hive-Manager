@@ -15,9 +15,7 @@ public class OrderWarningSummaryVO {
 
     private Integer drawingBudgetStaleWarningDays;
 
-    private Long salesCount = 0L;
-
-    private Long productionCount = 0L;
+    private Long orderCount = 0L;
 
     private Long totalCount = 0L;
 

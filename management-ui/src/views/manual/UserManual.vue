@@ -1026,7 +1026,7 @@ function openManualEditor(options) {
     title: options.title,
     index: typeof options.index === 'number' ? options.index : -1,
     fields: options.fields || [],
-    form: { ...(options.form || {}) }
+    form: { ...options.form }
   }
 }
 

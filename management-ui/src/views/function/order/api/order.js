@@ -1,47 +1,33 @@
 import request from '@/utils/request.js'
 
-export function getSalesOrderPage(params) {
-  return request({
-    url: '/order/sales/page',
-    method: 'get',
-    params
-  })
+export function getOrderPage(params) {
+  return request({ url: '/order/page', method: 'get', params })
 }
 
-export function getSalesOrderStatusSummary() {
-  return request({
-    url: '/order/sales/status-summary',
-    method: 'get'
-  })
+export function getOrderStatusSummary() {
+  return request({ url: '/order/status-summary', method: 'get' })
 }
 
-export function getSalesOrderDetail(orderId) {
-  return request({
-    url: `/order/sales/detail/${orderId}`,
-    method: 'get'
-  })
+export function getOrderDetail(orderId) {
+  return request({ url: `/order/detail/${orderId}`, method: 'get' })
 }
 
-export function createSalesOrder(data) {
-  return request({
-    url: '/order/sales/create',
-    method: 'post',
-    data
-  })
+export function createOrder(data) {
+  return request({ url: '/order/create', method: 'post', data })
 }
 
-export function uploadSalesOrderAttachment(data) {
+export function uploadOrderAttachment(data) {
   return request({
-    url: '/order/sales/attachment/upload',
+    url: '/order/attachment/upload',
     method: 'post',
     data,
     timeout: 30000
   })
 }
 
-export function downloadSalesOrderAttachment(params) {
+export function downloadOrderAttachment(params) {
   return request({
-    url: '/order/sales/attachment/download',
+    url: '/order/attachment/download',
     method: 'get',
     params,
     responseType: 'blob',
@@ -49,170 +35,57 @@ export function downloadSalesOrderAttachment(params) {
   })
 }
 
-export function saveSalesOrder(orderId, data) {
-  return request({
-    url: `/order/sales/save/${orderId}`,
-    method: 'post',
-    data
-  })
+export function saveOrder(orderId, data) {
+  return request({ url: `/order/save/${orderId}`, method: 'post', data })
 }
 
-export function updateSalesOrder(orderId, data) {
-  return request({
-    url: `/order/sales/update/${orderId}`,
-    method: 'post',
-    data
-  })
+export function updateOrder(orderId, data) {
+  return request({ url: `/order/update/${orderId}`, method: 'post', data })
 }
 
-export function advanceSalesOrderNextStage(orderId, data) {
-  return request({
-    url: `/order/sales/next/${orderId}`,
-    method: 'post',
-    data
-  })
+export function advanceOrderNextStage(orderId, data) {
+  return request({ url: `/order/next/${orderId}`, method: 'post', data })
 }
 
-export function rollbackSalesOrder(orderId, data) {
-  return request({
-    url: `/order/sales/rollback/${orderId}`,
-    method: 'post',
-    data
-  })
+export function submitOrderRollback(orderId, data) {
+  return request({ url: `/order/rollback/${orderId}`, method: 'post', data })
 }
 
-export function createSalesOrderFlowPrintTask(data) {
-  return request({
-    url: '/order/sales/flow-print-task',
-    method: 'post',
-    data
-  })
+export function createOrderFlowPrintTask(data) {
+  return request({ url: '/order/flow-print-task', method: 'post', data })
 }
 
-export function correctSalesOrderLogTime(logId, data) {
-  return request({
-    url: `/order/sales/log/${logId}/time`,
-    method: 'post',
-    data
-  })
-}
-
-export function getProductionOrderPage(params) {
-  return request({
-    url: '/order/production/page',
-    method: 'get',
-    params
-  })
-}
-
-export function getProductionOrderStatusSummary() {
-  return request({
-    url: '/order/production/status-summary',
-    method: 'get'
-  })
+export function correctOrderLogTime(logId, data) {
+  return request({ url: `/order/log/${logId}/time`, method: 'post', data })
 }
 
 export function getOrderWarningSetting() {
-  return request({
-    url: '/order/warning/setting',
-    method: 'get'
-  })
+  return request({ url: '/order/warning/setting', method: 'get' })
 }
 
 export function updateOrderWarningSetting(data) {
-  return request({
-    url: '/order/warning/setting',
-    method: 'post',
-    data
-  })
+  return request({ url: '/order/warning/setting', method: 'post', data })
 }
 
 export function getOrderWarningSummary() {
-  return request({
-    url: '/order/warning/summary',
-    method: 'get'
-  })
+  return request({ url: '/order/warning/summary', method: 'get' })
 }
 
 export function refreshOrderWarningSummary() {
+  return request({ url: '/order/warning/refresh', method: 'post' })
+}
+
+export function refreshOrderWarnings() {
+  return request({ url: '/order/warning/refresh-all', method: 'post' })
+}
+
+export function refreshOrderWarning(orderId) {
   return request({
-    url: '/order/warning/refresh',
+    url: `/order/warning/${encodeURIComponent(orderId)}/refresh`,
     method: 'post'
-  })
-}
-
-export function refreshSalesOrderWarnings() {
-  return request({
-    url: '/order/warning/sales/refresh',
-    method: 'post'
-  })
-}
-
-export function refreshSalesOrderWarning(orderId) {
-  return request({
-    url: `/order/warning/sales/${encodeURIComponent(orderId)}/refresh`,
-    method: 'post'
-  })
-}
-
-export function getProductionOrderDetail(orderId) {
-  return request({
-    url: `/order/production/detail/${orderId}`,
-    method: 'get'
-  })
-}
-
-export function createProductionOrder(data) {
-  return request({
-    url: '/order/production/create',
-    method: 'post',
-    data
-  })
-}
-
-export function saveProductionOrder(orderId, data) {
-  return request({
-    url: `/order/production/save/${orderId}`,
-    method: 'post',
-    data
-  })
-}
-
-export function updateProductionOrder(orderId, data) {
-  return request({
-    url: `/order/production/update/${orderId}`,
-    method: 'post',
-    data
-  })
-}
-
-export function rollbackProductionOrder(orderId, data) {
-  return request({
-    url: `/order/production/rollback/${orderId}`,
-    method: 'post',
-    data
-  })
-}
-
-export function createProductionOrderFlowPrintTask(data) {
-  return request({
-    url: '/order/production/flow-print-task',
-    method: 'post',
-    data
-  })
-}
-
-export function correctProductionOrderLogTime(logId, data) {
-  return request({
-    url: `/order/production/log/${logId}/time`,
-    method: 'post',
-    data
   })
 }
 
 export function checkOrderModuleHealth() {
-  return request({
-    url: '/order/health',
-    method: 'get'
-  })
+  return request({ url: '/order/health', method: 'get' })
 }

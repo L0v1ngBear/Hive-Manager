@@ -12,6 +12,7 @@ import my.management.module.dashboard.model.vo.DashboardOverviewVO;
 import my.management.module.dashboard.model.vo.DashboardPendingPrintRowVO;
 import my.management.module.inventory.model.vo.InventoryWarningVO;
 import my.management.module.inventory.service.InventoryWarningCacheService;
+import my.management.module.order.service.OrderService;
 import my.management.module.order.service.OrderWarningCacheService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -59,6 +60,9 @@ public class DashboardService {
     @Resource
     private OrderWarningCacheService orderWarningCacheService;
 
+    @Resource
+    private OrderService orderService;
+
     public DashboardOverviewVO overview() {
         long startNanos = System.nanoTime();
         String tenantCode = TenantPermissionContext.getTenantCode();
@@ -102,10 +106,13 @@ public class DashboardService {
         LocalDateTime startOfMonth = LocalDate.now().withDayOfMonth(1).atStartOfDay();
 
         if (Boolean.TRUE.equals(visibility.getOrderVisible())) {
-            long salesCount = nvl(dashboardMapper.countMonthSalesOrders(tenantCode, startOfMonth));
-            long productionCount = nvl(dashboardMapper.countMonthProductionOrders(tenantCode, startOfMonth));
-            summary.setMonthOrderCount(salesCount + productionCount);
-            summary.setOrderWarningCount(nvl(orderWarningCacheService.summary(tenantCode).getTotalCount()));
+            Set<String> permittedStatuses = orderService.currentPermittedOrderStatuses();
+            summary.setMonthOrderCount(permittedStatuses.isEmpty()
+                    ? 0L
+                    : nvl(dashboardMapper.countMonthOrders(tenantCode, startOfMonth, permittedStatuses)));
+            summary.setOrderWarningCount(nvl(orderWarningCacheService
+                    .summary(tenantCode, permittedStatuses)
+                    .getTotalCount()));
         }
 
         if (Boolean.TRUE.equals(visibility.getInventoryVisible())) {

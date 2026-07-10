@@ -52,6 +52,22 @@ public class SalesOrderDetailVO {
 
     private LocalDateTime updateTime;
 
+    private Boolean fulfillmentTracked = false;
+
+    private Integer fulfillmentRecordCount = 0;
+
+    private Integer process;
+
+    private String processText;
+
+    private String currentProcessText;
+
+    private String completedProcessText;
+
+    private Integer processProgressPercent;
+
+    private List<ProductionProcessStepVO> processSteps;
+
     private List<ItemVO> items;
 
     private List<SalesOrderStatusLogVO> logs;

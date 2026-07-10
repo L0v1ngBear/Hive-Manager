@@ -30,6 +30,13 @@
         <xxl-job.version>2.4.1</xxl-job.version>
         <aliyun-oss.version>3.18.5</aliyun-oss.version>
         <aliyun-sms.version>4.5.1</aliyun-sms.version>
+        <hive-bouncycastle.version>1.79</hive-bouncycastle.version>
+        <hive-httpclient.version>4.5.14</hive-httpclient.version>
+        <hive-dom4j.version>2.1.4</hive-dom4j.version>
+        <hive-commons-logging.version>1.3.4</hive-commons-logging.version>
+        <hive-commons-io.version>2.16.1</hive-commons-io.version>
+        <hive-aliyun-credentials.version>1.0.3</hive-aliyun-credentials.version>
+        <hive-jacoco-agent.version>0.8.8</hive-jacoco-agent.version>
     </properties>
 
     <dependencyManagement>
@@ -131,6 +138,43 @@
                 <groupId>com.aliyun</groupId>
                 <artifactId>dysmsapi20170525</artifactId>
                 <version>${aliyun-sms.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${hive-bouncycastle.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>${hive-httpclient.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.dom4j</groupId>
+                <artifactId>dom4j</artifactId>
+                <version>${hive-dom4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-logging</groupId>
+                <artifactId>commons-logging</artifactId>
+                <version>${hive-commons-logging.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${hive-commons-io.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aliyun</groupId>
+                <artifactId>credentials-java</artifactId>
+                <version>${hive-aliyun-credentials.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jacoco</groupId>
+                <artifactId>org.jacoco.agent</artifactId>
+                <version>${hive-jacoco-agent.version}</version>
+                <type>jar</type>
+                <classifier>runtime</classifier>
             </dependency>
         </dependencies>
     </dependencyManagement>

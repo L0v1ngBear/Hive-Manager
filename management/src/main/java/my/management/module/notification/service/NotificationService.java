@@ -224,7 +224,7 @@ public class NotificationService {
         record.setBizType(ORDER_STALE_WARNING_BIZ_TYPE);
         record.setBizId("STALE:" + days);
         record.setTitle("订单未更新预警");
-        record.setContent(limit("当前有 " + nvl(summary.getTotalCount()) + " 张订单超过 " + days + " 天未更新，其中销售订单 " + nvl(summary.getSalesCount()) + " 张，生产订单 " + nvl(summary.getProductionCount()) + " 张，请进入订单管理跟进。", NOTIFICATION_CONTENT_LIMIT));
+        record.setContent(limit("当前有 " + nvl(summary.getTotalCount()) + " 张订单超过 " + days + " 天未更新，请进入订单管理跟进。", NOTIFICATION_CONTENT_LIMIT));
         record.setLevel("warning");
         record.setChannel("IN_APP");
         record.setRoute("/function/order");

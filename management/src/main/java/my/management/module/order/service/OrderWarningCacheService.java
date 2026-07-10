@@ -6,9 +6,7 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import my.hive.common.redis.HiveRedisKeyBuilder;
 import my.hive.common.utils.RedisCacheHelper;
-import my.management.module.order.mapper.ProductionOrderMapper;
 import my.management.module.order.mapper.SalesOrderMapper;
-import my.management.module.order.model.entity.ProductionOrder;
 import my.management.module.order.model.entity.SalesOrder;
 import my.management.module.order.model.enums.OrderCategoryEnum;
 import my.management.module.order.model.enums.OrderStatusEnum;
@@ -18,18 +16,19 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.TreeSet;
 
 @Service
 @Slf4j
 public class OrderWarningCacheService {
 
     private static final Duration WARNING_CACHE_TTL = Duration.ofMinutes(2);
+    private static final String CACHE_VERSION = "unified-v2";
 
     @Resource
     private SalesOrderMapper salesOrderMapper;
-
-    @Resource
-    private ProductionOrderMapper productionOrderMapper;
 
     @Resource
     private OrderSettingService orderSettingService;
@@ -47,6 +46,10 @@ public class OrderWarningCacheService {
     private RedisCacheHelper redisCacheHelper;
 
     public OrderWarningSummaryVO summary(String tenantCode) {
+        return summary(tenantCode, null);
+    }
+
+    public OrderWarningSummaryVO summary(String tenantCode, Set<String> permittedStatuses) {
         if (tenantCode == null || tenantCode.isBlank()) {
             return emptySummary(OrderSettingService.DEFAULT_STALE_WARNING_DAYS);
         }
@@ -55,7 +58,12 @@ public class OrderWarningCacheService {
         int bulkDays = orderSettingService.staleWarningDays(tenantCode, OrderCategoryEnum.BULK.getCode());
         int replenishmentDays = orderSettingService.staleWarningDays(tenantCode, OrderCategoryEnum.REPLENISHMENT.getCode());
         int drawingBudgetDays = orderSettingService.staleWarningDays(tenantCode, OrderCategoryEnum.DRAWING_BUDGET.getCode());
-        String cacheKey = cacheKey(tenantCode, days, sampleRoomDays, bulkDays, replenishmentDays, drawingBudgetDays);
+        Set<String> statusScope = normalizeStatusScope(permittedStatuses);
+        if (statusScope != null && statusScope.isEmpty()) {
+            return emptySummary(days, sampleRoomDays, bulkDays, replenishmentDays, drawingBudgetDays);
+        }
+        String cacheKey = cacheKey(tenantCode, days, sampleRoomDays, bulkDays, replenishmentDays,
+                drawingBudgetDays, statusScope);
         try {
             String cached = stringRedisTemplate.opsForValue().get(cacheKey);
             if (cached != null && !cached.isBlank()) {
@@ -68,7 +76,7 @@ public class OrderWarningCacheService {
         }
 
         OrderWarningSummaryVO summary = querySummary(tenantCode, days, sampleRoomDays, bulkDays,
-                replenishmentDays, drawingBudgetDays);
+                replenishmentDays, drawingBudgetDays, statusScope);
         try {
             stringRedisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(summary), WARNING_CACHE_TTL);
         } catch (Exception exception) {
@@ -89,23 +97,14 @@ public class OrderWarningCacheService {
                                                int sampleRoomDays,
                                                int bulkDays,
                                                int replenishmentDays,
-                                               int drawingBudgetDays) {
-        long sampleRoomSalesCount = countSalesByCategory(tenantCode, OrderCategoryEnum.SAMPLE_ROOM.getCode(), sampleRoomDays);
-        long bulkSalesCount = countSalesByCategory(tenantCode, OrderCategoryEnum.BULK.getCode(), bulkDays);
-        long replenishmentSalesCount = countSalesByCategory(tenantCode, OrderCategoryEnum.REPLENISHMENT.getCode(), replenishmentDays);
-        long drawingBudgetSalesCount = countSalesByCategory(tenantCode, OrderCategoryEnum.DRAWING_BUDGET.getCode(), drawingBudgetDays);
-        long otherSalesCount = countOtherSales(tenantCode, days);
-
-        long sampleRoomProductionCount = countProductionByCategory(tenantCode, OrderCategoryEnum.SAMPLE_ROOM.getCode(), sampleRoomDays);
-        long bulkProductionCount = countProductionByCategory(tenantCode, OrderCategoryEnum.BULK.getCode(), bulkDays);
-        long replenishmentProductionCount = countProductionByCategory(tenantCode, OrderCategoryEnum.REPLENISHMENT.getCode(), replenishmentDays);
-        long drawingBudgetProductionCount = countProductionByCategory(tenantCode, OrderCategoryEnum.DRAWING_BUDGET.getCode(), drawingBudgetDays);
-        long otherProductionCount = countOtherProduction(tenantCode, days);
-
-        long salesCount = sampleRoomSalesCount + bulkSalesCount + replenishmentSalesCount
-                + drawingBudgetSalesCount + otherSalesCount;
-        long productionCount = sampleRoomProductionCount + bulkProductionCount + replenishmentProductionCount
-                + drawingBudgetProductionCount + otherProductionCount;
+                                               int drawingBudgetDays,
+                                               Set<String> statusScope) {
+        long sampleRoomCount = countOrdersByCategory(tenantCode, OrderCategoryEnum.SAMPLE_ROOM.getCode(), sampleRoomDays, statusScope);
+        long bulkCount = countOrdersByCategory(tenantCode, OrderCategoryEnum.BULK.getCode(), bulkDays, statusScope);
+        long replenishmentCount = countOrdersByCategory(tenantCode, OrderCategoryEnum.REPLENISHMENT.getCode(), replenishmentDays, statusScope);
+        long drawingBudgetCount = countOrdersByCategory(tenantCode, OrderCategoryEnum.DRAWING_BUDGET.getCode(), drawingBudgetDays, statusScope);
+        long otherCount = countOtherOrders(tenantCode, days, statusScope);
+        long orderCount = sampleRoomCount + bulkCount + replenishmentCount + drawingBudgetCount + otherCount;
 
         OrderWarningSummaryVO summary = new OrderWarningSummaryVO();
         summary.setStaleWarningDays(days);
@@ -113,26 +112,29 @@ public class OrderWarningCacheService {
         summary.setBulkStaleWarningDays(bulkDays);
         summary.setReplenishmentStaleWarningDays(replenishmentDays);
         summary.setDrawingBudgetStaleWarningDays(drawingBudgetDays);
-        summary.setSalesCount(salesCount);
-        summary.setProductionCount(productionCount);
-        summary.setTotalCount(salesCount + productionCount);
-        summary.setSampleRoomCount(sampleRoomSalesCount + sampleRoomProductionCount);
-        summary.setBulkCount(bulkSalesCount + bulkProductionCount);
-        summary.setReplenishmentCount(replenishmentSalesCount + replenishmentProductionCount);
-        summary.setDrawingBudgetCount(drawingBudgetSalesCount + drawingBudgetProductionCount);
+        summary.setOrderCount(orderCount);
+        summary.setTotalCount(orderCount);
+        summary.setSampleRoomCount(sampleRoomCount);
+        summary.setBulkCount(bulkCount);
+        summary.setReplenishmentCount(replenishmentCount);
+        summary.setDrawingBudgetCount(drawingBudgetCount);
         return summary;
     }
 
-    private long countSalesByCategory(String tenantCode, String category, int days) {
-        return safeCount(salesOrderMapper.selectCount(new LambdaQueryWrapper<SalesOrder>()
+    private long countOrdersByCategory(String tenantCode, String category, int days, Set<String> statusScope) {
+        LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, tenantCode)
                 .eq(SalesOrder::getOrderCategory, category)
                 .notIn(SalesOrder::getStatus, OrderStatusEnum.COMPLETED.getCode(),
                         OrderStatusEnum.PENDING_CANCEL.getCode(), OrderStatusEnum.CANCELLED.getCode(), OrderStatusEnum.BUDGET_COMPLETED.getCode())
-                .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(days))));
+                .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(days));
+        applyStatusScope(wrapper, statusScope);
+        return safeCount(salesOrderMapper.selectCount(wrapper));
     }
 
-    private long countOtherSales(String tenantCode, int days) {
-        return safeCount(salesOrderMapper.selectCount(new LambdaQueryWrapper<SalesOrder>()
+    private long countOtherOrders(String tenantCode, int days, Set<String> statusScope) {
+        LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, tenantCode)
                 .and(category -> category.isNull(SalesOrder::getOrderCategory)
                         .or()
                         .notIn(SalesOrder::getOrderCategory,
@@ -142,27 +144,28 @@ public class OrderWarningCacheService {
                                 OrderCategoryEnum.DRAWING_BUDGET.getCode()))
                 .notIn(SalesOrder::getStatus, OrderStatusEnum.COMPLETED.getCode(),
                         OrderStatusEnum.PENDING_CANCEL.getCode(), OrderStatusEnum.CANCELLED.getCode(), OrderStatusEnum.BUDGET_COMPLETED.getCode())
-                .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(days))));
+                .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(days));
+        applyStatusScope(wrapper, statusScope);
+        return safeCount(salesOrderMapper.selectCount(wrapper));
     }
 
-    private long countProductionByCategory(String tenantCode, String category, int days) {
-        return safeCount(productionOrderMapper.selectCount(new LambdaQueryWrapper<ProductionOrder>()
-                .eq(ProductionOrder::getOrderCategory, category)
-                .ne(ProductionOrder::getStatus, OrderStatusEnum.COMPLETED.getCode())
-                .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(days))));
+    private void applyStatusScope(LambdaQueryWrapper<SalesOrder> wrapper, Set<String> statusScope) {
+        if (statusScope != null) {
+            wrapper.in(SalesOrder::getStatus, statusScope);
+        }
     }
 
-    private long countOtherProduction(String tenantCode, int days) {
-        return safeCount(productionOrderMapper.selectCount(new LambdaQueryWrapper<ProductionOrder>()
-                .and(category -> category.isNull(ProductionOrder::getOrderCategory)
-                        .or()
-                        .notIn(ProductionOrder::getOrderCategory,
-                                OrderCategoryEnum.SAMPLE_ROOM.getCode(),
-                                OrderCategoryEnum.BULK.getCode(),
-                                OrderCategoryEnum.REPLENISHMENT.getCode(),
-                                OrderCategoryEnum.DRAWING_BUDGET.getCode()))
-                .ne(ProductionOrder::getStatus, OrderStatusEnum.COMPLETED.getCode())
-                .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(days))));
+    private Set<String> normalizeStatusScope(Set<String> permittedStatuses) {
+        if (permittedStatuses == null) {
+            return null;
+        }
+        Set<String> normalized = new LinkedHashSet<>();
+        permittedStatuses.stream()
+                .filter(status -> status != null && !status.isBlank())
+                .map(String::trim)
+                .sorted()
+                .forEach(normalized::add);
+        return normalized;
     }
 
     private OrderWarningSummaryVO normalize(OrderWarningSummaryVO summary,
@@ -176,27 +179,31 @@ public class OrderWarningCacheService {
         summary.setBulkStaleWarningDays(summary.getBulkStaleWarningDays() == null ? bulkDays : summary.getBulkStaleWarningDays());
         summary.setReplenishmentStaleWarningDays(summary.getReplenishmentStaleWarningDays() == null ? replenishmentDays : summary.getReplenishmentStaleWarningDays());
         summary.setDrawingBudgetStaleWarningDays(summary.getDrawingBudgetStaleWarningDays() == null ? drawingBudgetDays : summary.getDrawingBudgetStaleWarningDays());
-        summary.setSalesCount(summary.getSalesCount() == null ? 0L : summary.getSalesCount());
-        summary.setProductionCount(summary.getProductionCount() == null ? 0L : summary.getProductionCount());
+        summary.setOrderCount(summary.getOrderCount() == null ? 0L : summary.getOrderCount());
         summary.setSampleRoomCount(summary.getSampleRoomCount() == null ? 0L : summary.getSampleRoomCount());
         summary.setBulkCount(summary.getBulkCount() == null ? 0L : summary.getBulkCount());
         summary.setReplenishmentCount(summary.getReplenishmentCount() == null ? 0L : summary.getReplenishmentCount());
         summary.setDrawingBudgetCount(summary.getDrawingBudgetCount() == null ? 0L : summary.getDrawingBudgetCount());
-        summary.setTotalCount(summary.getTotalCount() == null
-                ? summary.getSalesCount() + summary.getProductionCount()
-                : summary.getTotalCount());
+        summary.setTotalCount(summary.getTotalCount() == null ? summary.getOrderCount() : summary.getTotalCount());
         return summary;
     }
 
     private OrderWarningSummaryVO emptySummary(int days) {
+        return emptySummary(days, days, days, days, days);
+    }
+
+    private OrderWarningSummaryVO emptySummary(int days,
+                                               int sampleRoomDays,
+                                               int bulkDays,
+                                               int replenishmentDays,
+                                               int drawingBudgetDays) {
         OrderWarningSummaryVO summary = new OrderWarningSummaryVO();
         summary.setStaleWarningDays(days);
-        summary.setSampleRoomStaleWarningDays(days);
-        summary.setBulkStaleWarningDays(days);
-        summary.setReplenishmentStaleWarningDays(days);
-        summary.setDrawingBudgetStaleWarningDays(days);
-        summary.setSalesCount(0L);
-        summary.setProductionCount(0L);
+        summary.setSampleRoomStaleWarningDays(sampleRoomDays);
+        summary.setBulkStaleWarningDays(bulkDays);
+        summary.setReplenishmentStaleWarningDays(replenishmentDays);
+        summary.setDrawingBudgetStaleWarningDays(drawingBudgetDays);
+        summary.setOrderCount(0L);
         summary.setTotalCount(0L);
         summary.setSampleRoomCount(0L);
         summary.setBulkCount(0L);
@@ -210,8 +217,10 @@ public class OrderWarningCacheService {
     }
 
     private String cacheKey(String tenantCode, int days, int sampleRoomDays, int bulkDays,
-                            int replenishmentDays, int drawingBudgetDays) {
+                            int replenishmentDays, int drawingBudgetDays, Set<String> statusScope) {
+        String scopeToken = statusScope == null ? "all" : String.join(",", new TreeSet<>(statusScope));
         return redisKeyBuilder.cache("order", "warning", tenantCode,
-                days + "-" + sampleRoomDays + "-" + bulkDays + "-" + replenishmentDays + "-" + drawingBudgetDays);
+                CACHE_VERSION + "-" + days + "-" + sampleRoomDays + "-" + bulkDays + "-"
+                        + replenishmentDays + "-" + drawingBudgetDays + "-" + Integer.toHexString(scopeToken.hashCode()));
     }
 }

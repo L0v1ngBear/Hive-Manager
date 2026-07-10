@@ -54,6 +54,22 @@ public class SalesOrderPageVO {
 
     private Integer detailCount;
 
+    private Boolean fulfillmentTracked = false;
+
+    private Integer fulfillmentRecordCount = 0;
+
+    private Integer process;
+
+    private String processText;
+
+    private String currentProcessText;
+
+    private String completedProcessText;
+
+    private Integer processProgressPercent;
+
+    private List<ProductionProcessStepVO> processSteps;
+
     /**
      * 列表页展示的核心信息直接复用订单明细，避免汇总字段和明细字段展示不一致。
      */

@@ -71,7 +71,7 @@ async function extractBlobErrorMessage(blob) {
   try {
     const payload = JSON.parse(text)
     return payload?.msg || payload?.message || payload?.data?.msg || payload?.data?.message || '导出失败，请稍后重试'
-  } catch (error) {
+  } catch {
     return text.replace(/\s+/g, ' ').trim().slice(0, 160) || '导出失败，请稍后重试'
   }
 }

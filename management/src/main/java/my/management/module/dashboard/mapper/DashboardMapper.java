@@ -12,6 +12,7 @@ import my.management.module.dashboard.model.vo.DashboardPendingPrintRowVO;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 /**
  * DashboardMapper 属于管理端后端总览大盘模块，是数据访问类，负责与数据库交互。
  */
@@ -19,11 +20,19 @@ import java.util.List;
 @InterceptorIgnore(tenantLine = "true")
 public interface DashboardMapper {
 
-    @Select("SELECT COUNT(1) FROM sales_order WHERE tenant_code = #{tenantCode} AND create_time >= #{startOfMonth}")
-    Long countMonthSalesOrders(@Param("tenantCode") String tenantCode, @Param("startOfMonth") LocalDateTime startOfMonth);
-
-    @Select("SELECT COUNT(1) FROM production_order WHERE tenant_code = #{tenantCode} AND create_time >= #{startOfMonth}")
-    Long countMonthProductionOrders(@Param("tenantCode") String tenantCode, @Param("startOfMonth") LocalDateTime startOfMonth);
+    @Select({
+            "<script>",
+            "SELECT COUNT(1) FROM sales_order ",
+            "WHERE tenant_code = #{tenantCode} AND create_time >= #{startOfMonth} ",
+            "AND status IN ",
+            "<foreach collection='statuses' item='status' open='(' separator=',' close=')'>",
+            "#{status}",
+            "</foreach>",
+            "</script>"
+    })
+    Long countMonthOrders(@Param("tenantCode") String tenantCode,
+                          @Param("startOfMonth") LocalDateTime startOfMonth,
+                          @Param("statuses") Set<String> statuses);
 
     @Select("SELECT COALESCE(SUM(remaining_meters), 0) FROM cloth WHERE tenant_code = #{tenantCode} AND remaining_meters > 0")
     BigDecimal sumInventoryMeters(@Param("tenantCode") String tenantCode);

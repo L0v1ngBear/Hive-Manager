@@ -96,19 +96,19 @@
             v-model.trim="filters.keyword"
             class="box-input xl:col-span-2"
             placeholder="搜索订单号、客户、项目、品牌或商品描述"
-            @keyup.enter="refreshCurrentTab"
+            @keyup.enter="refreshOrders"
         />
         <input
             v-model.trim="filters.customerName"
             class="box-input xl:col-span-2"
             placeholder="客户名称"
-            @keyup.enter="refreshCurrentTab"
+            @keyup.enter="refreshOrders"
         />
         <input
             v-model.trim="filters.brandName"
             class="box-input xl:col-span-2"
             placeholder="品牌名称"
-            @keyup.enter="refreshCurrentTab"
+            @keyup.enter="refreshOrders"
         />
         <select v-model="filters.orderCategory" class="box-input xl:col-span-2">
           <option value="">全部小项</option>
@@ -118,12 +118,12 @@
         </select>
         <select v-model="filters.invoiceStatus" class="box-input xl:col-span-2">
           <option value="">全部开票</option>
-          <option value="1">已开票订单（{{ salesSummary.invoice_paid || 0 }}）</option>
-          <option value="0">未开票订单（{{ salesSummary.invoice_unpaid || 0 }}）</option>
+          <option value="1">已开票订单（{{ orderSummary.invoice_paid || 0 }}）</option>
+          <option value="0">未开票订单（{{ orderSummary.invoice_unpaid || 0 }}）</option>
         </select>
         <div class="order-filter-actions flex flex-wrap items-center gap-2 md:col-span-2 xl:col-span-12">
           <div class="order-query-actions">
-            <button class="order-filter-action-btn rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-on-primary" @click="refreshCurrentTab">
+            <button class="order-filter-action-btn rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-on-primary" @click="refreshOrders">
               查询
             </button>
             <button class="order-filter-action-btn rounded-lg border border-outline-variant/30 bg-white px-5 py-2.5 text-sm font-bold text-on-surface" @click="resetFilters">
@@ -175,7 +175,7 @@
           </thead>
           <tbody class="divide-y divide-outline-variant/10">
           <tr
-              v-for="row in currentState.rows"
+              v-for="row in orderState.rows"
               :key="row.orderId"
               class="order-table-row group cursor-pointer"
               :class="[orderRowClass(row.status), row.staleWarning ? 'order-row-stale-warning' : '']"
@@ -191,7 +191,7 @@
               <template v-if="column.key === 'orderNo'">
                 <div class="font-bold text-primary">{{ row.orderId }}</div>
                 <div class="mt-1 text-xs text-on-surface-variant">
-                  {{ currentTab === 'sales' ? `明细 ${row.detailCount || 0} 项` : `数量 ${row.quantity || 0}` }}
+                  明细 {{ row.detailCount || 0 }} 项
                 </div>
                 <div class="mt-2">
                   <span class="order-category-pill">{{ orderCategoryLabel(row.orderCategory) }}</span>
@@ -226,59 +226,35 @@
                 <div class="mt-1 text-xs text-on-surface-variant">订单品牌</div>
               </template>
               <template v-else-if="column.key === 'core'">
-                <template v-if="currentTab === 'sales'">
-                  <div class="max-w-[320px] truncate font-bold text-primary">{{ salesCoreTitle(row) }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">
-                    {{ salesCoreMeta(row) }}
-                  </div>
-                </template>
-                <template v-else>
-                  <div class="font-bold text-primary">{{ row.modelCode || '未填写型号' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">{{ formatNumber(row.weight) }} 克 /
-                    {{ formatNumber(row.width) }} 规格
-                  </div>
-                </template>
+                <div class="max-w-[320px] truncate font-bold text-primary">{{ orderCoreTitle(row) }}</div>
+                <div class="mt-1 text-xs text-on-surface-variant">
+                  {{ orderCoreMeta(row) }}
+                </div>
               </template>
               <template v-else-if="column.key === 'remark'">
                 <div class="order-remark-cell">{{ row.remark || '暂无备注' }}</div>
               </template>
               <template v-else-if="column.key === 'delivery'">
-                <template v-if="currentTab === 'sales'">
-                  <div class="text-sm text-on-surface-variant">{{ row.deliveryDate || '未填写交付日期' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">
-                    {{ row.expressCompany || '未发货' }}
-                    <template v-if="row.expressNo"> / {{ row.expressNo }}</template>
-                  </div>
-                </template>
-                <template v-else>
-                  <div class="text-sm text-on-surface-variant">{{ row.salesOrderId || '未关联销售单' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">{{
-                      formatDateTime(row.deliveryDate || row.createTime)
-                    }}
-                  </div>
-                </template>
+                <div class="text-sm text-on-surface-variant">{{ row.deliveryDate || '未填写交付日期' }}</div>
+                <div class="mt-1 text-xs text-on-surface-variant">
+                  {{ row.expressCompany || '未发货' }}
+                  <template v-if="row.expressNo"> / {{ row.expressNo }}</template>
+                </div>
               </template>
               <template v-else-if="column.key === 'invoice'">
-                <template v-if="currentTab === 'sales'">
-                    <span :class="invoiceClass(row.isInvoice)"
-                          class="order-status-pill">
-                      {{ invoiceLabel(row.isInvoice) }}
-                    </span>
-                </template>
-                <template v-else>
-                  <span class="text-xs text-on-surface-variant">--</span>
-                </template>
+                <span :class="invoiceClass(row.isInvoice)" class="order-status-pill">
+                  {{ invoiceLabel(row.isInvoice) }}
+                </span>
               </template>
               <template v-else-if="column.key === 'status'">
                 <div class="flex flex-col items-start gap-2">
                   <span
                       class="order-status-pill"
-                      :class="currentTab === 'sales' ? salesStatusClass(row.status) : productionStatusClass(row.status)"
+                      :class="orderStatusClass(row.status)"
                   >
-                    {{ currentTab === 'sales' ? salesStatusLabel(row.status) : productionStatusLabel(row.status) }}
+                    {{ orderStatusLabel(row.status) }}
                   </span>
                   <span
-                      v-if="currentTab === 'sales'"
                       :class="invoiceClass(row.isInvoice)"
                       class="order-status-pill order-status-pill-sm"
                   >
@@ -298,15 +274,15 @@
                         :style="{ width: `${orderProgress(row).percent}%` }"
                     ></div>
                   </div>
-                  <div v-if="currentTab === 'production' && row.status === 'producing'" class="production-process-mini">
-                    <div class="production-process-current">
-                      当前工序：{{ productionProcessText(row) }}
+                  <div v-if="row.fulfillmentTracked && row.status === 'producing'" class="fulfillment-process-mini">
+                    <div class="fulfillment-process-current">
+                      当前工序：{{ fulfillmentProcessText(row) }}
                     </div>
-                    <div class="production-process-steps" aria-label="生产工序进度">
+                    <div class="fulfillment-process-steps" aria-label="订单履约工序进度">
                       <span
-                          v-for="step in productionProcessSteps(row)"
+                          v-for="step in fulfillmentProcessSteps(row)"
                           :key="step.code"
-                          class="production-process-step"
+                          class="fulfillment-process-step"
                           :class="{ done: step.done, current: step.current }"
                       >
                         {{ step.name }}
@@ -335,10 +311,10 @@
                 </button>
                 <button
                     class="icon-btn text-success"
-                    :class="permissionDisabledClass(!canAdvanceSalesOrder(row))"
-                    :disabled="!canAdvanceSalesOrder(row)"
-                    :title="canAdvanceSalesOrder(row) ? advanceSalesOrderTitle(row) : '当前账号暂无推进该订单权限'"
-                    @click.stop="advanceSalesOrder(row)"
+                    :class="permissionDisabledClass(!canAdvanceOrder(row))"
+                    :disabled="!canAdvanceOrder(row)"
+                    :title="canAdvanceOrder(row) ? advanceOrderTitle(row) : '当前账号暂无推进该订单权限'"
+                    @click.stop="advanceOrder(row)"
                 >
                   <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
                 </button>
@@ -363,7 +339,7 @@
               </div>
             </td>
           </tr>
-          <tr v-if="!currentState.loading && !currentState.rows.length">
+          <tr v-if="!orderState.loading && !orderState.rows.length">
             <td :colspan="orderTableColumnCount" class="px-6 py-14 text-center text-sm text-on-surface-variant">暂无订单数据</td>
           </tr>
           </tbody>
@@ -371,15 +347,15 @@
       </div>
       <div
           class="flex items-center justify-between border-t border-outline-variant/10 bg-surface-container-low/30 px-6 py-4 text-sm">
-        <span class="text-on-surface-variant">共 {{ currentState.total }} 条</span>
+        <span class="text-on-surface-variant">共 {{ orderState.total }} 条</span>
         <div class="flex items-center gap-2">
-          <button class="page-btn" :disabled="currentState.page <= 1 || currentState.loading"
-                  @click="changePage(currentState.page - 1)">上一页
+          <button class="page-btn" :disabled="orderState.page <= 1 || orderState.loading"
+                  @click="changePage(orderState.page - 1)">上一页
           </button>
-          <span>{{ currentState.page }} / {{ Math.max(currentState.pages, 1) }}</span>
+          <span>{{ orderState.page }} / {{ Math.max(orderState.pages, 1) }}</span>
           <button class="page-btn"
-                  :disabled="currentState.page >= Math.max(currentState.pages, 1) || currentState.loading"
-                  @click="changePage(currentState.page + 1)">下一页
+                  :disabled="orderState.page >= Math.max(orderState.pages, 1) || orderState.loading"
+                  @click="changePage(orderState.page + 1)">下一页
           </button>
         </div>
       </div>
@@ -404,53 +380,53 @@
           <div class="flex-1 overflow-y-auto p-6">
             <div v-if="detailLoading" class="py-12 text-center text-on-surface-variant">加载中...</div>
 
-            <template v-else-if="currentTab === 'sales' && salesDetail">
+            <template v-else-if="orderDetail">
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="info-card">
                   <div class="info-label">订单号</div>
-                  <div class="info-value">{{ salesDetail.orderId }}</div>
+                  <div class="info-value">{{ orderDetail.orderId }}</div>
                 </div>
                 <div class="info-card">
                   <div class="info-label">状态</div>
-                  <div class="info-value order-status-pill detail-status-pill" :class="salesStatusClass(salesDetail.status)">
-                    {{ salesStatusLabel(salesDetail.status) }}
+                  <div class="info-value order-status-pill detail-status-pill" :class="orderStatusClass(orderDetail.status)">
+                    {{ orderStatusLabel(orderDetail.status) }}
                   </div>
                 </div>
                 <div class="info-card">
                   <div class="info-label">订单小项</div>
-                  <div class="info-value">{{ orderCategoryLabel(salesDetail.orderCategory) }}</div>
+                  <div class="info-value">{{ orderCategoryLabel(orderDetail.orderCategory) }}</div>
                 </div>
                 <div class="info-card">
                   <div class="info-label">客户 / 项目</div>
-                  <div class="info-value">{{ salesDetail.customerName || '未填写客户' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">{{ salesDetail.projectName || '未填写项目' }}</div>
+                  <div class="info-value">{{ orderDetail.customerName || '未填写客户' }}</div>
+                  <div class="mt-1 text-xs text-on-surface-variant">{{ orderDetail.projectName || '未填写项目' }}</div>
                 </div>
                 <div class="info-card">
                   <div class="info-label">品牌</div>
-                  <div class="info-value">{{ salesDetail.brandName || '未填写品牌' }}</div>
+                  <div class="info-value">{{ orderDetail.brandName || '未填写品牌' }}</div>
                 </div>
                 <div class="info-card">
                   <div class="info-label">交付信息</div>
-                  <div class="info-value">{{ salesDetail.deliveryDate || '未填写交付日期' }}</div>
+                  <div class="info-value">{{ orderDetail.deliveryDate || '未填写交付日期' }}</div>
                   <div class="mt-1 text-xs text-on-surface-variant">
-                    {{ salesDetail.expressCompany || '未发货' }}
-                    <template v-if="salesDetail.expressNo"> / {{ salesDetail.expressNo }}</template>
+                    {{ orderDetail.expressCompany || '未发货' }}
+                    <template v-if="orderDetail.expressNo"> / {{ orderDetail.expressNo }}</template>
                   </div>
                 </div>
                 <div class="info-card">
                   <div class="info-label">开票状态</div>
-                  <div class="info-value">{{ invoiceLabel(salesDetail.isInvoice) }}</div>
+                  <div class="info-value">{{ invoiceLabel(orderDetail.isInvoice) }}</div>
                   <div class="mt-1 text-xs text-on-surface-variant">用于财务开票跟进和业务统计。</div>
                 </div>
               </div>
               <div class="mt-4">
                 <div class="info-card">
                   <div class="info-label">订单附件</div>
-                  <template v-if="salesDetail.attachmentUrl">
-                    <button class="mt-2 text-left font-bold text-primary hover:underline" @click="openAttachmentUrl(salesDetail.attachmentUrl, salesDetail.attachmentName)">
-                      {{ salesDetail.attachmentName || '查看附件' }}
+                  <template v-if="orderDetail.attachmentUrl">
+                    <button class="mt-2 text-left font-bold text-primary hover:underline" @click="openAttachmentUrl(orderDetail.attachmentUrl, orderDetail.attachmentName)">
+                      {{ orderDetail.attachmentName || '查看附件' }}
                     </button>
-                    <div class="mt-1 text-xs text-on-surface-variant">{{ formatFileSize(salesDetail.attachmentSize) }}</div>
+                    <div class="mt-1 text-xs text-on-surface-variant">{{ formatFileSize(orderDetail.attachmentSize) }}</div>
                   </template>
                   <div v-else class="mt-2 text-sm text-on-surface-variant">暂无附件</div>
                 </div>
@@ -475,21 +451,21 @@
               </div>
               <div class="mt-6">
                 <div class="section-title">订单明细</div>
-                <div v-for="item in salesDetail.items || []" :key="item.id" class="detail-item">
+                <div v-for="item in orderDetail.items || []" :key="item.id" class="detail-item">
                   <div class="font-bold text-primary">{{ item.modelCode || '未填写型号' }}</div>
                   <div class="mt-1 text-sm text-on-surface-variant">
                     类别：{{ item.weight || '未填写' }} / 规格：{{ item.spec || '未填写' }} /
                     数量：{{ formatNumber(item.quantity) || '未填写' }}
                   </div>
                 </div>
-                <div v-if="!(salesDetail.items || []).length" class="mt-3 text-sm text-on-surface-variant">暂无订单明细
+                <div v-if="!(orderDetail.items || []).length" class="mt-3 text-sm text-on-surface-variant">暂无订单明细
                 </div>
               </div>
               <div class="mt-6">
                 <div class="section-title">状态流转记录</div>
-                <div v-if="(salesDetail.logs || []).length" class="status-timeline">
+                <div v-if="(orderDetail.logs || []).length" class="status-timeline">
                   <div
-                      v-for="(log, index) in salesDetail.logs || []"
+                      v-for="(log, index) in orderDetail.logs || []"
                       :key="log.id || index"
                       class="status-log-item"
                   >
@@ -498,23 +474,23 @@
                     </div>
                     <div class="status-log-content">
                       <div class="flex flex-wrap items-center justify-between gap-2">
-                        <div class="status-log-title">{{ salesLogTitle(log) }}</div>
+                        <div class="status-log-title">{{ orderLogTitle(log) }}</div>
                         <span v-if="index === 0" class="status-log-current">最新</span>
                       </div>
                       <div class="status-log-time">{{ formatDateTime(log.createTime) }}</div>
                       <div v-if="timeCorrectionMode" class="status-log-time-editor">
                         <input
-                          :value="statusLogEditValue('sales', log)"
+                          :value="statusLogEditValue('order', log)"
                           type="datetime-local"
                           step="1"
-                          @input="setStatusLogEditValue('sales', log, $event.target.value)"
+                          @input="setStatusLogEditValue('order', log, $event.target.value)"
                         />
                         <button
                           type="button"
-                          :disabled="!log.id || statusLogSavingKey === statusLogKey('sales', log)"
-                          @click="saveStatusLogTime('sales', log)"
+                          :disabled="!log.id || statusLogSavingKey === statusLogKey('order', log)"
+                          @click="saveStatusLogTime('order', log)"
                         >
-                          {{ statusLogSavingKey === statusLogKey('sales', log) ? '保存中' : '保存时间' }}
+                          {{ statusLogSavingKey === statusLogKey('order', log) ? '保存中' : '保存时间' }}
                         </button>
                       </div>
                       <div v-if="log.operatorName || log.operator" class="status-log-meta">
@@ -528,105 +504,6 @@
               </div>
             </template>
 
-            <template v-else-if="productionDetail">
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="info-card">
-                  <div class="info-label">生产单号</div>
-                  <div class="info-value">{{ productionDetail.orderId }}</div>
-                </div>
-                <div class="info-card">
-                  <div class="info-label">状态</div>
-                  <div class="info-value order-status-pill detail-status-pill" :class="productionStatusClass(productionDetail.status)">
-                    {{ productionStatusLabel(productionDetail.status) }}
-                  </div>
-                </div>
-                <div class="info-card">
-                  <div class="info-label">订单小项</div>
-                  <div class="info-value">{{ orderCategoryLabel(productionDetail.orderCategory) }}</div>
-                </div>
-                <div class="info-card">
-                  <div class="info-label">客户 / 项目</div>
-                  <div class="info-value">{{ productionDetail.customerName || '未填写客户' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">{{
-                      productionDetail.projectName || '未填写项目'
-                    }}
-                  </div>
-                </div>
-                <div class="info-card">
-                  <div class="info-label">品牌</div>
-                  <div class="info-value">{{ productionDetail.brandName || '未填写品牌' }}</div>
-                </div>
-                <div class="info-card">
-                  <div class="info-label">生产信息</div>
-                  <div class="info-value">{{ productionDetail.modelCode || '未填写型号' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">
-                    {{ formatNumber(productionDetail.weight) }} 克 / {{ formatNumber(productionDetail.width) }} 规格 /
-                    数量 {{ productionDetail.quantity || 0 }}
-                  </div>
-                </div>
-              </div>
-
-              <div class="mt-6">
-                <div class="section-title">订单流转码</div>
-                <div class="order-flow-code-card">
-                  <div class="flow-code-summary">
-                    <div class="flow-code-icon">码</div>
-                    <div>
-                      <div class="flow-code-title">{{ currentOrderFlowCode.taskNo ? '待打印流转标签' : '审批通过后自动生成' }}</div>
-                      <div class="flow-code-desc">审批通过后进入小程序待打印队列，打印后贴到订单资料上用于扫码流转。</div>
-                    </div>
-                  </div>
-                  <div class="flow-code-meta">
-                    <span>{{ currentOrderFlowCode.orderTypeLabel }}</span>
-                    <span>{{ currentOrderFlowCode.currentStatusLabel }}</span>
-                    <span>{{ currentOrderFlowCode.orderCategoryLabel }}</span>
-                  </div>
-                  <div class="flow-code-hint">系统会在订单审批通过后自动生成待打印任务；列表中的流转码按钮仅用于补打。</div>
-                </div>
-              </div>
-
-              <div class="mt-6">
-                <div class="section-title">状态流转记录</div>
-                <div v-if="(productionDetail.logs || []).length" class="status-timeline">
-                  <div
-                      v-for="(log, index) in productionDetail.logs || []"
-                      :key="log.id || index"
-                      class="status-log-item"
-                  >
-                    <div class="status-log-rail">
-                      <div class="status-log-dot" :class="{ current: index === 0 }"></div>
-                    </div>
-                    <div class="status-log-content">
-                      <div class="flex flex-wrap items-center justify-between gap-2">
-                        <div class="status-log-title">{{ logStatusTitle(log) }}</div>
-                        <span v-if="index === 0" class="status-log-current">最新</span>
-                      </div>
-                      <div class="status-log-time">{{ formatDateTime(log.createTime) }}</div>
-                      <div v-if="timeCorrectionMode" class="status-log-time-editor">
-                        <input
-                          :value="statusLogEditValue('production', log)"
-                          type="datetime-local"
-                          step="1"
-                          @input="setStatusLogEditValue('production', log, $event.target.value)"
-                        />
-                        <button
-                          type="button"
-                          :disabled="!log.id || statusLogSavingKey === statusLogKey('production', log)"
-                          @click="saveStatusLogTime('production', log)"
-                        >
-                          {{ statusLogSavingKey === statusLogKey('production', log) ? '保存中' : '保存时间' }}
-                        </button>
-                      </div>
-                      <div v-if="log.operatorName || log.operator" class="status-log-meta">
-                        操作人：{{ log.operatorName || log.operator }}
-                      </div>
-                      <div v-if="log.remark" class="status-log-remark">备注：{{ log.remark }}</div>
-                    </div>
-                  </div>
-                </div>
-                <div v-else class="status-log-empty">暂无状态流转记录</div>
-              </div>
-            </template>
           </div>
         </aside>
       </transition>
@@ -663,16 +540,15 @@
               label="业务时间"
               description="用于修正当前订单的业务时间。"
             />
-            <template v-if="currentTab === 'sales'">
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="relative">
                   <label class="field-label">客户名称 *</label>
-                  <input v-model.trim="salesForm.customerName" data-field="sales.customerName" class="box-input pr-10" type="text"
+                  <input v-model.trim="orderForm.customerName" data-field="order.customerName" class="box-input pr-10" type="text"
                          placeholder="输入或选择客户"
                          autocomplete="off"
-                         @focus="handleSalesCustomerFocus"
-                         @input="handleSalesCustomerInput"
-                         @blur="handleSalesCustomerBlur"/>
+                         @focus="handleOrderCustomerFocus"
+                         @input="handleOrderCustomerInput"
+                         @blur="handleOrderCustomerBlur"/>
                   <span class="material-symbols-outlined combo-arrow">expand_more</span>
                   <div v-if="showCustomerOptions" class="combo-panel">
                     <button v-for="option in customerOptions" :key="option.id" type="button" class="combo-option"
@@ -690,11 +566,11 @@
                 </div>
                 <div>
                   <label class="field-label">联系电话</label>
-                  <input v-model.trim="salesForm.customerPhone" class="box-input" type="text"/>
+                  <input v-model.trim="orderForm.customerPhone" class="box-input" type="text"/>
                 </div>
                 <div class="relative">
                   <label class="field-label">项目名称 *</label>
-                  <input v-model.trim="salesForm.projectName" data-field="sales.projectName" class="box-input pr-10" type="text"
+                  <input v-model.trim="orderForm.projectName" data-field="order.projectName" class="box-input pr-10" type="text"
                          placeholder="选择客户后自动带出，也可输入新项目"
                          autocomplete="off"
                          @focus="handleProjectFocus"
@@ -712,16 +588,16 @@
                   </p>
                 </div>
                 <div>
-                  <label class="field-label">{{ salesForm.orderCategory === 'drawing_budget' ? '交付日期' : '交付日期 *' }}</label>
-                  <input v-model="salesForm.deliveryDate" data-field="sales.deliveryDate" class="box-input" type="date"/>
+                  <label class="field-label">{{ orderForm.orderCategory === 'drawing_budget' ? '交付日期' : '交付日期 *' }}</label>
+                  <input v-model="orderForm.deliveryDate" data-field="order.deliveryDate" class="box-input" type="date"/>
                 </div>
                 <div>
                   <label class="field-label">品牌</label>
-                  <input v-model.trim="salesForm.brandName" class="box-input" type="text" placeholder="请输入订单品牌"/>
+                  <input v-model.trim="orderForm.brandName" class="box-input" type="text" placeholder="请输入订单品牌"/>
                 </div>
                 <div>
                   <label class="field-label">订单小项</label>
-                  <select v-model="salesForm.orderCategory" class="box-input">
+                  <select v-model="orderForm.orderCategory" class="box-input">
                     <option v-for="option in orderCategoryOptions" :key="option.value" :value="option.value">
                       {{ option.label }}
                     </option>
@@ -732,24 +608,24 @@
               <div>
                 <div class="flex items-end justify-between">
                   <div class="section-title">订单明细</div>
-                  <button class="text-xs font-bold text-primary" @click="addSalesItem">添加商品</button>
+                  <button class="text-xs font-bold text-primary" @click="addOrderItem">添加商品</button>
                 </div>
-                <div v-for="(item, index) in salesForm.items" :key="index" class="detail-item">
+                <div v-for="(item, index) in orderForm.items" :key="index" class="detail-item">
                   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input v-model.trim="item.modelCode" :data-field="`sales.items.${index}.modelCode`" class="box-input" placeholder="型号" type="text"/>
-                    <input v-model.number="item.quantity" :data-field="`sales.items.${index}.quantity`" class="box-input" placeholder="数量" type="number" min="0.01"
+                    <input v-model.trim="item.modelCode" :data-field="`order.items.${index}.modelCode`" class="box-input" placeholder="型号" type="text"/>
+                    <input v-model.number="item.quantity" :data-field="`order.items.${index}.quantity`" class="box-input" placeholder="数量" type="number" min="0.01"
                            step="0.01"/>
-                    <select v-model="item.weight" :data-field="`sales.items.${index}.weight`" class="box-input">
+                    <select v-model="item.weight" :data-field="`order.items.${index}.weight`" class="box-input">
                       <option value="">请选择类别</option>
                       <option v-for="option in productCategoryOptions" :key="option.value" :value="option.value">
                         {{ option.label }}
                       </option>
                     </select>
-                    <input v-model.number="item.spec" :data-field="`sales.items.${index}.spec`" class="box-input" placeholder="规格" type="number" min="0.01"
+                    <input v-model.number="item.spec" :data-field="`order.items.${index}.spec`" class="box-input" placeholder="规格" type="number" min="0.01"
                            step="0.01"/>
                   </div>
                   <div class="mt-2 flex justify-end">
-                    <button class="text-xs font-bold text-error" @click="removeSalesItem(index)">删除</button>
+                    <button class="text-xs font-bold text-error" @click="removeOrderItem(index)">删除</button>
                   </div>
                 </div>
               </div>
@@ -758,11 +634,11 @@
                 <div>
                   <label class="field-label">订单状态</label>
                   <select
-                    v-model="salesForm.status"
+                    v-model="orderForm.status"
                     class="box-input"
-                    :disabled="formMode === 'create' && salesForm.orderCategory === 'special_order'"
+                    :disabled="formMode === 'create' && orderForm.orderCategory === 'special_order'"
                   >
-                    <option v-for="status in salesStatuses" :key="status.value" :value="status.value">{{
+                    <option v-for="status in orderStatuses" :key="status.value" :value="status.value">{{
                         status.label
                       }}
                     </option>
@@ -770,37 +646,37 @@
                 </div>
                 <div>
                   <label class="field-label">是否开票</label>
-                  <select v-model.number="salesForm.isInvoice" class="box-input">
+                  <select v-model.number="orderForm.isInvoice" class="box-input">
                     <option :value="0">未开票</option>
                     <option :value="1">已开票</option>
                   </select>
                 </div>
-                <div v-if="salesForm.status === 'shipped'">
+                <div v-if="orderForm.status === 'shipped'">
                   <label class="field-label">物流公司</label>
-                  <input v-model.trim="salesForm.expressCompany" data-field="sales.expressCompany" class="box-input" type="text"/>
+                  <input v-model.trim="orderForm.expressCompany" data-field="order.expressCompany" class="box-input" type="text"/>
                 </div>
-                <div v-if="salesForm.status === 'shipped'">
+                <div v-if="orderForm.status === 'shipped'">
                   <label class="field-label">物流单号</label>
-                  <input v-model.trim="salesForm.expressNo" data-field="sales.expressNo" class="box-input" type="text"/>
+                  <input v-model.trim="orderForm.expressNo" data-field="order.expressNo" class="box-input" type="text"/>
                 </div>
               </div>
               <div>
                 <label class="field-label">备注</label>
-                <textarea v-model.trim="salesForm.remark" class="box-input min-h-[92px] resize-none"></textarea>
+                <textarea v-model.trim="orderForm.remark" class="box-input min-h-[92px] resize-none"></textarea>
               </div>
               <div>
                 <label class="field-label">订单附件</label>
                 <DragAttachmentUpload
-                  v-if="canEditCurrentSalesForm"
+                  v-if="canEditCurrentOrderForm"
                   title="上传合同、客户需求或沟通截图"
                   helper-text="支持拖拽上传，单个文件不超过 10MB"
-                  :uploading="salesAttachmentUploading"
-                  :file-name="salesForm.attachmentName"
-                  :file-url="salesForm.attachmentUrl"
-                  :file-size="salesForm.attachmentSize"
-                  @select="handleSalesAttachmentFile"
-                  @download="openSalesAttachment"
-                  @remove="removeSalesAttachment"
+                  :uploading="orderAttachmentUploading"
+                  :file-name="orderForm.attachmentName"
+                  :file-url="orderForm.attachmentUrl"
+                  :file-size="orderForm.attachmentSize"
+                  @select="handleOrderAttachmentFile"
+                  @download="openOrderAttachment"
+                  @remove="removeOrderAttachment"
                 />
                 <div
                   v-else
@@ -810,123 +686,7 @@
                   当前账号暂无上传订单附件权限
                 </div>
               </div>
-            </template>
 
-            <template v-else>
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label class="field-label">关联销售单号</label>
-                  <input v-model.trim="productionForm.salesOrderId" class="box-input" type="text"/>
-                </div>
-                <div>
-                  <label class="field-label">交付日期 *</label>
-                  <input v-model="productionForm.deliveryDate" data-field="production.deliveryDate" class="box-input" type="date"/>
-                </div>
-                <div class="relative">
-                  <label class="field-label">客户名称</label>
-                  <input v-model.trim="productionForm.customerName" class="box-input pr-10" type="text"
-                         placeholder="输入或选择客户"
-                         autocomplete="off"
-                         @focus="handleProductionCustomerFocus"
-                         @input="handleProductionCustomerInput"
-                         @blur="handleProductionCustomerBlur"/>
-                  <span class="material-symbols-outlined combo-arrow">expand_more</span>
-                  <div v-if="showProductionCustomerOptions" class="combo-panel">
-                    <button v-for="option in customerOptions" :key="option.id" type="button" class="combo-option"
-                            @mousedown.prevent="chooseProductionCustomer(option)">
-                      <span class="font-bold text-on-surface">{{ option.customerName }}</span>
-                      <span class="text-xs text-on-surface-variant">{{ option.contactPhone || '未维护电话' }}</span>
-                      <span v-if="option.projectNames?.length" class="text-[11px] text-primary">
-                        项目：{{ option.projectNames.slice(0, 2).join('、') }}
-                      </span>
-                    </button>
-                  </div>
-                  <p v-if="productionCustomerCreateHintVisible" class="mt-1 text-[11px] text-on-surface-variant">
-                    未匹配到客户，保存后会自动归档到客户管理。
-                  </p>
-                </div>
-                <div class="relative">
-                  <label class="field-label">项目名称</label>
-                  <input v-model.trim="productionForm.projectName" class="box-input pr-10" type="text"
-                         placeholder="选择客户后自动带出，也可输入新项目"
-                         autocomplete="off"
-                         @focus="handleProductionProjectFocus"
-                         @input="handleProductionProjectInput"
-                         @blur="handleProductionProjectBlur"/>
-                  <span class="material-symbols-outlined combo-arrow">expand_more</span>
-                  <div v-if="showProductionProjectOptions" class="combo-panel">
-                    <button v-for="projectName in selectedProductionCustomerProjects" :key="projectName" type="button"
-                            class="combo-option" @mousedown.prevent="chooseProductionProject(projectName)">
-                      <span class="font-bold text-on-surface">{{ projectName }}</span>
-                    </button>
-                  </div>
-                  <p v-if="productionProjectCreateHintVisible" class="mt-1 text-[11px] text-on-surface-variant">
-                    新项目保存后会归档到该客户。
-                  </p>
-                </div>
-                <div>
-                  <label class="field-label">联系电话</label>
-                  <input v-model.trim="productionForm.contactPhone" class="box-input" type="text"/>
-                </div>
-                <div>
-                  <label class="field-label">品牌</label>
-                  <input v-model.trim="productionForm.brandName" class="box-input" type="text" placeholder="请输入订单品牌"/>
-                </div>
-                <div>
-                  <label class="field-label">订单小项</label>
-                  <select v-model="productionForm.orderCategory" class="box-input">
-                    <option v-for="option in orderCategoryOptions" :key="option.value" :value="option.value">
-                      {{ option.label }}
-                    </option>
-                  </select>
-                </div>
-                <div>
-                  <label class="field-label">订单状态</label>
-                  <select v-model="productionForm.status" class="box-input">
-                    <option v-for="status in productionStatuses" :key="status.value" :value="status.value">
-                      {{ status.label }}
-                    </option>
-                  </select>
-                </div>
-                <div>
-                  <label class="field-label">面料型号 *</label>
-                  <input v-model.trim="productionForm.modelCode" data-field="production.modelCode" class="box-input" type="text"/>
-                </div>
-                <div>
-                  <label class="field-label">数量 *</label>
-                  <input v-model.number="productionForm.quantity" data-field="production.quantity" class="box-input" type="number" min="1" step="1"/>
-                </div>
-                <div>
-                  <label class="field-label">克重 *</label>
-                  <input v-model.number="productionForm.weight" data-field="production.weight" class="box-input" type="number" min="0.01" step="0.01"/>
-                </div>
-                <div>
-                  <label class="field-label">规格 *</label>
-                  <input v-model.number="productionForm.spec" data-field="production.spec" class="box-input" type="number" min="0.01" step="0.01"/>
-                </div>
-                <div>
-                  <label class="field-label">面料材质</label>
-                  <input v-model.trim="productionForm.fabric" class="box-input" type="text"/>
-                </div>
-                <div>
-                  <label class="field-label">颜色</label>
-                  <input v-model.trim="productionForm.color" class="box-input" type="text"/>
-                </div>
-                <div v-if="productionForm.status === 'producing'">
-                  <label class="field-label">履约工序</label>
-                  <select v-model="productionForm.process" class="box-input">
-                    <option :value="null">未设置</option>
-                    <option v-for="process in processOptions" :key="process.value" :value="process.value">
-                      {{ process.label }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label class="field-label">备注</label>
-                <textarea v-model.trim="productionForm.remark" class="box-input min-h-[92px] resize-none"></textarea>
-              </div>
-            </template>
           </div>
           <div
               class="flex shrink-0 items-center justify-end gap-3 border-t border-outline-variant/20 bg-surface-container-lowest p-6">
@@ -962,30 +722,22 @@ import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
 import { exportRowsToExcel } from '@/utils/tableExport'
 import {
-  advanceSalesOrderNextStage,
-  correctProductionOrderLogTime,
-  correctSalesOrderLogTime,
-  createProductionOrder,
-  createProductionOrderFlowPrintTask,
-  createSalesOrder,
-  createSalesOrderFlowPrintTask,
-  getProductionOrderDetail,
-  getProductionOrderPage,
-  getProductionOrderStatusSummary,
+  advanceOrderNextStage,
+  correctOrderLogTime,
+  createOrder,
+  createOrderFlowPrintTask,
+  downloadOrderAttachment,
+  getOrderDetail,
+  getOrderPage,
+  getOrderStatusSummary,
   getOrderWarningSetting,
   getOrderWarningSummary,
-  refreshSalesOrderWarning,
-  refreshSalesOrderWarnings,
-  rollbackProductionOrder as submitProductionOrderRollback,
-  rollbackSalesOrder as submitSalesOrderRollback,
-  getSalesOrderDetail,
-  getSalesOrderPage,
-  getSalesOrderStatusSummary,
-  downloadSalesOrderAttachment,
-  saveProductionOrder,
-  saveSalesOrder,
+  refreshOrderWarning,
+  refreshOrderWarnings as refreshAllOrderWarnings,
+  saveOrder,
+  submitOrderRollback,
   updateOrderWarningSetting,
-  uploadSalesOrderAttachment
+  uploadOrderAttachment
 } from './api/order'
 
 const route = useRoute()
@@ -1007,7 +759,7 @@ const {
 const MAX_ORDER_EXPORT_ROWS = 2000
 const orderTableColumnCount = computed(() => orderTableColumns.value.length + 1)
 const orderColumnClass = (key) => `order-column-${key}`
-const salesStatuses = [
+const orderStatuses = [
   {value: 'pending_cancel', label: '取消审核中'},
   {value: 'budgeting', label: '预算中'},
   {value: 'pending_confirm', label: '待确认'},
@@ -1018,14 +770,6 @@ const salesStatuses = [
   {value: 'shipped', label: '已发货'},
   {value: 'completed', label: '已完成'},
   {value: 'cancelled', label: '已取消'}
-]
-const productionStatuses = [
-  {value: 'pending_confirm', label: '待确认'},
-  {value: 'pending_material', label: '备料中'},
-  {value: 'producing', label: '生产中'},
-  {value: 'pending_ship', label: '待发货'},
-  {value: 'shipped', label: '已发货'},
-  {value: 'completed', label: '已完成'}
 ]
 const processOptions = [
   {value: 0, label: '原料入库'},
@@ -1063,8 +807,6 @@ const productCategoryOptions = [
   '开合帘电机',
   '卷管电机'
 ].map(value => ({value, label: value}))
-const productionOrderCategoryOptions = orderCategoryOptions.filter(option => !['drawing_budget', 'special_order'].includes(option.value))
-
 const filters = reactive({
   keyword: '',
   status: '',
@@ -1072,18 +814,14 @@ const filters = reactive({
   brandName: '',
   orderCategory: '',
   invoiceStatus: '',
-  process: '',
   deliveryStart: '',
   deliveryEnd: '',
   createStart: '',
   createEnd: '',
   staleOnly: false
 })
-const currentTab = ref('sales')
-const salesState = reactive({rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false})
-const productionState = reactive({rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false})
-const salesSummary = reactive({total: 0})
-const productionSummary = reactive({total: 0})
+const orderState = reactive({rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false})
+const orderSummary = reactive({total: 0})
 const orderWarningSetting = reactive({
   staleWarningDays: 3,
   sampleRoomStaleWarningDays: 3,
@@ -1097,8 +835,6 @@ const orderWarningSummary = reactive({
   bulkStaleWarningDays: 3,
   replenishmentStaleWarningDays: 3,
   drawingBudgetStaleWarningDays: 3,
-  salesCount: 0,
-  productionCount: 0,
   totalCount: 0,
   sampleRoomCount: 0,
   bulkCount: 0,
@@ -1109,15 +845,12 @@ const warningRefreshing = ref(false)
 const rowWarningRefreshingKey = ref('')
 const detailVisible = ref(false)
 const detailLoading = ref(false)
-const salesDetail = ref(null)
-const productionDetail = ref(null)
+const orderDetail = ref(null)
 const statusLogTimeEdits = reactive({})
 const statusLogSavingKey = ref('')
 const customerOptions = ref([])
 const customerDropdownVisible = ref(false)
 const projectDropdownVisible = ref(false)
-const productionCustomerDropdownVisible = ref(false)
-const productionProjectDropdownVisible = ref(false)
 const formVisible = ref(false)
 const formMode = ref('create')
 const editingOrderId = ref('')
@@ -1128,9 +861,8 @@ const {
 } = useTimeCorrectionMode({
   isAvailable: () => formVisible.value
 })
-const salesForm = reactive(defaultSalesForm())
-const productionForm = reactive(defaultProductionForm())
-const salesAttachmentUploading = ref(false)
+const orderForm = reactive(defaultOrderForm())
+const orderAttachmentUploading = ref(false)
 const latestOrderFlowPrintTask = ref(null)
 
 const ORDER_ALL_PERMISSION = 'order:*'
@@ -1157,14 +889,10 @@ function canMutateOrderStatus(status) {
 }
 
 const canCreateCurrentOrder = computed(() => hasAnyOrderPermission(ORDER_CREATE_PERMISSIONS))
-const canEditCurrentSalesForm = computed(() => formMode.value === 'create'
+const canEditCurrentOrderForm = computed(() => formMode.value === 'create'
     ? canCreateCurrentOrder.value
-    : canMutateOrderStatus(salesForm.status))
-const canSubmitCurrentForm = computed(() => currentTab.value === 'production'
-    ? (formMode.value === 'create'
-        ? canCreateCurrentOrder.value
-        : canMutateOrderStatus(productionForm.status))
-    : canEditCurrentSalesForm.value)
+    : canMutateOrderStatus(orderForm.status))
+const canSubmitCurrentForm = canEditCurrentOrderForm
 
 function canEditOrder(row = {}) {
   return canMutateOrderStatus(row.status)
@@ -1174,20 +902,13 @@ function canPrintOrderFlowCode(row = {}) {
   return canEditOrder(row)
 }
 
-function canAdvanceSalesOrder(row = {}) {
-  if (currentTab.value !== 'sales') {
-    return false
-  }
-  const targetStatus = nextSalesStatus(row)
+function canAdvanceOrder(row = {}) {
+  const targetStatus = nextOrderStatus(row)
   return Boolean(targetStatus && canMutateOrderStatus(row.status))
 }
 
 function canRollbackOrder(row = {}) {
-  if (currentTab.value === 'production') {
-    const targetStatus = previousProductionStatus(row)
-    return Boolean(row?.orderId && targetStatus && canMutateOrderStatus(row.status))
-  }
-  const targetStatus = previousSalesStatus(row)
+  const targetStatus = previousOrderStatus(row)
   return Boolean(row?.orderId && targetStatus && canMutateOrderStatus(row.status))
 }
 
@@ -1199,15 +920,12 @@ function warnNoOrderStagePermission() {
   ElMessage.warning('当前账号没有该订单状态维护权限')
 }
 
-const currentStatuses = computed(() => currentTab.value === 'production' ? productionStatuses : salesStatuses)
-const currentState = computed(() => currentTab.value === 'production' ? productionState : salesState)
-const currentSummary = computed(() => currentTab.value === 'production' ? productionSummary : salesSummary)
 const currentStatusTabs = computed(() => [
-  {value: '', label: '全部订单', count: currentSummary.value.total || 0},
-  ...currentStatuses.value.map(status => ({
+  {value: '', label: '全部订单', count: orderSummary.total || 0},
+  ...orderStatuses.map(status => ({
     ...status,
     label: `${status.label}订单`,
-    count: currentSummary.value[status.value] || 0
+    count: orderSummary[status.value] || 0
   }))
 ])
 const orderWarningHint = computed(() => {
@@ -1219,22 +937,22 @@ const orderWarningHint = computed(() => {
 })
 const summaryCards = computed(() => {
   return [
-    {key: 'sales-total', tab: 'sales', label: '订单总量', status: '', count: salesSummary.total || salesState.total || 0, hint: '全部订单'},
-    {key: 'sales-budgeting', tab: 'sales', label: '预算中订单', status: 'budgeting', count: salesSummary.budgeting || 0, hint: '图纸预算测算中'},
-    {key: 'sales-confirm', tab: 'sales', label: '待确认订单', status: 'pending_confirm', count: salesSummary.pending_confirm || 0, hint: '待客户/业务确认'},
-    {key: 'sales-pay', tab: 'sales', label: '待收款订单', status: 'pending_pay', count: salesSummary.pending_pay || 0, hint: '待收款跟进'},
-    {key: 'sales-ship', tab: 'sales', label: '待发货订单', status: 'pending_ship', count: salesSummary.pending_ship || 0, hint: '待安排发货'},
-    {key: 'sales-shipped', tab: 'sales', label: '已发货订单', status: 'shipped', count: salesSummary.shipped || 0, hint: '物流已录入'},
-    {key: 'sales-invoice-paid', tab: 'sales', label: '已开票订单', invoiceStatus: '1', count: salesSummary.invoice_paid || 0, hint: '已完成开票'},
-    {key: 'sales-invoice-unpaid', tab: 'sales', label: '未开票订单', invoiceStatus: '0', count: salesSummary.invoice_unpaid || 0, hint: '待补充开票'},
-    {key: 'sales-stale', tab: 'sales', label: '未更新预警', staleOnly: true, count: orderWarningSummary.salesCount || 0, hint: orderWarningHint.value}
+    {key: 'order-total', tab: 'order', label: '订单总量', status: '', count: orderSummary.total || orderState.total || 0, hint: '全部订单'},
+    {key: 'order-budgeting', tab: 'order', label: '预算中订单', status: 'budgeting', count: orderSummary.budgeting || 0, hint: '图纸预算测算中'},
+    {key: 'order-confirm', tab: 'order', label: '待确认订单', status: 'pending_confirm', count: orderSummary.pending_confirm || 0, hint: '待客户/业务确认'},
+    {key: 'order-pay', tab: 'order', label: '待收款订单', status: 'pending_pay', count: orderSummary.pending_pay || 0, hint: '待收款跟进'},
+    {key: 'order-ship', tab: 'order', label: '待发货订单', status: 'pending_ship', count: orderSummary.pending_ship || 0, hint: '待安排发货'},
+    {key: 'order-shipped', tab: 'order', label: '已发货订单', status: 'shipped', count: orderSummary.shipped || 0, hint: '物流已录入'},
+    {key: 'order-invoice-paid', tab: 'order', label: '已开票订单', invoiceStatus: '1', count: orderSummary.invoice_paid || 0, hint: '已完成开票'},
+    {key: 'order-invoice-unpaid', tab: 'order', label: '未开票订单', invoiceStatus: '0', count: orderSummary.invoice_unpaid || 0, hint: '待补充开票'},
+    {key: 'order-stale', label: '未更新预警', staleOnly: true, count: orderWarningSummary.totalCount || 0, hint: orderWarningHint.value}
   ]
 })
 const categorySummaryCards = computed(() => orderCategoryOptions.map(option => ({
   key: `category-${option.value}`,
   value: option.value,
   label: option.label,
-  count: salesSummary[`category_${option.value}`] || 0,
+  count: orderSummary[`category_${option.value}`] || 0,
   hint: option.value === 'sample_room'
       ? '样板订单'
       : option.value === 'replenishment'
@@ -1246,101 +964,81 @@ const categorySummaryCards = computed(() => orderCategoryOptions.map(option => (
                   : '大货订单'
 })))
 const selectedCustomerOption = computed(() => {
-  const customerName = normalizeText(salesForm.customerName)
-  if (!customerName) return null
-  return customerOptions.value.find(item => normalizeText(item.customerName) === customerName) || null
-})
-const selectedProductionCustomerOption = computed(() => {
-  const customerName = normalizeText(productionForm.customerName)
+  const customerName = normalizeText(orderForm.customerName)
   if (!customerName) return null
   return customerOptions.value.find(item => normalizeText(item.customerName) === customerName) || null
 })
 const selectedCustomerProjects = computed(() => selectedCustomerOption.value?.projectNames || [])
-const selectedProductionCustomerProjects = computed(() => selectedProductionCustomerOption.value?.projectNames || [])
 const showCustomerOptions = computed(() => customerDropdownVisible.value && customerOptions.value.length > 0)
 const showProjectOptions = computed(() => projectDropdownVisible.value && selectedCustomerProjects.value.length > 0)
-const showProductionCustomerOptions = computed(() => productionCustomerDropdownVisible.value && customerOptions.value.length > 0)
-const showProductionProjectOptions = computed(() => productionProjectDropdownVisible.value && selectedProductionCustomerProjects.value.length > 0)
-const customerCreateHintVisible = computed(() => Boolean(normalizeText(salesForm.customerName)) && !selectedCustomerOption.value)
+const customerCreateHintVisible = computed(() => Boolean(normalizeText(orderForm.customerName)) && !selectedCustomerOption.value)
 const projectCreateHintVisible = computed(() => {
-  const projectName = normalizeText(salesForm.projectName)
+  const projectName = normalizeText(orderForm.projectName)
   return Boolean(selectedCustomerOption.value && projectName && !selectedCustomerProjects.value.includes(projectName))
-})
-const productionCustomerCreateHintVisible = computed(() => Boolean(normalizeText(productionForm.customerName)) && !selectedProductionCustomerOption.value)
-const productionProjectCreateHintVisible = computed(() => {
-  const projectName = normalizeText(productionForm.projectName)
-  return Boolean(selectedProductionCustomerOption.value && projectName && !selectedProductionCustomerProjects.value.includes(projectName))
 })
 const currentFormCreateTime = computed({
   get() {
-    return salesForm.createTime
+    return orderForm.createTime
   },
   set(value) {
-    salesForm.createTime = value
+    orderForm.createTime = value
   }
 })
 const currentOrderFlowCode = computed(() => {
-  const detail = salesDetail.value
+  const detail = orderDetail.value
   const task = latestOrderFlowPrintTask.value
-  if (task?.orderId && detail?.orderId === task.orderId && task.orderType === 'sales' && task.printPayload) {
+  if (task?.orderId && detail?.orderId === task.orderId && task.printPayload) {
     return buildOrderFlowCodeFromTask(task)
   }
-  return buildOrderFlowCode(detail, 'sales')
+  return buildOrderFlowCode(detail)
 })
 
 onMounted(async () => {
   applyRouteSearch()
-  await Promise.all([refreshCurrentTab(), loadOrderSummaries(), loadCustomerOptions()])
+  await Promise.all([refreshOrders(), loadOrderSummaries(), loadCustomerOptions()])
 })
 
 watch(
-  () => [route.query.keyword, route.query.q, route.query.tab],
+  () => [route.query.keyword, route.query.q],
   async () => {
     applyRouteSearch()
-    await refreshCurrentTab()
+    await refreshOrders()
   }
 )
 
 watch(
-  () => salesForm.orderCategory,
+  () => orderForm.orderCategory,
   (category) => {
     if (category === 'drawing_budget') {
-      if (!['budgeting', 'budget_completed'].includes(salesForm.status)) {
-        salesForm.status = 'budgeting'
+      if (!['budgeting', 'budget_completed'].includes(orderForm.status)) {
+        orderForm.status = 'budgeting'
       }
-      salesForm.createProductionOrder = 0
       return
     }
-    if (['budgeting', 'budget_completed'].includes(salesForm.status)) {
-      salesForm.status = 'pending_confirm'
+    if (['budgeting', 'budget_completed'].includes(orderForm.status)) {
+      orderForm.status = 'pending_confirm'
     }
     if (category === 'special_order') {
       if (formMode.value === 'create') {
-        salesForm.status = 'pending_confirm'
+        orderForm.status = 'pending_confirm'
       }
-      salesForm.createProductionOrder = 0
     }
   }
 )
 
 function applyRouteSearch() {
-  const routeTab = String(route.query.tab || '').trim()
-  if (routeTab === 'production' || routeTab === 'sales') {
-    currentTab.value = routeTab
-  }
   const routeKeyword = String(route.query.keyword || route.query.q || '').trim()
   if (routeKeyword !== filters.keyword) {
     filters.keyword = routeKeyword
-    salesState.page = 1
-    productionState.page = 1
+    orderState.page = 1
   }
 }
 
-function defaultSalesItem() {
+function defaultOrderItem() {
   return {modelCode: '', quantity: '', weight: '', spec: ''}
 }
 
-function defaultSalesForm() {
+function defaultOrderForm() {
   return {
     customerName: '',
     customerPhone: '',
@@ -1357,43 +1055,14 @@ function defaultSalesForm() {
     attachmentUrl: '',
     attachmentSize: null,
     status: 'pending_confirm',
-    createProductionOrder: 1,
     items: []
   }
 }
 
-function defaultProductionForm() {
-  return {
-    salesOrderId: '',
-    customerName: '',
-    projectName: '',
-    brandName: '',
-    orderCategory: 'bulk',
-    contactPhone: '',
-    modelCode: '',
-    fabric: '',
-    weight: '',
-    spec: '',
-    color: '',
-    quantity: 1,
-    deliveryDate: '',
-    createTime: '',
-    status: 'pending_confirm',
-    process: null,
-    remark: ''
-  }
-}
-
-function resetSalesForm() {
-  Object.assign(salesForm, defaultSalesForm())
+function resetOrderForm() {
+  Object.assign(orderForm, defaultOrderForm())
   customerDropdownVisible.value = false
   projectDropdownVisible.value = false
-}
-
-function resetProductionForm() {
-  Object.assign(productionForm, defaultProductionForm())
-  productionCustomerDropdownVisible.value = false
-  productionProjectDropdownVisible.value = false
 }
 
 async function loadCustomerOptions(keyword) {
@@ -1401,23 +1070,23 @@ async function loadCustomerOptions(keyword) {
   customerOptions.value = Array.isArray(result) ? result : []
 }
 
-async function handleSalesCustomerInput() {
+async function handleOrderCustomerInput() {
   customerDropdownVisible.value = true
-  const keyword = normalizeText(salesForm.customerName)
+  const keyword = normalizeText(orderForm.customerName)
   await loadCustomerOptions(keyword || undefined)
   if (!keyword) {
-    salesForm.projectName = ''
+    orderForm.projectName = ''
     return
   }
   applyMatchedCustomer(false)
 }
 
-async function handleSalesCustomerFocus() {
+async function handleOrderCustomerFocus() {
   customerDropdownVisible.value = true
-  await loadCustomerOptions(normalizeText(salesForm.customerName) || undefined)
+  await loadCustomerOptions(normalizeText(orderForm.customerName) || undefined)
 }
 
-function handleSalesCustomerBlur() {
+function handleOrderCustomerBlur() {
   setTimeout(() => {
     customerDropdownVisible.value = false
     applyMatchedCustomer(true)
@@ -1428,9 +1097,9 @@ function chooseCustomer(option) {
   if (!option) {
     return
   }
-  salesForm.customerName = option.customerName || ''
+  orderForm.customerName = option.customerName || ''
   if (option.contactPhone) {
-    salesForm.customerPhone = option.contactPhone
+    orderForm.customerPhone = option.contactPhone
   }
   applyCustomerProject(option, true)
   customerDropdownVisible.value = false
@@ -1442,8 +1111,8 @@ function applyMatchedCustomer(autoFillProject) {
   if (!option) {
     return
   }
-  if (option.contactPhone && !salesForm.customerPhone) {
-    salesForm.customerPhone = option.contactPhone
+  if (option.contactPhone && !orderForm.customerPhone) {
+    orderForm.customerPhone = option.contactPhone
   }
   applyCustomerProject(option, autoFillProject)
 }
@@ -1453,8 +1122,8 @@ function applyCustomerProject(option, forceFill) {
   if (!projectNames.length) {
     return
   }
-  if (forceFill || !salesForm.projectName || !projectNames.includes(salesForm.projectName)) {
-    salesForm.projectName = projectNames[0]
+  if (forceFill || !orderForm.projectName || !projectNames.includes(orderForm.projectName)) {
+    orderForm.projectName = projectNames[0]
   }
 }
 
@@ -1473,94 +1142,8 @@ function handleProjectBlur() {
 }
 
 function chooseProject(projectName) {
-  salesForm.projectName = projectName
+  orderForm.projectName = projectName
   projectDropdownVisible.value = false
-}
-
-async function handleProductionCustomerInput() {
-  productionCustomerDropdownVisible.value = true
-  const keyword = normalizeText(productionForm.customerName)
-  await loadCustomerOptions(keyword || undefined)
-  if (!keyword) {
-    productionForm.projectName = ''
-    return
-  }
-  applyMatchedProductionCustomer(false)
-}
-
-async function handleProductionCustomerFocus() {
-  productionCustomerDropdownVisible.value = true
-  await loadCustomerOptions(normalizeText(productionForm.customerName) || undefined)
-}
-
-function handleProductionCustomerBlur() {
-  setTimeout(() => {
-    productionCustomerDropdownVisible.value = false
-    applyMatchedProductionCustomer(true)
-  }, 160)
-}
-
-function chooseProductionCustomer(option) {
-  if (!option) {
-    return
-  }
-  productionForm.customerName = option.customerName || ''
-  if (option.contactPhone) {
-    productionForm.contactPhone = option.contactPhone
-  }
-  applyProductionCustomerProject(option, true)
-  productionCustomerDropdownVisible.value = false
-  productionProjectDropdownVisible.value = Boolean(option.projectNames?.length > 1)
-}
-
-function applyMatchedProductionCustomer(autoFillProject) {
-  const option = selectedProductionCustomerOption.value
-  if (!option) {
-    return
-  }
-  if (option.contactPhone && !productionForm.contactPhone) {
-    productionForm.contactPhone = option.contactPhone
-  }
-  applyProductionCustomerProject(option, autoFillProject)
-}
-
-function applyProductionCustomerProject(option, forceFill) {
-  const projectNames = Array.isArray(option?.projectNames) ? option.projectNames : []
-  if (!projectNames.length) {
-    return
-  }
-  if (forceFill || !productionForm.projectName || !projectNames.includes(productionForm.projectName)) {
-    productionForm.projectName = projectNames[0]
-  }
-}
-
-function handleProductionProjectFocus() {
-  productionProjectDropdownVisible.value = true
-}
-
-function handleProductionProjectInput() {
-  productionProjectDropdownVisible.value = true
-}
-
-function handleProductionProjectBlur() {
-  setTimeout(() => {
-    productionProjectDropdownVisible.value = false
-  }, 160)
-}
-
-function chooseProductionProject(projectName) {
-  productionForm.projectName = projectName
-  productionProjectDropdownVisible.value = false
-}
-
-function switchTab(tabId) {
-  const nextTab = tabId === 'production' ? 'production' : 'sales'
-  if (currentTab.value === nextTab) {
-    return
-  }
-  currentTab.value = nextTab
-  resetFilters(false)
-  refreshCurrentTab()
 }
 
 async function selectSummaryCard(card) {
@@ -1569,14 +1152,14 @@ async function selectSummaryCard(card) {
     filters.status = ''
     filters.invoiceStatus = ''
     filters.staleOnly = true
-    await refreshCurrentTab()
+    await refreshOrders()
     return
   }
   if (card.invoiceStatus !== undefined) {
     filters.staleOnly = false
     filters.status = ''
     filters.invoiceStatus = card.invoiceStatus
-    await refreshCurrentTab()
+    await refreshOrders()
     return
   }
   filters.invoiceStatus = ''
@@ -1592,14 +1175,14 @@ async function selectStatus(status) {
   filters.staleOnly = false
   filters.invoiceStatus = ''
   filters.status = nextStatus
-  await refreshCurrentTab()
+  await refreshOrders()
 }
 
 async function selectCategoryCard(category) {
   const nextCategory = filters.orderCategory === category ? '' : category
   filters.staleOnly = false
   filters.orderCategory = nextCategory
-  await refreshCurrentTab()
+  await refreshOrders()
 }
 
 function isSummaryCardActive(card) {
@@ -1622,46 +1205,31 @@ async function resetFilters(refresh = true) {
   filters.brandName = ''
   filters.orderCategory = ''
   filters.invoiceStatus = ''
-  filters.process = ''
   filters.deliveryStart = ''
   filters.deliveryEnd = ''
   filters.createStart = ''
   filters.createEnd = ''
   filters.staleOnly = false
-  salesState.page = 1
-  productionState.page = 1
+  orderState.page = 1
   if (refresh) {
-    await refreshCurrentTab()
+    await refreshOrders()
   }
 }
 
-async function refreshCurrentTab() {
-  if (currentTab.value === 'production') {
-    productionState.page = 1
-    await loadProductionOrders()
-    return
-  }
-  salesState.page = 1
-  await loadSalesOrders()
+async function refreshOrders() {
+  orderState.page = 1
+  await loadOrders()
 }
 
 async function loadOrderSummaries() {
-  await Promise.all([loadSalesSummary(), loadProductionSummary(), loadOrderWarningSummary()])
+  await Promise.all([loadOrderSummary(), loadOrderWarningSummary()])
 }
 
-async function loadSalesSummary() {
+async function loadOrderSummary() {
   try {
-    assignSummary(salesSummary, await getSalesOrderStatusSummary())
+    assignSummary(orderSummary, await getOrderStatusSummary())
   } catch (error) {
     console.warn('加载订单统计失败', error)
-  }
-}
-
-async function loadProductionSummary() {
-  try {
-    assignSummary(productionSummary, await getProductionOrderStatusSummary())
-  } catch (error) {
-    console.warn('加载履约统计失败', error)
   }
 }
 
@@ -1677,8 +1245,6 @@ async function loadOrderWarningSummary() {
 
 function applyOrderWarningSummary(summary = {}) {
   assignWarningSetting(orderWarningSummary, summary, orderWarningSetting)
-  orderWarningSummary.salesCount = Number(summary?.salesCount || 0)
-  orderWarningSummary.productionCount = Number(summary?.productionCount || 0)
   orderWarningSummary.totalCount = Number(summary?.totalCount || 0)
   orderWarningSummary.sampleRoomCount = Number(summary?.sampleRoomCount || 0)
   orderWarningSummary.bulkCount = Number(summary?.bulkCount || 0)
@@ -1744,7 +1310,7 @@ async function openOrderWarningSetting() {
     const setting = await updateOrderWarningSetting(nextSetting)
     assignWarningSetting(orderWarningSetting, setting, nextSetting)
     ElMessage.success('订单预警设置已保存')
-    await Promise.all([loadOrderSummaries(), refreshCurrentTab()])
+    await Promise.all([loadOrderSummaries(), refreshOrders()])
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
       throw error
@@ -1806,9 +1372,9 @@ async function refreshOrderWarnings(showToast = false) {
   }
   warningRefreshing.value = true
   try {
-    const summary = await refreshSalesOrderWarnings()
+    const summary = await refreshAllOrderWarnings()
     applyOrderWarningSummary(summary)
-    await refreshCurrentTab()
+    await refreshOrders()
     if (showToast) {
       ElMessage.success('订单预警已重新更新')
     }
@@ -1833,9 +1399,9 @@ async function refreshSingleOrderWarning(row = {}) {
   }
   rowWarningRefreshingKey.value = key
   try {
-    const summary = await refreshSalesOrderWarning(row.orderId)
+    const summary = await refreshOrderWarning(row.orderId)
     applyOrderWarningSummary(summary)
-    await loadSalesOrders()
+    await loadOrders()
     ElMessage.success('该订单预警已重新计算')
   } finally {
     rowWarningRefreshingKey.value = ''
@@ -1850,11 +1416,11 @@ function assignSummary(target, source = {}) {
 }
 
 async function changePage(page) {
-  salesState.page = page
-  await loadSalesOrders()
+  orderState.page = page
+  await loadOrders()
 }
 
-function buildSalesOrderQuery(pageNum = salesState.page, pageSize = salesState.size) {
+function buildOrderQuery(pageNum = orderState.page, pageSize = orderState.size) {
   return {
     pageNum,
     pageSize,
@@ -1872,20 +1438,20 @@ function buildSalesOrderQuery(pageNum = salesState.page, pageSize = salesState.s
   }
 }
 
-async function loadSalesOrders() {
-  salesState.loading = true
+async function loadOrders() {
+  orderState.loading = true
   try {
-    const res = await getSalesOrderPage(buildSalesOrderQuery())
-    salesState.rows = res.data || []
-    salesState.total = res.total || 0
-    salesState.pages = res.pages || 1
+    const res = await getOrderPage(buildOrderQuery())
+    orderState.rows = res.data || []
+    orderState.total = res.total || 0
+    orderState.pages = res.pages || 1
   } finally {
-    salesState.loading = false
+    orderState.loading = false
   }
 }
 
 async function exportAllOrders() {
-  const total = Number(salesState.total || 0)
+  const total = Number(orderState.total || 0)
   if (total <= 0) {
     ElMessage.warning('暂无可导出的订单数据')
     return
@@ -1894,7 +1460,7 @@ async function exportAllOrders() {
     ElMessage.warning(`当前筛选结果 ${total} 条，单次最多导出 ${MAX_ORDER_EXPORT_ROWS} 条，请缩小筛选范围`)
     return
   }
-  const res = await getSalesOrderPage(buildSalesOrderQuery(1, Math.max(1, total)))
+  const res = await getOrderPage(buildOrderQuery(1, Math.max(1, total)))
   const rows = Array.isArray(res.data) ? res.data : []
   await exportRowsToExcel({
     title: '订单列表',
@@ -1913,11 +1479,11 @@ function formatOrderExportCell(row, key) {
   if (key === 'category') return orderCategoryLabel(row.orderCategory)
   if (key === 'customer') return [row.customerName, row.projectName].filter(Boolean).join(' / ')
   if (key === 'brand') return row.brandName || ''
-  if (key === 'core') return salesCoreExportText(row)
+  if (key === 'core') return orderCoreExportText(row)
   if (key === 'remark') return row.remark || ''
   if (key === 'delivery') return [row.deliveryDate, row.expressCompany, row.expressNo].filter(Boolean).join(' / ')
   if (key === 'invoice') return invoiceLabel(row.isInvoice)
-  if (key === 'status') return salesStatusLabel(row.status)
+  if (key === 'status') return orderStatusLabel(row.status)
   if (key === 'progress') {
     const progress = orderProgress(row)
     return `${progress.label} ${progress.percent}%`
@@ -1926,46 +1492,14 @@ function formatOrderExportCell(row, key) {
   return ''
 }
 
-async function loadProductionOrders() {
-  productionState.loading = true
-  try {
-    const res = await getProductionOrderPage({
-      pageNum: productionState.page,
-      pageSize: productionState.size,
-      keyword: filters.keyword || undefined,
-      status: currentTab.value === 'production' ? filters.status || undefined : undefined,
-      customerName: filters.customerName || undefined,
-      brandName: filters.brandName || undefined,
-      orderCategory: filters.orderCategory || undefined,
-      process: filters.process === '' ? undefined : Number(filters.process),
-      deliveryStart: filters.deliveryStart || undefined,
-      deliveryEnd: filters.deliveryEnd || undefined,
-      createStart: filters.createStart || undefined,
-      createEnd: filters.createEnd || undefined,
-      staleOnly: filters.staleOnly || undefined
-    })
-    productionState.rows = res.data || []
-    productionState.total = res.total || 0
-    productionState.pages = res.pages || 1
-  } finally {
-    productionState.loading = false
-  }
-}
-
 async function openDetail(orderId) {
   detailVisible.value = true
   detailLoading.value = true
-  salesDetail.value = null
-  productionDetail.value = null
+  orderDetail.value = null
   clearStatusLogTimeEdits()
   try {
-    if (currentTab.value === 'production') {
-      productionDetail.value = await getProductionOrderDetail(orderId)
-      hydrateStatusLogTimeEdits('production', productionDetail.value?.logs || [])
-    } else {
-      salesDetail.value = await getSalesOrderDetail(orderId)
-      hydrateStatusLogTimeEdits('sales', salesDetail.value?.logs || [])
-    }
+    orderDetail.value = await getOrderDetail(orderId)
+    hydrateStatusLogTimeEdits('order', orderDetail.value?.logs || [])
   } catch (error) {
     detailVisible.value = false
     ElMessage.error(error?.message || '订单详情加载失败，请稍后重试')
@@ -1988,18 +1522,17 @@ async function openFlowCode(row) {
     ElMessage.warning('订单信息异常，无法补打流转码')
     return
   }
-  const task = await createSalesOrderFlowPrintTask({orderId: row.orderId})
+  const task = await createOrderFlowPrintTask({orderId: row.orderId})
   latestOrderFlowPrintTask.value = task
   await openDetail(row.orderId)
   ElMessage.success('已创建补打任务，请到小程序待打印队列处理')
 }
 
-const normalSalesStatusFlow = ['pending_confirm', 'pending_pay', 'pending_material', 'producing', 'pending_ship', 'shipped', 'completed']
+const normalOrderStatusFlow = ['pending_confirm', 'pending_pay', 'pending_material', 'producing', 'pending_ship', 'shipped', 'completed']
 const drawingBudgetStatusFlow = ['budgeting', 'budget_completed']
-const productionStatusFlow = ['pending_confirm', 'pending_pay', 'pending_material', 'producing', 'pending_ship', 'shipped', 'completed']
 
-function nextSalesStatus(row = {}) {
-  const flow = row.orderCategory === 'drawing_budget' ? drawingBudgetStatusFlow : normalSalesStatusFlow
+function nextOrderStatus(row = {}) {
+  const flow = row.orderCategory === 'drawing_budget' ? drawingBudgetStatusFlow : normalOrderStatusFlow
   const currentIndex = flow.indexOf(row.status)
   if (currentIndex < 0 || currentIndex >= flow.length - 1) {
     return ''
@@ -2007,8 +1540,8 @@ function nextSalesStatus(row = {}) {
   return flow[currentIndex + 1]
 }
 
-function previousSalesStatus(row = {}) {
-  const flow = row.orderCategory === 'drawing_budget' ? drawingBudgetStatusFlow : normalSalesStatusFlow
+function previousOrderStatus(row = {}) {
+  const flow = row.orderCategory === 'drawing_budget' ? drawingBudgetStatusFlow : normalOrderStatusFlow
   const currentIndex = flow.indexOf(row.status)
   if (currentIndex <= 0) {
     return ''
@@ -2016,39 +1549,27 @@ function previousSalesStatus(row = {}) {
   return flow[currentIndex - 1]
 }
 
-function previousProductionStatus(row = {}) {
-  const currentIndex = productionStatusFlow.indexOf(row.status)
-  if (currentIndex <= 0) {
-    return ''
-  }
-  return productionStatusFlow[currentIndex - 1]
-}
-
-function isSalesMaterialApprovalTransition(row = {}, targetStatus = nextSalesStatus(row)) {
+function isOrderMaterialApprovalTransition(row = {}, targetStatus = nextOrderStatus(row)) {
   return row.status === 'pending_pay' && targetStatus === 'pending_material'
 }
 
-function advanceSalesOrderTitle(row = {}) {
-  const targetStatus = nextSalesStatus(row)
+function advanceOrderTitle(row = {}) {
+  const targetStatus = nextOrderStatus(row)
   if (!targetStatus) {
     return ''
   }
-  return isSalesMaterialApprovalTransition(row, targetStatus)
+  return isOrderMaterialApprovalTransition(row, targetStatus)
       ? '提交订单审批'
-      : `推进到${salesStatusLabel(targetStatus)}`
+      : `推进到${orderStatusLabel(targetStatus)}`
 }
 
 function rollbackOrderTitle(row = {}) {
-  if (currentTab.value === 'production') {
-    const targetStatus = previousProductionStatus(row)
-    return targetStatus ? `提交回退审批：回退到${productionStatusLabel(targetStatus)}` : ''
-  }
-  const targetStatus = previousSalesStatus(row)
-  return targetStatus ? `提交回退审批：回退到${salesStatusLabel(targetStatus)}` : ''
+  const targetStatus = previousOrderStatus(row)
+  return targetStatus ? `提交回退审批：回退到${orderStatusLabel(targetStatus)}` : ''
 }
 
-async function advanceSalesOrder(row = {}) {
-  const targetStatus = nextSalesStatus(row)
+async function advanceOrder(row = {}) {
+  const targetStatus = nextOrderStatus(row)
   if (!row.orderId || !targetStatus) {
     return
   }
@@ -2056,7 +1577,7 @@ async function advanceSalesOrder(row = {}) {
     warnNoOrderStagePermission()
     return
   }
-  const approvalTransition = isSalesMaterialApprovalTransition(row, targetStatus)
+  const approvalTransition = isOrderMaterialApprovalTransition(row, targetStatus)
   const payload = {}
   try {
   if (targetStatus === 'shipped') {
@@ -2089,7 +1610,7 @@ async function advanceSalesOrder(row = {}) {
       type: 'warning'
     })
   } else {
-    await ElMessageBox.confirm(`确认将订单推进到“${salesStatusLabel(targetStatus)}”？`, '推进订单阶段', {
+    await ElMessageBox.confirm(`确认将订单推进到“${orderStatusLabel(targetStatus)}”？`, '推进订单阶段', {
       confirmButtonText: '确认推进',
       cancelButtonText: '取消',
       type: 'warning'
@@ -2098,78 +1619,40 @@ async function advanceSalesOrder(row = {}) {
   } catch (error) {
     return
   }
-  await advanceSalesOrderNextStage(row.orderId, payload)
+  await advanceOrderNextStage(row.orderId, payload)
   ElMessage.success(approvalTransition ? '已提交订单审批，审批通过后进入备料中' : '订单已推进到下一阶段')
-  await loadSalesOrders()
-  await loadOrderSummaries()
-}
-
-async function rollbackSalesOrder(row = {}) {
-  const targetStatus = previousSalesStatus(row)
-  if (!row.orderId || !targetStatus) {
-    return
-  }
-  if (!canMutateOrderStatus(row.status)) {
-    warnNoOrderStagePermission()
-    return
-  }
-  try {
-    await ElMessageBox.confirm(
-        `确认提交回退审批？审批通过后订单将从“${salesStatusLabel(row.status)}”回退到“${salesStatusLabel(targetStatus)}”。`,
-        '提交回退审批',
-        {
-          confirmButtonText: '提交审批',
-          cancelButtonText: '取消',
-          type: 'warning'
-        }
-    )
-  } catch (error) {
-    return
-  }
-  await submitSalesOrderRollback(row.orderId, {
-    status: targetStatus
-  })
-  ElMessage.success('已提交订单回退审批，审批通过后自动回退')
-  await loadSalesOrders()
-  await loadOrderSummaries()
-}
-
-async function rollbackProductionOrder(row = {}) {
-  const targetStatus = previousProductionStatus(row)
-  if (!row.orderId || !targetStatus) {
-    return
-  }
-  if (!canMutateOrderStatus(row.status)) {
-    warnNoOrderStagePermission()
-    return
-  }
-  try {
-    await ElMessageBox.confirm(
-        `确认提交回退审批？审批通过后生产订单将从“${productionStatusLabel(row.status)}”回退到“${productionStatusLabel(targetStatus)}”。`,
-        '提交回退审批',
-        {
-          confirmButtonText: '提交审批',
-          cancelButtonText: '取消',
-          type: 'warning'
-        }
-    )
-  } catch (error) {
-    return
-  }
-  await submitProductionOrderRollback(row.orderId, {
-    status: targetStatus
-  })
-  ElMessage.success('已提交生产订单回退审批，审批通过后自动回退')
-  await loadProductionOrders()
+  await loadOrders()
   await loadOrderSummaries()
 }
 
 async function rollbackOrder(row = {}) {
-  if (currentTab.value === 'production') {
-    await rollbackProductionOrder(row)
+  const targetStatus = previousOrderStatus(row)
+  if (!row.orderId || !targetStatus) {
     return
   }
-  await rollbackSalesOrder(row)
+  if (!canMutateOrderStatus(row.status)) {
+    warnNoOrderStagePermission()
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+        `确认提交回退审批？审批通过后订单将从“${orderStatusLabel(row.status)}”回退到“${orderStatusLabel(targetStatus)}”。`,
+        '提交回退审批',
+        {
+          confirmButtonText: '提交审批',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+    )
+  } catch (error) {
+    return
+  }
+  await submitOrderRollback(row.orderId, {
+    status: targetStatus
+  })
+  ElMessage.success('已提交订单回退审批，审批通过后自动回退')
+  await loadOrders()
+  await loadOrderSummaries()
 }
 
 function openCreate() {
@@ -2179,7 +1662,7 @@ function openCreate() {
   }
   formMode.value = 'create'
   editingOrderId.value = ''
-  resetSalesForm()
+  resetOrderForm()
   formVisible.value = true
 }
 
@@ -2191,30 +1674,29 @@ async function openEdit(orderId, row = {}) {
   formMode.value = 'edit'
   editingOrderId.value = orderId
   formVisible.value = true
-  resetSalesForm()
-  const detail = await getSalesOrderDetail(orderId)
+  resetOrderForm()
+  const detail = await getOrderDetail(orderId)
   if (!canMutateOrderStatus(detail.status)) {
     warnNoOrderStagePermission()
     closeForm()
     return
   }
-  salesForm.customerName = detail.customerName || ''
-  salesForm.customerPhone = detail.customerPhone || ''
-  salesForm.projectName = detail.projectName || ''
-  salesForm.brandName = detail.brandName || ''
-  salesForm.orderCategory = normalizeOrderCategory(detail.orderCategory)
-  salesForm.deliveryDate = toDateInput(detail.deliveryDate)
-  salesForm.createTime = toDateTimeLocal(detail.createTime)
-  salesForm.expressCompany = detail.expressCompany || ''
-  salesForm.expressNo = detail.expressNo || ''
-  salesForm.isInvoice = Number(detail.isInvoice || 0)
-  salesForm.remark = detail.remark || ''
-  salesForm.attachmentName = detail.attachmentName || ''
-  salesForm.attachmentUrl = detail.attachmentUrl || ''
-  salesForm.attachmentSize = detail.attachmentSize || null
-  salesForm.status = detail.status || 'pending_confirm'
-  salesForm.createProductionOrder = 0
-  salesForm.items = (detail.items || []).length
+  orderForm.customerName = detail.customerName || ''
+  orderForm.customerPhone = detail.customerPhone || ''
+  orderForm.projectName = detail.projectName || ''
+  orderForm.brandName = detail.brandName || ''
+  orderForm.orderCategory = normalizeOrderCategory(detail.orderCategory)
+  orderForm.deliveryDate = toDateInput(detail.deliveryDate)
+  orderForm.createTime = toDateTimeLocal(detail.createTime)
+  orderForm.expressCompany = detail.expressCompany || ''
+  orderForm.expressNo = detail.expressNo || ''
+  orderForm.isInvoice = Number(detail.isInvoice || 0)
+  orderForm.remark = detail.remark || ''
+  orderForm.attachmentName = detail.attachmentName || ''
+  orderForm.attachmentUrl = detail.attachmentUrl || ''
+  orderForm.attachmentSize = detail.attachmentSize || null
+  orderForm.status = detail.status || 'pending_confirm'
+  orderForm.items = (detail.items || []).length
       ? detail.items.map(item => ({
         modelCode: item.modelCode || '',
         quantity: num(item.quantity),
@@ -2229,20 +1711,18 @@ function closeForm() {
   closeTimeCorrectionMode()
   customerDropdownVisible.value = false
   projectDropdownVisible.value = false
-  productionCustomerDropdownVisible.value = false
-  productionProjectDropdownVisible.value = false
 }
 
-function addSalesItem() {
-  salesForm.items.push(defaultSalesItem())
+function addOrderItem() {
+  orderForm.items.push(defaultOrderItem())
 }
 
-function removeSalesItem(index) {
-  salesForm.items.splice(index, 1)
+function removeOrderItem(index) {
+  orderForm.items.splice(index, 1)
 }
 
-async function handleSalesAttachmentFile(file) {
-  if (!canEditCurrentSalesForm.value) {
+async function handleOrderAttachmentFile(file) {
+  if (!canEditCurrentOrderForm.value) {
     warnNoOrderStagePermission()
     return
   }
@@ -2256,33 +1736,33 @@ async function handleSalesAttachmentFile(file) {
 
   const formData = new FormData()
   formData.append('file', file)
-  salesAttachmentUploading.value = true
+  orderAttachmentUploading.value = true
   try {
-    const result = await uploadSalesOrderAttachment(formData)
-    salesForm.attachmentName = result.fileName || file.name
-    salesForm.attachmentUrl = result.fileUrl || ''
-    salesForm.attachmentSize = result.fileSize || file.size
+    const result = await uploadOrderAttachment(formData)
+    orderForm.attachmentName = result.fileName || file.name
+    orderForm.attachmentUrl = result.fileUrl || ''
+    orderForm.attachmentSize = result.fileSize || file.size
     ElMessage.success('订单附件上传成功')
   } finally {
-    salesAttachmentUploading.value = false
+    orderAttachmentUploading.value = false
   }
 }
 
-function removeSalesAttachment() {
-  salesForm.attachmentName = ''
-  salesForm.attachmentUrl = ''
-  salesForm.attachmentSize = null
+function removeOrderAttachment() {
+  orderForm.attachmentName = ''
+  orderForm.attachmentUrl = ''
+  orderForm.attachmentSize = null
 }
 
-function openSalesAttachment() {
-  openAttachmentUrl(salesForm.attachmentUrl, salesForm.attachmentName)
+function openOrderAttachment() {
+  openAttachmentUrl(orderForm.attachmentUrl, orderForm.attachmentName)
 }
 
 async function openAttachmentUrl(url, name) {
   if (!url) {
     return
   }
-  const blob = await downloadSalesOrderAttachment({url, name})
+  const blob = await downloadOrderAttachment({url, name})
   const objectUrl = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = objectUrl
@@ -2300,57 +1780,48 @@ async function submitForm() {
   }
   submitting.value = true
   try {
-    validateSalesForm()
-    const payload = buildSalesPayload()
+    validateOrderForm()
+    const payload = buildOrderPayload()
     const specialOrderCreate = formMode.value === 'create' && payload.orderCategory === 'special_order'
     const cancelApprovalSubmit = formMode.value !== 'create' && payload.status === 'cancelled'
     if (formMode.value === 'create') {
-      await createSalesOrder(payload)
+      await createOrder(payload)
     } else {
-      await saveSalesOrder(editingOrderId.value, payload)
+      await saveOrder(editingOrderId.value, payload)
     }
     if (cancelApprovalSubmit) {
       ElMessage.success('已提交取消审核，审批通过后取消成功')
       closeForm()
-      await loadSalesOrders()
+      await loadOrders()
       await loadOrderSummaries()
       return
     }
     ElMessage.success(specialOrderCreate ? '特殊订单已提交审核，审核通过后创建成功' : (formMode.value === 'create' ? '订单创建成功' : '订单保存成功'))
     closeForm()
-    await loadSalesOrders()
+    await loadOrders()
     await loadOrderSummaries()
   } finally {
     submitting.value = false
   }
 }
 
-function validateSalesForm() {
-  if (!salesForm.customerName.trim()) fail('请输入客户名称', 'sales.customerName')
-  if (!salesForm.projectName.trim()) fail('请输入项目名称', 'sales.projectName')
-  if (salesForm.orderCategory !== 'drawing_budget' && !salesForm.deliveryDate) fail('请选择交付日期', 'sales.deliveryDate')
-  validateCreateTimeInput(salesForm.createTime)
-  if (salesForm.status === 'shipped' && !String(salesForm.expressCompany || '').trim()) {
-    fail('订单变更为已发货时必须填写物流公司', 'sales.expressCompany')
+function validateOrderForm() {
+  if (!orderForm.customerName.trim()) fail('请输入客户名称', 'order.customerName')
+  if (!orderForm.projectName.trim()) fail('请输入项目名称', 'order.projectName')
+  if (orderForm.orderCategory !== 'drawing_budget' && !orderForm.deliveryDate) fail('请选择交付日期', 'order.deliveryDate')
+  validateCreateTimeInput(orderForm.createTime)
+  if (orderForm.status === 'shipped' && !String(orderForm.expressCompany || '').trim()) {
+    fail('订单变更为已发货时必须填写物流公司', 'order.expressCompany')
   }
-  if (salesForm.status === 'shipped' && !String(salesForm.expressNo || '').trim()) {
-    fail('订单变更为已发货时必须填写物流单号', 'sales.expressNo')
+  if (orderForm.status === 'shipped' && !String(orderForm.expressNo || '').trim()) {
+    fail('订单变更为已发货时必须填写物流单号', 'order.expressNo')
   }
 }
 
-function validateProductionForm() {
-  if (!productionForm.modelCode.trim()) fail('请输入面料型号', 'production.modelCode')
-  if (!productionForm.deliveryDate) fail('请选择交付日期', 'production.deliveryDate')
-  validateCreateTimeInput(productionForm.createTime)
-  if (!Number(productionForm.weight) || Number(productionForm.weight) <= 0) fail('克重必须大于 0', 'production.weight')
-  if (!Number(productionForm.spec) || Number(productionForm.spec) <= 0) fail('规格必须大于 0', 'production.spec')
-  if (!Number(productionForm.quantity) || Number(productionForm.quantity) < 1) fail('数量至少为 1', 'production.quantity')
-}
-
-function buildSalesPayload() {
-  const orderCategory = normalizeOrderCategory(salesForm.orderCategory)
-  const normalizedItems = salesForm.items
-      .filter(isSalesItemMeaningful)
+function buildOrderPayload() {
+  const orderCategory = normalizeOrderCategory(orderForm.orderCategory)
+  const normalizedItems = orderForm.items
+      .filter(isOrderItemMeaningful)
       .map(item => ({
         modelCode: blank(item.modelCode),
         quantity: optionalNumber(item.quantity),
@@ -2358,59 +1829,28 @@ function buildSalesPayload() {
         spec: optionalNumber(item.spec)
       }))
   return {
-    customerName: salesForm.customerName.trim(),
-    customerPhone: blank(salesForm.customerPhone),
-    projectName: salesForm.projectName.trim(),
-    brandName: blank(salesForm.brandName),
+    customerName: orderForm.customerName.trim(),
+    customerPhone: blank(orderForm.customerPhone),
+    projectName: orderForm.projectName.trim(),
+    brandName: blank(orderForm.brandName),
     orderCategory,
-    deliveryDate: blank(salesForm.deliveryDate),
-    createTime: blank(formatCreateTimePayload(salesForm.createTime)),
-    expressCompany: blank(salesForm.expressCompany),
-    expressNo: blank(salesForm.expressNo),
-    isInvoice: Number(salesForm.isInvoice || 0),
-    remark: blank(salesForm.remark),
-    attachmentName: blank(salesForm.attachmentName),
-    attachmentUrl: blank(salesForm.attachmentUrl),
-    attachmentSize: salesForm.attachmentSize || null,
-    status: salesForm.status,
-    createProductionOrder: formMode.value === 'create' && !['drawing_budget', 'special_order'].includes(orderCategory)
-        ? Number(salesForm.createProductionOrder || 0)
-        : 0,
+    deliveryDate: blank(orderForm.deliveryDate),
+    createTime: blank(formatCreateTimePayload(orderForm.createTime)),
+    expressCompany: blank(orderForm.expressCompany),
+    expressNo: blank(orderForm.expressNo),
+    isInvoice: Number(orderForm.isInvoice || 0),
+    remark: blank(orderForm.remark),
+    attachmentName: blank(orderForm.attachmentName),
+    attachmentUrl: blank(orderForm.attachmentUrl),
+    attachmentSize: orderForm.attachmentSize || null,
+    status: orderForm.status,
     items: normalizedItems
   }
 }
 
-function buildProductionPayload() {
-  return {
-    salesOrderId: blank(productionForm.salesOrderId),
-    customerName: blank(productionForm.customerName),
-    projectName: blank(productionForm.projectName),
-    brandName: blank(productionForm.brandName),
-    orderCategory: normalizeOrderCategory(productionForm.orderCategory),
-    contactPhone: blank(productionForm.contactPhone),
-    modelCode: productionForm.modelCode.trim(),
-    fabric: blank(productionForm.fabric),
-    weight: Number(productionForm.weight),
-    spec: Number(productionForm.spec),
-    color: blank(productionForm.color),
-    quantity: Number(productionForm.quantity),
-    deliveryDate: `${productionForm.deliveryDate} 00:00:00`,
-    createTime: blank(formatCreateTimePayload(productionForm.createTime)),
-    status: productionForm.status,
-    process: productionForm.status === 'producing' && productionForm.process !== null && productionForm.process !== '' ? Number(productionForm.process) : null,
-    remark: blank(productionForm.remark)
-  }
-}
-
-function logStatusTitle(log) {
-  const oldStatus = log?.oldStatus ? productionStatusLabel(log.oldStatus) : ''
-  const newStatus = log?.newStatus ? productionStatusLabel(log.newStatus) : '状态更新'
-  return oldStatus ? `${oldStatus} → ${newStatus}` : newStatus
-}
-
-function salesLogTitle(log) {
-  const oldStatus = log?.oldStatus ? salesStatusLabel(log.oldStatus) : ''
-  const newStatus = log?.newStatus ? salesStatusLabel(log.newStatus) : '状态更新'
+function orderLogTitle(log) {
+  const oldStatus = log?.oldStatus ? orderStatusLabel(log.oldStatus) : ''
+  const newStatus = log?.newStatus ? orderStatusLabel(log.newStatus) : '状态更新'
   return oldStatus ? `${oldStatus} → ${newStatus}` : newStatus
 }
 
@@ -2510,22 +1950,12 @@ async function saveStatusLogTime(type, log = {}) {
   statusLogSavingKey.value = key
   try {
     const payload = { createTime: formatCreateTimePayload(value) }
-    if (type === 'production') {
-      await correctProductionOrderLogTime(log.id, payload)
-      const orderId = productionDetail.value?.orderId
-      if (orderId) {
-        productionDetail.value = await getProductionOrderDetail(orderId)
-        clearStatusLogTimeEdits()
-        hydrateStatusLogTimeEdits('production', productionDetail.value?.logs || [])
-      }
-    } else {
-      await correctSalesOrderLogTime(log.id, payload)
-      const orderId = salesDetail.value?.orderId
-      if (orderId) {
-        salesDetail.value = await getSalesOrderDetail(orderId)
-        clearStatusLogTimeEdits()
-        hydrateStatusLogTimeEdits('sales', salesDetail.value?.logs || [])
-      }
+    await correctOrderLogTime(log.id, payload)
+    const orderId = orderDetail.value?.orderId
+    if (orderId) {
+      orderDetail.value = await getOrderDetail(orderId)
+      clearStatusLogTimeEdits()
+      hydrateStatusLogTimeEdits('order', orderDetail.value?.logs || [])
     }
     ElMessage.success('流转记录时间已修正')
   } finally {
@@ -2576,7 +2006,7 @@ function optionalNumber(value) {
   return Number.isFinite(number) ? number : null
 }
 
-function isSalesItemMeaningful(item = {}) {
+function isOrderItemMeaningful(item = {}) {
   return Boolean(
       normalizeText(item.modelCode)
       || item.quantity !== null && item.quantity !== undefined && item.quantity !== ''
@@ -2585,11 +2015,11 @@ function isSalesItemMeaningful(item = {}) {
   )
 }
 
-function salesRowItems(row = {}) {
-  return Array.isArray(row.items) ? row.items.filter(isSalesItemMeaningful) : []
+function orderRowItems(row = {}) {
+  return Array.isArray(row.items) ? row.items.filter(isOrderItemMeaningful) : []
 }
 
-function salesItemText(item = {}) {
+function orderItemText(item = {}) {
   const model = normalizeText(item.modelCode) || '未填写型号'
   const category = normalizeText(item.weight)
   const spec = formatNumber(item.spec) || normalizeText(item.spec)
@@ -2597,16 +2027,16 @@ function salesItemText(item = {}) {
   return `${model} / ${category || '未填写类别'} / ${spec ? `${spec}规格` : '未填写规格'} × ${quantity}`
 }
 
-function salesCoreTitle(row = {}) {
-  const items = salesRowItems(row)
+function orderCoreTitle(row = {}) {
+  const items = orderRowItems(row)
   if (items.length) {
-    return salesItemText(items[0])
+    return orderItemText(items[0])
   }
   return '未填写订单明细'
 }
 
-function salesCoreMeta(row = {}) {
-  const items = salesRowItems(row)
+function orderCoreMeta(row = {}) {
+  const items = orderRowItems(row)
   if (!items.length) {
     return '订单明细 0 项'
   }
@@ -2615,12 +2045,12 @@ function salesCoreMeta(row = {}) {
   return `总数量 ${formatNumber(totalQuantity) || 0}${suffix}`
 }
 
-function salesCoreExportText(row = {}) {
-  const items = salesRowItems(row)
+function orderCoreExportText(row = {}) {
+  const items = orderRowItems(row)
   if (items.length) {
-    return `${items.map(salesItemText).join('；')}；${salesCoreMeta(row)}`
+    return `${items.map(orderItemText).join('；')}；${orderCoreMeta(row)}`
   }
-  return salesCoreMeta(row)
+  return orderCoreMeta(row)
 }
 
 function formatDateTime(value) {
@@ -2628,12 +2058,12 @@ function formatDateTime(value) {
   return String(value).replace('T', ' ').slice(0, 19)
 }
 
-function buildOrderFlowQrTextForWeb(order = {}, orderType = 'sales', flowScanCode = '') {
+function buildOrderFlowQrTextForWeb(order = {}, flowScanCode = '') {
   if (!flowScanCode) return ''
   return JSON.stringify({
     version: '1',
     codeType: 'order_flow',
-    orderType,
+    orderType: 'order',
     orderId: String(order.orderId || '').trim(),
     flowCode: String(order.flowCode || '').trim(),
     flowScanCode,
@@ -2641,7 +2071,7 @@ function buildOrderFlowQrTextForWeb(order = {}, orderType = 'sales', flowScanCod
   })
 }
 
-function buildOrderFlowCode(order, orderType = 'sales') {
+function buildOrderFlowCode(order) {
   if (!order?.orderId) {
     return {
       taskNo: '',
@@ -2658,33 +2088,28 @@ function buildOrderFlowCode(order, orderType = 'sales') {
     taskNo: '',
     orderId: String(order.orderId || '').trim(),
     barcode: flowScanCode,
-    qrText: buildOrderFlowQrTextForWeb(order, orderType, flowScanCode),
+    qrText: buildOrderFlowQrTextForWeb(order, flowScanCode),
     orderTypeLabel: '订单流转',
-    currentStatusLabel: orderType === 'production' ? productionStatusLabel(order.status) : salesStatusLabel(order.status),
+    currentStatusLabel: orderStatusLabel(order.status),
     orderCategoryLabel: orderCategoryLabel(order.orderCategory)
   }
 }
 
 function buildOrderFlowCodeFromTask(task = {}) {
   const payload = task.printPayload || {}
-  const orderType = payload.orderType || task.orderType || 'sales'
   return {
     taskNo: task.taskNo || payload.printTaskNo || '',
     orderId: payload.orderId || task.orderId || '',
     barcode: payload.flowBarcode || payload.flowScanCode || payload.flowCode || '',
     qrText: payload.flowQrPayload || payload.flowScanCode || payload.flowBarcode || payload.flowCode || '',
-    orderTypeLabel: payload.orderTypeLabel || '订单流转',
-    currentStatusLabel: payload.currentStatusText || (orderType === 'production' ? productionStatusLabel(payload.currentStatus) : salesStatusLabel(payload.currentStatus)),
+    orderTypeLabel: '订单流转',
+    currentStatusLabel: payload.currentStatusText || orderStatusLabel(payload.currentStatus),
     orderCategoryLabel: payload.orderCategoryLabel || orderCategoryLabel(payload.orderCategory)
   }
 }
 
-function salesStatusLabel(status) {
-  return salesStatuses.find(item => item.value === status)?.label || status || '未设置'
-}
-
-function productionStatusLabel(status) {
-  return productionStatuses.find(item => item.value === status)?.label || status || '未设置'
+function orderStatusLabel(status) {
+  return orderStatuses.find(item => item.value === status)?.label || status || '未设置'
 }
 
 function normalizeOrderCategory(value) {
@@ -2718,11 +2143,7 @@ function summaryCardClass(card = {}) {
   return card.status ? `stat-card-status-${statusToken(card.status)}` : 'stat-card-status-all'
 }
 
-function salesStatusClass(status) {
-  return `order-status-${statusToken(status)}`
-}
-
-function productionStatusClass(status) {
+function orderStatusClass(status) {
   return `order-status-${statusToken(status)}`
 }
 
@@ -2732,39 +2153,27 @@ function orderRowClass(status) {
 
 function orderProgress(row = {}) {
   const status = row?.status || ''
-  const isProduction = currentTab.value === 'production'
-  const baseMap = isProduction
-    ? {
-      pending_confirm: 12,
-      pending_material: 28,
-      producing: productionProcessProgress(row),
-      pending_ship: 78,
-      shipped: 90,
-      completed: 100,
-      pending_cancel: 0,
-      cancelled: 0
-    }
-    : {
-      pending_confirm: 12,
-      budgeting: 38,
-      budget_completed: 100,
-      pending_pay: 28,
-      pending_material: 36,
-      producing: 56,
-      pending_ship: 72,
-      shipped: 88,
-      completed: 100,
-      pending_cancel: 0,
-      cancelled: 0
-    }
+  const baseMap = {
+    pending_confirm: 12,
+    budgeting: 38,
+    budget_completed: 100,
+    pending_pay: 28,
+    pending_material: 36,
+    producing: row.fulfillmentTracked ? fulfillmentProcessProgress(row) : 56,
+    pending_ship: 72,
+    shipped: 88,
+    completed: 100,
+    pending_cancel: 0,
+    cancelled: 0
+  }
   const percent = Math.max(0, Math.min(100, Number(baseMap[status] ?? 8)))
-  const label = isProduction && status === 'producing'
-    ? (productionProcessText(row) || productionStatusLabel(status))
-    : (isProduction ? productionStatusLabel(status) : salesStatusLabel(status))
+  const label = row.fulfillmentTracked && status === 'producing'
+    ? (fulfillmentProcessText(row) || orderStatusLabel(status))
+    : orderStatusLabel(status)
   return {percent, label}
 }
 
-function productionProcessProgress(row = {}) {
+function fulfillmentProcessProgress(row = {}) {
   if (Number.isFinite(Number(row.processProgressPercent))) {
     return Number(row.processProgressPercent)
   }
@@ -2774,24 +2183,7 @@ function productionProcessProgress(row = {}) {
   return Math.round(40 + ((processIndex + 1) / Math.max(processOptions.length, 1)) * 38)
 }
 
-function productionProcessPercent(row = {}) {
-  row = row || {}
-  if (Number.isFinite(Number(row.processProgressPercent))) {
-    return Math.max(0, Math.min(100, Number(row.processProgressPercent)))
-  }
-  const status = row?.status || ''
-  if (['pending_ship', 'shipped', 'completed'].includes(status)) {
-    return 100
-  }
-  if (status !== 'producing') {
-    return 0
-  }
-  const processValue = Number(row.process)
-  const completedIndex = Number.isFinite(processValue) ? Math.max(-1, Math.min(processOptions.length - 1, processValue)) : -1
-  return Math.max(0, Math.min(100, Math.round(((completedIndex + 1) * 100) / Math.max(processOptions.length, 1))))
-}
-
-function productionProcessSteps(row = {}) {
+function fulfillmentProcessSteps(row = {}) {
   row = row || {}
   if (Array.isArray(row.processSteps) && row.processSteps.length) {
     return row.processSteps.map((step, index) => ({
@@ -2818,7 +2210,7 @@ function productionProcessSteps(row = {}) {
   }))
 }
 
-function productionProcessText(row = {}) {
+function fulfillmentProcessText(row = {}) {
   row = row || {}
   return row.currentProcessText || row.processText || row.completedProcessText || ''
 }
@@ -3014,25 +2406,25 @@ function productionProcessText(row = {}) {
   transition: width .25s ease;
 }
 
-.production-process-mini {
+.fulfillment-process-mini {
   margin-top: .55rem;
   max-width: 19rem;
 }
 
-.production-process-current {
+.fulfillment-process-current {
   margin-bottom: .42rem;
   font-size: .7rem;
   font-weight: 800;
   color: var(--order-row-text, rgb(var(--primary)));
 }
 
-.production-process-steps {
+.fulfillment-process-steps {
   display: flex;
   flex-wrap: wrap;
   gap: .35rem;
 }
 
-.production-process-step {
+.fulfillment-process-step {
   border-radius: 999px;
   border: 1px solid rgba(100, 116, 139, .18);
   background: rgba(148, 163, 184, .12);
@@ -3044,27 +2436,27 @@ function productionProcessText(row = {}) {
   white-space: nowrap;
 }
 
-.production-process-step.done {
+.fulfillment-process-step.done {
   border-color: color-mix(in srgb, var(--order-row-text, #16a34a) 42%, white);
   background: color-mix(in srgb, var(--order-row-text, #16a34a) 14%, white);
   color: var(--order-row-text, #16a34a);
 }
 
-.production-process-step.current {
+.fulfillment-process-step.current {
   border-color: var(--order-row-text, rgb(var(--primary)));
   background: var(--order-row-text, rgb(var(--primary)));
   color: white;
   box-shadow: 0 8px 18px color-mix(in srgb, var(--order-row-text, rgb(var(--primary))) 22%, transparent);
 }
 
-.production-process-detail {
+.fulfillment-process-detail {
   border-radius: 1rem;
   border: 1px solid rgba(31, 63, 95, .16);
   background: linear-gradient(135deg, rgba(248, 251, 255, .96), rgba(255, 255, 255, .98));
   padding: 1rem;
 }
 
-.production-process-detail-head {
+.fulfillment-process-detail-head {
   display: flex;
   align-items: center;
   gap: .6rem;
@@ -3073,19 +2465,19 @@ function productionProcessText(row = {}) {
   font-size: .78rem;
 }
 
-.production-process-detail-head strong {
+.fulfillment-process-detail-head strong {
   color: rgb(var(--on-surface));
   font-size: .95rem;
 }
 
-.production-process-detail-head em {
+.fulfillment-process-detail-head em {
   margin-left: auto;
   color: rgb(var(--primary));
   font-style: normal;
   font-weight: 900;
 }
 
-.production-process-steps-detail {
+.fulfillment-process-steps-detail {
   margin-top: .7rem;
 }
 

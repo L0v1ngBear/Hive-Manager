@@ -567,9 +567,6 @@ public class ApprovalService {
             }
             String targetStatus = resolveProductionApprovalNextStatus(productionOrder);
             orderService.approveProductionOrderTransition(request.getOrderId(), targetStatus, remark);
-            if (ORDER_STATUS_PENDING_MATERIAL.equals(targetStatus)) {
-                orderService.enqueueProductionOrderFlowPrintTaskAfterApproval(request.getOrderId());
-            }
             approvalAuditorCandidateService.closeActiveCandidates(productionOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
             return;
         }
