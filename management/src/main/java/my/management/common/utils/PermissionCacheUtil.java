@@ -65,10 +65,10 @@ public class PermissionCacheUtil {
     }
 
     private String buildManagementKey(String tenantCode, Long userId) {
-        return redisKeyBuilder.cache("management", "perm", tenantCode, String.valueOf(userId));
+        return redisKeyBuilder.cache("management", "perm-v2", tenantCode, String.valueOf(userId));
     }
 
     private String buildMiniKey(String tenantCode, Long userId) {
-        return redisKeyBuilder.cache("mini", "perm", tenantCode, String.valueOf(userId));
+        return redisKeyBuilder.cache("mini", "perm-v2", tenantCode, String.valueOf(userId));
     }
 }

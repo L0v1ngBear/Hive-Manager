@@ -22,14 +22,11 @@ import my.management.module.employee.model.entity.EmployeeExt;
 import my.management.module.employee.model.entity.Position;
 import my.management.module.employee.model.enums.EmployeeStatusEnum;
 import my.management.module.employee.model.enums.EmployeeTypeEnum;
-import my.management.module.sys.mapper.SysPermissionMapper;
 import my.management.module.sys.mapper.SysRoleMapper;
-import my.management.module.sys.mapper.SysRolePermissionMapper;
 import my.management.module.sys.mapper.SysUserRoleMapper;
-import my.management.module.sys.model.entity.SysPermission;
 import my.management.module.sys.model.entity.SysRole;
-import my.management.module.sys.model.entity.SysRolePermission;
 import my.management.module.sys.model.entity.SysUserRole;
+import my.management.module.sys.service.BuiltInRoleProvisionService;
 import my.management.module.tenant.mapper.TenantMapper;
 import my.management.module.tenant.model.dto.TenantLicenseUpdateRequest;
 import my.management.module.tenant.model.dto.TenantOwnerAccountRequest;
@@ -45,9 +42,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.Locale;
@@ -71,19 +68,6 @@ public class TenantManageService {
     private static final int MAX_OWNER_NAME_LENGTH = 50;
     private static final int MAX_LOGIN_NAME_LENGTH = 64;
     private static final int MAX_PHONE_LENGTH = 20;
-    private static final Set<String> EMPLOYEE_BASELINE_PERMISSIONS = Set.of(
-            "attendance:punch",
-            "attendance:record:list",
-            "approval:leave:submit",
-            "approval:leave:detail",
-            "approval:finance:submit",
-            "approval:finance:detail",
-            "approval:resignation:submit",
-            "approval:resignation:detail",
-            "document:list",
-            "notification:announcement:list"
-    );
-
     @Resource
     private TenantMapper tenantMapper;
 
@@ -109,12 +93,6 @@ public class TenantManageService {
     private SysUserRoleMapper sysUserRoleMapper;
 
     @Resource
-    private SysPermissionMapper sysPermissionMapper;
-
-    @Resource
-    private SysRolePermissionMapper sysRolePermissionMapper;
-
-    @Resource
     private EncryptUtil encryptUtil;
 
     @Resource
@@ -125,6 +103,9 @@ public class TenantManageService {
 
     @Resource
     private PermissionCacheUtil permissionCacheUtil;
+
+    @Resource
+    private BuiltInRoleProvisionService builtInRoleProvisionService;
 
     @Resource
     private BusinessAttachmentService businessAttachmentService;
@@ -214,10 +195,9 @@ public class TenantManageService {
         withTenantContext(tenant.getTenantCode(), () -> {
             Department department = getOrCreateOwnerDepartment(tenant.getTenantCode(), request.getOwnerName());
             Position position = getOrCreateOwnerPosition(tenant.getTenantCode(), department.getId());
-            SysRole ownerRole = getOrCreateRole(tenant.getTenantCode(), OWNER_ROLE_CODE, OWNER_ROLE_NAME, 1);
-            SysRole employeeRole = getOrCreateRole(tenant.getTenantCode(), EMPLOYEE_ROLE_CODE, EMPLOYEE_ROLE_NAME, 1);
-            ensureOwnerRolePermissions(ownerRole.getId());
-            ensureEmployeeRolePermissions(employeeRole.getId());
+            Map<String, SysRole> builtInRoles = builtInRoleProvisionService.ensureTenantRoles(tenant.getTenantCode());
+            SysRole ownerRole = builtInRoles.get(OWNER_ROLE_CODE);
+            SysRole employeeRole = builtInRoles.get(EMPLOYEE_ROLE_CODE);
             Employee owner = resolveOrCreateOwnerEmployee(tenant.getTenantCode(), request, department, position);
             bindUserRole(owner.getId(), tenant.getTenantCode(), ownerRole.getId());
             reassignOwnerRole(tenant.getTenantCode(), owner.getId(), ownerRole.getId(), employeeRole.getId());
@@ -436,77 +416,6 @@ public class TenantManageService {
         created.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         positionMapper.insert(created);
         return created;
-    }
-
-    private SysRole getOrCreateRole(String tenantCode, String roleCode, String roleName, Integer isSystem) {
-        SysRole role = sysRoleMapper.selectOne(new LambdaQueryWrapper<SysRole>()
-                .eq(SysRole::getTenantCode, tenantCode)
-                .eq(SysRole::getRoleCode, roleCode)
-                .eq(SysRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
-                .last("LIMIT 1"));
-        if (role != null) {
-            if (!roleName.equals(role.getRoleName())) {
-                role.setRoleName(roleName);
-                sysRoleMapper.updateById(role);
-            }
-            return role;
-        }
-        SysRole created = new SysRole();
-        created.setTenantCode(tenantCode);
-        created.setRoleCode(roleCode);
-        created.setRoleName(roleName);
-        created.setIsSystem(isSystem);
-        created.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
-        sysRoleMapper.insert(created);
-        return created;
-    }
-
-    private void ensureOwnerRolePermissions(Long roleId) {
-        List<SysPermission> permissions = sysPermissionMapper.selectList(new LambdaQueryWrapper<SysPermission>()
-                .eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
-        List<SysRolePermission> rolePermissions = new ArrayList<>();
-        for (SysPermission permission : permissions) {
-            if (permission == null || shouldHideFromTenantOwner(permission.getPermCode())) {
-                continue;
-            }
-            SysRolePermission rolePermission = new SysRolePermission();
-            rolePermission.setRoleId(roleId);
-            rolePermission.setPermissionId(permission.getId());
-            rolePermission.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
-            rolePermissions.add(rolePermission);
-        }
-        if (!rolePermissions.isEmpty()) {
-            sysRolePermissionMapper.upsertBatch(rolePermissions);
-        }
-    }
-
-    private void ensureEmployeeRolePermissions(Long roleId) {
-        List<SysPermission> permissions = sysPermissionMapper.selectList(new LambdaQueryWrapper<SysPermission>()
-                .in(SysPermission::getPermCode, EMPLOYEE_BASELINE_PERMISSIONS)
-                .eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
-        List<SysRolePermission> rolePermissions = new ArrayList<>();
-        for (SysPermission permission : permissions) {
-            SysRolePermission rolePermission = new SysRolePermission();
-            rolePermission.setRoleId(roleId);
-            rolePermission.setPermissionId(permission.getId());
-            rolePermission.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
-            rolePermissions.add(rolePermission);
-        }
-        if (!rolePermissions.isEmpty()) {
-            sysRolePermissionMapper.upsertBatch(rolePermissions);
-        }
-    }
-
-    private boolean shouldHideFromTenantOwner(String permCode) {
-        if (!StringUtils.hasText(permCode)) {
-            return true;
-        }
-        return "*".equals(permCode)
-                || "*:*".equals(permCode)
-                || "super".equals(permCode)
-                || "developer:super".equals(permCode)
-                || "platform".equals(permCode)
-                || permCode.startsWith("platform:");
     }
 
     private void bindUserRole(Long userId, String tenantCode, Long roleId) {

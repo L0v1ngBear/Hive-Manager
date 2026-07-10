@@ -63,11 +63,27 @@ assert.ok(
   manifest.includes('migrations/V20260710_002_retire_production_order_print_tasks.sql'),
   'retired production-order print tasks must be removed from active printer queues'
 )
+assert.ok(
+  manifest.includes('migrations/V20260710_003_builtin_role_permission_matrix.sql'),
+  'built-in role permission matrix must be versioned after all historical migrations'
+)
+assert.ok(
+  manifest.includes('migrations/V20260710_004_order_role_status_scope.sql'),
+  'sales and production order scopes must be versioned after the role matrix'
+)
 
 const deployHealth = read('scripts/check-deploy-health.sh')
 assert.ok(
   deployHealth.includes('V20260710_001_installation_task_unique_key_repair.sql'),
   'deploy health check must guard the installation_task unique-key repair migration'
+)
+assert.ok(
+  deployHealth.includes('V20260710_003_builtin_role_permission_matrix.sql'),
+  'deploy health check must guard the built-in role permission matrix migration'
+)
+assert.ok(
+  deployHealth.includes('V20260710_004_order_role_status_scope.sql'),
+  'deploy health check must guard the sales/production order scope migration'
 )
 
 console.log('deploy migration immutability passed')

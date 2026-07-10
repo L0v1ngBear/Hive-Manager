@@ -56,6 +56,11 @@ public enum PermissionCodeEnum {
     INVENTORY_TREND("inventory:trend"),
     INVENTORY_WARNING_LIST("inventory:warning:list"),
     INVENTORY_WARNING_SETTING("inventory:warning:setting"),
+    INSTALLATION_ALL("installation:*"),
+    INSTALLATION_ATTACHMENT_DOWNLOAD("installation:attachment:download"),
+    INSTALLATION_ATTACHMENT_UPLOAD("installation:attachment:upload"),
+    INSTALLATION_LIST("installation:list"),
+    INSTALLATION_UPDATE("installation:update"),
     LABEL_TEMPLATE_DEFAULT("label:template:default"),
     LABEL_TEMPLATE_DETAIL("label:template:detail"),
     LABEL_TEMPLATE_DISABLE("label:template:disable"),
@@ -146,6 +151,11 @@ public enum PermissionCodeEnum {
     public static final String CODE_INVENTORY_TREND = "inventory:trend";
     public static final String CODE_INVENTORY_WARNING_LIST = "inventory:warning:list";
     public static final String CODE_INVENTORY_WARNING_SETTING = "inventory:warning:setting";
+    public static final String CODE_INSTALLATION_ALL = "installation:*";
+    public static final String CODE_INSTALLATION_ATTACHMENT_DOWNLOAD = "installation:attachment:download";
+    public static final String CODE_INSTALLATION_ATTACHMENT_UPLOAD = "installation:attachment:upload";
+    public static final String CODE_INSTALLATION_LIST = "installation:list";
+    public static final String CODE_INSTALLATION_UPDATE = "installation:update";
     public static final String CODE_LABEL_TEMPLATE_DEFAULT = "label:template:default";
     public static final String CODE_LABEL_TEMPLATE_DETAIL = "label:template:detail";
     public static final String CODE_LABEL_TEMPLATE_DISABLE = "label:template:disable";

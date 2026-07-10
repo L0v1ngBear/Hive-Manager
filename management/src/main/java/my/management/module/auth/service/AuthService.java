@@ -43,10 +43,10 @@ import my.management.module.employee.model.entity.Position;
 import my.management.module.employee.model.enums.EmployeeStatusEnum;
 import my.management.module.employee.model.enums.EmployeeTypeEnum;
 import my.management.module.notification.sms.SmsVerificationService;
-import my.management.module.sys.mapper.SysRoleMapper;
 import my.management.module.sys.mapper.SysUserRoleMapper;
 import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.model.entity.SysUserRole;
+import my.management.module.sys.service.BuiltInRoleProvisionService;
 import my.management.module.tenant.mapper.TenantMapper;
 import my.management.module.tenant.model.entity.Tenant;
 import my.management.module.tenant.service.TenantLicenseService;
@@ -65,6 +65,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -87,7 +88,6 @@ public class AuthService {
     private static final String PLATFORM_TENANT_CODE = "super";
     private static final String PLATFORM_LOGIN_NAME = "super";
     private static final String DEFAULT_JOIN_ROLE_CODE = "EMPLOYEE";
-    private static final String DEFAULT_JOIN_ROLE_NAME = "普通员工";
     private static final String DEFAULT_JOIN_DEPARTMENT = "待分配部门";
     private static final String DEFAULT_JOIN_POSITION = "普通员工";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -138,10 +138,10 @@ public class AuthService {
     private PositionMapper positionMapper;
 
     @Resource
-    private SysRoleMapper sysRoleMapper;
+    private SysUserRoleMapper sysUserRoleMapper;
 
     @Resource
-    private SysUserRoleMapper sysUserRoleMapper;
+    private BuiltInRoleProvisionService builtInRoleProvisionService;
 
     @Resource
     private CodeGeneratorUtil codeGeneratorUtil;
@@ -623,7 +623,8 @@ public class AuthService {
 
             Department department = getOrCreateJoinDepartment(tenantCode);
             Position position = getOrCreateJoinPosition(tenantCode, department.getId());
-            SysRole role = getOrCreateEmployeeRole(tenantCode);
+            Map<String, SysRole> builtInRoles = builtInRoleProvisionService.ensureTenantRoles(tenantCode);
+            SysRole role = builtInRoles.get(DEFAULT_JOIN_ROLE_CODE);
 
             Employee employee = reusableUnjoined == null ? new Employee() : reusableUnjoined;
             employee.setTenantCode(tenantCode);
@@ -707,25 +708,6 @@ public class AuthService {
         created.setStatus(CommonStatusEnum.ENABLED.getCode());
         created.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         positionMapper.insert(created);
-        return created;
-    }
-
-    private SysRole getOrCreateEmployeeRole(String tenantCode) {
-        SysRole role = sysRoleMapper.selectOne(new LambdaQueryWrapper<SysRole>()
-                .eq(SysRole::getTenantCode, tenantCode)
-                .eq(SysRole::getRoleCode, DEFAULT_JOIN_ROLE_CODE)
-                .eq(SysRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
-                .last("LIMIT 1"));
-        if (role != null) {
-            return role;
-        }
-        SysRole created = new SysRole();
-        created.setTenantCode(tenantCode);
-        created.setRoleCode(DEFAULT_JOIN_ROLE_CODE);
-        created.setRoleName(DEFAULT_JOIN_ROLE_NAME);
-        created.setIsSystem(1);
-        created.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
-        sysRoleMapper.insert(created);
         return created;
     }
 

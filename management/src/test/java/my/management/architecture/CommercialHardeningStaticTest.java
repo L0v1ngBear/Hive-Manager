@@ -324,6 +324,51 @@ class CommercialHardeningStaticTest {
     }
 
     @Test
+    void installationTaskEndpointsShouldUseDedicatedPermissions() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/controller/InstallationTaskController.java");
+        Map<String, String> expectedPermissions = Map.of(
+                "@GetMapping(\"/page\")", "CODE_INSTALLATION_LIST",
+                "@PostMapping(\"/status\")", "CODE_INSTALLATION_UPDATE",
+                "@PostMapping(\"/attachment/upload\")", "CODE_INSTALLATION_ATTACHMENT_UPLOAD",
+                "@GetMapping(\"/attachment/download\")", "CODE_INSTALLATION_ATTACHMENT_DOWNLOAD"
+        );
+        for (Map.Entry<String, String> entry : expectedPermissions.entrySet()) {
+            String block = annotationBlockForMapping(file, entry.getKey());
+            assertTrue(block.contains("PermissionCodeEnum." + entry.getValue()),
+                    entry.getKey() + " must require " + entry.getValue());
+            assertFalse(block.contains("PermissionCodeEnum.CODE_ORDER_LIST"),
+                    entry.getKey() + " must not borrow order:list");
+        }
+    }
+
+    @Test
+    void permissionCachesShouldUseVersionedKeys() throws IOException {
+        Path file = MAIN_SOURCE.resolve("my/management/common/utils/PermissionCacheUtil.java");
+        String content = Files.readString(file, StandardCharsets.UTF_8);
+        assertTrue(content.contains("\"perm-v2\""),
+                "Role-matrix rollout must use a new permission cache namespace");
+        assertFalse(content.contains("cache(\"management\", \"perm\""),
+                "Management permission reads must not reuse stale pre-migration cache entries");
+        assertFalse(content.contains("cache(\"mini\", \"perm\""),
+                "Cross-app eviction must target the versioned mini permission key");
+    }
+
+    @Test
+    void tenantRoleProvisioningShouldBeCentralized() throws IOException {
+        Path tenantService = MAIN_SOURCE.resolve("my/management/module/tenant/service/TenantManageService.java");
+        Path authService = MAIN_SOURCE.resolve("my/management/module/auth/service/AuthService.java");
+        String tenantContent = Files.readString(tenantService, StandardCharsets.UTF_8);
+        String authContent = Files.readString(authService, StandardCharsets.UTF_8);
+
+        assertTrue(tenantContent.contains("builtInRoleProvisionService.ensureTenantRoles(tenant.getTenantCode())"),
+                "Owner initialization must provision the complete built-in role catalog");
+        assertTrue(authContent.contains("builtInRoleProvisionService.ensureTenantRoles(tenantCode)"),
+                "Organization join must provision missing built-in roles before assigning EMPLOYEE");
+        assertFalse(tenantContent.contains("EMPLOYEE_BASELINE_PERMISSIONS"),
+                "Employee baseline must have one source in BuiltInRoleCatalog");
+    }
+
+    @Test
     void documentNameUniquenessShouldBeScopedByTenant() throws IOException {
         Path file = MAIN_SOURCE.resolve("my/management/module/document/service/DocumentService.java");
         String content = Files.readString(file, StandardCharsets.UTF_8);
