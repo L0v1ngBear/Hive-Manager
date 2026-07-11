@@ -14,10 +14,12 @@
 - Never add the destructive cleanup SQL to `db-migrations/migration_manifest.txt` or an automatic restart path.
 - The target tenant is fixed to `TENANT_002`; it is not a caller-supplied parameter.
 - Running without `CONFIRM_REMOVE_TENANT_002=YES` must be read-only.
+- Preview mode must not start or recreate containers, and `.env` must not be able to enable destructive mode.
 - A fresh verified MySQL backup must complete before the destructive SQL runs.
 - `TENANT_001`, `super`, global permissions, and schema migration history must remain untouched.
 - Database deletion must commit atomically or roll back and restore foreign-key checking.
-- Redis and filesystem deletion must be limited to the exact `TENANT_002` marker.
+- Database deletion must reject any affected non-InnoDB table before starting the transaction.
+- Redis deletion must require `TENANT_002` as an exact colon-delimited key segment; filesystem deletion must use the exact tenant directory name.
 
 ---
 
@@ -42,6 +44,7 @@ import { createHash } from 'node:crypto'
 
 const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
 const read = (relativePath) => fs.readFileSync(path.join(deployRoot, relativePath), 'utf8')
+const readBuffer = (relativePath) => fs.readFileSync(path.join(deployRoot, relativePath))
 
 const wrapperPath = path.join(deployRoot, 'scripts/manual-remove-tenant-002.sh')
 const sqlPath = path.join(deployRoot, 'db-migrations/manual/V20260711_001_remove_tenant_002.sql')
@@ -51,12 +54,14 @@ assert.ok(fs.existsSync(sqlPath), 'TENANT_002 cleanup SQL must exist')
 const wrapper = read('scripts/manual-remove-tenant-002.sh')
 const cleanupSql = read('db-migrations/manual/V20260711_001_remove_tenant_002.sql')
 const manifest = read('db-migrations/migration_manifest.txt')
-const historical = read('db-migrations/migrations/V20260530_001_second_tenant_seed.sql')
+const historical = readBuffer('db-migrations/migrations/V20260530_001_second_tenant_seed.sql')
 const deployHealth = read('scripts/check-deploy-health.sh')
 const uploadGuide = read('UPLOAD_STEPS.md')
 
 assert.ok(wrapper.includes('CONFIRM_REMOVE_TENANT_002'), 'cleanup must require explicit confirmation')
 assert.ok(wrapper.includes('preview_tenant_data'), 'cleanup must provide read-only preview')
+assert.ok(!wrapper.slice(0, wrapper.indexOf('if [ "${operator_confirmation}"')).includes('docker compose up'),
+  'preview must not start or recreate containers')
 assert.ok(wrapper.indexOf('backup-online.sh') < wrapper.indexOf('mysql_root_db < "${CLEANUP_SQL}"'),
   'backup must run before destructive SQL')
 assert.ok(wrapper.includes('verify-latest-backup.sh'), 'backup must be verified')
@@ -70,6 +75,7 @@ assert.ok(cleanupSql.includes('START TRANSACTION'), 'cleanup must be transaction
 assert.ok(cleanupSql.includes('ROLLBACK'), 'cleanup must roll back on failure')
 assert.ok(cleanupSql.includes('RESIGNAL'), 'cleanup must preserve SQL failure')
 assert.ok(cleanupSql.includes('information_schema.COLUMNS'), 'cleanup must cover every tenant_code table')
+assert.ok(cleanupSql.includes('nontransactional_table_count'), 'cleanup must reject nontransactional tables')
 assert.ok(cleanupSql.includes('DELETE role_permission'), 'role permissions require explicit child cleanup')
 assert.ok(cleanupSql.lastIndexOf('DELETE FROM `tenant`') > cleanupSql.lastIndexOf('EXECUTE cleanup_stmt'),
   'tenant row must be deleted last')
@@ -137,6 +143,7 @@ BEGIN
   DECLARE done INT DEFAULT 0;
   DECLARE tenant_table VARCHAR(64);
   DECLARE previous_foreign_key_checks INT DEFAULT 1;
+  DECLARE nontransactional_table_count INT DEFAULT 0;
   DECLARE tenant_tables CURSOR FOR
     SELECT column_item.TABLE_NAME
     FROM information_schema.COLUMNS column_item
@@ -160,6 +167,7 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Refusing cleanup for an unexpected tenant';
   END IF;
 
+  -- Reject affected non-InnoDB tables before START TRANSACTION.
   SET previous_foreign_key_checks = @@FOREIGN_KEY_CHECKS;
   START TRANSACTION;
   SET FOREIGN_KEY_CHECKS = 0;
@@ -279,10 +287,11 @@ Use these exact SQL predicates:
 The main flow must preview first, then exit successfully unless the exact confirmation is present:
 
 ```bash
-docker compose up -d mysql redis >/dev/null
+wait_for_mysql
+wait_for_redis
 preview_tenant_data
 
-if [ "${CONFIRM_REMOVE_TENANT_002:-NO}" != 'YES' ]; then
+if [ "${operator_confirmation}" != 'YES' ]; then
   echo 'Preview only. Re-run with CONFIRM_REMOVE_TENANT_002=YES to delete.'
   exit 0
 fi
@@ -310,6 +319,7 @@ redis_cli+=(redis redis-cli --raw)
 
 while IFS= read -r redis_key; do
   [ -n "${redis_key}" ] || continue
+  redis_key_has_target_segment "${redis_key}" || continue
   "${redis_cli[@]}" UNLINK "${redis_key}" >/dev/null
 done < <("${redis_cli[@]}" --scan --pattern '*TENANT_002*')
 

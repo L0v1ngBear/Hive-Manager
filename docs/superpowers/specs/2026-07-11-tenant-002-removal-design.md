@@ -28,14 +28,16 @@ The cleanup is a manual commercial-launch operation and is never added to `migra
 ## Safety Model
 
 - The target is hard-coded as `TENANT_002`; callers cannot supply another tenant code.
-- Running without `CONFIRM_REMOVE_TENANT_002=YES` is read-only and prints candidate counts.
+- Running without `CONFIRM_REMOVE_TENANT_002=YES` is read-only, requires the released MySQL and Redis services to already be running, and prints database, cache, and upload candidate counts without starting or recreating containers.
+- The operator confirmation is captured before `.env` is sourced, so a deployment setting cannot silently enable destructive mode.
 - Destructive mode requires a fresh verified MySQL backup before any delete.
 - The SQL explicitly deletes role-permission rows whose owning roles belong to `TENANT_002`, then deletes every table in the `hive` schema that has a `tenant_code` column, and deletes the tenant row last.
+- The SQL refuses to begin unless every affected business table uses InnoDB, preserving the transaction rollback guarantee.
 - Dynamically discovered table names must come only from `information_schema` and match `^[A-Za-z0-9_]+$` before being quoted.
 - All database deletes execute in one transaction with foreign-key checks restored on both success and failure.
 - The script refuses to target `TENANT_001`, `super`, an empty tenant code, or a database other than the configured Hive business database.
 - Upload deletion is limited to resolved directories named exactly `TENANT_002` beneath `/root/hive/uploads`.
-- Redis cleanup removes only keys whose names contain the exact `TENANT_002` marker.
+- Redis discovery uses `*TENANT_002*`, but deletion additionally requires `TENANT_002` to be an exact colon-delimited key segment.
 
 ## Data Coverage
 
