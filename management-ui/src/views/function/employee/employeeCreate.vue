@@ -152,8 +152,10 @@
           <div class="col-span-2">
             <label class="ml-1 mb-2 block text-xs font-semibold text-on-surface-variant">考勤要求</label>
             <el-radio-group v-model="form.attendanceRequired" class="grid grid-cols-2 gap-3">
-              <label class="cursor-pointer">
-                <input v-model.number="form.attendanceRequired" :value="1" class="peer hidden" name="attendanceRequired" type="radio" />
+              <el-radio
+                  :value="1"
+                  class="!m-0 !h-auto [&_.el-radio__input]:hidden [&_.el-radio__label]:w-full [&_.el-radio__label]:p-0"
+              >
                 <div
                     class="rounded-xl border p-4 transition-all"
                     :class="Number(form.attendanceRequired ?? 1) === 1
@@ -163,9 +165,11 @@
                   <div class="text-sm font-black">需要打卡</div>
                   <div class="mt-1 text-xs opacity-70">参与打卡、缺勤和异常统计。</div>
                 </div>
-              </label>
-              <label class="cursor-pointer">
-                <input v-model.number="form.attendanceRequired" :value="0" class="peer hidden" name="attendanceRequired" type="radio" />
+              </el-radio>
+              <el-radio
+                  :value="0"
+                  class="!m-0 !h-auto [&_.el-radio__input]:hidden [&_.el-radio__label]:w-full [&_.el-radio__label]:p-0"
+              >
                 <div
                     class="rounded-xl border p-4 transition-all"
                     :class="Number(form.attendanceRequired ?? 1) === 0
@@ -175,7 +179,7 @@
                   <div class="text-sm font-black">免打卡</div>
                   <div class="mt-1 text-xs opacity-70">不参与缺卡、缺勤和考勤日报补录。</div>
                 </div>
-              </label>
+              </el-radio>
             </el-radio-group>
           </div>
 
@@ -297,18 +301,12 @@
           </h3>
         </div>
         <el-radio-group v-model="form.status" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <label
+          <el-radio
               v-for="status in employmentStatuses"
               :key="status.value"
-              class="cursor-pointer"
+              :value="Number(status.value)"
+              class="!m-0 !h-auto [&_.el-radio__input]:hidden [&_.el-radio__label]:w-full [&_.el-radio__label]:p-0"
           >
-            <input
-                v-model="form.status"
-                :value="Number(status.value)"
-                class="peer hidden"
-                name="status"
-                type="radio"
-            />
             <div
                 class="h-full rounded-xl border p-4 shadow-sm transition-all"
                 :class="Number(form.status) === Number(status.value)
@@ -327,7 +325,7 @@
               </div>
               <p class="text-[10px] text-current opacity-70">保存后将同步至系统主数据。</p>
             </div>
-          </label>
+          </el-radio>
         </el-radio-group>
       </section>
     </div>
@@ -356,7 +354,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { ElDatePicker, ElDrawer, ElForm, ElInput, ElMessage, ElOption, ElRadioGroup, ElSelect } from 'element-plus'
+import { ElDatePicker, ElDrawer, ElForm, ElInput, ElMessage, ElOption, ElRadio, ElRadioGroup, ElSelect } from 'element-plus'
 import { useTenantFieldConfig } from '@/composables/useTenantFieldConfig'
 import { warnAndFocusField } from '@/utils/formFocus'
 import {

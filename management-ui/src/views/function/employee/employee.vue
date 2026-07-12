@@ -11,47 +11,47 @@
           <p class="function-page-desc">管理员工记录、入职及人事状态，联动组织架构和角色权限。</p>
         </div>
         <div class="flex gap-3">
-          <button
+          <el-button
               @click="openOrganizationDrawer"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">account_tree</span>组织架构
-          </button>
-          <button
+          </el-button>
+          <el-button
               v-permission="'employee:create'"
               @click="handleCreateJoinCode"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">vpn_key</span>组织码
-          </button>
-          <button
+          </el-button>
+          <el-button
               v-permission="'employee:export'"
               @click="handleTemplateDownload"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">description</span>导入模板
-          </button>
-          <button
+          </el-button>
+          <el-button
               v-permission="'employee:create'"
               @click="triggerImport"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">file_upload</span>导入员工
-          </button>
-          <button
+          </el-button>
+          <el-button
               v-permission="'employee:export'"
               @click="handleExport"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">download</span>导出 Excel
-          </button>
-          <button
+          </el-button>
+          <el-button
               v-permission="'employee:create'"
               @click="openCreateDrawer"
               class="px-5 py-2 bg-primary text-white font-bold rounded-lg flex items-center gap-2 shadow-md hover:bg-primary/90 transition-all text-sm active:scale-95"
           >
             <span class="material-symbols-outlined text-[20px]">person_add</span>添加员工
-          </button>
+          </el-button>
         </div>
       </div>
 
@@ -204,84 +204,6 @@
             </template>
           </el-table>
 
-          <table v-if="false" class="employee-table responsive-data-table w-full text-left border-collapse">
-            <colgroup>
-              <col v-for="field in visibleEmployeeColumns" :key="field.key" :style="employeeColumnStyle(field.key)" />
-              <col style="width: 124px" />
-            </colgroup>
-            <thead>
-            <tr class="bg-surface-container/30 text-on-surface-variant border-b border-surface-variant/50">
-              <th
-                  v-for="field in visibleEmployeeColumns"
-                  :key="field.key"
-                  class="px-3 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap"
-              >
-                {{ field.label }}
-              </th>
-              <th class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-center whitespace-nowrap">操作</th>
-            </tr>
-            </thead>
-            <tbody class="divide-y divide-surface-variant/50">
-            <tr v-for="emp in employees" :key="emp.id" class="cursor-pointer hover:bg-surface-container-high/50 transition-colors group" @click="showEmployeeDetail(emp.id)">
-              <td
-                  v-for="field in visibleEmployeeColumns"
-                  :key="field.key"
-                  :data-label="field.label"
-                  :class="employeeCellClass(field.key)"
-              >
-                <template v-if="field.key === 'name'">
-                <div>
-                  <p class="font-bold text-primary leading-none whitespace-nowrap">{{ emp.name }}</p>
-                  <p v-if="isEmployeeFieldVisible('employeeType')" class="text-[10px] text-on-surface-variant uppercase mt-1">{{ formatEmployeeType(emp.employeeType) }}</p>
-                </div>
-                </template>
-                <template v-else-if="field.key === 'departmentName'">
-                  <span :class="`inline-block max-w-full truncate px-2 py-0.5 rounded text-[11px] font-bold border ${departmentBadge(emp.departmentName)}`">
-                    {{ emp.departmentName || '--' }}
-                  </span>
-                </template>
-                <template v-else-if="field.key === 'attendanceRequired'">
-                  <span
-                      class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-black"
-                      :class="Number(emp.attendanceRequired ?? 1) === 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
-                  >
-                    {{ Number(emp.attendanceRequired ?? 1) === 1 ? '需要打卡' : '免打卡' }}
-                  </span>
-                </template>
-                <template v-else-if="field.key === 'attendanceLocationNames'">
-                  <span class="employee-cell-text">
-                    {{ Array.isArray(emp.attendanceLocationNames) && emp.attendanceLocationNames.length ? emp.attendanceLocationNames.join('、') : '全部地点' }}
-                  </span>
-                </template>
-                <template v-else-if="field.key === 'status'">
-                  <div :class="`flex items-center gap-1.5 font-bold text-xs ${statusMeta(emp.status).text}`">
-                    <span :class="`w-1.5 h-1.5 rounded-full ${statusMeta(emp.status).dot}`"></span>
-                    {{ statusMeta(emp.status).label }}
-                  </div>
-                </template>
-                <template v-else>
-                  <span class="employee-cell-text">{{ employeeColumnText(emp, field.key) }}</span>
-                </template>
-              </td>
-              <td class="px-3 py-3 text-center" data-label="操作">
-                <div class="flex justify-center gap-1 opacity-100">
-                  <button @click.stop="showEmployeeDetail(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="查看">
-                    <span class="material-symbols-outlined text-[18px]">visibility</span>
-                  </button>
-                  <button v-permission="'employee:update'" @click.stop="openEditDrawer(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="编辑">
-                    <span class="material-symbols-outlined text-[18px]">edit</span>
-                  </button>
-                  <button v-permission="'employee:update'" @click.stop="openPermissionDrawer(emp)" class="p-1.5 hover:bg-white rounded-md text-primary" title="单独权限">
-                    <span class="material-symbols-outlined text-[18px]">admin_panel_settings</span>
-                  </button>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="!loading && employees.length === 0">
-              <td :colspan="employeeTableColumnCount" class="px-6 py-12 text-center text-sm text-on-surface-variant">未找到员工记录。</td>
-            </tr>
-            </tbody>
-          </table>
         </div>
 
         <div class="p-4 bg-surface-container/20 flex flex-wrap items-center justify-between gap-4 text-sm text-on-surface-variant border-t border-surface-variant/50">
@@ -414,7 +336,6 @@ import {
   defaultTenantFieldConfig,
   mergeTenantFieldConfig,
   tenantFieldLabel,
-  tenantFieldVisible,
   visibleTenantFields
 } from '@/utils/tenantFieldConfig'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
@@ -472,8 +393,6 @@ const query = reactive({
 
 // --- 计算属性 ---
 const totalPages = computed(() => Math.max(pagination.pages || 1, 1))
-const pageStart = computed(() => (pagination.total === 0 ? 0 : (query.page - 1) * query.size + 1))
-const pageEnd = computed(() => Math.min(query.page * query.size, pagination.total || 0))
 const employeeColumnRenderers = new Set(['name', 'empNo', 'departmentName', 'positionName', 'phone', 'email', 'leaderName', 'entryDate', 'attendanceRequired', 'attendanceLocationNames', 'status'])
 const defaultEmployeeColumns = computed(() => visibleTenantFields(employeeFieldConfig.value, 'name').filter((field) => employeeColumnRenderers.has(field.key)))
 const {
@@ -481,7 +400,6 @@ const {
   moveColumn: moveEmployeeTableColumn,
   resetColumns: resetEmployeeTableColumns
 } = useLocalTableColumns('employee.list', defaultEmployeeColumns)
-const employeeTableColumnCount = computed(() => visibleEmployeeColumns.value.length + 1)
 const employeeColumnWidths = {
   name: '140px',
   empNo: '92px',
@@ -576,8 +494,6 @@ const handleCreateSuccess = async () => {
   await Promise.all([fetchEmployees(), fetchStats()])
 }
 
-const isEmployeeFieldVisible = (key) => tenantFieldVisible(employeeFieldConfig.value, key)
-
 const employeeColumnText = (emp, key) => {
   if (!emp) return '--'
   if (key === 'empNo') return emp.empNo || '--'
@@ -592,18 +508,6 @@ const employeeColumnText = (emp, key) => {
   if (key === 'remark') return emp.remark || '--'
   return emp[key] || '--'
 }
-
-const employeeCellClass = (key) => {
-  const base = 'px-3 py-3 text-sm whitespace-nowrap overflow-hidden text-ellipsis'
-  if (key === 'empNo') return `${base} font-mono text-sm text-secondary`
-  if (key === 'positionName') return `${base} text-sm font-bold text-primary`
-  if (key === 'entryDate') return `${base} text-sm text-on-surface-variant font-medium`
-  return base
-}
-
-const employeeColumnStyle = (key) => ({
-  width: employeeColumnWidths[key] || '104px'
-})
 
 const employeeDetailLines = (detail) => visibleEmployeeColumns.value
     .filter((field) => field.key !== 'name')
@@ -733,17 +637,6 @@ const normalizeQuery = () => ({
 
 const formatPercent = (value) => `${Number(value || 0).toFixed(2)}%`
 const formatEmployeeType = (value) => ({ FULL_TIME: '全职', CONTRACT: '合同工', PROBATION: '试用期' }[value] || value || '--')
-
-const departmentBadge = (name) => {
-  const palettes = [
-    'bg-blue-50 text-blue-700 border-blue-200',
-    'bg-amber-50 text-amber-700 border-amber-200',
-    'bg-emerald-50 text-emerald-700 border-emerald-200',
-    'bg-slate-100 text-slate-700 border-slate-200'
-  ]
-  const index = Math.abs((name || '').split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0)) % palettes.length
-  return palettes[index]
-}
 
 const statusMeta = (status) => {
   const s = Number(status)
