@@ -84,3 +84,49 @@ test('retains Chinese production copy without English placeholders or mojibake',
     ['label="Search"', 'label="Status"', 'label="Pending"', 'label="In review"', 'label="Processed"', 'label="Type"', 'label="Date"', 'label="Actions"', '>Detail<', '>Edit<', '>Process<', 'label="Order"', 'label="Description"', 'label="Attachment"', '>Cancel<', '>Save<', '>Submit<']
   )
 })
+
+test('separates cancel click handlers from Element Plus before-close callbacks', () => {
+  assert.match(installationTask, /:before-close="beforeCloseEditor"/)
+  assert.match(installationTask, /@click="closeEditor"/)
+  assert.match(installationTask, /function closeEditor\(\)\s*\{/)
+  assert.match(installationTask, /function beforeCloseEditor\(done\)\s*\{/)
+  assert.match(installationTask, /typeof done === 'function'/)
+  assert.doesNotMatch(installationTask, /function closeEditor\(done\)/)
+
+  for (const [clickHandler, beforeCloseHandler] of [
+    ['closeForm', 'beforeCloseForm'],
+    ['closeProcess', 'beforeCloseProcess']
+  ]) {
+    assert.match(quality, new RegExp(`@click="${clickHandler}"`))
+    assert.match(quality, new RegExp(`:before-close="${beforeCloseHandler}"`))
+    assert.match(quality, new RegExp(`function ${clickHandler}\\(\\)\\s*\\{`))
+    assert.match(quality, new RegExp(`function ${beforeCloseHandler}\\(done\\)\\s*\\{`))
+    assert.doesNotMatch(quality, new RegExp(`function ${clickHandler}\\(done\\)`))
+  }
+  assert.match(quality, /typeof done === 'function'/)
+})
+
+function assertPersistentRequestStates(source, pageName, retryHandler) {
+  assert.match(source, /const requestState = ref\('loading'\)/, `${pageName} should persist request state`)
+  assert.match(source, /const requestErrorMessage = ref\(''\)/, `${pageName} should persist request errors`)
+  assert.match(source, /rows\.value = \[\]/, `${pageName} should clear stale rows`)
+  assert.match(source, /status === 401/, `${pageName} should identify unauthenticated requests`)
+  assert.match(source, /status === 403/, `${pageName} should identify forbidden requests`)
+  assert.match(source, /status >= 500/, `${pageName} should identify server failures`)
+  assert.match(source, /网络连接异常/, `${pageName} should identify network failures`)
+  assert.match(source, /服务暂时不可用/, `${pageName} should identify server failures separately`)
+  assert.match(source, /state: 'permission'/)
+  assert.match(source, /state: 'error'/)
+  assert.match(source, /requestState\.value = failure\.state/)
+  assert.match(source, /requestState\.value = 'ready'/)
+  assert.match(source, /v-if="requestState === 'loading'"/)
+  assert.match(source, /v-else-if="requestState === 'permission'"/)
+  assert.match(source, /v-else-if="requestState === 'error'"/)
+  assert.match(source, /重新加载/)
+  assert.match(source, new RegExp(`@click="${retryHandler}"`))
+}
+
+test('keeps mutually exclusive persistent request states and retry controls', () => {
+  assertPersistentRequestStates(installationTask, 'installation task', 'loadTasks')
+  assertPersistentRequestStates(quality, 'quality', 'fetchData')
+})

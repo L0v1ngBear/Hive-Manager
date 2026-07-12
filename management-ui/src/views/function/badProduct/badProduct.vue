@@ -98,8 +98,25 @@
           </div>
         </el-form>
 
+        <div
+          v-if="requestState === 'loading'"
+          v-loading="true"
+          class="min-h-[300px]"
+          aria-label="质量记录加载中"
+        />
+        <div v-else-if="requestState === 'permission'" class="min-h-[300px]">
+          <el-empty :description="requestErrorMessage">
+            <el-button type="primary" @click="fetchData">重新加载</el-button>
+          </el-empty>
+        </div>
+        <div v-else-if="requestState === 'error'" class="min-h-[300px]">
+          <el-empty :description="requestErrorMessage">
+            <el-button type="primary" @click="fetchData">重新加载</el-button>
+          </el-empty>
+        </div>
+        <template v-else>
         <el-table
-          v-loading="loading"
+          v-loading="false"
           :data="rows"
           row-key="defectiveId"
           class="quality-table"
@@ -176,6 +193,7 @@
             @current-change="changePage"
           />
         </div>
+        </template>
       </section>
     </div>
 
@@ -233,7 +251,7 @@
       :title="editingRecord ? scopeMeta.editTitle : scopeMeta.createTitle"
       size="520px"
       append-to-body
-      :before-close="closeForm"
+      :before-close="beforeCloseForm"
     >
       <el-form :model="form" label-position="top">
         <BusinessTimeCorrectionPanel
@@ -304,8 +322,14 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="closeForm">取消</el-button>
-        <el-button v-permission="'badproduct:save'" type="primary" @click="submitForm">
+        <el-button :disabled="saving || attachmentUploading" @click="closeForm">取消</el-button>
+        <el-button
+          v-permission="'badproduct:save'"
+          type="primary"
+          :loading="saving"
+          :disabled="attachmentUploading"
+          @click="submitForm"
+        >
           保存
         </el-button>
       </template>
@@ -316,7 +340,7 @@
       :title="scopeMeta.processTitle"
       size="520px"
       append-to-body
-      :before-close="closeProcess"
+      :before-close="beforeCloseProcess"
     >
       <div v-if="processingRecord" class="mb-5 bg-surface-container-low p-4 text-sm">
         <p>关联订单：{{ processingRecord.orderId || '未关联' }}</p>
@@ -365,8 +389,13 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="closeProcess">取消</el-button>
-        <el-button v-permission="'badproduct:process'" type="primary" @click="submitProcess">
+        <el-button :disabled="processing" @click="closeProcess">取消</el-button>
+        <el-button
+          v-permission="'badproduct:process'"
+          type="primary"
+          :loading="processing"
+          @click="submitProcess"
+        >
           提交审核
         </el-button>
       </template>
@@ -491,7 +520,9 @@ const {
 const badProductTableColumnCount = computed(() => badProductTableColumns.value.length + 1)
 
 const rows = ref([])
-const loading = ref(false)
+const requestState = ref('loading')
+const requestErrorMessage = ref('')
+const loading = computed(() => requestState.value === 'loading')
 const pagination = reactive({ total: 0, pages: 0 })
 const query = reactive({ pageNum: 1, pageSize: 10, status: '', type: '', date: '', keyword: '', startDate: '', endDate: '' })
 const activeScope = ref('quality')
@@ -502,6 +533,8 @@ const editingRecord = ref(null)
 const processVisible = ref(false)
 const processingRecord = ref(null)
 const attachmentUploading = ref(false)
+const saving = ref(false)
+const processing = ref(false)
 const form = reactive(createEmptyForm())
 const processForm = reactive({
   responsiblePerson: '',
@@ -549,7 +582,11 @@ function handleScopeChange(scope) {
 }
 
 async function fetchData() {
-  loading.value = true
+  requestState.value = 'loading'
+  requestErrorMessage.value = ''
+  rows.value = []
+  pagination.total = 0
+  pagination.pages = 0
   try {
     const data = await getBadProductPage({
       ...query,
@@ -564,9 +601,32 @@ async function fetchData() {
     rows.value = data.data || []
     pagination.total = Number(data.total || 0)
     pagination.pages = Number(data.pages || 0)
-  } finally {
-    loading.value = false
+    requestState.value = 'ready'
+  } catch (error) {
+    const failure = resolveRequestFailure(error)
+    rows.value = []
+    pagination.total = 0
+    pagination.pages = 0
+    requestState.value = failure.state
+    requestErrorMessage.value = failure.message
   }
+}
+
+function resolveRequestFailure(error) {
+  const status = Number(error?.response?.status || 0)
+  if (status === 401) {
+    return { state: 'permission', message: '登录状态已失效，请重新登录后重试。' }
+  }
+  if (status === 403) {
+    return { state: 'permission', message: '当前账号暂无质量记录查看权限，请联系管理员。' }
+  }
+  if (!error?.response) {
+    return { state: 'error', message: '网络连接异常，请检查网络后重新加载。' }
+  }
+  if (status >= 500) {
+    return { state: 'error', message: '服务暂时不可用，请稍后重新加载。' }
+  }
+  return { state: 'error', message: '质量记录加载失败，请重新加载。' }
 }
 
 function handleFilter() {
@@ -633,12 +693,26 @@ function openEdit(record) {
   formVisible.value = true
 }
 
-function closeForm(done) {
+function canCloseForm() {
+  return !saving.value && !attachmentUploading.value
+}
+
+function finishCloseForm() {
   formVisible.value = false
   closeTimeCorrectionMode()
   editingRecord.value = null
   resetForm()
-  done?.()
+}
+
+function closeForm() {
+  if (!canCloseForm()) return
+  finishCloseForm()
+}
+
+function beforeCloseForm(done) {
+  if (!canCloseForm()) return
+  finishCloseForm()
+  if (typeof done === 'function') done()
 }
 
 function openProcess(record) {
@@ -650,11 +724,25 @@ function openProcess(record) {
   processVisible.value = true
 }
 
-function closeProcess(done) {
+function canCloseProcess() {
+  return !processing.value
+}
+
+function finishCloseProcess() {
   processVisible.value = false
   processingRecord.value = null
   resetProcessForm()
-  done?.()
+}
+
+function closeProcess() {
+  if (!canCloseProcess()) return
+  finishCloseProcess()
+}
+
+function beforeCloseProcess(done) {
+  if (!canCloseProcess()) return
+  finishCloseProcess()
+  if (typeof done === 'function') done()
 }
 
 function closePanels() {
@@ -714,6 +802,9 @@ async function submitForm() {
   if (!ensurePermission('badproduct:save')) {
     return
   }
+  if (saving.value) {
+    return
+  }
   if (!form.quantity || Number(form.quantity) <= 0) {
     return warnAndFocusField('请填写有效的异常数量', 'badProduct.quantity')
   }
@@ -724,25 +815,33 @@ async function submitForm() {
     return
   }
 
-  await saveBadProduct({
-    defectiveId: form.defectiveId || undefined,
-    orderId: form.orderId || undefined,
-    type: form.type,
-    quantity: Number(form.quantity),
-    lossAmount: Number(form.lossAmount),
-    description: form.description || undefined,
-    attachmentName: form.attachmentName || undefined,
-    attachmentUrl: form.attachmentUrl || undefined,
-    attachmentSize: form.attachmentSize || undefined,
-    createTime: formatCreateTimePayload(form.createTime) || undefined
-  })
-  ElMessage.success(editingRecord.value ? '质量记录已更新' : '质量记录已新增')
+  saving.value = true
+  try {
+    await saveBadProduct({
+      defectiveId: form.defectiveId || undefined,
+      orderId: form.orderId || undefined,
+      type: form.type,
+      quantity: Number(form.quantity),
+      lossAmount: Number(form.lossAmount),
+      description: form.description || undefined,
+      attachmentName: form.attachmentName || undefined,
+      attachmentUrl: form.attachmentUrl || undefined,
+      attachmentSize: form.attachmentSize || undefined,
+      createTime: formatCreateTimePayload(form.createTime) || undefined
+    })
+    ElMessage.success(editingRecord.value ? '质量记录已更新' : '质量记录已新增')
+  } finally {
+    saving.value = false
+  }
   closeForm()
   await fetchData()
 }
 
 async function submitProcess() {
   if (!ensurePermission('badproduct:process')) {
+    return
+  }
+  if (processing.value) {
     return
   }
   if (!processForm.responsiblePerson) {
@@ -758,15 +857,20 @@ async function submitProcess() {
     return warnAndFocusField('请填写改进方案', 'badProduct.improvementPlan')
   }
 
-  await processBadProduct({
-    defectiveId: processingRecord.value?.defectiveId,
-    method: processForm.method,
-    responsiblePerson: processForm.responsiblePerson,
-    processMeasure: processForm.processMeasure,
-    improvementPlan: processForm.improvementPlan,
-    remark: processForm.remark || undefined
-  })
-  ElMessage.success('质量处理已提交审核')
+  processing.value = true
+  try {
+    await processBadProduct({
+      defectiveId: processingRecord.value?.defectiveId,
+      method: processForm.method,
+      responsiblePerson: processForm.responsiblePerson,
+      processMeasure: processForm.processMeasure,
+      improvementPlan: processForm.improvementPlan,
+      remark: processForm.remark || undefined
+    })
+    ElMessage.success('质量处理已提交审核')
+  } finally {
+    processing.value = false
+  }
   closeProcess()
   await fetchData()
 }

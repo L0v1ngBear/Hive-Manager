@@ -58,3 +58,31 @@ ESLint result: passed with no output.
 Production build command: `npm run build`
 
 Production build result: passed. Vite transformed 1842 modules and completed the production bundle in 8.75 seconds.
+
+## Second Review Fixes
+
+- Split normal cancel-click handlers from Element Plus `before-close` callbacks. Click handlers are argument-free; `before-close` handlers invoke `done` only when it is a function.
+- Preserved installation saving/uploading close guards and added equivalent quality saving/uploading and processing guards.
+- Added persistent `loading`, `ready`, `permission`, and `error` list request states to both pages.
+- Requests clear stale rows and pagination before loading and again on failure. HTTP 401/403 use permission-state copy; network and HTTP 5xx use distinct failure copy. Permission and failure states expose retry commands.
+- Preserved installation logistics, construction, special-note and attachment payloads, plus quality scope, loss bracket, process, attachment, permission and time-correction payloads.
+
+Second review RED command: `node --test tests/element-plus-installation-quality.test.js`
+
+Second review RED result: failed as expected with 3 passing tests and 2 failing tests. Missing contracts were the separate `before-close` handlers and persistent request state.
+
+Second review GREEN command: `node --test tests/element-plus-installation-quality.test.js`
+
+Second review GREEN result: passed, 5 tests and 0 failures.
+
+Second review regression command: `node --test tests/element-plus-installation-quality.test.js tests/installation-task-shipped-logistics.test.js tests/installation-task-special-note.test.js`
+
+Second review regression result: passed, 7 tests and 0 failures. Both installation path regressions reported success.
+
+Second review ESLint command: `npx eslint src/views/function/installationTask/installationTask.vue src/views/function/badProduct/badProduct.vue tests/element-plus-installation-quality.test.js tests/installation-task-shipped-logistics.test.js tests/installation-task-special-note.test.js`
+
+Second review ESLint result: passed with no output.
+
+Second review production build command: `npm run build`
+
+Second review production build result: passed. Vite transformed 1842 modules and completed the production bundle in 8.98 seconds.

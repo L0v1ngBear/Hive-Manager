@@ -64,7 +64,24 @@
           </div>
         </el-form>
 
-        <el-table v-loading="loading" :data="rows" row-key="id" class="installation-table">
+        <div
+          v-if="requestState === 'loading'"
+          v-loading="true"
+          class="min-h-[280px]"
+          aria-label="安装任务加载中"
+        />
+        <div v-else-if="requestState === 'permission'" class="min-h-[280px]">
+          <el-empty :description="requestErrorMessage">
+            <el-button type="primary" @click="loadTasks">重新加载</el-button>
+          </el-empty>
+        </div>
+        <div v-else-if="requestState === 'error'" class="min-h-[280px]">
+          <el-empty :description="requestErrorMessage">
+            <el-button type="primary" @click="loadTasks">重新加载</el-button>
+          </el-empty>
+        </div>
+        <template v-else>
+        <el-table v-loading="false" :data="rows" row-key="id" class="installation-table">
           <el-table-column label="订单信息" min-width="220">
             <template #default="{ row }">
               <div class="installation-order-cell">
@@ -154,6 +171,7 @@
             @current-change="changePage"
           />
         </div>
+        </template>
       </section>
     </div>
 
@@ -161,7 +179,7 @@
       v-model="editorVisible"
       title="安装任务"
       width="760px"
-      :before-close="closeEditor"
+      :before-close="beforeCloseEditor"
       :close-on-click-modal="!saving && !attachmentUploading"
     >
       <div class="installation-modal-subtitle">
@@ -302,7 +320,9 @@ const pagination = reactive({
 })
 
 const rows = ref([])
-const loading = ref(false)
+const requestState = ref('loading')
+const requestErrorMessage = ref('')
+const loading = computed(() => requestState.value === 'loading')
 const editorVisible = ref(false)
 const saving = ref(false)
 const attachmentUploading = ref(false)
@@ -401,15 +421,42 @@ onMounted(() => {
 })
 
 async function loadTasks() {
-  loading.value = true
+  requestState.value = 'loading'
+  requestErrorMessage.value = ''
+  rows.value = []
+  pagination.total = 0
+  pagination.pages = 0
   try {
     const result = await getInstallationTaskPage({...filters})
     rows.value = result?.data || []
     pagination.total = Number(result?.total || 0)
     pagination.pages = Number(result?.pages || 0)
-  } finally {
-    loading.value = false
+    requestState.value = 'ready'
+  } catch (error) {
+    const failure = resolveRequestFailure(error)
+    rows.value = []
+    pagination.total = 0
+    pagination.pages = 0
+    requestState.value = failure.state
+    requestErrorMessage.value = failure.message
   }
+}
+
+function resolveRequestFailure(error) {
+  const status = Number(error?.response?.status || 0)
+  if (status === 401) {
+    return { state: 'permission', message: '登录状态已失效，请重新登录后重试。' }
+  }
+  if (status === 403) {
+    return { state: 'permission', message: '当前账号暂无安装任务查看权限，请联系管理员。' }
+  }
+  if (!error?.response) {
+    return { state: 'error', message: '网络连接异常，请检查网络后重新加载。' }
+  }
+  if (status >= 500) {
+    return { state: 'error', message: '服务暂时不可用，请稍后重新加载。' }
+  }
+  return { state: 'error', message: '安装任务加载失败，请重新加载。' }
 }
 
 function selectStatus(status) {
@@ -451,10 +498,19 @@ function openEditor(row) {
   editorVisible.value = true
 }
 
-function closeEditor(done) {
-  if (saving.value || attachmentUploading.value) return
+function canCloseEditor() {
+  return !saving.value && !attachmentUploading.value
+}
+
+function closeEditor() {
+  if (!canCloseEditor()) return
   editorVisible.value = false
-  done?.()
+}
+
+function beforeCloseEditor(done) {
+  if (!canCloseEditor()) return
+  editorVisible.value = false
+  if (typeof done === 'function') done()
 }
 
 async function submitEditor() {
