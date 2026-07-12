@@ -14,10 +14,12 @@
     ></div>
   </transition>
 
-  <aside
-      class="fixed top-0 right-0 z-50 flex h-full w-full max-w-2xl flex-col border-l border-outline-variant/30 bg-surface-container-lowest shadow-2xl transition-transform duration-300"
-      :class="visible ? 'translate-x-0' : 'translate-x-full'"
+  <el-drawer
+      v-model="visible"
+      :with-header="false"
+      size="680px"
   >
+    <div class="flex h-full flex-col">
     <div class="border-t-[4px] border-primary px-8 py-6">
       <div class="flex items-start justify-between gap-4">
         <div>
@@ -155,12 +157,13 @@
         保存权限
       </button>
     </div>
-  </aside>
+    </div>
+  </el-drawer>
 </template>
 
 <script setup>
 import { computed, nextTick, ref } from 'vue'
-import { ElMessage, ElTree, ElTreeSelect } from 'element-plus'
+import { ElDrawer, ElMessage, ElTree, ElTreeSelect } from 'element-plus'
 import { getAllPermissions } from '../role/api/role.js'
 import {
   getEmployeePermissionOverrides,

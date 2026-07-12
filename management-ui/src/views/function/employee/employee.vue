@@ -98,69 +98,71 @@
         <div class="p-4 bg-surface-container-low flex flex-wrap items-center gap-4 border-b border-surface-variant/50">
           <div class="flex-1 min-w-[300px] relative">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-            <input
+            <el-input
                 v-model.trim="query.keyword"
                 @keyup.enter="fetchEmployees"
-                type="text"
                 class="w-full pl-10 pr-4 py-2 bg-white border-none ring-1 ring-outline-variant/30 focus:ring-2 focus:ring-primary rounded-lg text-sm transition-all"
                 placeholder="按姓名、电话或工号搜索"
             />
           </div>
           <div class="flex items-center gap-3 flex-wrap">
-            <select
+            <el-select
                 v-model="query.departmentId"
                 @change="handleFilterChange"
                 class="pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary min-w-[160px] font-medium appearance-none"
+                placeholder="所有部门"
             >
-              <option value="">所有部门</option>
-              <option v-for="department in departments" :key="department.id" :value="department.id">
-                {{ department.name }}
-              </option>
-            </select>
-            <select
+              <el-option label="所有部门" value="" />
+              <el-option v-for="department in departments" :key="department.id" :label="department.name" :value="department.id" />
+            </el-select>
+            <el-select
                 v-model="query.status"
                 @change="handleFilterChange"
                 class="pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary min-w-[160px] font-medium appearance-none"
+                placeholder="所有状态"
             >
-              <option value="">所有状态</option>
-              <option v-for="status in statusOptions" :key="status.value" :value="status.value">
-                {{ status.label }}
-              </option>
-            </select>
-            <select
+              <el-option label="所有状态" value="" />
+              <el-option v-for="status in statusOptions" :key="status.value" :label="status.label" :value="status.value" />
+            </el-select>
+            <el-select
                 v-model="query.employeeType"
                 @change="handleFilterChange"
                 class="pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary min-w-[150px] font-medium appearance-none"
+                placeholder="所有用工类型"
             >
-              <option value="">所有用工类型</option>
-              <option value="FULL_TIME">全职</option>
-              <option value="PROBATION">试用期</option>
-              <option value="CONTRACT">合同工</option>
-            </select>
-            <DateFilterInput
+              <el-option label="所有用工类型" value="" />
+              <el-option label="全职" value="FULL_TIME" />
+              <el-option label="试用期" value="PROBATION" />
+              <el-option label="合同工" value="CONTRACT" />
+            </el-select>
+            <el-date-picker
                 v-model="query.entryDateStart"
                 placeholder="入职开始"
+                type="date"
+                value-format="YYYY-MM-DD"
                 class="px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
                 @change="handleFilterChange"
             />
-            <DateFilterInput
+            <el-date-picker
                 v-model="query.entryDateEnd"
                 placeholder="入职结束"
+                type="date"
+                value-format="YYYY-MM-DD"
                 class="px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
                 @change="handleFilterChange"
             />
-            <button
+            <el-button
                 @click="fetchEmployees"
                 class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors"
             >
               查询
-            </button>
-            <button
+            </el-button>
+            <el-button
                 @click="resetFilter"
                 class="px-4 py-2 bg-surface-container-highest text-on-surface rounded-lg text-sm font-bold"
             >
               重置
-            </button>
+            </el-button>
             <TableColumnSettings
                 :columns="visibleEmployeeColumns"
                 :exportable="false"
@@ -171,11 +173,38 @@
         </div>
 
         <div class="employee-table-wrap responsive-table-wrap relative min-h-[240px]">
-          <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
-            <span class="material-symbols-outlined text-3xl text-primary animate-spin">progress_activity</span>
-          </div>
+          <el-table
+              v-loading="loading"
+              :data="employees"
+              class="w-full"
+              @row-click="(employee) => showEmployeeDetail(employee.id)"
+          >
+            <el-table-column
+                v-for="field in visibleEmployeeColumns"
+                :key="field.key"
+                :label="field.label"
+                :min-width="employeeColumnWidths[field.key] || '104'"
+            >
+              <template #default="{ row: employee }">
+                <span v-if="field.key === 'status'">{{ statusMeta(employee.status).label }}</span>
+                <span v-else-if="field.key === 'departmentName'">{{ employee.departmentName || '--' }}</span>
+                <span v-else-if="field.key === 'name'">{{ employee.name }}</span>
+                <span v-else>{{ employeeColumnText(employee, field.key) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="124" align="center" fixed="right">
+              <template #default="{ row: employee }">
+                <el-button text type="primary" @click.stop="showEmployeeDetail(employee.id)">查看</el-button>
+                <el-button v-permission="'employee:update'" text type="primary" @click.stop="openEditDrawer(employee.id)">编辑</el-button>
+                <el-button v-permission="'employee:update'" text type="primary" @click.stop="openPermissionDrawer(employee)">权限</el-button>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty v-if="!loading" description="暂无员工记录" />
+            </template>
+          </el-table>
 
-          <table class="employee-table responsive-data-table w-full text-left border-collapse">
+          <table v-if="false" class="employee-table responsive-data-table w-full text-left border-collapse">
             <colgroup>
               <col v-for="field in visibleEmployeeColumns" :key="field.key" :style="employeeColumnStyle(field.key)" />
               <col style="width: 124px" />
@@ -256,34 +285,15 @@
         </div>
 
         <div class="p-4 bg-surface-container/20 flex flex-wrap items-center justify-between gap-4 text-sm text-on-surface-variant border-t border-surface-variant/50">
-          <div class="flex items-center gap-2">
-            <span>每页行数</span>
-            <select v-model="query.size" @change="handlePageSizeChange" class="bg-white border border-surface-variant/50 rounded-md py-1 px-2 text-xs focus:outline-none">
-              <option :value="10">10</option>
-              <option :value="25">25</option>
-              <option :value="50">50</option>
-            </select>
-          </div>
-          <div class="flex items-center gap-4">
-            <p class="hidden sm:block">显示第 {{ pageStart }}-{{ pageEnd }} 条，共 {{ pagination.total }} 条</p>
-            <div class="flex gap-1">
-              <button
-                  @click="changePage(query.page - 1)"
-                  :disabled="query.page <= 1"
-                  class="w-8 h-8 flex items-center justify-center rounded bg-white border border-surface-variant/50 disabled:opacity-50 hover:bg-slate-50 transition-colors"
-              >
-                <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-              </button>
-              <button class="min-w-8 h-8 px-2 flex items-center justify-center rounded bg-primary text-white font-bold">{{ query.page }}</button>
-              <button
-                  @click="changePage(query.page + 1)"
-                  :disabled="query.page >= totalPages"
-                  class="w-8 h-8 flex items-center justify-center rounded bg-white border border-surface-variant/50 disabled:opacity-50 hover:bg-slate-50 transition-colors"
-              >
-                <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-              </button>
-            </div>
-          </div>
+          <el-pagination
+              v-model:current-page="query.page"
+              v-model:page-size="query.size"
+              :page-sizes="[10, 25, 50]"
+              :total="pagination.total"
+              layout="total, sizes, prev, pager, next"
+              @current-change="changePage"
+              @size-change="handlePageSizeChange"
+          />
         </div>
       </div>
     </div>
@@ -383,7 +393,19 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ElButton,
+  ElDatePicker,
+  ElEmpty,
+  ElInput,
+  ElMessage,
+  ElMessageBox,
+  ElOption,
+  ElPagination,
+  ElSelect,
+  ElTable,
+  ElTableColumn
+} from 'element-plus'
 import { useRoute } from 'vue-router'
 import { Vue3TreeOrg } from 'vue3-tree-org'
 import 'vue3-tree-org/lib/vue3-tree-org.css'
@@ -396,11 +418,10 @@ import {
   visibleTenantFields
 } from '@/utils/tenantFieldConfig'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
-import DateFilterInput from '@/components/DateFilterInput.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import EmployeeCreate from './employeeCreate.vue'
 import EmployeePermissionDrawer from './EmployeePermissionDrawer.vue'
-import { buildEmployeeHierarchy, buildOrganizationChart } from './employeeOrganization.js'
+import { buildEmployeeHierarchy, buildOrganizationChart as buildEmployeeOrganizationChart } from './employeeOrganization.js'
 import {
   downloadEmployeeImportTemplate,
   createOrganizationJoinCode,
@@ -478,7 +499,7 @@ const employeeColumnWidths = {
 // 核心逻辑：构建层级结构
 const employeeHierarchy = computed(() => buildEmployeeHierarchy(organizationEmployees.value))
 
-const organizationChart = computed(() => buildOrganizationChart(employeeHierarchy.value))
+const organizationChart = computed(() => buildEmployeeOrganizationChart(employeeHierarchy.value))
 const orgChartData = computed(() => organizationChart.value.data)
 const organizationTopLevelCount = computed(() => organizationChart.value.topLevelCount)
 const unassignedEmployeeCount = computed(() => organizationChart.value.unassignedCount)

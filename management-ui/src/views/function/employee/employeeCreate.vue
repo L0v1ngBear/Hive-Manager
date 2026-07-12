@@ -14,10 +14,13 @@
     ></div>
   </transition>
 
-  <div
-      :class="visible ? 'translate-x-0' : 'translate-x-full'"
-      class="fixed top-0 right-0 z-50 flex h-full w-full max-w-xl flex-col border-l border-outline-variant/30 bg-surface-container-lowest/95 shadow-2xl backdrop-blur-3xl transition-transform duration-300 ease-in-out"
+  <el-drawer
+      :model-value="visible"
+      :with-header="false"
+      size="560px"
+      @update:model-value="(value) => !value && emit('close')"
   >
+    <el-form :model="form" class="flex h-full flex-col">
     <div class="border-t-[4px] border-primary p-8">
       <div class="flex items-start justify-between">
         <div>
@@ -48,7 +51,7 @@
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
               {{ fieldLabel('name', '姓名') }} <span v-if="fieldRequired('name')" class="text-error">*</span>
             </label>
-            <input
+            <el-input
                 v-model.trim="form.name"
                 data-field="employee.name"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
@@ -58,7 +61,7 @@
           </div>
           <div v-if="fieldVisible('empNo')">
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">{{ fieldLabel('empNo', '工号') }}</label>
-            <input
+            <el-input
                 class="w-full cursor-not-allowed rounded-sm border-b-2 border-transparent bg-surface-container-highest/50 px-3 py-2.5 text-sm italic text-on-surface-variant"
                 readonly
                 type="text"
@@ -69,7 +72,7 @@
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
               {{ fieldLabel('phone', '电话') }} <span v-if="fieldRequired('phone')" class="text-error">*</span>
             </label>
-            <input
+            <el-input
                 v-model.trim="form.phone"
                 data-field="employee.phone"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
@@ -79,7 +82,7 @@
           </div>
           <div v-if="fieldVisible('email')" class="col-span-2">
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">{{ fieldLabel('email', '邮箱') }}</label>
-            <input
+            <el-input
                 v-model.trim="form.email"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
                 placeholder="例如：zhangsan@company.com"
@@ -99,55 +102,56 @@
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
               {{ fieldLabel('departmentName', '部门') }} <span v-if="fieldRequired('departmentName')" class="text-error">*</span>
             </label>
-            <select
+            <el-select
                 v-model="form.departmentId"
                 data-field="employee.departmentId"
                 class="w-full appearance-none rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
+                placeholder="请选择部门"
             >
-              <option value="">请选择部门</option>
-              <option
+              <el-option label="请选择部门" value="" />
+              <el-option
                   v-for="department in departments"
                   :key="department.id"
+                  :label="department.name"
                   :value="department.id"
-              >
-                {{ department.name }}
-              </option>
-            </select>
+              />
+            </el-select>
           </div>
           <div>
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
               {{ fieldLabel('entryDate', '入职日期') }} <span v-if="fieldRequired('entryDate')" class="text-error">*</span>
             </label>
-            <input
+            <el-date-picker
                 v-model="form.entryDate"
                 data-field="employee.entryDate"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
                 type="date"
+                value-format="YYYY-MM-DD"
             />
           </div>
           <div class="col-span-2">
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
               {{ fieldLabel('positionName', '职位') }} <span v-if="fieldRequired('positionName')" class="text-error">*</span>
             </label>
-            <select
+            <el-select
                 v-model="form.positionId"
                 data-field="employee.positionId"
                 class="w-full appearance-none rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
+                placeholder="请选择职位"
             >
-              <option value="">请选择职位</option>
-              <option
+              <el-option label="请选择职位" value="" />
+              <el-option
                   v-for="position in filteredPositions"
                   :key="position.id"
+                  :label="position.name"
                   :value="position.id"
-              >
-                {{ position.name }}
-              </option>
-            </select>
+              />
+            </el-select>
           </div>
 
           <div class="col-span-2">
             <label class="ml-1 mb-2 block text-xs font-semibold text-on-surface-variant">考勤要求</label>
-            <div class="grid grid-cols-2 gap-3">
+            <el-radio-group v-model="form.attendanceRequired" class="grid grid-cols-2 gap-3">
               <label class="cursor-pointer">
                 <input v-model.number="form.attendanceRequired" :value="1" class="peer hidden" name="attendanceRequired" type="radio" />
                 <div
@@ -172,7 +176,7 @@
                   <div class="mt-1 text-xs opacity-70">不参与缺卡、缺勤和考勤日报补录。</div>
                 </div>
               </label>
-            </div>
+            </el-radio-group>
           </div>
 
           <div v-if="Number(form.attendanceRequired ?? 1) === 1" class="col-span-2">
@@ -292,7 +296,7 @@
             {{ fieldLabel('status', '雇佣状态') }} <span v-if="fieldRequired('status')" class="text-error">*</span>
           </h3>
         </div>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <el-radio-group v-model="form.status" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <label
               v-for="status in employmentStatuses"
               :key="status.value"
@@ -324,7 +328,7 @@
               <p class="text-[10px] text-current opacity-70">保存后将同步至系统主数据。</p>
             </div>
           </label>
-        </div>
+        </el-radio-group>
       </section>
     </div>
 
@@ -346,12 +350,13 @@
         {{ submitting ? '正在保存...' : isEditMode ? '确认更新' : '确认添加' }}
       </button>
     </div>
-  </div>
+    </el-form>
+  </el-drawer>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElDatePicker, ElDrawer, ElForm, ElInput, ElMessage, ElOption, ElRadioGroup, ElSelect } from 'element-plus'
 import { useTenantFieldConfig } from '@/composables/useTenantFieldConfig'
 import { warnAndFocusField } from '@/utils/formFocus'
 import {
