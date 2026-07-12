@@ -91,3 +91,52 @@ Results:
 - Target test: 4 passing, 0 failing.
 - Target ESLint: exit 0 with no findings.
 - Production build: exit 0; Vite transformed 1843 modules and completed successfully.
+
+## Second Review Fix: Persistent Failures And Request Safety
+
+### Review And Baseline Verification
+
+- Verified that equipment list failures left the prior `devices` rows visible because `fetchDevices` only replaced rows after a successful response and had no persistent failure state.
+- Verified that organization member selection kept prior members while loading, accepted every response, and allowed an older request's response or `finally` to overwrite a newer selection.
+- Verified against baseline commit `2355d9c` that the disabled equipment code previously explained: `设备码已用于固定二维码，创建后不可修改。`
+- Verified that equipment pagination did not bind its disabled state to `loading`.
+- Verified the project request error shapes before implementing classification: business failures reject the response envelope with `error.code`; HTTP failures retain `error.response.status` and `error.response.data.code`; network failures may expose a non-numeric Axios `error.code`. The local classifiers also accept `error.statusCode` for compatible callers.
+
+### RED
+
+Command:
+
+```powershell
+node --test tests/element-plus-organization-equipment.test.js
+```
+
+Result: failed as expected with 4 passing and 3 failing tests. Failures identified missing equipment row clearing/failure state, missing organization member clearing/request sequencing, and missing locked-code explanation/loading-disabled pagination.
+
+### Fix
+
+- Equipment now clears rows and pagination totals before each list request, persists separate unauthorized, forbidden, server, and network failure presentations, and offers a retry action. Failure, loading, true-empty, and permission states are mutually exclusive.
+- Organization now clears members immediately on selection, uses a monotonically increasing request ID for last-request-wins behavior, protects success/error/finally writes from stale requests, persists distinct unauthorized/forbidden/request failures, and offers member retry.
+- Restored the baseline equipment-code lock explanation through an explicitly imported `ElTooltip` while retaining the disabled input.
+- Equipment pagination now binds `disabled` to `loading`; API calls, page parameters, route permissions, command visibility, and value types remain unchanged.
+
+### GREEN And Verification
+
+Commands:
+
+```powershell
+node --test tests/element-plus-organization-equipment.test.js
+npx eslint src/views/function/organization/organization.vue src/views/function/equipment/equipment.vue
+npm run build
+```
+
+Results:
+
+- Target test: 7 passing, 0 failing.
+- Target ESLint: exit 0 with no findings.
+- Production build: exit 0; Vite transformed 1843 modules and completed successfully.
+
+### Remaining Concerns
+
+- The earlier report concern about organization member-request races and stale-member failures is resolved by this review fix.
+- Equipment detail/inspection requests retain their existing sequence and are outside this list/member-state review scope.
+- Command-level permission visibility remains unchanged; backend permission enforcement is still authoritative.
