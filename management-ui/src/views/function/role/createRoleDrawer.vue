@@ -15,7 +15,7 @@
         <p class="text-sm text-on-surface-variant mt-1">定义职能岗位并关联对应的系统操作权限</p>
       </div>
 
-      <el-form :model="form" class="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
+      <el-form :model="form" class="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar" @submit.prevent="submit">
         <el-form-item label="角色名称" class="space-y-2">
           <el-input v-model="form.roleName" placeholder="例如：高级裁剪师" />
         </el-form-item>

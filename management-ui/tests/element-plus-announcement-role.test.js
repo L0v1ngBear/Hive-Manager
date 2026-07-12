@@ -25,3 +25,8 @@ test("role list and creation form use Element Plus controls", () => {
     assert.match(create, new RegExp(`<${tag}\\b`));
   }
 });
+
+test("role creation form prevents native submit with the existing handler", () => {
+  const create = read("../src/views/function/role/createRoleDrawer.vue");
+  assert.match(create, /<el-form\b(?=[^>]*@submit\.prevent="submit")[^>]*>/);
+});
