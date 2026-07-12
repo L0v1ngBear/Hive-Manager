@@ -28,59 +28,61 @@
               <p class="mt-2 text-sm text-slate-500">当前账号：{{ userName }}</p>
             </div>
 
-            <form class="space-y-5" @submit.prevent="handleSubmit">
-              <label class="block">
-                <span class="mb-2 block text-sm font-bold text-slate-700">原密码</span>
-                <input
+            <el-form :model="form" label-position="top" @submit.prevent="handleSubmit">
+              <el-form-item label="原密码">
+                <el-input
                   v-model="form.oldPassword"
                   type="password"
                   autocomplete="current-password"
-                  class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+                  show-password
+                  size="large"
                   placeholder="请输入当前登录密码"
                 />
-              </label>
+              </el-form-item>
 
-              <label class="block">
-                <span class="mb-2 block text-sm font-bold text-slate-700">新密码</span>
-                <input
+              <el-form-item label="新密码">
+                <el-input
                   v-model="form.newPassword"
                   type="password"
                   autocomplete="new-password"
+                  show-password
                   maxlength="64"
-                  class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+                  size="large"
                   placeholder="8-64位，包含字母和数字"
                 />
-              </label>
+              </el-form-item>
 
-              <label class="block">
-                <span class="mb-2 block text-sm font-bold text-slate-700">确认新密码</span>
-                <input
+              <el-form-item label="确认新密码">
+                <el-input
                   v-model="form.confirmPassword"
                   type="password"
                   autocomplete="new-password"
+                  show-password
                   maxlength="64"
-                  class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+                  size="large"
                   placeholder="请再次输入新密码"
                 />
-              </label>
+              </el-form-item>
 
               <div class="flex flex-col gap-3 pt-3 sm:flex-row">
-                <button
-                  type="submit"
+                <el-button
+                  native-type="submit"
+                  type="primary"
+                  size="large"
                   :disabled="submitting"
-                  class="inline-flex flex-1 items-center justify-center rounded-2xl bg-primary px-5 py-3.5 text-base font-black text-white shadow-lg shadow-primary/25 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  :loading="submitting"
+                  class="flex-1"
                 >
                   {{ submitting ? '提交中...' : '确认修改并进入系统' }}
-                </button>
-                <button
-                  type="button"
-                  class="rounded-2xl border border-slate-200 px-5 py-3.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                </el-button>
+                <el-button
+                  size="large"
                   @click="handleLogout"
                 >
                   退出登录
-                </button>
+                </el-button>
               </div>
-            </form>
+            </el-form>
           </section>
         </div>
       </section>
@@ -91,7 +93,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElForm, ElFormItem, ElInput, ElMessage } from 'element-plus'
 import { changeInitialPassword } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 import { normalizeLoginRedirect } from '@/utils/redirect'

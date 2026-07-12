@@ -13,35 +13,35 @@
             </p>
         </div>
         <div class="flex items-center gap-3">
-          <button
+          <el-button
             v-permission="'approval:finance:audit'"
             @click="openDefaultAuditorDialog"
-            class="function-action-secondary"
+            plain
           >
             <span class="material-symbols-outlined text-[18px]">manage_accounts</span>审批负责人
-          </button>
-          <button
+          </el-button>
+          <el-button
             @click="refreshAll"
-            class="function-action-secondary"
+            plain
           >
             <span class="material-symbols-outlined text-[18px]">refresh</span>刷新
-          </button>
-          <button
+          </el-button>
+          <el-button
             v-if="activeTab === 'finance'"
             v-permission="'approval:finance:submit'"
             @click="openFinanceDialog"
-            class="function-action-primary"
+            type="primary"
           >
             <span class="material-symbols-outlined text-[18px]">add_circle</span>新建财务审批
-          </button>
-          <button
+          </el-button>
+          <el-button
             v-if="activeTab === 'resignation'"
             v-permission="'approval:resignation:submit'"
             @click="openResignationDialog"
-            class="function-action-primary"
+            type="primary"
           >
             <span class="material-symbols-outlined text-[18px]">person_remove</span>新建离职申请
-          </button>
+          </el-button>
         </div>
       </header>
 
@@ -101,46 +101,38 @@
 
       <section class="bg-surface-container-lowest rounded-2xl shadow-sm ring-1 ring-outline-variant/15 flex flex-col">
         <div class="p-4 md:p-5 border-b border-surface-variant/40 flex items-center justify-between gap-4">
-          <div class="inline-flex p-1 bg-surface-container-low rounded-xl ring-1 ring-outline-variant/20 self-start">
-            <button
+          <el-tabs v-model="activeTab" class="approval-tabs" @tab-change="changeTab">
+            <el-tab-pane
               v-for="tab in tabs"
               :key="tab.value"
               v-permission="tab.permissions"
+              :name="tab.value"
               :disabled="!canAccessTab(tab)"
-              :title="canAccessTab(tab) ? tab.label : '当前账号暂无权限'"
-              @click="changeTab(tab.value)"
-              class="px-5 py-2 rounded-lg text-sm font-bold transition-all"
-              :class="[
-                activeTab === tab.value ? 'bg-white text-primary shadow-sm ring-1 ring-outline-variant/10' : 'text-on-surface-variant hover:text-on-surface',
-                !canAccessTab(tab) ? 'cursor-not-allowed opacity-45 grayscale hover:text-on-surface-variant' : ''
-              ]"
             >
-              <span class="inline-flex items-center gap-2">
-                {{ tab.label }}
-                <span
-                  v-if="tabPendingCount(tab.value) > 0"
-                  class="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] leading-none text-white"
-                >
-                  {{ tabPendingCount(tab.value) }}
-                </span>
-              </span>
-            </button>
-          </div>
+              <template #label>
+                <el-badge :value="tabPendingCount(tab.value)" :hidden="tabPendingCount(tab.value) === 0" :max="99">
+                  <span class="px-2">{{ tab.label }}</span>
+                </el-badge>
+              </template>
+            </el-tab-pane>
+          </el-tabs>
           <div class="flex flex-wrap items-center justify-end gap-3">
-            <input
+            <el-input
               v-model.trim="filters.keyword"
-              class="rounded-lg border border-outline-variant/30 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              clearable
+              class="w-56"
               placeholder="搜索单号、申请人、摘要"
             />
-            <select
+            <el-select
               v-model="filters.status"
-              class="rounded-lg border border-outline-variant/30 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              class="w-32"
+              placeholder="全部状态"
             >
-              <option value="">全部状态</option>
-              <option value="1">待审批</option>
-              <option value="2">已通过</option>
-              <option value="3">已拒绝</option>
-            </select>
+              <el-option label="全部状态" value="" />
+              <el-option label="待审批" value="1" />
+              <el-option label="已通过" value="2" />
+              <el-option label="已拒绝" value="3" />
+            </el-select>
             <p class="text-xs font-bold text-on-surface-variant">列表已按“与我相关”自动过滤</p>
             <TableColumnSettings
               :columns="approvalTableColumns"
@@ -152,42 +144,20 @@
         </div>
 
         <div class="responsive-table-wrap relative min-h-[300px]">
-          <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
-            <span class="material-symbols-outlined text-primary text-4xl animate-spin">progress_activity</span>
-            <span class="text-xs font-bold text-primary mt-2">加载数据中...</span>
-          </div>
-
-          <table class="responsive-data-table w-full text-left border-collapse">
-            <thead class="bg-surface-container-low/30 border-b border-surface-variant/40">
-              <tr>
-                <th
-                  v-for="column in approvalTableColumns"
-                  :key="column.key"
-                  class="px-5 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-widest whitespace-nowrap"
-                  :class="column.key === 'summary' ? 'approval-summary-column' : ''"
-                >
-                  {{ column.label }}
-                </th>
-                <th class="px-5 py-4 text-right text-[11px] font-bold text-on-surface-variant uppercase tracking-widest whitespace-nowrap">操作</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-surface-variant/20">
-              <tr v-if="!loading && !activeTabCanViewList">
-                <td :colspan="approvalTableColumnCount" class="px-6 py-16 text-center">
-                  <div class="flex flex-col items-center justify-center opacity-50">
-                    <span class="material-symbols-outlined text-5xl mb-3">lock</span>
-                    <p class="text-sm font-bold text-on-surface-variant">当前账号暂无权限查看该审批列表</p>
-                  </div>
-                </td>
-              </tr>
-              <tr v-for="item in filteredRows" v-else :key="`${item.type}-${item.code}`" class="cursor-pointer hover:bg-surface-container-low/50 transition-colors group" @click="openDetail(item)">
-                <td
-                  v-for="column in approvalTableColumns"
-                  :key="column.key"
-                  :data-label="column.label"
-                  class="px-5 py-3.5"
-                  :class="column.key === 'createTime' ? 'text-xs font-medium text-on-surface-variant' : ''"
-                >
+          <el-table
+            v-loading="loading"
+            :data="activeTabCanViewList ? pagedRows : []"
+            row-key="code"
+            class="w-full"
+            @row-click="openDetail"
+          >
+            <el-table-column
+              v-for="column in approvalTableColumns"
+              :key="column.key"
+              :label="column.label"
+              :min-width="column.key === 'summary' ? 220 : 120"
+            >
+              <template #default="{ row: item }">
                   <template v-if="column.key === 'code'">
                     <div class="text-sm font-black text-on-surface group-hover:text-primary transition-colors">{{ item.code }}</div>
                     <div class="text-[10px] font-medium text-on-surface-variant mt-0.5">{{ item.typeLabel }}</div>
@@ -197,12 +167,9 @@
                     <div class="text-[10px] text-on-surface-variant mt-0.5">{{ item.departmentName || '未配置部门' }}</div>
                   </template>
                   <template v-else-if="column.key === 'category'">
-                    <span
-                      class="inline-flex px-2 py-0.5 rounded text-[11px] font-bold border"
-                      :class="typeTagClass(item.type)"
-                    >
+                    <el-tag size="small" effect="plain" :class="typeTagClass(item.type)">
                       {{ item.category }}
-                    </span>
+                    </el-tag>
                   </template>
                   <template v-else-if="column.key === 'summary'">
                     <div class="text-xs font-medium text-on-surface max-w-[320px] truncate" :title="item.summary">{{ item.summary }}</div>
@@ -214,72 +181,63 @@
                     </div>
                   </template>
                   <template v-else-if="column.key === 'status'">
-                    <span :class="statusClass(item.status)" class="inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold border">
+                    <el-tag size="small" effect="plain" :class="statusClass(item.status)">
                       {{ item.statusText }}
-                    </span>
+                    </el-tag>
                   </template>
                   <template v-else-if="column.key === 'createTime'">{{ formatTime(item.createTime) }}</template>
-                </td>
-                <td class="px-5 py-3.5 text-right space-x-2" data-label="操作">
-                  <button @click.stop="openDetail(item)" class="text-on-surface-variant hover:text-primary hover:bg-primary/10 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors">详情</button>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" fixed="right" width="210" align="right">
+              <template #default="{ row: item }">
+                  <el-button link @click.stop="openDetail(item)">详情</el-button>
                   <template v-if="item.status === 1">
-                    <button
+                    <el-button
                       :disabled="!canAuditAction(item)"
-                      :class="auditButtonDisabledClass(!canAuditAction(item))"
                       :title="canAuditAction(item) ? '通过' : '当前账号暂无审批该记录权限'"
                       @click.stop="quickAudit(item, 1)"
-                      class="text-white bg-primary hover:bg-primary/90 shadow-sm shadow-primary/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95"
-                    >通过</button>
-                    <button
+                      type="primary"
+                      size="small"
+                    >通过</el-button>
+                    <el-button
                       v-if="item.type !== 'order'"
                       :disabled="!canAuditAction(item)"
-                      :class="auditButtonDisabledClass(!canAuditAction(item))"
                       :title="canAuditAction(item) ? '拒绝' : '当前账号暂无审批该记录权限'"
                       @click.stop="quickAudit(item, 2)"
-                      class="text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors active:scale-95"
-                    >拒绝</button>
+                      type="danger"
+                      plain
+                      size="small"
+                    >拒绝</el-button>
                   </template>
-                </td>
-              </tr>
-              <tr v-if="!loading && filteredRows.length === 0">
-                <td :colspan="approvalTableColumnCount" class="px-6 py-16 text-center">
-                  <div class="flex flex-col items-center justify-center opacity-50">
-                    <span class="material-symbols-outlined text-5xl mb-3">inbox</span>
-                    <p class="text-sm font-bold text-on-surface-variant">当前没有和您相关的审批记录</p>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty :description="activeTabCanViewList ? '当前没有和您相关的审批记录' : '当前账号暂无权限查看该审批列表'" />
+            </template>
+          </el-table>
+          <div v-if="activeTabCanViewList && filteredRows.length" class="flex justify-end p-4">
+            <el-pagination
+              v-model:current-page="currentPage"
+              v-model:page-size="pageSize"
+              :total="filteredRows.length"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next"
+            />
+          </div>
         </div>
       </section>
     </div>
 
     <el-dialog v-model="detailVisible" :title="detailTitle" width="680px" class="atelier-dialog" destroy-on-close>
       <div v-if="detailData" class="space-y-4">
-        <div class="grid grid-cols-2 gap-3">
-          <div class="bg-surface-container-low rounded-xl p-4 ring-1 ring-outline-variant/10">
-            <p class="text-[10px] font-bold tracking-widest uppercase text-on-surface-variant mb-1">申请单号</p>
-            <p class="font-black text-sm text-primary">{{ detailData.code }}</p>
-          </div>
-          <div class="bg-surface-container-low rounded-xl p-4 ring-1 ring-outline-variant/10">
-            <p class="text-[10px] font-bold tracking-widest uppercase text-on-surface-variant mb-1">申请人</p>
-            <p class="font-bold text-sm text-on-surface">{{ detailData.applicantName }}</p>
-          </div>
-          <div class="bg-surface-container-low rounded-xl p-4 ring-1 ring-outline-variant/10">
-            <p class="text-[10px] font-bold tracking-widest uppercase text-on-surface-variant mb-1">当前状态</p>
-            <span :class="statusClass(detailData.status)" class="inline-flex px-2 py-0.5 rounded text-[11px] font-bold border mt-0.5">
-              {{ detailData.statusText }}
-            </span>
-          </div>
-          <div class="bg-surface-container-low rounded-xl p-4 ring-1 ring-outline-variant/10">
-            <p class="text-[10px] font-bold tracking-widest uppercase text-on-surface-variant mb-1">当前审批人</p>
-            <div class="flex items-center gap-1.5 text-sm font-bold text-on-surface">
-              <span class="material-symbols-outlined text-[16px] text-on-surface-variant">account_circle</span>
-              {{ detailData.auditorName || '待分配' }}
-            </div>
-          </div>
-        </div>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="申请单号">{{ detailData.code }}</el-descriptions-item>
+          <el-descriptions-item label="申请人">{{ detailData.applicantName }}</el-descriptions-item>
+          <el-descriptions-item label="当前状态">
+            <el-tag size="small" effect="plain" :class="statusClass(detailData.status)">{{ detailData.statusText }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="当前审批人">{{ detailData.auditorName || '待分配' }}</el-descriptions-item>
+        </el-descriptions>
 
         <div class="bg-surface-container-lowest rounded-xl p-5 ring-1 ring-outline-variant/20 shadow-sm space-y-4">
           <div class="flex items-start gap-3 border-b border-surface-variant/30 pb-4">
@@ -323,15 +281,15 @@
 
           <div v-if="detailData.type === 'finance'" class="space-y-1">
             <p class="text-xs font-bold text-on-surface-variant">附件凭证</p>
-            <button
+            <el-button
               v-if="detailData.attachmentUrl"
-              type="button"
-              class="inline-flex items-center gap-2 rounded-lg bg-surface-container-low/50 px-3 py-2 text-sm font-bold text-primary ring-1 ring-outline-variant/20 hover:bg-primary/5"
+              native-type="button"
+              link
               @click="openFinanceAttachment(detailData.attachmentUrl, detailData.attachmentName)"
             >
               <span class="material-symbols-outlined text-[18px]">attach_file</span>
               {{ detailData.attachmentName || '下载财务附件' }}
-            </button>
+            </el-button>
             <p v-else class="text-sm text-on-surface-variant">暂无附件凭证</p>
           </div>
 
@@ -341,33 +299,27 @@
           </div>
         </div>
 
-        <div v-if="detailData.status === 1" class="pt-2 space-y-3">
-          <p class="text-xs font-bold text-on-surface">您的处理意见 <span class="font-normal text-on-surface-variant ml-1">(订单审批可选填，拒绝审批时建议填写)</span></p>
-          <textarea
-            v-model.trim="auditComment"
-            :disabled="!canAuditDetail"
-            :class="auditButtonDisabledClass(!canAuditDetail)"
-            class="w-full min-h-[100px] bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 p-3 text-sm outline-none focus:ring-2 focus:ring-primary transition-shadow"
-            placeholder="请输入审批意见..."
-          ></textarea>
+        <el-form v-if="detailData.status === 1" label-position="top" class="pt-2">
+          <el-form-item label="您的处理意见（订单审批可选填，拒绝审批时建议填写）">
+            <el-input v-model.trim="auditComment" type="textarea" :rows="4" :disabled="!canAuditDetail" placeholder="请输入审批意见..." />
+          </el-form-item>
           <div class="flex justify-end gap-3 pt-2">
-            <button
+            <el-button
               v-if="detailData.type !== 'order'"
               :disabled="!canAuditDetail"
-              :class="auditButtonDisabledClass(!canAuditDetail)"
               :title="canAuditDetail ? '驳回申请' : '当前账号暂无审批该记录权限'"
               @click="submitAudit(2)"
-              class="px-5 py-2.5 rounded-xl text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors"
-            >驳回申请</button>
-            <button
+              type="danger"
+              plain
+            >驳回申请</el-button>
+            <el-button
               :disabled="!canAuditDetail"
-              :class="auditButtonDisabledClass(!canAuditDetail)"
               :title="canAuditDetail ? '' : '当前账号暂无审批该记录权限'"
               @click="submitAudit(1)"
-              class="px-6 py-2.5 rounded-xl text-sm font-bold bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95"
-            >{{ detailData.type === 'order' ? orderAuditActionText(detailData) : (detailData.type === 'quality' ? '通过质量审核' : '同意并流转') }}</button>
+              type="primary"
+            >{{ detailData.type === 'order' ? orderAuditActionText(detailData) : (detailData.type === 'quality' ? '通过质量审核' : '同意并流转') }}</el-button>
           </div>
-        </div>
+        </el-form>
       </div>
     </el-dialog>
 
@@ -407,32 +359,30 @@
                 :value="String(item.id)"
               />
             </el-select>
-            <button
+            <el-button
               v-permission="'approval:finance:audit'"
-              type="button"
-              class="h-11 rounded-xl bg-primary px-4 text-sm font-bold text-white shadow-sm shadow-primary/20 disabled:opacity-60"
+              native-type="button"
               :disabled="defaultAuditorSaving[row.approvalType]"
+              :loading="defaultAuditorSaving[row.approvalType]"
+              type="primary"
               @click="saveDefaultAuditorRow(row)"
             >
               {{ defaultAuditorSaving[row.approvalType] ? '保存中' : '保存' }}
-            </button>
+            </el-button>
           </div>
         </div>
       </div>
     </el-dialog>
 
     <el-dialog v-model="financeDialogVisible" title="新建财务审批" width="560px" class="atelier-dialog" destroy-on-close>
-      <div class="space-y-4 py-2">
-        <div class="space-y-1.5">
-          <label class="text-xs font-bold text-on-surface-variant pl-1">财务类别</label>
-          <input v-model.trim="financeForm.category" class="w-full h-11 px-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm" placeholder="如：差旅报销 / 采购付款 / 备用金申请" />
-        </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-bold text-on-surface-variant pl-1">申请金额（元）</label>
-          <input v-model.trim="financeForm.amount" type="number" class="w-full h-11 px-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm font-mono" placeholder="0.00" />
-        </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-bold text-on-surface-variant pl-1">审批负责人（可手动指定）</label>
+      <el-form :model="financeForm" label-position="top" class="py-2">
+        <el-form-item label="财务类别">
+          <el-input v-model.trim="financeForm.category" placeholder="如：差旅报销 / 采购付款 / 备用金申请" />
+        </el-form-item>
+        <el-form-item label="申请金额（元）">
+          <el-input-number v-model="financeForm.amount" :min="0" :precision="2" :step="100" class="w-full" />
+        </el-form-item>
+        <el-form-item label="审批负责人（可手动指定）">
           <el-select
             v-model="financeForm.auditorIds"
             multiple
@@ -458,13 +408,11 @@
               />
             </el-option-group>
           </el-select>
-        </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-bold text-on-surface-variant pl-1">详细事由</label>
-          <textarea v-model.trim="financeForm.reason" class="w-full min-h-[120px] p-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm leading-relaxed" placeholder="请详细说明资金用途、收款方及相关背景..." />
-        </div>
-        <div class="space-y-2">
-          <p class="text-xs font-bold text-on-surface-variant">附件凭证</p>
+        </el-form-item>
+        <el-form-item label="详细事由">
+          <el-input v-model.trim="financeForm.reason" type="textarea" :rows="5" placeholder="请详细说明资金用途、收款方及相关背景..." />
+        </el-form-item>
+        <el-form-item label="附件凭证">
           <DragAttachmentUpload
             title="上传发票、收据、合同或付款截图"
             helper-text="支持拖拽上传，单个文件不超过 10MB"
@@ -476,26 +424,24 @@
             @download="openFinanceAttachment(financeForm.attachmentUrl, financeForm.attachmentName)"
             @remove="removeFinanceAttachment"
           />
-        </div>
-      </div>
+        </el-form-item>
+      </el-form>
       <template #footer>
         <div class="flex justify-end gap-3 pb-1">
-          <button @click="financeDialogVisible = false" class="px-5 py-2.5 rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-colors">取消</button>
-          <button v-permission="'approval:finance:submit'" @click="submitFinance" class="px-6 py-2.5 rounded-xl text-sm font-bold bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 flex items-center gap-1.5">
+          <el-button @click="financeDialogVisible = false">取消</el-button>
+          <el-button v-permission="'approval:finance:submit'" type="primary" @click="submitFinance">
             <span class="material-symbols-outlined text-[18px]">send</span>提交申请
-          </button>
+          </el-button>
         </div>
       </template>
     </el-dialog>
 
     <el-dialog v-model="resignationDialogVisible" title="新建离职申请" width="560px" class="atelier-dialog" destroy-on-close>
-      <div class="space-y-4 py-2">
-        <div class="space-y-1.5">
-          <label class="text-xs font-bold text-on-surface-variant pl-1">预计离职日期</label>
-          <input v-model.trim="resignationForm.expectedLeaveDate" type="date" class="w-full h-11 px-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm" />
-        </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-bold text-on-surface-variant pl-1">审批负责人（可手动指定）</label>
+      <el-form :model="resignationForm" label-position="top" class="py-2">
+        <el-form-item label="预计离职日期">
+          <el-date-picker v-model="resignationForm.expectedLeaveDate" type="date" value-format="YYYY-MM-DD" class="w-full" />
+        </el-form-item>
+        <el-form-item label="审批负责人（可手动指定）">
           <el-select
             v-model="resignationForm.auditorIds"
             multiple
@@ -521,22 +467,20 @@
               />
             </el-option-group>
           </el-select>
-        </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-bold text-on-surface-variant pl-1">离职原因</label>
-          <textarea v-model.trim="resignationForm.reason" class="w-full min-h-[110px] p-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm leading-relaxed" placeholder="请说明离职原因..." />
-        </div>
-        <div class="space-y-1.5">
-          <label class="text-xs font-bold text-on-surface-variant pl-1">交接说明</label>
-          <textarea v-model.trim="resignationForm.handoverNote" class="w-full min-h-[100px] p-4 bg-surface-container-lowest rounded-xl ring-1 ring-outline-variant/30 outline-none focus:ring-2 focus:ring-primary transition-shadow text-sm leading-relaxed" placeholder="可填写交接事项、资料位置、未完成工作..." />
-        </div>
-      </div>
+        </el-form-item>
+        <el-form-item label="离职原因">
+          <el-input v-model.trim="resignationForm.reason" type="textarea" :rows="4" placeholder="请说明离职原因..." />
+        </el-form-item>
+        <el-form-item label="交接说明">
+          <el-input v-model.trim="resignationForm.handoverNote" type="textarea" :rows="4" placeholder="可填写交接事项、资料位置、未完成工作..." />
+        </el-form-item>
+      </el-form>
       <template #footer>
         <div class="flex justify-end gap-3 pb-1">
-          <button @click="resignationDialogVisible = false" class="px-5 py-2.5 rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-colors">取消</button>
-          <button v-permission="'approval:resignation:submit'" @click="submitResignation" class="px-6 py-2.5 rounded-xl text-sm font-bold bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 flex items-center gap-1.5">
+          <el-button @click="resignationDialogVisible = false">取消</el-button>
+          <el-button v-permission="'approval:resignation:submit'" type="primary" @click="submitResignation">
             <span class="material-symbols-outlined text-[18px]">send</span>提交申请
-          </button>
+          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -545,7 +489,29 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { ElMessage, ElDialog } from 'element-plus'
+import {
+  ElBadge,
+  ElButton,
+  ElDatePicker,
+  ElDescriptions,
+  ElDescriptionsItem,
+  ElDialog,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElOption,
+  ElOptionGroup,
+  ElPagination,
+  ElSelect,
+  ElTabPane,
+  ElTable,
+  ElTableColumn,
+  ElTabs,
+  ElTag
+} from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
@@ -599,9 +565,9 @@ const {
   moveColumn: moveApprovalTableColumn,
   resetColumns: resetApprovalTableColumns
 } = useLocalTableColumns('approval.center.list', defaultApprovalTableColumns)
-const approvalTableColumnCount = computed(() => approvalTableColumns.value.length + 1)
-
 const activeTab = ref('order')
+const currentPage = ref(1)
+const pageSize = ref(10)
 const approvalExportModule = computed(() => `approval-${activeTab.value}`)
 const loading = ref(false)
 const rows = ref([])
@@ -615,7 +581,7 @@ const resignationDialogVisible = ref(false)
 const financeAttachmentUploading = ref(false)
 const financeForm = reactive({
   category: '',
-  amount: '',
+  amount: null,
   reason: '',
   auditorId: '',
   auditorIds: [],
@@ -834,6 +800,11 @@ const filteredRows = computed(() => {
   })
 })
 
+const pagedRows = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredRows.value.slice(start, start + pageSize.value)
+})
+
 const tabPendingCount = (tab) => {
   if (tab === 'leave') return approvalSummary.value.leavePending || 0
   if (tab === 'finance') return approvalSummary.value.financePending || 0
@@ -995,11 +966,15 @@ const changeTab = (tab) => {
     return
   }
   activeTab.value = tab
+  currentPage.value = 1
   filters.keyword = ''
   filters.status = ''
 }
 
 watch(activeTab, fetchList, { immediate: true })
+watch([() => filters.keyword, () => filters.status, pageSize], () => {
+  currentPage.value = 1
+})
 fetchSummary()
 
 const openDetail = async (item) => {
@@ -1204,7 +1179,7 @@ const orderAuditSuccessText = (item) => {
 
 const resetFinanceForm = () => {
   financeForm.category = ''
-  financeForm.amount = ''
+  financeForm.amount = null
   financeForm.reason = ''
   financeForm.auditorId = ''
   financeForm.auditorIds = []

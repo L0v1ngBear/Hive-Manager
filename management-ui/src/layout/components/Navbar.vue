@@ -1,33 +1,36 @@
 <template>
   <header ref="navbarRef" class="ys-navbar min-h-16 md:h-20 bg-surface flex flex-wrap md:flex-nowrap items-center justify-between gap-3 px-3 py-3 md:px-8 md:py-0 shrink-0 relative z-30 isolate overflow-visible">
-    <button
+    <el-button
       class="md:hidden p-2 text-on-surface-variant rounded-full hover:bg-surface-container-highest"
+      text
+      circle
       @click="emit('toggle-mobile-menu')"
     >
       <span class="material-symbols-outlined">menu</span>
-    </button>
+    </el-button>
 
     <div class="flex min-w-0 flex-1 items-center gap-3 md:gap-6 max-w-2xl md:ml-0">
       <h2 class="text-xl font-bold text-on-surface hidden lg:block">{{ pageTitle }}</h2>
 
       <div v-if="!userStore.isPlatformTenant" class="relative flex-1 group max-w-md hidden md:block">
         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">search</span>
-        <input
+        <el-input
           v-model.trim="keyword"
-          type="text"
           placeholder="搜索订单、库存、客户、员工..."
-          class="w-full bg-surface-container-highest border-none rounded-xl py-2.5 pl-12 pr-4 text-sm text-on-surface focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-on-surface-variant/60"
+          clearable
+          class="w-full"
           @focus="searchPanelOpen = true"
           @keydown.enter.prevent="goFirstSearchResult"
-        >
+        />
         <div
           v-if="searchPanelOpen && filteredMenus.length"
           class="absolute left-0 right-0 top-[calc(100%+10px)] z-[1200] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/10"
         >
-          <button
+          <el-button
             v-for="item in filteredMenus"
             :key="`${item.path}-${item.label || item.name}`"
-            class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors"
+            text
+            class="flex h-auto w-full justify-start gap-3 px-4 py-3 text-left text-sm transition-colors"
             :class="searchItemClass(item)"
             :disabled="item.disabled"
             :title="item.disabled ? item.disabledReason : item.desc"
@@ -39,7 +42,7 @@
               <small class="block truncate" :class="item.disabled ? 'text-on-surface-variant/35' : 'text-on-surface-variant'">{{ item.disabled ? item.disabledReason : item.desc }}</small>
             </span>
             <span class="material-symbols-outlined text-on-surface-variant text-[18px]">arrow_forward</span>
-          </button>
+          </el-button>
         </div>
       </div>
     </div>
@@ -56,38 +59,47 @@
         </span>
       </div>
 
-      <button
+      <el-button
         v-if="!userStore.isPlatformTenant"
         class="md:hidden w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors"
+        text
+        circle
         @click.stop="toggleMobileSearch"
       >
         <span class="material-symbols-outlined">search</span>
-      </button>
+      </el-button>
 
-      <div v-if="!userStore.isPlatformTenant" class="relative z-[1100]">
-      <button
-        class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors relative"
-        @click="toggleNotifications"
+      <el-popover
+        v-if="!userStore.isPlatformTenant"
+        v-model:visible="notificationOpen"
+        placement="bottom-end"
+        trigger="click"
+        :width="320"
+        :teleported="false"
+        popper-class="navbar-notification-popover"
+        @show="handleNotificationShow"
       >
-        <span class="material-symbols-outlined">notifications</span>
-        <span v-if="pendingNotifications.length" class="absolute top-2 right-2.5 w-2 h-2 bg-error rounded-full ring-2 ring-surface"></span>
-      </button>
-        <div
-          v-if="notificationOpen"
-          class="absolute right-0 top-[calc(100%+12px)] z-[1300] w-[min(320px,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/20"
-        >
+        <template #reference>
+          <el-badge :value="pendingNotifications.length" :hidden="pendingNotifications.length === 0" :max="99">
+            <el-button text circle aria-label="待办通知">
+              <span class="material-symbols-outlined">notifications</span>
+            </el-button>
+          </el-badge>
+        </template>
+        <div class="overflow-hidden">
           <div class="flex items-center justify-between border-b border-outline-variant/30 px-4 py-3">
             <div>
               <p class="text-sm font-black text-on-surface">待办通知</p>
               <p class="text-xs text-on-surface-variant">{{ pendingNotifications.length ? `有 ${pendingNotifications.length} 条需要处理` : '当前没有新的待办' }}</p>
             </div>
-            <button
+            <el-button
               v-permission="'notification:announcement:publish'"
-              class="rounded-lg px-2 py-1 text-xs font-bold text-primary hover:bg-primary-container"
+              link
+              type="primary"
               @click="refreshNotifications(true)"
             >
               刷新
-            </button>
+            </el-button>
           </div>
           <div class="max-h-[360px] overflow-y-auto p-2">
             <div
@@ -95,26 +107,29 @@
               :key="item.key"
               class="rounded-xl px-3 py-3 transition-colors hover:bg-primary-container"
             >
-              <button class="w-full text-left" @click="openNotification(item)">
+              <el-button text class="h-auto w-full justify-start p-0 text-left" @click="openNotification(item)">
                 <div class="flex items-center justify-between gap-3">
                   <strong class="text-sm text-on-surface">{{ item.title }}</strong>
                   <span class="rounded-full bg-primary-container px-2 py-0.5 text-[10px] font-bold text-primary">{{ item.type }}</span>
                 </div>
                 <p class="mt-1 line-clamp-4 text-xs leading-5 text-on-surface-variant">{{ item.desc }}</p>
-              </button>
+              </el-button>
               <div class="mt-2 flex items-center gap-2">
-                <button
-                  class="rounded-full bg-primary px-3 py-1 text-[11px] font-black text-white shadow-sm shadow-primary/20 transition hover:-translate-y-0.5"
+                <el-button
+                  type="primary"
+                  size="small"
+                  round
                   @click.stop="closeNotification(item, 'DONE')"
                 >
                   完成
-                </button>
-                <button
-                  class="rounded-full bg-surface-container-highest px-3 py-1 text-[11px] font-black text-on-surface-variant transition hover:-translate-y-0.5 hover:bg-outline-variant/40"
+                </el-button>
+                <el-button
+                  size="small"
+                  round
                   @click.stop="closeNotification(item, 'IGNORED')"
                 >
                   跳过
-                </button>
+                </el-button>
               </div>
             </div>
             <div v-if="!pendingNotifications.length" class="px-4 py-8 text-center">
@@ -124,63 +139,63 @@
             </div>
           </div>
         </div>
-      </div>
+      </el-popover>
 
-      <div class="relative flex items-center gap-3 pl-2 md:pl-4 border-l border-outline-variant/30">
-        <button class="flex items-center gap-3 rounded-2xl px-2 py-1 transition-colors hover:bg-surface-container-highest" @click="userMenuOpen = !userMenuOpen">
+      <el-dropdown class="pl-2 md:pl-4 border-l border-outline-variant/30" trigger="click" @visible-change="userMenuOpen = $event">
+        <el-button text class="h-auto px-2 py-1">
           <div class="hidden md:block text-right">
             <p class="text-sm font-bold text-on-surface">{{ displayName }}</p>
             <p class="text-xs text-on-surface-variant">{{ roleLabel }}</p>
           </div>
           <span class="local-avatar">{{ avatarText }}</span>
-        </button>
-        <div
-          v-if="userMenuOpen"
-          class="absolute right-0 top-[calc(100%+12px)] z-[1200] w-[min(16rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/10"
-        >
-          <div class="user-menu-brand border-b border-outline-variant/30 px-4 py-4">
-            <img v-if="tenantLogoUrl" :src="tenantLogoUrl" alt="公司logo" class="user-menu-brand__logo">
-            <span v-else class="material-symbols-outlined user-menu-brand__icon">domain</span>
-            <div class="min-w-0">
-              <p class="truncate text-sm font-black text-on-surface">{{ displayName }}</p>
-              <p class="mt-1 truncate text-xs font-bold text-on-surface-variant">组织：{{ tenantName }}</p>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <div class="user-menu-brand border-b border-outline-variant/30 px-4 py-4">
+              <img v-if="tenantLogoUrl" :src="tenantLogoUrl" alt="公司logo" class="user-menu-brand__logo">
+              <span v-else class="material-symbols-outlined user-menu-brand__icon">domain</span>
+              <div class="min-w-0">
+                <p class="truncate text-sm font-black text-on-surface">{{ displayName }}</p>
+                <p class="mt-1 truncate text-xs font-bold text-on-surface-variant">组织：{{ tenantName }}</p>
+              </div>
             </div>
-          </div>
-          <button v-if="canAccessSearchTarget('/dashboard')" class="navbar-menu-item" :class="menuItemDisabledClass('/dashboard')" :disabled="isSearchTargetDisabled('/dashboard')" @click="goSearchTarget('/dashboard')">
-            <span class="material-symbols-outlined">dashboard</span>回到总览大盘
-          </button>
-          <button v-if="canAccessSearchTarget('/function/approval')" class="navbar-menu-item" :class="menuItemDisabledClass('/function/approval')" :disabled="isSearchTargetDisabled('/function/approval')" @click="goApproval">
-            <span class="material-symbols-outlined">approval</span>查看审批中心
-          </button>
-          <button v-if="canAccessSearchTarget('/manual')" class="navbar-menu-item" :class="menuItemDisabledClass('/manual')" :disabled="isSearchTargetDisabled('/manual')" @click="goSearchTarget('/manual')">
-            <span class="material-symbols-outlined">menu_book</span>使用手册
-          </button>
-          <button class="navbar-menu-item text-error" @click="handleLogout">
-            <span class="material-symbols-outlined">logout</span>退出登录
-          </button>
-        </div>
-      </div>
+            <el-dropdown-item v-if="canAccessSearchTarget('/dashboard')" :disabled="isSearchTargetDisabled('/dashboard')" @click="goSearchTarget('/dashboard')">
+              <span class="material-symbols-outlined">dashboard</span>回到总览大盘
+            </el-dropdown-item>
+            <el-dropdown-item v-if="canAccessSearchTarget('/function/approval')" :disabled="isSearchTargetDisabled('/function/approval')" @click="goApproval">
+              <span class="material-symbols-outlined">approval</span>查看审批中心
+            </el-dropdown-item>
+            <el-dropdown-item v-if="canAccessSearchTarget('/manual')" :disabled="isSearchTargetDisabled('/manual')" @click="goSearchTarget('/manual')">
+              <span class="material-symbols-outlined">menu_book</span>使用手册
+            </el-dropdown-item>
+            <el-dropdown-item divided class="text-error" @click="handleLogout">
+              <span class="material-symbols-outlined">logout</span>退出登录
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
 
     <div v-if="!userStore.isPlatformTenant && mobileSearchOpen" class="w-full md:hidden">
       <div class="relative">
         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
-        <input
+        <el-input
           v-model.trim="keyword"
-          type="text"
           placeholder="搜索订单、库存、客户、员工..."
-          class="w-full bg-surface-container-highest border-none rounded-xl py-2.5 pl-12 pr-4 text-sm text-on-surface focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-on-surface-variant/60"
+          clearable
+          class="w-full"
           @focus="searchPanelOpen = true"
           @keydown.enter.prevent="goFirstSearchResult"
-        >
+        />
         <div
           v-if="searchPanelOpen && filteredMenus.length"
           class="absolute left-0 right-0 top-[calc(100%+10px)] z-[1200] max-h-[60vh] overflow-y-auto rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/10"
         >
-          <button
+          <el-button
             v-for="item in filteredMenus"
             :key="`mobile-${item.path}-${item.label || item.name}`"
-            class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors"
+            text
+            class="flex h-auto w-full justify-start gap-3 px-4 py-3 text-left text-sm transition-colors"
             :class="searchItemClass(item)"
             :disabled="item.disabled"
             :title="item.disabled ? item.disabledReason : item.desc"
@@ -192,7 +207,7 @@
               <small class="block truncate" :class="item.disabled ? 'text-on-surface-variant/35' : 'text-on-surface-variant'">{{ item.disabled ? item.disabledReason : item.desc }}</small>
             </span>
             <span class="material-symbols-outlined text-on-surface-variant text-[18px]">arrow_forward</span>
-          </button>
+          </el-button>
         </div>
       </div>
     </div>
@@ -201,7 +216,17 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ElBadge,
+  ElButton,
+  ElDropdown,
+  ElDropdownItem,
+  ElDropdownMenu,
+  ElInput,
+  ElMessage,
+  ElMessageBox,
+  ElPopover
+} from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { closeNotificationTask, getUnreadNotifications, markNotificationRead, syncNotifications } from '@/api/notification.js'
@@ -399,10 +424,6 @@ function isSearchTargetDisabled(path) {
   return Boolean(targetMenu(path)?.disabled)
 }
 
-function menuItemDisabledClass(path) {
-  return isSearchTargetDisabled(path) ? 'navbar-menu-item--disabled' : ''
-}
-
 function searchItemClass(item) {
   return item.disabled
     ? 'cursor-not-allowed bg-surface-container-highest/40 opacity-60 grayscale'
@@ -455,14 +476,11 @@ function goApproval() {
   goSearchTarget('/function/approval')
 }
 
-async function toggleNotifications() {
-  notificationOpen.value = !notificationOpen.value
+async function handleNotificationShow() {
   userMenuOpen.value = false
   searchPanelOpen.value = false
   mobileSearchOpen.value = false
-  if (notificationOpen.value) {
-    await refreshNotifications()
-  }
+  await refreshNotifications()
 }
 
 async function refreshNotifications(sync = false) {

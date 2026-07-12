@@ -37,9 +37,10 @@
             custom
             v-slot="{ navigate }"
         >
-          <button
-              type="button"
-              class="relative flex w-full rounded-xl transition-all duration-200 overflow-hidden text-left"
+          <el-button
+              native-type="button"
+              text
+              class="relative flex h-auto w-full justify-start overflow-hidden rounded-xl text-left transition-all duration-200"
               :class="linkClass(item)"
               :disabled="item.disabled"
               :title="item.disabled ? item.disabledReason : item.name"
@@ -51,19 +52,22 @@
                 :class="isCollapsed ? 'text-[10px] font-bold tracking-tighter' : 'text-sm font-medium'">{{
               item.name
             }}</span>
-          <span
+          <el-badge
               v-if="item.path === '/function/approval' && approvalPendingCount > 0"
-              class="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] leading-none text-white shadow-sm shadow-rose-500/25"
+              :value="approvalPendingCount"
+              :max="99"
+              class="approval-menu-badge"
               :class="isCollapsed ? 'absolute right-1.5 top-1.5' : 'ml-auto'"
-          >{{ approvalPendingCount > 99 ? '99+' : approvalPendingCount }}</span>
-          </button>
+          />
+          </el-button>
         </router-link>
       </div>
 
       <div v-if="secondaryMenus.length" class="mt-4 border-t border-outline-variant/20 pt-4">
-        <button
+        <el-button
             @click="toggleMore"
-            class="w-full flex rounded-xl transition-all duration-200 text-on-surface-variant hover:bg-surface-container-highest hover:text-primary"
+            text
+            class="w-full rounded-xl text-on-surface-variant transition-all duration-200 hover:bg-surface-container-highest hover:text-primary"
             :class="isCollapsed ? 'flex-col items-center justify-center py-3 gap-1' : 'flex-row items-center justify-between px-4 py-3'"
         >
           <div class="flex items-center" :class="isCollapsed ? 'flex-col gap-1' : 'flex-row gap-3'">
@@ -74,7 +78,7 @@
           </div>
           <span v-if="!isCollapsed" class="material-symbols-outlined text-[18px] transition-transform"
                 :class="showMore ? 'rotate-90' : ''">chevron_right</span>
-        </button>
+        </el-button>
 
         <div v-show="showMore" class="mt-2 space-y-2">
           <router-link
@@ -84,9 +88,10 @@
               custom
               v-slot="{ navigate }"
           >
-            <button
-                type="button"
-                class="flex w-full rounded-xl transition-all duration-200 overflow-hidden text-left"
+            <el-button
+                native-type="button"
+                text
+                class="flex h-auto w-full justify-start overflow-hidden rounded-xl text-left transition-all duration-200"
                 :class="linkClass(item)"
                 :disabled="item.disabled"
                 :title="item.disabled ? item.disabledReason : item.name"
@@ -98,7 +103,7 @@
                   :class="isCollapsed ? 'text-[10px] font-bold tracking-tighter' : 'text-sm font-medium'">{{
                 item.name
               }}</span>
-            </button>
+            </el-button>
           </router-link>
         </div>
       </div>
@@ -106,14 +111,15 @@
 
     <div v-if="!props.mobile" class="p-4 border-t border-outline-variant/20 flex shrink-0"
          :class="isCollapsed ? 'justify-center' : 'justify-end'">
-      <button
+      <el-button
           @click="toggleSidebar"
-          class="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-highest hover:text-primary transition-colors flex flex-col items-center gap-1"
+          text
+          class="h-auto p-2 text-on-surface-variant hover:bg-surface-container-highest hover:text-primary"
       >
         <span class="material-symbols-outlined text-[20px] transition-transform duration-300"
               :class="isCollapsed ? '' : 'rotate-180'">keyboard_double_arrow_right</span>
         <span v-if="isCollapsed" class="text-[10px] font-bold tracking-tighter scale-90">展开</span>
-      </button>
+      </el-button>
     </div>
   </aside>
 </template>
@@ -121,6 +127,7 @@
 <script setup>
 import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
+import {ElBadge, ElButton} from 'element-plus'
 import {useUserStore} from '@/stores/user'
 import {getApprovalSummary} from '@/views/function/approval/api/approval'
 import {decorateAccessItems} from '@/utils/access'
