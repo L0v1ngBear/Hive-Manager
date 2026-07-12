@@ -85,6 +85,12 @@
 - 明确保留：specialExceptionNote、附件元数据和更新 payload 字段。
 - 明确保留：Blob 下载、10MB 前端限制和 30 秒附件请求超时。
 
+## Element Plus Migration
+
+- The task list now uses explicitly imported `ElTable`, `ElPagination`, `ElTag`, `ElEmpty`, and `v-loading`.
+- Filters and the status editor use `ElForm`, `ElInput`, and `ElSelect`; the editor is an `ElDialog`.
+- Installation status validation, logistics and construction payload fields, special notes, and `DragAttachmentUpload` remain unchanged.
+
 ## 已发现风险
 
 - 路由要求 order:list，接口要求 installation:list；两者不等价，可能出现“能进不能查”或“有安装列表权却不能进”。

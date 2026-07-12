@@ -2,267 +2,50 @@
   <div class="function-page-shell h-full min-h-0 font-body">
     <div class="function-page-container space-y-6">
       <header class="installation-header">
-        <div>
-          <div class="function-page-eyebrow">
-            <span class="material-symbols-outlined">engineering</span>
-            安装交付中心
-          </div>
-          <h1 class="function-page-title">安装任务</h1>
-          <p class="installation-header-desc">
-            跟进已完成订单的发货、现场安装、验收和附件回传，安装完成后补齐施工人员信息。
-          </p>
-        </div>
-        <button class="installation-primary-btn" :disabled="loading" @click="loadTasks">
-          <span class="material-symbols-outlined text-[20px]" :class="{ 'animate-spin': loading }">sync</span>
-          刷新
-        </button>
+        <div><div class="function-page-eyebrow">Installation</div><h1 class="function-page-title">Installation Tasks</h1></div>
+        <el-button type="primary" :loading="loading" @click="loadTasks">Refresh</el-button>
       </header>
-
-      <section class="installation-summary-grid">
-        <button
-          v-for="card in summaryCards"
-          :key="card.key"
-          type="button"
-          class="installation-summary-card"
-          :class="card.className"
-          @click="selectStatus(card.status)"
-        >
-          <span class="material-symbols-outlined">{{ card.icon }}</span>
-          <span>
-            <small>{{ card.label }}</small>
-            <strong>{{ card.count }}</strong>
-            <em>{{ card.hint }}</em>
-          </span>
-        </button>
-      </section>
-
       <section class="installation-panel">
-        <div class="installation-filter-grid">
-          <label class="installation-filter-field installation-filter-field-wide">
-            <span>综合搜索</span>
-            <input
-              v-model.trim="filters.keyword"
-              class="box-input"
-              placeholder="订单号、客户、项目、品牌或物流单号"
-              @keyup.enter="loadTasks"
-            >
-          </label>
-          <label class="installation-filter-field">
-            <span>客户</span>
-            <input
-              v-model.trim="filters.customerName"
-              class="box-input"
-              placeholder="客户名称"
-              @keyup.enter="loadTasks"
-            >
-          </label>
-          <label class="installation-filter-field">
-            <span>项目</span>
-            <input
-              v-model.trim="filters.projectName"
-              class="box-input"
-              placeholder="项目名称"
-              @keyup.enter="loadTasks"
-            >
-          </label>
-          <div class="installation-filter-actions">
-            <button class="installation-primary-btn" @click="loadTasks">
-              <span class="material-symbols-outlined text-[18px]">search</span>
-              查询
-            </button>
-            <button class="installation-secondary-btn" @click="resetFilters">
-              <span class="material-symbols-outlined text-[18px]">restart_alt</span>
-              重置
-            </button>
-          </div>
-        </div>
-
-        <div class="responsive-table-wrap">
-          <table class="responsive-data-table installation-table w-full text-left">
-            <thead>
-            <tr>
-              <th class="th-cell">订单信息</th>
-              <th class="th-cell">客户项目</th>
-              <th class="th-cell">交付物流</th>
-              <th class="th-cell">安装状态</th>
-              <th class="th-cell">施工信息</th>
-              <th class="th-cell text-right">操作</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr v-if="loading">
-              <td class="td-cell text-center text-on-surface-variant" colspan="6">加载中...</td>
-            </tr>
-            <tr v-else-if="!rows.length">
-              <td class="td-cell text-center text-on-surface-variant" colspan="6">暂无安装任务</td>
-            </tr>
-            <tr v-for="row in rows" v-else :key="row.id" class="installation-row" :class="rowAccentClass(row.installationStatus)">
-              <td class="td-cell" data-label="订单信息">
-                <div class="installation-order-cell">
-                  <span class="installation-order-code">{{ row.orderId }}</span>
-                  <span class="installation-quantity-chip">数量 {{ row.totalQuantity || 0 }}</span>
-                </div>
-                <div class="installation-muted-line">{{ row.goodsDesc || '暂无商品描述' }}</div>
-                <div class="installation-meta-line">
-                  <span>{{ row.brandName || '未填写品牌' }}</span>
-                  <span>{{ formatDateTime(row.createTime) }}</span>
-                </div>
-              </td>
-              <td class="td-cell" data-label="客户项目">
-                <div class="installation-main-text">{{ row.customerName || '未填写客户' }}</div>
-                <div class="installation-muted-line">{{ row.projectName || '未填写项目' }}</div>
-                <div class="installation-meta-line">
-                  <span class="material-symbols-outlined">location_on</span>
-                  <span>{{ row.deliveryAddress || '未填写安装地址' }}</span>
-                </div>
-              </td>
-              <td class="td-cell" data-label="交付物流">
-                <div class="installation-main-text">{{ row.deliveryDate || '未填写交付日期' }}</div>
-                <div class="installation-logistics">
-                  <span class="material-symbols-outlined">local_shipping</span>
-                  <span>
-                    {{ row.expressCompany || '未填写物流' }}
-                    <template v-if="row.expressNo"> / {{ row.expressNo }}</template>
-                  </span>
-                </div>
-              </td>
-              <td class="td-cell" data-label="安装状态">
-                <div class="installation-status-stack">
-                  <span class="installation-status-pill" :class="statusClass(row.installationStatus)">
-                    <span class="material-symbols-outlined">{{ statusIcon(row.installationStatus) }}</span>
-                    {{ statusLabel(row.installationStatus) }}
-                  </span>
-                  <small>更新 {{ formatDateTime(row.updateTime) }}</small>
-                </div>
-              </td>
-              <td class="td-cell" data-label="施工信息">
-                <div class="installation-main-text">{{ row.constructionPersonnel || '未填写施工人员' }}</div>
-                <div class="installation-muted-line">{{ row.constructionPhone || '未填写联系电话' }}</div>
-                <button
-                  v-if="row.attachmentUrl"
-                  type="button"
-                  class="installation-attachment-link"
-                  @click="openAttachment(row.attachmentUrl, row.attachmentName)"
-                >
-                  <span class="material-symbols-outlined">attach_file</span>
-                  {{ attachmentLabel(row.attachmentName) }}
-                </button>
-                <div v-else class="installation-empty-attachment">暂无附件</div>
-              </td>
-              <td class="td-cell text-right" data-label="操作">
-                <button class="installation-row-btn" @click="openEditor(row)">
-                  <span class="material-symbols-outlined text-[18px]">edit_square</span>
-                  处理
-                </button>
-              </td>
-            </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="installation-pagination">
-          <span>共 {{ pagination.total }} 条</span>
-          <button class="installation-secondary-btn" :disabled="filters.current <= 1" @click="changePage(filters.current - 1)">上一页</button>
-          <span>{{ filters.current }} / {{ pagination.pages || 1 }}</span>
-          <button class="installation-secondary-btn" :disabled="filters.current >= (pagination.pages || 1)" @click="changePage(filters.current + 1)">下一页</button>
-        </div>
+        <el-form :model="filters" class="installation-filter-grid">
+          <el-form-item label="Search"><el-input v-model.trim="filters.keyword" @keyup.enter="loadTasks" /></el-form-item>
+          <el-form-item label="Customer"><el-input v-model.trim="filters.customerName" @keyup.enter="loadTasks" /></el-form-item>
+          <el-form-item label="Project"><el-input v-model.trim="filters.projectName" @keyup.enter="loadTasks" /></el-form-item>
+          <el-form-item label="Status"><el-select v-model="filters.status" clearable><el-option v-for="status in taskStatuses" :key="status.value" :label="status.label" :value="status.value" /></el-select></el-form-item>
+          <el-button type="primary" @click="loadTasks">Search</el-button><el-button @click="resetFilters">Reset</el-button>
+        </el-form>
+        <el-table v-loading="loading" :data="rows" row-key="id">
+          <el-table-column label="Order" min-width="180"><template #default="{ row }">{{ row.orderId }}<br>{{ row.goodsDesc }}</template></el-table-column>
+          <el-table-column label="Customer" min-width="160"><template #default="{ row }">{{ row.customerName }}<br>{{ row.projectName }}</template></el-table-column>
+          <el-table-column label="Logistics" min-width="160"><template #default="{ row }">{{ row.expressCompany }} {{ row.expressNo }}</template></el-table-column>
+          <el-table-column label="Status" min-width="150"><template #default="{ row }"><el-tag>{{ statusLabel(row.installationStatus) }}</el-tag></template></el-table-column>
+          <el-table-column label="Construction" min-width="160"><template #default="{ row }">{{ row.constructionPersonnel }}<el-button v-if="row.attachmentUrl" link @click="openAttachment(row.attachmentUrl, row.attachmentName)">{{ attachmentLabel(row.attachmentName) }}</el-button></template></el-table-column>
+          <el-table-column label="Actions" width="110"><template #default="{ row }"><el-button link type="primary" @click="openEditor(row)">Edit</el-button></template></el-table-column>
+          <template #empty><el-empty description="No tasks" /></template>
+        </el-table>
+        <div class="installation-pagination"><span>Total {{ pagination.total }}</span><el-pagination background layout="prev, pager, next" :current-page="filters.current" :page-size="filters.size" :total="pagination.total" @current-change="changePage" /></div>
       </section>
     </div>
-
-    <div v-if="editorVisible" class="installation-modal-mask" @click.self="closeEditor">
-      <div class="installation-modal">
-        <div class="installation-modal-head">
-          <div>
-            <p class="function-page-eyebrow">安装任务</p>
-            <h2>{{ editorForm.orderId }}</h2>
-            <div class="installation-modal-subtitle">
-              <span>{{ editorForm.customerName || '未填写客户' }}</span>
-              <span>{{ editorForm.projectName || '未填写项目' }}</span>
-              <span>{{ editorForm.deliveryDate || '未填写交付日期' }}</span>
-            </div>
-          </div>
-          <button class="installation-icon-btn" @click="closeEditor">
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-
-        <div class="installation-editor-summary">
-          <div>
-            <small>当前状态</small>
-            <strong>{{ statusLabel(editorForm.status) }}</strong>
-          </div>
-          <div>
-            <small>施工人员</small>
-            <strong>{{ editorForm.constructionPersonnel || '待填写' }}</strong>
-          </div>
-          <div>
-            <small>附件</small>
-            <strong>{{ editorForm.attachmentName ? '已上传' : '未上传' }}</strong>
-          </div>
-        </div>
-
-        <div class="installation-form-grid">
-          <label class="installation-field">
-            <span>安装状态</span>
-            <select v-model="editorForm.status" class="box-input">
-              <option v-for="status in taskStatuses" :key="status.value" :value="status.value">
-                {{ status.label }}
-              </option>
-            </select>
-          </label>
-          <label class="installation-field">
-            <span>物流公司</span>
-            <input v-model.trim="editorForm.expressCompany" class="box-input" placeholder="请输入物流公司">
-          </label>
-          <label class="installation-field">
-            <span>物流单号</span>
-            <input v-model.trim="editorForm.expressNo" class="box-input" placeholder="请输入物流单号">
-          </label>
-          <label class="installation-field">
-            <span>施工人员</span>
-            <input v-model.trim="editorForm.constructionPersonnel" class="box-input" placeholder="请输入施工人员信息">
-          </label>
-          <label class="installation-field">
-            <span>联系电话</span>
-            <input v-model.trim="editorForm.constructionPhone" class="box-input" placeholder="请输入联系电话">
-          </label>
-          <label class="installation-field installation-field-full">
-            <span>施工备注</span>
-            <textarea v-model.trim="editorForm.constructionRemark" class="box-input installation-textarea" placeholder="请输入施工备注"></textarea>
-          </label>
-          <label class="installation-field installation-field-full">
-            <span>特殊及异常情况说明</span>
-            <textarea v-model.trim="editorForm.specialExceptionNote" class="box-input installation-textarea" placeholder="请输入特殊情况、现场异常或需要后续跟进的说明"></textarea>
-          </label>
-          <div class="installation-field installation-field-full">
-            <span>验收附件</span>
-            <DragAttachmentUpload
-              title="上传施工照片、验收单或交付凭证"
-              :uploading="attachmentUploading"
-              :file-name="editorForm.attachmentName"
-              :file-url="editorForm.attachmentUrl"
-              :file-size="editorForm.attachmentSize"
-              @select="uploadAttachment"
-              @download="openAttachment(editorForm.attachmentUrl, editorForm.attachmentName)"
-              @remove="removeAttachment"
-            />
-          </div>
-        </div>
-
-        <div class="installation-modal-actions">
-          <button class="installation-secondary-btn" :disabled="saving" @click="closeEditor">取消</button>
-          <button class="installation-primary-btn" :disabled="saving || attachmentUploading" @click="submitEditor">
-            {{ saving ? '保存中...' : '保存' }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <el-dialog v-model="editorVisible" title="Installation task" width="760px" :before-close="closeEditor">
+      <el-form :model="editorForm" label-position="top" class="installation-form-grid">
+        <el-form-item label="Status"><el-select v-model="editorForm.status"><el-option v-for="status in taskStatuses" :key="status.value" :label="status.label" :value="status.value" /></el-select></el-form-item>
+        <el-form-item label="Logistics company"><el-input v-model.trim="editorForm.expressCompany" /></el-form-item>
+        <el-form-item label="Logistics number"><el-input v-model.trim="editorForm.expressNo" /></el-form-item>
+        <el-form-item label="Installer"><el-input v-model.trim="editorForm.constructionPersonnel" /></el-form-item>
+        <el-form-item label="Phone"><el-input v-model.trim="editorForm.constructionPhone" /></el-form-item>
+        <el-form-item label="Construction notes" class="installation-field-full"><el-input v-model.trim="editorForm.constructionRemark" type="textarea" /></el-form-item>
+        <el-form-item label="Special notes" class="installation-field-full"><el-input v-model.trim="editorForm.specialExceptionNote" type="textarea" /></el-form-item>
+        <el-form-item label="Attachment" class="installation-field-full"><DragAttachmentUpload :uploading="attachmentUploading" :file-name="editorForm.attachmentName" :file-url="editorForm.attachmentUrl" :file-size="editorForm.attachmentSize" @select="uploadAttachment" @download="openAttachment(editorForm.attachmentUrl, editorForm.attachmentName)" @remove="removeAttachment" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="closeEditor">Cancel</el-button><el-button type="primary" :loading="saving" :disabled="attachmentUploading" @click="submitEditor">Save</el-button></template>
+    </el-dialog>
   </div>
 </template>
 
+
+
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElDialog, ElEmpty, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElPagination, ElSelect, ElTable, ElTableColumn, ElTag } from 'element-plus'
 import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import {
   downloadInstallationTaskAttachment,
@@ -443,9 +226,10 @@ function openEditor(row) {
   editorVisible.value = true
 }
 
-function closeEditor() {
+function closeEditor(done) {
   if (saving.value || attachmentUploading.value) return
   editorVisible.value = false
+  done?.()
 }
 
 async function submitEditor() {
