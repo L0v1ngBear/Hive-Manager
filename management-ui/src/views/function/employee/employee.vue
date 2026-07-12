@@ -321,7 +321,7 @@
             </article>
             <article class="org-stat-card">
               <span>顶层人员</span>
-              <strong>{{ employeeHierarchy.length }}</strong>
+              <strong>{{ organizationTopLevelCount }}</strong>
             </article>
             <article class="org-stat-card">
               <span>有下级</span>
@@ -329,7 +329,7 @@
             </article>
             <article class="org-stat-card warning">
               <span>未设置上级</span>
-              <strong>{{ rootEmployeeCount }}</strong>
+              <strong>{{ unassignedEmployeeCount }}</strong>
             </article>
           </div>
 
@@ -352,18 +352,17 @@
                 center
               >
                 <template #default="{ node }">
-                  <div class="org-chart-card" :class="{ root: node.$$data?.isVirtualRoot }">
+                  <div class="org-chart-card" :class="{ root: node.$$data?.isOrganizationRoot }">
                     <div class="org-chart-icon">
-                      <span class="material-symbols-outlined">{{ node.$$data?.isVirtualRoot ? 'account_tree' : node.children?.length ? 'supervisor_account' : 'person' }}</span>
+                      <span class="material-symbols-outlined">{{ node.children?.length ? 'supervisor_account' : 'person' }}</span>
                     </div>
                     <div class="org-chart-content">
                       <p class="org-chart-name">{{ node.label }}</p>
-                      <p v-if="!node.$$data?.isVirtualRoot" class="org-chart-meta">
+                      <p class="org-chart-meta">
                         {{ node.$$data?.departmentName || '未分配部门' }} · {{ node.$$data?.positionName || '未设置职位' }}
                       </p>
-                      <p v-else class="org-chart-meta">按直属负责人关系生成组织架构</p>
                     </div>
-                    <span v-if="!node.$$data?.isVirtualRoot" :class="['org-chart-status', Number(node.$$data?.status) === 1 ? 'enabled' : 'disabled']">
+                    <span :class="['org-chart-status', Number(node.$$data?.status) === 1 ? 'enabled' : 'disabled']">
                       {{ employeeStatusLabel(node.$$data?.status) }}
                     </span>
                   </div>
@@ -401,6 +400,7 @@ import DateFilterInput from '@/components/DateFilterInput.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import EmployeeCreate from './employeeCreate.vue'
 import EmployeePermissionDrawer from './EmployeePermissionDrawer.vue'
+import { buildEmployeeHierarchy, buildOrganizationChart } from './employeeOrganization.js'
 import {
   downloadEmployeeImportTemplate,
   createOrganizationJoinCode,
@@ -478,66 +478,15 @@ const employeeColumnWidths = {
 // 核心逻辑：构建层级结构
 const employeeHierarchy = computed(() => buildEmployeeHierarchy(organizationEmployees.value))
 
-// 关键改动：计算树的数据源
-const orgChartData = computed(() => {
-  const roots = employeeHierarchy.value
-
-  if (!roots || roots.length === 0) {
-    return { id: 'empty', label: '暂无数据' }
-  }
-
-  // 方案1：如果只有一个最高领导，直接让他成为根节点，消除多余的方块
-  if (roots.length === 1) {
-    return toOrgChartNode(roots[0])
-  }
-
-  // 如果有多个并列最高级，才保留虚拟根节点进行包裹
-  return {
-    id: 'root',
-    pid: null,
-    label: '组织架构',
-    expand: true,
-    isVirtualRoot: true,
-    children: roots.map(toOrgChartNode)
-  }
-})
+const organizationChart = computed(() => buildOrganizationChart(employeeHierarchy.value))
+const orgChartData = computed(() => organizationChart.value.data)
+const organizationTopLevelCount = computed(() => organizationChart.value.topLevelCount)
+const unassignedEmployeeCount = computed(() => organizationChart.value.unassignedCount)
 
 const managerCount = computed(() => organizationEmployees.value.filter((item) => employeeHierarchyHasChildren(item.id, employeeHierarchy.value)).length)
-const rootEmployeeCount = computed(() => employeeHierarchy.value.length)
 const orgChartProps = { id: 'id', pid: 'pid', label: 'label', children: 'children', expand: 'expand' }
 
 // --- 方法定义 ---
-
-// 转换节点格式
-const toOrgChartNode = (employee) => ({
-  ...employee,
-  id: String(employee.id),
-  // 如果是根节点且没有虚拟包裹，pid 设为 null
-  pid: employee.leaderId ? String(employee.leaderId) : null,
-  label: employee.name || '--',
-  expand: true,
-  children: (employee.children || []).map(toOrgChartNode)
-})
-
-const buildEmployeeHierarchy = (source) => {
-  const nodes = source.map((item) => ({ ...item, children: [] }))
-  const byId = new Map(nodes.map((item) => [Number(item.id), item]))
-  const byName = new Map(nodes.filter((item) => item.name).map((item) => [item.name, item]))
-  const roots = []
-
-  nodes.forEach((node) => {
-    const leaderId = node.leaderId == null ? null : Number(node.leaderId)
-    // 优先匹配 ID，其次匹配名称
-    const leader = leaderId ? byId.get(leaderId) : (node.leaderName ? byName.get(node.leaderName) : null)
-
-    if (leader && leader.id !== node.id) {
-      leader.children.push(node)
-    } else {
-      roots.push(node)
-    }
-  })
-  return roots
-}
 
 const fetchEmployeeFieldConfig = async () => {
   try {
@@ -952,6 +901,11 @@ watch(
 .org-chart-status.disabled {
   background: rgba(100, 116, 139, .12);
   color: rgb(71, 85, 105);
+}
+
+.org-chart-card.root .org-chart-status {
+  background: rgba(255, 255, 255, .16);
+  color: white;
 }
 
 :deep(.zm-tree-org) {
