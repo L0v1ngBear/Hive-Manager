@@ -99,6 +99,64 @@ npx eslint src/views/function/approval/approvalCenter.vue src/views/dashboard/in
 
 Output: exit 0 with no diagnostics.
 
+## Reviewer Follow-Up: Resilient Approval And Announcement Loading
+
+### Findings Addressed
+
+- Approval list requests now clear `rows` and prior state before dispatch, persist classified failures, and render loading/local-permission/failure/success-empty states exclusively.
+- Approval tab requests capture the requested tab and use a monotonically increasing request id; only the latest request may write rows, errors, or loading completion.
+- Dashboard announcement requests use `Promise.allSettled` so the normal/urgent and important groups retain independent success, empty, or failure results.
+- Both areas distinguish authentication (401), permission (403), network, and server (5xx) failures and provide an in-region retry command.
+- Approval API dispatch, permission checks, dashboard routes, navigation, and authentication flows were not changed.
+
+### TDD Evidence
+
+RED command:
+
+```powershell
+node --test tests/element-plus-shell-approval.test.js
+```
+
+RED output before implementation:
+
+```text
+tests 7, pass 5, fail 2
+approval list clears stale content and exposes exclusive retryable load states: FAIL
+dashboard announcements distinguish failures from successful empty responses: FAIL
+```
+
+GREEN output after implementation:
+
+```text
+tests 7, pass 7, fail 0
+```
+
+### Formal Verification Output
+
+```powershell
+node --test tests/element-plus-shell-approval.test.js
+```
+
+```text
+tests 7, pass 7, fail 0, duration_ms 382.1771
+```
+
+```powershell
+node --test tests/auth-storage-security.test.js tests/permission-ui-hardening.test.js
+```
+
+```text
+auth storage security checks passed
+permission UI hardening checks passed
+tests 2, pass 2, fail 0, duration_ms 285.8059
+```
+
+```powershell
+npx eslint src/views/function/approval/approvalCenter.vue src/views/dashboard/index.vue src/layout/components/Navbar.vue src/layout/components/Sidebar.vue src/views/Login.vue src/views/JoinOrganization.vue src/views/ForcePasswordChange.vue src/views/NoPermission.vue tests/element-plus-shell-approval.test.js tests/auth-storage-security.test.js tests/permission-ui-hardening.test.js
+```
+
+Output: exit 0 with no diagnostics.
+
 ```powershell
 npm run build
 ```
@@ -106,7 +164,7 @@ npm run build
 ```text
 vite v8.1.3 building client environment for production...
 transforming... 1842 modules transformed.
-built in 8.94s
+built in 8.91s
 ```
 
 ```powershell
