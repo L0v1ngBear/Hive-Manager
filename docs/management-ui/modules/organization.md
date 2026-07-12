@@ -8,7 +8,7 @@
 - 服务：`management/src/main/java/my/management/module/organization/service/OrganizationService.java`。
 - 路由：`/function/organization`；入口权限 `employee:list`；feature 为 `module.employee`。
 - 迁移批次：Batch 1；组织层级展示属于保留的自定义可视面。
-- 当前状态：Audit baseline。
+- 当前状态：Task 4 已迁移至 Element Plus 控件。
 
 ## 功能
 
@@ -42,7 +42,7 @@
 1. 挂载后请求 overview，写入部门树和四项统计。
 2. 无当前选择时自动选择第一个部门，并请求该部门成员。
 3. 刷新后按旧部门 ID 在新树中重新定位；不存在则清空选择和成员。
-4. 新增/编辑共用手写抽屉，提交前校验部门名称并规范化 parentId、sortNo、status。
+4. 新增/编辑共用 `ElDrawer` 和 `ElForm`，提交前校验部门名称并规范化 parentId、sortNo、status；`sortNo = 0` 保持有效。
 5. 保存成功后关闭抽屉、刷新 overview，并重新加载当前部门成员。
 6. 删除先由 `ElMessageBox` 确认，后端再次检查下级部门和员工，再逻辑删除。
 
@@ -56,21 +56,20 @@
 
 ## 控件现状
 
-- 部门树由递归 `DepartmentNode` 使用渲染函数和原生按钮绘制。
-- 统计卡、成员卡和空态为自定义 HTML/CSS。
-- 新增/编辑为手写侧滑层，字段使用原生 `input` 和 `select`。
-- 删除确认和反馈使用 `ElMessageBox`、`ElMessage`。
-- 当前没有 `ElTree`、`ElDrawer`、`ElForm` 或独立错误面板。
+- 部门树仍由递归 `DepartmentNode` 绘制，以保留层级缩进、当前选中态和子部门命令；节点命令与状态使用 `ElButton`、`ElTag`。
+- 新增/编辑使用 `ElDrawer`、`ElForm`、`ElInput`、`ElSelect`、`ElInputNumber` 与 `ElSwitch`。
+- 页面命令使用 `ElButton`，成员状态使用 `ElTag`，加载与空态使用 `v-loading`、`ElEmpty`。
+- 删除确认和反馈继续使用 `ElMessageBox`、`ElMessage`。
 
 ## Element Plus 对照/保留项
 
-- 抽屉迁移为 `ElDrawer`，表单迁移为 `ElForm`、`ElInput`、`ElSelect`、`ElInputNumber`。
-- 保存、删除、刷新命令使用 `ElButton`；状态可使用 `ElTag`。
-- 加载/空态使用 `v-loading`、`ElEmpty`，但请求错误必须是独立状态。
-- 删除继续使用 `ElMessageBox`，取消不报错；保存按钮增加真实 loading。
+- 抽屉已迁移为 `ElDrawer`，表单已迁移为 `ElForm`、`ElInput`、`ElSelect`、`ElInputNumber`、`ElSwitch`。
+- 保存、删除、刷新和节点命令使用 `ElButton`；部门和成员状态使用 `ElTag`。
+- 加载/空态使用 `v-loading`、`ElEmpty`；请求错误仍由全局 request 处理。
+- 删除继续使用 `ElMessageBox`，取消不报错。
 - 保留递归部门层级的缩进、节点状态、子部门命令和当前节点视觉，不为追求组件数量强制替换组织可视面。
 - 保留后端 parentId 数字/null、status 数字和部门改名同步契约。
-- 命令迁移后必须补回现有后端权限对应的 `v-permission`，但不创建新权限码。
+- 命令迁移不改变既有前端可见性或后端权限码。
 
 ## 风险
 
