@@ -13,58 +13,56 @@
           面向当前组织发布公告，发布后员工可在电脑端和手机端查看，系统会记录已读未读状态。
         </p>
       </div>
-      <button class="rounded-2xl border border-outline-variant/30 bg-white px-6 py-4 text-sm font-black text-on-surface-variant transition hover:border-primary/40 hover:text-primary" @click="goList">
+      <el-button class="rounded-2xl border border-outline-variant/30 bg-white px-6 py-4 text-sm font-black text-on-surface-variant transition hover:border-primary/40 hover:text-primary" @click="goList">
         查看公告
-      </button>
+      </el-button>
     </section>
 
     <section class="rounded-3xl border border-primary/20 bg-white p-6 shadow-sm">
       <h2 class="text-xl font-black text-on-surface">公告内容</h2>
-      <div class="mt-5 space-y-5">
-        <label class="block">
-          <span class="text-sm font-bold text-on-surface">公告类型</span>
-          <select v-model="form.level" class="mt-2 w-full rounded-2xl border border-outline-variant/30 bg-surface-container-lowest px-4 py-3 text-sm font-bold outline-none focus:border-primary">
-            <option value="normal">普通公告</option>
-            <option value="urgent">紧急公告</option>
-            <option value="important">重要公告</option>
-          </select>
-        </label>
+      <el-form :model="form" class="mt-5 space-y-5">
+        <el-form-item label="公告类型">
+          <el-select v-model="form.level" class="w-full" placeholder="请选择公告类型">
+            <el-option label="普通公告" value="normal" />
+            <el-option label="紧急公告" value="urgent" />
+            <el-option label="重要公告" value="important" />
+          </el-select>
+        </el-form-item>
 
-        <label class="block">
-          <span class="text-sm font-bold text-on-surface">标题 <b class="text-primary">*</b></span>
-          <input
+        <el-form-item label="标题" required>
+          <el-input
               v-model.trim="form.title"
               maxlength="80"
-              class="mt-2 w-full rounded-2xl border border-outline-variant/30 bg-surface-container-lowest px-4 py-3 text-sm outline-none focus:border-primary"
+              show-word-limit
               placeholder="例如：本周六设备盘点通知"
           />
-          <span class="mt-1 block text-right text-xs text-on-surface-variant">{{ form.title.length }}/80</span>
-        </label>
+        </el-form-item>
 
-        <label class="block">
-          <span class="text-sm font-bold text-on-surface">内容 <b class="text-primary">*</b></span>
-          <textarea
+        <el-form-item label="内容" required>
+          <el-input
               v-model.trim="form.content"
+              type="textarea"
               maxlength="1000"
-              rows="10"
-              class="mt-2 w-full resize-none rounded-2xl border border-outline-variant/30 bg-surface-container-lowest px-4 py-3 text-sm leading-7 outline-none focus:border-primary"
+              :rows="10"
+              show-word-limit
+              resize="none"
               placeholder="请写清楚公告事项、时间、责任人和需要员工完成的动作。"
-          ></textarea>
-          <span class="mt-1 block text-right text-xs text-on-surface-variant">{{ form.content.length }}/1000</span>
-        </label>
-      </div>
+          />
+        </el-form-item>
+      </el-form>
 
       <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-        <button class="rounded-2xl border border-outline-variant/30 bg-white px-6 py-3 text-sm font-black text-on-surface-variant transition hover:border-primary/40 hover:text-primary" @click="resetForm">
+        <el-button class="rounded-2xl border border-outline-variant/30 bg-white px-6 py-3 text-sm font-black text-on-surface-variant transition hover:border-primary/40 hover:text-primary" @click="resetForm">
           重置
-        </button>
-        <button
+        </el-button>
+        <el-button
+            type="primary"
             class="rounded-2xl bg-primary px-7 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="publishing"
+            :loading="publishing"
             @click="handlePublish"
         >
           {{ publishing ? '发布中...' : '发布公告' }}
-        </button>
+        </el-button>
       </div>
     </section>
   </div>
@@ -73,7 +71,7 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
 import { publishAnnouncement } from '@/api/notification.js'
 
 defineOptions({ name: 'AnnouncementPublish' })

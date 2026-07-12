@@ -7,25 +7,21 @@
           <div class="p-3 bg-primary-container text-white rounded-xl shadow-lg shadow-primary/10">
             <span class="material-symbols-outlined text-3xl">person_add</span>
           </div>
-          <button @click="close" class="p-2 hover:bg-surface-container-high rounded-full transition-colors group">
+          <el-button circle text class="p-2 hover:bg-surface-container-high rounded-full transition-colors group" @click="close">
             <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary">close</span>
-          </button>
+          </el-button>
         </div>
         <h2 class="text-2xl font-black text-primary tracking-tight">新建角色</h2>
         <p class="text-sm text-on-surface-variant mt-1">定义职能岗位并关联对应的系统操作权限</p>
       </div>
 
-      <div class="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
-        <div class="space-y-2">
-          <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant">角色名称</label>
-          <input v-model="form.roleName" type="text" placeholder="例如：高级裁剪师" class="w-full px-4 py-3.5 rounded bg-surface-container-low border-none focus:ring-2 focus:ring-primary/20 text-on-surface transition-all placeholder:text-on-surface-variant/40" />
-        </div>
+      <el-form :model="form" class="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
+        <el-form-item label="角色名称" class="space-y-2">
+          <el-input v-model="form.roleName" placeholder="例如：高级裁剪师" />
+        </el-form-item>
 
-        <div class="space-y-2 relative">
-          <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant flex justify-between">
-            分配权限
-            <span class="text-[10px] font-normal lowercase opacity-60">勾选下方列表授予功能访问权</span>
-          </label>
+        <el-form-item label="分配权限" class="space-y-2 relative">
+          <p class="text-[10px] font-normal lowercase text-on-surface-variant opacity-60">勾选下方列表授予功能访问权</p>
 
           <div v-if="permissionLoadError" class="rounded-lg bg-amber-50 text-amber-700 px-4 py-3 text-sm">
             {{ permissionLoadError }}
@@ -58,15 +54,14 @@
               </template>
             </el-tree-select>
           </div>
-        </div>
-      </div>
+        </el-form-item>
+      </el-form>
 
       <div class="p-8 bg-surface-container-low border-t border-surface-variant/30 grid grid-cols-2 gap-4">
-        <button @click="close" class="py-3 px-6 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-all">取消返回</button>
-        <button @click="submit" :disabled="isSubmitting" class="py-3 px-6 rounded-lg text-sm font-bold text-white bg-primary shadow-lg shadow-primary/30 active:scale-95 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-          <span v-if="isSubmitting" class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+        <el-button @click="close">取消返回</el-button>
+        <el-button type="primary" :loading="isSubmitting" @click="submit">
           {{ isSubmitting ? '提交中...' : '确认创建' }}
-        </button>
+        </el-button>
       </div>
     </div>
   </el-drawer>
@@ -74,7 +69,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { ElMessage, ElDrawer } from 'element-plus'
+import { ElButton, ElDrawer, ElForm, ElFormItem, ElInput, ElMessage, ElTreeSelect } from 'element-plus'
 import { createRole, getAllPermissions } from './api/role.js'
 
 const emit = defineEmits(['success', 'closed'])

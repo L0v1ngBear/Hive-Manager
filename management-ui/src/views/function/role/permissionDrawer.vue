@@ -22,9 +22,9 @@
           <div class="p-3 bg-primary-container text-white rounded-xl shadow-lg shadow-primary/10">
             <span class="material-symbols-outlined text-3xl">security</span>
           </div>
-          <button @click="close" class="p-2 hover:bg-surface-container-high rounded-full transition-colors group">
+          <el-button circle text class="p-2 hover:bg-surface-container-high rounded-full transition-colors group" @click="close">
             <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary">close</span>
-          </button>
+          </el-button>
         </div>
         <h2 class="text-2xl font-black text-primary tracking-tight">分配权限</h2>
         <div class="flex items-center gap-2 mt-2">
@@ -79,15 +79,15 @@
       </div>
 
       <div class="p-8 bg-surface-container-low border-t border-surface-variant/30 grid grid-cols-2 gap-4 flex-shrink-0">
-        <button @click="close" class="py-3 px-6 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-all">取消返回</button>
-        <button
+        <el-button @click="close">取消返回</el-button>
+        <el-button
+            type="primary"
+            :loading="isSubmitting"
+            :disabled="treeData.length === 0 || !!permissionLoadError"
             @click="save"
-            :disabled="isSubmitting || treeData.length === 0 || !!permissionLoadError"
-            class="py-3 px-6 rounded-lg text-sm font-bold text-white bg-primary shadow-lg shadow-primary/30 active:scale-95 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          <span v-if="isSubmitting" class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
           {{ isSubmitting ? '保存中...' : '确认分配' }}
-        </button>
+        </el-button>
       </div>
     </div>
   </el-drawer>
@@ -95,7 +95,7 @@
 
 <script setup>
 import { ref, nextTick } from 'vue'
-import { ElMessage, ElDrawer, ElTreeSelect } from 'element-plus'
+import { ElButton, ElDrawer, ElEmpty, ElMessage, ElTreeSelect } from 'element-plus'
 import {getAllPermissions, getRolePermissionIds, updateRolePermissions} from './api/role.js'
 
 const visible = ref(false)

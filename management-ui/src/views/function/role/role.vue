@@ -17,63 +17,48 @@
             @move="moveRoleTableColumn"
             @reset="resetRoleTableColumns"
           />
-          <button v-permission="'role:create'" @click="openCreateRole" class="function-action-primary">
+          <el-button v-permission="'role:create'" type="primary" class="function-action-primary" @click="openCreateRole">
             <span class="material-symbols-outlined text-[20px]">add</span>新建角色
-          </button>
+          </el-button>
         </div>
       </header>
 
       <section class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border-l-4 border-primary/20 relative">
-        <div v-if="loading" class="absolute inset-0 bg-white/50 backdrop-blur-sm z-20 flex items-center justify-center">
-          <span class="material-symbols-outlined text-primary text-3xl animate-spin">progress_activity</span>
-        </div>
-
-        <div class="responsive-table-wrap">
-          <table class="responsive-data-table w-full text-left border-collapse">
-            <thead class="bg-surface-container-low/50">
-              <tr>
-                <th
-                  v-for="column in roleTableColumns"
-                  :key="column.key"
-                  class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider"
-                >
-                  {{ column.label }}
-                </th>
-                <th class="px-6 py-4 text-right text-xs font-black text-on-surface-variant uppercase tracking-wider">操作</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-outline-variant/10">
-              <tr v-for="role in roles" :key="role.id" class="group transition-colors hover:bg-surface-container-high/30">
-                <td
-                  v-for="column in roleTableColumns"
-                  :key="column.key"
-                  :data-label="column.label"
-                  class="px-6 py-4"
-                  :class="column.key === 'createTime' ? 'text-sm text-on-surface-variant' : ''"
-                >
-                  <template v-if="column.key === 'roleName'">
-                    <div class="flex items-center gap-3">
-                      <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary">
-                        <span class="material-symbols-outlined text-xl">badge</span>
-                      </div>
-                      <div class="font-bold text-primary text-sm">{{ role.roleName }}</div>
-                    </div>
-                  </template>
-                  <template v-else-if="column.key === 'roleType'">
-                    <span v-if="role.isSystem" class="text-[11px] font-bold px-2 py-1 rounded bg-secondary/10 text-secondary border border-secondary/20">系统内置</span>
-                    <span v-else class="text-[11px] font-bold px-2 py-1 rounded bg-surface-container-high text-on-surface-variant border border-outline-variant/20">自定义</span>
-                  </template>
-                  <template v-else-if="column.key === 'createTime'">{{ formatTime(role.createTime) }}</template>
-                </td>
-                <td class="px-6 py-4 text-right" data-label="操作">
-                  <button v-permission="'role:update'" @click="openPermission(role)" class="text-primary hover:bg-primary/10 px-4 py-2 rounded-lg text-sm font-bold transition-colors">配置权限</button>
-                </td>
-              </tr>
-              <tr v-if="!loading && roles.length === 0">
-                <td :colspan="roleTableColumnCount" class="px-6 py-12 text-center text-on-surface-variant">暂无角色数据</td>
-              </tr>
-            </tbody>
-          </table>
+        <el-table v-loading="loading" :data="roles" row-key="id" class="w-full" table-layout="auto">
+          <el-table-column
+              v-for="column in roleTableColumns"
+              :key="column.key"
+              :prop="column.key"
+              :label="column.label"
+              :min-width="column.key === 'roleName' ? 240 : 160"
+          >
+            <template #default="{ row: role }">
+              <div v-if="column.key === 'roleName'" class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary">
+                  <span class="material-symbols-outlined text-xl">badge</span>
+                </div>
+                <div class="font-bold text-primary text-sm">{{ role.roleName }}</div>
+              </div>
+              <template v-else-if="column.key === 'roleType'">
+                <el-tag v-if="role.isSystem" type="warning" effect="light">系统内置</el-tag>
+                <el-tag v-else type="info" effect="plain">自定义</el-tag>
+              </template>
+              <span v-else-if="column.key === 'createTime'" class="text-sm text-on-surface-variant">
+                {{ formatTime(role.createTime) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" fixed="right" width="150" align="right">
+            <template #default="{ row: role }">
+              <el-button v-permission="'role:update'" link type="primary" @click="openPermission(role)">配置权限</el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <el-empty description="暂无角色数据" />
+          </template>
+        </el-table>
+        <div class="flex justify-end px-6 py-4">
+          <el-pagination :current-page="1" :page-size="100" :total="roles.length" layout="total" />
         </div>
       </section>
 
@@ -94,7 +79,8 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
+import { ElButton, ElEmpty, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus'
 import PermissionDrawer from './permissionDrawer.vue'
 import CreateRoleDrawer from './createRoleDrawer.vue'
 import { getRolePage } from './api/role.js'
@@ -111,7 +97,6 @@ const {
   moveColumn: moveRoleTableColumn,
   resetColumns: resetRoleTableColumns
 } = useLocalTableColumns('role.list', defaultRoleTableColumns)
-const roleTableColumnCount = computed(() => roleTableColumns.value.length + 1)
 const roles = ref([])
 const loading = ref(false)
 const drawerRef = ref(null)
