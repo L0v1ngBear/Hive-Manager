@@ -54,7 +54,8 @@
             </template>
           </el-table-column>
           <template #empty>
-            <div v-if="roleLoadError" class="space-y-4 px-6 py-8">
+            <div v-if="loading" class="h-24" aria-hidden="true"></div>
+            <div v-else-if="roleLoadError" class="space-y-4 px-6 py-8">
               <el-alert
                   title="角色列表加载失败"
                   :description="roleLoadError"
@@ -70,7 +71,7 @@
             <el-empty v-else description="暂无角色数据" />
           </template>
         </el-table>
-        <div v-if="!roleLoadError" class="flex justify-end px-6 py-4">
+        <div v-if="!loading && !roleLoadError" class="flex justify-end px-6 py-4">
           <el-pagination :current-page="1" :page-size="100" :total="roles.length" layout="total" />
         </div>
       </section>

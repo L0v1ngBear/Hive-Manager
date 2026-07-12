@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -54,7 +54,7 @@ test("role list keeps request failure separate from its true empty state", () =>
   );
   assert.match(
     list,
-    /<template #empty>[\s\S]*v-if="roleLoadError"[\s\S]*@click="fetchData"[\s\S]*<el-empty v-else/,
+    /<template #empty>[\s\S]*v-else-if="roleLoadError"[\s\S]*@click="fetchData"[\s\S]*<el-empty v-else/,
   );
 });
 
@@ -69,4 +69,71 @@ test("permission drawer distinguishes authorization failures from request failur
   assert.match(permission, /无权查看角色权限/);
   assert.match(permission, /权限数据加载失败/);
   assert.doesNotMatch(permission, /permissionLoadError/);
+});
+
+test("latest request guard rejects stale data, error and loading writes", async () => {
+  const helperUrl = new URL(
+    "../src/views/function/announcement/latestRequestGuard.js",
+    import.meta.url,
+  );
+  assert.equal(existsSync(helperUrl), true, "latest request guard must exist");
+
+  const { createLatestRequestGuard } = await import(helperUrl);
+  const guard = createLatestRequestGuard();
+  const state = { data: [], error: "", loading: false };
+  const firstRequestId = guard.begin();
+  guard.commit(firstRequestId, () => {
+    state.loading = true;
+  });
+
+  const latestRequestId = guard.begin();
+  guard.commit(latestRequestId, () => {
+    state.data = ["latest"];
+    state.loading = true;
+  });
+
+  assert.equal(
+    guard.commit(firstRequestId, () => {
+      state.data = ["stale"];
+      state.error = "stale failure";
+    }),
+    false,
+  );
+  assert.equal(
+    guard.commit(firstRequestId, () => {
+      state.loading = false;
+    }),
+    false,
+  );
+  assert.deepEqual(state, { data: ["latest"], error: "", loading: true });
+
+  assert.equal(
+    guard.commit(latestRequestId, () => {
+      state.loading = false;
+    }),
+    true,
+  );
+  assert.equal(state.loading, false);
+});
+
+test("announcement list commits every async state through the latest request guard", () => {
+  const list = read("../src/views/function/announcement/announcement.vue");
+  assert.match(list, /createLatestRequestGuard/);
+  assert.match(list, /const requestId = announcementRequestGuard\.begin\(\)/);
+  assert.equal(
+    list.match(/announcementRequestGuard\.commit\(requestId/g)?.length,
+    4,
+  );
+  assert.match(
+    list,
+    /finally \{[\s\S]*announcementRequestGuard\.commit\(requestId,[\s\S]*loading\.value = false/,
+  );
+});
+
+test("role table empty slot suppresses error and empty states while loading", () => {
+  const list = read("../src/views/function/role/role.vue");
+  assert.match(
+    list,
+    /<template #empty>[\s\S]*v-if="loading"[\s\S]*v-else-if="roleLoadError"[\s\S]*<el-empty v-else/,
+  );
 });
