@@ -58,7 +58,7 @@
 ## 控件现状
 
 - 角色列表使用 `ElTable`、`ElTableColumn`、`ElPagination`、`ElButton`、`ElTag` 和 `ElEmpty`。
-- 新建和配置均使用 `ElDrawer`、`ElForm`、`ElInput` 和 `ElButton`。
+- 新建抽屉使用 `ElDrawer`、`ElForm`、`ElInput` 和 `ElButton`；权限抽屉使用 `ElDrawer` 和 `ElButton`。
 - 权限选择使用 `ElTreeSelect`；配置空态使用 `ElEmpty`。
 - 消息反馈使用 `ElMessage`。
 - 列设置使用共享 `TableColumnSettings` 和 `useLocalTableColumns`。
