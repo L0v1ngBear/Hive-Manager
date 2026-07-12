@@ -34,8 +34,27 @@
       </div>
 
       <div class="flex-1 overflow-y-auto p-8 space-y-3 no-scrollbar">
-        <div v-if="permissionLoadError" class="rounded-lg bg-error-container text-error px-4 py-3 text-sm">
-          {{ permissionLoadError }}
+        <el-alert
+            v-if="permissionLoadState === 'forbidden'"
+            title="无权查看角色权限"
+            description="当前账号缺少角色权限查看能力，请联系管理员分配 role:permission:list 权限。"
+            type="warning"
+            :closable="false"
+            show-icon
+        />
+
+        <div v-else-if="permissionLoadState === 'failed'" class="space-y-4">
+          <el-alert
+              title="权限数据加载失败"
+              description="无法连接权限服务，请检查网络或稍后重试。"
+              type="error"
+              :closable="false"
+              show-icon
+          />
+          <el-button type="primary" plain @click="loadPermissionData">
+            <span class="material-symbols-outlined text-[18px]">refresh</span>
+            重新加载
+          </el-button>
         </div>
 
         <template v-else-if="treeData.length > 0">
@@ -75,7 +94,7 @@
           </div>
         </template>
 
-        <el-empty v-else-if="!isLoadingData" description="暂无权限数据结构" />
+        <el-empty v-else-if="!isLoadingData && permissionLoadState === 'ready'" description="暂无权限数据结构" />
       </div>
 
       <div class="p-8 bg-surface-container-low border-t border-surface-variant/30 grid grid-cols-2 gap-4 flex-shrink-0">
@@ -83,7 +102,7 @@
         <el-button
             type="primary"
             :loading="isSubmitting"
-            :disabled="treeData.length === 0 || !!permissionLoadError"
+            :disabled="treeData.length === 0 || permissionLoadState !== 'ready'"
             @click="save"
         >
           {{ isSubmitting ? '保存中...' : '确认分配' }}
@@ -95,7 +114,7 @@
 
 <script setup>
 import { ref, nextTick } from 'vue'
-import { ElButton, ElDrawer, ElEmpty, ElMessage, ElTreeSelect } from 'element-plus'
+import { ElAlert, ElButton, ElDrawer, ElEmpty, ElMessage, ElTreeSelect } from 'element-plus'
 import {getAllPermissions, getRolePermissionIds, updateRolePermissions} from './api/role.js'
 
 const visible = ref(false)
@@ -106,22 +125,27 @@ const isLoadingData = ref(false)
 const isSubmitting = ref(false)
 const treeData = ref([])
 const checkedPermissionIds = ref([])
-const permissionLoadError = ref('')
+const permissionLoadState = ref('idle')
 
 async function open(role) {
   if (!role) return
   currentRole.value = role
+  visible.value = true
+  await loadPermissionData()
+}
+
+async function loadPermissionData() {
+  if (!currentRole.value) return
 
   treeData.value = []
   checkedPermissionIds.value = []
-  permissionLoadError.value = ''
-  visible.value = true
+  permissionLoadState.value = 'loading'
   isLoadingData.value = true
 
   try {
     const [permissionsRes, ownedIdsRes] = await Promise.all([
       getAllPermissions(),
-      getRolePermissionIds(role.id)
+      getRolePermissionIds(currentRole.value.id)
     ])
 
     // 剥离包裹层，拿到后端返回的原始树形数据
@@ -139,10 +163,11 @@ async function open(role) {
     } else {
       checkedPermissionIds.value = []
     }
-
+    permissionLoadState.value = 'ready'
   } catch (error) {
     console.error('[Hive Auth] 权限初始化失败:', error)
-    permissionLoadError.value = '无法连接到权限服务或无权查看，请稍后再试。'
+    const statusCode = Number(error?.response?.status ?? error?.code)
+    permissionLoadState.value = [401, 403].includes(statusCode) ? 'forbidden' : 'failed'
   } finally {
     isLoadingData.value = false
   }
