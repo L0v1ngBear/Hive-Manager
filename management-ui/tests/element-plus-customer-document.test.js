@@ -64,3 +64,82 @@ test("structured current-page export retains the row limit", () => {
     /if \(props\.exportRows\.length > MAX_CURRENT_PAGE_ROWS\) \{[\s\S]*?throw new Error/,
   );
 });
+
+test("customer editor prevents native submit and keeps footer buttons non-submit", () => {
+  const editor = read("../src/views/function/customer/customerCreate.vue");
+
+  assert.match(editor, /<el-form\b[\s\S]*?@submit\.prevent="submit"/);
+  assert.match(
+    editor,
+    /<el-button\b(?=[^>]*native-type="button")(?=[^>]*@click="closeDrawer")[^>]*>/,
+  );
+  assert.match(
+    editor,
+    /<el-button\b(?=[^>]*native-type="button")(?=[^>]*@click="submit")[^>]*>/,
+  );
+});
+
+test("customer and document lists expose mutually exclusive persistent load states", () => {
+  const customer = read("../src/views/function/customer/customer.vue");
+  const document = read("../src/views/function/document/document.vue");
+
+  assert.match(customer, /const listError = ref\(null\)/);
+  assert.match(customer, /customerList\.value = \[\][\s\S]*?await getCustomerPage/);
+  assert.match(customer, /status === 401[\s\S]*?status === 403[\s\S]*?status >= 500/);
+  assert.match(customer, /<el-result\b[\s\S]*?v-if="listError"[\s\S]*?@click="fetchCustomerList"/);
+
+  assert.match(document, /const documentError = ref\(null\)/);
+  assert.match(document, /documentList\.value = \[\][\s\S]*?await getDocumentList/);
+  assert.match(document, /status === 401[\s\S]*?status === 403[\s\S]*?status >= 500/);
+  assert.match(document, /<el-result\b[\s\S]*?v-if="documentError"[\s\S]*?@click="retryDocuments"/);
+  assert.match(document, /const hasDocumentFilters = computed/);
+  assert.match(document, /const documentEmptyDescription = computed/);
+  assert.match(document, /当前目录为空/);
+  assert.match(document, /没有符合筛选条件的文档/);
+});
+
+test("customer and document commands keep visible disabled permission tooltips", () => {
+  const customer = read("../src/views/function/customer/customer.vue");
+  const editor = read("../src/views/function/customer/customerCreate.vue");
+  const document = read("../src/views/function/document/document.vue");
+  const settings = read("../src/components/TableColumnSettings.vue");
+  const upload = read("../src/components/DragAttachmentUpload.vue");
+
+  for (const permission of ["customer:add", "customer:update", "customer:detail", "table:export"]) {
+    assert.match(`${customer}\n${editor}`, new RegExp(permission));
+  }
+  assert.match(customer, /:disabled="!canCreateCustomer"/);
+  assert.match(customer, /:disabled="!canUpdateCustomer"/);
+  assert.match(customer, /:disabled="!canViewCustomerDetail"/);
+  assert.match(customer, /:export-disabled="!canExportTable"/);
+  assert.match(customer, /当前账号暂无新增客户权限/);
+  assert.match(customer, /当前账号暂无编辑客户权限/);
+  assert.match(customer, /当前账号暂无查看客户详情权限/);
+  assert.match(customer, /当前账号暂无表格导出权限/);
+
+  for (const permission of ["document:folder:create", "document:file:upload", "table:export"]) {
+    assert.match(document, new RegExp(permission));
+  }
+  assert.match(document, /:disabled="!canCreateFolder"/);
+  assert.match(document, /:disabled="!canUploadDocument"/);
+  assert.match(document, /:export-disabled="!canExportTable"/);
+  assert.match(document, /当前账号暂无新建文件夹权限/);
+  assert.match(document, /当前账号暂无上传文档权限/);
+  assert.match(document, /当前账号暂无表格导出权限/);
+
+  assert.match(settings, /exportDisabled/);
+  assert.match(settings, /exportDisabledReason/);
+  assert.match(settings, /:disabled="exportDisabled"/);
+  assert.match(settings, /:title="exportDisabledReason/);
+  assert.match(upload, /disabledReason/);
+  assert.match(upload, /'is-disabled': disabled/);
+  assert.match(upload, /props\.uploading \|\| props\.disabled/);
+});
+
+test("document directory requests ignore stale responses", () => {
+  const document = read("../src/views/function/document/document.vue");
+
+  assert.match(document, /let documentRequestId = 0/);
+  assert.match(document, /const requestId = \+\+documentRequestId/);
+  assert.match(document, /if \(requestId !== documentRequestId\) return/);
+});

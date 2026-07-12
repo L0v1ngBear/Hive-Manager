@@ -22,7 +22,12 @@
           <el-button circle :disabled="currentParentId === 0" title="上一级" @click="navigateUp">
             <span class="material-symbols-outlined">arrow_upward</span>
           </el-button>
-          <el-button @click="promptCreateFolder">
+          <el-button
+            :disabled="!canCreateFolder"
+            :class="permissionDisabledClass(!canCreateFolder)"
+            :title="canCreateFolder ? '新建文件夹' : '当前账号暂无新建文件夹权限'"
+            @click="promptCreateFolder"
+          >
             <span class="material-symbols-outlined text-[18px]">create_new_folder</span>
             新建文件夹
           </el-button>
@@ -46,6 +51,8 @@
             export-file-name="企业文档中心"
             export-sheet-name="企业文档中心"
             export-module="document"
+            :export-disabled="!canExportTable"
+            export-disabled-reason="当前账号暂无表格导出权限"
             @move="moveDocumentTableColumn"
             @reset="resetDocumentTableColumns"
           />
@@ -71,10 +78,18 @@
           accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.rar,.7z"
           :uploading="documentUploading"
           :downloadable="false"
+          :disabled="!canUploadDocument"
+          disabled-reason="当前账号暂无上传文档权限"
           @select="handleDocumentUpload"
         />
         <div class="min-h-full overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
+          <el-result v-if="documentError" :icon="documentError.icon" :title="documentError.title" :sub-title="documentError.message">
+            <template #extra>
+              <el-button type="primary" @click="retryDocuments">重试</el-button>
+            </template>
+          </el-result>
           <el-table
+            v-else
             :data="filteredDocumentList"
             row-key="id"
             v-loading="loading"
@@ -106,7 +121,7 @@
               </template>
             </el-table-column>
             <template #empty>
-              <el-empty v-if="!loading" description="当前目录为空" />
+              <el-empty v-if="!loading" :description="documentEmptyDescription" />
             </template>
           </el-table>
         </div>
@@ -120,8 +135,18 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button :disabled="creatingFolder" @click="folderDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="creatingFolder" @click="createFolderFromDialog">创建</el-button>
+        <el-button native-type="button" :disabled="creatingFolder" @click="folderDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          native-type="button"
+          :loading="creatingFolder"
+          :disabled="creatingFolder || !canCreateFolder"
+          :class="permissionDisabledClass(!canCreateFolder)"
+          :title="canCreateFolder ? '创建文件夹' : '当前账号暂无新建文件夹权限'"
+          @click="createFolderFromDialog"
+        >
+          创建
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -138,6 +163,7 @@ import {
   ElInput,
   ElMessage,
   ElOption,
+  ElResult,
   ElSelect,
   ElTable,
   ElTableColumn
@@ -146,6 +172,7 @@ import { createFolder, getBreadcrumbs, getDocumentList, uploadDocumentFile } fro
 import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
+import { useUserStore } from '@/stores/user'
 
 const defaultDocumentTableColumns = [
   { key: 'name', label: '名称', widthClass: 'w-1/2' },
@@ -158,6 +185,7 @@ const {
   moveColumn: moveDocumentTableColumn,
   resetColumns: resetDocumentTableColumns
 } = useLocalTableColumns('document.list', defaultDocumentTableColumns)
+const userStore = useUserStore()
 const loading = ref(false)
 const documentUploading = ref(false)
 const creatingFolder = ref(false)
@@ -165,10 +193,16 @@ const folderDialogVisible = ref(false)
 const folderName = ref('')
 const currentParentId = ref(0)
 const documentList = ref([])
+const documentError = ref(null)
 const breadcrumbs = ref([])
 const filters = reactive({ keyword: '', type: '' })
+let documentRequestId = 0
 
+const canCreateFolder = computed(() => userStore.hasPermission('document:folder:create'))
+const canUploadDocument = computed(() => userStore.hasPermission('document:file:upload'))
+const canExportTable = computed(() => userStore.hasPermission('table:export'))
 const currentFolderName = computed(() => breadcrumbs.value.at(-1)?.name || '根目录')
+const hasDocumentFilters = computed(() => Boolean(filters.keyword || filters.type))
 const filteredDocumentList = computed(() => {
   const keyword = filters.keyword.trim().toLowerCase()
   return documentList.value.filter((doc) => {
@@ -179,15 +213,33 @@ const filteredDocumentList = computed(() => {
     return typeMatched && keywordMatched
   })
 })
+const documentEmptyDescription = computed(() => {
+  if (documentList.value.length > 0 && hasDocumentFilters.value) {
+    return '没有符合筛选条件的文档'
+  }
+  return '当前目录为空'
+})
 
 const fetchDocuments = async (parentId = 0) => {
+  const requestId = ++documentRequestId
   loading.value = true
+  documentError.value = null
+  documentList.value = []
+  breadcrumbs.value = []
+  currentParentId.value = parentId
   try {
-    currentParentId.value = parentId
-    documentList.value = await getDocumentList(parentId)
-    breadcrumbs.value = parentId > 0 ? await getBreadcrumbs(parentId) : []
+    const nextDocuments = await getDocumentList(parentId)
+    const nextBreadcrumbs = parentId > 0 ? await getBreadcrumbs(parentId) : []
+    if (requestId !== documentRequestId) return
+    documentList.value = Array.isArray(nextDocuments) ? nextDocuments : []
+    breadcrumbs.value = Array.isArray(nextBreadcrumbs) ? nextBreadcrumbs : []
+  } catch (error) {
+    if (requestId !== documentRequestId) return
+    documentError.value = resolveDocumentLoadError(error)
   } finally {
-    loading.value = false
+    if (requestId === documentRequestId) {
+      loading.value = false
+    }
   }
 }
 
@@ -241,11 +293,13 @@ const goRoot = async () => {
 }
 
 const promptCreateFolder = () => {
+  if (!canCreateFolder.value) return
   folderName.value = ''
   folderDialogVisible.value = true
 }
 
 const createFolderFromDialog = async () => {
+  if (!canCreateFolder.value) return
   const name = folderName.value.trim()
   if (!name || creatingFolder.value) return
   creatingFolder.value = true
@@ -260,6 +314,7 @@ const createFolderFromDialog = async () => {
 }
 
 const handleDocumentUpload = async (file) => {
+  if (!canUploadDocument.value) return
   if (!file) return
   const maxBytes = 20 * 1024 * 1024
   if (file.size > maxBytes) {
@@ -298,6 +353,42 @@ const documentExportCell = (document, column) => {
   if (column.key === 'type') return isFolder(document) ? '文件夹' : `${(document?.fileExt || 'unknown').toUpperCase()} 文件`
   if (column.key === 'size') return isFolder(document) ? '--' : formatBytes(document?.fileSize)
   return ''
+}
+
+const retryDocuments = () => fetchDocuments(currentParentId.value)
+
+function resolveDocumentLoadError(error) {
+  const status = Number(error?.response?.status || error?.status || error?.code || 0)
+  if (status === 401) {
+    return {
+      icon: 'warning',
+      title: '登录状态已失效',
+      message: '请重新登录后再加载文档目录。'
+    }
+  }
+  if (status === 403) {
+    return {
+      icon: 'warning',
+      title: '暂无目录访问权限',
+      message: '当前账号缺少文档列表或面包屑权限，请联系管理员。'
+    }
+  }
+  if (status >= 500) {
+    return {
+      icon: 'error',
+      title: '文档服务暂时不可用',
+      message: '服务器处理失败，请稍后重试。'
+    }
+  }
+  return {
+    icon: 'error',
+    title: '文档目录加载失败',
+    message: '网络连接异常，请检查网络后重试。'
+  }
+}
+
+function permissionDisabledClass(disabled) {
+  return disabled ? 'cursor-not-allowed opacity-50 grayscale' : ''
 }
 
 const getFileIconColor = (ext) => {

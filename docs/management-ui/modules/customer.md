@@ -46,9 +46,9 @@
 - 详情后端要求 customer:detail。
 - 新建后端要求 customer:add。
 - 更新后端要求 customer:update。
-- 当前列表页和 CustomerCreateDrawer 未使用 useUserStore 或 v-permission。
-- 新建、详情和编辑入口因此不会按上述细粒度权限预先隐藏或禁用。
-- 控件迁移必须保留后端权限边界，并为每个命令补齐一致的禁用/说明状态。
+- 列表页和 CustomerCreateDrawer 使用 useUserStore 检查上述细粒度权限。
+- 新建、详情、编辑和当前页导出命令保持可见；权限不足时置灰、禁用鼠标并通过 title 说明原因。
+- TableColumnSettings 的导出按钮检查 table:export；后端权限仍是最终边界。
 
 ## 关键状态 / 数据流
 
@@ -68,7 +68,8 @@
 - loading 控制 ElTable 的 v-loading、分页禁用和空态判定。
 - 非加载且 customerList 为空时显示表格空态。
 - detailLoading、loadingDetail 与 submitting 分别覆盖详情、编辑回填和提交过程。
-- 通用请求错误由 request 拦截器显示 ElMessage；页面没有持久错误/重试面板。
+- 列表请求开始即清空旧数据；401/403、网络错误和 5xx 分别形成持久错误面板，并提供重试。
+- 权限/请求失败、加载、真实空列表和筛选无结果按互斥分支展示。
 - 详情、字段配置和列表分别维护自己的异步流程，没有合并成会互相覆盖的单一 loading。
 
 ## 当前 Element Plus / 自定义控件
@@ -92,11 +93,7 @@
 
 ## 已发现风险
 
-- 路由只要求 customer:page，但详情、新建、编辑按钮没有 customer:detail/add/update 的前端权限门槛。
-- 仅有 customer:page 的用户可看到命令，实际请求会由后端 403 拒绝。
-- TableColumnSettings 未检查 table:export；客户页导出能力可能与角色中的 table:export 授权不一致。
 - 租户字段配置若增加不在 customerColumnRenderers 集合中的字段，该字段不会出现在列表列中。
-- 列表请求失败没有持久错误态；若旧 customerList 未清空，可能继续展示旧筛选结果。
 - 动态字段配置、列表与编辑抽屉分别加载配置，改造时存在标签/必填规则短暂不一致的风险。
 
 ## 验证清单

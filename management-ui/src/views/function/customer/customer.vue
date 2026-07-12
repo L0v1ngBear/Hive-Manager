@@ -59,10 +59,18 @@
             export-file-name="客户档案库"
             export-sheet-name="客户档案库"
             export-module="customer"
+            :export-disabled="!canExportTable"
+            export-disabled-reason="当前账号暂无表格导出权限"
             @move="moveCustomerTableColumn"
             @reset="resetCustomerTableColumns"
           />
-          <el-button type="primary" @click="openCreateDrawer">
+          <el-button
+            type="primary"
+            :disabled="!canCreateCustomer"
+            :class="permissionDisabledClass(!canCreateCustomer)"
+            :title="canCreateCustomer ? '新建客户' : '当前账号暂无新增客户权限'"
+            @click="openCreateDrawer"
+          >
             <span class="material-symbols-outlined text-[20px]">domain_add</span>
             新建客户
           </el-button>
@@ -80,13 +88,19 @@
       </section>
 
       <section class="relative overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-        <el-table
-          :data="customerList"
-          row-key="id"
-          v-loading="loading"
-          class="w-full"
-          @row-click="(customer) => openDetail(customer.id)"
-        >
+        <el-result v-if="listError" :icon="listError.icon" :title="listError.title" :sub-title="listError.message">
+          <template #extra>
+            <el-button type="primary" @click="fetchCustomerList">重试</el-button>
+          </template>
+        </el-result>
+        <template v-else>
+          <el-table
+            :data="customerList"
+            row-key="id"
+            v-loading="loading"
+            class="w-full"
+            @row-click="handleCustomerRowClick"
+          >
           <el-table-column
             v-for="field in visibleCustomerColumns"
             :key="field.key"
@@ -115,31 +129,47 @@
           <el-table-column label="操作" width="128" align="right">
             <template #default="{ row: customer }">
               <div class="flex justify-end gap-1">
-                <el-button circle text title="编辑客户" @click.stop="openEditDrawer(customer.id)">
+                <el-button
+                  circle
+                  text
+                  :disabled="!canUpdateCustomer"
+                  :class="permissionDisabledClass(!canUpdateCustomer)"
+                  :title="canUpdateCustomer ? '编辑客户' : '当前账号暂无编辑客户权限'"
+                  @click.stop="openEditDrawer(customer.id)"
+                >
                   <span class="material-symbols-outlined text-[18px]">edit</span>
                 </el-button>
-                <el-button circle text type="primary" title="查看详情" @click.stop="openDetail(customer.id)">
+                <el-button
+                  circle
+                  text
+                  type="primary"
+                  :disabled="!canViewCustomerDetail"
+                  :class="permissionDisabledClass(!canViewCustomerDetail)"
+                  :title="canViewCustomerDetail ? '查看详情' : '当前账号暂无查看客户详情权限'"
+                  @click.stop="openDetail(customer.id)"
+                >
                   <span class="material-symbols-outlined text-[18px]">visibility</span>
                 </el-button>
               </div>
             </template>
           </el-table-column>
           <template #empty>
-            <el-empty v-if="!loading" description="暂无客户数据" />
+            <el-empty v-if="!loading" :description="customerEmptyDescription" />
           </template>
         </el-table>
 
-        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/10 bg-surface-container-low/30 px-6 py-4 text-sm">
-          <span class="text-on-surface-variant">共 {{ total }} 条</span>
-          <el-pagination
-            :current-page="pageNum"
-            :page-size="pageSize"
-            :total="total"
-            :disabled="loading"
-            layout="prev, pager, next"
-            @current-change="changePage"
-          />
-        </div>
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/10 bg-surface-container-low/30 px-6 py-4 text-sm">
+            <span class="text-on-surface-variant">共 {{ total }} 条</span>
+            <el-pagination
+              :current-page="pageNum"
+              :page-size="pageSize"
+              :total="total"
+              :disabled="loading"
+              layout="prev, pager, next"
+              @current-change="changePage"
+            />
+          </div>
+        </template>
       </section>
 
       <CustomerCreateDrawer
@@ -208,6 +238,7 @@ import {
   ElMessage,
   ElOption,
   ElPagination,
+  ElResult,
   ElSelect,
   ElTable,
   ElTableColumn
@@ -223,10 +254,12 @@ import {
 } from '@/utils/tenantFieldConfig'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
+import { useUserStore } from '@/stores/user'
 import CustomerCreateDrawer from './customerCreate.vue'
 import { getCustomerDetail, getCustomerPage } from './api/customer'
 
 const route = useRoute()
+const userStore = useUserStore()
 const isDrawerOpen = ref(false)
 const editingCustomerId = ref(null)
 const loading = ref(false)
@@ -235,11 +268,20 @@ const detailVisible = ref(false)
 const detailData = ref(null)
 const filters = reactive({ keyword: '', customerType: '', createStart: '', createEnd: '' })
 const customerList = ref([])
+const listError = ref(null)
 const total = ref(0)
 const totalPages = ref(1)
 const pageNum = ref(1)
 const pageSize = ref(10)
 const customerFieldConfig = ref(defaultTenantFieldConfig('customer'))
+const canCreateCustomer = computed(() => userStore.hasPermission('customer:add'))
+const canUpdateCustomer = computed(() => userStore.hasPermission('customer:update'))
+const canViewCustomerDetail = computed(() => userStore.hasPermission('customer:detail'))
+const canExportTable = computed(() => userStore.hasPermission('table:export'))
+const hasCustomerFilters = computed(() => Boolean(
+  filters.keyword || filters.customerType || filters.createStart || filters.createEnd
+))
+const customerEmptyDescription = computed(() => hasCustomerFilters.value ? '没有符合筛选条件的客户' : '暂无客户数据')
 
 const customerColumnRenderers = new Set(['customerName', 'customerType', 'contactName', 'contactPhone', 'projectName', 'projectOwner', 'projectCount', 'constructionArea'])
 const defaultCustomerColumns = computed(() => visibleTenantFields(customerFieldConfig.value, 'customerName').filter((field) => customerColumnRenderers.has(field.key)))
@@ -288,6 +330,10 @@ async function fetchCustomerFieldConfig() {
 
 async function fetchCustomerList() {
   loading.value = true
+  listError.value = null
+  customerList.value = []
+  total.value = 0
+  totalPages.value = 1
   try {
     const page = await getCustomerPage({
       pageNum: pageNum.value,
@@ -301,6 +347,8 @@ async function fetchCustomerList() {
     total.value = Number(page?.total || 0)
     totalPages.value = Math.max(1, Number(page?.pages || 1))
     customerList.value = page?.data || []
+  } catch (error) {
+    listError.value = resolveCustomerListError(error)
   } finally {
     loading.value = false
   }
@@ -314,16 +362,19 @@ async function handleCustomerCreated(payload) {
 }
 
 function openCreateDrawer() {
+  if (!canCreateCustomer.value) return
   editingCustomerId.value = null
   isDrawerOpen.value = true
 }
 
 function openEditDrawer(id) {
+  if (!canUpdateCustomer.value) return
   editingCustomerId.value = id
   isDrawerOpen.value = true
 }
 
 async function openDetail(id) {
+  if (!canViewCustomerDetail.value) return
   detailVisible.value = true
   detailLoading.value = true
   detailData.value = null
@@ -332,6 +383,11 @@ async function openDetail(id) {
   } finally {
     detailLoading.value = false
   }
+}
+
+function handleCustomerRowClick(customer) {
+  if (!canViewCustomerDetail.value) return
+  openDetail(customer.id)
 }
 
 async function changePage(nextPage) {
@@ -362,6 +418,40 @@ function resetFilter() {
   filters.createEnd = ''
   pageNum.value = 1
   fetchCustomerList()
+}
+
+function resolveCustomerListError(error) {
+  const status = Number(error?.response?.status || error?.status || error?.code || 0)
+  if (status === 401) {
+    return {
+      icon: 'warning',
+      title: '登录状态已失效',
+      message: '请重新登录后再加载客户列表。'
+    }
+  }
+  if (status === 403) {
+    return {
+      icon: 'warning',
+      title: '暂无客户列表权限',
+      message: '当前账号没有 customer:page 权限，请联系管理员。'
+    }
+  }
+  if (status >= 500) {
+    return {
+      icon: 'error',
+      title: '客户服务暂时不可用',
+      message: '服务器处理失败，请稍后重试。'
+    }
+  }
+  return {
+    icon: 'error',
+    title: '客户列表加载失败',
+    message: '网络连接异常，请检查网络后重试。'
+  }
+}
+
+function permissionDisabledClass(disabled) {
+  return disabled ? 'cursor-not-allowed opacity-50 grayscale' : ''
 }
 
 onMounted(async () => {
