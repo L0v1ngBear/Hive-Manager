@@ -1,6 +1,6 @@
 # 文档管理维护档案
 
-> 状态：Audit baseline；迁移批次：Batch 1；路由：`/function/document`；feature：`module.document`。
+> 状态：Element Plus 已迁移（Task 3）；迁移批次：Batch 1；路由：`/function/document`；feature：`module.document`。
 
 ## 功能
 

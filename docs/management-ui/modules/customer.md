@@ -1,6 +1,6 @@
 # 客户管理维护档案
 
-> 当前状态：Audit baseline；Element Plus 改造归 Batch 1。
+> 当前状态：Element Plus 已迁移（Task 3）；改造批次：Batch 1。
 
 ## 源码 / 路由 / 改造批次
 
@@ -8,7 +8,7 @@
 - 新建/编辑抽屉：management-ui/src/views/function/customer/customerCreate.vue。
 - 前端 API：management-ui/src/views/function/customer/api/customer.js。
 - 动态字段：useTenantFieldConfig、tenantFieldConfig 工具及共享租户字段配置 API。
-- 直接依赖：TableColumnSettings、DateFilterInput、useLocalTableColumns。
+- 直接依赖：TableColumnSettings、useLocalTableColumns、Element Plus 表格/分页/弹窗/抽屉组件。
 - 路由：/function/customer，名称 Customer，标题“客户管理”。
 - 路由门槛：permissions = [customer:page]，features = [module.customer]。
 - 后端入口：CustomerController，类级 feature 为 CODE_CUSTOMER。

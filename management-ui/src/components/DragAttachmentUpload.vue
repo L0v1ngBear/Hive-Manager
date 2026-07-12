@@ -37,18 +37,19 @@
     </div>
 
     <div v-if="fileUrl" class="drag-upload-actions" @click.stop>
-      <button v-if="downloadable" type="button" class="drag-upload-action text-primary" @click="$emit('download')">
+      <el-button v-if="downloadable" size="small" type="primary" plain @click="$emit('download')">
         查看附件
-      </button>
-      <button type="button" class="drag-upload-action text-rose-600" @click="$emit('remove')">
+      </el-button>
+      <el-button size="small" type="danger" plain @click="$emit('remove')">
         移除
-      </button>
+      </el-button>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
+import { ElButton, ElMessage } from 'element-plus'
 
 const props = defineProps({
   title: {
@@ -144,7 +145,34 @@ function onDrop(event) {
 
 function emitFile(file) {
   if (!file) return
+  if (!fileMatchesAccept(file)) {
+    ElMessage.warning('所选文件类型不受支持')
+    return
+  }
   emit('select', file)
+}
+
+function fileMatchesAccept(file) {
+  const acceptedTypes = props.accept
+    .split(',')
+    .map((type) => type.trim().toLowerCase())
+    .filter(Boolean)
+
+  if (acceptedTypes.length === 0 || acceptedTypes.includes('*/*')) {
+    return true
+  }
+
+  const fileName = String(file.name || '').toLowerCase()
+  const mimeType = String(file.type || '').toLowerCase()
+  return acceptedTypes.some((acceptedType) => {
+    if (acceptedType.startsWith('.')) {
+      return fileName.endsWith(acceptedType)
+    }
+    if (acceptedType.endsWith('/*')) {
+      return mimeType.startsWith(acceptedType.slice(0, -1))
+    }
+    return mimeType === acceptedType
+  })
 }
 </script>
 
@@ -206,12 +234,4 @@ function emitFile(file) {
   gap: 8px;
 }
 
-.drag-upload-action {
-  border: 0;
-  background: rgba(255, 255, 255, 0.72);
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 900;
-}
 </style>

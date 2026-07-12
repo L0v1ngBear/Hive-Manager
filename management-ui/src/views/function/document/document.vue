@@ -1,48 +1,44 @@
 <template>
-  <div class="document-page bg-surface text-on-surface flex overflow-hidden font-sans">
-    <aside class="w-64 bg-surface-container-lowest border-r border-outline-variant/20 flex flex-col shrink-0">
-      <div class="h-16 flex items-center px-6 border-b border-outline-variant/20 shrink-0">
-        <span class="material-symbols-outlined text-primary text-2xl mr-2">corporate_fare</span>
-        <h1 class="text-lg font-black text-primary tracking-tight">企业文档中心</h1>
+  <div class="document-page flex overflow-hidden bg-surface font-sans text-on-surface">
+    <aside class="flex w-64 shrink-0 flex-col border-r border-outline-variant/20 bg-surface-container-lowest">
+      <div class="flex h-16 shrink-0 items-center border-b border-outline-variant/20 px-6">
+        <span class="material-symbols-outlined mr-2 text-2xl text-primary">corporate_fare</span>
+        <h1 class="text-lg font-black tracking-tight text-primary">企业文档中心</h1>
       </div>
-      <div class="flex-1 overflow-y-auto p-4 space-y-6">
+      <div class="flex-1 space-y-6 overflow-y-auto p-4">
         <div class="space-y-1">
-          <h3 class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-2 mb-2">当前目录</h3>
-          <button class="w-full flex items-center gap-3 px-3 py-2 bg-primary/10 text-primary rounded-lg font-bold text-sm transition-colors">
+          <h3 class="mb-2 px-2 text-[10px] font-bold tracking-widest text-on-surface-variant uppercase">当前目录</h3>
+          <el-button text class="w-full justify-start" @click="goRoot">
             <span class="material-symbols-outlined text-[18px]">home</span>
             {{ currentFolderName }}
-          </button>
+          </el-button>
         </div>
       </div>
     </aside>
 
-    <main class="flex-1 flex flex-col min-w-0 bg-surface">
-      <header class="h-16 flex items-center justify-between px-4 sm:px-6 border-b border-outline-variant/20 bg-surface-container-lowest shrink-0">
-        <div class="flex items-center gap-2">
-          <button @click="navigateUp" :disabled="currentParentId === 0" class="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+    <main class="flex min-w-0 flex-1 flex-col bg-surface">
+      <header class="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-outline-variant/20 bg-surface-container-lowest px-4 py-3 sm:px-6">
+        <div class="flex flex-wrap items-center gap-2">
+          <el-button circle :disabled="currentParentId === 0" title="上一级" @click="navigateUp">
             <span class="material-symbols-outlined">arrow_upward</span>
-          </button>
-          <button @click="promptCreateFolder" class="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/30 text-primary rounded-lg text-sm font-bold shadow-sm hover:bg-surface-container-high transition-all active:scale-95">
+          </el-button>
+          <el-button @click="promptCreateFolder">
             <span class="material-symbols-outlined text-[18px]">create_new_folder</span>
             新建文件夹
-          </button>
-          <button @click="fetchDocuments(currentParentId)" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold shadow-sm hover:bg-primary/90 transition-all active:scale-95">
+          </el-button>
+          <el-button type="primary" :loading="loading" @click="fetchDocuments(currentParentId)">
             <span class="material-symbols-outlined text-[18px]">refresh</span>
             刷新
-          </button>
-          <input
-            v-model.trim="filters.keyword"
-            class="w-56 rounded-lg border border-outline-variant/30 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            placeholder="搜索文件名或扩展名"
-          />
-          <select
-            v-model="filters.type"
-            class="rounded-lg border border-outline-variant/30 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-          >
-            <option value="">全部类型</option>
-            <option value="folder">文件夹</option>
-            <option value="file">文件</option>
-          </select>
+          </el-button>
+          <el-input v-model.trim="filters.keyword" class="w-full sm:w-56" placeholder="搜索文件名或扩展名" clearable>
+            <template #prefix>
+              <span class="material-symbols-outlined text-[18px]">search</span>
+            </template>
+          </el-input>
+          <el-select v-model="filters.type" class="w-full sm:w-32" placeholder="全部类型" clearable>
+            <el-option label="文件夹" value="folder" />
+            <el-option label="文件" value="file" />
+          </el-select>
           <TableColumnSettings
             :columns="documentTableColumns"
             export-module="document"
@@ -52,14 +48,14 @@
         </div>
       </header>
 
-      <div class="px-6 py-3 bg-surface-container-low/30 border-b border-outline-variant/10 flex items-center gap-1 text-sm shrink-0 overflow-x-auto">
-        <button @click="goRoot" class="px-2 py-1 hover:bg-surface-container rounded transition-colors text-on-surface-variant hover:text-primary font-medium whitespace-nowrap flex items-center gap-1">
+      <div class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-3 text-sm">
+        <el-button text @click="goRoot">
           <span class="material-symbols-outlined text-[16px]">home</span>
           根目录
-        </button>
+        </el-button>
         <template v-for="crumb in breadcrumbs" :key="crumb.id">
-          <span class="material-symbols-outlined text-on-surface-variant/40 text-[16px]">chevron_right</span>
-          <button @click="navigateTo(crumb.id)" class="px-2 py-1 hover:bg-surface-container rounded transition-colors text-on-surface-variant hover:text-primary font-medium whitespace-nowrap">{{ crumb.name }}</button>
+          <span class="material-symbols-outlined text-[16px] text-on-surface-variant/40">chevron_right</span>
+          <el-button text @click="navigateTo(crumb.id)">{{ crumb.name }}</el-button>
         </template>
       </div>
 
@@ -68,66 +64,80 @@
           class="mb-4"
           title="点击或拖拽文件上传到当前目录"
           helper-text="支持图片、PDF、Word、Excel、PPT、文本或压缩包"
+          accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.rar,.7z"
           :uploading="documentUploading"
           :downloadable="false"
           @select="handleDocumentUpload"
         />
-        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant/20 shadow-sm overflow-hidden min-h-full relative">
-          <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
-            <span class="material-symbols-outlined text-3xl text-primary animate-spin">progress_activity</span>
-          </div>
-
-          <table class="responsive-data-table w-full text-left text-sm">
-            <thead class="bg-surface-container-low text-on-surface-variant font-bold text-xs sticky top-0 z-10 shadow-sm">
-              <tr>
-                <th
-                  v-for="column in documentTableColumns"
-                  :key="column.key"
-                  class="px-4 py-3"
-                  :class="[column.widthClass, column.align === 'right' ? 'text-right' : '']"
-                >
-                  {{ column.label }}
-                </th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-outline-variant/10">
-              <tr v-for="doc in filteredDocumentList" :key="doc.id" @dblclick="handleDoubleClick(doc)" class="hover:bg-primary/5 transition-colors group select-none cursor-default">
-                <td
-                  v-for="column in documentTableColumns"
-                  :key="column.key"
-                  :data-label="column.label"
-                  class="px-4 py-3"
-                  :class="documentCellClass(column.key)"
-                >
-                  <template v-if="column.key === 'name'">
+        <div class="min-h-full overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
+          <el-table
+            :data="filteredDocumentList"
+            row-key="id"
+            v-loading="loading"
+            class="w-full"
+            @row-dblclick="handleDoubleClick"
+          >
+            <el-table-column
+              v-for="column in documentTableColumns"
+              :key="column.key"
+              :label="column.label"
+              :min-width="column.key === 'name' ? 280 : 140"
+              :align="column.align || 'left'"
+              :class-name="documentCellClass(column.key)"
+              :show-overflow-tooltip="column.key === 'name'"
+            >
+              <template #default="{ row: doc }">
+                <template v-if="column.key === 'name'">
+                  <div class="flex min-w-0 items-center gap-3">
                     <span v-if="isFolder(doc)" class="material-symbols-outlined text-3xl text-amber-400" style="font-variation-settings: 'FILL' 1;">folder</span>
-                    <div v-else class="w-8 h-8 rounded flex items-center justify-center font-black text-[10px] text-white" :class="getFileIconColor(doc.fileExt)">
+                    <div v-else class="flex h-8 w-8 items-center justify-center rounded text-[10px] font-black text-white" :class="getFileIconColor(doc.fileExt)">
                       {{ (doc.fileExt || 'FILE').toUpperCase() }}
                     </div>
-                    <span class="font-bold text-primary group-hover:text-primary-fixed cursor-pointer truncate max-w-[300px]">{{ doc.name }}</span>
-                  </template>
-                  <template v-else-if="column.key === 'createTime'">{{ formatTime(doc.createTime) }}</template>
-                  <template v-else-if="column.key === 'type'">{{ isFolder(doc) ? '文件夹' : `${(doc.fileExt || 'unknown').toUpperCase()} 文件` }}</template>
-                  <template v-else-if="column.key === 'size'">{{ isFolder(doc) ? '--' : formatBytes(doc.fileSize) }}</template>
-                </td>
-              </tr>
-              <tr v-if="!loading && filteredDocumentList.length === 0">
-                <td :colspan="documentTableColumns.length" class="px-4 py-16 text-center text-on-surface-variant/50">
-                  <span class="material-symbols-outlined text-4xl mb-2 opacity-50">folder_open</span>
-                  <p class="font-medium text-sm">当前目录为空</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                    <span class="truncate font-bold text-primary">{{ doc.name }}</span>
+                  </div>
+                </template>
+                <template v-else-if="column.key === 'createTime'">{{ formatTime(doc.createTime) }}</template>
+                <template v-else-if="column.key === 'type'">{{ isFolder(doc) ? '文件夹' : `${(doc.fileExt || 'unknown').toUpperCase()} 文件` }}</template>
+                <template v-else-if="column.key === 'size'">{{ isFolder(doc) ? '--' : formatBytes(doc.fileSize) }}</template>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty v-if="!loading" description="当前目录为空" />
+            </template>
+          </el-table>
         </div>
       </div>
     </main>
+
+    <el-dialog v-model="folderDialogVisible" title="新建文件夹" width="min(420px, calc(100vw - 2rem))" destroy-on-close>
+      <el-form @submit.prevent="createFolderFromDialog">
+        <el-form-item label="文件夹名称">
+          <el-input v-model.trim="folderName" placeholder="请输入文件夹名称" autofocus @keyup.enter="createFolderFromDialog" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button :disabled="creatingFolder" @click="folderDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="creatingFolder" @click="createFolderFromDialog">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ElButton,
+  ElDialog,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElMessage,
+  ElOption,
+  ElSelect,
+  ElTable,
+  ElTableColumn
+} from 'element-plus'
 import { createFolder, getBreadcrumbs, getDocumentList, uploadDocumentFile } from './api/document.js'
 import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
@@ -146,6 +156,9 @@ const {
 } = useLocalTableColumns('document.list', defaultDocumentTableColumns)
 const loading = ref(false)
 const documentUploading = ref(false)
+const creatingFolder = ref(false)
+const folderDialogVisible = ref(false)
+const folderName = ref('')
 const currentParentId = ref(0)
 const documentList = ref([])
 const breadcrumbs = ref([])
@@ -157,8 +170,8 @@ const filteredDocumentList = computed(() => {
   return documentList.value.filter((doc) => {
     const typeMatched = !filters.type || (filters.type === 'folder' ? isFolder(doc) : !isFolder(doc))
     const keywordMatched = !keyword
-        || String(doc.name || '').toLowerCase().includes(keyword)
-        || String(doc.fileExt || '').toLowerCase().includes(keyword)
+      || String(doc.name || '').toLowerCase().includes(keyword)
+      || String(doc.fileExt || '').toLowerCase().includes(keyword)
     return typeMatched && keywordMatched
   })
 })
@@ -177,7 +190,6 @@ const fetchDocuments = async (parentId = 0) => {
 const isFolder = (doc) => Number(doc.type) === 0
 
 const documentCellClass = (key) => {
-  if (key === 'name') return 'flex items-center gap-3'
   if (key === 'size') return 'text-right text-on-surface-variant font-mono'
   return 'text-on-surface-variant'
 }
@@ -224,18 +236,22 @@ const goRoot = async () => {
   await fetchDocuments(0)
 }
 
-const promptCreateFolder = async () => {
+const promptCreateFolder = () => {
+  folderName.value = ''
+  folderDialogVisible.value = true
+}
+
+const createFolderFromDialog = async () => {
+  const name = folderName.value.trim()
+  if (!name || creatingFolder.value) return
+  creatingFolder.value = true
   try {
-    const { value } = await ElMessageBox.prompt('请输入文件夹名称', '新建文件夹', {
-      confirmButtonText: '创建',
-      cancelButtonText: '取消'
-    })
-    if (!value) return
-    await createFolder({ parentId: currentParentId.value, name: value })
+    await createFolder({ parentId: currentParentId.value, name })
     ElMessage.success('文件夹创建成功')
+    folderDialogVisible.value = false
     await fetchDocuments(currentParentId.value)
-  } catch {
-    // ignore cancel
+  } finally {
+    creatingFolder.value = false
   }
 }
 
@@ -281,6 +297,7 @@ const getFileIconColor = (ext) => {
     xlsx: 'bg-emerald-500',
     xls: 'bg-emerald-500',
     pptx: 'bg-orange-500',
+    ppt: 'bg-orange-500',
     png: 'bg-violet-500',
     jpg: 'bg-violet-500',
     jpeg: 'bg-violet-500',
