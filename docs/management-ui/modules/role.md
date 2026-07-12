@@ -49,23 +49,23 @@
 
 ## 空错态
 
-- 列表使用 `v-loading` 和 `ElEmpty` 提供加载与空态。
+- 列表使用 `v-loading`、持久 `ElAlert` 和 `ElEmpty` 区分加载、请求失败与真实空态；失败时清空旧列表并提供重试。
 - 新建抽屉区分权限树加载中、403 文案和一般加载失败。
-- 配置抽屉区分整页加载、加载错误和 `ElEmpty` 空权限树。
-- 列表请求只有 `finally`，错误提示依赖全局 request；失败时现有角色数组不会主动清空。
+- 配置抽屉按 request 的 HTTP `response.status` 或业务 `code`，将 401/403 权限不足与网络/5xx 加载失败显示为不同持久状态；请求失败状态可重试。
+- 配置抽屉继续使用 `ElEmpty` 表示成功请求后的空权限树，不把错误降级为空态。
 - 保存失败保持抽屉，按钮由提交状态禁用；取消应视为正常关闭。
 
 ## 控件现状
 
-- 角色列表使用 `ElTable`、`ElTableColumn`、`ElPagination`、`ElButton`、`ElTag` 和 `ElEmpty`。
+- 角色列表使用 `ElTable`、`ElTableColumn`、`ElPagination`、`ElButton`、`ElTag`、`ElAlert` 和 `ElEmpty`。
 - 新建抽屉使用 `ElDrawer`、`ElForm`、`ElInput` 和 `ElButton`；权限抽屉使用 `ElDrawer` 和 `ElButton`。
-- 权限选择使用 `ElTreeSelect`；配置空态使用 `ElEmpty`。
+- 权限选择使用 `ElTreeSelect`；配置错误态使用 `ElAlert`，空态使用 `ElEmpty`。
 - 消息反馈使用 `ElMessage`。
 - 列设置使用共享 `TableColumnSettings` 和 `useLocalTableColumns`。
 
 ## Element Plus 对照/保留项
 
-- 列表已迁移为 `ElTable`、`ElPagination`，加载用 `v-loading`，空态用 `ElEmpty`。
+- 列表已迁移为 `ElTable`、`ElPagination`，加载用 `v-loading`，错误用 `ElAlert`，空态用 `ElEmpty`。
 - 角色名称使用 `ElInput`；命令使用 `ElButton`。
 - 系统/自定义类型使用 `ElTag`，保持既有语义和文案。
 - 继续使用 `ElDrawer`、`ElTreeSelect`、`ElMessage`，不重复封装类似组件。

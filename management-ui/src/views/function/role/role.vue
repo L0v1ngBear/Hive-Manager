@@ -54,10 +54,23 @@
             </template>
           </el-table-column>
           <template #empty>
-            <el-empty description="暂无角色数据" />
+            <div v-if="roleLoadError" class="space-y-4 px-6 py-8">
+              <el-alert
+                  title="角色列表加载失败"
+                  :description="roleLoadError"
+                  type="error"
+                  :closable="false"
+                  show-icon
+              />
+              <el-button type="primary" plain @click="fetchData">
+                <span class="material-symbols-outlined text-[18px]">refresh</span>
+                重新加载
+              </el-button>
+            </div>
+            <el-empty v-else description="暂无角色数据" />
           </template>
         </el-table>
-        <div class="flex justify-end px-6 py-4">
+        <div v-if="!roleLoadError" class="flex justify-end px-6 py-4">
           <el-pagination :current-page="1" :page-size="100" :total="roles.length" layout="total" />
         </div>
       </section>
@@ -80,7 +93,7 @@
 
 <script setup>
 import { nextTick, onMounted, ref } from 'vue'
-import { ElButton, ElEmpty, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import { ElAlert, ElButton, ElEmpty, ElPagination, ElTable, ElTableColumn, ElTag } from 'element-plus'
 import PermissionDrawer from './permissionDrawer.vue'
 import CreateRoleDrawer from './createRoleDrawer.vue'
 import { getRolePage } from './api/role.js'
@@ -99,16 +112,21 @@ const {
 } = useLocalTableColumns('role.list', defaultRoleTableColumns)
 const roles = ref([])
 const loading = ref(false)
+const roleLoadError = ref('')
 const drawerRef = ref(null)
 const createRoleRef = ref(null)
 const showPermissionDrawer = ref(false)
 const showCreateDrawer = ref(false)
 
 async function fetchData() {
+  roleLoadError.value = ''
   loading.value = true
   try {
     const page = await getRolePage({ page: 1, size: 100 })
     roles.value = page?.data || []
+  } catch (error) {
+    roles.value = []
+    roleLoadError.value = error?.msg || error?.message || '角色列表加载失败，请稍后重试。'
   } finally {
     loading.value = false
   }

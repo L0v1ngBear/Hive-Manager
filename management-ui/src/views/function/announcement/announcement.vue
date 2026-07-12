@@ -45,6 +45,19 @@
       </div>
 
       <el-skeleton v-if="loading" class="mt-6" :rows="4" animated />
+      <div v-else-if="announcementLoadError" class="mt-6 space-y-4 rounded-2xl border border-red-200 bg-red-50 p-5">
+        <el-alert
+            title="公告加载失败"
+            :description="announcementLoadError"
+            type="error"
+            :closable="false"
+            show-icon
+        />
+        <el-button type="primary" plain @click="loadAnnouncements">
+          <span class="material-symbols-outlined text-[18px]">refresh</span>
+          重新加载
+        </el-button>
+      </div>
       <el-empty v-else-if="!announcements.length" class="mt-6" description="暂无公告" />
       <div v-else class="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div
@@ -109,7 +122,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElButton, ElEmpty, ElMessage, ElSkeleton, ElTag } from 'element-plus'
+import { ElAlert, ElButton, ElEmpty, ElMessage, ElSkeleton, ElTag } from 'element-plus'
 import { getAnnouncements } from '@/api/notification.js'
 import { useUserStore } from '@/stores/user.js'
 
@@ -119,6 +132,7 @@ const ANNOUNCEMENT_PUBLISH_PERMISSION = 'notification:announcement:publish'
 const router = useRouter()
 const userStore = useUserStore()
 const loading = ref(false)
+const announcementLoadError = ref('')
 const activeLevel = ref('all')
 const announcements = ref([])
 const canPublishAnnouncement = computed(() => userStore.hasPermission(ANNOUNCEMENT_PUBLISH_PERMISSION))
@@ -131,6 +145,7 @@ const levelTabs = [
 ]
 
 async function loadAnnouncements() {
+  announcementLoadError.value = ''
   loading.value = true
   try {
     const params = { limit: 30 }
@@ -140,7 +155,8 @@ async function loadAnnouncements() {
     const data = await getAnnouncements(params)
     announcements.value = Array.isArray(data) ? data : []
   } catch (error) {
-    ElMessage.error(error?.msg || '公告加载失败')
+    announcements.value = []
+    announcementLoadError.value = error?.msg || error?.message || '公告加载失败，请稍后重试。'
   } finally {
     loading.value = false
   }

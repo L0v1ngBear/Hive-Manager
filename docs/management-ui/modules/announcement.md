@@ -52,9 +52,8 @@
 
 ## 空错态
 
-- 列表明确区分“正在加载公告”和“暂无公告”。
-- 加载失败使用 `ElMessage.error`，但页面没有持久错误块或重试说明。
-- 切换等级前不会清空旧公告；请求失败后，新标签可能继续显示上一等级的数据。
+- 列表按 loading、请求失败、真实空数据和公告数据四态互斥渲染。
+- 请求失败时清空旧公告，使用持久 `ElAlert` 显示错误，并提供重新加载命令。
 - 发布按钮有 `publishing` 禁用和文案变化。
 - 发布失败保留表单内容并提示；没有离开页面时的未保存确认。
 - 接收人为空时显示“当前暂无可统计人员”。
@@ -63,7 +62,7 @@
 
 - 页面布局、公告卡和接收人列表保留领域布局；命令与等级切换使用 `ElButton`。
 - 发布页使用 `ElForm`、`ElSelect`、`ElOption`、`ElInput` 和 `ElButton`。
-- 列表使用 `ElSkeleton`、`ElEmpty` 和 `ElTag`；反馈继续使用 `ElMessage`。
+- 列表使用 `ElSkeleton`、`ElAlert`、`ElEmpty` 和 `ElTag`；命令反馈继续使用 `ElMessage`。
 - 公告列表是双列卡片，不是传统表格。
 - 已读人员区域使用限定高度的自定义滚动列表。
 
@@ -73,7 +72,7 @@
 - 等级和阅读状态使用 `ElTag`，保持现有紧急/重要/普通语义颜色。
 - 发布表单使用 `ElForm`、`ElSelect`、`ElInput` 和 textarea 模式。
 - 命令使用 `ElButton`，发布按钮保留真实 loading 和权限禁用原因。
-- 加载、空态、错误分别使用 `ElSkeleton`、`ElEmpty`、`ElMessage`，不得互相替代。
+- 加载、空态、错误分别使用 `ElSkeleton`、`ElEmpty`、`ElAlert`，不得互相替代。
 - 保留公告卡与接收人阅读明细的领域布局，不强行改造成 `ElTable`。
 - 保留正文换行、长文本滚动、接收人字段和 `limit/levels` 查询契约。
 
