@@ -13,27 +13,27 @@
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-          <button
+          <el-button
               v-permission="'attendance:*'"
               class="function-action-dark"
               @click="openRuleDrawer"
           >
             <span class="material-symbols-outlined text-[20px]">rule</span>规则配置
-          </button>
+          </el-button>
 
-          <button
+          <el-button
               class="function-action-primary"
               @click="refreshAll"
           >
             <span class="material-symbols-outlined text-[20px]">refresh</span>刷新数据
-          </button>
-          <button
+          </el-button>
+          <el-button
               v-permission="'attendance:record:list'"
               class="function-action-secondary"
               @click="exportExcel"
           >
             <span class="material-symbols-outlined text-[20px]">download</span>导出当前页
-          </button>
+          </el-button>
         </div>
       </header>
 
@@ -143,53 +143,6 @@
               <el-empty v-if="!loading" description="暂无考勤记录" />
             </template>
           </el-table>
-          <table v-if="false" class="responsive-data-table w-full text-left border-collapse">
-            <thead class="bg-slate-50/80 sticky top-0 z-0">
-            <tr>
-              <th
-                  v-for="column in attendanceTableColumns"
-                  :key="column.key"
-                  class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider"
-              >
-                {{ column.label }}
-              </th>
-            </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-            <tr v-for="row in rows" :key="row.id" class="hover:bg-blue-50/40 transition-colors">
-              <td
-                  v-for="column in attendanceTableColumns"
-                  :key="column.key"
-                  :data-label="column.label"
-                  class="px-6 py-4"
-                  :class="attendanceCellClass(column.key)"
-              >
-                <template v-if="column.key === 'employee'">
-                  <div class="font-bold text-slate-800">{{ row.employeeName || '未命名员工' }}</div>
-                  <div class="text-xs text-slate-400 mt-0.5">{{ row.phone || '--' }}</div>
-                </template>
-                <template v-else-if="column.key === 'empNo'">{{ row.empNo || `UID-${row.userId}` }}</template>
-                <template v-else-if="column.key === 'department'">{{ row.departmentName || '未分配部门' }}</template>
-                <template v-else-if="column.key === 'signIn'">{{ formatTime(row.signInTime) }}</template>
-                <template v-else-if="column.key === 'signOut'">{{ formatTime(row.signOutTime) }}</template>
-                <template v-else-if="column.key === 'status'">
-                  <span :class="statusClass(row.status)" class="inline-flex px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider">
-                    {{ row.statusText || '正常' }}
-                  </span>
-                </template>
-                <template v-else-if="column.key === 'updateTime'">{{ formatDateTime(row.updateTime || row.createTime) }}</template>
-              </td>
-            </tr>
-            <tr v-if="!loading && rows.length === 0">
-              <td :colspan="attendanceTableColumns.length" class="px-6 py-16 text-center">
-                <div class="flex flex-col items-center justify-center text-slate-400">
-                  <span class="material-symbols-outlined text-5xl mb-2 opacity-50">event_busy</span>
-                  <p class="text-sm">当前筛选条件下暂无考勤记录</p>
-                </div>
-              </td>
-            </tr>
-            </tbody>
-          </table>
         </div>
 
         <div class="p-4 bg-slate-50 flex items-center justify-end border-t border-slate-100">
@@ -216,9 +169,9 @@
           <div>
             <h2 class="text-xl font-bold text-slate-800 tracking-tight">考勤规则配置</h2>
           </div>
-          <button @click="ruleDrawerVisible = false" class="text-slate-400 hover:text-slate-800 transition-colors">
+          <el-button @click="ruleDrawerVisible = false" class="text-slate-400 hover:text-slate-800 transition-colors">
             <span class="material-symbols-outlined text-[24px]">close</span>
-          </button>
+          </el-button>
         </div>
 
         <div class="flex-1 overflow-y-auto p-8 space-y-10 bg-gradient-to-b from-white to-slate-50/50">
@@ -294,12 +247,21 @@
               <h3 class="text-sm font-bold text-slate-800">工作日设置</h3>
             </div>
             <el-checkbox-group v-model="ruleForm.workDays" class="flex flex-wrap gap-2">
-              <label v-for="day in weekDays" :key="day.value" class="cursor-pointer">
-                <input v-model="ruleForm.workDays" type="checkbox" :value="day.value" class="peer sr-only"/>
-                <div class="px-4 py-2 text-xs font-bold rounded-lg bg-slate-100 border border-slate-200/50 text-slate-500 peer-checked:bg-blue-100 peer-checked:text-blue-700 peer-checked:border-blue-300 transition-all select-none">
+              <el-checkbox
+                  v-for="day in weekDays"
+                  :key="day.value"
+                  :value="day.value"
+                  class="!m-0 !h-auto [&_.el-checkbox__input]:hidden [&_.el-checkbox__label]:p-0"
+              >
+                <div
+                    class="px-4 py-2 text-xs font-bold rounded-lg border transition-all select-none"
+                    :class="ruleForm.workDays.includes(day.value)
+                      ? 'border-blue-300 bg-blue-100 text-blue-700'
+                      : 'border-slate-200/50 bg-slate-100 text-slate-500'"
+                >
                   {{ day.label }}
                 </div>
-              </label>
+              </el-checkbox>
             </el-checkbox-group>
           </section>
 
@@ -327,12 +289,12 @@
                 >
                   <div class="flex items-center justify-between gap-3">
                     <div class="text-sm font-black text-slate-800">打卡点 {{ index + 1 }}</div>
-                    <button
+                    <el-button
                         class="text-xs font-bold text-rose-500 hover:text-rose-600"
                         @click.prevent="removeAttendanceLocation(index)"
                     >
                       删除
-                    </button>
+                    </el-button>
                   </div>
                   <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-1">
@@ -357,12 +319,12 @@
                     </div>
                   </div>
                 </div>
-                <button
+                <el-button
                     class="w-full rounded-xl border border-dashed border-blue-300 bg-white py-3 text-sm font-black text-blue-700 hover:bg-blue-50"
                     @click.prevent="addAttendanceLocation"
                 >
                   + 新增打卡地点
-                </button>
+                </el-button>
               </div>
 
               <label class="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors shadow-sm">
@@ -385,8 +347,8 @@
         </div>
 
         <div class="px-8 py-4 border-t border-slate-200/50 bg-white flex justify-end gap-3 shrink-0">
-          <button @click="ruleDrawerVisible = false" class="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
-          <button @click="submitRule" class="px-5 py-2 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20 active:scale-95">保存配置</button>
+          <el-button @click="ruleDrawerVisible = false" class="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">取消</el-button>
+          <el-button @click="submitRule" class="px-5 py-2 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20 active:scale-95">保存配置</el-button>
         </div>
 
       </div>
@@ -398,6 +360,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import {
   ElButton,
+  ElCheckbox,
   ElCheckboxGroup,
   ElDatePicker,
   ElDrawer,
@@ -486,13 +449,6 @@ const stats = computed(() => [
   { label: '早退', value: summary.earlyCount, unit: '人', desc: '下班打卡早于规则时间', icon: 'logout', iconClass: 'text-amber-50', valueClass: 'text-amber-600' },
   { label: '缺勤/缺卡', value: summary.missingCount, unit: '人', desc: '缺勤或缺少打卡记录', icon: 'error', iconClass: 'text-rose-50', valueClass: 'text-rose-600' }
 ])
-
-function attendanceCellClass(key) {
-  if (key === 'empNo' || key === 'signIn' || key === 'signOut') return 'text-sm font-mono text-slate-700'
-  if (key === 'department') return 'text-sm text-slate-600'
-  if (key === 'updateTime') return 'text-xs text-slate-500'
-  return ''
-}
 
 applyRouteKeyword()
 refreshAll()
