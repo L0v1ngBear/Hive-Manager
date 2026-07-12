@@ -30,14 +30,87 @@ DONE
 
 - Target: 5/5 passed.
 - Regressions: `auth-storage-security.test.js` and `permission-ui-hardening.test.js` passed.
-- The two regression files hard-code `D:/HiveManager/management-ui`; the same assertions were also executed against this worktree by replacing only that root in memory. Both passed without changing the regression files.
+- Both regression files resolve fixtures relative to `import.meta.url`, so their passing result comes from the current worktree.
 - Targeted ESLint: passed with zero errors.
 - Vite production build: passed.
 - `git diff --check`: passed.
 
 ## Self-Review
 
-- Confirmed the changed-file set is limited to the Task 8 brief plus this required report.
+- Confirmed the original migration commit is limited to the Task 8 brief plus this required report; the reviewer follow-up changes only the two requested regression tests and this report.
 - Confirmed all Element Plus components used by the migrated pages are explicitly imported.
 - Confirmed the migrated source pages contain no native form, input, select, textarea, table, or button controls.
-- No unresolved functional concern was found. The pre-existing hard-coded regression root remains outside Task 8's allowed modification scope and is covered by the supplemental worktree run above.
+- No unresolved functional concern was found, and no business source file was changed during the reviewer follow-up.
+
+## Reviewer Follow-Up: Worktree-Safe Regressions
+
+The earlier supplemental in-memory path replacement was not accepted as formal regression evidence. Both existing regression files now resolve source fixtures from their own location with `new URL(..., import.meta.url)` and contain no repository-specific absolute path. No business source file changed in this follow-up.
+
+### TDD Path-Hygiene Cycle
+
+RED command:
+
+```powershell
+@'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+for (const file of ['tests/auth-storage-security.test.js', 'tests/permission-ui-hardening.test.js']) {
+  const source = readFileSync(file, 'utf8')
+  assert.doesNotMatch(source, /D:[\\/]HiveManager/i, `${file} must not pin the repository root`)
+  assert.match(source, /import\.meta\.url/, `${file} must resolve fixtures relative to itself`)
+}
+'@ | node --input-type=module
+```
+
+RED output: exit 1 with `AssertionError: tests/auth-storage-security.test.js must not pin the repository root`, directly matching `D:/HiveManager/management-ui`.
+
+GREEN output after the two test-only edits:
+
+```text
+test path hygiene checks passed
+auth storage security checks passed
+permission UI hardening checks passed
+tests 2, pass 2, fail 0
+```
+
+### Formal Verification Output
+
+```powershell
+node --test tests/element-plus-shell-approval.test.js
+```
+
+```text
+tests 5, pass 5, fail 0, duration_ms 240.8326
+```
+
+```powershell
+node --test tests/auth-storage-security.test.js tests/permission-ui-hardening.test.js
+```
+
+```text
+auth storage security checks passed
+permission UI hardening checks passed
+tests 2, pass 2, fail 0, duration_ms 305.1112
+```
+
+```powershell
+npx eslint src/views/function/approval/approvalCenter.vue src/views/dashboard/index.vue src/layout/components/Navbar.vue src/layout/components/Sidebar.vue src/views/Login.vue src/views/JoinOrganization.vue src/views/ForcePasswordChange.vue src/views/NoPermission.vue tests/element-plus-shell-approval.test.js tests/auth-storage-security.test.js tests/permission-ui-hardening.test.js
+```
+
+Output: exit 0 with no diagnostics.
+
+```powershell
+npm run build
+```
+
+```text
+vite v8.1.3 building client environment for production...
+transforming... 1842 modules transformed.
+built in 8.94s
+```
+
+```powershell
+git diff --check
+```
+
+Output: exit 0 with no diagnostics.
