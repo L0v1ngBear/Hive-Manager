@@ -336,7 +336,7 @@ test("organization keeps its domain tree and migrates standard editor controls",
   ]) {
     assert.match(source, new RegExp(`<${tag}\\b`));
   }
-  assert.match(source, /renderDepartmentNode/);
+  assert.match(source, /const DepartmentNode\s*=\s*defineComponent/);
 });
 
 test("equipment uses Element Plus table pagination and drawers", () => {
@@ -528,7 +528,7 @@ Run targeted test, `auth-storage-security.test.js`, `permission-ui-hardening.tes
 
 - [ ] **Step 1: Write and run RED**
 
-Assert order uses `el-input`, `el-select`, `el-date-picker`, `el-input-number`, `el-table`, `el-pagination`, `el-drawer`, `el-dialog`, `el-form`, `el-tag`, `el-progress`, `el-empty`, and `v-loading`. Assert the source retains `ORDER_STATUS`, `ORDER_STATUS_SEQUENCE`, `order:status:`, `TableColumnSettings`, `DragAttachmentUpload`, and `BusinessTimeCorrectionPanel`.
+Assert order uses `el-input`, `el-select`, `el-date-picker`, `el-input-number`, `el-table`, `el-pagination`, `el-drawer`, `el-dialog`, `el-form`, `el-tag`, `el-progress`, `el-empty`, and `v-loading`. Assert the source retains `orderStatuses`, `ORDER_STATUS_PERMISSION_PREFIX`, `order:status:`, `TableColumnSettings`, `DragAttachmentUpload`, and `BusinessTimeCorrectionPanel`.
 
 Run: `node --test tests/element-plus-order.test.js`
 
@@ -592,7 +592,7 @@ Run targeted test and ESLint, update both docs with any protected table exceptio
 
 - [ ] **Step 1: Write and run RED**
 
-Assert receipt uses `el-tabs`, `el-form`, `el-input`, `el-input-number`, `el-checkbox`, `el-select`, and `el-button`, while still containing the native print tables and `window.print`/print-window code. Assert label uses `el-tabs`, `el-badge`, `el-form`, `el-input-number`, `el-switch`, `el-select`, and `el-button`, while retaining `QRCode`, `JsBarcode`, and print-style generation.
+Assert receipt uses `el-tabs`, `el-form`, `el-input`, `el-input-number`, `el-checkbox`, `el-select`, and `el-button`, while still containing the native print tables and `printWindow.print()` code. Assert label uses `el-tabs`, `el-badge`, `el-form`, `el-input-number`, `el-switch`, `el-select`, and `el-button`, while retaining `QRCode`, `JsBarcode`, and print-style generation.
 
 Run: `node --test tests/element-plus-printing.test.js`
 
@@ -620,7 +620,7 @@ Run targeted test and ESLint. Open receipt/label pages and compare print preview
 
 - [ ] **Step 1: Write and run RED**
 
-Assert manual uses `el-button`, `el-input`, `el-dialog`, `el-empty`, and `v-loading`, retains `getCustomManual`, `saveCustomManualContent`, `applyRecommendedTemplate`, and Markdown export creation, and no longer uses `window.confirm`.
+Assert manual uses `el-button`, `el-input`, `el-dialog`, `el-empty`, and `v-loading`, retains `getCustomManual`, `saveCustomManualContent`, `resetCustomManualTemplate`, and Markdown export creation, and no longer uses `window.confirm`.
 
 Run: `node --test tests/element-plus-manual.test.js`
 
