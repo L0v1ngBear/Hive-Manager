@@ -64,6 +64,12 @@
 - 替换：标准上传外围可用 `ElUpload`，但只有在完全兼容单附件返回值、移除、Blob 下载和预览行为时进行。
 - 保留：`BusinessTimeCorrectionPanel`、`DragAttachmentUpload`、附件元数据结构、动态列/导出、业务状态与权限指令。
 
+## Element Plus Migration
+
+- The list now uses explicitly imported `ElTable`, `ElPagination`, `ElTag`, `ElEmpty`, and `v-loading`.
+- Filters, record editing, and process submission use `ElForm`, `ElInput`, and `ElSelect`; details and commands use `ElDrawer`.
+- Type and scope values, loss-bracket payloads, attachment ordering, `BusinessTimeCorrectionPanel`, `DragAttachmentUpload`, and permission directives are retained.
+
 ## 风险
 
 - 质量附件不是装饰字段：当前每条记录只有 `attachmentName/attachmentUrl/attachmentSize` 一组元数据；迁移不得误改为多附件或虚构处理附件。

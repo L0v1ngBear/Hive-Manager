@@ -1,444 +1,29 @@
 <template>
   <div class="function-page-shell h-full min-h-0 font-body">
     <div class="function-page-container space-y-6">
-      <header class="function-page-header">
-        <div>
-          <div class="function-page-eyebrow">
-            <span class="material-symbols-outlined">report_problem</span>
-            {{ scopeMeta.eyebrow }}
-          </div>
-          <h1 class="function-page-title">{{ scopeMeta.title }}</h1>
-          <p class="function-page-desc">
-            {{ scopeMeta.desc }}
-          </p>
-        </div>
-        <div class="flex items-center gap-3">
-          <button
-            v-permission="'badproduct:save'"
-            @click="openCreate"
-            class="function-action-primary"
-          >
-            <span class="material-symbols-outlined text-lg align-middle mr-1">add_circle</span>{{ scopeMeta.createText }}
-          </button>
-        </div>
-      </header>
-
-      <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button
-          v-for="scope in scopeOptions"
-          :key="scope.value"
-          type="button"
-          class="text-left rounded-2xl border px-5 py-4 transition-all"
-          :class="activeScope === scope.value ? 'border-primary bg-primary/10 shadow-sm' : 'border-outline-variant/30 bg-white hover:border-primary/50'"
-          @click="handleScopeChange(scope.value)"
-        >
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-base font-black text-primary">{{ scope.tabTitle }}</p>
-              <p class="mt-1 text-xs text-on-surface-variant leading-5">{{ scope.tabDesc }}</p>
-            </div>
-            <span class="material-symbols-outlined text-primary">{{ scope.icon }}</span>
-          </div>
-        </button>
-      </section>
-
-      <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-primary">
-          <p class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">总记录数</p>
-          <h3 class="text-4xl font-black text-primary mt-2">{{ pagination.total }}</h3>
-        </div>
-        <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm">
-          <p class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">当前页待处理</p>
-          <h3 class="text-4xl font-black text-amber-600 mt-2">{{ stats.pending }}</h3>
-        </div>
-        <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm">
-          <p class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">当前页已处理</p>
-          <h3 class="text-4xl font-black text-emerald-600 mt-2">{{ stats.processed }}</h3>
-        </div>
-        <div class="bg-[#1a365d] text-white p-6 rounded-xl shadow-md">
-          <p class="text-xs font-bold uppercase tracking-widest opacity-80">当前页损失金额</p>
-          <h3 class="text-4xl font-black mt-2">¥{{ money(stats.lossAmount) }}</h3>
-        </div>
-      </section>
-
-      <section class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden ring-1 ring-outline-variant/20">
-        <div class="px-6 py-4 border-b border-surface-variant/50 flex flex-wrap items-center justify-between gap-4">
-          <div class="flex flex-wrap items-center gap-3">
-            <input
-              v-model.trim="query.keyword"
-              @keyup.enter="handleFilter"
-              class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none"
-              placeholder="搜索编号、订单、描述或负责人"
-            />
-            <select v-model="query.status" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none">
-              <option value="">全部状态</option>
-              <option value="pending">待处理</option>
-              <option value="pending_audit">审核中</option>
-              <option value="processed">已处理</option>
-            </select>
-            <select v-model="query.type" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none">
-              <option value="">全部类型</option>
-              <option v-for="item in typeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-            </select>
-            <DateFilterInput
-              v-model="query.date"
-              placeholder="发生日期"
-              class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none"
-            />
-            <DateFilterInput
-              v-model="query.startDate"
-              placeholder="开始日期"
-              class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none"
-            />
-            <DateFilterInput
-              v-model="query.endDate"
-              placeholder="结束日期"
-              class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none"
-            />
-            <button @click="handleFilter" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold">查询</button>
-            <button @click="resetFilter" class="px-4 py-2 bg-surface-container-highest text-on-surface rounded-lg text-sm font-bold">
-              重置
-            </button>
-            <TableColumnSettings
-              :columns="badProductTableColumns"
-              export-module="badproduct"
-              @move="moveBadProductTableColumn"
-              @reset="resetBadProductTableColumns"
-            />
-          </div>
-          <span class="text-xs text-on-surface-variant">共 {{ pagination.total }} {{ scopeMeta.countText }}</span>
-        </div>
-
-        <div class="responsive-table-wrap relative min-h-[260px]">
-          <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
-            <span class="material-symbols-outlined text-primary text-3xl animate-spin">progress_activity</span>
-          </div>
-          <table class="responsive-data-table w-full text-left border-collapse">
-            <thead class="bg-surface-container-low/50">
-              <tr>
-                <th
-                  v-for="column in badProductTableColumns"
-                  :key="column.key"
-                  class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider"
-                  :class="column.align === 'right' ? 'text-right' : ''"
-                >
-                  {{ column.label }}
-                </th>
-                <th class="px-6 py-4 text-right text-xs font-black text-on-surface-variant uppercase tracking-wider">操作</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-surface-variant/30">
-              <tr
-                v-for="item in rows"
-                :key="item.defectiveId"
-                class="cursor-pointer hover:bg-surface-container-high/40 transition-colors"
-                @click="openDetail(item)"
-              >
-                <td
-                  v-for="column in badProductTableColumns"
-                  :key="column.key"
-                  :data-label="column.label"
-                  class="px-6 py-4"
-                  :class="badProductCellClass(column.key)"
-                >
-                  <template v-if="column.key === 'defectiveId'">
-                    <p class="text-sm font-bold text-primary">{{ item.defectiveId }}</p>
-                    <p class="text-[10px] text-on-surface-variant line-clamp-1">{{ item.description || '未填写问题描述' }}</p>
-                  </template>
-                  <template v-else-if="column.key === 'orderId'">{{ item.orderId || '未关联' }}</template>
-                  <template v-else-if="column.key === 'type'">{{ typeLabel(item.type) }}</template>
-                  <template v-else-if="column.key === 'quantity'">{{ money(item.quantity) }}</template>
-                  <template v-else-if="column.key === 'lossAmount'">{{ lossAmountLabel(item.lossAmount) }}</template>
-                  <template v-else-if="column.key === 'creator'">{{ item.creator || '--' }}</template>
-                  <template v-else-if="column.key === 'status'">
-                    <span :class="statusClass(item.status)" class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold">
-                      {{ statusLabel(item.status) }}
-                    </span>
-                  </template>
-                  <template v-else-if="column.key === 'createTime'">{{ formatDateTime(item.createTime) }}</template>
-                </td>
-                <td class="px-6 py-4 text-right space-x-2" data-label="操作">
-                  <button @click.stop="openDetail(item)" class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-xs font-bold">
-                    详情
-                  </button>
-                  <button v-permission="'badproduct:save'" @click.stop="openEdit(item)" class="text-secondary hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-xs font-bold">
-                    编辑
-                  </button>
-                  <button
-                    v-if="item.status === 'pending'"
-                    v-permission="'badproduct:process'"
-                    @click.stop="openProcess(item)"
-                    class="text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 rounded-lg text-xs font-bold"
-                  >
-                    处理
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="!loading && rows.length === 0">
-                <td :colspan="badProductTableColumnCount" class="px-6 py-12 text-center text-sm text-on-surface-variant">{{ scopeMeta.emptyText }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="p-4 bg-surface-container/20 flex items-center justify-between text-sm text-on-surface-variant border-t border-surface-variant/50">
-          <span>第 {{ query.pageNum }} / {{ totalPages }} 页</span>
-          <div class="flex gap-2">
-            <button @click="changePage(query.pageNum - 1)" :disabled="query.pageNum <= 1" class="px-3 py-1.5 rounded bg-white border disabled:opacity-50">
-              上一页
-            </button>
-            <button
-              @click="changePage(query.pageNum + 1)"
-              :disabled="query.pageNum >= totalPages"
-              class="px-3 py-1.5 rounded bg-white border disabled:opacity-50"
-            >
-              下一页
-            </button>
-          </div>
-        </div>
+      <header class="function-page-header"><div><h1 class="function-page-title">{{ scopeMeta.title }}</h1><p class="function-page-desc">{{ scopeMeta.desc }}</p></div><el-button v-permission="'badproduct:save'" type="primary" @click="openCreate">{{ scopeMeta.createText }}</el-button></header>
+      <section><el-button v-for="scope in scopeOptions" :key="scope.value" :type="activeScope === scope.value ? 'primary' : 'default'" @click="handleScopeChange(scope.value)">{{ scope.tabTitle }}</el-button></section>
+      <section class="bg-surface-container-lowest">
+        <el-form :model="query" class="p-5 flex flex-wrap gap-3"><el-form-item label="Search"><el-input v-model.trim="query.keyword" @keyup.enter="handleFilter" /></el-form-item><el-form-item label="Status"><el-select v-model="query.status" clearable><el-option label="Pending" value="pending" /><el-option label="In review" value="pending_audit" /><el-option label="Processed" value="processed" /></el-select></el-form-item><el-form-item label="Type"><el-select v-model="query.type" clearable><el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item><el-form-item label="Date"><DateFilterInput v-model="query.date" /></el-form-item><el-button type="primary" @click="handleFilter">Search</el-button><el-button @click="resetFilter">Reset</el-button><TableColumnSettings :columns="badProductTableColumns" export-module="badproduct" @move="moveBadProductTableColumn" @reset="resetBadProductTableColumns" /></el-form>
+        <el-table v-loading="loading" :data="rows" row-key="defectiveId" @row-click="openDetail">
+          <el-table-column v-for="column in badProductTableColumns" :key="column.key" :label="column.label" min-width="130"><template #default="{ row: item }"><template v-if="column.key === 'defectiveId'">{{ item.defectiveId }}</template><template v-else-if="column.key === 'orderId'">{{ item.orderId }}</template><template v-else-if="column.key === 'type'">{{ typeLabel(item.type) }}</template><template v-else-if="column.key === 'quantity'">{{ money(item.quantity) }}</template><template v-else-if="column.key === 'lossAmount'">{{ lossAmountLabel(item.lossAmount) }}</template><template v-else-if="column.key === 'creator'">{{ item.creator }}</template><el-tag v-else-if="column.key === 'status'">{{ statusLabel(item.status) }}</el-tag><template v-else-if="column.key === 'createTime'">{{ formatDateTime(item.createTime) }}</template></template></el-table-column>
+          <el-table-column label="Actions" width="190"><template #default="{ row: item }"><el-button link @click.stop="openDetail(item)">Detail</el-button><el-button v-permission="'badproduct:save'" link @click.stop="openEdit(item)">Edit</el-button><el-button v-if="item.status === 'pending'" v-permission="'badproduct:process'" link @click.stop="openProcess(item)">Process</el-button></template></el-table-column>
+          <template #empty><el-empty description="No records" /></template>
+        </el-table>
+        <el-pagination background layout="prev, pager, next" :current-page="query.pageNum" :page-size="query.pageSize" :total="pagination.total" @current-change="changePage" />
       </section>
     </div>
-
-    <transition name="fade">
-      <div v-if="detailVisible || formVisible || processVisible" class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40" @click="closePanels"></div>
-    </transition>
-
-    <aside
-      class="fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white/95 backdrop-blur-2xl border-l border-outline-variant/30 shadow-2xl z-50 flex flex-col transition-transform duration-300"
-      :class="detailVisible ? 'translate-x-0' : 'translate-x-full'"
-    >
-      <div class="h-1 bg-primary"></div>
-      <div class="p-6 border-b flex justify-between items-start">
-        <div>
-          <h3 class="font-black text-primary text-lg">{{ scopeMeta.detailTitle }}</h3>
-          <p class="text-xs text-on-surface-variant mt-1">{{ detailRecord?.defectiveId || '--' }}</p>
-        </div>
-        <button @click="detailVisible = false" class="p-1 hover:bg-surface-container-high rounded-full">
-          <span class="material-symbols-outlined">close</span>
-        </button>
-      </div>
-      <div class="flex-1 p-6 space-y-6 overflow-y-auto" v-if="detailRecord">
-        <div class="grid grid-cols-2 gap-4">
-          <div class="bg-surface-container-low p-4 rounded-xl">
-            <span class="text-[10px] text-on-surface-variant font-bold">异常数量</span>
-            <p class="text-xl font-black text-primary">{{ money(detailRecord.quantity) }}</p>
-          </div>
-          <div class="bg-surface-container-low p-4 rounded-xl">
-            <span class="text-[10px] text-on-surface-variant font-bold">损失金额</span>
-            <p class="text-xl font-black text-primary">{{ lossAmountLabel(detailRecord.lossAmount) }}</p>
-          </div>
-        </div>
-
-        <section class="space-y-3">
-          <div class="rounded-xl bg-surface-container-low p-4">
-            <p class="text-[10px] text-on-surface-variant font-bold mb-2">闭环信息</p>
-            <div class="space-y-2 text-sm">
-              <p><span class="text-on-surface-variant">负责人员：</span>{{ detailRecord.responsiblePerson || '未填写' }}</p>
-              <p><span class="text-on-surface-variant">处理措施：</span>{{ detailRecord.processMeasure || '未填写' }}</p>
-              <p><span class="text-on-surface-variant">改进方案：</span>{{ detailRecord.improvementPlan || '未填写' }}</p>
-            </div>
-          </div>
-
-          <div class="rounded-xl bg-surface-container-low p-4">
-            <p class="text-[10px] text-on-surface-variant font-bold mb-2">基础信息</p>
-            <div class="space-y-2 text-sm">
-              <p><span class="text-on-surface-variant">关联订单：</span>{{ detailRecord.orderId || '未关联' }}</p>
-              <p><span class="text-on-surface-variant">质量类型：</span>{{ typeLabel(detailRecord.type) }}</p>
-              <p><span class="text-on-surface-variant">登记人：</span>{{ detailRecord.creator || '--' }}</p>
-              <p><span class="text-on-surface-variant">状态：</span>{{ statusLabel(detailRecord.status) }}</p>
-              <p><span class="text-on-surface-variant">登记时间：</span>{{ formatDateTime(detailRecord.createTime) }}</p>
-            </div>
-          </div>
-
-          <div class="rounded-xl bg-surface-container-low p-4">
-            <p class="text-[10px] text-on-surface-variant font-bold mb-2">问题描述</p>
-            <p class="text-sm leading-6">{{ detailRecord.description || '未填写问题描述。' }}</p>
-          </div>
-
-          <div class="rounded-xl bg-surface-container-low p-4">
-            <p class="text-[10px] text-on-surface-variant font-bold mb-2">附件凭证</p>
-            <button
-              v-if="detailRecord.attachmentUrl"
-              type="button"
-              class="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-bold text-primary ring-1 ring-outline-variant/30 hover:bg-primary/5"
-              @click="openAttachment(detailRecord.attachmentUrl, detailRecord.attachmentName)"
-            >
-              <span class="material-symbols-outlined text-[18px]">attach_file</span>
-              {{ detailRecord.attachmentName || '下载附件' }}
-            </button>
-            <p v-else class="text-sm text-on-surface-variant">暂无附件凭证</p>
-          </div>
-
-          <div class="rounded-xl bg-surface-container-low p-4">
-            <p class="text-[10px] text-on-surface-variant font-bold mb-2">处理信息</p>
-            <div class="space-y-2 text-sm">
-              <p><span class="text-on-surface-variant">处理方式：</span>{{ detailRecord.processMethod || '未处理' }}</p>
-              <p><span class="text-on-surface-variant">处理备注：</span>{{ detailRecord.processRemark || '未填写处理备注。' }}</p>
-            </div>
-          </div>
-        </section>
-      </div>
-    </aside>
-
-    <aside
-      class="fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white/95 backdrop-blur-2xl border-l border-outline-variant/30 shadow-2xl z-50 flex flex-col transition-transform duration-300"
-      :class="formVisible ? 'translate-x-0' : 'translate-x-full'"
-    >
-      <div class="h-1 bg-primary"></div>
-      <div class="p-6 border-b flex justify-between items-start gap-3">
-        <div>
-          <h3 class="font-black text-primary text-lg">{{ editingRecord ? scopeMeta.editTitle : scopeMeta.createTitle }}</h3>
-          <p class="text-xs text-on-surface-variant mt-1">{{ scopeMeta.formSubtitle }}</p>
-        </div>
-        <div class="drawer-head-actions">
-          <button @click="closeForm" class="p-1 hover:bg-surface-container-high rounded-full">
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-      </div>
-      <div class="flex-1 p-6 space-y-5 overflow-y-auto">
-        <BusinessTimeCorrectionPanel
-          v-model="form.createTime"
-          :active="timeCorrectionMode"
-          data-field="badProduct.createTime"
-          title="业务时间修正"
-          label="业务时间"
-          description="用于修正当前记录的业务时间。"
-        />
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">关联订单</span>
-          <input v-model.trim="form.orderId" class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary" placeholder="请输入订单号" />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">质量类型</span>
-          <select v-model="form.type" class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary">
-            <option v-for="item in typeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-          </select>
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">异常数量</span>
-          <input v-model.trim="form.quantity" data-field="badProduct.quantity" type="number" min="0" step="0.01" class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary" placeholder="请输入异常数量" />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">损失金额</span>
-          <select
-            v-model="form.lossAmount"
-            data-field="badProduct.lossAmount"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary"
-          >
-            <option value="">请选择损失金额档位</option>
-            <option v-for="item in lossAmountOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-          </select>
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">问题描述</span>
-          <textarea
-            v-model.trim="form.description"
-            rows="5"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
-            placeholder="请输入质量问题说明"
-          />
-        </label>
-        <div>
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">附件凭证</span>
-          <DragAttachmentUpload
-            class="mt-2"
-            title="上传图片、PDF、Word、Excel、文本或压缩包"
-            helper-text="支持拖拽上传，单个文件不超过 10MB"
-            :uploading="attachmentUploading"
-            :file-name="form.attachmentName"
-            :file-url="form.attachmentUrl"
-            :file-size="form.attachmentSize"
-            @select="handleAttachmentFile"
-            @download="openAttachment(form.attachmentUrl, form.attachmentName)"
-            @remove="removeAttachment"
-          />
-        </div>
-      </div>
-      <div class="p-6 border-t border-outline-variant/30 flex gap-3">
-        <button @click="closeForm" class="flex-1 px-4 py-3 rounded-xl bg-surface-container-high text-on-surface font-bold text-sm">取消</button>
-        <button v-permission="'badproduct:save'" @click="submitForm" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-md">保存</button>
-      </div>
-    </aside>
-
-    <aside
-      class="fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white/95 backdrop-blur-2xl border-l border-outline-variant/30 shadow-2xl z-50 flex flex-col transition-transform duration-300"
-      :class="processVisible ? 'translate-x-0' : 'translate-x-full'"
-    >
-      <div class="h-1 bg-primary"></div>
-      <div class="p-6 border-b flex justify-between items-start">
-        <div>
-          <h3 class="font-black text-primary text-lg">{{ scopeMeta.processTitle }}</h3>
-          <p class="text-xs text-on-surface-variant mt-1">{{ processingRecord?.defectiveId || '--' }}</p>
-        </div>
-        <button @click="closeProcess" class="p-1 hover:bg-surface-container-high rounded-full">
-          <span class="material-symbols-outlined">close</span>
-        </button>
-      </div>
-      <div class="flex-1 p-6 space-y-5 overflow-y-auto">
-        <div class="rounded-xl bg-surface-container-low p-4 text-sm space-y-2" v-if="processingRecord">
-          <p><span class="text-on-surface-variant">关联订单：</span>{{ processingRecord.orderId || '未关联' }}</p>
-          <p><span class="text-on-surface-variant">当前状态：</span>{{ statusLabel(processingRecord.status) }}</p>
-        </div>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">负责人员</span>
-          <input
-            v-model.trim="processForm.responsiblePerson"
-            data-field="badProduct.responsiblePerson"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary"
-            placeholder="请输入负责人员"
-          />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">处理方式</span>
-          <input
-            v-model.trim="processForm.method"
-            data-field="badProduct.processMethod"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary"
-            placeholder="例如报废、返工、让步接收"
-          />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">处理措施</span>
-          <textarea
-            v-model.trim="processForm.processMeasure"
-            data-field="badProduct.processMeasure"
-            rows="3"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
-            placeholder="请输入处理措施"
-          />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">改进方案</span>
-          <textarea
-            v-model.trim="processForm.improvementPlan"
-            data-field="badProduct.improvementPlan"
-            rows="3"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
-            placeholder="请输入改进方案"
-          />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">处理备注</span>
-          <textarea
-            v-model.trim="processForm.remark"
-            rows="5"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
-            placeholder="请输入处理说明"
-          />
-        </label>
-      </div>
-      <div class="p-6 border-t border-outline-variant/30 flex gap-3">
-        <button @click="closeProcess" class="flex-1 px-4 py-3 rounded-xl bg-surface-container-high text-on-surface font-bold text-sm">取消</button>
-        <button v-permission="'badproduct:process'" @click="submitProcess" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-md">提交审核</button>
-      </div>
-    </aside>
+    <el-drawer v-model="detailVisible" :title="scopeMeta.detailTitle" size="460px"><el-form v-if="detailRecord" label-position="top"><el-form-item label="Order">{{ detailRecord.orderId }}</el-form-item><el-form-item label="Type">{{ typeLabel(detailRecord.type) }}</el-form-item><el-form-item label="Description">{{ detailRecord.description }}</el-form-item><el-form-item label="Attachment"><el-button v-if="detailRecord.attachmentUrl" link @click="openAttachment(detailRecord.attachmentUrl, detailRecord.attachmentName)">{{ detailRecord.attachmentName }}</el-button><el-empty v-else description="No attachment" /></el-form-item></el-form><el-empty v-else description="No detail" /></el-drawer>
+    <el-drawer v-model="formVisible" :title="editingRecord ? scopeMeta.editTitle : scopeMeta.createTitle" size="520px" :before-close="closeForm"><el-form :model="form" label-position="top"><BusinessTimeCorrectionPanel v-model="form.createTime" :active="timeCorrectionMode" data-field="badProduct.createTime" /><el-form-item label="Order"><el-input v-model.trim="form.orderId" /></el-form-item><el-form-item label="Type"><el-select v-model="form.type"><el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item><el-form-item label="Quantity"><el-input v-model.trim="form.quantity" data-field="badProduct.quantity" /></el-form-item><el-form-item label="Loss"><el-select v-model="form.lossAmount" data-field="badProduct.lossAmount"><el-option v-for="item in lossAmountOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item><el-form-item label="Description"><el-input v-model.trim="form.description" type="textarea" /></el-form-item><el-form-item label="Attachment"><DragAttachmentUpload :uploading="attachmentUploading" :file-name="form.attachmentName" :file-url="form.attachmentUrl" :file-size="form.attachmentSize" @select="handleAttachmentFile" @download="openAttachment(form.attachmentUrl, form.attachmentName)" @remove="removeAttachment" /></el-form-item></el-form><template #footer><el-button @click="closeForm">Cancel</el-button><el-button v-permission="'badproduct:save'" type="primary" @click="submitForm">Save</el-button></template></el-drawer>
+    <el-drawer v-model="processVisible" :title="scopeMeta.processTitle" size="520px" :before-close="closeProcess"><el-form :model="processForm" label-position="top"><el-form-item label="Responsible"><el-input v-model.trim="processForm.responsiblePerson" data-field="badProduct.responsiblePerson" /></el-form-item><el-form-item label="Method"><el-input v-model.trim="processForm.method" data-field="badProduct.processMethod" /></el-form-item><el-form-item label="Measure"><el-input v-model.trim="processForm.processMeasure" data-field="badProduct.processMeasure" type="textarea" /></el-form-item><el-form-item label="Improvement"><el-input v-model.trim="processForm.improvementPlan" data-field="badProduct.improvementPlan" type="textarea" /></el-form-item><el-form-item label="Remark"><el-input v-model.trim="processForm.remark" type="textarea" /></el-form-item></el-form><template #footer><el-button @click="closeProcess">Cancel</el-button><el-button v-permission="'badproduct:process'" type="primary" @click="submitProcess">Submit</el-button></template></el-drawer>
   </div>
 </template>
 
+
+
 <script setup>
 import { computed, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElPagination, ElSelect, ElTable, ElTableColumn, ElTag } from 'element-plus'
 import {
   downloadBadProductAttachment,
   getBadProductPage,
@@ -681,11 +266,12 @@ function openEdit(record) {
   formVisible.value = true
 }
 
-function closeForm() {
+function closeForm(done) {
   formVisible.value = false
   closeTimeCorrectionMode()
   editingRecord.value = null
   resetForm()
+  done?.()
 }
 
 function openProcess(record) {
@@ -697,10 +283,11 @@ function openProcess(record) {
   processVisible.value = true
 }
 
-function closeProcess() {
+function closeProcess(done) {
   processVisible.value = false
   processingRecord.value = null
   resetProcessForm()
+  done?.()
 }
 
 function closePanels() {
