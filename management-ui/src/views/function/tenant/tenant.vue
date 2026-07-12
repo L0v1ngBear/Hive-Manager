@@ -2,280 +2,102 @@
   <section class="tenant-page function-page-shell">
     <header class="tenant-page__header">
       <div>
-        <div class="function-page-eyebrow">
-          <span class="material-symbols-outlined">domain</span>
-          租户管理
-        </div>
+        <div class="function-page-eyebrow"><span class="material-symbols-outlined">domain</span>租户管理</div>
         <h1 class="function-page-title">企业租户管理</h1>
         <p class="function-page-desc">查看企业授权、启停状态、账号容量和功能开关。</p>
       </div>
-      <button class="function-action-primary" :disabled="loading" @click="loadTenants">
-        <span class="material-symbols-outlined" :class="{ 'animate-spin': loading }">sync</span>
-        刷新
-      </button>
+      <el-button type="primary" :loading="loading" @click="loadTenants">刷新</el-button>
     </header>
 
-    <div class="tenant-grid">
-      <article
-        v-for="tenant in tenants"
-        :key="tenant.id"
-        class="tenant-card"
-        :class="{ 'tenant-card--disabled': Number(tenant.status) !== 1 }"
-      >
-        <div class="tenant-card__top">
-          <img v-if="tenant.logoUrl" :src="tenant.logoUrl" alt="公司logo" class="tenant-card__logo">
-          <div class="tenant-card__title">
-            <h2>{{ tenant.tenantName || '未命名企业' }}</h2>
-            <p>{{ tenant.tenantCode }}</p>
+    <el-table v-loading="loading" :data="tenants" class="tenant-table" row-key="id" empty-text="暂无租户数据">
+      <el-table-column label="企业" min-width="190">
+        <template #default="{ row }">
+          <div class="tenant-table__company">
+            <el-avatar v-if="row.logoUrl" :src="row.logoUrl" :alt="`${row.tenantName} logo`" />
+            <div><strong>{{ row.tenantName || '未命名企业' }}</strong><small>{{ row.tenantCode }}</small></div>
           </div>
-          <span class="tenant-status" :class="Number(tenant.status) === 1 ? 'tenant-status--on' : 'tenant-status--off'">
-            {{ Number(tenant.status) === 1 ? '启用中' : '已停用' }}
-          </span>
-        </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="联系人" min-width="150"><template #default="{ row }">{{ row.contactPerson || '--' }}<br>{{ row.contactPhone || '--' }}</template></el-table-column>
+      <el-table-column label="负责人" min-width="150"><template #default="{ row }">{{ row.ownerName || '--' }}<br>{{ row.ownerLoginName || '--' }}</template></el-table-column>
+      <el-table-column label="授权" min-width="170"><template #default="{ row }">{{ row.packageName || row.packageCode || '--' }}<br>{{ subscriptionLabel(row.subscriptionStatus) }}</template></el-table-column>
+      <el-table-column label="容量" min-width="130"><template #default="{ row }">用户 {{ row.maxUsers ?? '--' }}<br>存储 {{ row.maxStorageMb ?? '--' }} MB</template></el-table-column>
+      <el-table-column label="到期时间" min-width="150"><template #default="{ row }">{{ formatDateTime(row.subscriptionEndTime) }}</template></el-table-column>
+      <el-table-column label="功能" min-width="180">
+        <template #default="{ row }"><el-tag v-for="feature in visibleFeatures(row)" :key="feature" class="tenant-feature">{{ featureLabel(feature) }}</el-tag><span v-if="!visibleFeatures(row).length">未配置功能</span></template>
+      </el-table-column>
+      <el-table-column label="状态" width="100"><template #default="{ row }"><el-tag :type="Number(row.status) === 1 ? 'success' : 'info'">{{ Number(row.status) === 1 ? '启用中' : '已停用' }}</el-tag></template></el-table-column>
+      <el-table-column label="操作" fixed="right" width="260">
+        <template #default="{ row }"><el-button link type="primary" @click="openProfileEditor(row)">企业信息</el-button><el-button link type="primary" @click="openLicenseEditor(row)">授权配置</el-button><el-button link type="primary" @click="openOwnerEditor(row)">负责人账号</el-button><el-button link :type="Number(row.status) === 1 ? 'danger' : 'success'" @click="toggleStatus(row)">{{ Number(row.status) === 1 ? '停用' : '启用' }}</el-button></template>
+      </el-table-column>
+      <template #empty><el-empty description="暂无租户数据" /></template>
+    </el-table>
 
-        <div class="tenant-card__meta">
-          <span>联系人：{{ tenant.contactPerson || '--' }}</span>
-          <span>联系电话：{{ tenant.contactPhone || '--' }}</span>
-          <span>企业负责人：{{ tenant.ownerName || '--' }}</span>
-          <span>负责人账号：{{ tenant.ownerLoginName || '--' }}</span>
-          <span>授权方案：{{ tenant.packageName || tenant.packageCode || '--' }}</span>
-          <span>授权状态：{{ subscriptionLabel(tenant.subscriptionStatus) }}</span>
-          <span>员工容量：{{ tenant.maxUsers ?? '--' }}</span>
-          <span>存储容量：{{ tenant.maxStorageMb ?? '--' }} MB</span>
-          <span>到期时间：{{ formatDateTime(tenant.subscriptionEndTime) }}</span>
-        </div>
+    <el-drawer :model-value="Boolean(profileTenant)" :with-header="false" size="680px" @update:model-value="(visible) => !visible && closeProfileEditor()">
+      <template #default>
+        <h2>企业信息</h2><p>{{ profileTenant?.tenantName }} / {{ profileTenant?.tenantCode }}</p>
+        <el-form :model="profileForm" label-position="top" class="tenant-form">
+          <el-form-item label="租户编码"><el-input :model-value="profileTenant?.tenantCode" readonly /></el-form-item>
+          <el-form-item label="公司 Logo" class="tenant-form__wide"><el-upload drag action="#" accept="image/png,image/jpeg,image/webp" :auto-upload="false" :show-file-list="false" :disabled="logoUploading" :on-change="handleLogoUpload"><el-image v-if="profileForm.logoUrl" :src="profileForm.logoUrl" fit="contain" class="tenant-logo-preview" /><el-icon v-else><Picture /></el-icon><div class="el-upload__text">拖拽或点击上传 Logo</div></el-upload></el-form-item>
+          <el-form-item label="租户类型"><el-select v-model="profileForm.tenantType"><el-option :value="1" label="企业客户" /><el-option :value="2" label="内部试用" /></el-select></el-form-item>
+          <el-form-item label="企业名称" class="tenant-form__wide"><el-input v-model.trim="profileForm.tenantName" maxlength="80" /></el-form-item>
+          <el-form-item label="联系人"><el-input v-model.trim="profileForm.contactPerson" maxlength="50" /></el-form-item>
+          <el-form-item label="联系电话"><el-input v-model.trim="profileForm.contactPhone" maxlength="30" /></el-form-item>
+        </el-form>
+      </template>
+      <template #footer><el-button @click="closeProfileEditor">取消</el-button><el-button type="primary" :loading="profileSaving" @click="saveProfile">保存企业信息</el-button></template>
+    </el-drawer>
 
-        <div class="tenant-card__features">
-          <span v-for="feature in visibleFeatures(tenant)" :key="feature" class="feature-pill">{{ featureLabel(feature) }}</span>
-          <span v-if="!visibleFeatures(tenant).length" class="feature-pill feature-pill--empty">未配置功能</span>
-        </div>
+    <el-drawer :model-value="Boolean(editingTenant)" :with-header="false" size="680px" @update:model-value="(visible) => !visible && closeEditor()">
+      <h2>授权配置</h2><p>{{ editingTenant?.tenantName }} / {{ editingTenant?.tenantCode }}</p>
+      <el-form :model="licenseForm" label-position="top" class="tenant-form">
+        <el-form-item label="授权方案"><el-select v-model="licenseForm.packageCode"><el-option value="trial" label="试用版" /><el-option value="basic" label="基础版" /><el-option value="standard" label="标准版" /><el-option value="enterprise" label="企业版" /></el-select></el-form-item>
+        <el-form-item label="授权状态"><el-select v-model="licenseForm.subscriptionStatus"><el-option value="trial" label="试用中" /><el-option value="active" label="正常服务" /><el-option value="expired" label="已到期" /><el-option value="suspended" label="已暂停" /></el-select></el-form-item>
+        <el-form-item label="开始时间"><el-date-picker v-model="licenseForm.subscriptionStartTime" type="datetime" value-format="YYYY-MM-DDTHH:mm" /></el-form-item>
+        <el-form-item label="到期时间"><el-date-picker v-model="licenseForm.subscriptionEndTime" type="datetime" value-format="YYYY-MM-DDTHH:mm" /></el-form-item>
+        <el-form-item label="员工容量"><el-input-number v-model="licenseForm.maxUsers" :min="0" :precision="0" /></el-form-item>
+        <el-form-item label="存储容量(MB)"><el-input-number v-model="licenseForm.maxStorageMb" :min="0" :precision="0" /></el-form-item>
+        <el-form-item label="功能开关配置" class="tenant-form__wide"><el-input v-model="licenseForm.featureFlags" type="textarea" :rows="10" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="closeEditor">取消</el-button><el-button type="primary" :loading="saving" @click="saveLicense">保存配置</el-button></template>
+    </el-drawer>
 
-        <div class="tenant-card__actions">
-          <button class="ghost-btn ghost-btn--profile" @click="openProfileEditor(tenant)">企业信息</button>
-          <button class="ghost-btn" @click="openLicenseEditor(tenant)">授权配置</button>
-          <button class="ghost-btn ghost-btn--owner" @click="openOwnerEditor(tenant)">负责人账号</button>
-          <button
-            class="ghost-btn"
-            :class="Number(tenant.status) === 1 ? 'ghost-btn--danger' : 'ghost-btn--success'"
-            @click="toggleStatus(tenant)"
-          >
-            {{ Number(tenant.status) === 1 ? '停用企业' : '启用企业' }}
-          </button>
-        </div>
-      </article>
-
-      <div v-if="!loading && !tenants.length" class="empty-card">
-        暂无租户数据
-      </div>
-    </div>
-
-    <Teleport to="body">
-      <div v-if="profileTenant" class="tenant-drawer-mask" @click.self="closeProfileEditor">
-        <aside class="tenant-drawer">
-          <header>
-            <div>
-              <h2>企业信息</h2>
-              <p>{{ profileTenant.tenantName }} / {{ profileTenant.tenantCode }}</p>
-            </div>
-            <button class="icon-btn" @click="closeProfileEditor">
-              <span class="material-symbols-outlined">close</span>
-            </button>
-          </header>
-
-          <div class="tenant-form">
-            <label>
-              <span>租户编码</span>
-              <input :value="profileTenant.tenantCode" readonly>
-            </label>
-
-            <div class="tenant-logo-uploader">
-              <span>公司Logo</span>
-              <div
-                class="tenant-logo-uploader__box"
-                :class="{ 'tenant-logo-uploader__box--dragging': logoDragging }"
-                @click="triggerLogoUpload"
-                @dragenter.prevent="logoDragging = true"
-                @dragover.prevent="logoDragging = true"
-                @dragleave.prevent="logoDragging = false"
-                @drop.prevent="handleLogoDrop"
-              >
-                <img v-if="profileForm.logoUrl" :src="profileForm.logoUrl" alt="公司logo预览">
-                <span v-else class="material-symbols-outlined">image</span>
-              </div>
-              <input
-                ref="profileLogoInput"
-                class="hidden"
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                @change="handleLogoFileChange"
-              >
-              <button class="ghost-btn" :disabled="logoUploading" @click="triggerLogoUpload">
-                {{ logoUploading ? '上传中...' : '上传Logo' }}
-              </button>
-              <small>支持点击或拖拽上传 PNG、JPG、WEBP，建议 400×400，最大 2MB。</small>
-            </div>
-
-            <label>
-              <span>租户类型</span>
-              <select v-model.number="profileForm.tenantType">
-                <option :value="1">企业客户</option>
-                <option :value="2">内部试用</option>
-              </select>
-            </label>
-
-            <label class="tenant-form__wide">
-              <span>企业名称</span>
-              <input v-model.trim="profileForm.tenantName" maxlength="80" placeholder="请输入企业名称">
-            </label>
-
-            <label>
-              <span>联系人</span>
-              <input v-model.trim="profileForm.contactPerson" maxlength="50" placeholder="请输入联系人">
-            </label>
-
-            <label>
-              <span>联系电话</span>
-              <input v-model.trim="profileForm.contactPhone" maxlength="30" placeholder="请输入联系电话">
-            </label>
-          </div>
-
-          <footer>
-            <button class="ghost-btn" @click="closeProfileEditor">取消</button>
-            <button class="function-action-primary" :disabled="profileSaving" @click="saveProfile">
-              保存企业信息
-            </button>
-          </footer>
-        </aside>
-      </div>
-    </Teleport>
-
-    <Teleport to="body">
-      <div v-if="editingTenant" class="tenant-drawer-mask" @click.self="closeEditor">
-        <aside class="tenant-drawer">
-          <header>
-            <div>
-              <h2>授权配置</h2>
-              <p>{{ editingTenant.tenantName }} / {{ editingTenant.tenantCode }}</p>
-            </div>
-            <button class="icon-btn" @click="closeEditor">
-              <span class="material-symbols-outlined">close</span>
-            </button>
-          </header>
-
-          <div class="tenant-form">
-            <label>
-              <span>授权方案</span>
-              <select v-model="licenseForm.packageCode">
-                <option value="trial">试用版</option>
-                <option value="basic">基础版</option>
-                <option value="standard">标准版</option>
-                <option value="enterprise">企业版</option>
-              </select>
-            </label>
-
-            <label>
-              <span>授权状态</span>
-              <select v-model="licenseForm.subscriptionStatus">
-                <option value="trial">试用中</option>
-                <option value="active">正常服务</option>
-                <option value="expired">已到期</option>
-                <option value="suspended">已暂停</option>
-              </select>
-            </label>
-
-            <label>
-              <span>开始时间</span>
-              <input v-model="licenseForm.subscriptionStartTime" type="datetime-local">
-            </label>
-
-            <label>
-              <span>到期时间</span>
-              <input v-model="licenseForm.subscriptionEndTime" type="datetime-local">
-            </label>
-
-            <label>
-              <span>员工容量</span>
-              <input v-model.number="licenseForm.maxUsers" type="number" min="0">
-            </label>
-
-            <label>
-              <span>存储容量(MB)</span>
-              <input v-model.number="licenseForm.maxStorageMb" type="number" min="0">
-            </label>
-
-            <label class="tenant-form__wide">
-              <span>功能开关配置</span>
-              <textarea v-model="licenseForm.featureFlags" rows="10" spellcheck="false"></textarea>
-            </label>
-          </div>
-
-          <footer>
-            <button class="ghost-btn" @click="closeEditor">取消</button>
-            <button class="function-action-primary" :disabled="saving" @click="saveLicense">保存配置</button>
-          </footer>
-        </aside>
-      </div>
-    </Teleport>
-
-    <Teleport to="body">
-      <div v-if="ownerTenant" class="tenant-drawer-mask" @click.self="closeOwnerEditor">
-        <aside class="tenant-drawer">
-          <header>
-            <div>
-              <h2>企业负责人账号</h2>
-              <p>{{ ownerTenant.tenantName }} / {{ ownerTenant.tenantCode }}</p>
-            </div>
-            <button class="icon-btn" @click="closeOwnerEditor">
-              <span class="material-symbols-outlined">close</span>
-            </button>
-          </header>
-
-          <div class="tenant-form">
-            <p class="tenant-form__wide tenant-form__hint">
-              交付给企业老板时使用。保存后该账号成为企业最高负责人，原负责人不再保留企业负责人身份。
-            </p>
-
-            <label>
-              <span>负责人姓名</span>
-              <input v-model.trim="ownerForm.ownerName" maxlength="50" placeholder="请输入老板或负责人姓名">
-            </label>
-
-            <label>
-              <span>登录账号</span>
-              <input v-model.trim="ownerForm.loginName" maxlength="64" placeholder="可用手机号或自定义账号">
-            </label>
-
-            <label>
-              <span>手机号</span>
-              <input v-model.trim="ownerForm.phone" maxlength="20" placeholder="用于后续登录或找回密码">
-            </label>
-
-            <label>
-              <span>初始密码</span>
-              <input v-model.trim="ownerForm.initialPassword" type="password" maxlength="64" placeholder="交付后首次登录需修改">
-            </label>
-
-            <label class="tenant-form__wide tenant-checkbox">
-              <input v-model="ownerForm.attendanceRequired" type="checkbox">
-              <span>该负责人需要参与考勤打卡</span>
-            </label>
-          </div>
-
-          <footer>
-            <button class="ghost-btn" @click="closeOwnerEditor">取消</button>
-            <button class="function-action-primary" :disabled="ownerSaving" @click="saveOwnerAccount">
-              保存负责人账号
-            </button>
-          </footer>
-        </aside>
-      </div>
-    </Teleport>
+    <el-drawer :model-value="Boolean(ownerTenant)" :with-header="false" size="680px" @update:model-value="(visible) => !visible && closeOwnerEditor()">
+      <h2>企业负责人账号</h2><p>{{ ownerTenant?.tenantName }} / {{ ownerTenant?.tenantCode }}</p>
+      <el-form :model="ownerForm" label-position="top" class="tenant-form"><el-alert title="保存后该账号成为企业最高负责人，原负责人不再保留企业负责人身份。" type="warning" :closable="false" class="tenant-form__wide" /><el-form-item label="负责人姓名"><el-input v-model.trim="ownerForm.ownerName" maxlength="50" /></el-form-item><el-form-item label="登录账号"><el-input v-model.trim="ownerForm.loginName" maxlength="64" /></el-form-item><el-form-item label="手机号"><el-input v-model.trim="ownerForm.phone" maxlength="20" /></el-form-item><el-form-item label="初始密码"><el-input v-model.trim="ownerForm.initialPassword" type="password" maxlength="64" show-password /></el-form-item><el-form-item label="考勤" class="tenant-form__wide"><el-checkbox-group v-model="ownerAttendance"><el-checkbox value="required">该负责人需要参与考勤打卡</el-checkbox></el-checkbox-group><el-switch v-model="ownerForm.attendanceRequired" /></el-form-item></el-form>
+      <template #footer><el-button @click="closeOwnerEditor">取消</el-button><el-button type="primary" :loading="ownerSaving" @click="saveOwnerAccount">保存负责人账号</el-button></template>
+    </el-drawer>
   </section>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ElAlert,
+  ElAvatar,
+  ElButton,
+  ElCheckbox,
+  ElCheckboxGroup,
+  ElDatePicker,
+  ElDrawer,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElIcon,
+  ElImage,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElMessageBox,
+  ElOption,
+  ElSelect,
+  ElSwitch,
+  ElTable,
+  ElTableColumn,
+  ElTag,
+  ElUpload
+} from 'element-plus'
+import { Picture } from '@element-plus/icons-vue'
 import {
   listTenantFeatures,
   listTenants,
@@ -297,11 +119,9 @@ const saving = ref(false)
 const profileSaving = ref(false)
 const ownerSaving = ref(false)
 const logoUploading = ref(false)
-const logoDragging = ref(false)
 const profileTenant = ref(null)
 const editingTenant = ref(null)
 const ownerTenant = ref(null)
-const profileLogoInput = ref(null)
 const profileForm = reactive({
   tenantName: '',
   tenantType: 1,
@@ -325,6 +145,10 @@ const ownerForm = reactive({
   phone: '',
   initialPassword: '',
   attendanceRequired: false
+})
+const ownerAttendance = computed({
+  get: () => ownerForm.attendanceRequired ? ['required'] : [],
+  set: (value) => { ownerForm.attendanceRequired = value.includes('required') }
 })
 
 const featureLabelMap = computed(() => {
@@ -445,19 +269,8 @@ async function saveProfile() {
   }
 }
 
-function triggerLogoUpload() {
-  profileLogoInput.value?.click()
-}
-
-async function handleLogoFileChange(event) {
-  const file = event.target?.files?.[0]
-  event.target.value = ''
-  await uploadLogoFile(file)
-}
-
-async function handleLogoDrop(event) {
-  logoDragging.value = false
-  await uploadLogoFile(event.dataTransfer?.files?.[0])
+async function handleLogoUpload(uploadFile) {
+  await uploadLogoFile(uploadFile.raw)
 }
 
 async function uploadLogoFile(file) {

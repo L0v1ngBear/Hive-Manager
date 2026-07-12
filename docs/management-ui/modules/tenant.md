@@ -1,5 +1,11 @@
 # 租户管理
 
+## Element Plus 迁移
+
+- 列表使用 `ElTable`，空态和加载状态由 `ElEmpty` 与 `v-loading` 呈现。
+- 企业资料、授权和负责人账号统一使用 `ElDrawer` 与 `ElForm`；容量、日期、功能 JSON、考勤开关和 Logo 上传分别使用对应 Element Plus 控件。
+- 平台专用 API、`super` 平台边界、Logo 独立 multipart 事务和容量数值载荷保持不变。
+
 ## 源码/路由/批次
 
 - 页面：`management-ui/src/views/function/tenant/tenant.vue`。
