@@ -31,42 +31,60 @@
       </section>
 
       <section class="table-panel">
-        <el-table ref="equipmentTableRef" v-loading="loading" :data="devices" class="equipment-table" row-key="id">
-          <el-table-column label="设备" min-width="170">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="openDetail(row)">{{ row.equipmentName }}</el-button>
-              <p class="mt-1 text-xs text-on-surface-variant">{{ row.equipmentCode }}</p>
-            </template>
-          </el-table-column>
-          <el-table-column label="类型/位置" min-width="180">
-            <template #default="{ row }"><p>{{ row.equipmentType || '--' }}</p><p class="mt-1 text-xs text-on-surface-variant">{{ row.location || '--' }}</p></template>
-          </el-table-column>
-          <el-table-column prop="responsiblePerson" label="负责人" min-width="120"><template #default="{ row }">{{ row.responsiblePerson || '--' }}</template></el-table-column>
-          <el-table-column label="巡检周期" min-width="110"><template #default="{ row }">{{ row.inspectionCycleDays ?? 7 }} 天</template></el-table-column>
-          <el-table-column label="最近巡检" min-width="150"><template #default="{ row }">{{ formatDateTime(row.lastInspectionTime) }}</template></el-table-column>
-          <el-table-column label="状态" min-width="100"><template #default="{ row }"><el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用中' : '已停用' }}</el-tag></template></el-table-column>
-          <el-table-column label="操作" width="210" fixed="right">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-              <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-              <el-button v-if="row.status === 'enabled'" link type="danger" @click="handleDisable(row)">停用</el-button>
-            </template>
-          </el-table-column>
-          <template #empty>
-            <el-empty description="暂无设备档案" />
+        <el-result
+          v-if="listFailure"
+          :icon="listFailure.kind === 'forbidden' ? 'warning' : 'error'"
+          :title="listFailure.title"
+          :sub-title="listFailure.message"
+        >
+          <template #extra>
+            <el-button type="primary" :loading="loading" @click="fetchDevices">重试</el-button>
           </template>
-        </el-table>
-        <div class="table-footer">
-          <span>共 {{ total }} 条</span>
-          <el-pagination :current-page="pageNum" :page-size="pageSize" :page-count="totalPages" :total="total" layout="prev, pager, next" @current-change="changePage" />
-        </div>
+        </el-result>
+        <template v-else>
+          <el-table ref="equipmentTableRef" v-loading="loading" :data="devices" class="equipment-table" row-key="id">
+            <el-table-column label="设备" min-width="170">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="openDetail(row)">{{ row.equipmentName }}</el-button>
+                <p class="mt-1 text-xs text-on-surface-variant">{{ row.equipmentCode }}</p>
+              </template>
+            </el-table-column>
+            <el-table-column label="类型/位置" min-width="180">
+              <template #default="{ row }"><p>{{ row.equipmentType || '--' }}</p><p class="mt-1 text-xs text-on-surface-variant">{{ row.location || '--' }}</p></template>
+            </el-table-column>
+            <el-table-column prop="responsiblePerson" label="负责人" min-width="120"><template #default="{ row }">{{ row.responsiblePerson || '--' }}</template></el-table-column>
+            <el-table-column label="巡检周期" min-width="110"><template #default="{ row }">{{ row.inspectionCycleDays ?? 7 }} 天</template></el-table-column>
+            <el-table-column label="最近巡检" min-width="150"><template #default="{ row }">{{ formatDateTime(row.lastInspectionTime) }}</template></el-table-column>
+            <el-table-column label="状态" min-width="100"><template #default="{ row }"><el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用中' : '已停用' }}</el-tag></template></el-table-column>
+            <el-table-column label="操作" width="210" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+                <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+                <el-button v-if="row.status === 'enabled'" link type="danger" @click="handleDisable(row)">停用</el-button>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty description="暂无设备档案" />
+            </template>
+          </el-table>
+          <div class="table-footer">
+            <span>共 {{ total }} 条</span>
+            <el-pagination :current-page="pageNum" :page-size="pageSize" :page-count="totalPages" :total="total" :disabled="loading" layout="prev, pager, next" @current-change="changePage" />
+          </div>
+        </template>
       </section>
     </div>
 
     <el-drawer v-model="editorVisible" :title="editingId ? '编辑设备' : '新增设备'" size="720px" destroy-on-close>
       <el-form label-position="top">
         <el-form-item label="设备名称" required><el-input v-model.trim="form.equipmentName" placeholder="例如：定型机01" /></el-form-item>
-        <el-form-item label="设备编码"><el-input v-model.trim="form.equipmentCode" :disabled="!!editingId" placeholder="不填则系统自动生成" /></el-form-item>
+        <el-form-item label="设备编码">
+          <el-tooltip :disabled="!editingId" content="设备码已用于固定二维码，创建后不可修改。" placement="top">
+            <div class="w-full">
+              <el-input v-model.trim="form.equipmentCode" :disabled="!!editingId" placeholder="不填则系统自动生成" />
+            </div>
+          </el-tooltip>
+        </el-form-item>
         <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
           <el-form-item label="设备类型"><el-input v-model.trim="form.equipmentType" placeholder="生产设备/仓储设备" /></el-form-item>
           <el-form-item label="巡检周期（天）"><el-input-number v-model="form.inspectionCycleDays" :min="1" :max="3650" class="w-full" /></el-form-item>
@@ -108,12 +126,13 @@
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
-import { ElButton, ElDescriptions, ElDescriptionsItem, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElPagination, ElSelect, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import { ElButton, ElDescriptions, ElDescriptionsItem, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElPagination, ElResult, ElSelect, ElTable, ElTableColumn, ElTag, ElTooltip } from 'element-plus'
 import { exportTableElementToExcel } from '@/utils/tableExport'
 import { disableEquipment, getEquipmentDetail, getEquipmentInspectionRecords, getEquipmentPage, saveEquipment } from './api/equipment'
 
 const loading = ref(false)
 const saving = ref(false)
+const listFailure = ref(null)
 const devices = ref([])
 const total = ref(0)
 const totalPages = ref(1)
@@ -134,11 +153,17 @@ const queryParams = computed(() => ({ pageNum: pageNum.value, pageSize: pageSize
 
 async function fetchDevices() {
   loading.value = true
+  listFailure.value = null
+  devices.value = []
+  total.value = 0
+  totalPages.value = 1
   try {
     const page = await getEquipmentPage(queryParams.value)
     devices.value = page?.data || []
     total.value = Number(page?.total || 0)
     totalPages.value = Math.max(1, Number(page?.pages || 1))
+  } catch (error) {
+    listFailure.value = resolveRequestFailure(error)
   } finally {
     loading.value = false
   }
@@ -206,6 +231,29 @@ async function fetchRecords() {
 
 function closeDrawers() { editorVisible.value = false; detailVisible.value = false }
 function formatDateTime(value) { return value ? String(value).replace('T', ' ').slice(0, 16) : '--' }
+
+function getRequestStatusCode(error) {
+  const rawStatusCode = error?.response?.status
+    ?? error?.response?.data?.code
+    ?? error?.statusCode
+    ?? error?.code
+  const statusCode = Number(rawStatusCode)
+  return Number.isFinite(statusCode) ? statusCode : 0
+}
+
+function resolveRequestFailure(error) {
+  const statusCode = getRequestStatusCode(error)
+  if (statusCode === 401) {
+    return { kind: 'unauthorized', title: '登录状态已失效', message: '请重新登录后再重试设备列表。' }
+  }
+  if (statusCode === 403) {
+    return { kind: 'forbidden', title: '暂无权限查看设备列表', message: '请联系管理员确认设备列表权限。' }
+  }
+  if (statusCode >= 500) {
+    return { kind: 'request', title: '设备列表加载失败', message: '服务暂时不可用，请稍后重试。' }
+  }
+  return { kind: 'request', title: '设备列表加载失败', message: '网络连接异常，请检查网络后重试。' }
+}
 
 fetchDevices()
 </script>

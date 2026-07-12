@@ -55,7 +55,17 @@
             </div>
           </header>
           <div class="max-h-[560px] space-y-3 overflow-y-auto p-5" v-loading="memberLoading">
-            <div v-if="members.length" class="space-y-3">
+            <el-result
+              v-if="memberFailure"
+              :icon="memberFailure.kind === 'forbidden' ? 'warning' : 'error'"
+              :title="memberFailure.title"
+              :sub-title="memberFailure.message"
+            >
+              <template #extra>
+                <el-button type="primary" :loading="memberLoading" @click="retryMembers">重试</el-button>
+              </template>
+            </el-result>
+            <div v-else-if="members.length" class="space-y-3">
               <article v-for="item in members" :key="item.id" class="member-card">
                 <div class="flex items-start justify-between gap-3">
                   <div>
@@ -113,7 +123,7 @@
 
 <script setup>
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
-import { ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElSelect, ElSwitch, ElTag } from 'element-plus'
+import { ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElResult, ElSelect, ElSwitch, ElTag } from 'element-plus'
 import { warnAndFocusField } from '@/utils/formFocus'
 import { deleteDepartment, getDepartmentEmployees, getOrganizationOverview, saveDepartment } from './api/organization.js'
 
@@ -156,12 +166,14 @@ const DepartmentNode = defineComponent({
 
 const loading = ref(false)
 const memberLoading = ref(false)
+const memberFailure = ref(null)
 const drawerVisible = ref(false)
 const departments = ref([])
 const members = ref([])
 const activeDepartment = ref(null)
 const stats = reactive({ departmentCount: 0, employeeCount: 0, enabledDepartmentCount: 0, emptyDepartmentCount: 0 })
 const form = reactive(createEmptyForm())
+let memberRequestId = 0
 
 const parentOptions = computed(() => flattenDepartments(departments.value).filter(option => !isSelfOrDescendant(option.id, form.id)))
 
@@ -177,8 +189,11 @@ async function fetchOverview() {
       const latest = findDepartmentById(departments.value, activeDepartment.value.id)
       if (latest) await selectDepartment(latest)
       else {
+        memberRequestId += 1
         activeDepartment.value = null
         members.value = []
+        memberFailure.value = null
+        memberLoading.value = false
       }
     } else if (departments.value.length) await selectDepartment(departments.value[0])
   } finally {
@@ -188,13 +203,27 @@ async function fetchOverview() {
 
 async function selectDepartment(node) {
   if (!node?.id) return
+  const requestId = ++memberRequestId
   activeDepartment.value = node
+  members.value = []
+  memberFailure.value = null
   memberLoading.value = true
   try {
-    members.value = await getDepartmentEmployees(node.id)
+    const nextMembers = await getDepartmentEmployees(node.id)
+    if (requestId !== memberRequestId) return
+    members.value = Array.isArray(nextMembers) ? nextMembers : []
+  } catch (error) {
+    if (requestId !== memberRequestId) return
+    memberFailure.value = resolveMemberFailure(error)
   } finally {
-    memberLoading.value = false
+    if (requestId === memberRequestId) {
+      memberLoading.value = false
+    }
   }
+}
+
+function retryMembers() {
+  if (activeDepartment.value) selectDepartment(activeDepartment.value)
 }
 
 function openCreate(parent) {
@@ -244,8 +273,11 @@ async function handleDelete() {
   await deleteDepartment(form.id)
   ElMessage.success('部门已删除')
   closeDrawer()
+  memberRequestId += 1
   activeDepartment.value = null
   members.value = []
+  memberFailure.value = null
+  memberLoading.value = false
   await fetchOverview()
 }
 
@@ -291,6 +323,29 @@ function employeeStatusType(status) {
   if (Number(status) === 1) return 'success'
   if (Number(status) === 2) return 'warning'
   return 'info'
+}
+
+function getRequestStatusCode(error) {
+  const rawStatusCode = error?.response?.status
+    ?? error?.response?.data?.code
+    ?? error?.statusCode
+    ?? error?.code
+  const statusCode = Number(rawStatusCode)
+  return Number.isFinite(statusCode) ? statusCode : 0
+}
+
+function resolveMemberFailure(error) {
+  const statusCode = getRequestStatusCode(error)
+  if (statusCode === 401) {
+    return { kind: 'unauthorized', title: '登录状态已失效', message: '请重新登录后再重试部门成员。' }
+  }
+  if (statusCode === 403) {
+    return { kind: 'forbidden', title: '暂无权限查看部门成员', message: '请联系管理员确认员工查看权限。' }
+  }
+  if (statusCode >= 500) {
+    return { kind: 'request', title: '部门成员加载失败', message: '服务暂时不可用，请稍后重试。' }
+  }
+  return { kind: 'request', title: '部门成员加载失败', message: '网络连接异常，请检查网络后重试。' }
 }
 </script>
 
