@@ -1,6 +1,6 @@
 # 共享基础维护档案
 
-> 状态：Audit baseline；迁移批次：Batch 1；范围：`management-ui` 应用级依赖、根入口、全局样式、请求状态与公共组件。
+> 状态：Foundation migrated；迁移批次：Batch 1；范围：`management-ui` 应用级依赖、根入口、全局样式、请求状态与公共组件。
 
 ## 功能与边界
 
@@ -24,6 +24,10 @@
 | `management-ui/src/directives/permission.js` | 无权限控件禁用、提示和点击阻断                                     |
 
 ## Element Plus 接入现状
+
+- Foundation 已迁移：注册 `loading` 指令（`ElLoadingDirective`）。
+- 稳定语义 token：`--ys-control-height`、`--ys-control-radius`、`--ys-focus-ring`。
+- Element Plus 映射：`--el-component-size`、`--el-border-radius-base`。
 
 - `package.json` 声明 `element-plus: ^2.13.0`，当前基线按 Element Plus 2.13 维护。
 - `main.js` 只导入 `element-plus/dist/index.css`；没有 `app.use(ElementPlus)`。

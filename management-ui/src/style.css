@@ -66,6 +66,11 @@ body {
   --ys-soft: #f5f7fb;
   --ys-surface: #f8fafc;
   --ys-line: #c8d3df;
+  --ys-control-height: 40px;
+  --ys-control-radius: 8px;
+  --ys-focus-ring: 0 0 0 3px rgba(31, 63, 95, 0.18);
+  --el-component-size: var(--ys-control-height);
+  --el-border-radius-base: var(--ys-control-radius);
   --el-color-primary: #1f3f5f;
   --el-color-primary-light-3: #4b7395;
   --el-color-primary-light-5: #7fa4c7;
@@ -76,7 +81,6 @@ body {
   --el-text-color-regular: #334155;
   --el-border-color: #d6dee8;
   --el-fill-color-light: #f6f8fb;
-  --el-border-radius-base: 12px;
   --primary: 31 63 95;
   --on-primary: 255 255 255;
   --surface-container-lowest: 255 255 255;
@@ -420,6 +424,12 @@ body {
 .el-select__wrapper.is-focused,
 .el-textarea__inner:focus {
   box-shadow: 0 0 0 1px rgba(31, 63, 95, 0.72) inset, 0 0 0 4px rgba(31, 63, 95, 0.10) !important;
+}
+
+.el-input__wrapper:focus-within,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus {
+  box-shadow: var(--ys-focus-ring) !important;
 }
 
 .el-message,
