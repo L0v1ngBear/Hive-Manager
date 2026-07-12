@@ -77,6 +77,40 @@ test('approval center retains all five approval dispatch families and permission
   assert.match(approval, /ElMessage\.warning\(['\"]当前账号暂无权限/)
 })
 
+test('approval list clears stale content and exposes exclusive retryable load states', () => {
+  assert.match(approval, /const listLoadError = ref\(null\)/)
+  assert.match(approval, /const listLoaded = ref\(false\)/)
+  assert.match(approval, /const requestId = \+\+listRequestId/)
+  assert.match(approval, /rows\.value = \[\][\s\S]*listLoadError\.value = null[\s\S]*listLoaded\.value = false/)
+  assert.match(approval, /if \(requestId !== listRequestId\)/)
+  assert.match(approval, /listLoadError\.value = resolveLoadFailure\(error, '审批列表'\)/)
+  assert.match(approval, /v-else-if="!activeTabCanViewList"/)
+  assert.match(approval, /v-else-if="listLoadError"/)
+  assert.match(approval, /v-else-if="listLoaded"/)
+  assert.match(approval, /@click="fetchList"/)
+  for (const kind of ['authentication', 'permission', 'network', 'server']) {
+    assert.match(approval, new RegExp(`kind:\\s*['"]${kind}['"]`), `approval must distinguish ${kind} failures`)
+  }
+})
+
+test('dashboard announcements distinguish failures from successful empty responses', () => {
+  assert.match(dashboard, /Promise\.allSettled\(/)
+  assert.match(dashboard, /const announcementLoadError = ref\(null\)/)
+  assert.match(dashboard, /const importantAnnouncementLoadError = ref\(null\)/)
+  assert.match(dashboard, /const announcementsLoaded = ref\(false\)/)
+  assert.match(dashboard, /const importantAnnouncementsLoaded = ref\(false\)/)
+  assert.match(dashboard, /announcementLoadError\.value = resolveLoadFailure\(/)
+  assert.match(dashboard, /importantAnnouncementLoadError\.value = resolveLoadFailure\(/)
+  assert.match(dashboard, /v-else-if="announcementLoadError"/)
+  assert.match(dashboard, /v-else-if="importantAnnouncementLoadError"/)
+  assert.match(dashboard, /announcementsLoaded && !announcements\.length/)
+  assert.match(dashboard, /importantAnnouncementsLoaded && !importantAnnouncements\.length/)
+  assert.match(dashboard, /@click="fetchAnnouncements"/)
+  for (const kind of ['authentication', 'permission', 'network', 'server']) {
+    assert.match(dashboard, new RegExp(`kind:\\s*['"]${kind}['"]`), `dashboard must distinguish ${kind} failures`)
+  }
+})
+
 test('dashboard and navigation use explicit Element Plus shell controls', () => {
   assertElementComponents(dashboard, ['ElButton', 'ElEmpty'], 'dashboard')
   assertElementComponents(navbar, ['ElPopover', 'ElDropdown', 'ElDropdownMenu', 'ElDropdownItem', 'ElBadge', 'ElButton'], 'navbar')

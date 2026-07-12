@@ -144,13 +144,21 @@
         </div>
 
         <div class="responsive-table-wrap relative min-h-[300px]">
-          <el-table
-            v-loading="loading"
-            :data="activeTabCanViewList ? pagedRows : []"
-            row-key="code"
-            class="w-full"
-            @row-click="openDetail"
-          >
+          <div v-if="loading" v-loading="true" class="min-h-[300px]" element-loading-text="正在加载审批列表"></div>
+          <el-empty v-else-if="!activeTabCanViewList" description="当前账号暂无权限查看该审批列表" />
+          <div v-else-if="listLoadError" class="flex min-h-[300px] flex-col items-center justify-center px-6 text-center">
+            <span class="material-symbols-outlined text-5xl text-error/70">{{ listLoadError.kind === 'permission' ? 'lock' : 'cloud_off' }}</span>
+            <p class="mt-3 text-base font-black text-on-surface">{{ listLoadError.title }}</p>
+            <p class="mt-2 max-w-lg text-sm leading-6 text-on-surface-variant">{{ listLoadError.message }}</p>
+            <el-button class="mt-5" type="primary" plain @click="fetchList">重试</el-button>
+          </div>
+          <div v-else-if="listLoaded">
+            <el-table
+              :data="pagedRows"
+              row-key="code"
+              class="w-full"
+              @row-click="openDetail"
+            >
             <el-table-column
               v-for="column in approvalTableColumns"
               :key="column.key"
@@ -214,15 +222,16 @@
             <template #empty>
               <el-empty :description="activeTabCanViewList ? '当前没有和您相关的审批记录' : '当前账号暂无权限查看该审批列表'" />
             </template>
-          </el-table>
-          <div v-if="activeTabCanViewList && filteredRows.length" class="flex justify-end p-4">
-            <el-pagination
-              v-model:current-page="currentPage"
-              v-model:page-size="pageSize"
-              :total="filteredRows.length"
-              :page-sizes="[10, 20, 50]"
-              layout="total, sizes, prev, pager, next"
-            />
+            </el-table>
+            <div v-if="filteredRows.length" class="flex justify-end p-4">
+              <el-pagination
+                v-model:current-page="currentPage"
+                v-model:page-size="pageSize"
+                :total="filteredRows.length"
+                :page-sizes="[10, 20, 50]"
+                layout="total, sizes, prev, pager, next"
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -571,6 +580,9 @@ const pageSize = ref(10)
 const approvalExportModule = computed(() => `approval-${activeTab.value}`)
 const loading = ref(false)
 const rows = ref([])
+const listLoadError = ref(null)
+const listLoaded = ref(false)
+let listRequestId = 0
 const filters = reactive({ keyword: '', status: '' })
 const detailVisible = ref(false)
 const detailData = ref(null)
@@ -842,19 +854,65 @@ const refreshAll = async () => {
   await Promise.all([fetchSummary(), fetchList()])
 }
 
+function resolveLoadFailure(error, resourceLabel) {
+  const status = Number(error?.response?.status || error?.status || error?.code || 0)
+  const serverMessage = error?.response?.data?.msg || error?.response?.data?.message || error?.msg || error?.message
+  if (status === 401) {
+    return {
+      kind: 'authentication',
+      title: '登录状态已失效',
+      message: '请重新登录后再加载审批内容。'
+    }
+  }
+  if (status === 403) {
+    return {
+      kind: 'permission',
+      title: '暂无查看权限',
+      message: serverMessage || `当前账号无权加载${resourceLabel}，请联系管理员确认权限。`
+    }
+  }
+  if (status >= 500) {
+    return {
+      kind: 'server',
+      title: '服务暂不可用',
+      message: serverMessage || `${resourceLabel}服务处理失败，请稍后重试。`
+    }
+  }
+  if (!status && !error?.response) {
+    return {
+      kind: 'network',
+      title: '网络连接异常',
+      message: '无法连接服务，请检查网络后重试。'
+    }
+  }
+  return {
+    kind: 'server',
+    title: '加载失败',
+    message: serverMessage || `${resourceLabel}加载失败，请稍后重试。`
+  }
+}
+
 const fetchList = async () => {
+  const requestId = ++listRequestId
+  rows.value = []
+  listLoadError.value = null
+  listLoaded.value = false
+  currentPage.value = 1
   if (!ensureActiveTabAccess()) {
+    loading.value = false
     return
   }
   if (!activeTabCanViewList.value) {
-    rows.value = []
+    loading.value = false
     return
   }
+  const requestedTab = activeTab.value
   loading.value = true
+  let nextRows = []
   try {
-    if (activeTab.value === 'leave') {
+    if (requestedTab === 'leave') {
       const data = await listLeaveApprovals()
-      rows.value = (data || []).map((item) => ({
+      nextRows = (data || []).map((item) => ({
         type: 'leave',
         typeLabel: '请假审批',
         code: item.leaveCode,
@@ -872,9 +930,9 @@ const fetchList = async () => {
         canAudit: canAuditApproval(item),
         raw: item
       }))
-    } else if (activeTab.value === 'finance') {
+    } else if (requestedTab === 'finance') {
       const data = await listFinanceApprovals()
-      rows.value = (data || []).map((item) => ({
+      nextRows = (data || []).map((item) => ({
         type: 'finance',
         typeLabel: '财务审批',
         code: item.approvalCode,
@@ -892,9 +950,9 @@ const fetchList = async () => {
         canAudit: canAuditApproval(item),
         raw: item
       }))
-    } else if (activeTab.value === 'resignation') {
+    } else if (requestedTab === 'resignation') {
       const data = await listResignationApprovals()
-      rows.value = (data || []).map((item) => ({
+      nextRows = (data || []).map((item) => ({
         type: 'resignation',
         typeLabel: '离职审批',
         code: item.resignationCode,
@@ -912,9 +970,9 @@ const fetchList = async () => {
         canAudit: canAuditApproval(item),
         raw: item
       }))
-    } else if (activeTab.value === 'quality') {
+    } else if (requestedTab === 'quality') {
       const data = await listQualityApprovals()
-      rows.value = (data || []).map((item) => ({
+      nextRows = (data || []).map((item) => ({
         type: 'quality',
         typeLabel: '质量审核',
         code: item.defectiveId,
@@ -934,7 +992,7 @@ const fetchList = async () => {
       }))
     } else {
       const data = await listOrderApprovals()
-      rows.value = (data || []).map((item) => ({
+      nextRows = (data || []).map((item) => ({
         type: 'order',
         typeLabel: item.orderTypeText || '订单审批',
         orderType: item.orderType,
@@ -954,8 +1012,21 @@ const fetchList = async () => {
         raw: item
       }))
     }
+    if (requestId !== listRequestId) {
+      return
+    }
+    rows.value = nextRows
+    listLoaded.value = true
+  } catch (error) {
+    if (requestId !== listRequestId) {
+      return
+    }
+    rows.value = []
+    listLoadError.value = resolveLoadFailure(error, '审批列表')
   } finally {
-    loading.value = false
+    if (requestId === listRequestId) {
+      loading.value = false
+    }
   }
 }
 
