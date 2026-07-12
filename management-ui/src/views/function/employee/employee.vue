@@ -173,7 +173,16 @@
         </div>
 
         <div class="employee-table-wrap responsive-table-wrap relative min-h-[240px]">
+          <div v-if="listError" class="flex min-h-[240px] flex-col items-center justify-center gap-3 px-6 text-center">
+            <span class="material-symbols-outlined text-4xl text-on-surface-variant">
+              {{ listError.type === 'permission' ? 'lock' : 'cloud_off' }}
+            </span>
+            <h3 class="text-base font-black text-primary">{{ listError.title }}</h3>
+            <p class="max-w-lg text-sm text-on-surface-variant">{{ listError.message }}</p>
+            <el-button type="primary" @click="fetchEmployees">重新加载</el-button>
+          </div>
           <el-table
+              v-else
               v-loading="loading"
               :data="employees"
               class="w-full"
@@ -188,7 +197,15 @@
               <template #default="{ row: employee }">
                 <span v-if="field.key === 'status'">{{ statusMeta(employee.status).label }}</span>
                 <span v-else-if="field.key === 'departmentName'">{{ employee.departmentName || '--' }}</span>
-                <span v-else-if="field.key === 'name'">{{ employee.name }}</span>
+                <div v-else-if="field.key === 'name'">
+                  <p class="font-bold text-primary leading-none whitespace-nowrap">{{ employee.name }}</p>
+                  <p
+                      v-if="isEmployeeFieldVisible('employeeType')"
+                      class="text-[10px] text-on-surface-variant uppercase mt-1"
+                  >
+                    {{ formatEmployeeType(employee.employeeType) }}
+                  </p>
+                </div>
                 <span v-else>{{ employeeColumnText(employee, field.key) }}</span>
               </template>
             </el-table-column>
@@ -336,6 +353,7 @@ import {
   defaultTenantFieldConfig,
   mergeTenantFieldConfig,
   tenantFieldLabel,
+  tenantFieldVisible,
   visibleTenantFields
 } from '@/utils/tenantFieldConfig'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
@@ -363,6 +381,7 @@ const editingEmployeeId = ref(null)
 const permissionDrawerRef = ref(null)
 const importInputRef = ref(null)
 const loading = ref(false)
+const listError = ref(null)
 const isOrganizationDrawerOpen = ref(false)
 const organizationLoading = ref(false)
 const organizationEmployees = ref([])
@@ -393,7 +412,7 @@ const query = reactive({
 
 // --- 计算属性 ---
 const totalPages = computed(() => Math.max(pagination.pages || 1, 1))
-const employeeColumnRenderers = new Set(['name', 'empNo', 'departmentName', 'positionName', 'phone', 'email', 'leaderName', 'entryDate', 'attendanceRequired', 'attendanceLocationNames', 'status'])
+const employeeColumnRenderers = new Set(['name', 'empNo', 'departmentName', 'positionName', 'phone', 'email', 'leaderName', 'entryDate', 'employeeType', 'attendanceRequired', 'attendanceLocationNames', 'status'])
 const defaultEmployeeColumns = computed(() => visibleTenantFields(employeeFieldConfig.value, 'name').filter((field) => employeeColumnRenderers.has(field.key)))
 const {
   orderedColumns: visibleEmployeeColumns,
@@ -409,6 +428,7 @@ const employeeColumnWidths = {
   email: '150px',
   leaderName: '112px',
   entryDate: '106px',
+  employeeType: '96px',
   attendanceRequired: '96px',
   attendanceLocationNames: '140px',
   status: '82px'
@@ -436,13 +456,38 @@ const fetchEmployeeFieldConfig = async () => {
   }
 }
 
+const resolveListError = (error) => {
+  const status = Number(error?.response?.status ?? error?.status ?? error?.code ?? 0)
+  if (status === 401 || status === 403) {
+    return {
+      type: 'permission',
+      title: status === 401 ? '登录状态已失效' : '暂无员工列表权限',
+      message: status === 401 ? '请重新登录后查看员工列表。' : '请联系管理员分配员工列表权限后重试。'
+    }
+  }
+  return {
+    type: 'request',
+    title: status >= 500 ? '员工服务暂时不可用' : '网络连接异常',
+    message: status >= 500 ? '服务处理失败，请稍后重新加载。' : '请检查网络连接后重新加载员工列表。'
+  }
+}
+
 const fetchEmployees = async () => {
   loading.value = true
+  listError.value = null
+  employees.value = []
+  pagination.total = 0
+  pagination.pages = 0
   try {
     const data = await getEmployeePage(normalizeQuery())
     employees.value = data.data || []
     pagination.total = Number(data.total || 0)
     pagination.pages = Number(data.pages || 0)
+  } catch (error) {
+    employees.value = []
+    pagination.total = 0
+    pagination.pages = 0
+    listError.value = resolveListError(error)
   } finally {
     loading.value = false
   }
@@ -493,6 +538,8 @@ const handleCreateSuccess = async () => {
   closeDrawer()
   await Promise.all([fetchEmployees(), fetchStats()])
 }
+
+const isEmployeeFieldVisible = (key) => tenantFieldVisible(employeeFieldConfig.value, key)
 
 const employeeColumnText = (emp, key) => {
   if (!emp) return '--'

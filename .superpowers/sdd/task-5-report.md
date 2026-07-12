@@ -92,3 +92,47 @@ git diff --check
 ## Review Repair Concerns
 
 None identified by the contract tests, regressions, targeted ESLint, diff check, or production build.
+
+## Second Review Repair RED
+
+Command:
+
+```powershell
+node --test tests/element-plus-employee-attendance.test.js
+```
+
+Result: expected failure, 5 tests passed and 3 failed. The failures confirmed the missing form submit contract, the disconnected configurable `employeeType` column/subtitle, and the absence of persistent mutually exclusive list error states.
+
+## Second Review Repair GREEN
+
+Commands and results:
+
+```powershell
+node --test tests/element-plus-employee-attendance.test.js
+# 8 passed, 0 failed
+
+node --test tests/employee-organization-root.test.js
+# 5 passed, 0 failed
+
+node tests/permission-ui-hardening.test.js
+# permission UI hardening checks passed
+
+npx eslint src/views/function/employee/employee.vue src/views/function/employee/employeeCreate.vue src/views/function/employee/EmployeePermissionDrawer.vue src/views/function/attendance/attendanceManagement.vue
+# exit 0, no findings
+
+npm run build
+# exit 0, 1842 modules transformed, built in 10.13s
+
+git diff --check
+# exit 0; only Git line-ending notices
+```
+
+## Second Review Repair Changes
+
+- Routed employee editor submission through `ElForm @submit.prevent`, made the save button the sole submit control, and marked every other native button as `type="button"`.
+- Restored the configurable `employeeType` list column, width, formatter path, and employee-name subtitle with the existing string values and labels.
+- Added persistent employee and attendance list error state with separate permission and request variants, stale-data clearing, retry actions, and mutually exclusive loading/empty/error rendering.
+
+## Second Review Repair Concerns
+
+None identified by the contract tests, regressions, targeted ESLint, diff check, or production build.

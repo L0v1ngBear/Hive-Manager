@@ -97,12 +97,51 @@ test('removes unreachable legacy tables and their helpers', () => {
     'employeeCellClass',
     'employeeColumnStyle',
     'departmentBadge',
-    'isEmployeeFieldVisible',
-    'tenantFieldVisible',
     'pageStart',
     'pageEnd'
   ]) {
     assert.doesNotMatch(employeeList, new RegExp(`\\b${helper}\\b`))
   }
   assert.doesNotMatch(attendance, /\battendanceCellClass\b/)
+})
+
+test('keeps employee editor buttons from implicitly submitting the form', () => {
+  assert.match(employeeEditor, /<el-form\b(?=[^>]*@submit\.prevent=["']submit["'])[^>]*>/)
+
+  const nativeButtons = [...employeeEditor.matchAll(/<button\b[^>]*>/g)].map((match) => match[0])
+  const submitButtons = nativeButtons.filter((button) => /\btype=["']submit["']/.test(button))
+  assert.equal(submitButtons.length, 1)
+  assert.doesNotMatch(submitButtons[0], /@click(?:\.[a-z]+)*=["']submit["']/)
+
+  for (const button of nativeButtons.filter((button) => !/\btype=["']submit["']/.test(button))) {
+    assert.match(button, /\btype=["']button["']/)
+  }
+})
+
+test('restores configurable employee type columns and the name subtitle', () => {
+  assert.match(employeeList, /employeeColumnRenderers[^\n]*employeeType/)
+  assert.match(employeeList, /employeeType:\s*['"][^'"]+['"]/)
+  assert.match(employeeList, /key === ['"]employeeType['"]\) return formatEmployeeType\(emp\.employeeType\)/)
+  assert.match(employeeList, /isEmployeeFieldVisible\(['"]employeeType['"]\)/)
+  assert.match(employeeList, /formatEmployeeType\(employee\.employeeType\)/)
+})
+
+test('keeps employee and attendance list loading, empty, permission, and request errors exclusive', () => {
+  for (const [source, rowsName, retryHandler] of [
+    [employeeList, 'employees', 'fetchEmployees'],
+    [attendance, 'rows', 'fetchData']
+  ]) {
+    assert.match(source, /const listError = ref\(null\)/)
+    assert.match(source, /status === 401 \|\| status === 403/)
+    assert.match(source, /type:\s*['"]permission['"]/)
+    assert.match(source, /type:\s*['"]request['"]/)
+    assert.match(source, new RegExp(`${rowsName}\\.value = \\[]`))
+    assert.match(source, /pagination\.total = 0/)
+    assert.match(source, /pagination\.pages = 0/)
+    assert.match(source, /listError\.value = resolveListError\(error\)/)
+    assert.match(source, /v-if=["']listError["']/)
+    assert.match(source, new RegExp(`@click=["']${retryHandler}["']`))
+    assert.match(source, /<el-table\b[^>]*v-else/)
+    assert.match(source, /<el-empty\b[^>]*v-if=["']!loading["']/)
+  }
 })
