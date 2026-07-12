@@ -54,6 +54,10 @@
           </el-button>
           <TableColumnSettings
             :columns="visibleCustomerColumns"
+            :export-rows="customerList"
+            :export-cell="customerExportCell"
+            export-file-name="客户档案库"
+            export-sheet-name="客户档案库"
             export-module="customer"
             @move="moveCustomerTableColumn"
             @reset="resetCustomerTableColumns"
@@ -262,6 +266,15 @@ function customerColumnText(customer, key) {
   if (key === 'constructionArea') return firstProject(customer)?.constructionArea || customer?.constructionArea || '--'
   if (key === 'projectOwner') return firstProject(customer)?.projectOwner || '--'
   return customer?.[key] || '--'
+}
+
+function customerExportCell(customer, field) {
+  if (field.key === 'customerName') {
+    return [customer?.customerName, customer?.id ? `客户编号 #${customer.id}` : ''].filter(Boolean).join(' ')
+  }
+  if (field.key === 'customerType') return getTypeLabel(customer?.customerType)
+  if (field.key === 'projectName') return firstProject(customer)?.projectName || '暂无项目'
+  return customerColumnText(customer, field.key)
 }
 
 async function fetchCustomerFieldConfig() {
