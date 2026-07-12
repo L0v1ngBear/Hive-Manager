@@ -52,8 +52,10 @@
               <el-button v-if="row.status === 'enabled'" link type="danger" @click="handleDisable(row)">停用</el-button>
             </template>
           </el-table-column>
+          <template #empty>
+            <el-empty description="暂无设备档案" />
+          </template>
         </el-table>
-        <el-empty v-if="!loading && devices.length === 0" description="暂无设备档案" />
         <div class="table-footer">
           <span>共 {{ total }} 条</span>
           <el-pagination :current-page="pageNum" :page-size="pageSize" :page-count="totalPages" :total="total" layout="prev, pager, next" @current-change="changePage" />
