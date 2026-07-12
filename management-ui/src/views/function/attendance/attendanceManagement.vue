@@ -63,9 +63,10 @@
           <div class="flex flex-wrap items-end gap-3">
             <label class="block">
               <span class="block text-xs text-slate-500 font-bold mb-1.5">日期</span>
-              <input
+              <el-date-picker
                   v-model="query.date"
                   type="date"
+                  value-format="YYYY-MM-DD"
                   class="w-44 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500 bg-white"
                   @change="handleFilter"
               />
@@ -74,7 +75,7 @@
               <span class="block text-xs text-slate-500 font-bold mb-1.5">员工搜索</span>
               <div class="relative">
                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
-                <input
+                <el-input
                     v-model.trim="query.keyword"
                     class="w-full pl-10 pr-4 py-2.5 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500"
                     placeholder="姓名、手机号或工号"
@@ -84,33 +85,33 @@
             </label>
             <label class="block">
               <span class="block text-xs text-slate-500 font-bold mb-1.5">部门</span>
-              <select
+              <el-select
                   v-model="query.departmentName"
                   class="w-44 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500 bg-white"
                   @change="handleFilter"
               >
-                <option value="">全部部门</option>
-                <option v-for="item in departments" :key="item.name" :value="item.name">{{ item.name }}</option>
-              </select>
+                <el-option label="全部部门" value="" />
+                <el-option v-for="item in departments" :key="item.name" :label="item.name" :value="item.name" />
+              </el-select>
             </label>
             <label class="block">
               <span class="block text-xs text-slate-500 font-bold mb-1.5">状态</span>
-              <select
+              <el-select
                   v-model="query.status"
                   class="w-36 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500 bg-white"
                   @change="handleFilter"
               >
-                <option value="">全部状态</option>
-                <option value="normal">正常</option>
-                <option value="late">迟到</option>
-                <option value="early">早退</option>
-                <option value="missing">缺勤/缺卡</option>
-                <option value="leave">请假</option>
-                <option value="overtime">加班</option>
-              </select>
+                <el-option label="全部状态" value="" />
+                <el-option label="正常" value="normal" />
+                <el-option label="迟到" value="late" />
+                <el-option label="早退" value="early" />
+                <el-option label="缺勤/缺卡" value="missing" />
+                <el-option label="请假" value="leave" />
+                <el-option label="加班" value="overtime" />
+              </el-select>
             </label>
-            <button class="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors" @click="handleFilter">查询</button>
-            <button class="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors" @click="resetFilter">重置</button>
+            <el-button class="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors" @click="handleFilter">查询</el-button>
+            <el-button class="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors" @click="resetFilter">重置</el-button>
             <TableColumnSettings
                 :columns="attendanceTableColumns"
                 :exportable="false"
@@ -121,11 +122,28 @@
         </div>
 
         <div class="responsive-table-wrap relative min-h-[420px]">
-          <div v-if="loading" class="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-3">
-            <span class="material-symbols-outlined text-blue-600 text-4xl animate-spin">progress_activity</span>
-            <span class="text-sm font-medium text-blue-600">加载考勤数据中...</span>
-          </div>
-          <table class="responsive-data-table w-full text-left border-collapse">
+          <el-table v-loading="loading" :data="rows" class="w-full">
+            <el-table-column
+                v-for="column in attendanceTableColumns"
+                :key="column.key"
+                :label="column.label"
+                min-width="120"
+            >
+              <template #default="{ row }">
+                <span v-if="column.key === 'employee'">{{ row.employeeName || '未命名员工' }}</span>
+                <span v-else-if="column.key === 'empNo'">{{ row.empNo || `UID-${row.userId}` }}</span>
+                <span v-else-if="column.key === 'department'">{{ row.departmentName || '未分配部门' }}</span>
+                <span v-else-if="column.key === 'signIn'">{{ formatTime(row.signInTime) }}</span>
+                <span v-else-if="column.key === 'signOut'">{{ formatTime(row.signOutTime) }}</span>
+                <span v-else-if="column.key === 'status'" :class="statusClass(row.status)">{{ row.statusText || '正常' }}</span>
+                <span v-else>{{ formatDateTime(row.updateTime || row.createTime) }}</span>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty v-if="!loading" description="暂无考勤记录" />
+            </template>
+          </el-table>
+          <table v-if="false" class="responsive-data-table w-full text-left border-collapse">
             <thead class="bg-slate-50/80 sticky top-0 z-0">
             <tr>
               <th
@@ -174,12 +192,14 @@
           </table>
         </div>
 
-        <div class="p-4 bg-slate-50 flex items-center justify-between text-sm text-slate-500 border-t border-slate-100">
-          <span>共 <b class="text-slate-800">{{ pagination.total }}</b> 条，第 <b class="text-slate-800">{{ query.pageNum }}</b> / {{ totalPages }} 页</span>
-          <div class="flex gap-2">
-            <button @click="changePage(query.pageNum - 1)" :disabled="query.pageNum <= 1" class="px-4 py-2 rounded-xl bg-white border border-slate-200 disabled:opacity-50 hover:bg-slate-50 transition-colors font-medium text-slate-700">上一页</button>
-            <button @click="changePage(query.pageNum + 1)" :disabled="query.pageNum >= totalPages" class="px-4 py-2 rounded-xl bg-white border border-slate-200 disabled:opacity-50 hover:bg-slate-50 transition-colors font-medium text-slate-700">下一页</button>
-          </div>
+        <div class="p-4 bg-slate-50 flex items-center justify-end border-t border-slate-100">
+          <el-pagination
+              v-model:current-page="query.pageNum"
+              :page-size="query.pageSize"
+              :total="pagination.total"
+              layout="total, prev, pager, next"
+              @current-change="changePage"
+          />
         </div>
       </section>
     </div>
@@ -211,19 +231,19 @@
             <div class="grid grid-cols-2 gap-6">
               <div class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">上班开始时间</label>
-                <input v-model="ruleForm.workStartTime" type="time" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors outline-none"/>
+                <el-time-picker v-model="ruleForm.workStartTime" value-format="HH:mm" format="HH:mm" class="w-full" />
               </div>
               <div class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">上班结束时间</label>
-                <input v-model="ruleForm.workEndTime" type="time" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors outline-none"/>
+                <el-time-picker v-model="ruleForm.workEndTime" value-format="HH:mm" format="HH:mm" class="w-full" />
               </div>
               <div class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">下班开始时间</label>
-                <input v-model="ruleForm.offWorkStartTime" type="time" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors outline-none"/>
+                <el-time-picker v-model="ruleForm.offWorkStartTime" value-format="HH:mm" format="HH:mm" class="w-full" />
               </div>
               <div class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">下班结束时间</label>
-                <input v-model="ruleForm.offWorkEndTime" type="time" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors outline-none"/>
+                <el-time-picker v-model="ruleForm.offWorkEndTime" value-format="HH:mm" format="HH:mm" class="w-full" />
               </div>
             </div>
           </section>
@@ -236,11 +256,11 @@
             <div class="grid grid-cols-2 gap-6">
               <div class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">加班开始时间</label>
-                <input v-model="ruleForm.overTimeStartTime" type="time" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors outline-none"/>
+                <el-time-picker v-model="ruleForm.overTimeStartTime" value-format="HH:mm" format="HH:mm" class="w-full" />
               </div>
               <div class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">加班结束时间</label>
-                <input v-model="ruleForm.overTimeEndTime" type="time" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors outline-none"/>
+                <el-time-picker v-model="ruleForm.overTimeEndTime" value-format="HH:mm" format="HH:mm" class="w-full" />
               </div>
             </div>
           </section>
@@ -254,14 +274,14 @@
               <div class="space-y-1 relative">
                 <label class="block text-xs font-bold text-slate-500">迟到容差</label>
                 <div class="relative">
-                  <input v-model.number="ruleForm.lateToleranceMinutes" type="number" min="0" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors pr-10 outline-none"/>
+                  <el-input-number v-model="ruleForm.lateToleranceMinutes" :min="0" class="w-full" />
                   <span class="absolute right-3 top-2 text-xs text-slate-400">分钟</span>
                 </div>
               </div>
               <div class="space-y-1 relative">
                 <label class="block text-xs font-bold text-slate-500">早退容差</label>
                 <div class="relative">
-                  <input v-model.number="ruleForm.earlyToleranceMinutes" type="number" min="0" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors pr-10 outline-none"/>
+                  <el-input-number v-model="ruleForm.earlyToleranceMinutes" :min="0" class="w-full" />
                   <span class="absolute right-3 top-2 text-xs text-slate-400">分钟</span>
                 </div>
               </div>
@@ -273,14 +293,14 @@
               <span class="material-symbols-outlined text-blue-600 text-[18px]">calendar_month</span>
               <h3 class="text-sm font-bold text-slate-800">工作日设置</h3>
             </div>
-            <div class="flex flex-wrap gap-2">
+            <el-checkbox-group v-model="ruleForm.workDays" class="flex flex-wrap gap-2">
               <label v-for="day in weekDays" :key="day.value" class="cursor-pointer">
                 <input v-model="ruleForm.workDays" type="checkbox" :value="day.value" class="peer sr-only"/>
                 <div class="px-4 py-2 text-xs font-bold rounded-lg bg-slate-100 border border-slate-200/50 text-slate-500 peer-checked:bg-blue-100 peer-checked:text-blue-700 peer-checked:border-blue-300 transition-all select-none">
                   {{ day.label }}
                 </div>
               </label>
-            </div>
+            </el-checkbox-group>
           </section>
 
           <section class="space-y-4">
@@ -376,7 +396,22 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { ElMessage, ElDrawer } from 'element-plus'
+import {
+  ElButton,
+  ElCheckboxGroup,
+  ElDatePicker,
+  ElDrawer,
+  ElEmpty,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElOption,
+  ElPagination,
+  ElSelect,
+  ElTable,
+  ElTableColumn,
+  ElTimePicker
+} from 'element-plus'
 import { useRoute } from 'vue-router'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'

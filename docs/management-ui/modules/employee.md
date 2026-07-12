@@ -81,6 +81,12 @@
 - 表格列顺序由 `TableColumnSettings` 和 `useLocalTableColumns` 持久化。
 - 组织图使用 `vue3-tree-org` 与专用层级转换，不是普通数据表。
 
+## Element Plus Migration
+
+- The employee list uses explicit Element Plus imports for filters, date inputs, table loading/empty states, table columns, commands, and pagination.
+- The employee editor and permission override surfaces use `ElDrawer`, with `ElForm`, `ElInput`, `ElSelect`, `ElDatePicker`, `ElRadioGroup`, `ElTree`, and `ElTreeSelect` controls.
+- The organization chart helper remains imported as `buildEmployeeOrganizationChart`; import/export, leader search, permission directives, override IDs, events, and API payload types are unchanged.
+
 ## Element Plus 对照/保留项
 
 - 筛选输入、选择、日期、复选框：`ElInput`、`ElSelect`、`ElDatePicker`、`ElCheckbox`。

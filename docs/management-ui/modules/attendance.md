@@ -67,6 +67,12 @@
 - 状态显示为自定义 class pill。
 - 文件下载由脚本创建链接完成；消息反馈使用 Element Plus 服务。
 
+## Element Plus Migration
+
+- Attendance filters, result table, loading/empty states, and pagination use explicit Element Plus component imports.
+- The rule drawer retains its existing query and save contracts while using `ElDatePicker`, `ElTimePicker`, `ElInputNumber`, and `ElCheckboxGroup` for date, time, numeric, and work-day controls.
+- The existing `attendance:record:list` and `attendance:*` permission boundaries, Blob export flow, overnight rule values, and query parameter formats are unchanged.
+
 ## Element Plus 对照/保留项
 
 - 筛选迁移为 `ElInput`、`ElSelect` 和与 API 格式一致的 `ElDatePicker`。
