@@ -40,6 +40,25 @@ function assertElementPlusPage(source, pageName) {
   }
 }
 
+function assertChineseProductionCopy(source, pageName, requiredCopy, forbiddenCopy) {
+  for (const copy of requiredCopy) {
+    assert.ok(source.includes(copy), `${pageName} should retain Chinese copy: ${copy}`)
+  }
+
+  for (const placeholder of forbiddenCopy) {
+    assert.ok(
+      !source.includes(placeholder),
+      `${pageName} should not retain English placeholder: ${placeholder}`
+    )
+  }
+
+  assert.doesNotMatch(
+    source,
+    /鐢熶骇|瀹夎|璐ㄩ噺|鐗╂祦|闄勪欢/,
+    `${pageName} should not contain mojibake`
+  )
+}
+
 test('migrates installation task controls to Element Plus without losing attachments', () => {
   assertElementPlusPage(installationTask, 'installation task')
   assert.match(installationTask, /import DragAttachmentUpload from /)
@@ -49,4 +68,19 @@ test('migrates quality controls to Element Plus without losing process dependenc
   assertElementPlusPage(quality, 'quality')
   assert.match(quality, /import DragAttachmentUpload from /)
   assert.match(quality, /import BusinessTimeCorrectionPanel from /)
+})
+
+test('retains Chinese production copy without English placeholders or mojibake', () => {
+  assertChineseProductionCopy(
+    installationTask,
+    'installation task',
+    ['安装任务', '刷新', '综合搜索', '客户', '安装状态', '暂无安装任务', '操作', '处理', '物流公司', '物流单号', '施工人员', '特殊及异常情况说明', '验收附件', '取消', '保存'],
+    ['>Installation Tasks<', '>Refresh<', 'label="Search"', 'label="Customer"', 'label="Status"', 'description="No tasks"', 'label="Actions"', '>Edit<', 'title="Installation task"', '>Cancel<', '>Save<']
+  )
+  assertChineseProductionCopy(
+    quality,
+    'quality',
+    ['查询', '重置', '全部状态', '待处理', '审核中', '已处理', '全部类型', '操作', '详情', '编辑', '关联订单', '质量类型', '异常数量', '损失金额', '问题描述', '附件凭证', '负责人', '处理方式', '处理措施', '改进方案', '处理备注', '取消', '保存', '提交审核'],
+    ['label="Search"', 'label="Status"', 'label="Pending"', 'label="In review"', 'label="Processed"', 'label="Type"', 'label="Date"', 'label="Actions"', '>Detail<', '>Edit<', '>Process<', 'label="Order"', 'label="Description"', 'label="Attachment"', '>Cancel<', '>Save<', '>Submit<']
+  )
 })

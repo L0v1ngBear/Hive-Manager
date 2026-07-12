@@ -1,29 +1,396 @@
 <template>
   <div class="function-page-shell h-full min-h-0 font-body">
     <div class="function-page-container space-y-6">
-      <header class="function-page-header"><div><h1 class="function-page-title">{{ scopeMeta.title }}</h1><p class="function-page-desc">{{ scopeMeta.desc }}</p></div><el-button v-permission="'badproduct:save'" type="primary" @click="openCreate">{{ scopeMeta.createText }}</el-button></header>
-      <section><el-button v-for="scope in scopeOptions" :key="scope.value" :type="activeScope === scope.value ? 'primary' : 'default'" @click="handleScopeChange(scope.value)">{{ scope.tabTitle }}</el-button></section>
-      <section class="bg-surface-container-lowest">
-        <el-form :model="query" class="p-5 flex flex-wrap gap-3"><el-form-item label="Search"><el-input v-model.trim="query.keyword" @keyup.enter="handleFilter" /></el-form-item><el-form-item label="Status"><el-select v-model="query.status" clearable><el-option label="Pending" value="pending" /><el-option label="In review" value="pending_audit" /><el-option label="Processed" value="processed" /></el-select></el-form-item><el-form-item label="Type"><el-select v-model="query.type" clearable><el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item><el-form-item label="Date"><DateFilterInput v-model="query.date" /></el-form-item><el-button type="primary" @click="handleFilter">Search</el-button><el-button @click="resetFilter">Reset</el-button><TableColumnSettings :columns="badProductTableColumns" export-module="badproduct" @move="moveBadProductTableColumn" @reset="resetBadProductTableColumns" /></el-form>
-        <el-table v-loading="loading" :data="rows" row-key="defectiveId" @row-click="openDetail">
-          <el-table-column v-for="column in badProductTableColumns" :key="column.key" :label="column.label" min-width="130"><template #default="{ row: item }"><template v-if="column.key === 'defectiveId'">{{ item.defectiveId }}</template><template v-else-if="column.key === 'orderId'">{{ item.orderId }}</template><template v-else-if="column.key === 'type'">{{ typeLabel(item.type) }}</template><template v-else-if="column.key === 'quantity'">{{ money(item.quantity) }}</template><template v-else-if="column.key === 'lossAmount'">{{ lossAmountLabel(item.lossAmount) }}</template><template v-else-if="column.key === 'creator'">{{ item.creator }}</template><el-tag v-else-if="column.key === 'status'">{{ statusLabel(item.status) }}</el-tag><template v-else-if="column.key === 'createTime'">{{ formatDateTime(item.createTime) }}</template></template></el-table-column>
-          <el-table-column label="Actions" width="190"><template #default="{ row: item }"><el-button link @click.stop="openDetail(item)">Detail</el-button><el-button v-permission="'badproduct:save'" link @click.stop="openEdit(item)">Edit</el-button><el-button v-if="item.status === 'pending'" v-permission="'badproduct:process'" link @click.stop="openProcess(item)">Process</el-button></template></el-table-column>
-          <template #empty><el-empty description="No records" /></template>
+      <header class="function-page-header">
+        <div>
+          <div class="function-page-eyebrow">
+            <span class="material-symbols-outlined">report_problem</span>
+            {{ scopeMeta.eyebrow }}
+          </div>
+          <h1 class="function-page-title">{{ scopeMeta.title }}</h1>
+          <p class="function-page-desc">{{ scopeMeta.desc }}</p>
+        </div>
+        <el-button v-permission="'badproduct:save'" type="primary" @click="openCreate">
+          {{ scopeMeta.createText }}
+        </el-button>
+      </header>
+
+      <section class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <el-button
+          v-for="scope in scopeOptions"
+          :key="scope.value"
+          class="quality-scope-button"
+          :type="activeScope === scope.value ? 'primary' : 'default'"
+          :plain="activeScope !== scope.value"
+          @click="handleScopeChange(scope.value)"
+        >
+          <span class="material-symbols-outlined">{{ scope.icon }}</span>
+          <span>
+            <strong>{{ scope.tabTitle }}</strong>
+            <small>{{ scope.tabDesc }}</small>
+          </span>
+        </el-button>
+      </section>
+
+      <section class="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div class="bg-surface-container-lowest p-6 shadow-sm">
+          <p class="text-xs font-bold text-on-surface-variant">总记录数</p>
+          <h3 class="mt-2 text-4xl font-black text-primary">{{ pagination.total }}</h3>
+        </div>
+        <div class="bg-surface-container-lowest p-6 shadow-sm">
+          <p class="text-xs font-bold text-on-surface-variant">当前页待处理</p>
+          <h3 class="mt-2 text-4xl font-black text-amber-600">{{ stats.pending }}</h3>
+        </div>
+        <div class="bg-surface-container-lowest p-6 shadow-sm">
+          <p class="text-xs font-bold text-on-surface-variant">当前页已处理</p>
+          <h3 class="mt-2 text-4xl font-black text-emerald-600">{{ stats.processed }}</h3>
+        </div>
+        <div class="bg-[#1a365d] p-6 text-white shadow-md">
+          <p class="text-xs font-bold">当前页损失金额</p>
+          <h3 class="mt-2 text-4xl font-black">¥{{ money(stats.lossAmount) }}</h3>
+        </div>
+      </section>
+
+      <section class="bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20">
+        <el-form :model="query" class="quality-filter-form" @submit.prevent="handleFilter">
+          <el-form-item label="综合搜索">
+            <el-input
+              v-model.trim="query.keyword"
+              placeholder="搜索编号、订单、描述或负责人"
+              @keyup.enter="handleFilter"
+            />
+          </el-form-item>
+          <el-form-item label="状态">
+            <el-select v-model="query.status" clearable placeholder="全部状态">
+              <el-option label="待处理" value="pending" />
+              <el-option label="审核中" value="pending_audit" />
+              <el-option label="已处理" value="processed" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="类型">
+            <el-select v-model="query.type" clearable placeholder="全部类型">
+              <el-option
+                v-for="item in typeOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="发生日期">
+            <DateFilterInput v-model="query.date" placeholder="发生日期" />
+          </el-form-item>
+          <el-form-item label="开始日期">
+            <DateFilterInput v-model="query.startDate" placeholder="开始日期" />
+          </el-form-item>
+          <el-form-item label="结束日期">
+            <DateFilterInput v-model="query.endDate" placeholder="结束日期" />
+          </el-form-item>
+          <div class="quality-filter-actions">
+            <el-button type="primary" @click="handleFilter">查询</el-button>
+            <el-button @click="resetFilter">重置</el-button>
+            <TableColumnSettings
+              :columns="badProductTableColumns"
+              export-module="badproduct"
+              @move="moveBadProductTableColumn"
+              @reset="resetBadProductTableColumns"
+            />
+          </div>
+        </el-form>
+
+        <el-table
+          v-loading="loading"
+          :data="rows"
+          row-key="defectiveId"
+          class="quality-table"
+          @row-click="openDetail"
+        >
+          <el-table-column
+            v-for="column in badProductTableColumns"
+            :key="column.key"
+            :label="column.label"
+            :min-width="column.key === 'defectiveId' ? 190 : 130"
+            :align="column.align || 'left'"
+          >
+            <template #default="{ row: item }">
+              <template v-if="column.key === 'defectiveId'">
+                <p class="text-sm font-bold text-primary">{{ item.defectiveId }}</p>
+                <p class="line-clamp-1 text-[10px] text-on-surface-variant">
+                  {{ item.description || '未填写问题描述' }}
+                </p>
+              </template>
+              <template v-else-if="column.key === 'orderId'">{{ item.orderId || '未关联' }}</template>
+              <template v-else-if="column.key === 'type'">{{ typeLabel(item.type) }}</template>
+              <template v-else-if="column.key === 'quantity'">{{ money(item.quantity) }}</template>
+              <template v-else-if="column.key === 'lossAmount'">
+                {{ lossAmountLabel(item.lossAmount) }}
+              </template>
+              <template v-else-if="column.key === 'creator'">{{ item.creator || '--' }}</template>
+              <el-tag
+                v-else-if="column.key === 'status'"
+                :type="
+                  item.status === 'processed'
+                    ? 'success'
+                    : item.status === 'pending_audit'
+                      ? 'warning'
+                      : 'info'
+                "
+              >
+                {{ statusLabel(item.status) }}
+              </el-tag>
+              <template v-else-if="column.key === 'createTime'">
+                {{ formatDateTime(item.createTime) }}
+              </template>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="190" align="right">
+            <template #default="{ row: item }">
+              <el-button link type="primary" @click.stop="openDetail(item)">详情</el-button>
+              <el-button v-permission="'badproduct:save'" link @click.stop="openEdit(item)">
+                编辑
+              </el-button>
+              <el-button
+                v-if="item.status === 'pending'"
+                v-permission="'badproduct:process'"
+                link
+                type="success"
+                @click.stop="openProcess(item)"
+              >
+                处理
+              </el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <el-empty :description="scopeMeta.emptyText" />
+          </template>
         </el-table>
-        <el-pagination background layout="prev, pager, next" :current-page="query.pageNum" :page-size="query.pageSize" :total="pagination.total" @current-change="changePage" />
+
+        <div class="quality-pagination">
+          <span>共 {{ pagination.total }} {{ scopeMeta.countText }}</span>
+          <el-pagination
+            background
+            layout="prev, pager, next"
+            :current-page="query.pageNum"
+            :page-size="query.pageSize"
+            :total="pagination.total"
+            @current-change="changePage"
+          />
+        </div>
       </section>
     </div>
-    <el-drawer v-model="detailVisible" :title="scopeMeta.detailTitle" size="460px"><el-form v-if="detailRecord" label-position="top"><el-form-item label="Order">{{ detailRecord.orderId }}</el-form-item><el-form-item label="Type">{{ typeLabel(detailRecord.type) }}</el-form-item><el-form-item label="Description">{{ detailRecord.description }}</el-form-item><el-form-item label="Attachment"><el-button v-if="detailRecord.attachmentUrl" link @click="openAttachment(detailRecord.attachmentUrl, detailRecord.attachmentName)">{{ detailRecord.attachmentName }}</el-button><el-empty v-else description="No attachment" /></el-form-item></el-form><el-empty v-else description="No detail" /></el-drawer>
-    <el-drawer v-model="formVisible" :title="editingRecord ? scopeMeta.editTitle : scopeMeta.createTitle" size="520px" :before-close="closeForm"><el-form :model="form" label-position="top"><BusinessTimeCorrectionPanel v-model="form.createTime" :active="timeCorrectionMode" data-field="badProduct.createTime" /><el-form-item label="Order"><el-input v-model.trim="form.orderId" /></el-form-item><el-form-item label="Type"><el-select v-model="form.type"><el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item><el-form-item label="Quantity"><el-input v-model.trim="form.quantity" data-field="badProduct.quantity" /></el-form-item><el-form-item label="Loss"><el-select v-model="form.lossAmount" data-field="badProduct.lossAmount"><el-option v-for="item in lossAmountOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item><el-form-item label="Description"><el-input v-model.trim="form.description" type="textarea" /></el-form-item><el-form-item label="Attachment"><DragAttachmentUpload :uploading="attachmentUploading" :file-name="form.attachmentName" :file-url="form.attachmentUrl" :file-size="form.attachmentSize" @select="handleAttachmentFile" @download="openAttachment(form.attachmentUrl, form.attachmentName)" @remove="removeAttachment" /></el-form-item></el-form><template #footer><el-button @click="closeForm">Cancel</el-button><el-button v-permission="'badproduct:save'" type="primary" @click="submitForm">Save</el-button></template></el-drawer>
-    <el-drawer v-model="processVisible" :title="scopeMeta.processTitle" size="520px" :before-close="closeProcess"><el-form :model="processForm" label-position="top"><el-form-item label="Responsible"><el-input v-model.trim="processForm.responsiblePerson" data-field="badProduct.responsiblePerson" /></el-form-item><el-form-item label="Method"><el-input v-model.trim="processForm.method" data-field="badProduct.processMethod" /></el-form-item><el-form-item label="Measure"><el-input v-model.trim="processForm.processMeasure" data-field="badProduct.processMeasure" type="textarea" /></el-form-item><el-form-item label="Improvement"><el-input v-model.trim="processForm.improvementPlan" data-field="badProduct.improvementPlan" type="textarea" /></el-form-item><el-form-item label="Remark"><el-input v-model.trim="processForm.remark" type="textarea" /></el-form-item></el-form><template #footer><el-button @click="closeProcess">Cancel</el-button><el-button v-permission="'badproduct:process'" type="primary" @click="submitProcess">Submit</el-button></template></el-drawer>
+
+    <el-drawer v-model="detailVisible" :title="scopeMeta.detailTitle" size="460px" append-to-body>
+      <template v-if="detailRecord">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-surface-container-low p-4">
+            <small>异常数量</small>
+            <p class="text-xl font-black text-primary">{{ money(detailRecord.quantity) }}</p>
+          </div>
+          <div class="bg-surface-container-low p-4">
+            <small>损失金额</small>
+            <p class="text-xl font-black text-primary">{{ lossAmountLabel(detailRecord.lossAmount) }}</p>
+          </div>
+        </div>
+
+        <el-form label-position="top" class="mt-5">
+          <el-form-item label="关联订单">{{ detailRecord.orderId || '未关联' }}</el-form-item>
+          <el-form-item label="质量类型">{{ typeLabel(detailRecord.type) }}</el-form-item>
+          <el-form-item label="登记人">{{ detailRecord.creator || '--' }}</el-form-item>
+          <el-form-item label="状态">
+            <el-tag :type="detailRecord.status === 'processed' ? 'success' : 'info'">
+              {{ statusLabel(detailRecord.status) }}
+            </el-tag>
+          </el-form-item>
+          <el-form-item label="登记时间">{{ formatDateTime(detailRecord.createTime) }}</el-form-item>
+          <el-form-item label="问题描述">
+            {{ detailRecord.description || '未填写问题描述。' }}
+          </el-form-item>
+          <el-form-item label="附件凭证">
+            <el-button
+              v-if="detailRecord.attachmentUrl"
+              link
+              type="primary"
+              @click="openAttachment(detailRecord.attachmentUrl, detailRecord.attachmentName)"
+            >
+              {{ detailRecord.attachmentName || '下载附件' }}
+            </el-button>
+            <span v-else>暂无附件凭证</span>
+          </el-form-item>
+          <el-form-item label="负责人">{{ detailRecord.responsiblePerson || '未填写' }}</el-form-item>
+          <el-form-item label="处理方式">{{ detailRecord.processMethod || '未处理' }}</el-form-item>
+          <el-form-item label="处理措施">{{ detailRecord.processMeasure || '未填写' }}</el-form-item>
+          <el-form-item label="改进方案">{{ detailRecord.improvementPlan || '未填写' }}</el-form-item>
+          <el-form-item label="处理备注">
+            {{ detailRecord.processRemark || '未填写处理备注。' }}
+          </el-form-item>
+        </el-form>
+      </template>
+      <el-empty v-else description="暂无详情" />
+    </el-drawer>
+
+    <el-drawer
+      v-model="formVisible"
+      :title="editingRecord ? scopeMeta.editTitle : scopeMeta.createTitle"
+      size="520px"
+      append-to-body
+      :before-close="closeForm"
+    >
+      <el-form :model="form" label-position="top">
+        <BusinessTimeCorrectionPanel
+          v-model="form.createTime"
+          :active="timeCorrectionMode"
+          data-field="badProduct.createTime"
+          title="业务时间修正"
+          label="业务时间"
+          description="用于修正当前记录的业务时间。"
+        />
+        <el-form-item label="关联订单">
+          <el-input v-model.trim="form.orderId" placeholder="请输入订单号" />
+        </el-form-item>
+        <el-form-item label="质量类型">
+          <el-select v-model="form.type">
+            <el-option
+              v-for="item in typeOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="异常数量">
+          <el-input
+            v-model.trim="form.quantity"
+            data-field="badProduct.quantity"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="请输入异常数量"
+          />
+        </el-form-item>
+        <el-form-item label="损失金额">
+          <el-select
+            v-model="form.lossAmount"
+            data-field="badProduct.lossAmount"
+            placeholder="请选择损失金额档位"
+          >
+            <el-option
+              v-for="item in lossAmountOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="问题描述">
+          <el-input
+            v-model.trim="form.description"
+            type="textarea"
+            :rows="5"
+            placeholder="请输入质量问题说明"
+          />
+        </el-form-item>
+        <el-form-item label="附件凭证">
+          <DragAttachmentUpload
+            title="上传图片、PDF、Word、Excel、文本或压缩包"
+            helper-text="支持拖拽上传，单个文件不超过 10MB"
+            :uploading="attachmentUploading"
+            :file-name="form.attachmentName"
+            :file-url="form.attachmentUrl"
+            :file-size="form.attachmentSize"
+            @select="handleAttachmentFile"
+            @download="openAttachment(form.attachmentUrl, form.attachmentName)"
+            @remove="removeAttachment"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeForm">取消</el-button>
+        <el-button v-permission="'badproduct:save'" type="primary" @click="submitForm">
+          保存
+        </el-button>
+      </template>
+    </el-drawer>
+
+    <el-drawer
+      v-model="processVisible"
+      :title="scopeMeta.processTitle"
+      size="520px"
+      append-to-body
+      :before-close="closeProcess"
+    >
+      <div v-if="processingRecord" class="mb-5 bg-surface-container-low p-4 text-sm">
+        <p>关联订单：{{ processingRecord.orderId || '未关联' }}</p>
+        <p>当前状态：{{ statusLabel(processingRecord.status) }}</p>
+      </div>
+      <el-form :model="processForm" label-position="top">
+        <el-form-item label="负责人">
+          <el-input
+            v-model.trim="processForm.responsiblePerson"
+            data-field="badProduct.responsiblePerson"
+            placeholder="请输入负责人"
+          />
+        </el-form-item>
+        <el-form-item label="处理方式">
+          <el-input
+            v-model.trim="processForm.method"
+            data-field="badProduct.processMethod"
+            placeholder="例如报废、返工、让步接收"
+          />
+        </el-form-item>
+        <el-form-item label="处理措施">
+          <el-input
+            v-model.trim="processForm.processMeasure"
+            data-field="badProduct.processMeasure"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入处理措施"
+          />
+        </el-form-item>
+        <el-form-item label="改进方案">
+          <el-input
+            v-model.trim="processForm.improvementPlan"
+            data-field="badProduct.improvementPlan"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入改进方案"
+          />
+        </el-form-item>
+        <el-form-item label="处理备注">
+          <el-input
+            v-model.trim="processForm.remark"
+            type="textarea"
+            :rows="5"
+            placeholder="请输入处理说明"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeProcess">取消</el-button>
+        <el-button v-permission="'badproduct:process'" type="primary" @click="submitProcess">
+          提交审核
+        </el-button>
+      </template>
+    </el-drawer>
   </div>
 </template>
 
-
-
 <script setup>
 import { computed, reactive, ref } from 'vue'
-import { ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElPagination, ElSelect, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import {
+  ElButton,
+  ElDrawer,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElMessage,
+  ElOption,
+  ElPagination,
+  ElSelect,
+  ElTable,
+  ElTableColumn,
+  ElTag
+} from 'element-plus'
 import {
   downloadBadProductAttachment,
   getBadProductPage,

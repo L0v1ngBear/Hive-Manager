@@ -1,9 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
+import { fileURLToPath } from 'node:url'
 
-const uiRoot = path.resolve('D:/HiveManager/management-ui')
-const managementRoot = path.resolve('D:/HiveManager/management')
+const uiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const repoRoot = path.resolve(uiRoot, '..')
+const managementRoot = path.join(repoRoot, 'management')
 const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
 
 function read(file) {
