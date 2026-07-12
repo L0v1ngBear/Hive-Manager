@@ -41,6 +41,10 @@
           </el-select>
           <TableColumnSettings
             :columns="documentTableColumns"
+            :export-rows="filteredDocumentList"
+            :export-cell="documentExportCell"
+            export-file-name="企业文档中心"
+            export-sheet-name="企业文档中心"
             export-module="document"
             @move="moveDocumentTableColumn"
             @reset="resetDocumentTableColumns"
@@ -286,6 +290,14 @@ const formatBytes = (bytes) => {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
+}
+
+const documentExportCell = (document, column) => {
+  if (column.key === 'name') return document?.name || ''
+  if (column.key === 'createTime') return formatTime(document?.createTime)
+  if (column.key === 'type') return isFolder(document) ? '文件夹' : `${(document?.fileExt || 'unknown').toUpperCase()} 文件`
+  if (column.key === 'size') return isFolder(document) ? '--' : formatBytes(document?.fileSize)
+  return ''
 }
 
 const getFileIconColor = (ext) => {

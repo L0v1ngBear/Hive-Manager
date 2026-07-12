@@ -45,7 +45,9 @@
 <script setup>
 import { ElMessage } from 'element-plus'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { exportTableElementToExcel } from '@/utils/tableExport'
+import { exportRowsToExcel, exportTableElementToExcel } from '@/utils/tableExport'
+
+const MAX_CURRENT_PAGE_ROWS = 2000
 
 const props = defineProps({
   columns: {
@@ -67,6 +69,14 @@ const props = defineProps({
   exportModule: {
     type: String,
     default: ''
+  },
+  exportRows: {
+    type: Array,
+    default: null
+  },
+  exportCell: {
+    type: Function,
+    default: null
   },
   exportAllable: {
     type: Boolean,
@@ -104,6 +114,21 @@ function findExportTable() {
 
 async function handleExportTable() {
   try {
+    if (hasStructuredExport()) {
+      if (props.exportRows.length > MAX_CURRENT_PAGE_ROWS) {
+        throw new Error(`当前页可导出数据不能超过 ${MAX_CURRENT_PAGE_ROWS} 行，请缩小筛选范围或使用全量导出`)
+      }
+      await exportRowsToExcel({
+        title: props.exportFileName || props.exportSheetName || '列表数据',
+        fileName: props.exportFileName,
+        sheetName: props.exportSheetName,
+        sourceModule: props.exportModule,
+        headers: props.columns.map((column) => column.label),
+        rows: props.exportRows.map((row) => props.columns.map((column) => props.exportCell(row, column)))
+      })
+      ElMessage.success('Excel 已导出')
+      return
+    }
     await exportTableElementToExcel(findExportTable(), {
       fileName: props.exportFileName,
       sheetName: props.exportSheetName,
@@ -115,6 +140,10 @@ async function handleExportTable() {
       ElMessage.warning(error?.message || '导出失败，请稍后重试')
     }
   }
+}
+
+function hasStructuredExport() {
+  return Array.isArray(props.exportRows) && typeof props.exportCell === 'function'
 }
 
 function handleExportAll() {

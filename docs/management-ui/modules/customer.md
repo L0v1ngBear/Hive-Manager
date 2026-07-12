@@ -65,28 +65,28 @@
 
 ## 加载 / 空态 / 错误态
 
-- loading 控制列表加载层、分页禁用和空态判定。
+- loading 控制 ElTable 的 v-loading、分页禁用和空态判定。
 - 非加载且 customerList 为空时显示表格空态。
 - detailLoading、loadingDetail 与 submitting 分别覆盖详情、编辑回填和提交过程。
 - 通用请求错误由 request 拦截器显示 ElMessage；页面没有持久错误/重试面板。
-- 详情、字段配置和列表分别维护自己的异步流程，迁移时不得合并成会互相覆盖的单一 loading。
+- 详情、字段配置和列表分别维护自己的异步流程，没有合并成会互相覆盖的单一 loading。
 
-## 当前原生 / 自定义控件
+## 当前 Element Plus / 自定义控件
 
-- 原生：button、input、select、table、手写上一页/下一页。
-- 自定义：列表加载层、详情弹层、CustomerCreateDrawer、联系人/项目重复表单。
-- 共享自定义：TableColumnSettings、DateFilterInput。
-- 已用 Element Plus：ElMessage；表单和弹层主体仍为原生/手写。
+- Element Plus：ElInput、ElSelect/ElOption、ElDatePicker、ElButton、ElTable/ElTableColumn、ElPagination、ElEmpty、ElDialog 和 ElMessage。
+- CustomerCreateDrawer 内使用 ElDrawer、ElForm/ElFormItem、ElInput、ElSelect/ElOption 和 ElButton。
+- 自定义：CustomerCreateDrawer 内的联系人/项目重复表单。
+- 共享自定义：TableColumnSettings；日期筛选直接使用 ElDatePicker。
 
-## Element Plus 对照与明确保留项
+## Element Plus 实现与明确保留项
 
-- 搜索与文本字段 → ElInput；客户类型 → ElSelect/ElOption。
-- 日期范围 → ElDatePicker，并显式保持现有 createStart/createEnd 字符串格式。
-- 列表/分页/空态/加载 → ElTable、ElPagination、ElEmpty、v-loading。
-- 详情弹层 → ElDialog；新建/编辑 → ElDrawer。
-- 命令按钮 → ElButton；提交 loading 和 disabled 规则保持。
+- 搜索与文本字段使用 ElInput；客户类型使用 ElSelect/ElOption。
+- 日期范围使用 ElDatePicker，并通过 value-format 保持 createStart/createEnd 的 YYYY-MM-DD 字符串格式。
+- 列表、分页、空态和加载使用 ElTable、ElPagination、ElEmpty 与 v-loading。
+- 详情使用 ElDialog；新建/编辑使用 ElDrawer。
+- 命令使用 ElButton；提交 loading 和 disabled 规则保持。
 - 明确保留：租户字段配置驱动的 visible、label、required。
-- 明确保留：动态列本地顺序、TableColumnSettings 与导出绑定。
+- 明确保留：动态列本地顺序、TableColumnSettings，以及按当前动态列映射 customerList 的结构化当前页导出。
 - 明确保留：contacts/projects 数组、编辑回填和成功刷新时序。
 - 明确保留：路由 keyword/q 驱动的筛选行为。
 

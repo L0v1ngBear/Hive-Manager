@@ -33,3 +33,34 @@ test("document page uses Element Plus filters and data states", () => {
     assert.match(source, new RegExp(`<${tag}\\b`));
   }
 });
+
+test("customer and document current-page exports use explicit row data", () => {
+  const customer = read("../src/views/function/customer/customer.vue");
+  const document = read("../src/views/function/document/document.vue");
+  const settings = read("../src/components/TableColumnSettings.vue");
+
+  for (const [source, rows, cell] of [
+    [customer, "customerList", "customerExportCell"],
+    [document, "filteredDocumentList", "documentExportCell"],
+  ]) {
+    assert.match(source, new RegExp(`:export-rows="${rows}"`));
+    assert.match(source, new RegExp(`:export-cell="${cell}"`));
+    assert.doesNotMatch(source, /exportTableElementToExcel|findExportTable\(|querySelector(?:All)?\(/);
+  }
+
+  assert.match(settings, /exportRowsToExcel/);
+  assert.match(
+    settings,
+    /if \(hasStructuredExport\(\)\) \{[\s\S]*?await exportRowsToExcel\([\s\S]*?return[\s\S]*?\}\s*await exportTableElementToExcel\(findExportTable\(\)/,
+  );
+});
+
+test("structured current-page export retains the row limit", () => {
+  const settings = read("../src/components/TableColumnSettings.vue");
+
+  assert.match(settings, /const MAX_CURRENT_PAGE_ROWS = 2000/);
+  assert.match(
+    settings,
+    /if \(props\.exportRows\.length > MAX_CURRENT_PAGE_ROWS\) \{[\s\S]*?throw new Error/,
+  );
+});
