@@ -122,7 +122,15 @@
         </div>
 
         <div class="responsive-table-wrap relative min-h-[420px]">
-          <el-table v-loading="loading" :data="rows" class="w-full">
+          <div v-if="listError" class="flex min-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center">
+            <span class="material-symbols-outlined text-4xl text-slate-400">
+              {{ listError.type === 'permission' ? 'lock' : 'cloud_off' }}
+            </span>
+            <h3 class="text-base font-black text-slate-800">{{ listError.title }}</h3>
+            <p class="max-w-lg text-sm text-slate-500">{{ listError.message }}</p>
+            <el-button type="primary" @click="fetchData">重新加载</el-button>
+          </div>
+          <el-table v-else v-loading="loading" :data="rows" class="w-full">
             <el-table-column
                 v-for="column in attendanceTableColumns"
                 :key="column.key"
@@ -437,6 +445,7 @@ const today = new Date().toISOString().slice(0, 10)
 const rows = ref([])
 const departments = ref([])
 const loading = ref(false)
+const listError = ref(null)
 const summary = reactive({ totalEmployeeCount: 0, actualCount: 0, lateCount: 0, earlyCount: 0, missingCount: 0, attendanceRate: 0 })
 const pagination = reactive({ total: 0, pages: 0 })
 const query = reactive({ pageNum: 1, pageSize: 10, keyword: '', departmentName: '', status: '', date: today })
@@ -477,8 +486,28 @@ async function fetchSummary() {
   Object.assign(summary, await getAttendanceSummary({ date: query.date }))
 }
 
+function resolveListError(error) {
+  const status = Number(error?.response?.status ?? error?.status ?? error?.code ?? 0)
+  if (status === 401 || status === 403) {
+    return {
+      type: 'permission',
+      title: status === 401 ? '登录状态已失效' : '暂无考勤记录权限',
+      message: status === 401 ? '请重新登录后查看考勤记录。' : '请联系管理员分配考勤记录权限后重试。'
+    }
+  }
+  return {
+    type: 'request',
+    title: status >= 500 ? '考勤服务暂时不可用' : '网络连接异常',
+    message: status >= 500 ? '服务处理失败，请稍后重新加载。' : '请检查网络连接后重新加载考勤记录。'
+  }
+}
+
 async function fetchData() {
   loading.value = true
+  listError.value = null
+  rows.value = []
+  pagination.total = 0
+  pagination.pages = 0
   try {
     const data = await getAttendancePage({
       pageNum: query.pageNum,
@@ -491,6 +520,11 @@ async function fetchData() {
     rows.value = data.data || []
     pagination.total = Number(data.total || 0)
     pagination.pages = Number(data.pages || 0)
+  } catch (error) {
+    rows.value = []
+    pagination.total = 0
+    pagination.pages = 0
+    listError.value = resolveListError(error)
   } finally {
     loading.value = false
   }

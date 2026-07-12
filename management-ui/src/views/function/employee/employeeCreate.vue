@@ -20,7 +20,7 @@
       size="560px"
       @update:model-value="(value) => !value && emit('close')"
   >
-    <el-form :model="form" class="flex h-full flex-col">
+    <el-form :model="form" class="flex h-full flex-col" @submit.prevent="submit">
     <div class="border-t-[4px] border-primary p-8">
       <div class="flex items-start justify-between">
         <div>
@@ -32,6 +32,7 @@
           </p>
         </div>
         <button
+            type="button"
             class="rounded-full p-2 transition-colors hover:bg-surface-container-high"
             @click="emit('close')"
         >
@@ -196,6 +197,7 @@
                 <button
                     v-for="location in attendanceLocations"
                     :key="location.value"
+                    type="button"
                     class="rounded-lg border px-3 py-1.5 text-xs font-bold transition-all"
                     :class="form.attendanceLocationIds.includes(Number(location.value))
                       ? 'border-primary bg-primary text-white shadow-md shadow-primary/20'
@@ -227,6 +229,7 @@
                 <button
                     v-for="role in roles"
                     :key="role.id"
+                    type="button"
                     class="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-bold transition-all"
                     :class="form.roleIds.includes(role.id)
                     ? 'border-primary bg-primary text-white shadow-md shadow-primary/30'
@@ -266,6 +269,7 @@
               <button
                   v-for="leader in leaderOptions"
                   :key="leader.id"
+                  type="button"
                   class="w-full px-3 py-2 text-left transition-colors hover:bg-surface-container-low"
                   @click="selectLeader(leader)"
               >
@@ -332,15 +336,16 @@
 
     <div class="flex items-center justify-between border-t border-outline-variant/15 bg-surface-container-lowest p-8">
       <button
+          type="button"
           class="px-6 py-2.5 text-sm font-bold text-on-surface-variant transition-colors hover:text-primary"
           @click="emit('close')"
       >
         取消
       </button>
       <button
+          type="submit"
           :disabled="submitting"
           class="flex items-center gap-2 rounded bg-primary px-10 py-3 font-bold text-white shadow-xl shadow-primary/20 transition-all active:scale-95 hover:bg-primary-container disabled:opacity-60"
-          @click="submit"
       >
         <span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">
           save
