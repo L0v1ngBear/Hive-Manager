@@ -1,9 +1,11 @@
 <template>
   <div
     class="drag-attachment-upload"
-    :class="{ 'is-dragging': dragging, 'is-uploading': uploading }"
+    :class="{ 'is-dragging': dragging, 'is-uploading': uploading, 'is-disabled': disabled }"
     role="button"
-    tabindex="0"
+    :tabindex="disabled ? -1 : 0"
+    :aria-disabled="disabled"
+    :title="disabled ? disabledReason : ''"
     @click="openPicker"
     @keydown.enter.prevent="openPicker"
     @keydown.space.prevent="openPicker"
@@ -17,7 +19,7 @@
       class="hidden"
       type="file"
       :accept="accept"
-      :disabled="uploading"
+      :disabled="uploading || disabled"
       @change="onFileChange"
     >
 
@@ -87,6 +89,14 @@ const props = defineProps({
   downloadable: {
     type: Boolean,
     default: true
+  },
+  disabled: {
+    type: Boolean,
+    default: false
+  },
+  disabledReason: {
+    type: String,
+    default: ''
   }
 })
 
@@ -108,7 +118,7 @@ const formattedSize = computed(() => {
 })
 
 function openPicker() {
-  if (props.uploading) return
+  if (props.uploading || props.disabled) return
   inputRef.value?.click()
 }
 
@@ -119,13 +129,13 @@ function onFileChange(event) {
 }
 
 function onDragEnter() {
-  if (!props.uploading) {
+  if (!props.uploading && !props.disabled) {
     dragging.value = true
   }
 }
 
 function onDragOver() {
-  if (!props.uploading) {
+  if (!props.uploading && !props.disabled) {
     dragging.value = true
   }
 }
@@ -139,7 +149,7 @@ function onDragLeave(event) {
 
 function onDrop(event) {
   dragging.value = false
-  if (props.uploading) return
+  if (props.uploading || props.disabled) return
   emitFile(event.dataTransfer?.files?.[0])
 }
 
@@ -197,6 +207,17 @@ function fileMatchesAccept(file) {
 .drag-attachment-upload.is-uploading {
   cursor: wait;
   opacity: 0.78;
+}
+
+.drag-attachment-upload.is-disabled,
+.drag-attachment-upload.is-disabled:hover {
+  cursor: not-allowed;
+  opacity: 0.5;
+  filter: grayscale(1);
+  border-color: rgba(100, 116, 139, 0.32);
+  background: rgba(241, 245, 249, 0.9);
+  box-shadow: none;
+  transform: none;
 }
 
 .drag-upload-main {

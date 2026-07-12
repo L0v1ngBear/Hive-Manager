@@ -8,12 +8,12 @@
             {{ isEditMode ? '更新客户基础信息、联系人和合作项目。' : '录入客户基础信息、联系人和合作项目。' }}
           </p>
         </div>
-        <el-button circle text title="关闭" @click="closeDrawer">
+        <el-button circle text native-type="button" title="关闭" @click="closeDrawer">
           <span class="material-symbols-outlined text-[20px]">close</span>
         </el-button>
       </div>
 
-      <el-form :model="formData" class="flex-1 space-y-8 overflow-y-auto p-6" label-position="top">
+      <el-form :model="formData" class="flex-1 space-y-8 overflow-y-auto p-6" label-position="top" @submit.prevent="submit">
         <section class="space-y-4">
           <h3 class="flex items-center gap-2 text-sm font-bold text-primary">
             <span class="h-4 w-1 rounded-full bg-primary"></span>客户基础信息
@@ -39,7 +39,7 @@
             <h3 class="flex items-center gap-2 text-sm font-bold text-primary">
               <span class="h-4 w-1 rounded-full bg-primary"></span>{{ fieldLabel('contactName', '联系人列表') }}
             </h3>
-            <el-button text type="primary" @click="addContact">
+            <el-button text type="primary" native-type="button" @click="addContact">
               <span class="material-symbols-outlined text-[16px]">person_add</span>
               添加联系人
             </el-button>
@@ -58,7 +58,7 @@
                 :placeholder="fieldLabel('contactPhone', '联系电话')"
               />
             </div>
-            <el-button circle text type="danger" title="移除联系人" @click="removeContact(index)">
+            <el-button circle text type="danger" native-type="button" title="移除联系人" @click="removeContact(index)">
               <span class="material-symbols-outlined text-[18px]">delete</span>
             </el-button>
           </div>
@@ -73,7 +73,7 @@
             <h3 class="flex items-center gap-2 text-sm font-bold text-tertiary">
               <span class="h-4 w-1 rounded-full bg-tertiary"></span>{{ fieldLabel('projectName', '合作项目列表') }}
             </h3>
-            <el-button text type="primary" @click="addProject">
+            <el-button text type="primary" native-type="button" @click="addProject">
               <span class="material-symbols-outlined text-[16px]">post_add</span>
               添加项目
             </el-button>
@@ -98,7 +98,7 @@
                   :placeholder="fieldLabel('projectOwner', '输入项目负责人')"
                 />
               </div>
-              <el-button circle text type="danger" title="移除项目" @click="removeProject(index)">
+              <el-button circle text type="danger" native-type="button" title="移除项目" @click="removeProject(index)">
                 <span class="material-symbols-outlined text-[18px]">close</span>
               </el-button>
             </div>
@@ -111,8 +111,18 @@
       </el-form>
 
       <div class="flex shrink-0 items-center justify-end gap-3 border-t border-outline-variant/20 bg-surface-container-lowest p-6">
-        <el-button :disabled="submitting || loadingDetail" @click="closeDrawer">取消</el-button>
-        <el-button type="primary" :loading="submitting || loadingDetail" @click="submit">{{ submitButtonText }}</el-button>
+        <el-button native-type="button" :disabled="submitting || loadingDetail" @click="closeDrawer">取消</el-button>
+        <el-button
+          type="primary"
+          native-type="button"
+          :loading="submitting || loadingDetail"
+          :disabled="submitting || loadingDetail || !canSubmitCustomer"
+          :class="permissionDisabledClass(!canSubmitCustomer)"
+          :title="canSubmitCustomer ? submitButtonText : submitPermissionReason"
+          @click="submit"
+        >
+          {{ submitButtonText }}
+        </el-button>
       </div>
     </div>
   </el-drawer>
@@ -122,6 +132,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElButton, ElDrawer, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
 import { useTenantFieldConfig } from '@/composables/useTenantFieldConfig'
+import { useUserStore } from '@/stores/user'
 import { warnAndFocusField } from '@/utils/formFocus'
 import { createCustomer, getCustomerDetail, updateCustomer } from './api/customer'
 
@@ -137,6 +148,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:visible', 'success'])
+const userStore = useUserStore()
 const {
   loadFieldConfig,
   fieldLabel,
@@ -161,6 +173,8 @@ const drawerVisible = computed({
   }
 })
 const isEditMode = computed(() => props.customerId !== null && props.customerId !== undefined && props.customerId !== '')
+const canSubmitCustomer = computed(() => userStore.hasPermission(isEditMode.value ? 'customer:update' : 'customer:add'))
+const submitPermissionReason = computed(() => isEditMode.value ? '当前账号暂无编辑客户权限' : '当前账号暂无新增客户权限')
 const submitButtonText = computed(() => {
   if (loadingDetail.value) {
     return '加载中...'
@@ -226,6 +240,7 @@ async function submit() {
   if (submitting.value || loadingDetail.value) {
     return
   }
+  if (!canSubmitCustomer.value) return
   if (!formData.customerName.trim()) return warnAndFocusField('请填写客户名称。', 'customer.customerName')
   if (!formData.customerType) return warnAndFocusField('请选择客户类型。', 'customer.customerType')
 
@@ -278,5 +293,9 @@ function createDefaultForm() {
     contacts: [{ contactName: '', contactPhone: '' }],
     projects: []
   }
+}
+
+function permissionDisabledClass(disabled) {
+  return disabled ? 'cursor-not-allowed opacity-50 grayscale' : ''
 }
 </script>

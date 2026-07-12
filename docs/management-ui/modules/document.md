@@ -43,15 +43,15 @@
 ## 权限现状
 
 - 路由入口要求 `document:list` 和 `module.document`。
-- 页面上的“新建文件夹”和上传区域没有 `v-permission` 或权限计算。
+- “新建文件夹”和上传区域分别检查 `document:folder:create` 与 `document:file:upload`。
 - 面包屑需要独立 `document:breadcrumbs`，但路由只检查 list。
-- 列设置默认显示当前页导出按钮；页面没有基于 `table:export` 控制可见/禁用状态。
-- 后端权限仍是最终边界，前端控件可见不代表请求可执行。
+- 当前页导出检查 `table:export`；命令保持可见，权限不足时置灰、禁用鼠标并通过 title 说明原因。
+- 后端权限仍是最终边界，前端禁用状态用于在发请求前提供一致反馈。
 
 ## 状态流
 
 1. setup 末尾直接调用 `fetchDocuments(0)` 加载根目录。
-2. `fetchDocuments(parentId)` 先更新 `currentParentId`，再取列表，非根目录随后取面包屑。
+2. `fetchDocuments(parentId)` 开始时清空旧列表与面包屑；列表和新面包屑均成功后才一起提交结果。
 3. 本地 `filters` 只过滤已加载的当前目录数组，不发搜索请求。
 4. 双击文件夹复用 `fetchDocuments(id)`；双击文件校验协议后 `window.open`。
 5. 创建文件夹成功后刷新当前目录。
@@ -63,11 +63,10 @@
 ## 空态、错态与加载态
 
 - 列表加载时由 ElTable 的 v-loading 显示加载态。
-- 非 loading 且本地筛选结果为空时统一显示“当前目录为空”。
-- 因此“目录真实为空”和“筛选无匹配”使用同一文案。
-- `fetchDocuments` 没有局部 catch，失败反馈依赖统一请求层。
-- 列表失败时 `currentParentId` 已先改变；旧列表可能仍保留。
-- 面包屑失败发生在列表成功之后，新列表与旧面包屑可能短暂不一致。
+- 真实空目录显示“当前目录为空”；已加载目录的本地筛选无匹配显示“没有符合筛选条件的文档”。
+- 401/403、网络错误和 5xx 分别形成持久错误面板，并提供当前目录重试。
+- 请求序号阻止较早目录请求覆盖较新的目录状态，不会出现新目录 ID 配旧列表。
+- 面包屑失败时不提交已暂存的新列表，错误、权限、空态和筛选无匹配互斥。
 - 新建文件夹使用受控 ElDialog；请求失败由统一请求层反馈，弹窗保持可重试状态。
 
 ## 控件和样式现状
@@ -82,7 +81,7 @@
 ## Element Plus 实现与保留项
 
 - 关键词使用 ElInput、类型使用 ElSelect，保留当前纯前端过滤语义。
-- 工具栏命令使用 ElButton；现有权限可见性边界保持不变。
+- 工具栏命令使用 ElButton，并按 folder:create、file:upload、table:export 显示禁用原因。
 - 列表使用 ElTable，并保留双击、动态列顺序和移动端布局。
 - 当前页导出显式使用 filteredDocumentList 与动态列映射，不依赖 ElTable 分离的 header/body DOM。
 - 上传继续使用 DragAttachmentUpload，保留 20MB 限制、parentId、multipart API 和成功刷新。
@@ -90,8 +89,7 @@
 
 ## 风险
 
-- list-only 用户能看到创建和上传控件，点击后才收到后端拒绝。
-- 缺少 breadcrumbs 权限时进入文件夹可能出现列表已切换、面包屑未切换。
+- 缺少 breadcrumbs 权限时进入文件夹会显示持久权限错误；列表与面包屑不会部分提交。
 - 页面 accept 已包含 `.ppt/.pptx`，选择和拖放统一按 accept 校验；文件内容安全仍依赖服务端存储链路。
 - 前端检查 accept 扩展名、20MB 大小和打开链接协议，不校验文件内容或下载域名。
 - 后端 rename/move 已存在但页面无入口，不能在视觉迁移中误标为现有功能。

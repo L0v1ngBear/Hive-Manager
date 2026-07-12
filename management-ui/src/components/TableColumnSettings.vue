@@ -1,11 +1,27 @@
 <template>
   <div class="table-column-settings" ref="rootRef">
-    <button v-if="exportable" type="button" class="column-settings-trigger column-export-trigger" @click="handleExportTable">
+    <button
+      v-if="exportable"
+      type="button"
+      class="column-settings-trigger column-export-trigger"
+      :class="{ 'is-permission-disabled': exportDisabled }"
+      :disabled="exportDisabled"
+      :title="exportDisabledReason && exportDisabled ? exportDisabledReason : '导出当前页'"
+      @click="handleExportTable"
+    >
       <span class="material-symbols-outlined text-[18px]">file_download</span>
       导出当前页
     </button>
 
-    <button v-if="exportAllable" type="button" class="column-settings-trigger column-export-trigger" @click="handleExportAll">
+    <button
+      v-if="exportAllable"
+      type="button"
+      class="column-settings-trigger column-export-trigger"
+      :class="{ 'is-permission-disabled': exportDisabled }"
+      :disabled="exportDisabled"
+      :title="exportDisabledReason && exportDisabled ? exportDisabledReason : '导出全部页'"
+      @click="handleExportAll"
+    >
       <span class="material-symbols-outlined text-[18px]">download_for_offline</span>
       导出全部页
     </button>
@@ -78,6 +94,14 @@ const props = defineProps({
     type: Function,
     default: null
   },
+  exportDisabled: {
+    type: Boolean,
+    default: false
+  },
+  exportDisabledReason: {
+    type: String,
+    default: ''
+  },
   exportAllable: {
     type: Boolean,
     default: false
@@ -113,6 +137,7 @@ function findExportTable() {
 }
 
 async function handleExportTable() {
+  if (props.exportDisabled) return
   try {
     if (hasStructuredExport()) {
       if (props.exportRows.length > MAX_CURRENT_PAGE_ROWS) {
@@ -147,6 +172,7 @@ function hasStructuredExport() {
 }
 
 function handleExportAll() {
+  if (props.exportDisabled) return
   emit('export-all')
 }
 
@@ -206,6 +232,16 @@ onBeforeUnmount(() => {
   background: #ecfdf5;
   border-color: rgba(22, 101, 52, .34);
   color: #14532d;
+}
+
+.column-settings-trigger.is-permission-disabled,
+.column-settings-trigger.is-permission-disabled:hover {
+  cursor: not-allowed;
+  opacity: 0.5;
+  filter: grayscale(1);
+  background: #f1f5f9;
+  color: #64748b;
+  box-shadow: none;
 }
 
 .column-settings-panel {
