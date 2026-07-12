@@ -5,7 +5,7 @@
 - 页面：`management-ui/src/views/function/equipment/equipment.vue`
 - API：`management-ui/src/views/function/equipment/api/equipment.js`
 - 路由：`/function/equipment`，路由名 `Equipment`，功能开关 `module.equipment`。
-- 迁移批次：Batch 1；状态为 `Audit baseline`。
+- 迁移批次：Batch 1；Task 4 已迁移至 Element Plus 控件。
 
 ## 用户功能
 
@@ -38,7 +38,7 @@
 - 初始化设备分页；筛选或分页重新查询。
 - 新建：清空表单 → 输入设备信息 → 校验名称 → 保存 → 关闭编辑层并刷新列表。
 - 编辑：把行数据回填表单并锁定设备编码 → 保存 → 刷新列表。
-- 详情：加载设备详情，同时按设备 ID 加载巡检记录。
+- 详情：先加载设备详情，再按设备 ID 加载最多 20 条巡检记录。
 - 停用：消息框确认 → 调用停用接口 → 刷新列表；状态由启用变为停用。
 
 ## 加载空错态
@@ -49,14 +49,14 @@
 
 ## UI 控件现状
 
-- 原生输入、选择、按钮、表格、分页与手写弹层/详情面板。
-- 已使用 `ElMessage` 和 `ElMessageBox.confirm`；导出使用项目表格导出工具。
-- 状态以自定义徽标显示，操作按钮位于表格行内。
+- 筛选和编辑表单使用 `ElForm`、`ElInput`、`ElInputNumber`、`ElSelect`；命令使用 `ElButton`。
+- 列表、分页、编辑和详情分别使用 `ElTable`、`ElPagination`、`ElDrawer`；状态使用 `ElTag`，加载和空态使用 `v-loading`、`ElEmpty`。
+- 导出继续使用项目表格导出工具，并从 `ElTable` 的真实 DOM 根节点读取当前页可见列与数据。
 
 ## Element Plus 替换与保留项
 
 - 替换：筛选与表单→`ElForm`、`ElInput`、`ElInputNumber`、`ElSelect`；命令→`ElButton`。
-- 替换：列表→`ElTable`，分页→`ElPagination`，编辑→`ElDialog`/`ElDrawer`，详情→`ElDrawer`，状态→`ElTag`。
+- 替换：列表→`ElTable`，分页→`ElPagination`，编辑/详情→`ElDrawer`，状态→`ElTag`。
 - 替换：加载和空态→`v-loading` 与 `ElEmpty`；停用确认继续使用 `ElMessageBox` 或 `ElPopconfirm`。
 - 保留：设备编码编辑锁定、巡检周期默认语义、详情与巡检记录的主从关系、导出字段与文件名。
 
