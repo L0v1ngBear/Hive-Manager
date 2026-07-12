@@ -35,3 +35,16 @@ test("equipment uses Element Plus table pagination and drawers", () => {
     assert.match(source, new RegExp(`<${tag}\\b`));
   }
 });
+
+test("equipment renders one empty state through the ElTable empty slot", () => {
+  const source = read("../src/views/function/equipment/equipment.vue");
+  const table = source.match(/<el-table\b[\s\S]*?<\/el-table>/)?.[0];
+
+  assert.ok(table, "equipment table should exist");
+  assert.match(table, /<template\s+#empty>[\s\S]*?<el-empty\b[\s\S]*?<\/template>/);
+  assert.equal((table.match(/<el-empty\b/g) || []).length, 1);
+
+  const afterTable = source.slice(source.indexOf(table) + table.length);
+  const beforePagination = afterTable.slice(0, afterTable.indexOf('<div class="table-footer">'));
+  assert.doesNotMatch(beforePagination, /<el-empty\b/);
+});

@@ -53,3 +53,41 @@ Results:
 - Existing organization member-request race and stale-member error-state risks remain unchanged by scope.
 - Existing command-level permission visibility remains unchanged; the backend still enforces save/delete/disable permissions.
 - The Element Plus table export relies on the rendered current-page DOM, preserving the prior export scope; it should be manually checked with representative data before release.
+
+## Review Fix: Equipment Empty State
+
+### Reviewer Finding
+
+Verified against `equipment.vue`: `ElTable` retained its built-in empty rendering while an additional `ElEmpty` was rendered after the table when `devices.length === 0`, producing two empty states for one list.
+
+### RED
+
+Command:
+
+```powershell
+node --test tests/element-plus-organization-equipment.test.js
+```
+
+Result: failed as expected with 3 passing and 1 failing test. The new contract reported that the equipment table had no `#empty` slot containing `ElEmpty`.
+
+### Fix
+
+- Added a source contract requiring exactly one `ElEmpty` inside the equipment `ElTable` `#empty` slot and prohibiting another empty node between the table and pagination.
+- Moved the existing equipment empty state into `ElTable`'s `#empty` slot and removed the duplicate external conditional rendering.
+- Loading, permission visibility, pagination, export, row actions, and API logic were unchanged.
+
+### GREEN And Regression
+
+Commands:
+
+```powershell
+node --test tests/element-plus-organization-equipment.test.js
+npx eslint src/views/function/organization/organization.vue src/views/function/equipment/equipment.vue
+npm run build
+```
+
+Results:
+
+- Target test: 4 passing, 0 failing.
+- Target ESLint: exit 0 with no findings.
+- Production build: exit 0; Vite transformed 1843 modules and completed successfully.
