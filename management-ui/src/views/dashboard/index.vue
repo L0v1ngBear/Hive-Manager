@@ -13,11 +13,12 @@
       </div>
 
       <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 w-full lg:w-auto lg:min-w-[500px]">
-        <button
+        <el-button
             v-for="action in quickActions"
             :key="action.route"
             @click="openQuickAction(action)"
-            class="text-left rounded-xl bg-surface-container-lowest px-4 py-3.5 shadow-sm ring-1 ring-outline-variant/20 hover:shadow-md hover:-translate-y-0.5 transition-all group"
+            plain
+            class="h-auto justify-start px-4 py-3.5 text-left"
         >
           <div class="flex items-center gap-3">
             <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary transition-colors">
@@ -30,7 +31,7 @@
               <p class="text-xs text-on-surface-variant truncate mt-1">{{ action.description }}</p>
             </div>
           </div>
-        </button>
+        </el-button>
       </div>
     </section>
 
@@ -82,30 +83,19 @@
           </div>
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary">{{ announcements.length }} 条</span>
-            <button
+            <el-button
                 v-permission="'notification:announcement:publish'"
                 @click="openAnnouncementPublish"
-                class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90"
+                type="primary"
+                size="small"
             >
               发布公告
-            </button>
+            </el-button>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div
-              v-if="announcementLoading && !announcements.length"
-              class="lg:col-span-2 rounded-2xl border border-dashed border-primary/25 bg-primary/5 px-4 py-6 text-sm font-bold text-primary flex items-center justify-center gap-2"
-          >
-            <span class="material-symbols-outlined animate-spin text-[22px]">progress_activity</span>
-            正在同步企业通知公告
-          </div>
-          <div
-              v-else-if="!announcements.length"
-              class="lg:col-span-2 rounded-2xl border border-dashed border-outline-variant/40 bg-surface-container-low px-4 py-6 text-sm font-bold text-on-surface-variant text-center"
-          >
-            暂无企业通知公告
-          </div>
+        <div v-loading="announcementLoading" class="grid min-h-32 grid-cols-1 gap-4 lg:grid-cols-2" element-loading-text="正在同步企业通知公告">
+          <el-empty v-if="!announcementLoading && !announcements.length" class="lg:col-span-2" description="暂无企业通知公告" />
           <div
               v-for="item in announcements"
               :key="item.id || `${item.title}-${item.updateTime}`"
@@ -138,24 +128,13 @@
             <h2 class="text-lg font-black text-on-surface leading-tight">重要公告</h2>
             <p class="text-xs text-on-surface-variant mt-1">集中展示更多需要重点关注的公告。</p>
           </div>
-          <button class="rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-black text-primary" @click="openAnnouncementCenter">
+          <el-button link type="primary" @click="openAnnouncementCenter">
             查看全部
-          </button>
+          </el-button>
         </div>
 
-        <div
-            v-if="announcementLoading && !importantAnnouncements.length"
-            class="flex-1 rounded-xl border border-dashed border-primary/25 bg-primary/5 px-4 py-6 text-sm font-bold text-primary flex items-center justify-center gap-2 min-h-[180px]"
-        >
-          <span class="material-symbols-outlined animate-spin text-[22px]">progress_activity</span>
-          正在同步重要公告
-        </div>
-        <div
-            v-else-if="!importantAnnouncements.length"
-            class="flex-1 rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low px-4 py-6 text-sm font-bold text-on-surface-variant text-center flex items-center justify-center min-h-[180px]"
-        >
-          暂无重要公告
-        </div>
+        <el-empty v-if="!announcementLoading && !importantAnnouncements.length" class="min-h-44" description="暂无重要公告" />
+        <div v-else-if="announcementLoading" v-loading="true" class="min-h-44" element-loading-text="正在同步重要公告"></div>
         <div v-else class="space-y-3 flex-1 overflow-y-auto pr-1 no-scrollbar max-h-[260px]">
           <div
               v-for="item in importantAnnouncements"
@@ -261,7 +240,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElEmpty, ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getDashboardOverview } from './api/dashboard.js'

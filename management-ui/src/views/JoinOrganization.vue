@@ -6,14 +6,14 @@
       <div class="relative mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center">
         <div class="grid w-full gap-8 lg:grid-cols-[0.9fr_1.1fr]">
           <aside class="rounded-[2rem] border border-white/70 bg-white/70 p-8 shadow-[0_28px_80px_rgba(31,63,95,0.12)] backdrop-blur-xl lg:p-10">
-            <button
-              type="button"
-              class="mb-10 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:border-primary/30 hover:text-primary"
+            <el-button
+              class="mb-10"
+              round
               @click="goLogin"
             >
               <span class="material-symbols-outlined text-lg">arrow_back</span>
               返回登录
-            </button>
+            </el-button>
 
             <div class="mb-8 inline-flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
               <img src="../../images/logo.png" alt="蜂巢 logo" class="h-11 w-11 rounded-xl object-contain" />
@@ -50,96 +50,90 @@
               <p class="mt-2 text-sm text-slate-500">手机号将作为网页登录账号，密码用于账号密码登录。</p>
             </div>
 
-            <form class="space-y-5" @submit.prevent="handleJoin">
-              <label class="block">
-                <span class="mb-2 block text-sm font-bold text-slate-700">姓名</span>
-                <input
+            <el-form :model="form" label-position="top" @submit.prevent="handleJoin">
+              <el-form-item label="姓名">
+                <el-input
                   v-model.trim="form.name"
-                  type="text"
                   maxlength="30"
                   placeholder="请输入真实姓名"
-                  class="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-slate-900 outline-none transition focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                  size="large"
                 />
-              </label>
+              </el-form-item>
 
-              <label class="block">
-                <span class="mb-2 block text-sm font-bold text-slate-700">组织码</span>
-                <input
+              <el-form-item label="组织码">
+                <el-input
                   v-model.trim="form.organizationCode"
-                  type="text"
                   maxlength="32"
                   placeholder="请输入管理员提供的组织码"
-                  class="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 uppercase tracking-[0.18em] text-slate-900 outline-none transition focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                  size="large"
                 />
-              </label>
+              </el-form-item>
 
-              <label class="block">
-                <span class="mb-2 block text-sm font-bold text-slate-700">手机号</span>
-                <input
+              <el-form-item label="手机号">
+                <el-input
                   v-model.trim="form.phone"
-                  type="tel"
                   maxlength="11"
                   placeholder="请输入手机号"
-                  class="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-slate-900 outline-none transition focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                  size="large"
                 />
-              </label>
+              </el-form-item>
 
-              <label class="block">
-                <span class="mb-2 block text-sm font-bold text-slate-700">短信验证码</span>
+              <el-form-item label="短信验证码">
                 <div class="flex gap-3">
-                  <input
+                  <el-input
                     v-model.trim="form.smsCode"
-                    type="text"
                     maxlength="6"
                     placeholder="6位验证码"
-                    class="h-14 min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-slate-900 outline-none transition focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                    class="min-w-0 flex-1"
+                    size="large"
                   />
-                  <button
-                    type="button"
-                    class="h-14 w-36 rounded-2xl border border-primary/30 bg-primary/10 px-3 text-sm font-black text-primary transition hover:bg-primary/15 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                  <el-button
+                    class="w-36"
+                    size="large"
                     :disabled="codeSending || codeCountdown > 0"
+                    :loading="codeSending"
                     @click="handleSendCode"
                   >
                     {{ codeButtonText }}
-                  </button>
+                  </el-button>
                 </div>
-              </label>
+              </el-form-item>
 
               <div class="grid gap-4 sm:grid-cols-2">
-                <label class="block">
-                  <span class="mb-2 block text-sm font-bold text-slate-700">登录密码</span>
-                  <input
+                <el-form-item label="登录密码">
+                  <el-input
                     v-model="form.password"
                     type="password"
-                    minlength="8"
+                    show-password
                     maxlength="64"
                     placeholder="至少8位，含字母数字"
-                    class="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-slate-900 outline-none transition focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                    size="large"
                   />
-                </label>
+                </el-form-item>
 
-                <label class="block">
-                  <span class="mb-2 block text-sm font-bold text-slate-700">确认密码</span>
-                  <input
+                <el-form-item label="确认密码">
+                  <el-input
                     v-model="form.confirmPassword"
                     type="password"
-                    minlength="8"
+                    show-password
                     maxlength="64"
                     placeholder="再次输入密码"
-                    class="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-slate-900 outline-none transition focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10"
+                    size="large"
                   />
-                </label>
+                </el-form-item>
               </div>
 
-              <button
-                type="submit"
-                class="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-base font-black text-white shadow-xl shadow-primary/20 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-slate-300"
+              <el-button
+                native-type="submit"
+                type="primary"
+                size="large"
+                class="mt-4 w-full"
                 :disabled="submitting"
+                :loading="submitting"
               >
-                <span v-if="submitting" class="material-symbols-outlined animate-spin">progress_activity</span>
                 {{ submitting ? '正在加入...' : '确认加入组织' }}
-              </button>
-            </form>
+              </el-button>
+            </el-form>
           </section>
         </div>
       </div>
@@ -150,7 +144,7 @@
 <script setup>
 import { computed, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElForm, ElFormItem, ElInput, ElMessage } from 'element-plus'
 import { joinOrganization, sendOrganizationJoinCode } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 

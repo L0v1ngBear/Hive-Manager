@@ -1,6 +1,6 @@
 # 布局与导航维护档案
 
-> 状态：Audit baseline；迁移批次：Batch 2；范围：应用壳、路由守卫、侧栏、顶栏、搜索与通知入口。
+> 状态：Task 8 Element Plus migrated；迁移批次：Batch 2；范围：应用壳、路由守卫、侧栏、顶栏、搜索与通知入口。
 
 ## 功能
 
@@ -84,23 +84,14 @@ Navbar 通过 `management-ui/src/api/notification.js` 调用：
 - 通知请求失败仅提示并保留当前数组；平台租户直接清空通知。
 - 审批摘要请求失败时 Sidebar 将角标归零，不区分真实 0 与请求失败。
 
-## 控件和样式现状
+## Element Plus 控件和保留项
 
-- Layout/Sidebar/Navbar 主要使用原生 `button`、`input`、RouterLink 和 Tailwind 类。
-- 图标使用本地 Material Symbols 字体。
-- 消息、确认框使用 `ElMessage`、`ElMessageBox`。
-- 移动菜单为手写固定遮罩，不是 `ElDrawer`。
-- 搜索、通知和用户下拉均为手写绝对定位面板，不是 Element Plus Popper 组件。
-- scoped CSS 继续使用硬编码颜色、阴影、模糊和胶囊圆角。
-
-## Element Plus 接入/替换建议
-
-- 先建立单一导航描述对象，再由 Router、Sidebar 和 Navbar 消费；这一步不改变访问语义。
-- 移动侧栏可迁移到 `ElDrawer`，需保留路由变化关闭和两个视口状态。
-- 搜索输入可迁移 `ElAutocomplete` 或 `ElInput`，结果项仍复用现有权限装饰结果。
-- 通知/用户菜单可迁移 `ElPopover` 或 `ElDropdown`，保留点击外部、关闭任务和异步刷新。
-- 折叠按钮、菜单项可使用 `ElMenu` 前需验证 disabled 原因、审批角标和平台租户过滤。
-- 不应只替换视觉控件而继续保留三份元数据。
+- Navbar 通知面板使用显式导入的 `ElPopover`、`ElBadge`、`ElButton`；打开时仍刷新未读通知，完成/跳过/同步 API 不变。
+- Navbar 用户菜单使用 `ElDropdown`、`ElDropdownMenu`、`ElDropdownItem`；退出仍经过 `ElMessageBox.confirm`。
+- Sidebar 菜单、更多功能和折叠命令使用 `ElButton`，审批待办数使用 `ElBadge`。
+- 菜单仍由 RouterLink、`decorateAccessItems`、feature/permission 检查和原导航方法驱动，禁用警告文案不变。
+- 移动侧栏和搜索结果面板保持原响应式结构；本任务没有修改路由元数据或三份导航描述数据。
+- 图标继续使用本地 Material Symbols 字体，Element Plus 组件均为显式导入。
 
 ## 风险
 

@@ -1,6 +1,6 @@
 # 总览大盘维护档案
 
-> 状态：Audit baseline；迁移批次：Batch 2；路由：`/dashboard`；feature：`module.dashboard`。
+> 状态：Task 8 Element Plus migrated；迁移批次：Batch 2；路由：`/dashboard`；feature：`module.dashboard`。
 
 ## 功能
 
@@ -61,29 +61,26 @@
 
 - overview 加载时显示手写 fixed 全屏遮罩和旋转 Material 图标。
 - overview 失败时使用 `ElMessage.error`，页面保留初始零值和空数组。
-- 公告加载中且列表为空时展示独立同步提示。
-- 公告真实为空时展示“暂无企业通知公告/暂无重要公告”。
+- 公告加载使用独立 `v-loading`，不会阻塞 overview 主数据。
+- 公告真实为空时使用 `ElEmpty` 展示“暂无企业通知公告/暂无重要公告”。
 - 公告请求失败被 catch 后清空数组，不显示错误提示，因此与真实空数据视觉相同。
 - 业务提醒为空显示“暂无提醒”。
 - 无考勤权限显示“暂无查看权限”；有权限但无数据使用后端 statusText。
 
-## 控件和样式现状
+## Element Plus 控件和样式现状
 
-- 页面由原生 `button`、article、列表和 Tailwind 工具类组成。
-- 摘要、公告、提醒和考勤使用手写卡片布局，没有 `ElCard`、`ElStatistic` 或 `ElEmpty`。
-- 加载图标和业务图标使用 Material Symbols。
-- 仅消息反馈使用 `ElMessage`。
+- 快捷动作、发布公告和查看全部使用显式导入的 `ElButton`，后端下发 route 与点击方法保持不变。
+- 公告加载和空态使用 `v-loading`、`ElEmpty`；错误反馈继续使用 `ElMessage`。
+- 摘要、公告、提醒和考勤保留原有非嵌套卡片布局，没有为迁移额外套入 `ElCard`。
+- 业务图标继续使用 Material Symbols。
 - 卡片在 1/2/3 列断点间响应，主体最大宽度为 `max-w-7xl`。
 - 公告和提醒列表使用隐藏滚动条的局部滚动容器。
 
-## Element Plus 接入/替换建议
+## 保留项
 
-- overview 局部加载可改为已正确注册的 `v-loading`；公告保持独立 loading，避免互相阻塞。
-- 真实空数据可使用 `ElEmpty`，请求错误应保留单独错误块与重试按钮。
-- 快捷动作保持后端驱动，按钮可迁移 `ElButton`，不能改写 route 或权限来源。
-- 摘要卡可使用 `ElStatistic`，但当前信息密度和三列响应式布局应保持。
-- 公告级别可使用 `ElTag`，保留 normal/urgent/important/critical/warning 的现有文本映射。
-- 不建议为标准化而把每个板块套入嵌套 `ElCard`。
+- overview 数据映射、快捷动作 route、公告 API 参数和发布权限未改变。
+- 摘要卡保持当前信息密度和三列响应式布局。
+- 公告 normal/urgent/important/critical/warning 文本和颜色映射保持原实现。
 
 ## 风险
 

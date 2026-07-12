@@ -94,57 +94,41 @@
             <p class="text-slate-500 mt-2 font-medium">欢迎回来，请输入账号信息</p>
           </div>
 
-          <form class="space-y-6" @submit.prevent="handleLogin">
-            <div class="space-y-2">
-              <label class="text-sm font-bold text-slate-700 block" for="username">账号</label>
-              <div class="relative">
-                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <span class="material-symbols-outlined text-slate-400 text-lg">person</span>
-                </div>
-                <input
+          <el-form :model="loginForm" label-position="top" class="space-y-2" @submit.prevent="handleLogin">
+            <el-form-item label="账号">
+                <el-input
                     id="username"
                     v-model.trim="loginForm.username"
-                    type="text"
                     autocomplete="username"
-                    required
                     placeholder="请输入员工编号或邮箱"
-                    :class="['w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-200',
-                          isError ? 'border-error/50 focus:ring-error/20 bg-error/5' : 'border-slate-200 focus:border-primary focus:ring-primary/10']"
-                />
-              </div>
-            </div>
+                    size="large"
+                >
+                  <template #prefix><span class="material-symbols-outlined text-lg">person</span></template>
+                </el-input>
+            </el-form-item>
 
-            <div class="space-y-2">
+            <el-form-item>
+              <template #label>
               <div class="flex justify-between items-center">
-                <label class="text-sm font-bold text-slate-700 block" for="password">密码</label>
+                <span>密码</span>
                 <a href="#" class="text-sm font-semibold text-primary hover:text-primary/80 transition-colors" @click.prevent="openResetPasswordDialog">忘记密码?</a>
               </div>
-              <div class="relative">
-                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <span class="material-symbols-outlined text-slate-400 text-lg">lock</span>
-                </div>
-                <input
+              </template>
+                <el-input
                     id="password"
                     v-model="loginForm.password"
                     type="password"
                     autocomplete="current-password"
-                    required
+                    show-password
                     placeholder="••••••••"
-                    :class="['w-full pl-11 pr-4 py-3.5 bg-slate-50 border rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 transition-all duration-200 tracking-widest',
-                          isError ? 'border-error/50 focus:ring-error/20 bg-error/5' : 'border-slate-200 focus:border-primary focus:ring-primary/10']"
-                />
-              </div>
-            </div>
+                    size="large"
+                >
+                  <template #prefix><span class="material-symbols-outlined text-lg">lock</span></template>
+                </el-input>
+            </el-form-item>
 
             <div class="flex flex-col gap-2 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <label class="inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-slate-700">
-                <input
-                    v-model="rememberLogin"
-                    type="checkbox"
-                    class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/20"
-                />
-                <span>记住账号</span>
-              </label>
+              <el-checkbox v-model="rememberLogin">记住账号</el-checkbox>
               <span class="text-xs font-medium text-slate-500">仅保存账号，不保存密码和登录密钥</span>
             </div>
 
@@ -154,128 +138,106 @@
                 {{ errorMessage }}
               </div>
 
-              <button
-                  type="submit"
-                  class="w-full py-4 bg-primary hover:bg-primary/90 text-white font-bold text-base rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
+              <el-button
+                  native-type="submit"
+                  type="primary"
+                  size="large"
+                  class="w-full"
+                  :loading="isLoading"
                   :disabled="isLoading"
               >
-                <span v-if="isLoading" class="material-symbols-outlined animate-spin text-xl">progress_activity</span>
                 <span>{{ isLoading ? '正在验证身份...' : '立即登录系统' }}</span>
                 <span v-if="!isLoading" class="material-symbols-outlined text-lg ml-1">arrow_forward</span>
-              </button>
+              </el-button>
 
-              <button
-                  type="button"
-                  class="w-full py-3.5 bg-white hover:bg-slate-50 text-slate-700 font-bold text-base rounded-xl border border-slate-200 transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
+              <el-button
+                  class="w-full"
+                  size="large"
                   @click="goJoinOrganization"
               >
                 <span class="material-symbols-outlined text-lg text-primary">group_add</span>
                 <span>使用组织码加入组织</span>
-              </button>
+              </el-button>
             </div>
-          </form>
+          </el-form>
         </section>
       </div>
     </section>
 
-    <section
-      v-if="resetDialogVisible"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm"
-      @click.self="closeResetPasswordDialog"
-    >
-      <div class="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl border border-white/70">
-        <div class="mb-6 flex items-start justify-between gap-4">
+    <el-dialog v-model="resetDialogVisible" title="重置密码" width="440px" destroy-on-close @closed="closeResetPasswordDialog">
+        <div class="mb-6">
           <div>
-            <h2 class="text-2xl font-extrabold text-slate-900">重置密码</h2>
             <p class="mt-2 text-sm text-slate-500">通过绑定手机号接收短信验证码后修改登录密码。</p>
           </div>
-          <button
-            type="button"
-            class="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-            @click="closeResetPasswordDialog"
-          >
-            <span class="material-symbols-outlined text-xl">close</span>
-          </button>
         </div>
 
-        <form class="space-y-4" @submit.prevent="handleResetPassword">
-          <label class="block">
-            <span class="mb-2 block text-sm font-bold text-slate-700">绑定手机号</span>
-            <input
+        <el-form :model="resetForm" label-position="top" @submit.prevent="handleResetPassword">
+          <el-form-item label="绑定手机号">
+            <el-input
               v-model.trim="resetForm.phone"
-              type="tel"
               maxlength="11"
               placeholder="请输入绑定手机号"
-              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
             />
-          </label>
+          </el-form-item>
 
-          <label class="block">
-            <span class="mb-2 block text-sm font-bold text-slate-700">登录账号（可选）</span>
-            <input
+          <el-form-item label="登录账号（可选）">
+            <el-input
               v-model.trim="resetForm.account"
-              type="text"
               maxlength="64"
               placeholder="手机号唯一时可不填"
-              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
             />
-          </label>
+          </el-form-item>
 
-          <label class="block">
-            <span class="mb-2 block text-sm font-bold text-slate-700">短信验证码</span>
+          <el-form-item label="短信验证码">
             <div class="flex gap-3">
-              <input
+              <el-input
                 v-model.trim="resetForm.code"
-                type="text"
                 maxlength="6"
                 placeholder="6位验证码"
-                class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+                class="min-w-0 flex-1"
               />
-              <button
-                type="button"
-                class="w-32 rounded-xl border border-primary/30 bg-primary/10 px-3 py-3 text-sm font-bold text-primary disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+              <el-button
+                class="w-32"
                 :disabled="codeSending || codeCountdown > 0"
+                :loading="codeSending"
                 @click="handleSendResetCode"
               >
                 {{ codeCountdown > 0 ? `${codeCountdown}s` : (codeSending ? '发送中' : '获取验证码') }}
-              </button>
+              </el-button>
             </div>
-          </label>
+          </el-form-item>
 
-          <label class="block">
-            <span class="mb-2 block text-sm font-bold text-slate-700">新密码</span>
-            <input
+          <el-form-item label="新密码">
+            <el-input
               v-model="resetForm.newPassword"
               type="password"
-              minlength="8"
+              show-password
               maxlength="64"
               placeholder="至少8位，包含字母和数字"
-              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
             />
-          </label>
+          </el-form-item>
 
-          <label class="block">
-            <span class="mb-2 block text-sm font-bold text-slate-700">确认新密码</span>
-            <input
+          <el-form-item label="确认新密码">
+            <el-input
               v-model="resetForm.confirmPassword"
               type="password"
-              minlength="8"
+              show-password
               maxlength="64"
               placeholder="请再次输入新密码"
-              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-800 outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
             />
-          </label>
+          </el-form-item>
 
-          <button
-            type="submit"
-            class="mt-2 flex w-full items-center justify-center rounded-xl bg-primary py-3.5 text-base font-bold text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-slate-300"
+          <el-button
+            native-type="submit"
+            type="primary"
+            class="mt-2 w-full"
+            :loading="resetSubmitting"
             :disabled="resetSubmitting"
           >
             {{ resetSubmitting ? '提交中...' : '确认修改密码' }}
-          </button>
-        </form>
-      </div>
-    </section>
+          </el-button>
+        </el-form>
+    </el-dialog>
 
   </main>
 </template>
@@ -287,7 +249,7 @@ import { createScanLoginSession, getScanLoginStatus, login, resetPassword, sendP
 import { useUserStore } from '@/stores/user'
 import { normalizeLoginRedirect } from '@/utils/redirect'
 import { readLoginMemory, saveLoginMemory } from '@/utils/loginMemory'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElCheckbox, ElDialog, ElForm, ElFormItem, ElInput, ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
