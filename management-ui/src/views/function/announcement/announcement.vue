@@ -125,6 +125,7 @@ import { useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElEmpty, ElMessage, ElSkeleton, ElTag } from 'element-plus'
 import { getAnnouncements } from '@/api/notification.js'
 import { useUserStore } from '@/stores/user.js'
+import { createLatestRequestGuard } from './latestRequestGuard.js'
 
 defineOptions({ name: 'AnnouncementCenter' })
 
@@ -135,6 +136,7 @@ const loading = ref(false)
 const announcementLoadError = ref('')
 const activeLevel = ref('all')
 const announcements = ref([])
+const announcementRequestGuard = createLatestRequestGuard()
 const canPublishAnnouncement = computed(() => userStore.hasPermission(ANNOUNCEMENT_PUBLISH_PERMISSION))
 
 const levelTabs = [
@@ -145,20 +147,29 @@ const levelTabs = [
 ]
 
 async function loadAnnouncements() {
-  announcementLoadError.value = ''
-  loading.value = true
+  const requestId = announcementRequestGuard.begin()
+  announcementRequestGuard.commit(requestId, () => {
+    announcementLoadError.value = ''
+    loading.value = true
+  })
   try {
     const params = { limit: 30 }
     if (activeLevel.value !== 'all') {
       params.levels = activeLevel.value
     }
     const data = await getAnnouncements(params)
-    announcements.value = Array.isArray(data) ? data : []
+    announcementRequestGuard.commit(requestId, () => {
+      announcements.value = Array.isArray(data) ? data : []
+    })
   } catch (error) {
-    announcements.value = []
-    announcementLoadError.value = error?.msg || error?.message || '公告加载失败，请稍后重试。'
+    announcementRequestGuard.commit(requestId, () => {
+      announcements.value = []
+      announcementLoadError.value = error?.msg || error?.message || '公告加载失败，请稍后重试。'
+    })
   } finally {
-    loading.value = false
+    announcementRequestGuard.commit(requestId, () => {
+      loading.value = false
+    })
   }
 }
 
