@@ -9,7 +9,7 @@
 - 服务：`management/src/main/java/my/management/module/notification/service/EnterpriseAnnouncementService.java`。
 - 路由：`/function/announcement`、`/function/announcement/publish`。
 - 前端 feature：两条路由均为 `module.dashboard`。
-- 迁移批次：Batch 1；当前状态为 Audit baseline。
+- 迁移批次：Batch 1；当前状态为 Element Plus migrated。
 
 ## 功能
 
@@ -61,19 +61,19 @@
 
 ## 控件现状
 
-- 页面布局、等级 tabs、公告卡、接收人列表和按钮均为原生元素。
-- 发布页使用原生 `select`、`input`、`textarea` 和按钮。
-- 反馈使用 `ElMessage`；当前没有 Element Plus 表单、标签、空态或加载组件。
+- 页面布局、公告卡和接收人列表保留领域布局；命令与等级切换使用 `ElButton`。
+- 发布页使用 `ElForm`、`ElSelect`、`ElOption`、`ElInput` 和 `ElButton`。
+- 列表使用 `ElSkeleton`、`ElEmpty` 和 `ElTag`；反馈继续使用 `ElMessage`。
 - 公告列表是双列卡片，不是传统表格。
 - 已读人员区域使用限定高度的自定义滚动列表。
 
 ## Element Plus 对照/保留项
 
-- 等级筛选可使用 `ElSegmented` 或 `ElRadioGroup`，值仍为 `all/normal/urgent/important`。
+- 等级筛选使用 `ElButton`，值仍为 `all/normal/urgent/important`。
 - 等级和阅读状态使用 `ElTag`，保持现有紧急/重要/普通语义颜色。
 - 发布表单使用 `ElForm`、`ElSelect`、`ElInput` 和 textarea 模式。
 - 命令使用 `ElButton`，发布按钮保留真实 loading 和权限禁用原因。
-- 加载、空态、错误分别使用 `v-loading`、`ElEmpty`、`ElAlert`，不得互相替代。
+- 加载、空态、错误分别使用 `ElSkeleton`、`ElEmpty`、`ElMessage`，不得互相替代。
 - 保留公告卡与接收人阅读明细的领域布局，不强行改造成 `ElTable`。
 - 保留正文换行、长文本滚动、接收人字段和 `limit/levels` 查询契约。
 
