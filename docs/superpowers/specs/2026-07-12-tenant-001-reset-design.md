@@ -51,4 +51,3 @@ This task only creates and validates the local reset workflow in `C:/Users/HUAWE
 ## Verification
 
 Static tests must prove the fixed target, preview gate, backup ordering, preservation predicates, dynamic tenant-table coverage, transactional failure handling, cache and path boundaries, manifest exclusion, and the explicit prohibition on deleting the tenant row, global permissions, active built-in roles, or preserved administrators.
-

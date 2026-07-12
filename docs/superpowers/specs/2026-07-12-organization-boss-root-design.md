@@ -40,4 +40,3 @@ Automated tests must prove:
 - other leaderless roots are reparented under the boss;
 - the output contains no synthetic `组织架构` node;
 - the page template no longer branches on `isVirtualRoot`.
-
