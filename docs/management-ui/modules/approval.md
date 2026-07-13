@@ -54,8 +54,8 @@
 - 列表加载另按各标签的 `listPermission` 判断；提交账号可进入财务/离职标签但不会请求无权列表。
 - 审批按钮同时检查类型审核权限和后端返回的 `canAudit`/审核人 ID。
 - 明确差异：路由未列出财务、请假、离职的 `:audit` 权限，只有审核权限的账号可能在路由层被拒绝。
-- 明确差异：详情按钮没有检查 `leave/finance/resignation:detail` 或 `order:detail`，列表可见后仍可能收到 403。
-- 财务附件下载同样要求 `approval:finance:detail`，当前详情中的下载动作没有独立前端权限门。
+- 详情命令按 `approval:leave:detail`、`approval:finance:detail`、`approval:resignation:detail` 或 `order:detail` 校验；质量详情沿用 `badproduct:process`。无权限命令保持可见但禁用，并说明原因，处理函数也不会发起请求。
+- 财务附件下载要求 `approval:finance:detail`，下载命令和处理函数均设置独立权限门。
 - 默认负责人统一借用 `approval:finance:audit`，不是五类独立配置权限。
 - summary 和 auditors 无方法级 `@RequirePermission`；不能把前端可见性当成后端授权。
 
@@ -76,7 +76,7 @@
 - 汇总失败会被转换为全零，当前无法区分“确实无待办”和“汇总请求失败”。
 - 每次列表请求开始立即清空 `rows`；401、403、网络错误和 5xx 使用不同持久错误状态。
 - 标签快速切换使用递增 request id，只允许最后一次请求提交数据或错误，旧响应不会覆盖当前标签。
-- 详情加载没有独立 loading/error 面；失败依赖全局消息且不会打开新详情。
+- 详情打开前清空旧内容，独立呈现 loading、真实空态、401/403、网络/5xx 失败并支持重试；递增 request-id 只允许最后一次详情请求更新界面。
 - 审核、提交按钮缺少统一的行级 in-flight 锁，快速重复点击可能并发发请求。
 - 附件有上传中状态和 10MB 前端限制；下载使用 blob/object URL。
 

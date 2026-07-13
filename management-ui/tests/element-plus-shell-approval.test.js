@@ -26,6 +26,8 @@ const login = read('src/views/Login.vue')
 const joinOrganization = read('src/views/JoinOrganization.vue')
 const forcePasswordChange = read('src/views/ForcePasswordChange.vue')
 const noPermission = read('src/views/NoPermission.vue')
+const approvalDoc = read('../docs/management-ui/modules/approval.md')
+const dashboardDoc = read('../docs/management-ui/modules/dashboard.md')
 
 test('approval center uses explicit Element Plus workflow controls', () => {
   assertElementComponents(
@@ -166,4 +168,16 @@ test('dashboard overview clears stale state and commits only the latest retryabl
   assert.match(dashboard, /if \(requestId !== overviewRequestId\) return/)
   assert.match(dashboard, /overviewLoadError\.value = resolveOverviewFailure\(error\)/)
   assert.match(dashboard, /v-if="overviewLoadError"[\s\S]*@click="fetchOverview"/)
+})
+
+test('Task 8 module records describe the final detail and overview behavior', () => {
+  assert.doesNotMatch(approvalDoc, /详情按钮没有检查/)
+  assert.doesNotMatch(approvalDoc, /下载动作没有独立前端权限门/)
+  assert.doesNotMatch(approvalDoc, /详情加载没有独立 loading\/error 面/)
+  assert.match(approvalDoc, /详情命令按 `approval:leave:detail`、`approval:finance:detail`、`approval:resignation:detail` 或 `order:detail`/)
+  assert.match(approvalDoc, /request-id/)
+
+  assert.doesNotMatch(dashboardDoc, /overview 失败时使用 `ElMessage\.error`，页面保留初始零值和空数组/)
+  assert.match(dashboardDoc, /overview 请求前清空/)
+  assert.match(dashboardDoc, /独立错误面板/)
 })
