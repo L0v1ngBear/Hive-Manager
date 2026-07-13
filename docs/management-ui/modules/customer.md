@@ -58,7 +58,7 @@
 - customerFieldConfig 决定字段标签、显示与必填规则。
 - 列表只为 customerName、customerType、contactName、contactPhone、projectName、projectOwner、projectCount、constructionArea 提供渲染器。
 - useLocalTableColumns 将动态默认列与浏览器保存顺序合并。
-- 打开详情后通过 getCustomerDetail 写入 detailData。
+- 打开详情后通过带请求序号的 latest-request runner 调用 getCustomerDetail，仅提交当前客户的响应；关闭弹窗会使在途请求失效。
 - 新建成功关闭/复位抽屉并刷新列表；编辑成功同样刷新。
 - 编辑抽屉 watch visible/customerId，按模式重置表单或加载详情。
 - 提交 payload 保持 contacts 与 projects 数组结构；更新模式携带客户 id。
@@ -67,10 +67,11 @@
 
 - loading 控制 ElTable 的 v-loading、分页禁用和空态判定。
 - 非加载且 customerList 为空时显示表格空态。
-- detailLoading、loadingDetail 与 submitting 分别覆盖详情、编辑回填和提交过程。
+- detailLoading、detailError、detailEmpty、loadingDetail 与 submitting 分别覆盖详情加载、错误、真实空响应、编辑回填和提交过程。
 - 列表请求开始即清空旧数据；401/403、网络错误和 5xx 分别形成持久错误面板，并提供重试。
 - 权限/请求失败、加载、真实空列表和筛选无结果按互斥分支展示。
-- 详情、字段配置和列表分别维护自己的异步流程，没有合并成会互相覆盖的单一 loading。
+- 列表和详情分别使用独立请求序号，旧筛选或旧客户响应不会覆盖最新状态；详情关闭后旧响应也不会重新写入。
+- 详情对 HTTP/业务 401、403、网络错误和 5xx 显示互斥持久错误面板并提供重试；空响应显示独立真实空态。
 
 ## 当前 Element Plus / 自定义控件
 

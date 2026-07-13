@@ -49,10 +49,8 @@ test("customer and document current-page exports use explicit row data", () => {
   }
 
   assert.match(settings, /exportRowsToExcel/);
-  assert.match(
-    settings,
-    /if \(hasStructuredExport\(\)\) \{[\s\S]*?await exportRowsToExcel\([\s\S]*?return[\s\S]*?\}\s*await exportTableElementToExcel\(findExportTable\(\)/,
-  );
+  assert.match(settings, /buildStructuredExportData/);
+  assert.match(settings, /await exportRowsToExcel\([\s\S]*?headers: exportData\.headers,[\s\S]*?rows: exportData\.rows/);
 });
 
 test("structured current-page export retains the row limit", () => {
@@ -84,7 +82,8 @@ test("customer and document lists expose mutually exclusive persistent load stat
   const document = read("../src/views/function/document/document.vue");
 
   assert.match(customer, /const listError = ref\(null\)/);
-  assert.match(customer, /customerList\.value = \[\][\s\S]*?await getCustomerPage/);
+  assert.match(customer, /onLoading\(value\)[\s\S]*?customerList\.value = \[\]/);
+  assert.match(customer, /customerListRunner\.run\(\(\) => getCustomerPage/);
   assert.match(customer, /status === 401[\s\S]*?status === 403[\s\S]*?status >= 500/);
   assert.match(customer, /<el-result\b[\s\S]*?v-if="listError"[\s\S]*?@click="fetchCustomerList"/);
 
@@ -142,4 +141,26 @@ test("document directory requests ignore stale responses", () => {
   assert.match(document, /let documentRequestId = 0/);
   assert.match(document, /const requestId = \+\+documentRequestId/);
   assert.match(document, /if \(requestId !== documentRequestId\) return/);
+});
+
+test("customer requests ignore stale responses and detail exposes retryable states", () => {
+  const customer = read("../src/views/function/customer/customer.vue");
+
+  assert.match(customer, /createLatestRequestRunner/);
+  assert.match(customer, /customerListRunner\.run/);
+  assert.match(customer, /customerDetailRunner\.run/);
+  assert.match(customer, /@close="invalidateCustomerDetail"/);
+  assert.match(customer, /v-else-if="detailError"/);
+  assert.match(customer, /@click="retryCustomerDetail"/);
+  assert.match(customer, /v-else-if="detailEmpty"/);
+});
+
+test("document navigation keeps breadcrumb permission commands visible and disabled", () => {
+  const document = read("../src/views/function/document/document.vue");
+
+  assert.match(document, /hasPermission\('document:breadcrumbs'\)/);
+  assert.match(document, /:disabled="currentParentId === 0 \|\| !canBrowseDocuments"/);
+  assert.match(document, /:disabled="!canBrowseDocuments"/);
+  assert.match(document, /breadcrumbPermissionReason/);
+  assert.match(document, /documentNavigator\.openFolder/);
 });

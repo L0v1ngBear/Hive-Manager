@@ -62,6 +62,7 @@
 import { ElMessage } from 'element-plus'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { exportRowsToExcel, exportTableElementToExcel } from '@/utils/tableExport'
+import { buildStructuredExportData } from '@/utils/structuredTableExport'
 
 const MAX_CURRENT_PAGE_ROWS = 2000
 
@@ -143,13 +144,14 @@ async function handleExportTable() {
       if (props.exportRows.length > MAX_CURRENT_PAGE_ROWS) {
         throw new Error(`当前页可导出数据不能超过 ${MAX_CURRENT_PAGE_ROWS} 行，请缩小筛选范围或使用全量导出`)
       }
+      const exportData = buildStructuredExportData(props.columns, props.exportRows, props.exportCell)
       await exportRowsToExcel({
         title: props.exportFileName || props.exportSheetName || '列表数据',
         fileName: props.exportFileName,
         sheetName: props.exportSheetName,
         sourceModule: props.exportModule,
-        headers: props.columns.map((column) => column.label),
-        rows: props.exportRows.map((row) => props.columns.map((column) => props.exportCell(row, column)))
+        headers: exportData.headers,
+        rows: exportData.rows
       })
       ElMessage.success('Excel 已导出')
       return
