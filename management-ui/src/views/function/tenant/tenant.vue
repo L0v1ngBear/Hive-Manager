@@ -111,6 +111,7 @@ import {
   updateTenantStatus
 } from '@/api/tenantManage'
 import { useUserStore } from '@/stores/user'
+import { createLatestLoadingController } from './tenantRequestState.js'
 
 defineOptions({ name: 'TenantManage' })
 
@@ -126,7 +127,7 @@ const saving = ref(false)
 const profileSaving = ref(false)
 const ownerSaving = ref(false)
 const logoUploading = ref(false)
-let logoRequestId = 0
+const logoRequest = createLatestLoadingController((value) => { logoUploading.value = value })
 let tenantListRequestId = 0, featureRequestId = 0
 const profileTenant = ref(null)
 const editingTenant = ref(null)
@@ -217,7 +218,7 @@ function openLicenseEditor(tenant) {
 }
 
 function openProfileEditor(tenant) {
-  logoRequestId += 1
+  logoRequest.invalidate()
   profileTenant.value = tenant
   profileForm.tenantName = tenant.tenantName || ''
   profileForm.tenantType = tenant.tenantType ?? 1
@@ -227,7 +228,7 @@ function openProfileEditor(tenant) {
 }
 
 function closeProfileEditor() {
-  logoRequestId += 1
+  logoRequest.invalidate()
   profileTenant.value = null
 }
 
@@ -327,20 +328,19 @@ async function uploadLogoFile(file) {
     return
   }
   const targetTenant = profileTenant.value
-  const requestId = ++logoRequestId
+  const requestId = logoRequest.begin()
   const formData = new FormData()
   formData.append('file', file)
-  logoUploading.value = true
   try {
     const result = await uploadTenantLogo(targetTenant.id, formData)
-    if (requestId !== logoRequestId || profileTenant.value?.id !== targetTenant.id) return
+    if (!logoRequest.isCurrent(requestId) || profileTenant.value?.id !== targetTenant.id) return
     profileForm.logoUrl = result.logoUrl || ''
     profileTenant.value = { ...profileTenant.value, logoUrl: profileForm.logoUrl }
     syncTenantBrand(result)
     ElMessage.success('公司Logo已上传')
     await loadTenants()
   } finally {
-    if (requestId === logoRequestId) logoUploading.value = false
+    logoRequest.finish(requestId)
   }
 }
 

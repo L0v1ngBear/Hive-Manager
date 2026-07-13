@@ -106,8 +106,8 @@ test("models mutually exclusive request states, retries, request ids, and pendin
   assert.match(tenant, /featureError/);
   assert.match(price, /detailRequestId/);
   assert.match(priceCreate, /detailRequestId/);
-  assert.match(tenant, /logoRequestId/);
-  assert.match(tenant, /requestId === logoRequestId[\s\S]*logoUploading\.value = false/);
+  assert.match(tenant, /createLatestLoadingController/);
+  assert.match(tenant, /logoRequest\.finish\(requestId\)/);
   assert.match(tenant, /statusPending/);
   for (const pending of ["deletingId", "importing", "exporting", "downloadingTemplate"]) {
     assert.match(price, new RegExp(pending));
