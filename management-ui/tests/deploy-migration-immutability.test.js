@@ -2,8 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-
-const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
+import { deployRoot } from './deploy-test-root.js'
 
 function read(relativePath) {
   return fs.readFileSync(path.join(deployRoot, relativePath), 'utf8')
@@ -23,6 +22,22 @@ assert.ok(
   historicalInstallationTaskMigration.includes('express_company') &&
     historicalInstallationTaskMigration.includes('express_no'),
   'V20260705_004 must retain the logistics columns present in the executed historical file'
+)
+
+const historicalInstallationTaskConvergence = read(
+  'db-migrations/migrations/V20260707_001_installation_task_schema_convergence.sql'
+)
+assert.equal(
+  createHash('sha256').update(historicalInstallationTaskConvergence).digest('hex'),
+  'd9fc573187377b1f37d7aa5af23bdfbdf864b36563438a9482ef76a6fa7e32e6',
+  'V20260707_001 must remain byte-for-byte identical to the migration already recorded by the server'
+)
+
+const historicalOrderScopeMigration = read('db-migrations/migrations/V20260710_004_order_role_status_scope.sql')
+assert.equal(
+  createHash('sha256').update(historicalOrderScopeMigration).digest('hex'),
+  '90e52c9d3735ddfecf84bafd0b7c64022d3211c0deec7962bbfe386f50c24b0e',
+  'V20260710_004 must remain byte-for-byte identical to the migration already recorded by the server'
 )
 
 const additiveMigration = read('db-migrations/migrations/V20260706_001_installation_task_special_exception_note.sql')
@@ -71,6 +86,11 @@ assert.ok(
   manifest.includes('migrations/V20260710_004_order_role_status_scope.sql'),
   'sales and production order scopes must be versioned after the role matrix'
 )
+assert.match(
+  manifest,
+  /migrations\/V20260710_004_order_role_status_scope\.sql\r?\n+migrations\/V20260713_001_order_information_channel_and_cancel_reason\.sql\r?\n+migrations\/V20260713_003_permission_catalog_v3\.sql\r?\n?$/,
+  'permission V3 must follow the immutable order information-channel migration'
+)
 
 const deployHealth = read('scripts/check-deploy-health.sh')
 assert.ok(
@@ -85,5 +105,19 @@ assert.ok(
   deployHealth.includes('V20260710_004_order_role_status_scope.sql'),
   'deploy health check must guard the sales/production order scope migration'
 )
+assert.ok(
+  deployHealth.includes('V20260713_001_order_information_channel_and_cancel_reason.sql'),
+  'deploy health check must guard the order information-channel migration'
+)
+
+const releaseIntegrity = read('scripts/verify-release-integrity.sh')
+for (const [migrationName, checksum] of [
+  ['V20260705_004_installation_task_schema.sql', '9ab18545b9f6ef0142a943d54a27ac726a813c3361f4a81f4763f6222d98cd2d'],
+  ['V20260707_001_installation_task_schema_convergence.sql', 'd9fc573187377b1f37d7aa5af23bdfbdf864b36563438a9482ef76a6fa7e32e6'],
+  ['V20260710_004_order_role_status_scope.sql', '90e52c9d3735ddfecf84bafd0b7c64022d3211c0deec7962bbfe386f50c24b0e']
+]) {
+  assert.ok(releaseIntegrity.includes(migrationName), `${migrationName} must be integrity-pinned`)
+  assert.ok(releaseIntegrity.includes(checksum), `${migrationName} must retain its known SHA-256`)
+}
 
 console.log('deploy migration immutability passed')

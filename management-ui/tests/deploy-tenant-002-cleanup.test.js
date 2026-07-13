@@ -2,8 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
+import { deployRoot } from './deploy-test-root.js'
 
-const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
 const read = (relativePath) => fs.readFileSync(path.join(deployRoot, relativePath), 'utf8')
 const readBuffer = (relativePath) => fs.readFileSync(path.join(deployRoot, relativePath))
 
