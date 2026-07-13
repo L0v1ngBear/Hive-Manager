@@ -522,7 +522,7 @@
             <el-empty v-if="!editLoading && editErrorMessage" :description="editErrorMessage">
               <el-button type="primary" @click="openEdit(editingOrderId)">重新加载</el-button>
             </el-empty>
-            <template v-else>
+            <template v-else-if="!editLoading">
             <BusinessTimeCorrectionPanel
               v-model="currentFormCreateTime"
               :active="timeCorrectionMode"
@@ -1750,7 +1750,7 @@ async function openAttachmentUrl(url, name) {
 }
 
 async function submitForm() {
-  if (editLoading.value || editErrorMessage.value) return
+  if (submitting.value || editLoading.value || editErrorMessage.value) return
   if (!canSubmitCurrentForm.value) {
     warnNoOrderStagePermission()
     return
