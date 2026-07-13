@@ -242,7 +242,7 @@
                   <button v-permission="'employee:update'" @click.stop="openEditDrawer(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="编辑">
                     <span class="material-symbols-outlined text-[18px]">edit</span>
                   </button>
-                  <button v-permission="'employee:update'" @click.stop="openPermissionDrawer(emp)" class="p-1.5 hover:bg-white rounded-md text-primary" title="单独权限">
+                  <button v-permission="'employee:permission:manage'" @click.stop="openPermissionDrawer(emp)" class="p-1.5 hover:bg-white rounded-md text-primary" title="单独权限">
                     <span class="material-symbols-outlined text-[18px]">admin_panel_settings</span>
                   </button>
                 </div>

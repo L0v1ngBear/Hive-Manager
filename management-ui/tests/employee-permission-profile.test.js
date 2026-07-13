@@ -10,6 +10,10 @@ const api = readFileSync(
   new URL('../src/views/function/employee/api/employee.js', import.meta.url),
   'utf8'
 )
+const employeePage = readFileSync(
+  new URL('../src/views/function/employee/employee.vue', import.meta.url),
+  'utf8'
+)
 
 test('employee permissions use one V3 profile tree and one tri-state control', () => {
   assert.equal((drawer.match(/<el-tree\b/g) || []).length, 1)
@@ -27,11 +31,17 @@ test('employee permissions use one V3 profile tree and one tri-state control', (
 
 test('employee permission API exposes only the new profile contract', () => {
   const updateBlock = api.match(
-    /export function updateEmployeePermissionOverrides[\s\S]*?\n}\n/
+    /export function updateEmployeePermissionOverrides[\s\S]*?\r?\n}\r?\n/
   )?.[0] || ''
   assert.match(api, /\/emp\/employee\/\$\{id\}\/permission-profile/)
   assert.match(updateBlock, /\/emp\/employee\/\$\{id\}\/permission-overrides/)
   assert.match(updateBlock, /method: 'put'/)
   assert.doesNotMatch(updateBlock, /method: 'post'/)
   assert.doesNotMatch(api, /getEmployeePermissionOverrides/)
+})
+
+test('employee permission entry requires the dedicated V3 permission', () => {
+  const button = employeePage.match(/<button[^>]+openPermissionDrawer[\s\S]*?<\/button>/)?.[0] || ''
+  assert.match(button, /employee:permission:manage/)
+  assert.doesNotMatch(button, /employee:update/)
 })

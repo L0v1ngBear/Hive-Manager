@@ -29,9 +29,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -101,6 +104,7 @@ class EmployeePermissionProfileServiceTest {
 
     @Test
     void buildsOneEffectiveTreeWithRoleSourcesAndPersonalOverrides() {
+        when(employeeMapper.selectOne(any())).thenReturn(employee(5L, 2));
         when(permissionMapper.selectList(any())).thenReturn(permissions);
         SysRole salesRole = new SysRole();
         salesRole.setId(10L);
@@ -138,6 +142,25 @@ class EmployeePermissionProfileServiceTest {
     }
 
     @Test
+    void attachesAndSortsProfileNodesIndependentlyOfCatalogQueryOrder() {
+        List<SysPermission> reversedPermissions = new ArrayList<>(permissions);
+        Collections.reverse(reversedPermissions);
+        when(permissionMapper.selectList(any())).thenReturn(reversedPermissions);
+
+        EmployeePermissionProfileVO profile = service.profile(USER_ID);
+
+        assertEquals(childCodes(permissions, 0L), profile.getPermissions().stream()
+                .map(EmployeePermissionNodeVO::getCode)
+                .toList());
+        for (SysPermission permission : permissions) {
+            EmployeePermissionNodeVO node = find(profile.getPermissions(), permission.getPermCode());
+            assertEquals(childCodes(permissions, permission.getId()), node.getChildren().stream()
+                    .map(EmployeePermissionNodeVO::getCode)
+                    .toList());
+        }
+    }
+
+    @Test
     void rejectsStaleVersionBeforeReplacingOverrides() {
         EmployeePermissionOverrideRequest request = new EmployeePermissionOverrideRequest();
         request.setPermissionVersion(4L);
@@ -151,6 +174,32 @@ class EmployeePermissionProfileServiceTest {
         verify(employeeMapper, never()).incrementPermissionVersion(any(), any(), any());
         verify(userPermissionMapper, never()).delete(any());
         verify(userPermissionMapper, never()).upsertBatch(any());
+    }
+
+    @Test
+    void rejectsPermissionChangesForResignedEmployee() {
+        when(employeeMapper.selectOne(any())).thenReturn(employee(5L, 0));
+        EmployeePermissionOverrideRequest request = new EmployeePermissionOverrideRequest();
+        request.setPermissionVersion(5L);
+        request.setGrants(Set.of("order:detail"));
+        request.setDenies(Set.of());
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.updateOverrides(USER_ID, request));
+
+        assertEquals(403, exception.getCode());
+        verify(employeeMapper, never()).incrementPermissionVersion(any(), any(), any());
+    }
+
+    @Test
+    void rejectsPermissionProfilesForResignedEmployee() {
+        when(employeeMapper.selectOne(any())).thenReturn(employee(5L, 0));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> service.profile(USER_ID));
+
+        assertEquals(403, exception.getCode());
+        verify(permissionMapper, never()).selectList(any());
     }
 
     @Test
@@ -175,10 +224,15 @@ class EmployeePermissionProfileServiceTest {
     }
 
     private Employee employee(long permissionVersion) {
+        return employee(permissionVersion, 1);
+    }
+
+    private Employee employee(long permissionVersion, int status) {
         Employee employee = new Employee();
         employee.setId(USER_ID);
         employee.setTenantCode(TENANT_CODE);
         employee.setPermissionVersion(permissionVersion);
+        employee.setStatus(status);
         return employee;
     }
 
@@ -222,6 +276,15 @@ class EmployeePermissionProfileServiceTest {
             rows.add(permission);
         }
         return rows;
+    }
+
+    private List<String> childCodes(List<SysPermission> permissions, Long parentId) {
+        return permissions.stream()
+                .filter(permission -> Objects.equals(permission.getParentId(), parentId))
+                .sorted(Comparator.comparing(SysPermission::getSort, Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(SysPermission::getId, Comparator.nullsLast(Long::compareTo)))
+                .map(SysPermission::getPermCode)
+                .toList();
     }
 
     private EmployeePermissionNodeVO find(List<EmployeePermissionNodeVO> nodes, String code) {

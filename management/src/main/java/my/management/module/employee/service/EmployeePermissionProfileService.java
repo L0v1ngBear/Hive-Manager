@@ -13,6 +13,7 @@ import my.management.module.employee.mapper.EmployeeChangeLogMapper;
 import my.management.module.employee.model.dto.EmployeePermissionOverrideRequest;
 import my.management.module.employee.model.entity.Employee;
 import my.management.module.employee.model.entity.EmployeeChangeLog;
+import my.management.module.employee.model.enums.EmployeeStatusEnum;
 import my.management.module.employee.model.vo.EmployeePermissionNodeVO;
 import my.management.module.employee.model.vo.EmployeePermissionProfileVO;
 import my.management.module.employee.model.vo.EmployeePermissionRoleSourceVO;
@@ -33,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -149,10 +151,18 @@ public class EmployeePermissionProfileService {
         if (employee == null) {
             throw new BusinessException(404, "员工不存在");
         }
+        if (!isPermissionProfileEligible(employee.getStatus())) {
+            throw new BusinessException(403, "仅在职或试用员工允许查看和配置个人权限");
+        }
         if (employee.getPermissionVersion() == null) {
             throw new BusinessException(500, "员工权限版本未初始化，请先执行部署迁移");
         }
         return employee;
+    }
+
+    private boolean isPermissionProfileEligible(Integer status) {
+        return EmployeeStatusEnum.ACTIVE.getCode().equals(status)
+                || EmployeeStatusEnum.PROBATION.getCode().equals(status);
     }
 
     private List<SysPermission> selectCatalogPermissions() {
@@ -278,10 +288,13 @@ public class EmployeePermissionProfileService {
             Map<Long, List<EmployeePermissionRoleSourceVO>> permissionRoleSources,
             Map<Long, String> personalEffects) {
         Map<Long, EmployeePermissionNodeVO> nodeById = new LinkedHashMap<>();
+        Map<EmployeePermissionNodeVO, Long> idByNode = new IdentityHashMap<>();
         Map<Long, List<EmployeePermissionNodeVO>> childrenByParent = new LinkedHashMap<>();
         List<EmployeePermissionNodeVO> roots = new ArrayList<>();
         for (SysPermission permission : permissions) {
-            nodeById.put(permission.getId(), toNode(permission, permissionRoleSources, personalEffects));
+            EmployeePermissionNodeVO node = toNode(permission, permissionRoleSources, personalEffects);
+            nodeById.put(permission.getId(), node);
+            idByNode.put(node, permission.getId());
         }
         for (SysPermission permission : permissions) {
             EmployeePermissionNodeVO node = nodeById.get(permission.getId());
@@ -292,8 +305,8 @@ public class EmployeePermissionProfileService {
                 childrenByParent.computeIfAbsent(parentId, ignored -> new ArrayList<>()).add(node);
             }
         }
-        roots.forEach(root -> attachChildren(root, childrenByParent));
-        sortTree(roots);
+        roots.forEach(root -> attachChildren(idByNode.get(root), root, childrenByParent, idByNode));
+        sortTree(roots, idByNode);
         return roots;
     }
 
@@ -302,7 +315,6 @@ public class EmployeePermissionProfileService {
             Map<Long, List<EmployeePermissionRoleSourceVO>> permissionRoleSources,
             Map<Long, String> personalEffects) {
         EmployeePermissionNodeVO node = new EmployeePermissionNodeVO();
-        node.setId(permission.getId());
         node.setCode(permission.getPermCode());
         node.setName(permission.getPermName());
         node.setModuleCode(permission.getModuleCode());
@@ -335,11 +347,13 @@ public class EmployeePermissionProfileService {
         }
     }
 
-    private void attachChildren(EmployeePermissionNodeVO node,
-                                Map<Long, List<EmployeePermissionNodeVO>> childrenByParent) {
-        List<EmployeePermissionNodeVO> children = childrenByParent.getOrDefault(node.getId(), Collections.emptyList());
+    private void attachChildren(Long permissionId,
+                                EmployeePermissionNodeVO node,
+                                Map<Long, List<EmployeePermissionNodeVO>> childrenByParent,
+                                Map<EmployeePermissionNodeVO, Long> idByNode) {
+        List<EmployeePermissionNodeVO> children = childrenByParent.getOrDefault(permissionId, Collections.emptyList());
         node.setChildren(new ArrayList<>(children));
-        node.getChildren().forEach(child -> attachChildren(child, childrenByParent));
+        node.getChildren().forEach(child -> attachChildren(idByNode.get(child), child, childrenByParent, idByNode));
         if (!Boolean.TRUE.equals(node.getAssignable()) && !node.getChildren().isEmpty()) {
             node.setEffective(node.getChildren().stream().anyMatch(child -> Boolean.TRUE.equals(child.getEffective())));
             node.setRoleGranted(node.getChildren().stream().anyMatch(child -> Boolean.TRUE.equals(child.getRoleGranted())));
@@ -347,10 +361,11 @@ public class EmployeePermissionProfileService {
         }
     }
 
-    private void sortTree(List<EmployeePermissionNodeVO> nodes) {
+    private void sortTree(List<EmployeePermissionNodeVO> nodes,
+                          Map<EmployeePermissionNodeVO, Long> idByNode) {
         nodes.sort(Comparator.comparing(EmployeePermissionNodeVO::getSort, Comparator.nullsLast(Integer::compareTo))
-                .thenComparing(EmployeePermissionNodeVO::getId, Comparator.nullsLast(Long::compareTo)));
-        nodes.forEach(node -> sortTree(node.getChildren()));
+                .thenComparing(idByNode::get, Comparator.nullsLast(Long::compareTo)));
+        nodes.forEach(node -> sortTree(node.getChildren(), idByNode));
     }
 
     private Map<Long, SysPermission> indexPermissions(List<SysPermission> permissions) {
