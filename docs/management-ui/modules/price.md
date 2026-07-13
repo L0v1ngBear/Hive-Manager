@@ -42,7 +42,7 @@
 
 - 路由入口要求 `price:list`，并受 `module.price` 控制。
 - 后端列表、统计、客户/型号选项、导出和模板下载要求 `price:list`；详情要求 `price:detail`；发布与导入要求 `price:publish`；删除要求 `price:delete`。
-- 详情、发布/调整/导入和删除分别校验 `price:detail`、`price:publish`、`price:delete`；无权限命令保留可见并置灰，通过 tooltip 解释原因，handler 同时拒绝调用。
+- 详情校验 `price:detail`；新增与导入校验 `price:publish`；调整同时要求 `price:publish` 与 `price:detail`；删除校验 `price:delete`。无权限命令保留可见并置灰，通过 tooltip 解释原因，handler 同时拒绝调用。
 - 风险：路由只声明 `price:list`，打开详情本身还需要 `price:detail`，不能把可进入列表等同于可查看/编辑详情。
 
 ## 状态流
@@ -56,7 +56,8 @@
 ## 加载空错态
 
 - 列表和编辑详情有加载状态；无 SKU 时显示空列表，等级价/客户特价为空时显示对应空内容。
-- 列表、详情和编辑候选/详情区分 loading、真实空态、401、403、网络及 5xx，并提供页内重试。
+- 列表、统计、详情和编辑候选/详情区分 loading、真实空态、401、403、网络及 5xx，并提供页内重试；统计失败不伪装为零。
+- 详情调整日志严格读取后端 `logs`，展示 `createTime`、`remark`、`oldPrice`、`newPrice`。
 - 编辑与详情打开前清理旧数据并通过请求序号拒绝过期响应；发布、删除、导入、导出和模板下载均有 pending 防重复提交。
 
 ## UI 控件现状

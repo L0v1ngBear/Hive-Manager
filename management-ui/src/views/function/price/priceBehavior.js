@@ -16,3 +16,6 @@ export function createLatestRequestGate() {
     isCurrent(requestId) { return requestId === sequence }
   }
 }
+
+export function presentPriceLogs(detail) { return Array.isArray(detail?.logs) ? detail.logs : [] }
+export function resolvePriceCommands(canPublish, canDetail) { return { canCreate: Boolean(canPublish), canAdjust: Boolean(canPublish && canDetail) } }

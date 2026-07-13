@@ -60,7 +60,7 @@
 ## 空错态
 
 - 列表有刷新 loading 和“暂无租户数据”。
-- feature 目录加载失败显示独立错误和重试，不再冒充真实空目录。
+- feature 目录具有独立 loading、真实空态、错误与重试；列表和功能目录均采用 latest-request-wins，旧响应与旧 finally 不覆盖新状态。
 - 列表及各保存请求主要依赖全局 request 错误反馈。
 - 企业资料、授权和负责人使用三个 Element Plus 抽屉。
 - Logo 有上传中状态和前端类型/2MB 校验。
@@ -69,7 +69,7 @@
 ## 控件现状
 
 - 租户使用 `ElTable`，状态和 feature 使用 `ElTag`。
-- 三个抽屉通过 `Teleport` 和手写遮罩实现。
+- 三个编辑面板已迁移为 `ElDrawer`，不再使用手写 `Teleport` 遮罩。
 - 表单使用 Element Plus 文本、数字、日期时间、选择、复选框、开关和 textarea。
 - Logo 上传为隐藏 file input 加点击/拖拽区域。
 - 状态切换与负责人转移使用 `ElMessageBox`；反馈使用 `ElMessage`。
