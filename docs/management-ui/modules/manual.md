@@ -1,6 +1,6 @@
 # 使用手册维护档案
 
-> 状态：Audit baseline；迁移批次：Batch 3；保护面：结构化内容编辑器；路由：`/manual`；feature：`module.manual`。
+> 状态：Element Plus migrated with protected custom surface；迁移批次：Batch 3；保护面：结构化内容模型、文章卡片与 Markdown 导出；路由：`/manual`；feature：`module.manual`。
 
 ## 功能
 
@@ -48,15 +48,15 @@
 ## 权限现状
 
 - 路由只要求 `module.manual`，没有 route-level permission。
-- 页面所有“编辑/新增/保存/清空”控件均未使用 `v-permission`。
+- 页面按后端真实 `document:rename` 权限计算编辑能力；编辑、新增、保存、模板覆盖和清空命令保持可见但置灰，并显示中文原因，处理函数也会二次阻止请求。
 - 后端 POST 复用了 `document:rename` 权限，接口错误文案为无权编辑企业使用手册。
-- 只具备浏览能力的用户仍能打开编辑器，最终在保存时被后端拒绝。
+- 只具备浏览能力的用户仍可阅读和导出，但无法打开编辑器或提交变更。
 - 可编辑章节 route 字符串，但最终跳转仍经过全局路由守卫。
 
 ## 空态、错态与加载态
 
 - GET 期间对自定义编辑区使用 `v-loading="customManualLoading"`。
-- 当前应用入口没有注册 Element Plus Loading 指令，这是本页面的已知接入缺口。
+- 应用入口只全局注册 `ElLoadingDirective`，本页加载遮罩可用。
 - GET 失败显示 `ElMessage.warning`，页面继续保留代码内默认手册。
 - 保存失败显示统一 `ElMessage.error`，不展示后端具体错误文案。
 - FAQ、章节和快捷指南 normalize 时，空数组会回退默认数组，不会渲染空容器。
@@ -65,25 +65,23 @@
 ## 控件和样式现状
 
 - 页面约两千行，默认内容、编辑逻辑、序列化、导出和 scoped CSS 位于同一 SFC。
-- 控件主要是原生 button、input、textarea、details/summary 和手写 modal。
-- 覆盖与清空确认使用 `window.confirm`。
-- 消息使用 `ElMessage`；加载模板使用 `v-loading`，但没有其他 Element Plus 表单组件。
+- 命令使用显式导入的 `ElButton`，自定义正文和动态字段使用 `ElInput`。
+- 编辑弹层使用 `ElDialog`，覆盖与清空确认使用 `ElMessageBox`；取消确认不作为错误提示。
+- 空 FAQ 使用 `ElEmpty`，消息使用 `ElMessage`，加载模板使用 `v-loading`。
+- FAQ 的 `details/summary`、文章 hero、卡片、目录和章节布局仍为受保护的自定义内容表面。
 - 页面使用自定义 hero、卡片、左侧目录、章节、FAQ 和编辑弹层样式。
 - 断点和大量硬编码颜色/圆角由本文件 scoped CSS 维护。
 
-## Element Plus 接入/替换建议
+## Element Plus 迁移结果
 
-- 先注册 Loading 指令，确保现有 `v-loading` 可用，再做其他控件迁移。
-- 手写编辑弹层可迁移 `ElDialog` + `ElForm` + `ElInput`，保留动态 fields 和保存前本地应用逻辑。
-- `window.confirm` 可替换为 `ElMessageBox.confirm`，明确区分取消和请求失败。
-- FAQ 可保留原生 details，或在键盘/展开状态验证后迁移 `ElCollapse`。
-- 自定义正文可使用 `ElInput type="textarea"`，必须保留 120000 上限和纯文本内容。
-- 该页面是保护面；迁移标准控件时不改 JSON 兼容、默认手册和 Markdown 输出格式。
+- 标准命令、输入、编辑弹层、确认框和空态已迁移为 `ElButton`、`ElInput`、`ElDialog`、`ElMessageBox`、`ElEmpty`。
+- 所有 Element Plus 组件均在页面显式导入；应用仍只全局注册 Loading 指令。
+- FAQ 保留原生 `details/summary`，以维持浏览器展开语义和现有文章布局。
+- 自定义正文继续保留 120000 字上限、纯文本内容和完整结构 JSON 保存。
+- JSON 兼容、默认手册、章节导航与 Markdown 输出格式未改变。
 
 ## 风险
 
-- Loading 指令未注册，加载遮罩可能不生效。
-- 编辑按钮不按 `document:rename` 禁用，权限反馈延迟到保存请求。
 - 手册编辑权限复用文档重命名权限，领域语义耦合明显，但视觉迁移不得自行改权限码。
 - 弹窗保存先修改本地 config；请求失败没有回滚，页面显示内容可能与服务端不一致。
 - 清空正文先清 draft 再保存；保存失败时当前页面仍为空而服务端仍保留旧值。
