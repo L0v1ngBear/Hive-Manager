@@ -37,10 +37,11 @@
 
 ## Element Plus 与受保护界面
 
-- 标准命令、搜索、选择、数字输入、分页、抽屉、表单、标签、tooltip、loading 和 empty 使用显式导入的 Element Plus 组件。
+- 标准命令、搜索、选择、数字输入、复选框、分页、抽屉、表单、标签、tooltip、loading 和 empty 使用显式导入的 Element Plus 组件。
+- 手工入库与图片识别候选编辑器的型号、条码、自定义字段改用 `ElInput`，规格和米数改用 `ElInputNumber`，人工核对改用 `ElCheckbox`；`data-field`、动态输入类型、输入事件以及提交时的显式数值转换保持不变。
 - 日期筛选、业务时间修正、附件上传和列设置继续使用项目共享组件。
 - 型号聚合表保留原生 `table`：它依赖租户动态列顺序、移动端 `data-label`、行点击与操作 `.stop`，并与 `TableColumnSettings` 的导出契约绑定；强制换成 `ElTable` 会破坏这些行为。
-- 条码展示、图片识别候选编辑和导入文件 input 保留业务所需的定制 DOM。
+- 条码展示和导入文件 input 保留业务所需的定制 DOM；文件 input 是唯一保留的原生输入控件。
 
 ## 风险与验证
 

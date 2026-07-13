@@ -103,6 +103,20 @@ test('inventory has no native standard command buttons and mutation commands exp
   }
 })
 
+test('inventory inbound and recognition editors use Element Plus standard fields', () => {
+  assert.match(inventory, /<el-input\s+v-model\.trim="inForm\.modelCode"[^>]*data-field="inventory\.modelCode"/)
+  assert.match(inventory, /<el-input-number\s+v-model="inForm\.spec"[^>]*data-field="inventory\.spec"/)
+  assert.match(inventory, /<el-input-number\s+v-model="inForm\.meters"[^>]*data-field="inventory\.meters"/)
+  assert.match(inventory, /<el-input\s+v-model\.trim="inForm\.customFields\[field\.key\]"/)
+  assert.match(inventory, /<el-input\s+v-model\.trim="candidate\.barcode"/)
+  assert.match(inventory, /<el-input\s+v-model\.trim="candidate\.modelCode"/)
+  assert.match(inventory, /<el-input-number\s+v-model="candidate\.spec"/)
+  assert.match(inventory, /<el-input-number\s+v-model="candidate\.meters"/)
+  assert.match(inventory, /<el-input\s+v-model\.trim="candidate\.customFields\[field\.key\]"/)
+  assert.match(inventory, /<el-checkbox\s+v-model="candidate\.manualVerified"/)
+  assert.doesNotMatch(inventory, /<input(?![^>]*type="file")[^>]*>/)
+})
+
 test('inventory main outbound preview owns the exact latest submitted barcode', () => {
   assert.match(inventory, /const outPreviewBarcode = ref\(''\)/)
   assert.match(inventory, /let outPreviewRequestId = 0/)
