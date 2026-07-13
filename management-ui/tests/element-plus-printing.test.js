@@ -29,9 +29,35 @@ test('receipt exposes real permissions and mutually exclusive latest-request sta
   assert.match(receipt, /listLoadError/)
   assert.match(receipt, /detailLoadError/)
   assert.match(receipt, /listRequestId/)
-  assert.match(receipt, /detailRequestId/)
+  assert.match(receipt, /receiptDetailRequestController/)
   assert.match(receipt, /retryPendingList/)
   assert.match(receipt, /retrySelectedOrder/)
+})
+
+test('receipt detail loading is released immediately when its context is invalidated', async () => {
+  const { createReceiptDetailRequestController } = await import('../src/views/function/receipt/receiptDetailRequest.js')
+  const loadingStates = []
+  let cleared = 0
+  const controller = createReceiptDetailRequestController({
+    setLoading: (value) => loadingStates.push(value),
+    clearDetail: () => { cleared += 1 }
+  })
+
+  const staleRequest = controller.begin()
+  controller.invalidate()
+
+  assert.deepEqual(loadingStates, [true, false])
+  assert.equal(cleared, 2)
+  assert.equal(controller.isCurrent(staleRequest), false)
+  assert.equal(controller.finish(staleRequest), false)
+  assert.deepEqual(loadingStates, [true, false], 'stale finally must not change the invalidated context')
+
+  const olderRequest = controller.begin()
+  const newestRequest = controller.begin()
+  assert.equal(controller.finish(olderRequest), false)
+  assert.equal(loadingStates.at(-1), true, 'an older finally must not stop the newest request loading')
+  assert.equal(controller.finish(newestRequest), true)
+  assert.equal(loadingStates.at(-1), false)
 })
 
 test('label migrates only peripheral controls and preserves QR barcode and print reporting', () => {

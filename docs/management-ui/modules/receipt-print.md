@@ -72,7 +72,7 @@
 - isLoadingDetail 显示预览区 loading-mask；未选择单据时显示预览空态。
 - isPrinting、isSubmitting、isTemplateSaving 分别禁用打印、状态提交和模板保存。
 - 队列和详情分别维护 loading、成功空态与持久失败面板；401、403、网络和 5xx 文案可区分并可重试。
-- 队列和详情均使用 request-id 实现 last-request-wins；选择新单据前清空旧详情、明细和草稿，旧响应与旧 finally 不覆盖新状态。
+- 队列和详情均使用 request-id 实现 last-request-wins；选择新单据前清空旧详情、明细和草稿。刷新队列或切离打印页会同步使详情请求失效、释放 loading 并清空受保护详情状态，旧响应与旧 finally 不覆盖新状态。
 - 打印 DOM 缺失或弹窗被拦截时有页面级错误提示。
 
 ## 当前原生 / 自定义控件

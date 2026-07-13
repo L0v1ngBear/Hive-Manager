@@ -13,7 +13,7 @@
           </p>
         </div>
 
-        <el-tabs v-model="activeMode" class="receipt-tabs" aria-label="出库单功能切换">
+        <el-tabs v-model="activeMode" class="receipt-tabs" aria-label="出库单功能切换" @tab-change="handleModeChange">
           <el-tab-pane label="出库单打印" name="print" />
           <el-tab-pane label="模板设置" name="template" />
         </el-tabs>
@@ -526,6 +526,7 @@ import {
   setDefaultReceiptTemplate,
   updatePrintDetail
 } from './receipt/api/receipt.js'
+import { createReceiptDetailRequestController } from './receipt/receiptDetailRequest.js'
 
 const isFetchingList = ref(false)
 const isLoadingDetail = ref(false)
@@ -535,7 +536,6 @@ const isTemplateSaving = ref(false)
 const listLoadError = ref('')
 const detailLoadError = ref('')
 let listRequestId = 0
-let detailRequestId = 0
 const lastSelectedOrder = ref(null)
 const userStore = useUserStore()
 const canViewDetail = computed(() => userStore.hasPermission('receipt:print:detail'))
@@ -546,6 +546,16 @@ const pendingOrders = ref([])
 const selectedOrder = ref(null)
 const tableData = ref([])
 const printDraft = ref(createEmptyPrintDraft())
+const receiptDetailRequestController = createReceiptDetailRequestController({
+  setLoading: (value) => { isLoadingDetail.value = value },
+  clearDetail: () => {
+    detailLoadError.value = ''
+    selectedOrder.value = null
+    tableData.value = []
+    printDraft.value = createEmptyPrintDraft()
+    closeTimeCorrectionMode()
+  }
+})
 const receiptTemplates = ref([])
 const receiptVariables = ref([])
 const selectedTemplateId = ref(null)
@@ -573,14 +583,10 @@ onMounted(async () => {
 
 async function fetchPendingList() {
   const requestId = ++listRequestId
-  detailRequestId++
+  receiptDetailRequestController.invalidate()
   isFetchingList.value = true
   listLoadError.value = ''
   pendingOrders.value = []
-  selectedOrder.value = null
-  tableData.value = []
-  printDraft.value = createEmptyPrintDraft()
-  closeTimeCorrectionMode()
   try {
     const rows = await getPendingPrintOrders()
     if (requestId !== listRequestId) return
@@ -598,26 +604,26 @@ function retryPendingList() { return fetchPendingList() }
 async function selectOrder(order) {
   if (!canViewDetail.value) return
   if (selectedOrder.value?.orderNo === order.orderNo) return
-  const requestId = ++detailRequestId
+  const requestId = receiptDetailRequestController.begin()
   lastSelectedOrder.value = order
-  closeTimeCorrectionMode()
-  detailLoadError.value = ''
-  selectedOrder.value = null
-  tableData.value = []
-  printDraft.value = createEmptyPrintDraft()
-  isLoadingDetail.value = true
   try {
     const detail = await getPrintDetail({ orderNo: order.orderNo })
-    if (requestId !== detailRequestId) return
+    if (!receiptDetailRequestController.isCurrent(requestId)) return
     selectedOrder.value = detail
     tableData.value = normalizeEditableRows(detail.items || [])
     printDraft.value = createPrintDraft(detail)
   } catch (error) {
-    if (requestId !== detailRequestId) return
+    if (!receiptDetailRequestController.isCurrent(requestId)) return
     detailLoadError.value = resolveLoadError(error, '出库单详情')
   } finally {
-    if (requestId === detailRequestId) isLoadingDetail.value = false
+    receiptDetailRequestController.finish(requestId)
   }
+}
+
+function handleModeChange(mode) {
+  if (mode === 'print') return
+  lastSelectedOrder.value = null
+  receiptDetailRequestController.invalidate()
 }
 
 function retrySelectedOrder() { if (lastSelectedOrder.value) return selectOrder(lastSelectedOrder.value) }
