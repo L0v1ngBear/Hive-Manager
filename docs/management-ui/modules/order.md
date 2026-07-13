@@ -82,6 +82,7 @@
 - 列表将真实空态与 401/403、网络异常、5xx/其他失败互斥展示，错误态提供“重新加载”；request-id 防止旧筛选响应覆盖新结果。
 - detailLoading、submitting、附件上传、预警刷新和日志保存均有独立状态。
 - 详情打开前清空旧数据；加载、成功内容和错误态互斥显示，错误态留在抽屉内并可重试，request-id 防止跨订单旧响应。
+- 编辑抽屉同样在打开前重置表单，通过独立 loading、错误态、重试和 request-id 隔离跨订单响应；加载失败或请求进行中禁止保存，关闭抽屉会使在途请求失效。
 - 统计与预警统计失败只记录 console.warn，页面没有持久错误块或重试块。
 
 ## Element Plus 改造结果与保护面
@@ -89,7 +90,7 @@
 - 已迁移：筛选与编辑表单使用 ElInput、ElSelect/ElOption、ElDatePicker、ElInputNumber；分页、抽屉、预警表单、状态、进度、空态和加载分别使用 ElPagination、ElDrawer、ElDialog/ElForm、ElTag、ElProgress、ElEmpty 和 v-loading。
 - 预警设置由页面拥有的 ElDialog 表单承载，不再拼接 HTML 提示内容。
 - 显式保留原生动态响应式订单表格：它承载动态列顺序、移动端 data-label、整行点击与操作按钮 stop，并继续为当前页导出提供当前列 DOM；不得改造成破坏这些契约的固定列结构。
-- 原生 button 仍用于统计卡片、业务联想选项及行内命令，保留既有 CSS、事件传播和阶段权限语义。
+- 普通页面命令已迁移为 ElButton，并保留原有 `.stop`、CSS 和阶段权限语义；原生 button 只保留在统计/状态卡片和业务联想选项等定制交互面。
 - 自定义：TableColumnSettings、DateFilterInput、BusinessTimeCorrectionPanel、DragAttachmentUpload。
 - 工序步骤和客户/项目联想面板仍为业务自定义实现。
 
@@ -106,9 +107,8 @@
 ## 已发现风险
 
 - 页面初始化仍需复核无 order:warning:setting 时是否读取预警设置；该权限组合纳入视觉 QA。
-- 详情按钮对所有已进入页面的用户可见，但详情接口单独要求 order:detail。
-- TableColumnSettings 与导出函数未检查 table:export，和内置角色中选择性授予该权限的模型不一致。
-- 编辑抽屉的详情请求仍依赖全局请求层提示，后续修改必须继续避免失败响应写入其他订单表单。
+- 详情、编辑入口会按 `order:detail` 与阶段权限保持可见禁用并给出原因；handler 同时阻止无权限请求。
+- TableColumnSettings 当前页和全部导出按 `table:export` 保持可见禁用并给出原因，全部导出 handler 仍执行二次守卫。
 - order API 中 update、warning/refresh、health 三个封装当前未被页面使用，改造时不得误当死接口删除。
 
 ## 验证清单
