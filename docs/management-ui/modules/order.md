@@ -1,6 +1,6 @@
 # 订单管理维护档案
 
-> 当前状态：Audit baseline。本文记录当前行为；Element Plus 第 3 批改造尚未完成。
+> 当前状态：Element Plus migrated with protected custom surface；Batch 3。动态响应式表格、联想选项及订单状态流是受保护业务面。
 
 ## 源码 / 路由 / 改造批次
 

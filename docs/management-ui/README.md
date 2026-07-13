@@ -9,7 +9,9 @@ The migration design is documented in
 
 ## Status Legend
 
-- `Audit baseline`: current behavior is documented; migration is not complete.
+- `Element Plus migrated`: standard controls have completed migration and verification.
+- `Element Plus migrated with protected custom surface`: standard controls are migrated,
+  while the documented domain-specific rendering or interaction surface remains protected.
 - `Batch 1`: foundation and standard administration modules.
 - `Batch 2`: operational administration modules.
 - `Batch 3`: complex workflow, printing, and editing modules.
@@ -20,29 +22,29 @@ The migration design is documented in
 
 | Module                   | Route / scope                           | Migration                               | Documentation                                         |
 | ------------------------ | --------------------------------------- | --------------------------------------- | ----------------------------------------------------- |
-| Shared foundation        | Application-wide                        | Batch 1                                 | [Shared foundation](modules/shared-foundation.md)     |
-| Layout and navigation    | Application shell                       | Batch 2                                 | [Layout and navigation](modules/layout-navigation.md) |
-| Authentication and entry | `/login`, join, password, legal, denied | Batch 2                                 | [Authentication](modules/authentication.md)           |
-| Dashboard                | `/dashboard`                            | Batch 2                                 | [Dashboard](modules/dashboard.md)                     |
-| Announcements            | `/function/announcement`                | Batch 1                                 | [Announcements](modules/announcement.md)              |
-| Customer management      | `/function/customer`                    | Batch 1                                 | [Customer](modules/customer.md)                       |
-| Organization departments | `/function/organization`                | Batch 1                                 | [Organization](modules/organization.md)               |
-| Role management          | `/function/role`                        | Batch 1                                 | [Role](modules/role.md)                               |
-| Document management      | `/function/document`                    | Batch 1                                 | [Document](modules/document.md)                       |
-| Equipment management     | `/function/equipment`                   | Batch 1                                 | [Equipment](modules/equipment.md)                     |
-| Employee management      | `/function/employee`                    | Batch 2                                 | [Employee](modules/employee.md)                       |
-| Tenant management        | `/function/tenant`                      | Batch 2                                 | [Tenant](modules/tenant.md)                           |
-| Price management         | `/function/price`                       | Batch 2                                 | [Price](modules/price.md)                             |
-| Installation tasks       | `/function/installation-task`           | Batch 2                                 | [Installation task](modules/installation-task.md)     |
-| Quality and after-sales  | `/function/bad-product`                 | Batch 2                                 | [Quality](modules/quality.md)                         |
-| Approval center          | `/function/approval`                    | Batch 2                                 | [Approval](modules/approval.md)                       |
-| Attendance               | `/function/attendance`                  | Batch 2                                 | [Attendance](modules/attendance.md)                   |
-| Order management         | `/function/order`                       | Batch 3                                 | [Order](modules/order.md)                             |
-| Inventory management     | `/function/inventory`                   | Batch 3                                 | [Inventory](modules/inventory.md)                     |
-| Inventory model detail   | `/function/inventory/model-detail`      | Batch 3                                 | [Inventory detail](modules/inventory-detail.md)       |
-| Receipt printing         | `/function/receipt`                     | Batch 3, protected print DOM            | [Receipt printing](modules/receipt-print.md)          |
-| Label printing           | `/function/label`                       | Batch 3, protected print/canvas surface | [Label](modules/label.md)                             |
-| User manual              | `/manual`                               | Batch 3, protected content editor       | [Manual](modules/manual.md)                           |
+| Shared foundation        | Application-wide                        | Element Plus migrated                   | [Shared foundation](modules/shared-foundation.md)     |
+| Layout and navigation    | Application shell                       | Element Plus migrated                   | [Layout and navigation](modules/layout-navigation.md) |
+| Authentication and entry | `/login`, join, password, legal, denied | Element Plus migrated                   | [Authentication](modules/authentication.md)           |
+| Dashboard                | `/dashboard`                            | Element Plus migrated                   | [Dashboard](modules/dashboard.md)                     |
+| Announcements            | `/function/announcement`                | Element Plus migrated                   | [Announcements](modules/announcement.md)              |
+| Customer management      | `/function/customer`                    | Element Plus migrated                   | [Customer](modules/customer.md)                       |
+| Organization departments | `/function/organization`                | Migrated; protected organization graph  | [Organization](modules/organization.md)               |
+| Role management          | `/function/role`                        | Element Plus migrated                   | [Role](modules/role.md)                               |
+| Document management      | `/function/document`                    | Element Plus migrated                   | [Document](modules/document.md)                       |
+| Equipment management     | `/function/equipment`                   | Element Plus migrated                   | [Equipment](modules/equipment.md)                     |
+| Employee management      | `/function/employee`                    | Element Plus migrated                   | [Employee](modules/employee.md)                       |
+| Tenant management        | `/function/tenant`                      | Element Plus migrated                   | [Tenant](modules/tenant.md)                           |
+| Price management         | `/function/price`                       | Element Plus migrated                   | [Price](modules/price.md)                             |
+| Installation tasks       | `/function/installation-task`           | Element Plus migrated                   | [Installation task](modules/installation-task.md)     |
+| Quality and after-sales  | `/function/bad-product`                 | Element Plus migrated                   | [Quality](modules/quality.md)                         |
+| Approval center          | `/function/approval`                    | Element Plus migrated                   | [Approval](modules/approval.md)                       |
+| Attendance               | `/function/attendance`                  | Element Plus migrated                   | [Attendance](modules/attendance.md)                   |
+| Order management         | `/function/order`                       | Migrated; protected dynamic table       | [Order](modules/order.md)                             |
+| Inventory management     | `/function/inventory`                   | Migrated; protected dynamic table       | [Inventory](modules/inventory.md)                     |
+| Inventory model detail   | `/function/inventory/model-detail`      | Migrated; protected dynamic table       | [Inventory detail](modules/inventory-detail.md)       |
+| Receipt printing         | `/function/receipt`                     | Migrated; protected print DOM           | [Receipt printing](modules/receipt-print.md)          |
+| Label printing           | `/function/label`                       | Migrated; protected print/canvas        | [Label](modules/label.md)                             |
+| User manual              | `/manual`                               | Migrated; protected content model       | [Manual](modules/manual.md)                           |
 
 ## Cross-module Rules
 
@@ -57,3 +59,9 @@ The migration design is documented in
    permissions, state flow, or migration status.
 5. Record discovered permission or data-contract defects as risks; do not silently
    redefine backend behavior inside a visual migration.
+
+## Verification Status
+
+- Full management UI verification passes: 154 Node tests, ESLint, and the Vite production build.
+- Responsive browser inspection at 1440×900, 1024×768, and 390×844 confirms the login shell has no page-level horizontal overflow; the mobile layout stacks correctly.
+- Authenticated route visual QA remains environment-dependent: the local API currently returns HTTP 502 and the router correctly redirects order, inventory, receipt, label, and manual routes to login. Do not treat an unauthenticated redirect as visual approval of those protected pages.
