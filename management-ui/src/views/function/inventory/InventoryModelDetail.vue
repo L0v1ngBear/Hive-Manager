@@ -21,10 +21,10 @@
             <el-option label="先进先出" value="fifo" />
             <el-option label="先进后出" value="lifo" />
           </el-select>
-          <el-button type="primary" class="function-action-primary px-6 py-4" @click="fetchDetail">
+          <el-tooltip :disabled="canReadInventory" content="暂无 inventory:warning:list 权限"><span><el-button type="primary" :disabled="!canReadInventory" class="function-action-primary px-6 py-4" @click="fetchDetail">
             <span class="material-symbols-outlined text-[20px]">refresh</span>
             刷新明细
-          </el-button>
+          </el-button></span></el-tooltip>
         </div>
       </header>
 
