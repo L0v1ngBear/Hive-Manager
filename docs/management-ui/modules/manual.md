@@ -48,9 +48,9 @@
 ## 权限现状
 
 - 路由只要求 `module.manual`，没有 route-level permission。
-- 页面按后端真实 `document:rename` 权限计算编辑能力；编辑、新增、保存、模板覆盖和清空命令保持可见但置灰，并显示中文原因，处理函数也会二次阻止请求。
+- 页面按后端真实 `document:rename` 权限计算编辑能力；编辑、新增、保存、模板覆盖和清空命令保持可见但置灰，由 `ElTooltip` 通过可悬停的包裹层显示中文原因，处理函数也会二次阻止本地变更和请求。
 - 后端 POST 复用了 `document:rename` 权限，接口错误文案为无权编辑企业使用手册。
-- 只具备浏览能力的用户仍可阅读和导出，但无法打开编辑器或提交变更。
+- 只具备浏览能力的用户仍可阅读和导出，但正文输入框禁用，无法打开编辑器、修改本地草稿或提交变更。
 - 可编辑章节 route 字符串，但最终跳转仍经过全局路由守卫。
 
 ## 空态、错态与加载态
@@ -74,7 +74,7 @@
 
 ## Element Plus 迁移结果
 
-- 标准命令、输入、编辑弹层、确认框和空态已迁移为 `ElButton`、`ElInput`、`ElDialog`、`ElMessageBox`、`ElEmpty`。
+- 标准命令、输入、编辑弹层、确认框、权限原因和空态已迁移为 `ElButton`、`ElInput`、`ElDialog`、`ElMessageBox`、`ElTooltip`、`ElEmpty`。
 - 所有 Element Plus 组件均在页面显式导入；应用仍只全局注册 Loading 指令。
 - FAQ 保留原生 `details/summary`，以维持浏览器展开语义和现有文章布局。
 - 自定义正文继续保留 120000 字上限、纯文本内容和完整结构 JSON 保存。

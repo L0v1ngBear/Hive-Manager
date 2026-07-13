@@ -9,12 +9,27 @@ test('manual editing surfaces use explicit Element Plus controls', () => {
   for (const tag of ['el-button', 'el-input', 'el-dialog', 'el-empty']) {
     assert.match(source, new RegExp(`<${tag}\\b`))
   }
-  for (const imported of ['ElButton', 'ElInput', 'ElDialog', 'ElEmpty', 'ElMessageBox']) {
+  for (const imported of ['ElButton', 'ElInput', 'ElDialog', 'ElEmpty', 'ElMessageBox', 'ElTooltip']) {
     assert.match(source, new RegExp(`\\b${imported}\\b`))
   }
   assert.match(source, /v-loading="customManualLoading"/)
   assert.doesNotMatch(source, /<(button|input|textarea)\b/)
   assert.doesNotMatch(source, /window\.confirm/)
+})
+
+test('manual permission controls remain visible and expose disabled reasons through tooltips', () => {
+  assert.match(source, /<el-tooltip[^>]*:disabled="canEditManual"[^>]*:content="manualEditDisabledReason"/)
+  assert.match(source, /<span[^>]*>\s*<el-button[^>]*:disabled="!canEditManual"/s)
+  assert.match(source, /v-model="customManualDraft"[\s\S]*:disabled="!canEditManual"/)
+  assert.match(source, /<el-tooltip[^>]*:disabled="canEditManual"[^>]*>[\s\S]*?<el-button[^>]*:disabled="customManualSaving \|\| !canEditManual"[^>]*@click="saveManualEditor"/)
+})
+
+test('manual editor handler checks permission before mutating local content', () => {
+  const handler = source.match(/async function saveManualEditor\(\) \{([\s\S]*?)\n\}/)?.[1] || ''
+  const permissionGuard = handler.indexOf('if (!canEditManual.value) return')
+  const mutation = handler.indexOf('applyManualEditor(editor)')
+  assert.ok(permissionGuard >= 0, 'saveManualEditor must guard document:rename')
+  assert.ok(mutation > permissionGuard, 'permission guard must run before local mutation')
 })
 
 test('manual preserves its content, API, reset and Markdown contracts', () => {
