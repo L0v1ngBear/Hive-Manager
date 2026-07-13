@@ -88,8 +88,8 @@ assert.ok(
 )
 assert.match(
   manifest,
-  /migrations\/V20260710_004_order_role_status_scope\.sql\r?\n+migrations\/V20260713_001_order_information_channel_and_cancel_reason\.sql\r?\n?$/,
-  'order information-channel migration must be appended after every historical migration'
+  /migrations\/V20260710_004_order_role_status_scope\.sql\r?\n+migrations\/V20260713_001_order_information_channel_and_cancel_reason\.sql\r?\n+migrations\/V20260713_003_permission_catalog_v3\.sql\r?\n?$/,
+  'permission V3 must follow the immutable order information-channel migration'
 )
 
 const deployHealth = read('scripts/check-deploy-health.sh')

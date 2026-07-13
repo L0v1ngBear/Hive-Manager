@@ -131,10 +131,10 @@ const manifestEntries = read('db-migrations/migration_manifest.txt')
   .split(/\r?\n/)
   .map((line) => line.trim())
   .filter((line) => line && !line.startsWith('#'))
-assert.equal(
-  manifestEntries.at(-1),
-  manifestEntry,
-  'order information-channel migration must be appended after every historical migration'
+assert.ok(
+  manifestEntries.indexOf(manifestEntry) <
+    manifestEntries.indexOf('migrations/V20260713_003_permission_catalog_v3.sql'),
+  'order information-channel migration must remain before permission V3'
 )
 assert.equal(
   manifestEntries.filter((entry) => entry === manifestEntry).length,
