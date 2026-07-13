@@ -20,6 +20,7 @@
 - `pending_ship -> shipped` requires order approval; save logistics first, retain `pending_ship`, and change to `shipped` only after all auditors approve.
 - Cancellation requires `cancelReason`, trimmed nonblank, maximum 500 characters.
 - Uninvoiced warning defaults to 30 days, is configurable from 1 to 365 days, starts at order creation, and excludes drawing-budget, pending-cancel, and cancelled orders.
+- Management order filters are collapsible; drawing-budget total, budgeting, and budget-completed cards occupy one dedicated desktop row outside ordinary status/category cards.
 - Explicit `auditorIds` override configured defaults; all selected auditors must approve and any rejection closes the approval.
 - The QR payload is exactly `HIVE_ORDER_FLOW:<sales|production>:<base64url-hmac-sha256>:<orderId>`.
 - Each task follows RED, GREEN, focused regression, `git diff --check`, and a focused commit.
@@ -182,6 +183,10 @@ Run: `node tests/order-information-channel-ui.test.js && node tests/order-advanc
 Expected: tests and Vite build pass.
 
 Commit: `feat: edit orders before stage advance`
+
+- [ ] **Step 6: Recompose the collapsible summary filters**
+
+Add an accessible expand/collapse control and selected-filter summary. Remove `budgeting` and `drawing_budget` from ordinary card groups, then render one dedicated three-card row for `category_drawing_budget`, `budgeting`, and `budget_completed`; verify desktop single-row and mobile responsive behavior.
 
 ### Task 5: Mini Program Flow Editor
 
