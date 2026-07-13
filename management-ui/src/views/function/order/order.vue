@@ -45,39 +45,89 @@
         </div>
       </div>
 
-      <div class="order-summary-grid-new">
+      <div class="order-filter-overview-bar">
+        <div class="order-filter-overview-copy">
+          <span class="material-symbols-outlined" aria-hidden="true">filter_alt</span>
+          <span>
+            <strong>筛选条件</strong>
+            <small>订单总量 {{ orderSummary.total || orderState.total || 0 }} · {{ activeFilterSummary }}</small>
+          </span>
+        </div>
         <button
-            v-for="card in summaryCards"
-            :key="card.key"
             type="button"
-            class="stat-card text-left"
-            :class="[isSummaryCardActive(card) ? 'stat-card-active' : '', summaryCardClass(card)]"
-            @click="selectSummaryCard(card)"
+            class="order-filter-overview-toggle"
+            :aria-expanded="filterOverviewExpanded"
+            aria-controls="order-filter-overview order-filter-details"
+            @click="filterOverviewExpanded = !filterOverviewExpanded"
         >
-          <div class="stat-label">{{ card.label }}</div>
-          <div class="stat-value">{{ card.count }}</div>
-          <div class="stat-hint">{{ card.hint }}</div>
+          <span class="material-symbols-outlined" aria-hidden="true">{{ filterOverviewExpanded ? 'expand_less' : 'expand_more' }}</span>
+          <span>{{ filterOverviewExpanded ? '收起筛选' : '展开筛选' }}</span>
         </button>
       </div>
 
-      <div class="order-category-summary-grid-new" aria-label="订单小项数量统计">
-        <button
-            v-for="card in categorySummaryCards"
-            :key="card.key"
-            type="button"
-            class="category-stat-card"
-            :class="{ 'category-stat-card-active': filters.orderCategory === card.value }"
-            @click="selectCategoryCard(card.value)"
-        >
-          <span>{{ card.label }}</span>
-          <strong>{{ card.count }}</strong>
-          <small>{{ card.hint }}</small>
-        </button>
+      <div v-show="filterOverviewExpanded" id="order-filter-overview" class="order-filter-overview-panel">
+        <div class="order-summary-grid-new" aria-label="订单状态数量统计">
+          <button
+              v-for="card in summaryCards"
+              :key="card.key"
+              type="button"
+              class="stat-card text-left"
+              :class="[isSummaryCardActive(card) ? 'stat-card-active' : '', summaryCardClass(card)]"
+              :aria-pressed="isSummaryCardActive(card)"
+              @click="selectSummaryCard(card)"
+          >
+            <div class="stat-label">{{ card.label }}</div>
+            <div class="stat-value">{{ card.count }}</div>
+            <div class="stat-hint">{{ card.hint }}</div>
+          </button>
+        </div>
+
+        <div class="order-summary-section">
+          <div class="order-summary-section-title">普通订单小项</div>
+          <div class="order-category-summary-grid-new" aria-label="普通订单小项数量统计">
+            <button
+                v-for="card in categorySummaryCards"
+                :key="card.key"
+                type="button"
+                class="category-stat-card"
+                :class="{ 'category-stat-card-active': filters.orderCategory === card.value }"
+                :aria-pressed="filters.orderCategory === card.value"
+                @click="selectCategoryCard(card.value)"
+            >
+              <span>{{ card.label }}</span>
+              <strong>{{ card.count }}</strong>
+              <small>{{ card.hint }}</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="order-summary-section drawing-budget-summary-section">
+          <div class="order-summary-section-title">
+            <span class="material-symbols-outlined" aria-hidden="true">draw</span>
+            图纸预算
+          </div>
+          <div class="drawing-budget-summary-grid" aria-label="图纸预算数量统计">
+            <button
+                v-for="card in drawingBudgetSummaryCards"
+                :key="card.key"
+                type="button"
+                class="category-stat-card drawing-budget-stat-card"
+                :class="{ 'category-stat-card-active': isDrawingBudgetCardActive(card) }"
+                :aria-pressed="isDrawingBudgetCardActive(card)"
+                @click="selectDrawingBudgetCard(card)"
+            >
+              <span>{{ card.label }}</span>
+              <strong>{{ card.count }}</strong>
+              <small>{{ card.hint }}</small>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
     <section class="overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-      <div class="status-chip-row order-primary-status-tabs border-b border-outline-variant/10">
+      <div v-show="filterOverviewExpanded" id="order-filter-details">
+        <div class="status-chip-row order-primary-status-tabs border-b border-outline-variant/10">
         <button
             v-for="status in currentStatusTabs"
             :key="status.value || 'all'"
@@ -89,9 +139,9 @@
           <span>{{ status.label }}</span>
           <strong>{{ status.count }}</strong>
         </button>
-      </div>
-      <div
-          class="order-filter-grid grid grid-cols-1 gap-4 border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-5 md:grid-cols-2 xl:grid-cols-12">
+        </div>
+        <div
+            class="order-filter-grid grid grid-cols-1 gap-4 border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-5 md:grid-cols-2 xl:grid-cols-12">
         <input
             v-model.trim="filters.keyword"
             class="box-input xl:col-span-2"
@@ -155,6 +205,7 @@
             <span>至</span>
             <DateFilterInput v-model="filters.createEnd" placeholder="结束日期" class="box-input min-w-0 flex-1" />
           </label>
+        </div>
         </div>
       </div>
 
@@ -639,7 +690,7 @@
                   <select
                     v-model="orderForm.status"
                     class="box-input"
-                    :disabled="(formMode === 'create' && orderForm.orderCategory === 'special_order') || Boolean(advanceIntent)"
+                    :disabled="(formMode === 'create' && orderForm.orderCategory === 'special_order') || Boolean(advanceIntent) || isDrawingBudgetTerminal(orderForm)"
                   >
                     <option v-for="status in orderStatuses" :key="status.value" :value="status.value">{{
                         status.label
@@ -724,6 +775,15 @@ import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
 import { exportRowsToExcel } from '@/utils/tableExport'
+import {
+  createOrderAdvancePlan,
+  isDrawingBudgetTerminal,
+  isOrderMaterialApprovalTransition,
+  isOrderShippingApprovalTransition,
+  nextOrderStatus,
+  previousOrderStatus,
+  selectOrderFlowQrValue
+} from './orderFlow.js'
 import {
   advanceOrderNextStage,
   correctOrderLogTime,
@@ -870,6 +930,7 @@ const {
 const orderForm = reactive(defaultOrderForm())
 const orderAttachmentUploading = ref(false)
 const latestOrderFlowPrintTask = ref(null)
+const filterOverviewExpanded = ref(true)
 
 const ORDER_ALL_PERMISSION = 'order:*'
 const ORDER_CREATE_PERMISSIONS = [ORDER_ALL_PERMISSION, 'order:create']
@@ -897,16 +958,16 @@ function canMutateOrderStatus(status) {
 const canCreateCurrentOrder = computed(() => hasAnyOrderPermission(ORDER_CREATE_PERMISSIONS))
 const canEditCurrentOrderForm = computed(() => formMode.value === 'create'
     ? canCreateCurrentOrder.value
-    : canMutateOrderStatus(orderForm.status))
+    : canEditOrder(orderForm))
 const canSubmitCurrentForm = canEditCurrentOrderForm
 const requiresShippingDetails = computed(() => orderForm.status === 'shipped' || advanceIntent.value?.targetStatus === 'shipped')
 
 function canEditOrder(row = {}) {
-  return canMutateOrderStatus(row.status)
+  return !isDrawingBudgetTerminal(row) && canMutateOrderStatus(row.status)
 }
 
 function canPrintOrderFlowCode(row = {}) {
-  return canEditOrder(row)
+  return canMutateOrderStatus(row.status)
 }
 
 function canAdvanceOrder(row = {}) {
@@ -927,9 +988,28 @@ function warnNoOrderStagePermission() {
   ElMessage.warning('当前账号没有该订单状态维护权限')
 }
 
+const activeFilterSummary = computed(() => {
+  const parts = []
+  if (filters.staleOnly) parts.push('未更新预警')
+  if (filters.orderCategory) parts.push(orderCategoryLabel(filters.orderCategory))
+  if (filters.status) parts.push(orderStatusLabel(filters.status))
+  if (filters.invoiceStatus === '1') parts.push('已开票')
+  if (filters.invoiceStatus === '0') parts.push('未开票')
+  if (filters.keyword) parts.push(`关键词：${filters.keyword}`)
+  if (filters.customerName) parts.push(`客户：${filters.customerName}`)
+  if (filters.brandName) parts.push(`品牌：${filters.brandName}`)
+  if (filters.informationChannel) parts.push(`信息渠道：${filters.informationChannel}`)
+  if (filters.createStart || filters.createEnd) {
+    parts.push(`创建时间：${filters.createStart || '不限'} 至 ${filters.createEnd || '不限'}`)
+  }
+  return `当前筛选：${parts.length ? parts.join(' / ') : '全部订单'}`
+})
+
 const currentStatusTabs = computed(() => [
   {value: '', label: '全部订单', count: orderSummary.total || 0},
-  ...orderStatuses.map(status => ({
+  ...orderStatuses
+      .filter(status => !['budgeting', 'budget_completed'].includes(status.value))
+      .map(status => ({
     ...status,
     label: `${status.label}订单`,
     count: orderSummary[status.value] || 0
@@ -945,8 +1025,6 @@ const orderWarningHint = computed(() => {
 const summaryCards = computed(() => {
   return [
     {key: 'order-total', tab: 'order', label: '订单总量', status: '', count: orderSummary.total || orderState.total || 0, hint: '全部订单'},
-    {key: 'order-budgeting', tab: 'order', label: '预算中订单', status: 'budgeting', count: orderSummary.budgeting || 0, hint: '图纸预算测算中'},
-    {key: 'order-budget-completed', tab: 'order', label: '预算已完成订单', status: 'budget_completed', count: orderSummary.budget_completed || 0, hint: '图纸预算终态'},
     {key: 'order-confirm', tab: 'order', label: '待确认订单', status: 'pending_confirm', count: orderSummary.pending_confirm || 0, hint: '待客户/业务确认'},
     {key: 'order-pay', tab: 'order', label: '待收款订单', status: 'pending_pay', count: orderSummary.pending_pay || 0, hint: '待收款跟进'},
     {key: 'order-ship', tab: 'order', label: '待发货订单', status: 'pending_ship', count: orderSummary.pending_ship || 0, hint: '待安排发货'},
@@ -956,7 +1034,9 @@ const summaryCards = computed(() => {
     {key: 'order-stale', label: '未更新预警', staleOnly: true, count: orderWarningSummary.totalCount || 0, hint: orderWarningHint.value}
   ]
 })
-const categorySummaryCards = computed(() => orderCategoryOptions.map(option => ({
+const categorySummaryCards = computed(() => orderCategoryOptions
+    .filter(option => option.value !== 'drawing_budget')
+    .map(option => ({
   key: `category-${option.value}`,
   value: option.value,
   label: option.label,
@@ -965,12 +1045,33 @@ const categorySummaryCards = computed(() => orderCategoryOptions.map(option => (
       ? '样板订单'
       : option.value === 'replenishment'
           ? '增补订单'
-          : option.value === 'drawing_budget'
-              ? '图纸预算订单'
-              : option.value === 'special_order'
-                  ? '特殊订单'
-                  : '大货订单'
+          : option.value === 'special_order'
+              ? '特殊订单'
+              : '大货订单'
 })))
+const drawingBudgetSummaryCards = computed(() => [
+  {
+    key: 'drawing-budget-total',
+    label: '图纸预算总量',
+    status: '',
+    count: orderSummary.category_drawing_budget || 0,
+    hint: '全部图纸预算'
+  },
+  {
+    key: 'drawing-budget-budgeting',
+    label: '预算中',
+    status: 'budgeting',
+    count: orderSummary.budgeting || 0,
+    hint: '预算测算中'
+  },
+  {
+    key: 'drawing-budget-completed',
+    label: '预算已完成',
+    status: 'budget_completed',
+    count: orderSummary.budget_completed || 0,
+    hint: '预算终态'
+  }
+])
 const selectedCustomerOption = computed(() => {
   const customerName = normalizeText(orderForm.customerName)
   if (!customerName) return null
@@ -1190,7 +1291,26 @@ async function selectCategoryCard(category) {
   const nextCategory = filters.orderCategory === category ? '' : category
   filters.staleOnly = false
   filters.orderCategory = nextCategory
+  if (['budgeting', 'budget_completed'].includes(filters.status)) {
+    filters.status = ''
+  }
   await refreshOrders()
+}
+
+async function selectDrawingBudgetCard(card = {}) {
+  filters.staleOnly = false
+  filters.invoiceStatus = ''
+  filters.orderCategory = 'drawing_budget'
+  filters.status = card.status || ''
+  orderState.page = 1
+  await refreshOrders()
+}
+
+function isDrawingBudgetCardActive(card = {}) {
+  return !filters.staleOnly
+      && !filters.invoiceStatus
+      && filters.orderCategory === 'drawing_budget'
+      && filters.status === (card.status || '')
 }
 
 function isSummaryCardActive(card) {
@@ -1534,48 +1654,6 @@ async function openFlowCode(row) {
   ElMessage.success('已创建补打任务，请到小程序待打印队列处理')
 }
 
-const normalOrderStatusFlow = ['pending_confirm', 'pending_pay', 'pending_material', 'producing', 'pending_ship', 'shipped', 'completed']
-const drawingBudgetStatusFlow = ['budgeting', 'budget_completed']
-
-function nextOrderStatus(row = {}) {
-  const flow = row.orderCategory === 'drawing_budget' ? drawingBudgetStatusFlow : normalOrderStatusFlow
-  const currentIndex = flow.indexOf(row.status)
-  if (currentIndex < 0 || currentIndex >= flow.length - 1) {
-    return ''
-  }
-  return flow[currentIndex + 1]
-}
-
-function previousOrderStatus(row = {}) {
-  if (row.orderCategory === 'drawing_budget') {
-    return ''
-  }
-  const flow = row.orderCategory === 'drawing_budget' ? drawingBudgetStatusFlow : normalOrderStatusFlow
-  const currentIndex = flow.indexOf(row.status)
-  if (currentIndex <= 0) {
-    return ''
-  }
-  return flow[currentIndex - 1]
-}
-
-function isOrderMaterialApprovalTransition(row = {}, targetStatus = nextOrderStatus(row)) {
-  return row.status === 'pending_pay' && targetStatus === 'pending_material'
-}
-
-function isOrderShippingApprovalTransition(row = {}, targetStatus = nextOrderStatus(row)) {
-  return row.status === 'pending_ship' && targetStatus === 'shipped'
-}
-
-function orderAdvanceSuccessMessage(currentStatus, targetStatus) {
-  if (currentStatus === 'pending_ship' && targetStatus === 'shipped') {
-    return '已提交发货审批，审批通过后进入已发货'
-  }
-  if (currentStatus === 'pending_pay' && targetStatus === 'pending_material') {
-    return '已提交订单审批，审批通过后进入备料中'
-  }
-  return '订单已推进到下一阶段'
-}
-
 function advanceOrderTitle(row = {}) {
   const targetStatus = nextOrderStatus(row)
   if (!targetStatus) {
@@ -1661,7 +1739,7 @@ async function openEdit(orderId, row = {}, intent = null) {
   formVisible.value = true
   resetOrderForm()
   const detail = await getOrderDetail(orderId)
-  if (!canMutateOrderStatus(detail.status)) {
+  if (!canEditOrder(detail)) {
     warnNoOrderStagePermission()
     closeForm()
     return
@@ -1769,11 +1847,11 @@ async function submitForm() {
   submitting.value = true
   try {
     validateOrderForm()
-    const payload = buildOrderPayload()
-    payload.status = advanceIntent.value ? editingOrderStatus.value : payload.status
-    const advanceSuccessMessage = advanceIntent.value
-        ? orderAdvanceSuccessMessage(editingOrderStatus.value, advanceIntent.value.targetStatus)
-        : ''
+    const basePayload = buildOrderPayload()
+    const advancePlan = advanceIntent.value
+        ? createOrderAdvancePlan(basePayload, editingOrderStatus.value, advanceIntent.value.targetStatus)
+        : null
+    const payload = advancePlan ? advancePlan.savePayload : basePayload
     const specialOrderCreate = formMode.value === 'create' && payload.orderCategory === 'special_order'
     const cancelApprovalSubmit = formMode.value !== 'create' && payload.status === 'cancelled'
     if (formMode.value === 'create') {
@@ -1781,8 +1859,8 @@ async function submitForm() {
     } else {
       await saveOrder(editingOrderId.value, payload)
     }
-    if (advanceIntent.value) {
-      const advancePayload = advanceIntent.value.targetStatus === 'shipped'
+    if (advancePlan) {
+      const advancePayload = advancePlan.targetStatus === 'shipped'
           ? {expressCompany: payload.expressCompany, expressNo: payload.expressNo}
           : {}
       try {
@@ -1802,7 +1880,7 @@ async function submitForm() {
       await loadOrderSummaries()
       return
     }
-    ElMessage.success(specialOrderCreate ? '特殊订单已提交审核，审核通过后创建成功' : (formMode.value === 'create' ? '订单创建成功' : (advanceIntent.value ? advanceSuccessMessage : '订单保存成功')))
+    ElMessage.success(specialOrderCreate ? '特殊订单已提交审核，审核通过后创建成功' : (formMode.value === 'create' ? '订单创建成功' : (advancePlan ? advancePlan.successMessage : '订单保存成功')))
     closeForm()
     await loadOrders()
     await loadOrderSummaries()
@@ -2060,19 +2138,6 @@ function formatDateTime(value) {
   return String(value).replace('T', ' ').slice(0, 19)
 }
 
-function buildOrderFlowQrTextForWeb(order = {}, flowScanCode = '') {
-  if (!flowScanCode) return ''
-  return JSON.stringify({
-    version: '1',
-    codeType: 'order_flow',
-    orderType: 'order',
-    orderId: String(order.orderId || '').trim(),
-    flowCode: String(order.flowCode || '').trim(),
-    flowScanCode,
-    generatedAt: new Date().toISOString()
-  })
-}
-
 function buildOrderFlowCode(order) {
   if (!order?.orderId) {
     return {
@@ -2085,12 +2150,12 @@ function buildOrderFlowCode(order) {
       orderCategoryLabel: '大货'
     }
   }
-  const flowScanCode = String(order.flowScanCode || order.flowBarcode || order.flowCode || '').trim()
+  const flowScanCode = selectOrderFlowQrValue(order.flowScanCode, order.flowBarcode)
   return {
     taskNo: '',
     orderId: String(order.orderId || '').trim(),
     barcode: flowScanCode,
-    qrText: buildOrderFlowQrTextForWeb(order, flowScanCode),
+    qrText: flowScanCode,
     orderTypeLabel: '订单流转',
     currentStatusLabel: orderStatusLabel(order.status),
     orderCategoryLabel: orderCategoryLabel(order.orderCategory)
@@ -2099,11 +2164,12 @@ function buildOrderFlowCode(order) {
 
 function buildOrderFlowCodeFromTask(task = {}) {
   const payload = task.printPayload || {}
+  const qrText = selectOrderFlowQrValue(payload.flowQrPayload, payload.flowScanCode, payload.flowBarcode)
   return {
     taskNo: task.taskNo || payload.printTaskNo || '',
     orderId: payload.orderId || task.orderId || '',
-    barcode: payload.flowBarcode || payload.flowScanCode || payload.flowCode || '',
-    qrText: payload.flowQrPayload || payload.flowScanCode || payload.flowBarcode || payload.flowCode || '',
+    barcode: selectOrderFlowQrValue(payload.flowBarcode, payload.flowScanCode, payload.flowQrPayload),
+    qrText,
     orderTypeLabel: '订单流转',
     currentStatusLabel: payload.currentStatusText || orderStatusLabel(payload.currentStatus),
     orderCategoryLabel: payload.orderCategoryLabel || orderCategoryLabel(payload.orderCategory)
@@ -2680,6 +2746,110 @@ function fulfillmentProcessText(row = {}) {
   gap: 24px;
 }
 
+.order-filter-overview-bar {
+  display: flex;
+  min-width: 0;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: .65rem 0;
+  border-top: 1px solid rgba(31, 63, 95, .12);
+  border-bottom: 1px solid rgba(31, 63, 95, .12);
+}
+
+.order-filter-overview-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: .7rem;
+}
+
+.order-filter-overview-copy > .material-symbols-outlined {
+  flex: 0 0 auto;
+  color: #0f766e;
+}
+
+.order-filter-overview-copy > span:last-child {
+  min-width: 0;
+}
+
+.order-filter-overview-copy strong,
+.order-filter-overview-copy small {
+  display: block;
+  letter-spacing: 0;
+}
+
+.order-filter-overview-copy strong {
+  font-size: .9rem;
+  color: rgb(var(--on-surface));
+}
+
+.order-filter-overview-copy small {
+  margin-top: .15rem;
+  overflow: hidden;
+  color: rgb(var(--on-surface-variant));
+  font-size: .75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-filter-overview-toggle {
+  display: inline-flex;
+  min-width: 7.5rem;
+  min-height: 2.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  border: 1px solid rgba(31, 63, 95, .24);
+  border-radius: .5rem;
+  background: #fff;
+  padding: .5rem .75rem;
+  color: rgb(var(--primary));
+  font-size: .8rem;
+  font-weight: 900;
+}
+
+.order-filter-overview-toggle:hover {
+  border-color: rgba(31, 63, 95, .5);
+  background: rgba(31, 63, 95, .06);
+}
+
+.order-filter-overview-toggle:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, .28);
+  outline-offset: 2px;
+}
+
+.order-filter-overview-panel {
+  display: grid;
+  min-width: 0;
+  gap: 20px;
+}
+
+.order-summary-section {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.order-summary-section-title {
+  display: flex;
+  min-height: 1.5rem;
+  align-items: center;
+  gap: .4rem;
+  color: rgb(var(--on-surface));
+  font-size: .82rem;
+  font-weight: 900;
+  line-height: 1.5rem;
+}
+
+.order-summary-section-title .material-symbols-outlined {
+  color: #7c3aed;
+  font-size: 1.1rem;
+}
+
 .order-summary-grid-new {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2690,6 +2860,16 @@ function fulfillmentProcessText(row = {}) {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
+}
+
+.drawing-budget-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.drawing-budget-stat-card {
+  min-width: 0;
 }
 
 .order-header-button-row {
@@ -2754,9 +2934,42 @@ function fulfillmentProcessText(row = {}) {
     align-items: stretch;
   }
 
+  .order-filter-overview-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .order-filter-overview-copy small {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .order-filter-overview-toggle {
+    width: 100%;
+  }
+
   .order-summary-grid-new,
   .order-category-summary-grid-new {
     grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .drawing-budget-summary-grid {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(12rem, 82vw);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding-bottom: .25rem;
+    scroll-snap-type: x proximity;
+    touch-action: pan-x;
+  }
+
+  .drawing-budget-stat-card {
+    scroll-snap-align: start;
   }
 
   .order-header-button-row {

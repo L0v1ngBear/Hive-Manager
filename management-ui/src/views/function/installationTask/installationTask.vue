@@ -83,7 +83,7 @@
             <tr>
               <th class="th-cell">订单信息</th>
               <th class="th-cell">客户项目</th>
-              <th class="th-cell">交付物流</th>
+              <th class="th-cell">信息渠道与物流</th>
               <th class="th-cell">安装状态</th>
               <th class="th-cell">施工信息</th>
               <th class="th-cell text-right">操作</th>

@@ -5,6 +5,7 @@ import test from 'node:test'
 const orderSource = readFileSync(new URL('../src/views/function/order/order.vue', import.meta.url), 'utf8')
 const installationSource = readFileSync(new URL('../src/views/function/installationTask/installationTask.vue', import.meta.url), 'utf8')
 const manualSource = readFileSync(new URL('../src/views/manual/UserManual.vue', import.meta.url), 'utf8')
+const labelSource = readFileSync(new URL('../src/views/function/label.vue', import.meta.url), 'utf8')
 
 function functionSource(source, name, nextName) {
   const start = source.search(new RegExp(`(?:async )?function ${name}\\(`))
@@ -12,6 +13,14 @@ function functionSource(source, name, nextName) {
   assert.notEqual(start, -1, `${name} must exist`)
   assert.notEqual(end, -1, `${nextName} must follow ${name}`)
   return source.slice(start, start + 1 + end)
+}
+
+function sourceBetween(source, startToken, endToken) {
+  const start = source.indexOf(startToken)
+  const end = source.indexOf(endToken, start + startToken.length)
+  assert.notEqual(start, -1, `${startToken} must exist`)
+  assert.notEqual(end, -1, `${endToken} must follow ${startToken}`)
+  return source.slice(start, end)
 }
 
 test('orders use informationChannel everywhere instead of delivery dates', () => {
@@ -36,10 +45,10 @@ test('installation tasks and the user manual use informationChannel terminology'
 
 test('drawing budget completion is a separately selectable terminal status', () => {
   assert.match(orderSource, /\{value: 'budget_completed', label: '预算完成'\}/)
-  assert.match(orderSource, /key: 'order-budget-completed',[\s\S]*status: 'budget_completed'/)
-  assert.match(orderSource, /const drawingBudgetStatusFlow = \['budgeting', 'budget_completed'\]/)
-  const previousSource = functionSource(orderSource, 'previousOrderStatus', 'isOrderMaterialApprovalTransition')
-  assert.match(previousSource, /if \(row\.orderCategory === 'drawing_budget'\) \{\s*return ''\s*\}/)
+  assert.match(orderSource, /key: 'drawing-budget-completed',[\s\S]*status: 'budget_completed'/)
+  assert.match(orderSource, /isDrawingBudgetTerminal\(row\)/)
+  assert.match(orderSource, /isDrawingBudgetTerminal\(orderForm\)/)
+  assert.match(orderSource, /if \(!canEditOrder\(detail\)\)/)
 })
 
 test('advance intent saves the current status before attempting the next-stage request', () => {
@@ -50,7 +59,7 @@ test('advance intent saves the current status before attempting the next-stage r
   assert.doesNotMatch(advanceSource, /advanceOrderNextStage/)
   assert.match(orderSource, /const advanceIntent = ref\(null\)/)
   assert.match(orderSource, /const editingOrderStatus = ref\(''\)/)
-  assert.match(orderSource, /payload\.status = advanceIntent\.value \? editingOrderStatus\.value : payload\.status/)
+  assert.match(orderSource, /createOrderAdvancePlan\(basePayload, editingOrderStatus\.value, advanceIntent\.value\.targetStatus\)/)
   assert.match(submitSource, /await saveOrder\(editingOrderId\.value, payload\)/)
   assert.match(submitSource, /await advanceOrderNextStage\(editingOrderId\.value, advancePayload\)/)
   assert.ok(
@@ -69,18 +78,64 @@ test('shipping advance requires logistics fields within the edit dialog', () => 
 
 test('advance success messages distinguish shipping approval, material approval, and direct advance', () => {
   const submitSource = functionSource(orderSource, 'submitForm', 'validateOrderForm')
-  const messageSource = functionSource(orderSource, 'orderAdvanceSuccessMessage', 'advanceOrderTitle')
 
-  assert.match(orderSource, /function isOrderShippingApprovalTransition\(row = \{\}, targetStatus = nextOrderStatus\(row\)\)/)
-  assert.match(messageSource, /currentStatus === 'pending_ship' && targetStatus === 'shipped'/)
-  assert.match(messageSource, /return '已提交发货审批，审批通过后进入已发货'/)
-  assert.match(messageSource, /currentStatus === 'pending_pay' && targetStatus === 'pending_material'/)
-  assert.match(messageSource, /return '已提交订单审批，审批通过后进入备料中'/)
-  assert.match(messageSource, /return '订单已推进到下一阶段'/)
-  assert.match(submitSource, /orderAdvanceSuccessMessage\(editingOrderStatus\.value, advanceIntent\.value\.targetStatus\)/)
+  assert.match(orderSource, /isOrderShippingApprovalTransition/)
+  assert.match(submitSource, /advancePlan\.successMessage/)
   assert.doesNotMatch(submitSource, /orderForm\.status\s*=\s*advanceIntent/)
   assert.ok(
     submitSource.indexOf('await advanceOrderNextStage(editingOrderId.value, advancePayload)') < submitSource.indexOf('await loadOrders()'),
     'the list must refresh only after the next-stage request returns'
   )
+})
+
+test('web order flow QR uses only canonical values and shows invalid-data feedback', () => {
+  assert.doesNotMatch(orderSource, /buildOrderFlowQrTextForWeb|flowScanCode \|\| order\.flowBarcode \|\| order\.flowCode/)
+  assert.doesNotMatch(orderSource, /payload\.flowQrPayload \|\| payload\.flowScanCode \|\| payload\.flowBarcode \|\| payload\.flowCode/)
+  assert.match(orderSource, /selectOrderFlowQrValue\(order\.flowScanCode, order\.flowBarcode\)/)
+  assert.match(orderSource, /selectOrderFlowQrValue\(payload\.flowQrPayload, payload\.flowScanCode, payload\.flowBarcode\)/)
+  assert.match(labelSource, /selectOrderFlowQrValue\(target\.flowQrPayload, target\.flowScanCode, target\.flowBarcode\)/)
+  assert.doesNotMatch(labelSource, /target\.flowQrPayload \|\| target\.flowScanCode \|\| target\.flowBarcode \|\| target\.flowCode/)
+  assert.match(labelSource, /流转二维码格式无效，无法生成二维码/)
+  assert.match(labelSource, /流转二维码格式无效，无法预览或打印/)
+})
+
+test('installation task table labels information channel and logistics consistently', () => {
+  assert.match(installationSource, /<th class="th-cell">信息渠道与物流<\/th>/)
+  assert.match(installationSource, /data-label="信息渠道与物流"/)
+})
+
+test('filter overview collapses through an accessible click button and retains the active summary', () => {
+  assert.match(orderSource, /const filterOverviewExpanded = ref\(true\)/)
+  assert.match(orderSource, /const activeFilterSummary = computed\(/)
+  assert.match(orderSource, /:aria-expanded="filterOverviewExpanded"/)
+  assert.match(orderSource, /aria-controls="order-filter-overview order-filter-details"/)
+  assert.match(orderSource, /@click="filterOverviewExpanded = !filterOverviewExpanded"/)
+  assert.match(orderSource, /\{\{ activeFilterSummary \}\}/)
+  assert.match(orderSource, /v-show="filterOverviewExpanded" id="order-filter-overview"/)
+  assert.match(orderSource, /v-show="filterOverviewExpanded" id="order-filter-details"/)
+  assert.doesNotMatch(orderSource, /@(mouseenter|mouseover|touchstart)="[^"]*select/)
+})
+
+test('drawing budget cards are independent from ordinary status and category cards', () => {
+  const statusTabsSource = sourceBetween(orderSource, 'const currentStatusTabs = computed', 'const orderWarningHint = computed')
+  const summarySource = sourceBetween(orderSource, 'const summaryCards = computed', 'const categorySummaryCards = computed')
+  const categorySource = sourceBetween(orderSource, 'const categorySummaryCards = computed', 'const drawingBudgetSummaryCards = computed')
+  const drawingSource = sourceBetween(orderSource, 'const drawingBudgetSummaryCards = computed', 'const selectedCustomerOption = computed')
+
+  assert.match(statusTabsSource, /filter\(status => !\['budgeting', 'budget_completed'\]\.includes\(status\.value\)\)/)
+  assert.doesNotMatch(summarySource, /order-budgeting|status: 'budgeting'/)
+  assert.doesNotMatch(summarySource, /order-budget-completed|status: 'budget_completed'/)
+  assert.match(categorySource, /filter\(option => option\.value !== 'drawing_budget'\)/)
+  assert.doesNotMatch(categorySource, /图纸预算订单/)
+  assert.match(drawingSource, /key: 'drawing-budget-total'[\s\S]*count: orderSummary\.category_drawing_budget \|\| 0/)
+  assert.match(drawingSource, /key: 'drawing-budget-budgeting'[\s\S]*status: 'budgeting'[\s\S]*count: orderSummary\.budgeting \|\| 0/)
+  assert.match(drawingSource, /key: 'drawing-budget-completed'[\s\S]*status: 'budget_completed'[\s\S]*count: orderSummary\.budget_completed \|\| 0/)
+  assert.match(orderSource, /@click="selectDrawingBudgetCard\(card\)"/)
+  assert.match(orderSource, /filters\.orderCategory = 'drawing_budget'[\s\S]*filters\.status = card\.status \|\| ''/)
+})
+
+test('drawing budget cards stay in one responsive row without mobile overflow', () => {
+  assert.match(orderSource, /\.drawing-budget-summary-grid\s*\{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/)
+  assert.match(orderSource, /@media \(max-width: 768px\)[\s\S]*\.drawing-budget-summary-grid\s*\{[\s\S]*overflow-x: auto/)
+  assert.match(orderSource, /\.order-filter-overview-copy\s*\{[\s\S]*min-width: 0/)
 })
