@@ -427,7 +427,7 @@
             {{ fieldLabel('modelCode', '型号') }}
             <span v-if="fieldRequired('modelCode')" class="text-rose-500">*</span>
           </span>
-          <input v-model.trim="inForm.modelCode" data-field="inventory.modelCode" @input="loadModelOptions" class="inventory-input" placeholder="搜索或输入型号" />
+          <el-input v-model.trim="inForm.modelCode" data-field="inventory.modelCode" @input="loadModelOptions" placeholder="搜索或输入型号" />
           <div v-if="modelOptions.length" class="mt-3 flex flex-wrap gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
             <el-button v-for="item in modelOptions" :key="`${item.modelCode}-${item.spec}`" @click="pickModel(item)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-700">
               {{ item.modelCode }} <span class="mx-1 text-slate-300">|</span> {{ meter(item.spec) }}
@@ -442,7 +442,7 @@
               {{ fieldLabel('spec', '规格') }}
               <span v-if="fieldRequired('spec')" class="text-rose-500">*</span>
             </span>
-            <input v-model.trim="inForm.spec" data-field="inventory.spec" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
+            <el-input-number v-model="inForm.spec" data-field="inventory.spec" :min="0" :step="0.01" :precision="2" controls-position="right" class="w-full" placeholder="0.00" />
           </label>
           <label class="block">
             <span class="inventory-field-label">
@@ -450,7 +450,7 @@
               {{ fieldLabel('totalMeters', '入库米数') }}
               <span v-if="fieldRequired('totalMeters')" class="text-rose-500">*</span>
             </span>
-            <input v-model.trim="inForm.meters" data-field="inventory.meters" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
+            <el-input-number v-model="inForm.meters" data-field="inventory.meters" :min="0" :step="0.01" :precision="2" controls-position="right" class="w-full" placeholder="0.00" />
           </label>
         </div>
 
@@ -464,11 +464,10 @@
               {{ field.label }}
               <span v-if="field.required" class="text-rose-500">*</span>
             </span>
-            <input
+            <el-input
               v-model.trim="inForm.customFields[field.key]"
               :data-field="`inventory.custom.${field.key}`"
               :type="customFieldInputType(field)"
-              class="inventory-input bg-white"
               :placeholder="`请输入${field.label}`"
             />
           </label>
@@ -542,7 +541,7 @@
 
           <label class="block">
             <span class="inventory-field-label">{{ fieldLabel('barCode', '条码') }}</span>
-            <input v-model.trim="candidate.barcode" class="inventory-input" placeholder="留空则自动生成" />
+            <el-input v-model.trim="candidate.barcode" placeholder="留空则自动生成" />
           </label>
 
           <label class="block">
@@ -550,7 +549,7 @@
               {{ fieldLabel('modelCode', '型号') }}
               <span class="text-rose-500">*</span>
             </span>
-            <input v-model.trim="candidate.modelCode" class="inventory-input" placeholder="请输入或核对型号" />
+            <el-input v-model.trim="candidate.modelCode" placeholder="请输入或核对型号" />
           </label>
 
           <div class="grid grid-cols-2 gap-4">
@@ -559,14 +558,14 @@
                 {{ fieldLabel('spec', '规格') }}
                 <span class="text-rose-500">*</span>
               </span>
-              <input v-model.trim="candidate.spec" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
+              <el-input-number v-model="candidate.spec" :min="0" :step="0.01" :precision="2" controls-position="right" class="w-full" placeholder="0.00" />
             </label>
             <label class="block">
               <span class="inventory-field-label">
                 {{ fieldLabel('totalMeters', '入库米数') }}
                 <span class="text-rose-500">*</span>
               </span>
-              <input v-model.trim="candidate.meters" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
+              <el-input-number v-model="candidate.meters" :min="0" :step="0.01" :precision="2" controls-position="right" class="w-full" placeholder="0.00" />
             </label>
           </div>
 
@@ -577,17 +576,16 @@
                 {{ field.label }}
                 <span v-if="field.required" class="text-rose-500">*</span>
               </span>
-              <input
+              <el-input
                 v-model.trim="candidate.customFields[field.key]"
                 :type="customFieldInputType(field)"
-                class="inventory-input bg-white"
                 :placeholder="`请输入${field.label}`"
               />
             </label>
           </div>
 
           <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50/80 p-3 text-xs text-blue-900">
-            <input v-model="candidate.manualVerified" type="checkbox" class="mt-1 h-4 w-4 rounded border-blue-300 text-blue-600" />
+            <el-checkbox v-model="candidate.manualVerified" class="mt-0" />
             <span>
               <b class="block text-sm text-blue-950">已人工核对该候选布匹</b>
               <span class="text-blue-900/70">确认型号、规格、米数和条码无误后再入库。</span>
@@ -736,7 +734,7 @@ const outPreviewBarcode = ref('')
 let outPreviewRequestId = 0
 const importInputRef = ref(null)
 const imageRecognitionUploading = ref(false)
-const inForm = reactive({ barcode: '', modelCode: '', spec: '', meters: '', inTime: '', customFields: {} })
+const inForm = reactive({ barcode: '', modelCode: '', spec: null, meters: null, inTime: '', customFields: {} })
 const outForm = reactive({ barcode: '', meters: '' })
 const {
   timeCorrectionMode: inTimeCorrectionMode,
@@ -988,7 +986,7 @@ function openModelClothPage() {
 
 function openInDrawer() {
   if (!requireUiPermission('inventory:cloth:in')) return
-  Object.assign(inForm, { barcode: '', modelCode: '', spec: '', meters: '', inTime: '' })
+  Object.assign(inForm, { barcode: '', modelCode: '', spec: null, meters: null, inTime: '' })
   resetCustomFields()
   modelOptions.value = []
   inVisible.value = true
@@ -1031,7 +1029,7 @@ async function loadModelOptions() {
 
 function pickModel(item) {
   inForm.modelCode = item.modelCode
-  inForm.spec = item.spec == null ? '' : String(item.spec)
+  inForm.spec = item.spec == null ? null : Number(item.spec)
   modelOptions.value = []
 }
 
@@ -1116,8 +1114,8 @@ function normalizeRecognitionCandidate(candidate = {}) {
     localId: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     barcode: candidate.barcode || '',
     modelCode: candidate.modelCode || '',
-    spec: candidate.spec == null ? '' : String(candidate.spec),
-    meters: candidate.meters == null ? '' : String(candidate.meters),
+    spec: candidate.spec == null || candidate.spec === '' ? null : Number(candidate.spec),
+    meters: candidate.meters == null || candidate.meters === '' ? null : Number(candidate.meters),
     manualVerified: false,
     customFields: createEmptyCustomFields()
   }
