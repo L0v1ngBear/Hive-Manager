@@ -95,3 +95,25 @@ test('inventory detail preserves route query and numeric status contracts', () =
   assert.match(detail, /const status = computed\(\(\) => route\.query\.status === undefined[\s\S]*Number\(route\.query\.status\)\)/)
   assert.match(detail, /timeOrder\.value/)
 })
+
+test('inventory has no native standard command buttons and mutation commands explain permissions', () => {
+  assert.doesNotMatch(inventory, /<button(?:\s|>)/)
+  for (const guard of ['canInInventory', 'canOutInventory']) {
+    assert.match(inventory, new RegExp(`<el-tooltip[^>]*:disabled="${guard}"[\\s\\S]*?<el-button[^>]*:disabled="!${guard}`))
+  }
+})
+
+test('inventory main outbound preview owns the exact latest submitted barcode', () => {
+  assert.match(inventory, /const outPreviewBarcode = ref\(''\)/)
+  assert.match(inventory, /let outPreviewRequestId = 0/)
+  assert.match(inventory, /const requestId = \+\+outPreviewRequestId/)
+  assert.match(inventory, /if \(requestId !== outPreviewRequestId\) return/)
+  assert.match(inventory, /outPreviewBarcode\.value = barcode/)
+  assert.match(inventory, /outPreviewBarcode\.value !== outForm\.barcode/)
+  assert.match(inventory, /条码已变化，请重新查询并核对目标布匹/)
+})
+
+test('inventory detail refresh is disabled with its read permission reason', () => {
+  assert.match(detail, /<el-tooltip[^>]*:disabled="canReadInventory"[^>]*content="暂无 inventory:warning:list 权限"/)
+  assert.match(detail, /<el-button[^>]*:disabled="!canReadInventory"[^>]*@click="fetchDetail"/)
+})

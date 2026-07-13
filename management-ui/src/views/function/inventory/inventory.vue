@@ -327,9 +327,9 @@
             {{ detailRecord?.modelCode || '--' }} / {{ meter(detailRecord?.spec) }}
           </p>
         </div>
-        <button @click="detailVisible = false" class="inventory-close-btn">
+        <el-button circle @click="detailVisible = false" class="inventory-close-btn">
           <span class="material-symbols-outlined">close</span>
-        </button>
+        </el-button>
       </div>
       <div v-if="detailRecord" class="flex-1 space-y-6 overflow-y-auto p-6">
         <div class="grid grid-cols-2 gap-4">
@@ -376,13 +376,13 @@
               </p>
             </div>
           </div>
-          <button
+          <el-button
             @click="openModelClothPage"
             class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition-colors hover:bg-blue-700"
           >
             查看单匹布明细
             <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
-          </button>
+          </el-button>
         </div>
       </div>
     </el-drawer>
@@ -399,9 +399,9 @@
           <p class="mt-1.5 text-xs text-slate-500">条码不填时系统会自动生成唯一标识号，标签打印请到现场打印页完成。</p>
         </div>
         <div class="inventory-drawer-actions">
-          <button @click="closeInDrawer" class="inventory-close-btn">
+          <el-button circle @click="closeInDrawer" class="inventory-close-btn">
             <span class="material-symbols-outlined">close</span>
-          </button>
+          </el-button>
         </div>
       </div>
       <div class="flex-1 space-y-6 overflow-y-auto p-6">
@@ -429,9 +429,9 @@
           </span>
           <input v-model.trim="inForm.modelCode" data-field="inventory.modelCode" @input="loadModelOptions" class="inventory-input" placeholder="搜索或输入型号" />
           <div v-if="modelOptions.length" class="mt-3 flex flex-wrap gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <button v-for="item in modelOptions" :key="`${item.modelCode}-${item.spec}`" @click="pickModel(item)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-700">
+            <el-button v-for="item in modelOptions" :key="`${item.modelCode}-${item.spec}`" @click="pickModel(item)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-700">
               {{ item.modelCode }} <span class="mx-1 text-slate-300">|</span> {{ meter(item.spec) }}
-            </button>
+            </el-button>
           </div>
         </label>
 
@@ -475,8 +475,8 @@
         </div>
       </div>
       <div class="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
-        <button @click="closeInDrawer" class="inventory-cancel-btn">取消</button>
-        <button @click="submitIn" class="inventory-confirm-btn bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600">确认入库</button>
+        <el-button @click="closeInDrawer">取消</el-button>
+        <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button type="primary" :disabled="!canInInventory" @click="submitIn">确认入库</el-button></span></el-tooltip>
       </div>
       </el-form>
     </el-drawer>
@@ -492,9 +492,9 @@
           </h3>
           <p class="mt-1.5 text-xs text-slate-500">先上传图片，系统带出候选信息；确认前请人工核对，避免错入库。</p>
         </div>
-        <button @click="imageRecognitionVisible = false" class="inventory-close-btn">
+        <el-button circle @click="imageRecognitionVisible = false" class="inventory-close-btn">
           <span class="material-symbols-outlined">close</span>
-        </button>
+        </el-button>
       </div>
       <div class="flex-1 space-y-5 overflow-y-auto p-6">
         <DragAttachmentUpload
@@ -531,13 +531,13 @@
         <div v-for="(candidate, index) in imageRecognitionCandidates" :key="candidate.localId" class="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
           <div class="flex items-center justify-between">
             <h4 class="text-sm font-black text-slate-900">候选布匹 {{ index + 1 }}</h4>
-            <button
+            <el-button
               v-if="imageRecognitionCandidates.length > 1"
               @click="removeRecognitionCandidate(index)"
               class="rounded-lg px-2 py-1 text-xs font-bold text-rose-500 hover:bg-rose-50"
             >
               删除
-            </button>
+            </el-button>
           </div>
 
           <label class="block">
@@ -595,14 +595,14 @@
           </label>
         </div>
 
-        <button @click="addRecognitionCandidate" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-200 bg-blue-50/60 px-4 py-3 text-sm font-black text-blue-600 hover:bg-blue-50">
+        <el-button @click="addRecognitionCandidate" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-200 bg-blue-50/60 px-4 py-3 text-sm font-black text-blue-600 hover:bg-blue-50">
           <span class="material-symbols-outlined text-[18px]">add</span>
           继续添加一匹布
-        </button>
+        </el-button>
       </div>
       <div class="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
-        <button @click="imageRecognitionVisible = false" class="inventory-cancel-btn">取消</button>
-        <button @click="submitRecognizedInventory" class="inventory-confirm-btn bg-blue-600 text-white shadow-blue-600/20 hover:bg-blue-700">确认入库</button>
+        <el-button @click="imageRecognitionVisible = false">取消</el-button>
+        <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button type="primary" :disabled="!canInInventory" @click="submitRecognizedInventory">确认入库</el-button></span></el-tooltip>
       </div>
       </el-form>
     </el-drawer>
@@ -618,9 +618,9 @@
           </h3>
           <p class="mt-1.5 text-xs text-slate-500">请扫描或输入布匹条码，系统会校验剩余可出库米数。</p>
         </div>
-        <button @click="outVisible = false" class="inventory-close-btn">
+        <el-button circle @click="closeOutDrawer" class="inventory-close-btn">
           <span class="material-symbols-outlined">close</span>
-        </button>
+        </el-button>
       </div>
       <div class="flex-1 space-y-6 overflow-y-auto p-6">
         <label class="block">
@@ -634,7 +634,7 @@
           </div>
         </label>
 
-        <div v-if="outPreview" class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div v-if="outPreviewMatchesBarcode" class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
           <div class="absolute right-0 top-0 h-full w-1 bg-blue-500"></div>
           <div class="flex flex-col gap-2">
             <p class="flex justify-between text-sm">
@@ -658,8 +658,8 @@
         </label>
       </div>
       <div class="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
-        <button @click="outVisible = false" class="inventory-cancel-btn">取消</button>
-        <button @click="submitOut" class="inventory-confirm-btn bg-slate-800 text-white shadow-slate-800/20 hover:bg-slate-900">确认出库</button>
+        <el-button @click="closeOutDrawer">取消</el-button>
+        <el-tooltip :disabled="canOutInventory" content="暂无 inventory:cloth:out 权限"><span><el-button type="primary" :disabled="!canOutInventory || !outPreviewMatchesBarcode" @click="submitOut">确认出库</el-button></span></el-tooltip>
       </div>
       </el-form>
     </el-drawer>
@@ -732,6 +732,8 @@ const warningSettingVisible = ref(false)
 const warningSettingForm = reactive({ threshold: 100 })
 const detailRecord = ref(null)
 const outPreview = ref(null)
+const outPreviewBarcode = ref('')
+let outPreviewRequestId = 0
 const importInputRef = ref(null)
 const imageRecognitionUploading = ref(false)
 const inForm = reactive({ barcode: '', modelCode: '', spec: '', meters: '', inTime: '', customFields: {} })
@@ -751,6 +753,11 @@ const canReadTrend = computed(() => userStore.hasPermission('inventory:trend'))
 const canConfigureWarning = computed(() => userStore.hasPermission('inventory:warning:setting'))
 const canInInventory = computed(() => userStore.hasPermission('inventory:cloth:in'))
 const canOutInventory = computed(() => userStore.hasPermission('inventory:cloth:out'))
+const outPreviewMatchesBarcode = computed(() => Boolean(outPreview.value && outPreviewBarcode.value && outPreviewBarcode.value === outForm.barcode))
+
+watch(() => outForm.barcode, (barcode) => {
+  if (barcode !== outPreviewBarcode.value) outPreview.value = null
+})
 
 const totalPages = computed(() => Math.max(Number(pagination.pages || 1), 1))
 const maxTrendValue = computed(() => Math.max(1, ...trendRows.value.flatMap((item) => [Number(item.inMeters || 0), Number(item.outMeters || 0)])))
@@ -996,13 +1003,21 @@ function openOutDrawer(record) {
   if (!requireUiPermission('inventory:cloth:out')) return
   Object.assign(outForm, { barcode: record?.barcode || '', meters: record?.remainingMeters ? String(record.remainingMeters) : '' })
   outPreview.value = record || null
+  outPreviewBarcode.value = record?.barcode || ''
   outVisible.value = true
+}
+
+function closeOutDrawer() {
+  outPreviewRequestId += 1
+  outVisible.value = false
+  outPreview.value = null
+  outPreviewBarcode.value = ''
 }
 
 function closePanels() {
   detailVisible.value = false
   closeInDrawer()
-  outVisible.value = false
+  closeOutDrawer()
   imageRecognitionVisible.value = false
 }
 
@@ -1021,11 +1036,24 @@ function pickModel(item) {
 }
 
 async function lookupBarcode() {
-  if (!outForm.barcode) {
-    outPreview.value = null
+  const barcode = outForm.barcode
+  const requestId = ++outPreviewRequestId
+  outPreview.value = null
+  outPreviewBarcode.value = ''
+  if (!barcode) {
     return
   }
-  outPreview.value = await searchInventoryBarcode({ barCode: outForm.barcode })
+  try {
+    const preview = await searchInventoryBarcode({ barCode: barcode })
+    if (requestId !== outPreviewRequestId) return
+    outPreview.value = preview || null
+    outPreviewBarcode.value = barcode
+  } catch (error) {
+    if (requestId !== outPreviewRequestId) return
+    outPreview.value = null
+    outPreviewBarcode.value = ''
+    throw error
+  }
 }
 
 function triggerImageRecognition() {
@@ -1232,9 +1260,13 @@ async function submitOut() {
   if (!requireUiPermission('inventory:cloth:out')) return
   if (!outForm.barcode) return warnAndFocusField('请填写或扫描布匹条码。', 'inventory.outBarcode')
   if (Number(outForm.meters) <= 0) return warnAndFocusField('请填写有效出库米数。', 'inventory.outMeters')
+  if (!outPreviewMatchesBarcode.value || outPreviewBarcode.value !== outForm.barcode) {
+    ElMessage.warning('条码已变化，请重新查询并核对目标布匹')
+    return
+  }
   await outCloth({ barcode: outForm.barcode, meters: Number(outForm.meters) })
   ElMessage.success('出库成功')
-  outVisible.value = false
+  closeOutDrawer()
   await refreshAll()
 }
 
