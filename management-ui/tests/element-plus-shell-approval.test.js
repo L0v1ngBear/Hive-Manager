@@ -145,3 +145,25 @@ test('login keeps password, memory, scan, and redirect flows unchanged', () => {
   assert.match(joinOrganization, /joinOrganization\(\{/)
   assert.match(forcePasswordChange, /changeInitialPassword\(\{/)
 })
+
+test('approval detail commands enforce real detail permissions and latest request state', () => {
+  for (const permission of ['approval:leave:detail', 'approval:finance:detail', 'approval:resignation:detail', 'order:detail']) {
+    assert.match(approval, new RegExp(permission.replace(':', '\\:')))
+  }
+  assert.match(approval, /:disabled="!canViewDetail\(item\)"/)
+  assert.match(approval, /if \(!canViewDetail\(item\)\) return/)
+  assert.match(approval, /const requestId = \+\+detailRequestId/)
+  assert.match(approval, /detailData\.value = null[\s\S]*detailLoadError\.value = null[\s\S]*detailLoading\.value = true/)
+  assert.match(approval, /if \(requestId !== detailRequestId\) return/)
+  assert.match(approval, /detailLoadError\.value = resolveLoadFailure\(error, '审批详情'\)/)
+  assert.match(approval, /requireUiPermission\('approval:finance:detail'\)/)
+})
+
+test('dashboard overview clears stale state and commits only the latest retryable result', () => {
+  assert.match(dashboard, /const overviewLoadError = ref\(null\)/)
+  assert.match(dashboard, /const requestId = \+\+overviewRequestId/)
+  assert.match(dashboard, /resetOverviewState\(\)[\s\S]*overviewLoadError\.value = null[\s\S]*getDashboardOverview/)
+  assert.match(dashboard, /if \(requestId !== overviewRequestId\) return/)
+  assert.match(dashboard, /overviewLoadError\.value = resolveOverviewFailure\(error\)/)
+  assert.match(dashboard, /v-if="overviewLoadError"[\s\S]*@click="fetchOverview"/)
+})

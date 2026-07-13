@@ -82,6 +82,9 @@
 
 ## Element Plus 控件与保留项
 
+- 详情命令按 `approval:leave:detail`、`approval:finance:detail`、`approval:resignation:detail`、`order:detail`（质量沿用 `badproduct:process`）保持可见但禁用并说明原因；财务附件下载按 `approval:finance:detail` 同步保护。
+- 详情抽屉在请求前清空旧内容，独立呈现 loading、empty、401/403、网络/5xx 失败并可重试；request-id 防止跨审批旧响应和旧 finally 覆盖。
+
 - 五类标签使用 `ElTabs`、`ElTabPane` 和 `ElBadge`，禁用状态继续由原权限矩阵计算。
 - 筛选使用 `ElInput`、`ElSelect`；列表使用 `ElTable`、`ElTableColumn`、`ElTag`、`ElPagination`、`v-loading` 和 `ElEmpty`。
 - 详情使用 `ElDialog`、`ElDescriptions`；审核、财务和离职输入使用 `ElForm`、`ElFormItem`、`ElInput`。

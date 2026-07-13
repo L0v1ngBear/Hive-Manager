@@ -70,6 +70,9 @@
 
 ## Element Plus 控件和样式现状
 
+- overview 请求前清空 summary、visibility、提醒、考勤与快捷动作；独立错误面板区分 401/403、网络/5xx 并可重试，真实零值仍作为成功数据展示。
+- overview 使用 request-id 维持 last-request-wins，旧成功、旧失败和旧 finally 不覆盖新状态。
+
 - 快捷动作、发布公告和查看全部使用显式导入的 `ElButton`，后端下发 route 与点击方法保持不变。
 - 公告加载和空态使用 `v-loading`、`ElEmpty`；区域错误使用持久状态与 `ElButton` 重试，全局请求消息保持不变。
 - 摘要、公告、提醒和考勤保留原有非嵌套卡片布局，没有为迁移额外套入 `ElCard`。

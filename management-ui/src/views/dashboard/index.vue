@@ -1,5 +1,7 @@
 <template>
-  <div class="min-h-fit max-w-7xl mx-auto space-y-6">
+  <div v-loading="loading" class="min-h-fit max-w-7xl mx-auto space-y-6">
+    <el-result v-if="overviewLoadError" :icon="overviewLoadError.kind === 'permission' ? 'warning' : 'error'" :title="overviewLoadError.title" :sub-title="overviewLoadError.message"><template #extra><el-button type="primary" @click="fetchOverview">重试</el-button></template></el-result>
+    <template v-else>
     <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="text-sm font-bold tracking-[0.2em] text-primary/70 uppercase">经营总览</p>
@@ -250,12 +252,13 @@
         <span class="text-base font-bold">同步数据中...</span>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ElButton, ElEmpty, ElMessage } from 'element-plus'
+import { ElButton, ElEmpty, ElResult } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getDashboardOverview } from './api/dashboard.js'
@@ -267,6 +270,8 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const loading = ref(false)
+const overviewLoadError = ref(null)
+let overviewRequestId = 0
 const announcementLoading = ref(false)
 const announcementLoadError = ref(null)
 const importantAnnouncementLoadError = ref(null)
@@ -336,10 +341,30 @@ const attendanceBadgeClass = computed(() => {
   return 'bg-slate-100 text-slate-500'
 })
 
+function resetOverviewState() {
+  summary.value = { monthOrderCount: 0, totalInventoryMeters: 0, pendingApprovalCount: 0, pendingPrintCount: 0, inventoryWarningCount: 0, orderWarningCount: 0 }
+  visibility.value = { orderVisible: false, inventoryVisible: false, approvalVisible: false, receiptVisible: false, attendanceVisible: false }
+  businessAlerts.value = []
+  attendanceAlerts.value = []
+  attendanceSummary.value = { totalEmployeeCount: 0, actualCount: 0, abnormalCount: 0, statusText: '暂无考勤数据', statusType: 'empty' }
+  quickActions.value = []
+}
+
+function resolveOverviewFailure(error) {
+  const failure = resolveLoadFailure(error, '经营总览')
+  if (failure.kind === 'authentication') return { ...failure, message: '请重新登录后再查看经营总览。' }
+  if (failure.kind === 'permission') return { ...failure, title: '暂无经营总览查看权限', message: '当前账号无权加载经营总览，请联系管理员确认权限。' }
+  return failure
+}
+
 const fetchOverview = async () => {
+  const requestId = ++overviewRequestId
   loading.value = true
+  resetOverviewState()
+  overviewLoadError.value = null
   try {
     const data = await getDashboardOverview()
+    if (requestId !== overviewRequestId) return
     summary.value = data?.summary || summary.value
     visibility.value = data?.visibility || visibility.value
     businessAlerts.value = Array.isArray(data?.businessAlerts) ? data.businessAlerts : []
@@ -348,9 +373,10 @@ const fetchOverview = async () => {
     quickActions.value = Array.isArray(data?.quickActions) ? data.quickActions : []
     fetchAnnouncements()
   } catch (error) {
-    ElMessage.error(error?.msg || '总览数据加载失败，请稍后重试')
+    if (requestId !== overviewRequestId) return
+    overviewLoadError.value = resolveOverviewFailure(error)
   } finally {
-    loading.value = false
+    if (requestId === overviewRequestId) loading.value = false
   }
 }
 
