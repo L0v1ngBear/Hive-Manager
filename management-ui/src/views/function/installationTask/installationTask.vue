@@ -246,7 +246,8 @@
         <el-form-item label="验收附件" class="installation-field-full">
           <el-tooltip :disabled="canAttach" content="上传附件需要 installation:update 与 installation:attachment:upload 权限"><div><DragAttachmentUpload
             title="上传施工照片、验收单或交付凭证"
-            :uploading="attachmentUploading || !canAttach"
+            :disabled="!canAttach"
+            :uploading="attachmentUploading"
             :download-disabled="!canDownload"
             :remove-disabled="!canUpdate"
             disabled-reason="当前账号暂无对应附件权限"

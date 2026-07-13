@@ -42,7 +42,7 @@
 - 后端上传要求 installation:attachment:upload。
 - 后端下载要求 installation:attachment:download。
 - 权限枚举还定义 installation:\*。
-- 页面按真实接口权限分别检查 `installation:update`、`installation:attachment:upload`、`installation:attachment:download`；命令保持可见，无权时置灰并显示原因，处理函数同步阻止请求。
+- 页面按真实接口权限分别检查 `installation:update`、`installation:attachment:upload`、`installation:attachment:download`；命令保持可见，无权时置灰并显示原因，处理函数同步阻止请求。附件组件用独立 `disabled` 状态表达无上传权限，只有真实上传请求才显示上传动画；`select/download/remove` 事件契约保持不变。
 - 内置安装岗位同时包含 order:list 与 installation:\* 子权限，但自定义角色仍可能触发入口/接口错配。
 
 ## 关键状态 / 数据流
