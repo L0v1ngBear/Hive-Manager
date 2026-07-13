@@ -1,10 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
+import { deployRoot } from './deploy-test-root.js'
 
 const uiRoot = path.resolve('D:/HiveManager/management-ui')
 const managementRoot = path.resolve('D:/HiveManager/management')
-const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
 
 function read(file) {
   return fs.readFileSync(file, 'utf8')

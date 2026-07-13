@@ -1,18 +1,8 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
+import { deployRoot } from './deploy-test-root.js'
 
-const desktop = path.join(os.homedir(), 'Desktop')
-const deployDirectory = fs.readdirSync(desktop).find((name) => {
-  const candidate = path.join(desktop, name)
-  return name.toLowerCase().startsWith('hive') &&
-    fs.existsSync(path.join(candidate, 'docker-compose.yml')) &&
-    fs.existsSync(path.join(candidate, 'scripts', 'restart.sh'))
-})
-
-assert.ok(deployDirectory, 'Hive deployment package must exist on the desktop')
-const deployRoot = path.join(desktop, deployDirectory)
 const wrapperRelativePath = 'scripts/manual-reset-tenant-001.sh'
 const sqlRelativePath = 'db-migrations/manual/V20260712_001_reset_tenant_001_business_data.sql'
 const wrapperPath = path.join(deployRoot, wrapperRelativePath)

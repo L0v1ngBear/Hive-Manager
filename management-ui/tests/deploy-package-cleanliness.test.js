@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
+import { deployRoot } from './deploy-test-root.js'
 
-const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
 const checkedRoots = [
   'README.md',
   'SMOKE_TEST.md',

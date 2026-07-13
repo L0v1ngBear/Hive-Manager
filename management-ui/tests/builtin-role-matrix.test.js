@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
+import { deployRoot } from './deploy-test-root.js'
 
-const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
 const migrationName = 'V20260710_003_builtin_role_permission_matrix.sql'
 const migrationPath = path.join(deployRoot, 'db-migrations/migrations', migrationName)
 const scopeMigrationName = 'V20260710_004_order_role_status_scope.sql'
