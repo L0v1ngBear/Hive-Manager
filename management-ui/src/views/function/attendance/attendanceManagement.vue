@@ -303,10 +303,7 @@
                   <div class="text-sm font-bold text-slate-800">GPS 地理围栏</div>
                   <div class="text-xs text-slate-500 mt-0.5">要求在工厂规定的地理范围内打卡</div>
                 </div>
-                <div class="relative inline-flex items-center cursor-pointer">
-                  <input v-model="ruleForm.enableGps" type="checkbox" class="sr-only peer" />
-                  <div class="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </div>
+                <el-checkbox v-model="ruleForm.enableGps">启用</el-checkbox>
               </label>
               <div v-if="ruleForm.enableGps" class="space-y-3">
                 <div
@@ -326,23 +323,23 @@
                   <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-1">
                       <label class="block text-xs font-bold text-slate-500">地点名称</label>
-                      <input v-model.trim="location.locationName" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="例如：工厂南门"/>
+                      <el-input v-model.trim="location.locationName" placeholder="例如：工厂南门" />
                     </div>
                     <div class="space-y-1">
                       <label class="block text-xs font-bold text-slate-500">允许半径（米）</label>
-                      <input v-model.number="location.radius" type="number" min="1" max="5000" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="300"/>
+                      <el-input-number v-model="location.radius" :min="1" :max="5000" :step="1" class="w-full" />
                     </div>
                     <div class="space-y-1">
                       <label class="block text-xs font-bold text-slate-500">纬度</label>
-                      <input v-model.number="location.latitude" type="number" step="0.000001" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="例如 30.27415"/>
+                      <el-input-number v-model="location.latitude" :step="0.000001" :precision="6" :controls="false" class="w-full" />
                     </div>
                     <div class="space-y-1">
                       <label class="block text-xs font-bold text-slate-500">经度</label>
-                      <input v-model.number="location.longitude" type="number" step="0.000001" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="例如 120.15515"/>
+                      <el-input-number v-model="location.longitude" :step="0.000001" :precision="6" :controls="false" class="w-full" />
                     </div>
                     <div class="space-y-1 col-span-2">
                       <label class="block text-xs font-bold text-slate-500">地址备注</label>
-                      <input v-model.trim="location.address" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="可填写园区、楼栋或门岗位置"/>
+                      <el-input v-model.trim="location.address" placeholder="可填写园区、楼栋或门岗位置" />
                     </div>
                   </div>
                 </div>
@@ -359,14 +356,11 @@
                   <div class="text-sm font-bold text-slate-800">Wi-Fi 验证</div>
                   <div class="text-xs text-slate-500 mt-0.5">必须连接到公司指定的内网 Wi-Fi</div>
                 </div>
-                <div class="relative inline-flex items-center cursor-pointer">
-                  <input v-model="ruleForm.enableWifi" type="checkbox" class="sr-only peer" />
-                  <div class="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </div>
+                <el-checkbox v-model="ruleForm.enableWifi">启用</el-checkbox>
               </label>
               <div v-if="ruleForm.enableWifi" class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">Wi-Fi 名称</label>
-                <input v-model.trim="ruleForm.wifiSsid" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="请输入 Wi-Fi 名称（可选）"/>
+                <el-input v-model.trim="ruleForm.wifiSsid" placeholder="请输入 Wi-Fi 名称（可选）" />
               </div>
             </div>
           </section>

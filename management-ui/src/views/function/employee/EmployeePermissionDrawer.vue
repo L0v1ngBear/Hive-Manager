@@ -28,25 +28,38 @@
             {{ currentEmployee?.name || '--' }} 的个人权限覆盖，不会修改角色权限。
           </p>
         </div>
-        <button
+        <el-button
+            text
             class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary"
             @click="close"
         >
           <span class="material-symbols-outlined">close</span>
-        </button>
+        </el-button>
       </div>
     </div>
 
     <div class="flex-1 overflow-y-auto px-8 py-5">
-      <div v-if="loading" class="flex min-h-[320px] items-center justify-center text-primary">
+      <div v-if="permissionState.kind === 'loading'" class="flex min-h-[320px] items-center justify-center text-primary">
         <span class="material-symbols-outlined animate-spin text-4xl">progress_activity</span>
       </div>
 
-      <div v-else class="space-y-5">
-        <div v-if="loadError" class="flex items-center justify-between gap-3 rounded-lg bg-error-container px-4 py-3 text-sm font-bold text-error">
-          <span>{{ loadError }}</span>
-          <button type="button" class="rounded bg-white px-3 py-1" @click="retry">重新加载</button>
-        </div>
+      <div v-else-if="permissionState.kind === 'forbidden'" class="flex min-h-[320px] flex-col items-center justify-center gap-3 text-center">
+        <span class="material-symbols-outlined text-5xl text-primary">lock</span>
+        <p class="font-bold text-on-surface">{{ permissionState.title }}</p>
+        <p class="text-sm text-on-surface-variant">{{ permissionState.message }}</p>
+      </div>
+      <div v-else-if="permissionState.kind === 'failed'" class="flex min-h-[320px] flex-col items-center justify-center gap-3 text-center">
+        <span class="material-symbols-outlined text-5xl text-primary">cloud_off</span>
+        <p class="font-bold text-on-surface">{{ permissionState.title }}</p>
+        <p class="text-sm text-on-surface-variant">{{ permissionState.message }}</p>
+        <el-button type="primary" @click="retry">重新加载</el-button>
+      </div>
+      <div v-else-if="permissionState.kind === 'empty'" class="flex min-h-[320px] items-center justify-center">
+        <el-empty description="暂无可配置权限" />
+      </div>
+
+      <template v-else-if="permissionState.kind === 'ready'">
+      <div class="space-y-5">
 
         <section class="rounded-lg border border-outline-variant/20 bg-white p-4">
           <div class="flex items-center justify-between">
@@ -140,23 +153,25 @@
           有 {{ overlapCount }} 项权限同时出现在允许和禁用里，请先取消其中一边。
         </div>
       </div>
+      </template>
     </div>
 
     <div class="grid grid-cols-2 gap-4 border-t border-outline-variant/20 bg-white px-8 py-6">
-      <button
+      <el-button
           class="rounded-lg px-6 py-3 text-sm font-bold text-on-surface-variant transition-colors hover:bg-surface-container-high"
           @click="close"
       >
         取消
-      </button>
-      <button
-          :disabled="submitting || loading || !!loadError || overlapCount > 0"
+      </el-button>
+      <el-button
+          type="primary"
+          :loading="submitting"
+          :disabled="submitting || permissionState.kind !== 'ready' || overlapCount > 0"
           class="flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           @click="save"
       >
-        <span v-if="submitting" class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
         保存权限
-      </button>
+      </el-button>
     </div>
     </div>
   </el-drawer>
@@ -164,7 +179,7 @@
 
 <script setup>
 import { computed, nextTick, ref } from 'vue'
-import { ElDrawer, ElMessage, ElTree, ElTreeSelect } from 'element-plus'
+import { ElButton, ElDrawer, ElEmpty, ElMessage, ElTree, ElTreeSelect } from 'element-plus'
 import { createLatestRequest } from '@/utils/latestRequest'
 import { getAllPermissions } from '../role/api/role.js'
 import {
@@ -177,7 +192,7 @@ const emit = defineEmits(['updated', 'closed'])
 const visible = ref(false)
 const loading = ref(false)
 const submitting = ref(false)
-const loadError = ref('')
+const permissionState = ref({ kind: 'loading', title: '', message: '' })
 const currentEmployee = ref(null)
 const treeData = ref([])
 const rolePermissionIds = ref([])
@@ -203,7 +218,7 @@ async function open(employee) {
 async function load(employee) {
   const request = permissionRequest.begin()
   loading.value = true
-  loadError.value = ''
+  permissionState.value = { kind: 'loading', title: '', message: '' }
   treeData.value = []
   rolePermissionIds.value = []
   grantPermissionIds.value = []
@@ -224,12 +239,34 @@ async function load(employee) {
     grantPermissionIds.value = normalizeIds(overrideData?.grantPermissionIds)
     denyPermissionIds.value = normalizeIds(overrideData?.denyPermissionIds)
     await nextTick()
+    if (!request.isLatest()) return
     roleTreeRef.value?.setCheckedKeys(rolePermissionIds.value, false)
+    request.commit(() => {
+      permissionState.value = treeData.value.length
+        ? { kind: 'ready', title: '', message: '' }
+        : { kind: 'empty', title: '暂无可配置权限', message: '当前组织尚未配置可分配权限。' }
+    })
   } catch (error) {
     console.error('[Hive Auth] load employee permission overrides failed:', error)
-    request.commit(() => { loadError.value = '权限数据加载失败，请稍后重试。' })
+    request.commit(() => { permissionState.value = resolvePermissionFailure(error) })
   } finally {
     request.commit(() => { loading.value = false })
+  }
+}
+
+function resolvePermissionFailure(error) {
+  const status = Number(error?.response?.status ?? error?.response?.data?.code ?? error?.status ?? error?.code ?? 0)
+  if (status === 401 || status === 403) {
+    return {
+      kind: 'forbidden',
+      title: status === 401 ? '登录状态已失效' : '暂无权限查看员工权限',
+      message: status === 401 ? '请重新登录后再试。' : '请联系管理员分配员工编辑和角色权限查看权限。'
+    }
+  }
+  return {
+    kind: 'failed',
+    title: status >= 500 ? '权限服务暂时不可用' : '权限数据加载失败',
+    message: status >= 500 ? '服务处理失败，请稍后重试。' : '请检查网络连接后重试。'
   }
 }
 

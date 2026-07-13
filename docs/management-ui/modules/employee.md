@@ -49,9 +49,9 @@
 ## 权限/feature
 
 - `EmployeeController` 整体受 `module.employee` 约束；路由也检查同一 feature。
-- 路由只要求 `employee:list`，但“查看详情”没有前端权限门，后端要求 `employee:detail`。
-- 编辑按钮只检查 `employee:update`，编辑回填却调用要求 `employee:detail` 的详情接口。
-- “单独权限”按钮只检查 `employee:update`；抽屉还会调用要求 `role:permission:list` 的权限树接口。
+- 路由要求 `employee:list`；查看命令按 `employee:detail` 保持可见置灰并说明原因。
+- 编辑命令同时要求 `employee:update` 与回填所需的 `employee:detail`，handler 会在无权时停止请求。
+- “单独权限”命令同时要求 `employee:update` 与 `role:permission:list`，无权时保持可见置灰。
 - 下载导入模板在前端和后端均使用 `employee:export`；导入使用 `employee:create`。
 - 个人覆盖保存只要求 `employee:update`，不存在独立的新权限码，本文件不建议凭空新增权限。
 - 角色权限与个人覆盖在登录查询中合并：`GRANT` 返回原权限码，`DENY` 返回带 `!` 前缀的权限码；前端权限匹配先处理拒绝项。
@@ -68,16 +68,16 @@
 ## 空错态
 
 - 列表有加载遮罩和“暂无员工数据”；分页边界会禁用上一页/下一页。
-- 个人权限抽屉区分加载、加载失败、无角色继承权限和允许/禁用重叠。
-- 页面多数请求依赖全局 request 错误提示；列表失败时需防止旧数据被误认为新筛选结果。
+- 个人权限抽屉互斥展示加载、就绪、真实空态、401/403 与网络/5xx 失败；失败可重试，错误时不渲染权限内容。
+- 员工列表和组织架构使用请求代次，切换条件时清除旧数据，旧响应不能覆盖新请求。
 - 导入结果通过消息反馈；文件格式、模板下载和 blob 导出错误仍依赖全局处理。
 - 组织图无员工时显示空节点；该视图的专用空态应继续与请求错误区分。
 
 ## 控件现状
 
-- 主列表、筛选、分页、详情层和大部分按钮仍为原生元素加 Tailwind/局部样式。
-- 员工表单为自定义侧滑层，包含原生输入、选择、日期和复选控件。
-- 个人权限已使用 `ElTree`、`ElTreeSelect` 和 `ElMessage`。
+- 主列表、筛选、分页、详情命令和编辑抽屉均已迁移为显式导入的 Element Plus 控件。
+- 员工表单使用 `ElDrawer`、`ElForm`、`ElInput`、`ElSelect`、`ElDatePicker` 与 `ElRadioGroup`。
+- 个人权限使用 `ElDrawer`、`ElButton`、`ElEmpty`、`ElTree`、`ElTreeSelect` 和 `ElMessage`。
 - 表格列顺序由 `TableColumnSettings` 和 `useLocalTableColumns` 持久化。
 - 组织图使用 `vue3-tree-org` 与专用层级转换，不是普通数据表。
 
