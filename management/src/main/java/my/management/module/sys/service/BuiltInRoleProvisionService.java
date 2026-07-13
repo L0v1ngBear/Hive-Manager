@@ -33,6 +33,9 @@ public class BuiltInRoleProvisionService {
     private BuiltInRoleCatalog builtInRoleCatalog;
 
     @Resource
+    private PermissionCatalogV3 permissionCatalog;
+
+    @Resource
     private SysRoleMapper sysRoleMapper;
 
     @Resource
@@ -59,6 +62,12 @@ public class BuiltInRoleProvisionService {
                         LinkedHashMap::new));
 
         Map<String, SysPermission> permissionsByCode = activePermissionsByCode();
+        Set<String> missingCatalogLeaves = permissionCatalog.leaves().stream()
+                .filter(code -> !permissionsByCode.containsKey(code))
+                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+        if (!missingCatalogLeaves.isEmpty()) {
+            throw new BusinessException("权限目录版本不完整，请先执行 V3 数据库迁移");
+        }
         for (BuiltInRoleCatalog.RoleDefinition definition : builtInRoleCatalog.definitions()) {
             if (rolesByCode.containsKey(definition.code())) {
                 continue;
@@ -72,7 +81,9 @@ public class BuiltInRoleProvisionService {
 
     private Map<String, SysPermission> activePermissionsByCode() {
         List<SysPermission> permissions = sysPermissionMapper.selectList(new LambdaQueryWrapper<SysPermission>()
-                .eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
+                .eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
+                .eq(SysPermission::getStatus, 1)
+                .eq(SysPermission::getAssignable, 1));
         return permissions.stream()
                 .filter(permission -> permission != null && StringUtils.hasText(permission.getPermCode()))
                 .collect(Collectors.toMap(
@@ -96,17 +107,10 @@ public class BuiltInRoleProvisionService {
     private void grantInitialPermissions(SysRole role,
                                          BuiltInRoleCatalog.RoleDefinition definition,
                                          Map<String, SysPermission> permissionsByCode) {
-        Set<String> allowedCodes = definition.allTenantPermissions()
-                ? permissionsByCode.keySet().stream()
-                        .filter(builtInRoleCatalog::isTenantPermission)
-                        .collect(Collectors.toUnmodifiableSet())
-                : definition.permissions();
+        Set<String> allowedCodes = definition.permissions();
         List<SysRolePermission> grants = new ArrayList<>();
         for (String permissionCode : allowedCodes) {
             SysPermission permission = permissionsByCode.get(permissionCode);
-            if (permission == null) {
-                continue;
-            }
             SysRolePermission grant = new SysRolePermission();
             grant.setRoleId(role.getId());
             grant.setPermissionId(permission.getId());

@@ -29,6 +29,26 @@ public class SysPermission {
      */
     private String permCode;
 
+    /**
+     * Stable module key used to group the permission tree.
+     */
+    private String moduleCode;
+
+    /**
+     * 1-group, 2-entry, 3-action, 4-state action/data scope.
+     */
+    private Integer permType;
+
+    /**
+     * Only enabled leaf nodes may be assigned to roles or users.
+     */
+    private Integer assignable;
+
+    /**
+     * 1-enabled, 0-disabled.
+     */
+    private Integer status;
+
 
     /**
      * 排序号 (用于前端菜单展示顺序)

@@ -22,6 +22,14 @@ public class SysPermissionTreeVO {
 
     private String permCode;
 
+    private String moduleCode;
+
+    private Integer permType;
+
+    private Integer assignable;
+
+    private Integer status;
+
     private Integer sort;
 
     private List<SysPermissionTreeVO> children = new ArrayList<>();

@@ -13,7 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BuiltInRoleCatalogTest {
 
-    private final BuiltInRoleCatalog catalog = new BuiltInRoleCatalog();
+    private final PermissionCatalogV3 permissionCatalog = new PermissionCatalogV3();
+    private final BuiltInRoleCatalog catalog = new BuiltInRoleCatalog(permissionCatalog);
 
     @Test
     void shouldExposeTheAuthoritativeTwentyRoleMatrix() {
@@ -35,7 +36,7 @@ class BuiltInRoleCatalogTest {
         assertEquals(expectedCodes, definitions.stream()
                 .map(BuiltInRoleCatalog.RoleDefinition::code)
                 .collect(Collectors.toSet()));
-        assertEquals(20, definitions.stream().map(BuiltInRoleCatalog.RoleDefinition::code).distinct().count());
+        assertEquals(permissionCatalog.leaves(), catalog.require("ADMIN").permissions());
         assertTrue(catalog.require("ADMIN").allTenantPermissions());
         assertFalse(catalog.require("EMPLOYEE").allTenantPermissions());
     }
@@ -43,17 +44,18 @@ class BuiltInRoleCatalogTest {
     @Test
     void everyNonAdminRoleShouldInheritTheSameEmployeeBaseline() {
         Set<String> baseline = Set.of(
+                "dashboard:view",
+                "notification:announcement:list",
                 "attendance:punch",
                 "attendance:record:list",
+                "approval:list",
                 "approval:leave:submit",
                 "approval:leave:detail",
                 "approval:finance:submit",
                 "approval:finance:detail",
                 "approval:resignation:submit",
                 "approval:resignation:detail",
-                "document:list",
-                "document:breadcrumbs",
-                "notification:announcement:list"
+                "document:list"
         );
 
         assertEquals(baseline, catalog.employeeBaselinePermissions());
@@ -64,50 +66,37 @@ class BuiltInRoleCatalogTest {
     }
 
     @Test
-    void rolePermissionsShouldUseUnifiedOrdersAndDedicatedInstallationPermissions() {
-        BuiltInRoleCatalog.RoleDefinition installationStaff = catalog.require("INSTALLATION_STAFF");
-        assertTrue(installationStaff.permissions().containsAll(Set.of(
-                "installation:list",
-                "installation:update",
-                "installation:attachment:upload",
-                "installation:attachment:download"
-        )));
-        assertTrue(catalog.require("INSTALLATION_MANAGER").permissions().contains("installation:*"));
+    void everyRolePermissionShouldBeAnExactV3Leaf() {
+        catalog.definitions().forEach(definition -> definition.permissions().forEach(permission -> {
+            assertTrue(permissionCatalog.isAssignable(permission), definition.code() + ": " + permission);
+            assertFalse(permission.contains("*"), permission);
+            assertFalse(permission.equals("document:breadcrumbs"), permission);
+            assertFalse(permission.startsWith("sales:order:"), permission);
+            assertFalse(permission.startsWith("production:order:"), permission);
+        }));
 
-        catalog.definitions().stream()
-                .flatMap(definition -> definition.permissions().stream())
-                .forEach(permission -> {
-                    assertFalse(permission.startsWith("sales:order:"), permission);
-                    assertFalse(permission.startsWith("production:order:"), permission);
-                    assertFalse(permission.startsWith("dashboard:ai"), permission);
-                });
+        BuiltInRoleCatalog.RoleDefinition installationManager = catalog.require("INSTALLATION_MANAGER");
+        assertTrue(installationManager.permissions().contains("installation:export"));
+        assertTrue(installationManager.permissions().contains("order:scope:installation:department"));
     }
 
     @Test
-    void salesAndProductionRolesShouldOnlySeeTheirOwnOrderStages() {
-        Set<String> salesStages = Set.of(
-                "order:status:budgeting",
-                "order:status:budget-completed",
-                "order:status:pending-confirm",
-                "order:status:pending-cancel",
-                "order:status:cancelled"
-        );
-        Set<String> productionStages = Set.of(
-                "order:status:pending-material",
-                "order:status:producing",
-                "order:status:pending-ship"
-        );
+    void salesAndProductionRolesShouldUseSeparateResponsibilityScopes() {
+        assertScope("SALES_STAFF", "order:scope:sales:self");
+        assertScope("SALES_MANAGER", "order:scope:sales:department");
+        assertScope("PRODUCTION_STAFF", "order:scope:production:self");
+        assertScope("PRODUCTION_MANAGER", "order:scope:production:department");
 
         for (String code : Set.of("SALES_STAFF", "SALES_MANAGER")) {
-            Set<String> grantedStages = orderStatusPermissions(catalog.require(code));
-            assertTrue(salesStages.containsAll(grantedStages), code + " has a non-sales order stage");
-            assertFalse(grantedStages.contains("order:status:*"), code + " must not see every order stage");
-            assertTrue(grantedStages.stream().noneMatch(productionStages::contains), code);
+            Set<String> permissions = catalog.require(code).permissions();
+            assertTrue(permissions.stream().noneMatch(permission -> permission.startsWith("order:scope:production:")), code);
+            assertFalse(permissions.contains("order:scope:tenant"), code);
+            assertTrue(permissions.contains("order:status:completed:view"), code + " should track its orders end-to-end");
         }
         for (String code : Set.of("PRODUCTION_STAFF", "PRODUCTION_MANAGER")) {
-            Set<String> grantedStages = orderStatusPermissions(catalog.require(code));
-            assertTrue(productionStages.containsAll(grantedStages), code + " has a non-production order stage");
-            assertTrue(grantedStages.stream().noneMatch(salesStages::contains), code);
+            Set<String> permissions = catalog.require(code).permissions();
+            assertTrue(permissions.stream().noneMatch(permission -> permission.startsWith("order:scope:sales:")), code);
+            assertFalse(permissions.contains("order:scope:tenant"), code);
         }
     }
 
@@ -121,9 +110,10 @@ class BuiltInRoleCatalogTest {
                 () -> catalog.require("EMPLOYEE").permissions().add("order:list"));
     }
 
-    private Set<String> orderStatusPermissions(BuiltInRoleCatalog.RoleDefinition definition) {
-        return definition.permissions().stream()
-                .filter(permission -> permission.startsWith("order:status:"))
+    private void assertScope(String roleCode, String expectedScope) {
+        Set<String> scopes = catalog.require(roleCode).permissions().stream()
+                .filter(permission -> permission.startsWith("order:scope:"))
                 .collect(Collectors.toSet());
+        assertEquals(Set.of(expectedScope), scopes, roleCode);
     }
 }

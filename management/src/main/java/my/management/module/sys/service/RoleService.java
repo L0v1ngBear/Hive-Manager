@@ -42,19 +42,6 @@ import java.util.stream.Collectors;
 @Service
 public class RoleService {
 
-    private static final Set<String> HIDDEN_ASSIGNABLE_PERMISSION_CODES = Set.of(
-            "*",
-            "*:*",
-            "super",
-            "developer:super",
-            "platform",
-            "platform:tenant",
-            "platform:tenant:*",
-            "platform:tenant:create",
-            "platform:tenant:license",
-            "platform:tenant:view"
-    );
-
     private static final int DEFAULT_PAGE_NUM = 1;
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final int MAX_PAGE_SIZE = 200;
@@ -64,6 +51,9 @@ public class RoleService {
 
     @Resource
     private SysPermissionMapper sysPermissionMapper;
+
+    @Resource
+    private PermissionCatalogV3 permissionCatalog;
 
     @Resource
     private SysRolePermissionMapper sysRolePermissionMapper;
@@ -102,6 +92,7 @@ public class RoleService {
     public List<SysPermissionTreeVO> selectAllPermissionTree() {
         LambdaQueryWrapper<SysPermission> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
+                .eq(SysPermission::getStatus, 1)
                 .orderByAsc(SysPermission::getParentId)
                 .orderByAsc(SysPermission::getSort)
                 .orderByAsc(SysPermission::getId);
@@ -115,7 +106,8 @@ public class RoleService {
             if (permission.getId() == null || nodeMap.containsKey(permission.getId())) {
                 continue;
             }
-            if (HIDDEN_ASSIGNABLE_PERMISSION_CODES.contains(permission.getPermCode())) {
+            if (!Integer.valueOf(1).equals(permission.getStatus())
+                    || !permissionCatalog.contains(permission.getPermCode())) {
                 continue;
             }
             SysPermissionTreeVO node = new SysPermissionTreeVO();
@@ -217,7 +209,7 @@ public class RoleService {
                 .map(SysRolePermission::getPermissionId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        return expandAssignablePermissionIds(permissionIds);
+        return filterAssignablePermissionIds(permissionIds);
     }
 
     private void sortTree(List<SysPermissionTreeVO> nodes) {
@@ -253,70 +245,19 @@ public class RoleService {
         userIds.forEach(userId -> permissionCacheUtil.evict(tenantCode, userId));
     }
 
-    private Set<Long> expandAssignablePermissionIds(Set<Long> permissionIds) {
+    private Set<Long> filterAssignablePermissionIds(Set<Long> permissionIds) {
         if (CollectionUtils.isEmpty(permissionIds)) {
             return new LinkedHashSet<>();
         }
         List<SysPermission> permissions = sysPermissionMapper.selectList(new LambdaQueryWrapper<SysPermission>()
+                .in(SysPermission::getId, permissionIds)
                 .eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
-                .orderByAsc(SysPermission::getParentId)
-                .orderByAsc(SysPermission::getSort)
-                .orderByAsc(SysPermission::getId));
-        if (CollectionUtils.isEmpty(permissions)) {
-            return permissionIds;
-        }
-
-        Map<Long, SysPermission> permissionMap = new LinkedHashMap<>();
-        Map<Long, List<SysPermission>> childMap = new LinkedHashMap<>();
-        for (SysPermission permission : permissions) {
-            if (permission == null || permission.getId() == null) {
-                continue;
-            }
-            permissionMap.put(permission.getId(), permission);
-            Long parentId = permission.getParentId();
-            if (parentId != null && parentId > 0) {
-                childMap.computeIfAbsent(parentId, key -> new ArrayList<>()).add(permission);
-            }
-        }
-
-        Set<Long> expandedPermissionIds = new LinkedHashSet<>();
-        for (Long permissionId : permissionIds) {
-            SysPermission permission = permissionMap.get(permissionId);
-            addPermissionWithChildren(permission, childMap, expandedPermissionIds, new HashSet<>());
-            addWildcardCoveredPermissions(permission, permissions, childMap, expandedPermissionIds);
-        }
-        return expandedPermissionIds;
-    }
-
-    private void addWildcardCoveredPermissions(SysPermission permission,
-                                               List<SysPermission> permissions,
-                                               Map<Long, List<SysPermission>> childMap,
-                                               Set<Long> expandedPermissionIds) {
-        if (permission == null || permission.getPermCode() == null || !permission.getPermCode().endsWith(":*")) {
-            return;
-        }
-        String prefix = permission.getPermCode().substring(0, permission.getPermCode().length() - 1);
-        for (SysPermission candidate : permissions) {
-            if (candidate == null || candidate.getPermCode() == null || !candidate.getPermCode().startsWith(prefix)) {
-                continue;
-            }
-            addPermissionWithChildren(candidate, childMap, expandedPermissionIds, new HashSet<>());
-        }
-    }
-
-    private void addPermissionWithChildren(SysPermission permission,
-                                           Map<Long, List<SysPermission>> childMap,
-                                           Set<Long> expandedPermissionIds,
-                                           Set<Long> visitedPermissionIds) {
-        if (permission == null || permission.getId() == null || !visitedPermissionIds.add(permission.getId())) {
-            return;
-        }
-        if (isAssignablePermission(permission)) {
-            expandedPermissionIds.add(permission.getId());
-        }
-        for (SysPermission child : childMap.getOrDefault(permission.getId(), Collections.emptyList())) {
-            addPermissionWithChildren(child, childMap, expandedPermissionIds, visitedPermissionIds);
-        }
+                .eq(SysPermission::getStatus, 1)
+                .eq(SysPermission::getAssignable, 1));
+        return permissions.stream()
+                .filter(this::isAssignablePermission)
+                .map(SysPermission::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private SysRole requireTenantRole(String tenantCode, Long roleId) {
@@ -351,7 +292,9 @@ public class RoleService {
         }
         List<SysPermission> permissions = sysPermissionMapper.selectList(new LambdaQueryWrapper<SysPermission>()
                 .in(SysPermission::getId, permissionIds)
-                .eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
+                .eq(SysPermission::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
+                .eq(SysPermission::getStatus, 1)
+                .eq(SysPermission::getAssignable, 1));
         Set<Long> validPermissionIds = new HashSet<>();
         for (SysPermission permission : permissions) {
             if (permission == null || permission.getId() == null) {
@@ -370,6 +313,8 @@ public class RoleService {
     private boolean isAssignablePermission(SysPermission permission) {
         return permission != null
                 && permission.getId() != null
-                && !HIDDEN_ASSIGNABLE_PERMISSION_CODES.contains(permission.getPermCode());
+                && Integer.valueOf(1).equals(permission.getStatus())
+                && Integer.valueOf(1).equals(permission.getAssignable())
+                && permissionCatalog.isAssignable(permission.getPermCode());
     }
 }
