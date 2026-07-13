@@ -47,9 +47,27 @@ test('label migrates only peripheral controls and preserves QR barcode and print
 test('label hides unauthorized content and exposes retryable latest-request states', () => {
   assert.match(label, /useUserStore/)
   assert.match(label, /label:template:save/)
-  assert.match(label, /equipment:list/)
+  assert.match(label, /equipment:view/)
   assert.match(label, /loadError/)
   assert.match(label, /loadRequestId/)
   assert.match(label, /retryCurrentTab/)
   assert.match(label, /v-if="[^"]*canViewEquipment[^"]*"/)
+})
+
+test('equipment overview never requests protected equipment data without equipment:view', async () => {
+  const { loadEquipmentOverviewCount } = await import('../src/views/function/label/labelOverviewAccess.js')
+  let calls = 0
+  const count = await loadEquipmentOverviewCount({
+    canViewEquipment: false,
+    getEquipmentPage: async () => { calls += 1; return { total: 9 } }
+  })
+  assert.equal(calls, 0)
+  assert.equal(count, null)
+})
+
+test('label wires equipment overview and content to equipment:view without fake counts', () => {
+  assert.match(label, /hasPermission\('equipment:view'\)/)
+  assert.match(label, /loadEquipmentOverviewCount/)
+  assert.match(label, /if \(equipmentCount === null\)[\s\S]*updateTabCount\('equipment_inspection', 0\)/)
+  assert.doesNotMatch(label, /hasPermission\('equipment:list'\)/)
 })

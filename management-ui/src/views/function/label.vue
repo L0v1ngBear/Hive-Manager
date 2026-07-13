@@ -250,6 +250,7 @@ import {
 import { listLabelTemplateVariables, listLabelTemplates, saveLabelTemplate } from './label/api/label'
 import { getPendingPrintTaskCount, listPendingPrintTasks, reportPrintTask } from './label/api/printTask'
 import { getEquipmentPage } from './equipment/api/equipment'
+import { loadEquipmentOverviewCount } from './label/labelOverviewAccess.js'
 
 defineOptions({ name: 'LabelPrintCenter' })
 
@@ -285,7 +286,7 @@ const loadError = ref('')
 let loadRequestId = 0
 const userStore = useUserStore()
 const canSaveTemplate = computed(() => userStore.hasPermission('label:template:save'))
-const canViewEquipment = computed(() => userStore.hasPermission('equipment:list'))
+const canViewEquipment = computed(() => userStore.hasPermission('equipment:view'))
 const accessibleTabs = computed(() => printTabs.value.filter((tab) => tab.key !== 'equipment_inspection' || canViewEquipment.value))
 
 const TEMPLATE_FIELD_LABEL_MAP = {
@@ -570,8 +571,16 @@ async function loadPrintOverviewCounts() {
     // 数量只是页面提示，失败时不阻塞打印主流程。
   }
   try {
-    const equipmentPage = await getEquipmentPage({ pageNum: 1, pageSize: 1 })
-    equipmentTotal.value = Number(equipmentPage?.total || equipmentPage?.totalCount || equipmentPage?.records?.length || equipmentPage?.data?.length || 0)
+    const equipmentCount = await loadEquipmentOverviewCount({
+      canViewEquipment: canViewEquipment.value,
+      getEquipmentPage
+    })
+    if (equipmentCount === null) {
+      equipmentTotal.value = 0
+      updateTabCount('equipment_inspection', 0)
+      return
+    }
+    equipmentTotal.value = equipmentCount
     updateTabCount('equipment_inspection', equipmentTotal.value)
   } catch (error) {
     // 数量只是页面提示，失败时不阻塞打印主流程。
