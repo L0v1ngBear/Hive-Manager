@@ -55,6 +55,10 @@ public class Employee {
 
     private Integer roleLevel;
 
+    private Long permissionVersion;
+
+    private Long authVersion;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 

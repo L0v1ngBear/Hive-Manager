@@ -245,7 +245,7 @@ Run: `mvn -f D:/HiveManager/management/pom.xml -Dtest=PermissionCatalogV3Test,Bu
 
 Expected: BUILD SUCCESS; all role permissions are exact V3 leaves.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Commit message: `feat: define permission catalog v3 roles`.
 
@@ -255,21 +255,23 @@ Commit message: `feat: define permission catalog v3 roles`.
 
 **Files:**
 - Modify: `D:/HiveManager/management/src/main/java/my/management/controller/EmployeeController.java`
-- Modify: `D:/HiveManager/management/src/main/java/my/management/module/employee/service/EmployeeService.java`
+- Modify: `D:/HiveManager/management/src/main/java/my/management/module/employee/service/EmployeeService.java` (remove the old ID/wildcard implementation)
+- Create: `D:/HiveManager/management/src/main/java/my/management/module/employee/service/EmployeePermissionProfileService.java`
 - Modify: `D:/HiveManager/management/src/main/java/my/management/module/employee/mapper/EmployeeMapper.java`
 - Replace: `D:/HiveManager/management/src/main/java/my/management/module/employee/model/dto/EmployeePermissionOverrideRequest.java`
 - Replace: `D:/HiveManager/management/src/main/java/my/management/module/employee/model/vo/EmployeePermissionOverrideVO.java`
 - Create: `D:/HiveManager/management/src/main/java/my/management/module/employee/model/vo/EmployeePermissionNodeVO.java`
-- Create: `D:/HiveManager/management/src/main/java/my/management/module/employee/model/vo/PermissionRoleSourceVO.java`
+- Create: `D:/HiveManager/management/src/main/java/my/management/module/employee/model/vo/EmployeePermissionRoleSourceVO.java`
 - Test: `D:/HiveManager/management/src/test/java/my/management/module/employee/service/EmployeePermissionProfileServiceTest.java`
-- Test: `D:/HiveManager/management/src/test/java/my/management/controller/EmployeePermissionControllerTest.java`
+- Test: `D:/HiveManager/management/src/test/java/my/management/controller/EmployeePermissionProfileContractTest.java`
 
 **Interfaces:**
-- Produces: `GET /employee/{userId}/permission-profile`.
-- Produces: `PUT /employee/{userId}/permission-overrides` with `{permissionVersion, grants, denies}`.
+- Produces: `GET /emp/employee/{userId}/permission-profile`.
+- Produces: `PUT /emp/employee/{userId}/permission-overrides` with `{permissionVersion, grants, denies}`.
 - Requires caller permission: `employee:permission:manage`.
+- Deletes the old GET/POST override API and all permission-ID, parent expansion, and wildcard compatibility.
 
-- [ ] **Step 1: Write failing service tests**
+- [x] **Step 1: Write failing service tests**
 
 ```java
 @Test
@@ -291,13 +293,13 @@ void stalePermissionVersionIsRejected() {
 }
 ```
 
-- [ ] **Step 2: Run tests and confirm the legacy ID-set response fails**
+- [x] **Step 2: Run tests and confirm the legacy ID-set response fails**
 
 Run: `mvn -f D:/HiveManager/management/pom.xml -Dtest=EmployeePermissionProfileServiceTest,EmployeePermissionControllerTest test`
 
 Expected: FAIL because current APIs return role/grant/deny ID sets and do not check a version.
 
-- [ ] **Step 3: Implement code-based request and profile response**
+- [x] **Step 3: Implement code-based request and profile response**
 
 ```java
 public record EmployeePermissionOverrideRequest(
@@ -319,29 +321,30 @@ public record EmployeePermissionNodeVO(
 
 Validate that grants and denies are disjoint exact leaves. Lock the employee row, compare `permission_version`, replace only that user’s overrides, increment the version, clear both permission caches, and write an employee change log.
 
-- [ ] **Step 4: Add controller authorization and HTTP contracts**
+- [x] **Step 4: Add controller authorization and HTTP contracts**
 
 ```java
 @GetMapping("/{userId}/permission-profile")
 @RequirePermission("employee:permission:manage")
-public Result<EmployeePermissionOverrideVO> permissionProfile(@PathVariable Long userId) {
-    return Result.success(employeeService.permissionProfile(userId));
+public Result<EmployeePermissionProfileVO> permissionProfile(@PathVariable Long userId) {
+    return Result.success(employeePermissionProfileService.profile(userId));
 }
 
 @PutMapping("/{userId}/permission-overrides")
 @RequirePermission("employee:permission:manage")
-public Result<Void> replaceOverrides(@PathVariable Long userId,
+public Result<Long> updatePermissionOverrides(@PathVariable Long userId,
         @Valid @RequestBody EmployeePermissionOverrideRequest request) {
-    employeeService.replacePermissionOverrides(userId, request);
-    return Result.success(null);
+    return Result.success(employeePermissionProfileService.updateOverrides(userId, request));
 }
 ```
 
-- [ ] **Step 5: Run employee tests and full management tests**
+- [x] **Step 5: Run employee tests and full management tests**
 
-Run: `mvn -f D:/HiveManager/management/pom.xml -Dtest=EmployeePermissionProfileServiceTest,EmployeePermissionControllerTest test`
+Run: `mvn -f D:/HiveManager/management/pom.xml -Dtest=EmployeePermissionProfileServiceTest,EmployeePermissionProfileContractTest test`
 
 Then: `mvn -f D:/HiveManager/management/pom.xml test`
+
+Verified 2026-07-13: targeted tests 4/4 passed, management backend tests 53/53 passed, and `management-ui` production build passed.
 
 Expected: both commands BUILD SUCCESS.
 
@@ -356,32 +359,32 @@ Commit message: `feat: expose effective employee permissions`.
 **Files:**
 - Replace: `D:/HiveManager/management-ui/src/views/function/employee/EmployeePermissionDrawer.vue`
 - Modify: `D:/HiveManager/management-ui/src/views/function/employee/api/employee.js`
-- Test: `D:/HiveManager/management-ui/tests/employee-permission-tree.test.js`
+- Test: `D:/HiveManager/management-ui/tests/employee-permission-profile.test.js`
 
 **Interfaces:**
 - Consumes: permission profile and code-based override API from Task 4.
-- Produces: one tree whose checkboxes represent final effective permissions and whose reset action clears personal overrides.
+- Produces: one tree whose leaf nodes use `继承角色 / 个人允许 / 个人禁用` and display the final effective result.
 
-- [ ] **Step 1: Write failing component contract tests**
+- [x] **Step 1: Add component and API contract tests**
 
 ```javascript
 test('drawer uses one final permission tree', () => {
   const source = read('src/views/function/employee/EmployeePermissionDrawer.vue')
   assert.equal((source.match(/<el-tree/g) || []).length, 1)
-  assert.match(source, /恢复角色默认/)
+  assert.match(source, /继承角色/)
   assert.match(source, /角色来源/)
   assert.match(source, /个人增加|个人禁用/)
   assert.doesNotMatch(source, /追加权限树|禁止权限树/)
 })
 ```
 
-- [ ] **Step 2: Run the test and confirm the three-tree UI fails**
+- [x] **Step 2: Remove the three-selector UI and old API client**
 
-Run: `node --test D:/HiveManager/management-ui/tests/employee-permission-tree.test.js`
+Run: `node --test D:/HiveManager/management-ui/tests/employee-permission-profile.test.js`
 
 Expected: FAIL because the existing drawer renders separate role, grant, and deny controls.
 
-- [ ] **Step 3: Implement deterministic checkbox-to-override conversion**
+- [x] **Step 3: Implement deterministic tri-state-to-override conversion**
 
 ```javascript
 function applyEffectiveToggle(node, checked) {
@@ -403,17 +406,19 @@ function restoreRoleDefault(node) {
 }
 ```
 
-Render role-source badges, personal-effect badges, final check state, parent half-check state, search, “only personal changes,” change counts, and `409` reload behavior.
+Render role-source text, final effective state, search, change counts, and `409` reload behavior. Parent nodes remain organization-only and are never submitted.
 
-- [ ] **Step 4: Run UI contract test and build**
+- [x] **Step 4: Run UI contract test and build**
 
-Run: `node --test D:/HiveManager/management-ui/tests/employee-permission-tree.test.js`
+Run: `node --test D:/HiveManager/management-ui/tests/employee-permission-profile.test.js`
 
 Then: `npm --prefix D:/HiveManager/management-ui run build`
 
 Expected: test PASS and Vite build succeeds.
 
-- [ ] **Step 5: Commit**
+Verified 2026-07-13: UI contract tests 2/2 passed and the Vite production build succeeded.
+
+- [x] **Step 5: Commit**
 
 Commit message: `feat: unify employee permission overrides`.
 

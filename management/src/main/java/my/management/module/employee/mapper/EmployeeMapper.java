@@ -11,6 +11,7 @@ import my.management.module.employee.model.vo.EmployeePageVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -20,6 +21,18 @@ import java.util.List;
 @Mapper
 @InterceptorIgnore(tenantLine = "true")
 public interface EmployeeMapper extends BaseMapper<Employee> {
+
+    @Update("""
+            UPDATE `user`
+            SET permission_version = permission_version + 1,
+                update_time = NOW()
+            WHERE tenant_code = #{tenantCode}
+              AND id = #{userId}
+              AND permission_version = #{expectedVersion}
+            """)
+    int incrementPermissionVersion(@Param("tenantCode") String tenantCode,
+                                   @Param("userId") Long userId,
+                                   @Param("expectedVersion") Long expectedVersion);
 
     @Select({
             "<script>",

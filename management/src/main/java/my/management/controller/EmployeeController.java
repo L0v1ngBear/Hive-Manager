@@ -22,8 +22,9 @@ import my.management.module.employee.model.vo.EmployeeDetailVO;
 import my.management.module.employee.model.vo.EmployeeFormOptionsVO;
 import my.management.module.employee.model.vo.EmployeeLeaderOptionVO;
 import my.management.module.employee.model.vo.EmployeePageVO;
-import my.management.module.employee.model.vo.EmployeePermissionOverrideVO;
+import my.management.module.employee.model.vo.EmployeePermissionProfileVO;
 import my.management.module.employee.model.vo.EmployeeStatsVO;
+import my.management.module.employee.service.EmployeePermissionProfileService;
 import my.management.module.employee.service.EmployeeService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.validation.annotation.Validated;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -49,6 +51,9 @@ public class EmployeeController {
 
     @Resource
     private EmployeeService employeeService;
+
+    @Resource
+    private EmployeePermissionProfileService employeePermissionProfileService;
 
     @GetMapping("/page")
     @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_LIST, message = "您没有权限查看员工列表")
@@ -87,18 +92,18 @@ public class EmployeeController {
         return Result.success(null);
     }
 
-    @GetMapping("/{id}/permission-overrides")
-    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_UPDATE, message = "您没有权限配置员工单独权限")
-    public Result<EmployeePermissionOverrideVO> permissionOverrides(@PathVariable Long id) {
-        return Result.success(employeeService.permissionOverrides(id));
+    @GetMapping("/{id}/permission-profile")
+    @RequirePermission(value = "employee:permission:manage", message = "您没有权限配置员工单独权限")
+    public Result<EmployeePermissionProfileVO> permissionProfile(@PathVariable Long id) {
+        return Result.success(employeePermissionProfileService.profile(id));
     }
 
-    @PostMapping("/permission-overrides")
-    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_UPDATE, message = "您没有权限配置员工单独权限")
-    @CollectLog(module = "employee", action = "permission_overrides", bizType = "employee", bizNo = "#request.userId", description = "管理端配置员工单独权限")
-    public Result<Void> updatePermissionOverrides(@Valid @RequestBody EmployeePermissionOverrideRequest request) {
-        employeeService.updatePermissionOverrides(request);
-        return Result.success(null);
+    @PutMapping("/{id}/permission-overrides")
+    @RequirePermission(value = "employee:permission:manage", message = "您没有权限配置员工单独权限")
+    @CollectLog(module = "employee", action = "permission_overrides", bizType = "employee", bizNo = "#id", description = "管理端配置员工单独权限")
+    public Result<Long> updatePermissionOverrides(@PathVariable Long id,
+                                                  @Valid @RequestBody EmployeePermissionOverrideRequest request) {
+        return Result.success(employeePermissionProfileService.updateOverrides(id, request));
     }
 
     @PostMapping("/change-status")

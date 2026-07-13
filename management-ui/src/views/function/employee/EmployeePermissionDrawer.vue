@@ -15,206 +15,212 @@
   </transition>
 
   <aside
-      class="fixed top-0 right-0 z-50 flex h-full w-full max-w-2xl flex-col border-l border-outline-variant/30 bg-surface-container-lowest shadow-2xl transition-transform duration-300"
+      class="fixed right-0 top-0 z-50 flex h-full w-full max-w-4xl flex-col border-l border-outline-variant/30 bg-surface-container-lowest shadow-2xl transition-transform duration-300"
       :class="visible ? 'translate-x-0' : 'translate-x-full'"
   >
-    <div class="border-t-[4px] border-primary px-8 py-6">
+    <header class="border-t-[4px] border-primary px-7 py-5">
       <div class="flex items-start justify-between gap-4">
-        <div>
-          <h2 class="text-2xl font-black tracking-tight text-primary">员工单独权限</h2>
+        <div class="min-w-0">
+          <h2 class="text-2xl font-black text-primary">员工个人权限</h2>
           <p class="mt-1 text-sm text-on-surface-variant">
-            {{ currentEmployee?.name || '--' }} 的个人权限覆盖，不会修改角色权限。
+            {{ currentEmployee?.name || '--' }} 的个人权限仅影响本人，不修改所属角色。
           </p>
         </div>
         <button
+            type="button"
             class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary"
+            title="关闭"
             @click="close"
         >
           <span class="material-symbols-outlined">close</span>
         </button>
       </div>
-    </div>
+    </header>
 
-    <div class="flex-1 overflow-y-auto px-8 py-5">
-      <div v-if="loading" class="flex min-h-[320px] items-center justify-center text-primary">
+    <div class="flex-1 overflow-y-auto border-t border-outline-variant/20">
+      <div v-if="loading" class="flex min-h-[360px] items-center justify-center text-primary">
         <span class="material-symbols-outlined animate-spin text-4xl">progress_activity</span>
       </div>
 
-      <div v-else class="space-y-5">
-        <div v-if="loadError" class="rounded-lg bg-error-container px-4 py-3 text-sm font-bold text-error">
+      <div v-else>
+        <div v-if="loadError" class="m-6 rounded-md bg-error-container px-4 py-3 text-sm font-bold text-error">
           {{ loadError }}
         </div>
 
-        <section class="rounded-lg border border-outline-variant/20 bg-white p-4">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-sm font-black text-primary">角色继承权限</h3>
-              <p class="mt-1 text-xs text-on-surface-variant">来自员工已分配角色，仅作参考。</p>
+        <template v-else>
+          <section class="border-b border-outline-variant/20 px-7 py-4">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs font-bold text-on-surface-variant">所属角色</span>
+              <span
+                  v-for="role in roles"
+                  :key="role.roleId"
+                  class="rounded bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary"
+              >
+                {{ role.roleName }}
+              </span>
+              <span v-if="roles.length === 0" class="text-xs text-on-surface-variant">未配置角色</span>
+              <span class="ml-auto text-xs text-on-surface-variant">配置版本 {{ permissionVersion }}</span>
             </div>
-            <span class="rounded bg-primary/10 px-3 py-1 text-xs font-black text-primary">
-              {{ rolePermissionIds.length }} 项
-            </span>
-          </div>
-          <div
-              v-if="rolePermissionIds.length > 0"
-              class="mt-3 max-h-56 overflow-y-auto rounded-md border border-primary/10 bg-surface-container-lowest p-2"
-          >
+          </section>
+
+          <section class="sticky top-0 z-10 border-b border-outline-variant/20 bg-white/95 px-7 py-3 backdrop-blur">
+            <div class="flex items-center gap-3">
+              <el-input
+                  v-model="keyword"
+                  clearable
+                  placeholder="搜索权限名称或编码"
+                  class="max-w-md"
+                  @input="filterTree"
+              >
+                <template #prefix>
+                  <span class="material-symbols-outlined text-[18px]">search</span>
+                </template>
+              </el-input>
+              <button type="button" class="permission-tool" title="全部展开" @click="setExpanded(true)">
+                <span class="material-symbols-outlined">unfold_more</span>
+              </button>
+              <button type="button" class="permission-tool" title="全部收起" @click="setExpanded(false)">
+                <span class="material-symbols-outlined">unfold_less</span>
+              </button>
+              <div class="ml-auto hidden items-center gap-4 text-xs font-bold text-on-surface-variant sm:flex">
+                <span>个人允许 {{ grantCount }}</span>
+                <span>个人禁用 {{ denyCount }}</span>
+                <span>最终有效 {{ effectiveCount }}</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="px-5 py-4">
             <el-tree
-                ref="roleTreeRef"
+                ref="permissionTreeRef"
                 :data="treeData"
-                node-key="id"
-                show-checkbox
+                node-key="code"
                 default-expand-all
-                :default-checked-keys="rolePermissionIds"
                 :expand-on-click-node="false"
-                :render-after-expand="false"
-                :props="readonlyTreeProps"
-                class="permission-readonly-tree"
-            />
-          </div>
-          <p v-else class="mt-3 rounded-md bg-surface-container-high px-3 py-2 text-xs font-bold text-on-surface-variant">
-            当前角色暂无继承权限
-          </p>
-        </section>
+                :filter-node-method="filterPermissionNode"
+                :props="treeProps"
+                class="permission-profile-tree"
+            >
+              <template #default="{ data }">
+                <div
+                    class="permission-row"
+                    :class="data.assignable ? 'permission-leaf' : 'permission-group'"
+                >
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="truncate font-bold text-primary">{{ data.name }}</span>
+                      <code v-if="data.assignable" class="permission-code">{{ data.code }}</code>
+                      <span
+                          v-if="data.assignable"
+                          class="permission-result"
+                          :class="isEffective(data) ? 'is-enabled' : 'is-disabled'"
+                      >
+                        {{ isEffective(data) ? '已生效' : '未生效' }}
+                      </span>
+                    </div>
+                    <p v-if="data.assignable" class="mt-1 truncate text-xs text-on-surface-variant">
+                      {{ roleSourceText(data) }}
+                    </p>
+                  </div>
 
-        <section class="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <h3 class="text-sm font-black text-emerald-700">额外允许</h3>
-              <p class="mt-1 text-xs text-emerald-700/70">角色没有给，但这个员工个人可以使用。</p>
-            </div>
-            <span class="rounded bg-emerald-100 px-2 py-1 text-xs font-black text-emerald-700">
-              {{ grantPermissionIds.length }} 项
-            </span>
-          </div>
-          <el-tree-select
-              v-model="grantPermissionIds"
-              :data="treeData"
-              node-key="id"
-              value-key="id"
-              multiple
-              show-checkbox
-              collapse-tags
-              collapse-tags-tooltip
-              filterable
-              check-on-click-node
-              :render-after-expand="false"
-              :props="treeProps"
-              placeholder="选择要额外允许的权限"
-              class="permission-tree-select w-full"
-          />
-        </section>
-
-        <section class="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <h3 class="text-sm font-black text-amber-800">单独禁用</h3>
-              <p class="mt-1 text-xs text-amber-800/70">即使角色包含该权限，这个员工也不能使用。</p>
-            </div>
-            <span class="rounded bg-amber-100 px-2 py-1 text-xs font-black text-amber-800">
-              {{ denyPermissionIds.length }} 项
-            </span>
-          </div>
-          <el-tree-select
-              v-model="denyPermissionIds"
-              :data="treeData"
-              node-key="id"
-              value-key="id"
-              multiple
-              show-checkbox
-              collapse-tags
-              collapse-tags-tooltip
-              filterable
-              check-on-click-node
-              :render-after-expand="false"
-              :props="treeProps"
-              placeholder="选择要单独禁用的权限"
-              class="permission-tree-select w-full"
-          />
-        </section>
-
-        <div v-if="overlapCount > 0" class="rounded-lg bg-error-container px-4 py-3 text-sm font-bold text-error">
-          有 {{ overlapCount }} 项权限同时出现在允许和禁用里，请先取消其中一边。
-        </div>
+                  <el-segmented
+                      v-if="data.assignable"
+                      v-model="overrideByCode[data.code]"
+                      :options="overrideOptions"
+                      size="small"
+                      class="permission-segmented"
+                  />
+                </div>
+              </template>
+            </el-tree>
+          </section>
+        </template>
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4 border-t border-outline-variant/20 bg-white px-8 py-6">
+    <footer class="grid grid-cols-2 gap-4 border-t border-outline-variant/20 bg-white px-7 py-5">
       <button
-          class="rounded-lg px-6 py-3 text-sm font-bold text-on-surface-variant transition-colors hover:bg-surface-container-high"
+          type="button"
+          class="rounded-md px-6 py-3 text-sm font-bold text-on-surface-variant transition-colors hover:bg-surface-container-high"
           @click="close"
       >
         取消
       </button>
       <button
-          :disabled="submitting || loading || !!loadError || overlapCount > 0"
-          class="flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+          type="button"
+          :disabled="submitting || loading || !!loadError"
+          class="flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           @click="save"
       >
         <span v-if="submitting" class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
-        保存权限
+        保存个人权限
       </button>
-    </div>
+    </footer>
   </aside>
 </template>
 
 <script setup>
-import { computed, nextTick, ref } from 'vue'
-import { ElMessage, ElTree, ElTreeSelect } from 'element-plus'
-import { getAllPermissions } from '../role/api/role.js'
+import { computed, nextTick, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import {
-  getEmployeePermissionOverrides,
+  getEmployeePermissionProfile,
   updateEmployeePermissionOverrides
 } from './api/employee.js'
 
 const emit = defineEmits(['updated', 'closed'])
-
 const visible = ref(false)
 const loading = ref(false)
 const submitting = ref(false)
 const loadError = ref('')
 const currentEmployee = ref(null)
+const permissionVersion = ref(0)
+const roles = ref([])
 const treeData = ref([])
-const rolePermissionIds = ref([])
-const grantPermissionIds = ref([])
-const denyPermissionIds = ref([])
-const treeProps = { value: 'id', label: 'permName', children: 'children' }
-const readonlyTreeProps = { value: 'id', label: 'permName', children: 'children', disabled: () => true }
-const roleTreeRef = ref(null)
+const keyword = ref('')
+const permissionTreeRef = ref(null)
+const overrideByCode = reactive({})
 
-const overlapCount = computed(() => {
-  const denySet = new Set(denyPermissionIds.value.map((id) => Number(id)))
-  return grantPermissionIds.value.filter((id) => denySet.has(Number(id))).length
-})
+const treeProps = { children: 'children', label: 'name' }
+const overrideOptions = [
+  { label: '继承角色', value: 'INHERIT' },
+  { label: '个人允许', value: 'GRANT' },
+  { label: '个人禁用', value: 'DENY' }
+]
+
+const leafNodes = computed(() => flatten(treeData.value).filter((node) => node.assignable))
+const grantCount = computed(() => leafNodes.value.filter((node) => overrideByCode[node.code] === 'GRANT').length)
+const denyCount = computed(() => leafNodes.value.filter((node) => overrideByCode[node.code] === 'DENY').length)
+const effectiveCount = computed(() => leafNodes.value.filter(isEffective).length)
 
 async function open(employee) {
   if (!employee?.id) return
   currentEmployee.value = employee
   visible.value = true
+  await loadProfile()
+}
+
+async function loadProfile() {
   loading.value = true
   loadError.value = ''
-  treeData.value = []
-  rolePermissionIds.value = []
-  grantPermissionIds.value = []
-  denyPermissionIds.value = []
-
+  keyword.value = ''
+  clearOverrides()
   try {
-    const [permissions, overrides] = await Promise.all([
-      getAllPermissions(),
-      getEmployeePermissionOverrides(employee.id)
-    ])
-    const permissionTree = permissions?.data?.data || permissions?.data || permissions || []
-    const overrideData = overrides?.data?.data || overrides?.data || overrides || {}
-    treeData.value = Array.isArray(permissionTree) ? permissionTree : []
+    const response = await getEmployeePermissionProfile(currentEmployee.value.id)
+    const profile = response?.data?.data || response?.data || response || {}
+    permissionVersion.value = Number(profile.permissionVersion || 0)
+    roles.value = Array.isArray(profile.roles) ? profile.roles : []
+    treeData.value = Array.isArray(profile.permissions) ? profile.permissions : []
+    for (const node of flatten(treeData.value)) {
+      if (!node.assignable) continue
+      overrideByCode[node.code] = node.personalEffect === 'GRANT' || node.personalEffect === 'DENY'
+        ? node.personalEffect
+        : 'INHERIT'
+    }
     await nextTick()
-    rolePermissionIds.value = normalizeIds(overrideData?.rolePermissionIds)
-    grantPermissionIds.value = normalizeIds(overrideData?.grantPermissionIds)
-    denyPermissionIds.value = normalizeIds(overrideData?.denyPermissionIds)
-    await nextTick()
-    roleTreeRef.value?.setCheckedKeys(rolePermissionIds.value, false)
+    permissionTreeRef.value?.filter('')
   } catch (error) {
-    console.error('[Hive Auth] load employee permission overrides failed:', error)
-    loadError.value = '权限数据加载失败，请稍后重试。'
+    console.error('[Hive Auth] load employee permission profile failed:', error)
+    loadError.value = '权限档案加载失败，请稍后重试。'
   } finally {
     loading.value = false
   }
@@ -226,55 +232,163 @@ function close() {
 }
 
 async function save() {
-  if (!currentEmployee.value?.id || overlapCount.value > 0) return
+  if (!currentEmployee.value?.id || !permissionVersion.value) return
   submitting.value = true
   try {
-    await updateEmployeePermissionOverrides({
-      userId: Number(currentEmployee.value.id),
-      grantPermissionIds: uniqueIds(grantPermissionIds.value),
-      denyPermissionIds: uniqueIds(denyPermissionIds.value)
+    const grants = leafNodes.value
+      .filter((node) => overrideByCode[node.code] === 'GRANT')
+      .map((node) => node.code)
+    const denies = leafNodes.value
+      .filter((node) => overrideByCode[node.code] === 'DENY')
+      .map((node) => node.code)
+    await updateEmployeePermissionOverrides(currentEmployee.value.id, {
+      permissionVersion: permissionVersion.value,
+      grants,
+      denies
     })
-    ElMessage.success('员工单独权限已保存')
+    ElMessage.success('员工个人权限已保存')
     emit('updated')
     close()
+  } catch (error) {
+    if (Number(error?.code || error?.response?.data?.code || error?.statusCode) === 409) {
+      ElMessage.warning('权限已被其他人修改，已为你刷新最新配置')
+      await loadProfile()
+      return
+    }
+    throw error
   } finally {
     submitting.value = false
   }
 }
 
-function normalizeIds(value) {
-  if (!Array.isArray(value)) return []
-  return uniqueIds(value)
+function isEffective(node) {
+  const override = overrideByCode[node.code]
+  if (override === 'DENY') return false
+  if (override === 'GRANT') return true
+  return Boolean(node.roleGranted)
 }
 
-function uniqueIds(value) {
-  return [...new Set((value || []).map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0))]
+function roleSourceText(node) {
+  const names = (node.roleSources || []).map((role) => role.roleName).filter(Boolean)
+  return names.length > 0 ? `角色来源：${names.join('、')}` : '角色未授权'
+}
+
+function filterTree() {
+  permissionTreeRef.value?.filter(keyword.value.trim())
+}
+
+function filterPermissionNode(value, data) {
+  if (!value) return true
+  const normalized = value.toLowerCase()
+  return String(data.name || '').toLowerCase().includes(normalized)
+    || String(data.code || '').toLowerCase().includes(normalized)
+}
+
+function setExpanded(expanded) {
+  const visit = (nodes) => {
+    for (const node of nodes || []) {
+      node.expanded = expanded
+      visit(node.childNodes)
+    }
+  }
+  visit(permissionTreeRef.value?.store?.root?.childNodes)
+}
+
+function flatten(nodes) {
+  return (nodes || []).flatMap((node) => [node, ...flatten(node.children)])
+}
+
+function clearOverrides() {
+  Object.keys(overrideByCode).forEach((code) => delete overrideByCode[code])
 }
 
 defineExpose({ open })
 </script>
 
 <style scoped>
-:deep(.permission-tree-select .el-select__wrapper) {
-  min-height: 44px;
+.permission-tool {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, .35);
   border-radius: 6px;
-  box-shadow: 0 0 0 1px rgba(148, 163, 184, .25) inset;
+  color: #1f3f5f;
+  background: white;
 }
 
-:deep(.permission-readonly-tree) {
+.permission-row {
+  display: flex;
+  min-height: 52px;
+  width: 100%;
+  align-items: center;
+  gap: 16px;
+  padding: 7px 8px 7px 2px;
+}
+
+.permission-group {
+  min-height: 42px;
+  border-bottom: 1px solid rgba(148, 163, 184, .18);
+}
+
+.permission-leaf {
+  border-bottom: 1px solid rgba(148, 163, 184, .12);
+}
+
+.permission-code {
+  border-radius: 4px;
+  background: #eef3f8;
+  padding: 2px 6px;
+  color: #536b82;
+  font-size: 11px;
+}
+
+.permission-result {
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.permission-result.is-enabled {
+  background: #dcfce7;
+  color: #047857;
+}
+
+.permission-result.is-disabled {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+:deep(.permission-profile-tree) {
   background: transparent;
 }
 
-:deep(.permission-readonly-tree .el-tree-node__content) {
-  min-height: 30px;
+:deep(.permission-profile-tree .el-tree-node__content) {
+  height: auto;
+  align-items: stretch;
 }
 
-:deep(.permission-readonly-tree .el-checkbox__input.is-disabled.is-checked .el-checkbox__inner) {
-  background-color: #1f3f5f;
-  border-color: #1f3f5f;
+:deep(.permission-profile-tree .el-tree-node__expand-icon) {
+  align-self: center;
 }
 
-:deep(.permission-readonly-tree .el-checkbox__input.is-disabled.is-checked .el-checkbox__inner::after) {
-  border-color: #ffffff;
+:deep(.permission-segmented) {
+  flex: 0 0 auto;
+  min-width: 250px;
+}
+
+@media (max-width: 640px) {
+  .permission-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  :deep(.permission-segmented) {
+    width: 100%;
+    min-width: 0;
+  }
 }
 </style>

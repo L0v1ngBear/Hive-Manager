@@ -38,17 +38,17 @@ export function updateEmployee(data) {
   })
 }
 
-export function getEmployeePermissionOverrides(id) {
+export function getEmployeePermissionProfile(id) {
   return request({
-    url: `/emp/employee/${id}/permission-overrides`,
+    url: `/emp/employee/${id}/permission-profile`,
     method: 'get'
   })
 }
 
-export function updateEmployeePermissionOverrides(data) {
+export function updateEmployeePermissionOverrides(id, data) {
   return request({
-    url: '/emp/employee/permission-overrides',
-    method: 'post',
+    url: `/emp/employee/${id}/permission-overrides`,
+    method: 'put',
     data
   })
 }

@@ -1,17 +1,20 @@
 package my.management.module.employee.model.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
-import java.util.List;
+import java.util.Set;
 
 @Data
 public class EmployeePermissionOverrideRequest {
 
-    @NotNull(message = "员工ID不能为空")
-    private Long userId;
+    @NotNull(message = "权限版本不能为空")
+    @Positive(message = "权限版本不合法")
+    private Long permissionVersion;
 
-    private List<Long> grantPermissionIds;
+    private Set<@NotBlank(message = "授权编码不能为空") String> grants;
 
-    private List<Long> denyPermissionIds;
+    private Set<@NotBlank(message = "禁用编码不能为空") String> denies;
 }
