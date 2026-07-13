@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { buildEquipmentExport } from "../src/views/function/equipment/equipmentExport.js";
+import { resolveEquipmentAccess } from "../src/views/function/equipment/equipmentAccess.js";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
@@ -167,5 +168,34 @@ test("organization and equipment module records describe the migrated behavior c
     "页面没有独立错误占位或重试面板",
   ]) {
     assert.doesNotMatch(equipment, new RegExp(staleStatement));
+  }
+});
+
+test("equipment detail and inspection permissions remain independent", () => {
+  const access = (permissions) => resolveEquipmentAccess((code) => permissions.includes(code));
+  assert.deepEqual(access([]), { canViewDetail: false, canViewInspection: false });
+  assert.deepEqual(access(["equipment:detail"]), { canViewDetail: true, canViewInspection: false });
+  assert.deepEqual(access(["equipment:inspection:list"]), { canViewDetail: false, canViewInspection: true });
+  assert.deepEqual(access(["equipment:detail", "equipment:inspection:list"]), { canViewDetail: true, canViewInspection: true });
+});
+
+test("equipment guards detail requests and hides inspection content without permission", () => {
+  const source = read("../src/views/function/equipment/equipment.vue");
+  const openDetail = between(source, "async function openDetail(device)", "async function fetchRecords(");
+  const fetchRecords = between(source, "async function fetchRecords(", "function retryDetail()");
+  assert.match(source, /content="暂无 equipment:detail 权限"[\s\S]*:disabled="!canViewDetail"[\s\S]*@click="openDetail\(row\)"/);
+  assert.match(openDetail, /if \(!canViewDetail\.value\) return/);
+  assert.match(source, /content="暂无 equipment:inspection:list 权限"[\s\S]*:disabled="!canViewInspection"[\s\S]*@click="fetchRecords"/);
+  assert.match(source, /<div v-if="canViewInspection" v-loading="recordsLoading"/);
+  assert.match(fetchRecords, /if \(!canViewInspection\.value\) return/);
+});
+
+test("organization overview invalidates members and clears protected content before requesting", () => {
+  const source = read("../src/views/function/organization/organization.vue");
+  const fetchOverview = between(source, "async function fetchOverview()", "async function selectDepartment(node)");
+  const requestIndex = fetchOverview.indexOf("getOrganizationOverview()")
+  for (const statement of ["memberRequestId += 1", "activeDepartment.value = null", "members.value = []", "memberFailure.value = null", "memberLoading.value = false"]) {
+    const index = fetchOverview.indexOf(statement)
+    assert.ok(index >= 0 && index < requestIndex, `${statement} must run before overview request`)
   }
 });
