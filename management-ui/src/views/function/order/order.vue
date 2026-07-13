@@ -1562,10 +1562,27 @@ function isOrderMaterialApprovalTransition(row = {}, targetStatus = nextOrderSta
   return row.status === 'pending_pay' && targetStatus === 'pending_material'
 }
 
+function isOrderShippingApprovalTransition(row = {}, targetStatus = nextOrderStatus(row)) {
+  return row.status === 'pending_ship' && targetStatus === 'shipped'
+}
+
+function orderAdvanceSuccessMessage(currentStatus, targetStatus) {
+  if (currentStatus === 'pending_ship' && targetStatus === 'shipped') {
+    return '已提交发货审批，审批通过后进入已发货'
+  }
+  if (currentStatus === 'pending_pay' && targetStatus === 'pending_material') {
+    return '已提交订单审批，审批通过后进入备料中'
+  }
+  return '订单已推进到下一阶段'
+}
+
 function advanceOrderTitle(row = {}) {
   const targetStatus = nextOrderStatus(row)
   if (!targetStatus) {
     return ''
+  }
+  if (isOrderShippingApprovalTransition(row, targetStatus)) {
+    return '提交发货审批'
   }
   return isOrderMaterialApprovalTransition(row, targetStatus)
       ? '提交订单审批'
@@ -1754,6 +1771,9 @@ async function submitForm() {
     validateOrderForm()
     const payload = buildOrderPayload()
     payload.status = advanceIntent.value ? editingOrderStatus.value : payload.status
+    const advanceSuccessMessage = advanceIntent.value
+        ? orderAdvanceSuccessMessage(editingOrderStatus.value, advanceIntent.value.targetStatus)
+        : ''
     const specialOrderCreate = formMode.value === 'create' && payload.orderCategory === 'special_order'
     const cancelApprovalSubmit = formMode.value !== 'create' && payload.status === 'cancelled'
     if (formMode.value === 'create') {
@@ -1782,7 +1802,7 @@ async function submitForm() {
       await loadOrderSummaries()
       return
     }
-    ElMessage.success(specialOrderCreate ? '特殊订单已提交审核，审核通过后创建成功' : (formMode.value === 'create' ? '订单创建成功' : (advanceIntent.value ? '订单已推进到下一阶段' : '订单保存成功')))
+    ElMessage.success(specialOrderCreate ? '特殊订单已提交审核，审核通过后创建成功' : (formMode.value === 'create' ? '订单创建成功' : (advanceIntent.value ? advanceSuccessMessage : '订单保存成功')))
     closeForm()
     await loadOrders()
     await loadOrderSummaries()

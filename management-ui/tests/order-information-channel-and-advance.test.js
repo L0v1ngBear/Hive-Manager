@@ -66,3 +66,21 @@ test('shipping advance requires logistics fields within the edit dialog', () => 
   assert.match(orderSource, /if \(requiresShippingDetails\.value && !String\(orderForm\.expressCompany/)
   assert.match(orderSource, /if \(requiresShippingDetails\.value && !String\(orderForm\.expressNo/)
 })
+
+test('advance success messages distinguish shipping approval, material approval, and direct advance', () => {
+  const submitSource = functionSource(orderSource, 'submitForm', 'validateOrderForm')
+  const messageSource = functionSource(orderSource, 'orderAdvanceSuccessMessage', 'advanceOrderTitle')
+
+  assert.match(orderSource, /function isOrderShippingApprovalTransition\(row = \{\}, targetStatus = nextOrderStatus\(row\)\)/)
+  assert.match(messageSource, /currentStatus === 'pending_ship' && targetStatus === 'shipped'/)
+  assert.match(messageSource, /return '已提交发货审批，审批通过后进入已发货'/)
+  assert.match(messageSource, /currentStatus === 'pending_pay' && targetStatus === 'pending_material'/)
+  assert.match(messageSource, /return '已提交订单审批，审批通过后进入备料中'/)
+  assert.match(messageSource, /return '订单已推进到下一阶段'/)
+  assert.match(submitSource, /orderAdvanceSuccessMessage\(editingOrderStatus\.value, advanceIntent\.value\.targetStatus\)/)
+  assert.doesNotMatch(submitSource, /orderForm\.status\s*=\s*advanceIntent/)
+  assert.ok(
+    submitSource.indexOf('await advanceOrderNextStage(editingOrderId.value, advancePayload)') < submitSource.indexOf('await loadOrders()'),
+    'the list must refresh only after the next-stage request returns'
+  )
+})
