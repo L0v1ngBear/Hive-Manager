@@ -77,10 +77,9 @@
 
 ## 当前原生 / 自定义控件
 
-- 原生：button、input、select、checkbox、table，以及手写队列卡、编辑器和模板设计区。
-- 已用 Element Plus：ElMessage、ElMessageBox。
+- 管理外围不再保留原生 input；打印修正区的文本与明细行字段使用 `ElInput`，模板列宽使用 `ElInputNumber` 并保持数值类型、10–80 mm 范围、1 mm 步长与原 change 归一化事件。
 - 自定义：BusinessTimeCorrectionPanel、打印 profile 控件、模板列编辑器、实时纸张预览。
-- 输出面：#print-paper-area、.paper-stack、.receipt-page、.receipt-print-table。
+- 明确保留的原生输出面：#print-paper-area、.paper-stack、.receipt-page、.receipt-print-table；这些打印 DOM/CSS 未迁移。
 
 ## Element Plus 对照与明确保留项
 

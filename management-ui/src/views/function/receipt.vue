@@ -212,27 +212,27 @@
               </label>
               <label>
                 <span>打印单号</span>
-                <input v-model.trim="printDraft.orderNo" maxlength="60" placeholder="打印显示单号" />
+                <el-input v-model.trim="printDraft.orderNo" maxlength="60" placeholder="打印显示单号" />
               </label>
               <label>
                 <span>项目名称</span>
-                <input v-model.trim="printDraft.projectName" maxlength="80" placeholder="项目名称，可留空" />
+                <el-input v-model.trim="printDraft.projectName" maxlength="80" placeholder="项目名称，可留空" />
               </label>
               <label>
                 <span>制单人</span>
-                <input v-model.trim="printDraft.operator" maxlength="30" placeholder="制单人" />
+                <el-input v-model.trim="printDraft.operator" maxlength="30" placeholder="制单人" />
               </label>
               <label>
                 <span>收货仓库</span>
-                <input v-model.trim="templateConfig.warehouse" maxlength="20" placeholder="收货仓库" />
+                <el-input v-model.trim="templateConfig.warehouse" maxlength="20" placeholder="收货仓库" />
               </label>
               <label>
                 <span>物流公司</span>
-                <input v-model.trim="printDraft.logisticsCompany" maxlength="40" placeholder="物流公司，可留空" />
+                <el-input v-model.trim="printDraft.logisticsCompany" maxlength="40" placeholder="物流公司，可留空" />
               </label>
               <label>
                 <span>物流单号</span>
-                <input v-model.trim="printDraft.logisticsNo" maxlength="60" placeholder="物流单号，可留空" />
+                <el-input v-model.trim="printDraft.logisticsNo" maxlength="60" placeholder="物流单号，可留空" />
               </label>
             </div>
 
@@ -252,44 +252,44 @@
                   <span>操作</span>
                 </div>
                 <div v-for="(row, index) in printableRows" :key="getRowKey(row)" class="print-editor-row">
-                  <input
+                  <el-input
                     :value="row.modelCode || row.barcode || ''"
                     maxlength="80"
                     placeholder="货物名称"
-                    @input="updatePrintRow(index, 'modelCode', $event.target.value)"
+                    @input="updatePrintRow(index, 'modelCode', $event)"
                   />
-                  <input
+                  <el-input
                     :value="row.spec || ''"
                     maxlength="30"
                     placeholder="规格"
-                    @input="updatePrintRow(index, 'spec', $event.target.value)"
+                    @input="updatePrintRow(index, 'spec', $event)"
                   />
-                  <input
+                  <el-input
                     :value="row.meters ?? ''"
                     inputmode="decimal"
                     maxlength="12"
                     placeholder="米数"
-                    @input="updatePrintRow(index, 'meters', $event.target.value)"
+                    @input="updatePrintRow(index, 'meters', $event)"
                   />
-                  <input
+                  <el-input
                     :value="row.price ?? ''"
                     inputmode="decimal"
                     maxlength="12"
                     placeholder="单价"
-                    @input="updatePrintRow(index, 'price', $event.target.value)"
+                    @input="updatePrintRow(index, 'price', $event)"
                   />
-                  <input
+                  <el-input
                     :value="row.totalAmount ?? ''"
                     inputmode="decimal"
                     maxlength="14"
                     placeholder="金额"
-                    @input="updatePrintRow(index, 'totalAmount', $event.target.value)"
+                    @input="updatePrintRow(index, 'totalAmount', $event)"
                   />
-                  <input
+                  <el-input
                     :value="row.remark || ''"
                     maxlength="30"
                     placeholder="备注"
-                    @input="updatePrintRow(index, 'remark', $event.target.value)"
+                    @input="updatePrintRow(index, 'remark', $event)"
                   />
                   <el-tooltip :disabled="canMark" content="暂无 receipt:print:mark 权限"><span><el-button type="danger" link :disabled="!canMark" @click="removePrintRow(index)">移除</el-button></span></el-tooltip>
                 </div>
@@ -333,11 +333,11 @@
               </label>
               <label>
                 <span>主标题</span>
-                <input v-model.trim="templateConfig.title" maxlength="20" />
+                <el-input v-model.trim="templateConfig.title" maxlength="20" />
               </label>
               <label>
                 <span>副标题</span>
-                <input v-model.trim="templateConfig.subtitle" maxlength="20" />
+                <el-input v-model.trim="templateConfig.subtitle" maxlength="20" />
               </label>
               <label>
                 <span>每页行数</span>
@@ -345,7 +345,7 @@
               </label>
               <label>
                 <span>收货仓库</span>
-                <input v-model.trim="templateConfig.warehouse" maxlength="20" />
+                <el-input v-model.trim="templateConfig.warehouse" maxlength="20" />
               </label>
               <label class="template-check">
                 <el-checkbox v-model="templateConfig.showLogistics" />
@@ -357,7 +357,7 @@
               </label>
               <label class="template-wide">
                 <span>底部提示语</span>
-                <input v-model.trim="templateConfig.notice" maxlength="80" />
+                <el-input v-model.trim="templateConfig.notice" maxlength="80" />
               </label>
               <el-form-item label="标准控件说明" class="sr-only"><span>模板字段保持原有类型</span></el-form-item>
             </el-form>
@@ -377,15 +377,14 @@
                     <el-checkbox v-model="column.visible" />
                   </label>
                   <span class="column-field">{{ getColumnFieldName(column.key) }}</span>
-                  <input v-model.trim="column.label" maxlength="12" />
+                  <el-input v-model.trim="column.label" maxlength="12" />
                   <label class="column-width-input">
                     <span>列宽mm</span>
-                    <input
-                      v-model.number="column.widthMm"
-                      type="number"
-                      min="10"
-                      max="80"
-                      step="1"
+                    <el-input-number
+                      v-model="column.widthMm"
+                      :min="10"
+                      :max="80"
+                      :step="1"
                       @change="normalizeColumnWidth(column)"
                     />
                   </label>
@@ -1799,19 +1798,13 @@ function buildReceiptTemplateContent(config) {
   font-weight: 900;
 }
 
-.print-editor input {
+.print-editor :deep(.el-input) {
   width: 100%;
-  height: 2.25rem;
-  border: 1px solid #dbe3ef;
-  border-radius: .65rem;
-  padding: 0 .65rem;
-  color: #1f2937;
-  outline: none;
 }
 
-.print-editor input:focus {
-  border-color: #1f3f5f;
-  box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
+.print-editor :deep(.el-input__wrapper) {
+  min-height: 2.25rem;
+  border-radius: .65rem;
 }
 
 .print-editor-table-wrap {
@@ -1900,20 +1893,14 @@ function buildReceiptTemplateContent(config) {
   font-weight: 900;
 }
 
-.template-grid input[type="text"],
-.template-grid input[type="number"],
-.template-grid label:not(.template-check) input {
-  height: 2.3rem;
-  border: 1px solid #dbe3ef;
-  border-radius: .7rem;
-  padding: 0 .75rem;
-  color: #1f2937;
-  outline: none;
+.template-grid :deep(.el-input),
+.template-grid :deep(.el-input-number) {
+  width: 100%;
 }
 
-.template-grid input:focus {
-  border-color: #1f3f5f;
-  box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
+.template-grid :deep(.el-input__wrapper) {
+  min-height: 2.3rem;
+  border-radius: .7rem;
 }
 
 .template-wide {
@@ -2006,18 +1993,8 @@ function buildReceiptTemplateContent(config) {
   font-weight: 900;
 }
 
-.column-editor-row > input {
-  height: 2rem;
-  border: 1px solid #dbe3ef;
-  border-radius: .6rem;
-  padding: 0 .65rem;
-  color: #1f2937;
-  outline: none;
-}
-
-.column-editor-row > input:focus {
-  border-color: #1f3f5f;
-  box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
+.column-editor-row > :deep(.el-input) {
+  width: 100%;
 }
 
 .column-width-input {
@@ -2029,19 +2006,8 @@ function buildReceiptTemplateContent(config) {
   font-weight: 800;
 }
 
-.column-width-input input {
-  width: 56px;
-  height: 2rem;
-  border: 1px solid #dbe3ef;
-  border-radius: .6rem;
-  padding: 0 .4rem;
-  color: #1f2937;
-  outline: none;
-}
-
-.column-width-input input:focus {
-  border-color: #1f3f5f;
-  box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
+.column-width-input :deep(.el-input-number) {
+  width: 96px;
 }
 
 .column-move-actions {
