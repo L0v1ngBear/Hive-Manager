@@ -258,9 +258,9 @@
             <h3 class="text-xl font-black text-primary">组织架构</h3>
             <p class="mt-1 text-sm text-on-surface-variant">根据员工展示上下级汇报关系，仅用于查看。</p>
           </div>
-          <button class="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high hover:text-primary" @click="closeOrganizationDrawer">
+          <el-button text circle class="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high hover:text-primary" @click="closeOrganizationDrawer">
             <span class="material-symbols-outlined">close</span>
-          </button>
+          </el-button>
         </div>
         <div class="flex-1 overflow-y-auto bg-surface p-6">
           <div class="mb-5 grid grid-cols-2 gap-4 md:grid-cols-4">

@@ -181,3 +181,26 @@ test('prevents stale employee permission responses and exposes retry', () => {
   assert.match(employeePermissionDrawer, /request\.commit\(\(\) => \{ loading\.value = false \}\)/)
   assert.match(employeePermissionDrawer, /@click=["']retry["']/)
 })
+
+test('employee permission drawer renders mutually exclusive load states', () => {
+  for (const state of ['permissionState', "'loading'", "'ready'", "'empty'", "'forbidden'", "'failed'"]) {
+    assert.match(employeePermissionDrawer, new RegExp(state))
+  }
+  assert.match(employeePermissionDrawer, /v-else-if=["']permissionState\.kind === 'forbidden'["']/)
+  assert.match(employeePermissionDrawer, /v-else-if=["']permissionState\.kind === 'failed'["']/)
+  assert.match(employeePermissionDrawer, /@click=["']retry["']/)
+  assert.match(employeePermissionDrawer, /<template v-else-if=["']permissionState\.kind === 'ready'["']>/)
+})
+
+test('migrates remaining attendance rule and employee drawer shell controls', () => {
+  assert.doesNotMatch(attendance, /<(input|button)\b/)
+  assertUsesComponents(attendance, ['el-checkbox', 'el-input', 'el-input-number', 'el-button'])
+  assertExplicitImports(attendance, ['ElCheckbox', 'ElInput', 'ElInputNumber', 'ElButton'])
+
+  assert.doesNotMatch(employeePermissionDrawer, /<(input|button)\b/)
+  assertUsesComponents(employeePermissionDrawer, ['el-button'])
+  assertExplicitImports(employeePermissionDrawer, ['ElButton'])
+
+  const employeeWithoutFileInput = employeeList.replace(/<input\b[^>]*type=["']file["'][^>]*>/, '')
+  assert.doesNotMatch(employeeWithoutFileInput, /<button\b/)
+})
