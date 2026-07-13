@@ -9,7 +9,7 @@
 
 ### 迁移结果（2026-07-13）
 
-- 当前页 Excel 使用显式 headers/rows，不读取 `ElTable` DOM，fixed 操作列克隆不会重复导出行。
+- 当前页 Excel 使用显式 headers/rows，不读取 `ElTable` DOM；按用户确认的新契约导出 5 列（设备、类型/位置、负责人、最近巡检、状态），保持名称+编码、类型+位置组合文本并移除巡检周期，fixed 操作列克隆不会重复导出行。
 - 打开详情前清空旧详情和巡检；详情、巡检各自互斥呈现 loading、empty、401/403、网络/5xx 失败并可重试。
 - 详情和巡检分别使用 request-id，跨设备慢响应与旧 finally 不覆盖新设备状态。
 - 新建、编辑、停用、保存按 `equipment:save` 保持可见但禁用，并用 tooltip 说明原因。

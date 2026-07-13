@@ -109,8 +109,8 @@ test("equipment explains its locked code and disables pagination while loading",
 test("equipment export serializes the current page rows without table DOM clones", () => {
   const devices = [{ id: 7, equipmentName: "定型机01", equipmentCode: "EQ-001", equipmentType: "生产设备", location: "一车间", responsiblePerson: "张三", inspectionCycleDays: 0, lastInspectionTime: "2026-07-13T08:09:00", status: "enabled" }];
   const result = buildEquipmentExport(devices);
-  assert.deepEqual(result.headers, ["设备名称", "设备编码", "设备类型", "设备位置", "负责人", "巡检周期（天）", "最近巡检", "状态"]);
-  assert.deepEqual(result.rows, [["定型机01", "EQ-001", "生产设备", "一车间", "张三", 0, "2026-07-13 08:09", "启用中"]]);
+  assert.deepEqual(result.headers, ["设备", "类型/位置", "负责人", "最近巡检", "状态"]);
+  assert.deepEqual(result.rows, [["定型机01 EQ-001", "生产设备 一车间", "张三", "2026-07-13 08:09", "启用中"]]);
   assert.equal(result.rows.length, devices.length, "fixed 操作列克隆不能产生重复导出行");
 });
 
