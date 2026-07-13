@@ -78,6 +78,8 @@ public class ApprovalService {
     private static final String ORDER_STATUS_PENDING_CONFIRM = "pending_confirm";
     private static final String ORDER_STATUS_PENDING_PAY = "pending_pay";
     private static final String ORDER_STATUS_PENDING_MATERIAL = "pending_material";
+    private static final String ORDER_STATUS_PENDING_SHIP = "pending_ship";
+    private static final String ORDER_STATUS_SHIPPED = "shipped";
     private static final String ORDER_STATUS_PENDING_CANCEL = "pending_cancel";
     private static final String ORDER_STATUS_CANCELLED = "cancelled";
     private static final String SALES_APPROVED_NEXT_STATUS = "pending_pay";
@@ -446,10 +448,12 @@ public class ApprovalService {
         Long currentUserId = TenantPermissionContext.getUserId();
         int safeLimit = safeApprovalListLimit(limit);
         List<OrderApprovalVO> salesRows = salesOrderMapper.selectList(new LambdaQueryWrapper<SalesOrder>()
-                        .in(SalesOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM, ORDER_STATUS_PENDING_PAY, ORDER_STATUS_PENDING_CANCEL)
+                        .in(SalesOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM, ORDER_STATUS_PENDING_PAY,
+                                ORDER_STATUS_PENDING_SHIP, ORDER_STATUS_PENDING_CANCEL)
                         .orderByDesc(SalesOrder::getCreateTime)
                         .last("LIMIT " + safeLimit))
                 .stream()
+                .filter(order -> !ORDER_STATUS_PENDING_SHIP.equals(order.getStatus()) || hasActiveSalesShipmentApproval(order))
                 .map(this::toSalesOrderApprovalVO)
                 .toList();
         List<OrderApprovalVO> productionRows = productionOrderMapper.selectList(new LambdaQueryWrapper<ProductionOrder>()
@@ -524,6 +528,10 @@ public class ApprovalService {
                     approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
                     return;
                 }
+                if (ORDER_STATUS_PENDING_SHIP.equals(salesOrder.getStatus())) {
+                    approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
+                    return;
+                }
                 throw new BusinessException("订单驳回/取消请到订单管理中处理，避免误改业务单据状态");
             }
             if (candidateFlow && approvalAuditorCandidateService.hasPendingAuditors(
@@ -531,7 +539,16 @@ public class ApprovalService {
                 return;
             }
             if (orderService.hasPendingSalesRollbackApproval(salesOrder.getOrderId())) {
+                if (isCompletedDrawingBudgetOrder(salesOrder)) {
+                    approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
+                    return;
+                }
                 orderService.approveSalesOrderRollback(request.getOrderId(), remark);
+                approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
+                return;
+            }
+            if (ORDER_STATUS_PENDING_CANCEL.equals(salesOrder.getStatus()) && isDrawingBudgetOrder(salesOrder)) {
+                orderService.rejectPendingCancelSalesOrder(request.getOrderId(), remark);
                 approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
                 return;
             }
@@ -874,6 +891,7 @@ public class ApprovalService {
         boolean rollbackApproval = orderService.hasPendingSalesRollbackApproval(order.getOrderId());
         SalesOrderStatusLog rollbackLog = rollbackApproval ? orderService.findPendingSalesRollbackLog(order.getOrderId()) : null;
         boolean payToProductionApproval = ORDER_STATUS_PENDING_PAY.equals(order.getStatus());
+        boolean shipmentApproval = ORDER_STATUS_PENDING_SHIP.equals(order.getStatus());
         boolean specialCreateApproval = ORDER_STATUS_PENDING_CONFIRM.equals(order.getStatus())
                 && OrderCategoryEnum.SPECIAL_ORDER.getCode().equals(OrderCategoryEnum.normalize(order.getOrderCategory()));
         OrderApprovalVO vo = new OrderApprovalVO();
@@ -888,12 +906,16 @@ public class ApprovalService {
         if (cancelApproval) {
             fallbackSummary = "取消订单审核";
         }
+        if (shipmentApproval) {
+            fallbackSummary = "待审批转已发货销售订单";
+        }
         if (rollbackApproval && rollbackLog != null) {
             fallbackSummary = "订单回退审核：" + statusLabel(rollbackLog.getOldStatus()) + " → " + statusLabel(rollbackLog.getNewStatus());
         }
         vo.setSummary(StringUtils.hasText(order.getGoodsDesc()) ? order.getGoodsDesc() : fallbackSummary);
         vo.setStatus(order.getStatus());
-        vo.setStatusText(specialCreateApproval ? "待审核创建" : (payToProductionApproval ? "待审批转备料中" : "待确认"));
+        vo.setStatusText(specialCreateApproval ? "待审核创建"
+                : (shipmentApproval ? "待审批转已发货" : (payToProductionApproval ? "待审批转备料中" : "待确认")));
         if (cancelApproval) {
             vo.setStatusText("待审核取消");
         }
@@ -931,7 +953,8 @@ public class ApprovalService {
     private SalesOrder findPendingSalesOrder(String orderId) {
         SalesOrder order = salesOrderMapper.selectOne(new LambdaQueryWrapper<SalesOrder>()
                 .eq(SalesOrder::getOrderId, orderId)
-                .in(SalesOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM, ORDER_STATUS_PENDING_PAY, ORDER_STATUS_PENDING_CANCEL));
+                .in(SalesOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM, ORDER_STATUS_PENDING_PAY,
+                        ORDER_STATUS_PENDING_SHIP, ORDER_STATUS_PENDING_CANCEL));
         if (order == null) {
             throw new BusinessException("待审批销售订单不存在或已处理");
         }
@@ -948,10 +971,25 @@ public class ApprovalService {
         if (ORDER_STATUS_PENDING_CONFIRM.equals(order.getStatus())
                 || ORDER_STATUS_PENDING_PAY.equals(order.getStatus())
                 || ORDER_STATUS_PENDING_CANCEL.equals(order.getStatus())
+                || (ORDER_STATUS_PENDING_SHIP.equals(order.getStatus()) && hasActiveSalesShipmentApproval(order))
                 || orderService.hasPendingSalesRollbackApproval(order.getOrderId())) {
             return order;
         }
         throw new BusinessException("待审批销售订单不存在或已处理");
+    }
+
+    private boolean hasActiveSalesShipmentApproval(SalesOrder order) {
+        return order != null && !approvalAuditorCandidateService.findActiveAuditorIds(
+                order.getTenantCode(), APPROVAL_TYPE_ORDER, orderApprovalCode(ORDER_TYPE_SALES, order.getOrderId())).isEmpty();
+    }
+
+    private boolean isDrawingBudgetOrder(SalesOrder order) {
+        return order != null && OrderCategoryEnum.DRAWING_BUDGET.getCode().equals(
+                OrderCategoryEnum.normalize(order.getOrderCategory()));
+    }
+
+    private boolean isCompletedDrawingBudgetOrder(SalesOrder order) {
+        return isDrawingBudgetOrder(order) && "budget_completed".equals(order.getStatus());
     }
 
     private ProductionOrder findPendingProductionOrder(String orderId) {
@@ -1320,6 +1358,9 @@ public class ApprovalService {
         }
         if (ORDER_STATUS_PENDING_PAY.equals(order.getStatus())) {
             return ORDER_STATUS_PENDING_MATERIAL;
+        }
+        if (ORDER_STATUS_PENDING_SHIP.equals(order.getStatus())) {
+            return ORDER_STATUS_SHIPPED;
         }
         if (ORDER_STATUS_PENDING_CANCEL.equals(order.getStatus())) {
             return ORDER_STATUS_CANCELLED;
