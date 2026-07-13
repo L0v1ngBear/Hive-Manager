@@ -6,7 +6,7 @@
 - API：`management-ui/src/views/function/label/api/label.js`、`management-ui/src/views/function/label/api/printTask.js`
 - 打印配置：`management-ui/src/utils/printProfile.js`；条码/二维码由页面运行时生成。
 - 路由：`/function/label`，路由名 `Label`，功能开关 `module.label`。
-- 迁移批次：Batch 3；状态为 `Protected custom surface`。
+- 迁移批次：Batch 3；状态为 `Element Plus migrated with protected custom surface`。
 
 ## 用户功能
 
@@ -37,7 +37,8 @@
 - 路由入口要求 `label:template:list`，并受 `module.label` 控制。
 - 后端模板列表/变量要求 `label:template:list`，保存要求 `label:template:save`；API 中另有上传、设默认、停用的独立权限接口，但当前页面未调用。
 - 设备页签调用 `/equipment/page`，后端要求 `equipment:list`。
-- 当前页面没有 `v-permission`；“编辑模板/保存模板”对只有列表权限的用户仍可见，最终由后端校验。
+- “编辑模板/保存模板”按 `label:template:save` 保持可见但禁用，并通过 tooltip 说明原因；保存函数也执行权限防线。
+- 设备巡检标签页及其设备内容按 `equipment:list` 控制，无权内容不进入可访问 tabs，也不发起设备请求。
 - 当前 `management` 源码中未找到 `/print-task/*` 控制器，打印任务接口的服务来源与权限无法由本仓库后端实现继续确认。
 
 ## 状态流
@@ -50,7 +51,8 @@
 
 ## 加载空错态
 
-- 模板与待打印任务有加载标志和无数据提示；未选模板/任务时显示引导性空内容。
+- 模板、变量和当前业务列表统一按 tab 请求，切换前清空旧内容；loading、成功空态、401/403、网络/5xx 失败互斥显示并支持重试。
+- tab 加载使用 request-id 实现 last-request-wins，旧成功、旧失败与旧 finally 不覆盖新 tab。
 - 保存和打印依赖 `ElMessage`/`ElMessageBox` 反馈；接口错误主要由全局请求层提示。
 - 条码或二维码生成异常会把对应内容清空，但没有面向用户的独立渲染错误态。
 - 打印窗口被拦截有明确错误；浏览器结束打印后仍以用户二次确认为准，代码不能直接得知纸张是否输出。
@@ -64,10 +66,11 @@
 
 ## Element Plus 替换与保留项
 
-- 替换：模板列表外围筛选、标准表单、选择器、数字输入、命令按钮、确认框、抽屉/对话框、加载空态。
+- 已替换：外围 tabs/徽标、标准表单、选择器、数字输入、开关、命令按钮、加载空态和持久错误面板；Element Plus 组件均显式导入。
 - 可用 `ElInputNumber` 承载纸张尺寸、边距、X/Y 偏移和缩放，但必须保留单位、精度、上下限与序列化类型。
 - 保留：DOM 标签预览、条码 SVG、二维码图片、毫米尺寸打印 HTML/CSS、运行时样式注入和打印窗口协议。
 - 保留：`printProfile` 持久化、变量插值、业务载荷构造以及打印任务完成时机。
+- 保护节点：`printAreaRef`、`.thermal-label` 及其内部 DOM 不套入 Element Plus 控件；`QRCode.toDataURL`、`JsBarcode`、`buildLabelPrintHtml`、`afterprint` 监听和 `reportPrintTask` 成功/失败上报保持原实现。
 
 ## 风险
 

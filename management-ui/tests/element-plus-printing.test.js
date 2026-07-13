@@ -1,0 +1,55 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import test from 'node:test'
+
+const receipt = readFileSync(new URL('../src/views/function/receipt.vue', import.meta.url), 'utf8')
+const label = readFileSync(new URL('../src/views/function/label.vue', import.meta.url), 'utf8')
+
+function assertComponents(source, components, page) {
+  for (const component of components) {
+    const tag = component.replace(/^El/, '').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+    assert.match(source, new RegExp(`<el-${tag}(?:\\s|>)`), `${page} must render ${component}`)
+    assert.match(source, new RegExp(`\\b${component}\\b[\\s\\S]*from ['\"]element-plus['\"]|import \\{[\\s\\S]*\\b${component}\\b[\\s\\S]*\\} from ['\"]element-plus['\"]`), `${page} must explicitly import ${component}`)
+  }
+}
+
+test('receipt migrates only peripheral controls and preserves native print output', () => {
+  assertComponents(receipt, ['ElTabs', 'ElTabPane', 'ElForm', 'ElFormItem', 'ElInput', 'ElInputNumber', 'ElCheckbox', 'ElSelect', 'ElOption', 'ElButton', 'ElEmpty', 'ElResult', 'ElTooltip'], 'receipt')
+  assert.match(receipt, /<table class="receipt-print-table">/)
+  assert.match(receipt, /id="print-paper-area" class="paper-stack"/)
+  assert.match(receipt, /printWindow\.document\.write\(buildPrintHtml\(printable\.innerHTML\)\)/)
+  assert.match(receipt, /setTimeout\(\(\) => printWindow\.print\(\), 300\)/)
+  assert.match(receipt, /@page/)
+  assert.match(receipt, /page-break-after/)
+})
+
+test('receipt exposes real permissions and mutually exclusive latest-request states', () => {
+  assert.match(receipt, /useUserStore/)
+  for (const permission of ['receipt:print:detail', 'receipt:print:mark', 'receipt:print:cancel']) assert.match(receipt, new RegExp(permission.replaceAll(':', '\\:')))
+  assert.match(receipt, /listLoadError/)
+  assert.match(receipt, /detailLoadError/)
+  assert.match(receipt, /listRequestId/)
+  assert.match(receipt, /detailRequestId/)
+  assert.match(receipt, /retryPendingList/)
+  assert.match(receipt, /retrySelectedOrder/)
+})
+
+test('label migrates only peripheral controls and preserves QR barcode and print reporting', () => {
+  assertComponents(label, ['ElTabs', 'ElTabPane', 'ElBadge', 'ElForm', 'ElFormItem', 'ElInput', 'ElInputNumber', 'ElSwitch', 'ElSelect', 'ElOption', 'ElButton', 'ElEmpty', 'ElResult', 'ElTooltip'], 'label')
+  assert.match(label, /import QRCode from 'qrcode'/)
+  assert.match(label, /import JsBarcode from 'jsbarcode'/)
+  assert.match(label, /ref="printAreaRef"[\s\S]*class="thermal-label"/)
+  assert.match(label, /buildLabelPrintHtml\(labelNode\.outerHTML, profile\)/)
+  assert.match(label, /await reportPrintTask\(/)
+  assert.match(label, /printWindow\.addEventListener\('afterprint', finishPrint\)/)
+})
+
+test('label hides unauthorized content and exposes retryable latest-request states', () => {
+  assert.match(label, /useUserStore/)
+  assert.match(label, /label:template:save/)
+  assert.match(label, /equipment:list/)
+  assert.match(label, /loadError/)
+  assert.match(label, /loadRequestId/)
+  assert.match(label, /retryCurrentTab/)
+  assert.match(label, /v-if="[^"]*canViewEquipment[^"]*"/)
+})
