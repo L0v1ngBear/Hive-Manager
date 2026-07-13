@@ -76,7 +76,8 @@
 ## 控件现状
 
 - 主列表、筛选、分页、详情命令和编辑抽屉均已迁移为显式导入的 Element Plus 控件。
-- 员工表单使用 `ElDrawer`、`ElForm`、`ElInput`、`ElSelect`、`ElDatePicker` 与 `ElRadioGroup`。
+- 员工表单使用 `ElDrawer`、`ElForm`、`ElInput`、`ElSelect`、`ElDatePicker`、`ElRadioGroup` 与 `ElButton`；关闭、取消、提交、考勤地点、角色和负责人结果均为 Element Plus 命令控件，备注使用 `ElInput type="textarea"`。
+- 员工导入继续保留主列表中的隐藏原生 file input，以维持现有 `.xlsx` 选择和 multipart 上传契约。
 - 个人权限使用 `ElDrawer`、`ElButton`、`ElEmpty`、`ElTree`、`ElTreeSelect` 和 `ElMessage`。
 - 表格列顺序由 `TableColumnSettings` 和 `useLocalTableColumns` 持久化。
 - 组织图使用 `vue3-tree-org` 与专用层级转换，不是普通数据表。
