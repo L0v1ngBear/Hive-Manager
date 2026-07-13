@@ -14,6 +14,7 @@ const priceCreate = readFileSync(
   new URL("../src/views/function/price/priceCreate.vue", import.meta.url),
   "utf8",
 );
+const priceDoc = readFileSync(new URL("../../docs/management-ui/modules/price.md", import.meta.url), "utf8");
 
 function assertUsesComponents(source, names) {
   for (const name of names) {
@@ -112,4 +113,10 @@ test("models mutually exclusive request states, retries, request ids, and pendin
   for (const pending of ["deletingId", "importing", "exporting", "downloadingTemplate"]) {
     assert.match(price, new RegExp(pending));
   }
+});
+
+test("price module record describes the completed local-date fix instead of a stale UTC risk", () => {
+  assert.doesNotMatch(priceDoc, /新建默认生效日期使用 `new Date\(\)\.toISOString\(\)\.slice\(0, 10\)`/);
+  assert.match(priceDoc, /formatLocalDate/);
+  assert.match(priceDoc, /本地 `YYYY-MM-DD`/);
 });
