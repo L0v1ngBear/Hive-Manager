@@ -10,76 +10,47 @@
         <p class="function-page-desc">布匹标签、订单流转码、设备巡检码统一在这里预览和打印。</p>
       </div>
       <div class="header-actions">
-        <button class="secondary-action" @click="showPrintProfile = !showPrintProfile">
+        <el-button @click="showPrintProfile = !showPrintProfile">
           <span class="material-symbols-outlined">tune</span>
           打印适配
-        </button>
-        <button class="secondary-action" @click="printCalibrationPage">
+        </el-button>
+        <el-button @click="printCalibrationPage">
           <span class="material-symbols-outlined">straighten</span>
           校准页
-        </button>
-        <button class="secondary-action" @click="openTemplateEditor">
+        </el-button>
+        <el-tooltip :disabled="canSaveTemplate" content="暂无 label:template:save 权限"><span><el-button :disabled="!canSaveTemplate" @click="openTemplateEditor">
           <span class="material-symbols-outlined">dashboard_customize</span>
           编辑模板
-        </button>
-        <button class="secondary-action" :disabled="loading" @click="reloadCurrentTab">
+        </el-button></span></el-tooltip>
+        <el-button :loading="loading" :disabled="loading" @click="reloadCurrentTab">
           <span class="material-symbols-outlined" :class="{ 'animate-spin': loading }">sync</span>
           刷新
-        </button>
-        <button class="primary-action" :disabled="!printTarget" @click="printCurrentLabel">
+        </el-button>
+        <el-button type="primary" :disabled="!printTarget" @click="printCurrentLabel">
           <span class="material-symbols-outlined">local_printshop</span>
           浏览器打印
-        </button>
+        </el-button>
       </div>
     </header>
 
-    <section class="print-tabs">
-      <button
-        v-for="tab in printTabs"
-        :key="tab.key"
-        type="button"
-        class="print-tab"
-        :class="{ active: activeTab === tab.key }"
-        @click="switchTab(tab.key)"
-      >
-        <span class="material-symbols-outlined">{{ tab.icon }}</span>
-        <span>{{ tab.label }}</span>
-        <strong>{{ tab.count }}</strong>
-      </button>
-    </section>
+    <el-tabs v-model="activeTab" class="print-tabs" @tab-change="switchTab">
+      <el-tab-pane v-for="tab in accessibleTabs" :key="tab.key" :name="tab.key"><template #label>{{ tab.label }} <el-badge :value="tab.count" :hidden="!tab.count" /></template></el-tab-pane>
+    </el-tabs>
 
-    <section v-if="showPrintProfile" class="print-profile-panel">
+    <el-form v-if="showPrintProfile" class="print-profile-panel" label-position="top">
       <div class="profile-intro">
         <strong>浏览器打印适配</strong>
         <span>不同打印机、热敏纸和驱动会有偏移，先打印校准页，再微调下面参数。</span>
       </div>
-      <label>
-        <span>纸宽(mm)</span>
-        <input v-model.number="printProfile.paperWidthMm" type="number" min="20" max="500" step="0.1" @change="persistPrintProfile" />
-      </label>
-      <label>
-        <span>纸高(mm)</span>
-        <input v-model.number="printProfile.paperHeightMm" type="number" min="10" max="500" step="0.1" @change="persistPrintProfile" />
-      </label>
-      <label>
-        <span>边距(mm)</span>
-        <input v-model.number="printProfile.pageMarginMm" type="number" min="0" max="30" step="0.1" @change="persistPrintProfile" />
-      </label>
-      <label>
-        <span>左右偏移(mm)</span>
-        <input v-model.number="printProfile.offsetXmm" type="number" min="-50" max="50" step="0.1" @change="persistPrintProfile" />
-      </label>
-      <label>
-        <span>上下偏移(mm)</span>
-        <input v-model.number="printProfile.offsetYmm" type="number" min="-50" max="50" step="0.1" @change="persistPrintProfile" />
-      </label>
-      <label>
-        <span>缩放</span>
-        <input v-model.number="printProfile.scale" type="number" min="0.5" max="1.5" step="0.01" @change="persistPrintProfile" />
-      </label>
-      <button class="secondary-action compact" @click="syncProfileWithTemplate">使用模板尺寸</button>
-      <button class="secondary-action compact" @click="resetCurrentPrintProfile">恢复默认</button>
-    </section>
+      <el-form-item label="纸宽(mm)"><el-input-number v-model="printProfile.paperWidthMm" :min="20" :max="500" :step="0.1" @change="persistPrintProfile" /></el-form-item>
+      <el-form-item label="纸高(mm)"><el-input-number v-model="printProfile.paperHeightMm" :min="10" :max="500" :step="0.1" @change="persistPrintProfile" /></el-form-item>
+      <el-form-item label="边距(mm)"><el-input-number v-model="printProfile.pageMarginMm" :min="0" :max="30" :step="0.1" @change="persistPrintProfile" /></el-form-item>
+      <el-form-item label="左右偏移(mm)"><el-input-number v-model="printProfile.offsetXmm" :min="-50" :max="50" :step="0.1" @change="persistPrintProfile" /></el-form-item>
+      <el-form-item label="上下偏移(mm)"><el-input-number v-model="printProfile.offsetYmm" :min="-50" :max="50" :step="0.1" @change="persistPrintProfile" /></el-form-item>
+      <el-form-item label="缩放"><el-input-number v-model="printProfile.scale" :min="0.5" :max="1.5" :step="0.01" @change="persistPrintProfile" /></el-form-item>
+      <el-button @click="syncProfileWithTemplate">使用模板尺寸</el-button>
+      <el-button @click="resetCurrentPrintProfile">恢复默认</el-button>
+    </el-form>
 
     <section v-if="showTemplateEditor" class="template-editor-panel">
       <div class="template-editor-head">
@@ -87,39 +58,39 @@
           <strong>模板编辑</strong>
           <span>调整模板名称、纸张尺寸和标签展示内容，保存后预览/打印会立即按新模板展示。</span>
         </div>
-        <button class="secondary-action compact" @click="showTemplateEditor = false">收起</button>
+        <el-button @click="showTemplateEditor = false">收起</el-button>
       </div>
 
       <div class="template-editor-grid">
         <label>
           <span>模板名称</span>
-          <input v-model.trim="templateForm.name" class="business-input" placeholder="请输入模板名称" />
+          <el-input v-model.trim="templateForm.name" placeholder="请输入模板名称" />
         </label>
         <label>
           <span>标签标题</span>
-          <input v-model.trim="templateForm.title" class="business-input" placeholder="例如：布匹标签" />
+          <el-input v-model.trim="templateForm.title" placeholder="例如：布匹标签" />
         </label>
         <label>
           <span>纸宽(mm)</span>
-          <input v-model.number="templateForm.widthMm" class="business-input" type="number" min="20" max="500" step="0.1" />
+          <el-input-number v-model="templateForm.widthMm" :min="20" :max="500" :step="0.1" />
         </label>
         <label>
           <span>纸高(mm)</span>
-          <input v-model.number="templateForm.heightMm" class="business-input" type="number" min="10" max="500" step="0.1" />
+          <el-input-number v-model="templateForm.heightMm" :min="10" :max="500" :step="0.1" />
         </label>
       </div>
 
       <div class="template-switch-row">
         <label class="template-check-pill">
-          <input v-model="templateForm.showBarcode" type="checkbox" />
+          <el-switch v-model="templateForm.showBarcode" />
           <span>显示条形码</span>
         </label>
         <label class="template-check-pill">
-          <input v-model="templateForm.showQr" type="checkbox" />
+          <el-switch v-model="templateForm.showQr" />
           <span>显示二维码</span>
         </label>
         <label class="template-check-pill">
-          <input v-model="templateForm.isDefault" type="checkbox" />
+          <el-switch v-model="templateForm.isDefault" />
           <span>设为默认模板</span>
         </label>
       </div>
@@ -127,19 +98,19 @@
       <div class="template-field-editor">
         <div v-for="field in templateForm.fields" :key="field.key" class="template-field-row">
           <label class="template-field-visible">
-            <input v-model="field.visible" type="checkbox" />
+            <el-switch v-model="field.visible" />
             <span>{{ templateFieldDisplayName(field) }}</span>
           </label>
-          <input v-model.trim="field.label" class="business-input" placeholder="显示名称" />
+          <el-input v-model.trim="field.label" placeholder="显示名称" />
         </div>
       </div>
 
       <div class="template-actions">
-        <button class="secondary-action compact" :disabled="savingTemplate" @click="hydrateTemplateEditor">恢复当前模板</button>
-        <button class="primary-action" :disabled="savingTemplate" @click="saveCurrentTemplate">
+        <el-button :disabled="savingTemplate" @click="hydrateTemplateEditor">恢复当前模板</el-button>
+        <el-tooltip :disabled="canSaveTemplate" content="暂无 label:template:save 权限"><span><el-button type="primary" :disabled="!canSaveTemplate || savingTemplate" :loading="savingTemplate" @click="saveCurrentTemplate">
           <span class="material-symbols-outlined" :class="{ 'animate-spin': savingTemplate }">save</span>
           保存模板
-        </button>
+        </el-button></span></el-tooltip>
       </div>
     </section>
 
@@ -152,13 +123,13 @@
           </div>
         </div>
 
-        <template v-if="activeTab === 'equipment_inspection'">
+        <template v-if="activeTab === 'equipment_inspection' && canViewEquipment">
           <div class="search-row">
-            <input v-model.trim="equipmentKeyword" class="business-input" placeholder="搜索设备名称或编号" @keyup.enter="loadEquipmentList" />
-            <button class="secondary-action compact" @click="loadEquipmentList">搜索</button>
+            <el-input v-model.trim="equipmentKeyword" placeholder="搜索设备名称或编号" @keyup.enter="loadEquipmentList" />
+            <el-button @click="loadEquipmentList">搜索</el-button>
           </div>
           <div class="task-list">
-            <button
+            <el-button
               v-for="equipment in equipmentList"
               :key="equipment.id || equipment.equipmentCode"
               type="button"
@@ -168,14 +139,14 @@
             >
               <span class="task-name">{{ equipment.equipmentName || equipment.equipmentCode || '设备' }}</span>
               <span class="task-meta">{{ equipment.equipmentCode || '--' }} · {{ equipment.location || equipment.areaName || '未设置位置' }}</span>
-            </button>
-            <div v-if="!loading && equipmentList.length === 0" class="empty-state">暂无设备数据</div>
+            </el-button>
+            <el-empty v-if="!loading && !loadError && equipmentList.length === 0" description="暂无设备数据" />
           </div>
         </template>
 
         <template v-else>
           <div class="task-list">
-            <button
+            <el-button
               v-for="task in pendingTasks"
               :key="task.taskNo"
               type="button"
@@ -186,8 +157,8 @@
               <span class="task-name">{{ taskTitle(task) }}</span>
               <span class="task-meta">{{ taskSubtitle(task) }}</span>
               <span v-if="task.retryCount" class="retry-badge">重试 {{ task.retryCount }}</span>
-            </button>
-            <div v-if="!loading && pendingTasks.length === 0" class="empty-state">暂无待打印任务</div>
+            </el-button>
+            <el-empty v-if="!loading && !loadError && pendingTasks.length === 0" description="暂无待打印任务" />
           </div>
         </template>
       </aside>
@@ -200,17 +171,14 @@
           </div>
           <div class="template-select">
             <label>打印模板</label>
-            <select v-model="selectedTemplateId" @change="refreshPreview">
-              <option v-for="template in templates" :key="template.id || template.name" :value="String(template.id || '')">
-                {{ template.name || '默认模板' }}
-              </option>
-            </select>
+            <el-select v-model="selectedTemplateId" @change="refreshPreview"><el-option v-for="template in templates" :key="template.id || template.name" :value="String(template.id || '')" :label="template.name || '默认模板'" /></el-select>
           </div>
         </div>
 
-        <div class="preview-stage">
+        <div v-loading="loading" class="preview-stage">
+          <el-result v-if="loadError" icon="error" title="打印数据加载失败" :sub-title="loadError"><template #extra><el-button type="primary" @click="retryCurrentTab">重试</el-button></template></el-result>
           <div
-            v-if="printTarget"
+            v-else-if="printTarget"
             ref="printAreaRef"
             class="thermal-label"
             :class="{ 'thermal-label--qr': showQrCode && qrDataUrl, 'thermal-label--barcode': showBarcode && barcodeValue }"
@@ -234,10 +202,7 @@
               <span>{{ barcodeValue }}</span>
             </div>
           </div>
-          <div v-else class="preview-empty">
-            <span class="material-symbols-outlined">ads_click</span>
-            <p>请选择左侧记录后预览热敏标签</p>
-          </div>
+          <el-empty v-else-if="!loading" description="请选择左侧记录后预览热敏标签" />
         </div>
 
         <div v-if="printTarget" class="print-tips">
@@ -251,7 +216,25 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ElBadge,
+  ElButton,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElMessageBox,
+  ElOption,
+  ElResult,
+  ElSelect,
+  ElSwitch,
+  ElTabPane,
+  ElTabs,
+  ElTooltip
+} from 'element-plus'
+import { useUserStore } from '@/stores/user'
 import QRCode from 'qrcode'
 import JsBarcode from 'jsbarcode'
 import {
@@ -298,6 +281,12 @@ const pendingPrintTaskNo = ref('')
 const showPrintProfile = ref(false)
 const showTemplateEditor = ref(false)
 const savingTemplate = ref(false)
+const loadError = ref('')
+let loadRequestId = 0
+const userStore = useUserStore()
+const canSaveTemplate = computed(() => userStore.hasPermission('label:template:save'))
+const canViewEquipment = computed(() => userStore.hasPermission('equipment:list'))
+const accessibleTabs = computed(() => printTabs.value.filter((tab) => tab.key !== 'equipment_inspection' || canViewEquipment.value))
 
 const TEMPLATE_FIELD_LABEL_MAP = {
   barcode: '条码',
@@ -499,21 +488,60 @@ onUnmounted(() => {
 })
 
 async function switchTab(tabKey) {
+  if (tabKey === 'equipment_inspection' && !canViewEquipment.value) return
+  const requestId = ++loadRequestId
   activeTab.value = tabKey
+  loadError.value = ''
+  loading.value = true
+  pendingTasks.value = []
+  equipmentList.value = []
   selectedTaskNo.value = ''
   selectedEquipmentKey.value = ''
   pendingPrintTaskNo.value = ''
-  await loadPrintOverviewCounts()
-  await Promise.all([
-    loadTemplates(),
-    loadTemplateVariables(),
-    tabKey === 'equipment_inspection' ? loadEquipmentList() : loadPendingTasks()
-  ])
-  hydrateTemplateEditor()
+  try {
+    await loadPrintOverviewCounts()
+    const [nextTemplates, nextVariables, nextRows] = await Promise.all([
+      listLabelTemplates({ printType: tabKey }),
+      listLabelTemplateVariables({ printType: tabKey }),
+      tabKey === 'equipment_inspection'
+        ? getEquipmentPage({ pageNum: 1, pageSize: 50, keyword: equipmentKeyword.value || undefined })
+        : listPendingPrintTasks({ printType: tabKey, limit: 50 })
+    ])
+    if (requestId !== loadRequestId) return
+    templates.value = Array.isArray(nextTemplates) ? nextTemplates : []
+    templateVariables.value = Array.isArray(nextVariables) ? nextVariables : []
+    selectedTemplateId.value = String((templates.value.find((item) => Number(item.isDefault) === 1) || templates.value[0])?.id || '')
+    if (tabKey === 'equipment_inspection') {
+      equipmentList.value = nextRows?.data || nextRows?.records || []
+      equipmentTotal.value = Number(nextRows?.total || equipmentList.value.length || 0)
+      selectedEquipmentKey.value = equipmentList.value[0] ? equipmentKey(equipmentList.value[0]) : ''
+      updateTabCount('equipment_inspection', equipmentTotal.value)
+    } else {
+      pendingTasks.value = Array.isArray(nextRows) ? nextRows : []
+      selectedTaskNo.value = pendingTasks.value[0]?.taskNo || ''
+    }
+    hydrateTemplateEditor()
+  } catch (error) {
+    if (requestId !== loadRequestId) return
+    loadError.value = resolveLoadError(error)
+  } finally {
+    if (requestId === loadRequestId) loading.value = false
+  }
 }
 
 async function reloadCurrentTab() {
   await switchTab(activeTab.value)
+}
+
+function retryCurrentTab() { return switchTab(activeTab.value) }
+
+function resolveLoadError(error) {
+  const status = Number(error?.response?.status || error?.status || error?.code || 0)
+  if (status === 401) return '登录状态已失效，请重新登录后加载打印数据。'
+  if (status === 403) return '当前账号没有加载此打印内容的权限。'
+  if (!status && !error?.response) return '网络连接失败，无法加载打印数据。'
+  if (status >= 500) return '打印服务暂时不可用，请稍后重试。'
+  return error?.msg || error?.message || '打印数据加载失败，请重试。'
 }
 
 async function loadTemplates() {
@@ -562,19 +590,28 @@ async function loadPendingTasks() {
 }
 
 async function loadEquipmentList() {
+  if (!canViewEquipment.value) return
+  const requestId = ++loadRequestId
   loading.value = true
+  loadError.value = ''
+  equipmentList.value = []
+  selectedEquipmentKey.value = ''
   try {
     const page = await getEquipmentPage({
       pageNum: 1,
       pageSize: 50,
       keyword: equipmentKeyword.value || undefined
     })
+    if (requestId !== loadRequestId) return
     equipmentList.value = page?.data || page?.records || []
     equipmentTotal.value = Number(page?.total || equipmentList.value.length || 0)
     selectedEquipmentKey.value = equipmentList.value[0] ? equipmentKey(equipmentList.value[0]) : ''
     updateTabCount('equipment_inspection', equipmentTotal.value)
+  } catch (error) {
+    if (requestId !== loadRequestId) return
+    loadError.value = resolveLoadError(error)
   } finally {
-    loading.value = false
+    if (requestId === loadRequestId) loading.value = false
   }
 }
 
@@ -584,6 +621,7 @@ function updateTabCount(key, count) {
 }
 
 function openTemplateEditor() {
+  if (!canSaveTemplate.value) return
   hydrateTemplateEditor()
   showTemplateEditor.value = true
 }
@@ -593,6 +631,7 @@ function hydrateTemplateEditor() {
 }
 
 async function saveCurrentTemplate() {
+  if (!canSaveTemplate.value) return
   const form = normalizeTemplateDesign(templateForm.value, activeTab.value)
   if (!form.name) {
     ElMessage.warning('请填写模板名称')
