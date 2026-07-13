@@ -5,11 +5,13 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import my.management.module.order.model.validation.ValidProductionInformationChannel;
 
 /**
  * 生产订单保存请求，同时用于管理端新建和完整编辑。
  */
 @Data
+@ValidProductionInformationChannel
 public class ProductionOrderSaveRequest {
 
     private String salesOrderId;
@@ -43,8 +45,7 @@ public class ProductionOrderSaveRequest {
     @Min(value = 1, message = "数量至少为1")
     private Integer quantity;
 
-    @NotBlank(message = "交付日期不能为空")
-    private String deliveryDate;
+    private String informationChannel;
 
     /**
      * 业务录单时间。允许成熟客户补录历史生产单时手动指定，不传时使用服务端当前时间。

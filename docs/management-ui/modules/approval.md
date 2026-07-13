@@ -5,7 +5,7 @@
 - 页面：`management-ui/src/views/function/approval/approvalCenter.vue`。
 - 前端 API：`management-ui/src/views/function/approval/api/approval.js`。
 - 后端入口：`management/src/main/java/my/management/controller/ApprovalController.java`。
-- 服务：`module/approval/service/ApprovalService.java`、`ApprovalDefaultAuditorService.java`。
+- 服务：`module/approval/service/ApprovalService.java`、`ApprovalDefaultAuditorService.java`、`ApprovalAuditorCandidateService.java`。
 - 关联域：订单、质量、员工离职、考勤记录和业务附件服务。
 - 路由：`/function/approval`；feature 为 `module.approval`。
 - 路由权限为请假/财务/离职的列表或提交权限、`order:list`、`badproduct:process` 的并集。
@@ -69,6 +69,8 @@
 6. 订单通过/拒绝推进或回退订单领域状态；质量审核推进质量处理状态。
 7. 财务/离职提交生成审批编号，成功后切换相应标签并刷新列表。
 8. 默认审核人保存后刷新配置；具体申请仍可提交显式审核人集合。
+9. 多审核人审批写入 `approval_auditor_candidate`；服务在同一事务内锁定候选集合、原子记录当前审核人的决定，再返回 `PENDING/APPROVED/REJECTED` 汇总结果。只有全部通过才执行领域推进，任一驳回立即关闭本次候选集合。
+10. 订单 `pending_pay -> pending_material` 与 `pending_ship -> shipped` 均走订单审批；驳回时保持原订单状态，仅结束本次审批，不误推进业务单据。
 
 ## 空错态
 
@@ -101,7 +103,7 @@
 
 - 路由、标签、详情、下载和后端存在多处已确认的权限不一致，迁移时不能只复制某一层。
 - 顺序重复审批有业务保护：已处理请假/财务/离职会被拒绝，订单/质量要求仍存在待处理领域状态。
-- 这些状态检查不等于强并发幂等；请求没有幂等键，前端也没有统一防双击锁。
+- 候选审批决定采用数据库行锁和 `audit_status = 0` 条件更新，可防止同一审核人重复决定以及多人最后一步重复执行；前端仍需补行级 in-flight 锁改善重复点击反馈。
 - 离职提交采用“先查待审批数量再插入”；顺序重复会拦截，但并发提交仍需数据库约束/锁专项验证。
 - 财务提交未见客户端请求号；重复点击可能生成两张不同审批单，不能按“同内容”自动去重。
 - 审批副作用跨考勤、员工角色、订单和质量域，重复执行或部分失败的回滚边界必须以事务测试确认。

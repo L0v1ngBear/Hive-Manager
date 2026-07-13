@@ -30,7 +30,7 @@ public class SalesOrderDetailVO {
 
     private Integer totalQuantity;
 
-    private String deliveryDate;
+    private String informationChannel;
 
     private String expressCompany;
 
