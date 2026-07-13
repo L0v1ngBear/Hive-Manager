@@ -168,6 +168,7 @@ order:scope:sales:department
 order:scope:production:self
 order:scope:production:department
 order:scope:assigned
+order:scope:installation:department
 order:scope:tenant
 ```
 
@@ -213,16 +214,16 @@ update_time
 
 | 角色 | 默认订单范围 | 可见状态 | 默认状态动作 |
 | --- | --- | --- | --- |
-| `SALES_STAFF` | `sales:self` | 本人订单全部状态 | 创建、早期编辑、待确认推进、早期取消、打印 |
-| `SALES_MANAGER` | `sales:department` | 本部门订单全部状态 | 销售专员能力、预警设置、部门订单处理和导出 |
-| `FINANCE_STAFF` | `tenant` | 待收款、备料中 | 待收款处理和财务申请 |
-| `FINANCE_MANAGER` | `tenant` | 待收款、备料中 | 财务专员能力、财务审核和价格管理 |
-| `PRODUCTION_STAFF` | `production:self` | 备料中、生产中、待发货、已完成 | 生产阶段编辑、推进、允许的回退和打印 |
-| `PRODUCTION_MANAGER` | `production:department` | 备料中、生产中、待发货、已完成 | 生产专员能力、指派、质量处理和导出 |
-| `WAREHOUSE_STAFF` | `tenant` | 备料中、待发货、已发货 | 出入库、发货申请和出库打印 |
-| `WAREHOUSE_MANAGER` | `tenant` | 备料中、待发货、已发货 | 仓储专员能力、库存与打印设置和导出 |
-| `INSTALLATION_STAFF` | `assigned` | 已发货、已完成 | 只处理分配给自己的安装任务 |
-| `INSTALLATION_MANAGER` | `department` | 已发货、已完成 | 本部门安装任务管理和导出 |
+| `SALES_STAFF` | `order:scope:sales:self` | 本人订单全部状态 | 创建、早期编辑、待确认推进、早期取消、打印 |
+| `SALES_MANAGER` | `order:scope:sales:department` | 本部门订单全部状态 | 销售专员能力、预警设置、部门订单处理和导出 |
+| `FINANCE_STAFF` | `order:scope:tenant` | 待收款、备料中 | 待收款处理和财务申请 |
+| `FINANCE_MANAGER` | `order:scope:tenant` | 待收款、备料中 | 财务专员能力、财务审核和价格管理 |
+| `PRODUCTION_STAFF` | `order:scope:production:self` | 备料中、生产中、待发货、已完成 | 生产阶段编辑、推进、允许的回退和打印 |
+| `PRODUCTION_MANAGER` | `order:scope:production:department` | 备料中、生产中、待发货、已完成 | 生产专员能力、指派、质量处理和导出 |
+| `WAREHOUSE_STAFF` | `order:scope:tenant` | 备料中、待发货、已发货 | 出入库、发货申请和出库打印 |
+| `WAREHOUSE_MANAGER` | `order:scope:tenant` | 备料中、待发货、已发货 | 仓储专员能力、库存与打印设置和导出 |
+| `INSTALLATION_STAFF` | `order:scope:assigned` | 已发货、已完成 | 只处理分配给自己的安装任务 |
+| `INSTALLATION_MANAGER` | `order:scope:installation:department` | 已发货、已完成 | 本部门安装任务管理和导出 |
 | `APPROVAL_MANAGER` | 审核候选记录 | 待发货、待取消 | 发货审核、取消审核；不能直接代替业务岗位推进 |
 
 “全部状态可见”不等于“全部状态可操作”。销售人员可以跟踪本人订单全流程，但只有被明确授予的状态动作可以推进、回退或取消。生产人员只能看到分配给本人或本部门的生产责任订单。
