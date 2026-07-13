@@ -120,7 +120,7 @@ const formattedSize = computed(() => {
 })
 
 function openPicker() {
-  if (props.disabled || props.uploading) return
+  if (props.uploading || props.disabled) return
   inputRef.value?.click()
 }
 
