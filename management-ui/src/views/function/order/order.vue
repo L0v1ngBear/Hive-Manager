@@ -110,6 +110,12 @@
             placeholder="品牌名称"
             @keyup.enter="refreshOrders"
         />
+        <input
+            v-model.trim="filters.informationChannel"
+            class="box-input xl:col-span-2"
+            placeholder="信息渠道"
+            @keyup.enter="refreshOrders"
+        />
         <select v-model="filters.orderCategory" class="box-input xl:col-span-2">
           <option value="">全部小项</option>
           <option v-for="option in orderCategoryOptions" :key="option.value" :value="option.value">
@@ -148,12 +154,6 @@
             <DateFilterInput v-model="filters.createStart" placeholder="开始日期" class="box-input min-w-0 flex-1" />
             <span>至</span>
             <DateFilterInput v-model="filters.createEnd" placeholder="结束日期" class="box-input min-w-0 flex-1" />
-          </label>
-          <label class="flex items-center gap-2 text-xs font-bold text-on-surface-variant">
-            <span>交付时间</span>
-            <DateFilterInput v-model="filters.deliveryStart" placeholder="交付开始" class="box-input min-w-0 flex-1" />
-            <span>至</span>
-            <DateFilterInput v-model="filters.deliveryEnd" placeholder="交付结束" class="box-input min-w-0 flex-1" />
           </label>
         </div>
       </div>
@@ -234,8 +234,8 @@
               <template v-else-if="column.key === 'remark'">
                 <div class="order-remark-cell">{{ row.remark || '暂无备注' }}</div>
               </template>
-              <template v-else-if="column.key === 'delivery'">
-                <div class="text-sm text-on-surface-variant">{{ row.deliveryDate || '未填写交付日期' }}</div>
+              <template v-else-if="column.key === 'informationChannel'">
+                <div class="text-sm text-on-surface-variant">{{ row.informationChannel || '未填写信息渠道' }}</div>
                 <div class="mt-1 text-xs text-on-surface-variant">
                   {{ row.expressCompany || '未发货' }}
                   <template v-if="row.expressNo"> / {{ row.expressNo }}</template>
@@ -406,8 +406,8 @@
                   <div class="info-value">{{ orderDetail.brandName || '未填写品牌' }}</div>
                 </div>
                 <div class="info-card">
-                  <div class="info-label">交付信息</div>
-                  <div class="info-value">{{ orderDetail.deliveryDate || '未填写交付日期' }}</div>
+                  <div class="info-label">信息渠道</div>
+                  <div class="info-value">{{ orderDetail.informationChannel || '未填写信息渠道' }}</div>
                   <div class="mt-1 text-xs text-on-surface-variant">
                     {{ orderDetail.expressCompany || '未发货' }}
                     <template v-if="orderDetail.expressNo"> / {{ orderDetail.expressNo }}</template>
@@ -588,8 +588,8 @@
                   </p>
                 </div>
                 <div>
-                  <label class="field-label">{{ orderForm.orderCategory === 'drawing_budget' ? '交付日期' : '交付日期 *' }}</label>
-                  <input v-model="orderForm.deliveryDate" data-field="order.deliveryDate" class="box-input" type="date"/>
+                  <label class="field-label">{{ orderForm.orderCategory === 'drawing_budget' ? '信息渠道' : '信息渠道 *' }}</label>
+                  <input v-model.trim="orderForm.informationChannel" data-field="order.informationChannel" class="box-input" type="text"/>
                 </div>
                 <div>
                   <label class="field-label">品牌</label>
@@ -631,12 +631,15 @@
               </div>
 
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <p v-if="advanceIntent" class="sm:col-span-2 rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary">
+                  保存后将推进到{{ orderStatusLabel(advanceIntent.targetStatus) }}
+                </p>
                 <div>
                   <label class="field-label">订单状态</label>
                   <select
                     v-model="orderForm.status"
                     class="box-input"
-                    :disabled="formMode === 'create' && orderForm.orderCategory === 'special_order'"
+                    :disabled="(formMode === 'create' && orderForm.orderCategory === 'special_order') || Boolean(advanceIntent)"
                   >
                     <option v-for="status in orderStatuses" :key="status.value" :value="status.value">{{
                         status.label
@@ -651,11 +654,11 @@
                     <option :value="1">已开票</option>
                   </select>
                 </div>
-                <div v-if="orderForm.status === 'shipped'">
+                <div v-if="requiresShippingDetails">
                   <label class="field-label">物流公司</label>
                   <input v-model.trim="orderForm.expressCompany" data-field="order.expressCompany" class="box-input" type="text"/>
                 </div>
-                <div v-if="orderForm.status === 'shipped'">
+                <div v-if="requiresShippingDetails">
                   <label class="field-label">物流单号</label>
                   <input v-model.trim="orderForm.expressNo" data-field="order.expressNo" class="box-input" type="text"/>
                 </div>
@@ -697,7 +700,7 @@
                     class="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-on-primary disabled:opacity-50"
                     :title="canSubmitCurrentForm ? '' : '当前账号没有该阶段订单维护权限'"
                     @click="submitForm">
-              {{ formMode === 'create' ? '提交创建' : '保存修改' }}
+              {{ formMode === 'create' ? '提交创建' : (advanceIntent ? '保存并推进' : '保存修改') }}
             </button>
           </div>
         </aside>
@@ -746,6 +749,7 @@ const defaultOrderTableColumns = [
   {key: 'orderNo', label: '编号'},
   {key: 'customer', label: '客户 / 项目'},
   {key: 'core', label: '订单信息'},
+  {key: 'informationChannel', label: '信息渠道'},
   {key: 'remark', label: '备注'},
   {key: 'status', label: '状态'},
   {key: 'progress', label: '进度'},
@@ -762,6 +766,7 @@ const orderColumnClass = (key) => `order-column-${key}`
 const orderStatuses = [
   {value: 'pending_cancel', label: '取消审核中'},
   {value: 'budgeting', label: '预算中'},
+  {value: 'budget_completed', label: '预算完成'},
   {value: 'pending_confirm', label: '待确认'},
   {value: 'pending_pay', label: '待收款'},
   {value: 'pending_material', label: '备料中'},
@@ -812,10 +817,9 @@ const filters = reactive({
   status: '',
   customerName: '',
   brandName: '',
+  informationChannel: '',
   orderCategory: '',
   invoiceStatus: '',
-  deliveryStart: '',
-  deliveryEnd: '',
   createStart: '',
   createEnd: '',
   staleOnly: false
@@ -854,6 +858,8 @@ const projectDropdownVisible = ref(false)
 const formVisible = ref(false)
 const formMode = ref('create')
 const editingOrderId = ref('')
+const editingOrderStatus = ref('')
+const advanceIntent = ref(null)
 const submitting = ref(false)
 const {
   timeCorrectionMode,
@@ -893,6 +899,7 @@ const canEditCurrentOrderForm = computed(() => formMode.value === 'create'
     ? canCreateCurrentOrder.value
     : canMutateOrderStatus(orderForm.status))
 const canSubmitCurrentForm = canEditCurrentOrderForm
+const requiresShippingDetails = computed(() => orderForm.status === 'shipped' || advanceIntent.value?.targetStatus === 'shipped')
 
 function canEditOrder(row = {}) {
   return canMutateOrderStatus(row.status)
@@ -939,6 +946,7 @@ const summaryCards = computed(() => {
   return [
     {key: 'order-total', tab: 'order', label: '订单总量', status: '', count: orderSummary.total || orderState.total || 0, hint: '全部订单'},
     {key: 'order-budgeting', tab: 'order', label: '预算中订单', status: 'budgeting', count: orderSummary.budgeting || 0, hint: '图纸预算测算中'},
+    {key: 'order-budget-completed', tab: 'order', label: '预算已完成订单', status: 'budget_completed', count: orderSummary.budget_completed || 0, hint: '图纸预算终态'},
     {key: 'order-confirm', tab: 'order', label: '待确认订单', status: 'pending_confirm', count: orderSummary.pending_confirm || 0, hint: '待客户/业务确认'},
     {key: 'order-pay', tab: 'order', label: '待收款订单', status: 'pending_pay', count: orderSummary.pending_pay || 0, hint: '待收款跟进'},
     {key: 'order-ship', tab: 'order', label: '待发货订单', status: 'pending_ship', count: orderSummary.pending_ship || 0, hint: '待安排发货'},
@@ -1045,7 +1053,7 @@ function defaultOrderForm() {
     projectName: '',
     brandName: '',
     orderCategory: 'bulk',
-    deliveryDate: '',
+    informationChannel: '',
     createTime: '',
     expressCompany: '',
     expressNo: '',
@@ -1203,10 +1211,9 @@ async function resetFilters(refresh = true) {
   filters.status = ''
   filters.customerName = ''
   filters.brandName = ''
+  filters.informationChannel = ''
   filters.orderCategory = ''
   filters.invoiceStatus = ''
-  filters.deliveryStart = ''
-  filters.deliveryEnd = ''
   filters.createStart = ''
   filters.createEnd = ''
   filters.staleOnly = false
@@ -1428,10 +1435,9 @@ function buildOrderQuery(pageNum = orderState.page, pageSize = orderState.size) 
     status: filters.status || undefined,
     customerName: filters.customerName || undefined,
     brandName: filters.brandName || undefined,
+    informationChannel: filters.informationChannel || undefined,
     orderCategory: filters.orderCategory || undefined,
     isInvoice: filters.invoiceStatus === '' ? undefined : Number(filters.invoiceStatus),
-    deliveryStart: filters.deliveryStart || undefined,
-    deliveryEnd: filters.deliveryEnd || undefined,
     createStart: filters.createStart || undefined,
     createEnd: filters.createEnd || undefined,
     staleOnly: filters.staleOnly || undefined
@@ -1481,7 +1487,7 @@ function formatOrderExportCell(row, key) {
   if (key === 'brand') return row.brandName || ''
   if (key === 'core') return orderCoreExportText(row)
   if (key === 'remark') return row.remark || ''
-  if (key === 'delivery') return [row.deliveryDate, row.expressCompany, row.expressNo].filter(Boolean).join(' / ')
+  if (key === 'informationChannel') return [row.informationChannel, row.expressCompany, row.expressNo].filter(Boolean).join(' / ')
   if (key === 'invoice') return invoiceLabel(row.isInvoice)
   if (key === 'status') return orderStatusLabel(row.status)
   if (key === 'progress') {
@@ -1541,6 +1547,9 @@ function nextOrderStatus(row = {}) {
 }
 
 function previousOrderStatus(row = {}) {
+  if (row.orderCategory === 'drawing_budget') {
+    return ''
+  }
   const flow = row.orderCategory === 'drawing_budget' ? drawingBudgetStatusFlow : normalOrderStatusFlow
   const currentIndex = flow.indexOf(row.status)
   if (currentIndex <= 0) {
@@ -1577,52 +1586,7 @@ async function advanceOrder(row = {}) {
     warnNoOrderStagePermission()
     return
   }
-  const approvalTransition = isOrderMaterialApprovalTransition(row, targetStatus)
-  const payload = {}
-  try {
-  if (targetStatus === 'shipped') {
-    const companyResult = await ElMessageBox.prompt('请输入物流公司', '发货信息', {
-      confirmButtonText: '继续',
-      cancelButtonText: '取消',
-      inputValue: row.expressCompany || ''
-    })
-    const expressCompany = String(companyResult.value || '').trim()
-    if (!expressCompany) {
-      ElMessage.warning('物流公司不能为空')
-      return
-    }
-    const noResult = await ElMessageBox.prompt('请输入物流单号', '发货信息', {
-      confirmButtonText: '确认推进',
-      cancelButtonText: '取消',
-      inputValue: row.expressNo || ''
-    })
-    const expressNo = String(noResult.value || '').trim()
-    if (!expressNo) {
-      ElMessage.warning('物流单号不能为空')
-      return
-    }
-    payload.expressCompany = expressCompany
-    payload.expressNo = expressNo
-  } else if (approvalTransition) {
-    await ElMessageBox.confirm('待收款订单需要先提交订单审批，审批通过后才会进入备料中。', '提交订单审批', {
-      confirmButtonText: '提交审批',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-  } else {
-    await ElMessageBox.confirm(`确认将订单推进到“${orderStatusLabel(targetStatus)}”？`, '推进订单阶段', {
-      confirmButtonText: '确认推进',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-  }
-  } catch (error) {
-    return
-  }
-  await advanceOrderNextStage(row.orderId, payload)
-  ElMessage.success(approvalTransition ? '已提交订单审批，审批通过后进入备料中' : '订单已推进到下一阶段')
-  await loadOrders()
-  await loadOrderSummaries()
+  await openEdit(row.orderId, row, {targetStatus})
 }
 
 async function rollbackOrder(row = {}) {
@@ -1662,17 +1626,21 @@ function openCreate() {
   }
   formMode.value = 'create'
   editingOrderId.value = ''
+  editingOrderStatus.value = ''
+  advanceIntent.value = null
   resetOrderForm()
   formVisible.value = true
 }
 
-async function openEdit(orderId, row = {}) {
+async function openEdit(orderId, row = {}, intent = null) {
   if (row.status && !canEditOrder(row)) {
     warnNoOrderStagePermission()
     return
   }
   formMode.value = 'edit'
   editingOrderId.value = orderId
+  editingOrderStatus.value = ''
+  advanceIntent.value = intent
   formVisible.value = true
   resetOrderForm()
   const detail = await getOrderDetail(orderId)
@@ -1686,7 +1654,7 @@ async function openEdit(orderId, row = {}) {
   orderForm.projectName = detail.projectName || ''
   orderForm.brandName = detail.brandName || ''
   orderForm.orderCategory = normalizeOrderCategory(detail.orderCategory)
-  orderForm.deliveryDate = toDateInput(detail.deliveryDate)
+  orderForm.informationChannel = detail.informationChannel || ''
   orderForm.createTime = toDateTimeLocal(detail.createTime)
   orderForm.expressCompany = detail.expressCompany || ''
   orderForm.expressNo = detail.expressNo || ''
@@ -1696,6 +1664,7 @@ async function openEdit(orderId, row = {}) {
   orderForm.attachmentUrl = detail.attachmentUrl || ''
   orderForm.attachmentSize = detail.attachmentSize || null
   orderForm.status = detail.status || 'pending_confirm'
+  editingOrderStatus.value = orderForm.status
   orderForm.items = (detail.items || []).length
       ? detail.items.map(item => ({
         modelCode: item.modelCode || '',
@@ -1708,6 +1677,8 @@ async function openEdit(orderId, row = {}) {
 
 function closeForm() {
   formVisible.value = false
+  advanceIntent.value = null
+  editingOrderStatus.value = ''
   closeTimeCorrectionMode()
   customerDropdownVisible.value = false
   projectDropdownVisible.value = false
@@ -1782,12 +1753,27 @@ async function submitForm() {
   try {
     validateOrderForm()
     const payload = buildOrderPayload()
+    payload.status = advanceIntent.value ? editingOrderStatus.value : payload.status
     const specialOrderCreate = formMode.value === 'create' && payload.orderCategory === 'special_order'
     const cancelApprovalSubmit = formMode.value !== 'create' && payload.status === 'cancelled'
     if (formMode.value === 'create') {
       await createOrder(payload)
     } else {
       await saveOrder(editingOrderId.value, payload)
+    }
+    if (advanceIntent.value) {
+      const advancePayload = advanceIntent.value.targetStatus === 'shipped'
+          ? {expressCompany: payload.expressCompany, expressNo: payload.expressNo}
+          : {}
+      try {
+        await advanceOrderNextStage(editingOrderId.value, advancePayload)
+      } catch (error) {
+        ElMessage.error('订单已保存，流转未完成，请重试')
+        closeForm()
+        await loadOrders()
+        await loadOrderSummaries()
+        return
+      }
     }
     if (cancelApprovalSubmit) {
       ElMessage.success('已提交取消审核，审批通过后取消成功')
@@ -1796,7 +1782,7 @@ async function submitForm() {
       await loadOrderSummaries()
       return
     }
-    ElMessage.success(specialOrderCreate ? '特殊订单已提交审核，审核通过后创建成功' : (formMode.value === 'create' ? '订单创建成功' : '订单保存成功'))
+    ElMessage.success(specialOrderCreate ? '特殊订单已提交审核，审核通过后创建成功' : (formMode.value === 'create' ? '订单创建成功' : (advanceIntent.value ? '订单已推进到下一阶段' : '订单保存成功')))
     closeForm()
     await loadOrders()
     await loadOrderSummaries()
@@ -1808,12 +1794,12 @@ async function submitForm() {
 function validateOrderForm() {
   if (!orderForm.customerName.trim()) fail('请输入客户名称', 'order.customerName')
   if (!orderForm.projectName.trim()) fail('请输入项目名称', 'order.projectName')
-  if (orderForm.orderCategory !== 'drawing_budget' && !orderForm.deliveryDate) fail('请选择交付日期', 'order.deliveryDate')
+  if (orderForm.orderCategory !== 'drawing_budget' && !orderForm.informationChannel) fail('请输入信息渠道', 'order.informationChannel')
   validateCreateTimeInput(orderForm.createTime)
-  if (orderForm.status === 'shipped' && !String(orderForm.expressCompany || '').trim()) {
+  if (requiresShippingDetails.value && !String(orderForm.expressCompany || '').trim()) {
     fail('订单变更为已发货时必须填写物流公司', 'order.expressCompany')
   }
-  if (orderForm.status === 'shipped' && !String(orderForm.expressNo || '').trim()) {
+  if (requiresShippingDetails.value && !String(orderForm.expressNo || '').trim()) {
     fail('订单变更为已发货时必须填写物流单号', 'order.expressNo')
   }
 }
@@ -1834,7 +1820,7 @@ function buildOrderPayload() {
     projectName: orderForm.projectName.trim(),
     brandName: blank(orderForm.brandName),
     orderCategory,
-    deliveryDate: blank(orderForm.deliveryDate),
+    informationChannel: blank(orderForm.informationChannel),
     createTime: blank(formatCreateTimePayload(orderForm.createTime)),
     expressCompany: blank(orderForm.expressCompany),
     expressNo: blank(orderForm.expressNo),
@@ -1965,10 +1951,6 @@ async function saveStatusLogTime(type, log = {}) {
 
 function normalizeText(value) {
   return String(value || '').trim()
-}
-
-function toDateInput(value) {
-  return value ? String(value).slice(0, 10) : ''
 }
 
 function toDateTimeLocal(value) {
