@@ -129,6 +129,7 @@ import { ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber
 import { useUserStore } from '@/stores/user'
 import { warnAndFocusField } from '@/utils/formFocus'
 import { deleteDepartment, getDepartmentEmployees, getOrganizationOverview, saveDepartment } from './api/organization.js'
+import { createOverviewRequestGate } from './overviewRequestGate.js'
 
 const DepartmentNode = defineComponent({
   name: 'DepartmentNode',
@@ -183,12 +184,14 @@ const activeDepartment = ref(null)
 const stats = reactive({ departmentCount: 0, employeeCount: 0, enabledDepartmentCount: 0, emptyDepartmentCount: 0 })
 const form = reactive(createEmptyForm())
 let memberRequestId = 0
+const overviewRequestGate = createOverviewRequestGate()
 
 const parentOptions = computed(() => flattenDepartments(departments.value).filter(option => !isSelfOrDescendant(option.id, form.id)))
 
 onMounted(fetchOverview)
 
 async function fetchOverview() {
+  const requestId = overviewRequestGate.begin()
   const activeDepartmentId = activeDepartment.value?.id
   loading.value = true
   memberRequestId += 1
@@ -201,6 +204,7 @@ async function fetchOverview() {
   overviewFailure.value = null
   try {
     const data = await getOrganizationOverview()
+    if (!overviewRequestGate.isLatest(requestId)) return
     departments.value = Array.isArray(data?.departments) ? data.departments : []
     Object.assign(stats, data?.stats || {})
     if (activeDepartmentId) {
@@ -215,9 +219,10 @@ async function fetchOverview() {
       }
     } else if (departments.value.length) await selectDepartment(departments.value[0])
   } catch (error) {
+    if (!overviewRequestGate.isLatest(requestId)) return
     overviewFailure.value = resolveOverviewFailure(error)
   } finally {
-    loading.value = false
+    if (overviewRequestGate.isLatest(requestId)) loading.value = false
   }
 }
 
