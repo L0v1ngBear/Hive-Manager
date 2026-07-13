@@ -15,7 +15,7 @@
         </div>
 
         <div class="order-header-button-row">
-          <button
+          <el-button
               class="order-warning-setting-btn"
               :class="permissionDisabledClass(!canManageWarningSetting)"
               :disabled="!canManageWarningSetting"
@@ -24,18 +24,18 @@
           >
             <span class="material-symbols-outlined text-[20px]">notification_important</span>
             预警设置
-          </button>
+          </el-button>
 
-          <button
+          <el-button
               class="order-warning-refresh-btn"
               :disabled="warningRefreshing"
               @click="refreshOrderWarnings(true)"
           >
             <span class="material-symbols-outlined text-[20px]" :class="warningRefreshing ? 'animate-spin' : ''">sync</span>
             重新更新预警
-          </button>
+          </el-button>
 
-          <button
+          <el-button
               class="function-action-primary px-6 py-4"
               :class="permissionDisabledClass(!canCreateCurrentOrder)"
               :disabled="!canCreateCurrentOrder"
@@ -43,7 +43,7 @@
               @click="openCreate"
           >
             新建订单
-          </button>
+          </el-button>
         </div>
       </div>
 
@@ -121,12 +121,12 @@
         </el-select>
         <div class="order-filter-actions flex flex-wrap items-center gap-2 md:col-span-2 xl:col-span-12">
           <div class="order-query-actions">
-            <button class="order-filter-action-btn rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-on-primary" @click="refreshOrders">
+            <el-button type="primary" class="order-filter-action-btn rounded-lg px-5 py-2.5 text-sm font-bold" @click="refreshOrders">
               查询
-            </button>
-            <button class="order-filter-action-btn rounded-lg border border-outline-variant/30 bg-white px-5 py-2.5 text-sm font-bold text-on-surface" @click="resetFilters">
+            </el-button>
+            <el-button class="order-filter-action-btn rounded-lg px-5 py-2.5 text-sm font-bold" @click="resetFilters">
               重置
-            </button>
+            </el-button>
           </div>
           <TableColumnSettings
               class="order-table-toolbox"
@@ -135,6 +135,8 @@
               export-sheet-name="订单列表"
               export-module="order"
               :export-allable="true"
+              :export-disabled="!canExportTable"
+              export-disabled-reason="当前账号暂无表格导出权限"
               @move="moveOrderTableColumn"
               @reset="resetOrderTableColumns"
               @export-all="exportAllOrders"
@@ -176,7 +178,8 @@
               v-for="row in orderState.rows"
               :key="row.orderId"
               class="order-table-row group cursor-pointer"
-              :class="[orderRowClass(row.status), row.staleWarning ? 'order-row-stale-warning' : '']"
+              :class="[orderRowClass(row.status), row.staleWarning ? 'order-row-stale-warning' : '', !canViewOrderDetail ? 'order-detail-disabled' : '']"
+              :title="canViewOrderDetail ? '查看订单详情' : '当前账号暂无订单详情查看权限'"
               @click="openDetail(row.orderId)"
           >
             <td
@@ -199,7 +202,7 @@
                     <span class="material-symbols-outlined text-[14px]">warning</span>
                     {{ row.staleDays || row.staleWarningDays || 0 }} 天未更新
                   </div>
-                  <button
+                  <el-button
                       type="button"
                       class="order-stale-refresh-btn"
                       :class="{ 'is-refreshing': isRowWarningRefreshing(row) }"
@@ -208,7 +211,7 @@
                   >
                     <span class="material-symbols-outlined text-[14px]">sync</span>
                     重新预警
-                  </button>
+                  </el-button>
                 </div>
               </template>
               <template v-else-if="column.key === 'category'">
@@ -290,10 +293,10 @@
             </td>
             <td class="td-cell" data-label="操作">
               <div class="order-row-actions">
-                <button class="icon-btn text-secondary" @click.stop="openDetail(row.orderId)">
+                <el-button class="icon-btn text-secondary" :disabled="!canViewOrderDetail" :title="canViewOrderDetail ? '查看订单详情' : '当前账号暂无订单详情查看权限'" @click.stop="openDetail(row.orderId)">
                   <span class="material-symbols-outlined text-[18px]">visibility</span>
-                </button>
-                <button
+                </el-button>
+                <el-button
                     class="icon-btn text-primary"
                     :class="permissionDisabledClass(!canPrintOrderFlowCode(row))"
                     :disabled="!canPrintOrderFlowCode(row)"
@@ -301,8 +304,8 @@
                     @click.stop="openFlowCode(row)"
                 >
                   <span class="material-symbols-outlined text-[18px]">qr_code_2</span>
-                </button>
-                <button
+                </el-button>
+                <el-button
                     class="icon-btn text-success"
                     :class="permissionDisabledClass(!canAdvanceOrder(row))"
                     :disabled="!canAdvanceOrder(row)"
@@ -310,8 +313,8 @@
                     @click.stop="advanceOrder(row)"
                 >
                   <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
-                </button>
-                <button
+                </el-button>
+                <el-button
                     class="icon-btn text-amber-600"
                     :class="permissionDisabledClass(!canRollbackOrder(row))"
                     :disabled="!canRollbackOrder(row)"
@@ -319,8 +322,8 @@
                     @click.stop="rollbackOrder(row)"
                 >
                   <span class="material-symbols-outlined text-[18px]">undo</span>
-                </button>
-                <button
+                </el-button>
+                <el-button
                     class="icon-btn text-primary"
                     :class="permissionDisabledClass(!canEditOrder(row))"
                     :disabled="!canEditOrder(row)"
@@ -328,7 +331,7 @@
                     @click.stop="openEdit(row.orderId, row)"
                 >
                   <span class="material-symbols-outlined text-[18px]">edit</span>
-                </button>
+                </el-button>
               </div>
             </td>
           </tr>
@@ -358,9 +361,9 @@
               <h2 class="text-xl font-bold tracking-tight text-primary">订单详情</h2>
               <p class="mt-1 text-xs text-on-surface-variant">查看订单主体信息、明细内容和状态流转记录。</p>
             </div>
-            <button class="close-btn" @click="closeDetail">
+            <el-button class="close-btn" @click="closeDetail">
               <span class="material-symbols-outlined text-[20px]">close</span>
-            </button>
+            </el-button>
           </div>
           <div v-loading="detailLoading" class="flex-1 overflow-y-auto p-6">
             <el-empty v-if="!detailLoading && detailErrorMessage" :description="detailErrorMessage">
@@ -410,9 +413,9 @@
                 <div class="info-card">
                   <div class="info-label">订单附件</div>
                   <template v-if="orderDetail.attachmentUrl">
-                    <button class="mt-2 text-left font-bold text-primary hover:underline" @click="openAttachmentUrl(orderDetail.attachmentUrl, orderDetail.attachmentName)">
+                    <el-button text class="mt-2 text-left font-bold text-primary" @click="openAttachmentUrl(orderDetail.attachmentUrl, orderDetail.attachmentName)">
                       {{ orderDetail.attachmentName || '查看附件' }}
-                    </button>
+                    </el-button>
                     <div class="mt-1 text-xs text-on-surface-variant">{{ formatFileSize(orderDetail.attachmentSize) }}</div>
                   </template>
                   <div v-else class="mt-2 text-sm text-on-surface-variant">暂无附件</div>
@@ -472,13 +475,13 @@
                           step="1"
                           @input="setStatusLogEditValue('order', log, $event.target.value)"
                         />
-                        <button
+                        <el-button
                           type="button"
                           :disabled="!log.id || statusLogSavingKey === statusLogKey('order', log)"
                           @click="saveStatusLogTime('order', log)"
                         >
                           {{ statusLogSavingKey === statusLogKey('order', log) ? '保存中' : '保存时间' }}
-                        </button>
+                        </el-button>
                       </div>
                       <div v-if="log.operatorName || log.operator" class="status-log-meta">
                         操作人：{{ log.operatorName || log.operator }}
@@ -509,13 +512,17 @@
               </p>
             </div>
             <div class="drawer-head-actions">
-              <button class="close-btn" @click="closeForm">
+              <el-button class="close-btn" @click="closeForm">
                 <span class="material-symbols-outlined text-[20px]">close</span>
-              </button>
+              </el-button>
             </div>
           </div>
 
-          <div class="flex-1 space-y-6 overflow-y-auto p-6">
+          <div v-loading="editLoading" class="flex-1 space-y-6 overflow-y-auto p-6">
+            <el-empty v-if="!editLoading && editErrorMessage" :description="editErrorMessage">
+              <el-button type="primary" @click="openEdit(editingOrderId)">重新加载</el-button>
+            </el-empty>
+            <template v-else>
             <BusinessTimeCorrectionPanel
               v-model="currentFormCreateTime"
               :active="timeCorrectionMode"
@@ -590,7 +597,7 @@
               <div>
                 <div class="flex items-end justify-between">
                   <div class="section-title">订单明细</div>
-                  <button class="text-xs font-bold text-primary" @click="addOrderItem">添加商品</button>
+                  <el-button text class="text-xs font-bold text-primary" @click="addOrderItem">添加商品</el-button>
                 </div>
                 <div v-for="(item, index) in orderForm.items" :key="index" class="detail-item">
                   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -602,7 +609,7 @@
                     <el-input-number v-model="item.spec" :data-field="`order.items.${index}.spec`" class="box-input" placeholder="规格" :min="0.01" :step="0.01" :precision="2" controls-position="right" />
                   </div>
                   <div class="mt-2 flex justify-end">
-                    <button class="text-xs font-bold text-error" @click="removeOrderItem(index)">删除</button>
+                    <el-button text type="danger" class="text-xs font-bold" @click="removeOrderItem(index)">删除</el-button>
                   </div>
                 </div>
               </div>
@@ -660,19 +667,20 @@
                   当前账号暂无上传订单附件权限
                 </div>
               </div>
+            </template>
 
           </div>
           <div
               class="flex shrink-0 items-center justify-end gap-3 border-t border-outline-variant/20 bg-surface-container-lowest p-6">
-            <button class="rounded-lg px-5 py-2.5 text-sm font-bold text-secondary hover:bg-surface-container-high"
+            <el-button class="rounded-lg px-5 py-2.5 text-sm font-bold text-secondary"
                     @click="closeForm">取消
-            </button>
-            <button :disabled="submitting || !canSubmitCurrentForm"
+            </el-button>
+            <el-button type="primary" :disabled="submitting || editLoading || !canSubmitCurrentForm"
                     class="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-on-primary disabled:opacity-50"
                     :title="canSubmitCurrentForm ? '' : '当前账号没有该阶段订单维护权限'"
                     @click="submitForm">
               {{ formMode === 'create' ? '提交创建' : '保存修改' }}
-            </button>
+            </el-button>
           </div>
     </el-drawer>
     </div>
@@ -834,6 +842,9 @@ const projectDropdownVisible = ref(false)
 const formVisible = ref(false)
 const formMode = ref('create')
 const editingOrderId = ref('')
+const editLoading = ref(false)
+const editErrorMessage = ref('')
+let editRequestId = 0
 const submitting = ref(false)
 const {
   timeCorrectionMode,
@@ -870,13 +881,15 @@ function canMutateOrderStatus(status) {
 
 const canCreateCurrentOrder = computed(() => hasAnyOrderPermission(ORDER_CREATE_PERMISSIONS))
 const canManageWarningSetting = computed(() => hasAnyOrderPermission([ORDER_ALL_PERMISSION, 'order:warning:setting']))
+const canViewOrderDetail = computed(() => userStore.hasPermission('order:detail'))
+const canExportTable = computed(() => userStore.hasPermission('table:export'))
 const canEditCurrentOrderForm = computed(() => formMode.value === 'create'
     ? canCreateCurrentOrder.value
     : canMutateOrderStatus(orderForm.status))
 const canSubmitCurrentForm = canEditCurrentOrderForm
 
 function canEditOrder(row = {}) {
-  return canMutateOrderStatus(row.status)
+  return canViewOrderDetail.value && canMutateOrderStatus(row.status)
 }
 
 function canPrintOrderFlowCode(row = {}) {
@@ -1379,6 +1392,7 @@ function resolveOrderListFailure(error) {
 }
 
 async function exportAllOrders() {
+  if (!canExportTable.value) return
   const total = Number(orderState.total || 0)
   if (total <= 0) {
     ElMessage.warning('暂无可导出的订单数据')
@@ -1421,6 +1435,7 @@ function formatOrderExportCell(row, key) {
 }
 
 async function openDetail(orderId) {
+  if (!canViewOrderDetail.value) return
   const requestId = ++detailRequestId
   detailOrderId.value = orderId
   detailVisible.value = true
@@ -1607,12 +1622,16 @@ function openCreate() {
     return
   }
   formMode.value = 'create'
+  editRequestId += 1
+  editLoading.value = false
+  editErrorMessage.value = ''
   editingOrderId.value = ''
   resetOrderForm()
   formVisible.value = true
 }
 
 async function openEdit(orderId, row = {}) {
+  if (!canViewOrderDetail.value) return
   if (row.status && !canEditOrder(row)) {
     warnNoOrderStagePermission()
     return
@@ -1621,38 +1640,49 @@ async function openEdit(orderId, row = {}) {
   editingOrderId.value = orderId
   formVisible.value = true
   resetOrderForm()
-  const detail = await getOrderDetail(orderId)
-  if (!canMutateOrderStatus(detail.status)) {
-    warnNoOrderStagePermission()
-    closeForm()
-    return
+  editErrorMessage.value = ''
+  editLoading.value = true
+  const requestId = ++editRequestId
+  try {
+    const detail = await getOrderDetail(orderId)
+    if (requestId !== editRequestId) return
+    if (!canMutateOrderStatus(detail.status)) {
+      warnNoOrderStagePermission()
+      closeForm()
+      return
+    }
+    orderForm.customerName = detail.customerName || ''
+    orderForm.customerPhone = detail.customerPhone || ''
+    orderForm.projectName = detail.projectName || ''
+    orderForm.brandName = detail.brandName || ''
+    orderForm.orderCategory = normalizeOrderCategory(detail.orderCategory)
+    orderForm.deliveryDate = toDateInput(detail.deliveryDate)
+    orderForm.createTime = toDateTimeLocal(detail.createTime)
+    orderForm.expressCompany = detail.expressCompany || ''
+    orderForm.expressNo = detail.expressNo || ''
+    orderForm.isInvoice = Number(detail.isInvoice || 0)
+    orderForm.remark = detail.remark || ''
+    orderForm.attachmentName = detail.attachmentName || ''
+    orderForm.attachmentUrl = detail.attachmentUrl || ''
+    orderForm.attachmentSize = detail.attachmentSize || null
+    orderForm.status = detail.status || 'pending_confirm'
+    orderForm.items = (detail.items || []).length
+        ? detail.items.map(item => ({
+          modelCode: item.modelCode || '', quantity: num(item.quantity), weight: item.weight || '', spec: num(item.spec)
+        }))
+        : []
+  } catch (error) {
+    if (requestId !== editRequestId) return
+    editErrorMessage.value = resolveOrderDetailFailure(error)
+  } finally {
+    if (requestId === editRequestId) editLoading.value = false
   }
-  orderForm.customerName = detail.customerName || ''
-  orderForm.customerPhone = detail.customerPhone || ''
-  orderForm.projectName = detail.projectName || ''
-  orderForm.brandName = detail.brandName || ''
-  orderForm.orderCategory = normalizeOrderCategory(detail.orderCategory)
-  orderForm.deliveryDate = toDateInput(detail.deliveryDate)
-  orderForm.createTime = toDateTimeLocal(detail.createTime)
-  orderForm.expressCompany = detail.expressCompany || ''
-  orderForm.expressNo = detail.expressNo || ''
-  orderForm.isInvoice = Number(detail.isInvoice || 0)
-  orderForm.remark = detail.remark || ''
-  orderForm.attachmentName = detail.attachmentName || ''
-  orderForm.attachmentUrl = detail.attachmentUrl || ''
-  orderForm.attachmentSize = detail.attachmentSize || null
-  orderForm.status = detail.status || 'pending_confirm'
-  orderForm.items = (detail.items || []).length
-      ? detail.items.map(item => ({
-        modelCode: item.modelCode || '',
-        quantity: num(item.quantity),
-        weight: item.weight || '',
-        spec: num(item.spec)
-      }))
-      : []
 }
 
 function closeForm() {
+  editRequestId += 1
+  editLoading.value = false
+  editErrorMessage.value = ''
   formVisible.value = false
   closeTimeCorrectionMode()
   customerDropdownVisible.value = false
@@ -1720,6 +1750,7 @@ async function openAttachmentUrl(url, name) {
 }
 
 async function submitForm() {
+  if (editLoading.value || editErrorMessage.value) return
   if (!canSubmitCurrentForm.value) {
     warnNoOrderStagePermission()
     return
@@ -3281,6 +3312,10 @@ function fulfillmentProcessText(row = {}) {
 .permission-action-disabled:hover,
 .order-row-actions .permission-action-disabled:hover {
   background: rgba(226, 232, 240, .45);
+}
+
+.order-table-row.order-detail-disabled {
+  cursor: not-allowed;
 }
 
 .page-btn {
