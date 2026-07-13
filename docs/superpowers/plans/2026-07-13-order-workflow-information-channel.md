@@ -19,6 +19,7 @@
 - Save edits with the current status before calling the next-stage endpoint; never prewrite the target status.
 - `pending_ship -> shipped` requires order approval; save logistics first, retain `pending_ship`, and change to `shipped` only after all auditors approve.
 - Cancellation requires `cancelReason`, trimmed nonblank, maximum 500 characters.
+- Uninvoiced warning defaults to 30 days, is configurable from 1 to 365 days, starts at order creation, and excludes drawing-budget, pending-cancel, and cancelled orders.
 - Explicit `auditorIds` override configured defaults; all selected auditors must approve and any rejection closes the approval.
 - The QR payload is exactly `HIVE_ORDER_FLOW:<sales|production>:<base64url-hmac-sha256>:<orderId>`.
 - Each task follows RED, GREEN, focused regression, `git diff --check`, and a focused commit.
@@ -220,7 +221,39 @@ Expected: all pass.
 
 Commit: `feat: align mini order editing and information channel`
 
-### Task 6: Cancellation and Auditor Enforcement
+### Task 6: Uninvoiced Time Warning
+
+**Files:**
+- Modify: management `OrderSetting`, mapper/service, warning summary, order page request/VO, and warning cache.
+- Modify: mini backend unified order list/summary request and VO.
+- Modify: management and mini order pages.
+- Create: `V20260713_002_order_invoice_warning_setting.sql` and focused backend/frontend tests.
+
+**Interfaces:**
+- Produces: `invoiceWarningDays`, `invoiceWarning`, `uninvoicedDays`, `invoiceWarningOnly`, and summary key `invoice_warning`.
+- Preserves: status-scope and tenant-scope filtering in every count and page query.
+
+- [ ] **Step 1: Add failing warning-contract tests**
+
+Cover default 30 days, 1/365 boundaries, order `create_time` as the non-resetting origin, excluded categories/statuses, scoped counts, cache invalidation after invoicing, and both clients' card/filter/row marker.
+
+- [ ] **Step 2: Add the immutable setting migration**
+
+Add `order_setting.invoice_warning_days INT NOT NULL DEFAULT 30` through `V20260713_002_order_invoice_warning_setting.sql`, append it to the manifest, baseline, schema verifier, health checks, and immutable migration tests.
+
+- [ ] **Step 3: Implement backend calculation**
+
+Count and filter only rows where `is_invoice = 0`, `create_time <= NOW() - invoiceWarningDays`, category is not `drawing_budget`, and status is neither `pending_cancel` nor `cancelled`. Return `invoiceWarning` and whole-day `uninvoicedDays` without allowing edits to reset age.
+
+- [ ] **Step 4: Implement both order-page surfaces**
+
+Add the setting field, “未开票预警” summary card, `invoiceWarningOnly` filter, and row text `已未开票 N 天`. Clicking the card applies the filter; horizontal scrolling alone does not select it.
+
+- [ ] **Step 5: Verify and commit by repository**
+
+Run focused backend tests, management UI tests/build, full mini Node tests, migration checks, and `git diff --check`.
+
+### Task 7: Cancellation and Auditor Enforcement
 
 **Files:**
 - Modify: management and mini order DTOs/services/controllers used by cancel and approval creation.
@@ -252,7 +285,7 @@ Map configuration access to each approval type or the dedicated approval-managem
 
 Expected: all new tests pass and no broad order visibility is granted.
 
-### Task 7: QR, Documentation, Integration, and Release
+### Task 8: QR, Documentation, Integration, and Release
 
 **Files:**
 - Modify: `D:/productHiveFrontend/client/utils/templatePrinter.js`
