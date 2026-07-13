@@ -15,7 +15,7 @@
 - 平台边界：`management/src/main/java/my/management/common/interceptor/PlatformScopeInterceptor.java`。
 - 租户可用性：`management/src/main/java/my/management/common/interceptor/AuthTokenInterceptor.java`。
 - 路由：`/function/tenant`；`developerOnly: true`；无普通 permission/feature。
-- 迁移批次：Batch 2；当前状态为 Audit baseline。
+- 迁移批次：Batch 2；当前状态为 `Element Plus migrated`。
 
 ## 功能
 
@@ -60,17 +60,17 @@
 ## 空错态
 
 - 列表有刷新 loading 和“暂无租户数据”。
-- feature 目录加载失败会被静默转换为空数组，功能名回退显示 code，无法区分真实空目录与请求失败。
+- feature 目录加载失败显示独立错误和重试，不再冒充真实空目录。
 - 列表及各保存请求主要依赖全局 request 错误反馈。
-- 企业资料、授权和负责人使用三个手写抽屉，没有未保存关闭保护。
+- 企业资料、授权和负责人使用三个 Element Plus 抽屉。
 - Logo 有上传中状态和前端类型/2MB 校验。
-- 授权保存和负责人保存有 loading；状态切换没有行级 pending 锁。
+- 授权保存和负责人保存有 loading；状态切换使用行级 pending 锁，Logo 上传通过目标租户快照与请求序号隔离旧响应。
 
 ## 控件现状
 
-- 租户使用自定义卡片网格和状态/feature pill。
+- 租户使用 `ElTable`，状态和 feature 使用 `ElTag`。
 - 三个抽屉通过 `Teleport` 和手写遮罩实现。
-- 表单为原生输入、数字输入、日期时间、选择、复选框和 textarea。
+- 表单使用 Element Plus 文本、数字、日期时间、选择、复选框、开关和 textarea。
 - Logo 上传为隐藏 file input 加点击/拖拽区域。
 - 状态切换与负责人转移使用 `ElMessageBox`；反馈使用 `ElMessage`。
 - 授权 feature flags 当前直接编辑 JSON 字符串。
