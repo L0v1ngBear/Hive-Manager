@@ -12,7 +12,7 @@ public class SalesOrderUpdateRequest {
 
     private String status;
 
-    private String deliveryDate;
+    private String informationChannel;
 
     private String expressCompany;
 

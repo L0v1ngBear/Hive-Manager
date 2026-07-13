@@ -43,8 +43,8 @@ public class ProductionOrderSaveRequest {
     @Min(value = 1, message = "数量至少为1")
     private Integer quantity;
 
-    @NotBlank(message = "交付日期不能为空")
-    private String deliveryDate;
+    @NotBlank(message = "信息渠道不能为空")
+    private String informationChannel;
 
     /**
      * 业务录单时间。允许成熟客户补录历史生产单时手动指定，不传时使用服务端当前时间。

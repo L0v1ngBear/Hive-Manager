@@ -26,9 +26,7 @@ public class ProductionOrderPageRequest {
 
     private Integer process;
 
-    private LocalDate deliveryStart;
-
-    private LocalDate deliveryEnd;
+    private String informationChannel;
 
     private LocalDate createStart;
 

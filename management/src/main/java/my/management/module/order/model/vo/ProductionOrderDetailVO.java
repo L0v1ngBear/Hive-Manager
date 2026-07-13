@@ -54,7 +54,7 @@ public class ProductionOrderDetailVO {
 
     private String contactPhone;
 
-    private LocalDateTime deliveryDate;
+    private String informationChannel;
 
     private LocalDateTime createTime;
 

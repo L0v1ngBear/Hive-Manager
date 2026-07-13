@@ -64,8 +64,8 @@ public class ProductionOrder {
     @TableField("contact_phone")
     private String contactPhone;
 
-    @TableField("delivery_date")
-    private LocalDateTime deliveryDate;
+    @TableField("information_channel")
+    private String informationChannel;
 
     private String creator;
 

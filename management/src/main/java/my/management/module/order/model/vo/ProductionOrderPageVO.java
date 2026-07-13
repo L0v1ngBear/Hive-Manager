@@ -50,7 +50,7 @@ public class ProductionOrderPageVO {
 
     private String brandName;
 
-    private LocalDateTime deliveryDate;
+    private String informationChannel;
 
     private LocalDateTime createTime;
 

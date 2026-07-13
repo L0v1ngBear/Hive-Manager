@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS `installation_task` (
   `order_category` VARCHAR(40) DEFAULT NULL COMMENT '订单小项',
   `goods_desc` VARCHAR(500) DEFAULT NULL COMMENT '商品描述',
   `total_quantity` INT DEFAULT NULL COMMENT '数量',
-  `delivery_date` VARCHAR(40) DEFAULT NULL COMMENT '交付日期',
+  `information_channel` VARCHAR(255) DEFAULT NULL COMMENT '信息渠道',
   `express_company` VARCHAR(120) DEFAULT NULL COMMENT '物流公司',
   `express_no` VARCHAR(120) DEFAULT NULL COMMENT '物流单号',
   `is_invoice` TINYINT NOT NULL DEFAULT 0 COMMENT '是否开票：0-否，1-是',

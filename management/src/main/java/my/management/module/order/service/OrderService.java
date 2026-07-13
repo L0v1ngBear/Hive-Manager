@@ -327,11 +327,8 @@ public class OrderService {
         if (request.getIsInvoice() != null) {
             wrapper.eq(SalesOrder::getIsInvoice, normalizeInvoiceFlag(request.getIsInvoice()));
         }
-        if (request.getDeliveryStart() != null) {
-            wrapper.ge(SalesOrder::getDeliveryDate, request.getDeliveryStart().toString());
-        }
-        if (request.getDeliveryEnd() != null) {
-            wrapper.le(SalesOrder::getDeliveryDate, request.getDeliveryEnd().toString());
+        if (StringUtils.hasText(request.getInformationChannel())) {
+            wrapper.like(SalesOrder::getInformationChannel, request.getInformationChannel().trim());
         }
         applyCreateTimeRange(wrapper, request.getCreateStart(), request.getCreateEnd(), SalesOrder::getCreateTime);
         if (Boolean.TRUE.equals(request.getStaleOnly())) {
@@ -534,8 +531,8 @@ public class OrderService {
         validateSalesStatusForward(order.getOrderCategory(), oldStatus, order.getStatus());
         assertDirectSalesTransitionAllowed(order.getOrderCategory(), oldStatus, order.getStatus());
         assertSalesOrderStagePermission(order, order.getStatus());
-        if (request.getDeliveryDate() != null) {
-            order.setDeliveryDate(blankToNull(request.getDeliveryDate()));
+        if (request.getInformationChannel() != null) {
+            order.setInformationChannel(blankToNull(request.getInformationChannel()));
         }
         if (request.getExpressCompany() != null) {
             order.setExpressCompany(blankToNull(request.getExpressCompany()));
@@ -572,8 +569,8 @@ public class OrderService {
         }
         order.setStatus(targetStatus);
         if (request != null) {
-            if (request.getDeliveryDate() != null) {
-                order.setDeliveryDate(blankToNull(request.getDeliveryDate()));
+            if (request.getInformationChannel() != null) {
+                order.setInformationChannel(blankToNull(request.getInformationChannel()));
             }
             if (request.getExpressCompany() != null) {
                 order.setExpressCompany(blankToNull(request.getExpressCompany()));
@@ -816,11 +813,8 @@ public class OrderService {
         if (request.getProcess() != null) {
             wrapper.eq(ProductionOrder::getProcess, request.getProcess());
         }
-        if (request.getDeliveryStart() != null) {
-            wrapper.ge(ProductionOrder::getDeliveryDate, request.getDeliveryStart().atStartOfDay());
-        }
-        if (request.getDeliveryEnd() != null) {
-            wrapper.lt(ProductionOrder::getDeliveryDate, request.getDeliveryEnd().plusDays(1).atStartOfDay());
+        if (StringUtils.hasText(request.getInformationChannel())) {
+            wrapper.like(ProductionOrder::getInformationChannel, request.getInformationChannel().trim());
         }
         applyCreateTimeRange(wrapper, request.getCreateStart(), request.getCreateEnd(), ProductionOrder::getCreateTime);
         if (Boolean.TRUE.equals(request.getStaleOnly())) {
@@ -1179,7 +1173,7 @@ public class OrderService {
         order.setBrandName(blankToNull(request.getBrandName()));
         String orderCategory = OrderCategoryEnum.normalize(request.getOrderCategory());
         order.setOrderCategory(orderCategory);
-        order.setDeliveryDate(resolveSalesDeliveryDate(orderCategory, request.getDeliveryDate()));
+        order.setInformationChannel(resolveSalesInformationChannel(orderCategory, request.getInformationChannel()));
         order.setExpressCompany(blankToNull(request.getExpressCompany()));
         order.setExpressNo(blankToNull(request.getExpressNo()));
         order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
@@ -1194,11 +1188,11 @@ public class OrderService {
         order.setTotalQuantity(sumSalesQuantity(request.getItems()));
     }
 
-    private String resolveSalesDeliveryDate(String orderCategory, String deliveryDate) {
+    private String resolveSalesInformationChannel(String orderCategory, String informationChannel) {
         if (isDrawingBudgetOrder(orderCategory)) {
-            return blankToNull(deliveryDate);
+            return blankToNull(informationChannel);
         }
-        return requireText(deliveryDate, "销售订单交付日期不能为空");
+        return requireText(informationChannel, "销售订单信息渠道不能为空");
     }
 
     private boolean canAutoCreateProductionOrder(String orderCategory) {
@@ -1249,7 +1243,7 @@ public class OrderService {
             productionOrder.setProjectName(order.getProjectName());
             productionOrder.setBrandName(order.getBrandName());
             productionOrder.setOrderCategory(order.getOrderCategory());
-            productionOrder.setDeliveryDate(parseDateTime(order.getDeliveryDate()));
+            productionOrder.setInformationChannel(order.getInformationChannel());
             productionOrder.setCreator(resolveCurrentUser());
             productionOrder.setUpdater(resolveCurrentUser());
             productionOrder.setCreateTime(order.getCreateTime());
@@ -1272,7 +1266,7 @@ public class OrderService {
         order.setBrandName(blankToNull(request.getBrandName()));
         order.setOrderCategory(OrderCategoryEnum.normalize(request.getOrderCategory()));
         order.setContactPhone(blankToNull(request.getContactPhone()));
-        order.setDeliveryDate(parseDateTime(request.getDeliveryDate()));
+        order.setInformationChannel(blankToNull(request.getInformationChannel()));
         order.setProcess(resolveProcess(order.getStatus(), request.getProcess()));
         ensureCustomerProjectExists(order.getCustomerName(), order.getContactPhone(), order.getProjectName());
     }
@@ -1566,7 +1560,7 @@ public class OrderService {
                 order.getBrandName(),
                 firstItem == null ? order.getGoodsDesc() : firstItem.getModelCode());
         payload.put("customerPhone", safePrintText(order.getCustomerPhone(), ""));
-        payload.put("deliveryDate", safePrintText(order.getDeliveryDate(), ""));
+        payload.put("informationChannel", safePrintText(order.getInformationChannel(), ""));
         payload.put("printReason", "订单流转码待打印");
         payload.put("flowQrPayload", buildOrderFlowQrText(payload));
         return payload;
@@ -2378,7 +2372,7 @@ public class OrderService {
                 || !sameText(before.getBrandName(), after.getBrandName())
                 || !sameText(before.getGoodsDesc(), after.getGoodsDesc())
                 || !Objects.equals(before.getTotalQuantity(), after.getTotalQuantity())
-                || !sameText(before.getDeliveryDate(), after.getDeliveryDate())
+                || !sameText(before.getInformationChannel(), after.getInformationChannel())
                 || !sameText(before.getExpressCompany(), after.getExpressCompany())
                 || !sameText(before.getExpressNo(), after.getExpressNo())
                 || !Objects.equals(before.getIsInvoice(), after.getIsInvoice())
@@ -2402,7 +2396,7 @@ public class OrderService {
                 || !sameText(before.getProjectName(), after.getProjectName())
                 || !sameText(before.getBrandName(), after.getBrandName())
                 || !sameText(before.getContactPhone(), after.getContactPhone())
-                || !Objects.equals(before.getDeliveryDate(), after.getDeliveryDate());
+                || !sameText(before.getInformationChannel(), after.getInformationChannel());
     }
 
     private boolean salesOrderItemsChanged(String orderId, List<SalesOrderSaveRequest.ItemDTO> items) {
