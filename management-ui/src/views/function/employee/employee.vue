@@ -186,7 +186,7 @@
               v-loading="loading"
               :data="employees"
               class="w-full"
-              @row-click="(employee) => showEmployeeDetail(employee.id)"
+              @row-click="handleEmployeeRowClick"
           >
             <el-table-column
                 v-for="field in visibleEmployeeColumns"
@@ -211,9 +211,9 @@
             </el-table-column>
             <el-table-column label="操作" width="124" align="center" fixed="right">
               <template #default="{ row: employee }">
-                <el-button text type="primary" @click.stop="showEmployeeDetail(employee.id)">查看</el-button>
-                <el-button v-permission="'employee:update'" text type="primary" @click.stop="openEditDrawer(employee.id)">编辑</el-button>
-                <el-button v-permission="'employee:update'" text type="primary" @click.stop="openPermissionDrawer(employee)">权限</el-button>
+                <el-button :disabled="!canViewEmployeeDetail" :title="detailPermissionTitle" text type="primary" @click.stop="showEmployeeDetail(employee.id)">查看</el-button>
+                <el-button :disabled="!canEditEmployee" :title="editPermissionTitle" text type="primary" @click.stop="openEditDrawer(employee.id)">编辑</el-button>
+                <el-button :disabled="!canManageEmployeePermissions" :title="permissionManagementTitle" text type="primary" @click.stop="openPermissionDrawer(employee)">权限</el-button>
               </template>
             </el-table-column>
             <template #empty>
@@ -286,6 +286,12 @@
             <div v-if="organizationLoading" class="flex min-h-[360px] items-center justify-center text-primary">
               <span class="material-symbols-outlined animate-spin text-4xl">progress_activity</span>
             </div>
+            <div v-else-if="organizationError" class="flex min-h-[360px] flex-col items-center justify-center gap-3 text-center">
+              <span class="material-symbols-outlined text-5xl text-primary">{{ organizationError.type === 'permission' ? 'lock' : 'cloud_off' }}</span>
+              <p class="text-sm font-bold text-on-surface">{{ organizationError.title }}</p>
+              <p class="text-xs text-on-surface-variant">{{ organizationError.message }}</p>
+              <el-button type="primary" @click="fetchOrganizationTree">重新加载</el-button>
+            </div>
             <div v-else-if="employeeHierarchy.length" class="org-chart-wrap">
               <Vue3TreeOrg
                 :data="orgChartData"
@@ -346,6 +352,8 @@ import {
   ElTableColumn
 } from 'element-plus'
 import { useRoute } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { createLatestRequest } from '@/utils/latestRequest'
 import { Vue3TreeOrg } from 'vue3-tree-org'
 import 'vue3-tree-org/lib/vue3-tree-org.css'
 import { getCurrentTenantFieldConfig } from '@/api/tenantFieldConfig'
@@ -375,6 +383,9 @@ import {
 defineOptions({ name: 'EmployeeManagement' })
 
 const route = useRoute()
+const userStore = useUserStore()
+const employeeListRequest = createLatestRequest()
+const organizationRequest = createLatestRequest()
 // --- 状态定义 ---
 const isDrawerOpen = ref(false)
 const editingEmployeeId = ref(null)
@@ -384,6 +395,7 @@ const loading = ref(false)
 const listError = ref(null)
 const isOrganizationDrawerOpen = ref(false)
 const organizationLoading = ref(false)
+const organizationError = ref(null)
 const organizationEmployees = ref([])
 const employees = ref([])
 const departments = ref([])
@@ -399,6 +411,12 @@ const pagination = reactive({
   total: 0,
   pages: 0
 })
+const canViewEmployeeDetail = computed(() => userStore.hasPermission('employee:detail'))
+const canEditEmployee = computed(() => userStore.hasPermission('employee:update') && canViewEmployeeDetail.value)
+const canManageEmployeePermissions = computed(() => userStore.hasPermission('employee:update') && userStore.hasPermission('role:permission:list'))
+const detailPermissionTitle = computed(() => canViewEmployeeDetail.value ? '查看员工详情' : '需要员工详情权限')
+const editPermissionTitle = computed(() => canEditEmployee.value ? '编辑员工' : '需要员工编辑和详情权限')
+const permissionManagementTitle = computed(() => canManageEmployeePermissions.value ? '配置员工单独权限' : '需要员工编辑和角色权限查看权限')
 const query = reactive({
   page: 1,
   size: 10,
@@ -473,6 +491,7 @@ const resolveListError = (error) => {
 }
 
 const fetchEmployees = async () => {
+  const request = employeeListRequest.begin()
   loading.value = true
   listError.value = null
   employees.value = []
@@ -480,16 +499,20 @@ const fetchEmployees = async () => {
   pagination.pages = 0
   try {
     const data = await getEmployeePage(normalizeQuery())
-    employees.value = data.data || []
-    pagination.total = Number(data.total || 0)
-    pagination.pages = Number(data.pages || 0)
+    request.commit(() => {
+      employees.value = data.data || []
+      pagination.total = Number(data.total || 0)
+      pagination.pages = Number(data.pages || 0)
+    })
   } catch (error) {
-    employees.value = []
-    pagination.total = 0
-    pagination.pages = 0
-    listError.value = resolveListError(error)
+    request.commit(() => {
+      employees.value = []
+      pagination.total = 0
+      pagination.pages = 0
+      listError.value = resolveListError(error)
+    })
   } finally {
-    loading.value = false
+    request.commit(() => { loading.value = false })
   }
 }
 
@@ -561,6 +584,7 @@ const employeeDetailLines = (detail) => visibleEmployeeColumns.value
     .map((field) => `${field.label}: ${field.key === 'status' ? statusMeta(detail.status).label : employeeColumnText(detail, field.key)}`)
 
 const showEmployeeDetail = async (id) => {
+  if (!canViewEmployeeDetail.value) return
   const detail = await getEmployeeDetail(id)
   const detailLines = employeeDetailLines(detail)
   ElMessageBox.alert(
@@ -570,17 +594,23 @@ const showEmployeeDetail = async (id) => {
   )
 }
 
+const handleEmployeeRowClick = (employee) => {
+  if (canViewEmployeeDetail.value) showEmployeeDetail(employee.id)
+}
+
 const openCreateDrawer = () => {
   editingEmployeeId.value = null
   isDrawerOpen.value = true
 }
 
 const openEditDrawer = (id) => {
+  if (!canEditEmployee.value) return
   editingEmployeeId.value = id
   isDrawerOpen.value = true
 }
 
 const openPermissionDrawer = (employee) => {
+  if (!canManageEmployeePermissions.value) return
   permissionDrawerRef.value?.open(employee)
 }
 
@@ -599,13 +629,18 @@ const closeOrganizationDrawer = async () => {
 }
 
 const fetchOrganizationTree = async () => {
+  const request = organizationRequest.begin()
   organizationLoading.value = true
+  organizationError.value = null
+  organizationEmployees.value = []
   try {
     // 获取全部员工用于构建树
     const data = await getEmployeePage({ page: 1, size: 2000 })
-    organizationEmployees.value = data.data || []
+    request.commit(() => { organizationEmployees.value = data.data || [] })
+  } catch (error) {
+    request.commit(() => { organizationError.value = resolveListError(error) })
   } finally {
-    organizationLoading.value = false
+    request.commit(() => { organizationLoading.value = false })
   }
 }
 

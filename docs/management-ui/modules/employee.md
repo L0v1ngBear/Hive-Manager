@@ -11,7 +11,7 @@
 - 核心服务：`management/src/main/java/my/management/module/employee/service/EmployeeService.java`。
 - 个人权限生效证据：`management/src/main/java/my/management/module/auth/mapper/AuthMapper.java`、`management/src/main/resources/sql/user_permission_overrides.sql`。
 - 路由：`/function/employee`；入口权限 `employee:list`；feature 为 `module.employee`。
-- 迁移批次：Batch 2；当前状态为 Audit baseline。
+- 迁移批次：Batch 2；当前状态为 Element Plus migrated（已完成 Element Plus 迁移）。
 
 ## 功能
 
@@ -81,11 +81,11 @@
 - 表格列顺序由 `TableColumnSettings` 和 `useLocalTableColumns` 持久化。
 - 组织图使用 `vue3-tree-org` 与专用层级转换，不是普通数据表。
 
-## Element Plus Migration
+## Element Plus 迁移
 
-- The employee list uses explicit Element Plus imports for filters, date inputs, table loading/empty states, table columns, commands, and pagination.
-- The employee editor and permission override surfaces use `ElDrawer`, with `ElForm`, `ElInput`, `ElSelect`, `ElDatePicker`, `ElRadioGroup`, `ElTree`, and `ElTreeSelect` controls.
-- The organization chart helper remains imported as `buildEmployeeOrganizationChart`; import/export, leader search, permission directives, override IDs, events, and API payload types are unchanged.
+- 员工列表为筛选、日期、表格状态、列、命令和分页显式导入 Element Plus 组件。
+- 员工编辑与个人权限界面使用 `ElDrawer`，表单控件使用 `ElForm`、`ElInput`、`ElSelect`、`ElDatePicker`、`ElRadioGroup`、`ElTree` 和 `ElTreeSelect`。
+- 组织架构图继续使用 `buildEmployeeOrganizationChart` 和自定义图形界面；导入导出、负责人搜索、权限 ID、事件和 API 载荷类型保持不变。
 
 ## Element Plus 对照/保留项
 
