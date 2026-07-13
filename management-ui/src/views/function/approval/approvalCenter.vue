@@ -198,7 +198,7 @@
             </el-table-column>
             <el-table-column label="操作" fixed="right" width="210" align="right">
               <template #default="{ row: item }">
-                  <el-button link @click.stop="openDetail(item)">详情</el-button>
+                  <el-tooltip :disabled="canViewDetail(item)" :content="detailDisabledReason(item)"><span><el-button link :disabled="!canViewDetail(item)" @click.stop="openDetail(item)">详情</el-button></span></el-tooltip>
                   <template v-if="item.status === 1">
                     <el-button
                       :disabled="!canAuditAction(item)"
@@ -238,7 +238,9 @@
     </div>
 
     <el-dialog v-model="detailVisible" :title="detailTitle" width="680px" class="atelier-dialog" destroy-on-close>
-      <div v-if="detailData" class="space-y-4">
+      <div v-if="detailLoading" v-loading="true" class="min-h-56" element-loading-text="正在加载审批详情"></div>
+      <el-result v-else-if="detailLoadError" :icon="detailLoadError.kind === 'permission' ? 'warning' : 'error'" :title="detailLoadError.title" :sub-title="detailLoadError.message"><template #extra><el-button type="primary" @click="retryDetail">重试</el-button></template></el-result>
+      <div v-else-if="detailData" class="space-y-4">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="申请单号">{{ detailData.code }}</el-descriptions-item>
           <el-descriptions-item label="申请人">{{ detailData.applicantName }}</el-descriptions-item>
@@ -290,15 +292,15 @@
 
           <div v-if="detailData.type === 'finance'" class="space-y-1">
             <p class="text-xs font-bold text-on-surface-variant">附件凭证</p>
-            <el-button
-              v-if="detailData.attachmentUrl"
+            <el-tooltip v-if="detailData.attachmentUrl" :disabled="canDownloadFinanceAttachment" content="暂无 approval:finance:detail 权限"><span><el-button
+              :disabled="!canDownloadFinanceAttachment"
               native-type="button"
               link
               @click="openFinanceAttachment(detailData.attachmentUrl, detailData.attachmentName)"
             >
               <span class="material-symbols-outlined text-[18px]">attach_file</span>
               {{ detailData.attachmentName || '下载财务附件' }}
-            </el-button>
+            </el-button></span></el-tooltip>
             <p v-else class="text-sm text-on-surface-variant">暂无附件凭证</p>
           </div>
 
@@ -330,6 +332,7 @@
           </div>
         </el-form>
       </div>
+      <el-empty v-else description="暂无审批详情" />
     </el-dialog>
 
     <el-dialog v-model="defaultAuditorDialogVisible" title="审批负责人设置" width="720px" class="atelier-dialog" destroy-on-close>
@@ -519,6 +522,8 @@ import {
   ElTable,
   ElTableColumn,
   ElTabs,
+  ElTooltip,
+  ElResult,
   ElTag
 } from 'element-plus'
 import { useUserStore } from '@/stores/user'
@@ -587,6 +592,10 @@ const filters = reactive({ keyword: '', status: '' })
 const detailVisible = ref(false)
 const detailData = ref(null)
 const detailTitle = ref('审批详情')
+const detailLoading = ref(false)
+const detailLoadError = ref(null)
+const selectedDetailItem = ref(null)
+let detailRequestId = 0
 const auditComment = ref('')
 const financeDialogVisible = ref(false)
 const resignationDialogVisible = ref(false)
@@ -679,6 +688,17 @@ function canAuditAction(item) {
 }
 
 const canAuditDetail = computed(() => canAuditAction(detailData.value))
+const canDownloadFinanceAttachment = computed(() => userStore.hasPermission('approval:finance:detail'))
+
+function detailPermissionForType(type) {
+  if (type === 'leave') return 'approval:leave:detail'
+  if (type === 'finance') return 'approval:finance:detail'
+  if (type === 'resignation') return 'approval:resignation:detail'
+  if (type === 'order') return 'order:detail'
+  return 'badproduct:process'
+}
+function canViewDetail(item) { return userStore.hasPermission(detailPermissionForType(item?.type)) }
+function detailDisabledReason(item) { return canViewDetail(item) ? '查看详情' : `暂无 ${detailPermissionForType(item?.type)} 权限` }
 
 const parseAuditorIds = (value) => (Array.isArray(value) ? value : String(value || '').split(','))
     .map((item) => Number(String(item).trim()))
@@ -1048,10 +1068,11 @@ watch([() => filters.keyword, () => filters.status, pageSize], () => {
 })
 fetchSummary()
 
-const openDetail = async (item) => {
+const loadDetail = async (item, requestId) => {
   auditComment.value = ''
   if (item.type === 'leave') {
     const detail = await getLeaveApprovalDetail(item.code)
+    if (requestId !== detailRequestId) return
     detailData.value = {
       type: 'leave',
       code: detail.leaveCode,
@@ -1071,6 +1092,7 @@ const openDetail = async (item) => {
     detailTitle.value = '请假审批详情'
   } else if (item.type === 'finance') {
     const detail = await getFinanceApprovalDetail(item.code)
+    if (requestId !== detailRequestId) return
     detailData.value = {
       type: 'finance',
       code: detail.approvalCode,
@@ -1092,6 +1114,7 @@ const openDetail = async (item) => {
     detailTitle.value = '财务审批详情'
   } else if (item.type === 'resignation') {
     const detail = await getResignationApprovalDetail(item.code)
+    if (requestId !== detailRequestId) return
     detailData.value = {
       type: 'resignation',
       code: detail.resignationCode,
@@ -1111,6 +1134,7 @@ const openDetail = async (item) => {
     detailTitle.value = '离职审批详情'
   } else if (item.type === 'quality') {
     const detail = await getQualityApprovalDetail(item.code)
+    if (requestId !== detailRequestId) return
     detailData.value = {
       type: 'quality',
       code: detail.defectiveId,
@@ -1135,6 +1159,7 @@ const openDetail = async (item) => {
     detailTitle.value = '质量审核详情'
   } else {
     const detail = await getOrderApprovalDetail(item.orderType || item.raw?.orderType, item.code)
+    if (requestId !== detailRequestId) return
     detailData.value = {
       type: 'order',
       code: detail.orderId,
@@ -1153,6 +1178,26 @@ const openDetail = async (item) => {
   }
   detailVisible.value = true
 }
+
+const openDetail = async (item) => {
+  if (!canViewDetail(item)) return
+  const requestId = ++detailRequestId
+  selectedDetailItem.value = item
+  detailData.value = null
+  detailLoadError.value = null
+  detailLoading.value = true
+  detailVisible.value = true
+  try {
+    await loadDetail(item, requestId)
+  } catch (error) {
+    if (requestId !== detailRequestId) return
+    detailLoadError.value = resolveLoadFailure(error, '审批详情')
+  } finally {
+    if (requestId === detailRequestId) detailLoading.value = false
+  }
+}
+
+function retryDetail() { if (selectedDetailItem.value) openDetail(selectedDetailItem.value) }
 
 const quickAudit = async (item, action) => {
   if (!canAuditAction(item)) {
@@ -1318,6 +1363,7 @@ function removeFinanceAttachment() {
 }
 
 async function openFinanceAttachment(url, name) {
+  if (!requireUiPermission('approval:finance:detail')) return
   if (!url) {
     return
   }
