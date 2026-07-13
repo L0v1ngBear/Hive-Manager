@@ -31,13 +31,14 @@
             {{ isEditMode ? '更新员工信息并重新分配角色。' : '创建员工档案并分配初始组织信息。' }}
           </p>
         </div>
-        <button
-            type="button"
+        <el-button
+            text
+            circle
             class="rounded-full p-2 transition-colors hover:bg-surface-container-high"
             @click="emit('close')"
         >
           <span class="material-symbols-outlined text-on-surface-variant">close</span>
-        </button>
+        </el-button>
       </div>
     </div>
 
@@ -194,10 +195,9 @@
                 暂无可选打卡点，请先到考勤规则中维护打卡地点。
               </div>
               <div v-else class="flex flex-wrap gap-2">
-                <button
+                <el-button
                     v-for="location in attendanceLocations"
                     :key="location.value"
-                    type="button"
                     class="rounded-lg border px-3 py-1.5 text-xs font-bold transition-all"
                     :class="form.attendanceLocationIds.includes(Number(location.value))
                       ? 'border-primary bg-primary text-white shadow-md shadow-primary/20'
@@ -205,7 +205,7 @@
                     @click.prevent="toggleAttendanceLocation(location.value)"
                 >
                   {{ location.label }}
-                </button>
+                </el-button>
               </div>
             </div>
           </div>
@@ -226,10 +226,9 @@
                 系统暂无可用角色
               </div>
               <div v-else class="flex flex-wrap gap-2">
-                <button
+                <el-button
                     v-for="role in roles"
                     :key="role.id"
-                    type="button"
                     class="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-bold transition-all"
                     :class="form.roleIds.includes(role.id)
                     ? 'border-primary bg-primary text-white shadow-md shadow-primary/30'
@@ -243,7 +242,7 @@
                     check
                   </span>
                   {{ role.name }}
-                </button>
+                </el-button>
               </div>
             </div>
           </div>
@@ -254,11 +253,10 @@
               <span class="material-symbols-outlined absolute top-2.5 left-3 text-lg text-on-surface-variant">
                 person_search
               </span>
-              <input
+              <el-input
                   v-model.trim="leaderKeyword"
                   class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low py-2.5 pr-3 pl-10 text-sm outline-none transition-all focus:border-primary"
                   placeholder="请输入姓名或工号搜索直属领导"
-                  type="text"
                   @input="handleLeaderSearch"
               />
             </div>
@@ -266,10 +264,10 @@
                 v-if="leaderOptions.length > 0"
                 class="absolute z-10 mt-2 w-full overflow-hidden rounded-lg border border-outline-variant/20 bg-white shadow-lg"
             >
-              <button
+              <el-button
                   v-for="leader in leaderOptions"
                   :key="leader.id"
-                  type="button"
+                  text
                   class="w-full px-3 py-2 text-left transition-colors hover:bg-surface-container-low"
                   @click="selectLeader(leader)"
               >
@@ -278,7 +276,7 @@
                   {{ leader.empNo || '无工号' }} / {{ leader.departmentName || '未分配部门' }} /
                   {{ leader.positionName || '未分配职位' }}
                 </div>
-              </button>
+              </el-button>
             </div>
             <p v-if="selectedLeaderLabel" class="mt-2 text-xs text-on-surface-variant">
               当前已选：{{ selectedLeaderLabel }}
@@ -287,12 +285,13 @@
 
           <div v-if="fieldVisible('remark')" class="col-span-2">
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">{{ fieldLabel('remark', '补充备注') }}</label>
-            <textarea
+            <el-input
                 v-model.trim="form.remark"
+                type="textarea"
                 class="w-full resize-none rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
                 placeholder="请输入任何需要补充的备注信息（选填）"
-                rows="3"
-            ></textarea>
+                :rows="3"
+            />
           </div>
         </div>
       </section>
@@ -335,15 +334,16 @@
     </div>
 
     <div class="flex items-center justify-between border-t border-outline-variant/15 bg-surface-container-lowest p-8">
-      <button
-          type="button"
+      <el-button
           class="px-6 py-2.5 text-sm font-bold text-on-surface-variant transition-colors hover:text-primary"
           @click="emit('close')"
       >
         取消
-      </button>
-      <button
-          type="submit"
+      </el-button>
+      <el-button
+          type="primary"
+          native-type="submit"
+          :loading="submitting"
           :disabled="submitting"
           class="flex items-center gap-2 rounded bg-primary px-10 py-3 font-bold text-white shadow-xl shadow-primary/20 transition-all active:scale-95 hover:bg-primary-container disabled:opacity-60"
       >
@@ -351,7 +351,7 @@
           save
         </span>
         {{ submitting ? '正在保存...' : isEditMode ? '确认更新' : '确认添加' }}
-      </button>
+      </el-button>
     </div>
     </el-form>
   </el-drawer>
@@ -359,7 +359,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { ElDatePicker, ElDrawer, ElForm, ElInput, ElMessage, ElOption, ElRadio, ElRadioGroup, ElSelect } from 'element-plus'
+import { ElButton, ElDatePicker, ElDrawer, ElForm, ElInput, ElMessage, ElOption, ElRadio, ElRadioGroup, ElSelect } from 'element-plus'
 import { useTenantFieldConfig } from '@/composables/useTenantFieldConfig'
 import { warnAndFocusField } from '@/utils/formFocus'
 import {

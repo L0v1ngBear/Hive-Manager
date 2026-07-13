@@ -107,15 +107,9 @@ test('removes unreachable legacy tables and their helpers', () => {
 
 test('keeps employee editor buttons from implicitly submitting the form', () => {
   assert.match(employeeEditor, /<el-form\b(?=[^>]*@submit\.prevent=["']submit["'])[^>]*>/)
-
-  const nativeButtons = [...employeeEditor.matchAll(/<button\b[^>]*>/g)].map((match) => match[0])
-  const submitButtons = nativeButtons.filter((button) => /\btype=["']submit["']/.test(button))
+  const submitButtons = employeeEditor.match(/<el-button\b(?=[^>]*native-type=["']submit["'])[^>]*>/g) || []
   assert.equal(submitButtons.length, 1)
   assert.doesNotMatch(submitButtons[0], /@click(?:\.[a-z]+)*=["']submit["']/)
-
-  for (const button of nativeButtons.filter((button) => !/\btype=["']submit["']/.test(button))) {
-    assert.match(button, /\btype=["']button["']/)
-  }
 })
 
 test('restores configurable employee type columns and the name subtitle', () => {
@@ -203,4 +197,11 @@ test('migrates remaining attendance rule and employee drawer shell controls', ()
 
   const employeeWithoutFileInput = employeeList.replace(/<input\b[^>]*type=["']file["'][^>]*>/, '')
   assert.doesNotMatch(employeeWithoutFileInput, /<button\b/)
+})
+
+test('employee editor has no ordinary native controls after migration', () => {
+  assert.doesNotMatch(employeeEditor, /<(button|input|textarea)\b/)
+  assertUsesComponents(employeeEditor, ['el-button', 'el-input'])
+  assertExplicitImports(employeeEditor, ['ElButton', 'ElInput'])
+  assert.match(employeeEditor, /<el-input\b[^>]*type=["']textarea["']/)
 })
