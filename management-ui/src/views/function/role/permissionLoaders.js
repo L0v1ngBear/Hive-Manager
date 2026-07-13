@@ -14,6 +14,10 @@ export function permissionTreeCanSubmit(loadState) {
   return loadState === 'ready' || loadState === 'empty'
 }
 
+export function syncCommittedPermissionIds(currentIds, result) {
+  return result?.committed ? [...result.checkedPermissionIds] : currentIds
+}
+
 export function createRolePermissionLoader({ getAllPermissions, getRolePermissionIds, afterTreeReady = async () => {} }) {
   const state = reactive({
     loading: false,
@@ -38,18 +42,23 @@ export function createRolePermissionLoader({ getAllPermissions, getRolePermissio
         getAllPermissions(),
         getRolePermissionIds(roleId)
       ])
-      if (!ownsState()) return
+      if (!ownsState()) return { committed: false }
       const treeData = unwrapArray(permissionsRes)
       state.treeData = treeData
       await afterTreeReady()
-      if (!ownsState()) return
+      if (!ownsState()) return { committed: false }
       state.checkedPermissionIds = unwrapArray(ownedIdsRes).map((id) => Number(id))
       state.loadState = treeData.length ? 'ready' : 'empty'
+      return {
+        committed: true,
+        checkedPermissionIds: [...state.checkedPermissionIds]
+      }
     } catch (error) {
-      if (!ownsState()) return
+      if (!ownsState()) return { committed: false }
       state.treeData = []
       state.checkedPermissionIds = []
       state.loadState = isForbidden(error) ? 'forbidden' : 'failed'
+      return { committed: true, checkedPermissionIds: [] }
     } finally {
       if (ownsState()) state.loading = false
     }

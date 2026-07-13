@@ -166,6 +166,55 @@ test("permission loader keeps only the latest role response when requests finish
   assert.equal(loader.state.loading, false);
 });
 
+test("permission caller does not roll back user edits when an older role request finishes", async () => {
+  const { createRolePermissionLoader, syncCommittedPermissionIds } = await import(
+    "../src/views/function/role/permissionLoaders.js"
+  );
+  const pending = new Map();
+  const deferred = (key) => new Promise((resolve) => pending.set(key, resolve));
+  const loader = createRolePermissionLoader({
+    getAllPermissions: () => deferred(`tree-${pending.size}`),
+    getRolePermissionIds: (roleId) => deferred(`owned-${roleId}`),
+  });
+  let selectedIds = [];
+
+  const first = loader.load(11);
+  const second = loader.load(22);
+  pending.get("tree-2")([{ id: 220, permName: "新角色权限" }]);
+  pending.get("owned-22")([220]);
+  selectedIds = syncCommittedPermissionIds(selectedIds, await second);
+  selectedIds = [220, 221];
+
+  pending.get("tree-0")([{ id: 110, permName: "旧角色权限" }]);
+  pending.get("owned-11")([110]);
+  selectedIds = syncCommittedPermissionIds(selectedIds, await first);
+  assert.deepEqual(selectedIds, [220, 221]);
+});
+
+test("permission caller ignores an older retry for the same role", async () => {
+  const { createRolePermissionLoader } = await import(
+    "../src/views/function/role/permissionLoaders.js"
+  );
+  const trees = [];
+  const owned = [];
+  const loader = createRolePermissionLoader({
+    getAllPermissions: () => new Promise((resolve) => trees.push(resolve)),
+    getRolePermissionIds: () => new Promise((resolve) => owned.push(resolve)),
+  });
+  const first = loader.load(33);
+  const second = loader.load(33);
+  trees[1]([{ id: 330, permName: "最新权限" }]);
+  owned[1]([330]);
+  const latestResult = await second;
+  assert.equal(latestResult.committed, true);
+
+  trees[0]([{ id: 331, permName: "旧权限" }]);
+  owned[0]([331]);
+  const staleResult = await first;
+  assert.equal(staleResult.committed, false);
+  assert.deepEqual(latestResult.checkedPermissionIds, [330]);
+});
+
 test("create-role permission loader separates forbidden, failed and empty outcomes", async () => {
   const { createPermissionTreeLoader, permissionTreeCanSubmit } = await import(
     "../src/views/function/role/permissionLoaders.js"

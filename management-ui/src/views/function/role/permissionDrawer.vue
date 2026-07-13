@@ -116,7 +116,7 @@
 import { ref, nextTick } from 'vue'
 import { ElAlert, ElButton, ElDrawer, ElEmpty, ElMessage, ElTreeSelect } from 'element-plus'
 import {getAllPermissions, getRolePermissionIds, updateRolePermissions} from './api/role.js'
-import { createRolePermissionLoader } from './permissionLoaders.js'
+import { createRolePermissionLoader, syncCommittedPermissionIds } from './permissionLoaders.js'
 
 const visible = ref(false)
 const currentRole = ref(null)
@@ -141,8 +141,8 @@ async function loadPermissionData() {
   if (!currentRole.value) return
 
   checkedPermissionIds.value = []
-  await permissionLoader.load(currentRole.value.id)
-  checkedPermissionIds.value = [...permissionLoader.state.checkedPermissionIds]
+  const result = await permissionLoader.load(currentRole.value.id)
+  checkedPermissionIds.value = syncCommittedPermissionIds(checkedPermissionIds.value, result)
 }
 
 function close() {
