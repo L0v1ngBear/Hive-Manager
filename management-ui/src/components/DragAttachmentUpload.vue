@@ -39,10 +39,10 @@
     </div>
 
     <div v-if="fileUrl" class="drag-upload-actions" @click.stop>
-      <el-button v-if="downloadable" size="small" type="primary" plain @click="$emit('download')">
+      <el-button v-if="downloadable" size="small" type="primary" plain :disabled="downloadDisabled" :title="downloadDisabled ? disabledReason : ''" @click="$emit('download')">
         查看附件
       </el-button>
-      <el-button size="small" type="danger" plain @click="$emit('remove')">
+      <el-button size="small" type="danger" plain :disabled="removeDisabled" :title="removeDisabled ? disabledReason : ''" @click="$emit('remove')">
         移除
       </el-button>
     </div>
@@ -97,7 +97,9 @@ const props = defineProps({
   disabledReason: {
     type: String,
     default: ''
-  }
+  },
+  downloadDisabled: { type: Boolean, default: false },
+  removeDisabled: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['select', 'download', 'remove'])

@@ -139,20 +139,20 @@
             <template #default="{ row }">
               <div class="installation-main-text">{{ row.constructionPersonnel || '未填写施工人员' }}</div>
               <div class="installation-muted-line">{{ row.constructionPhone || '未填写联系电话' }}</div>
-              <el-button
-                v-if="row.attachmentUrl"
+              <el-tooltip v-if="row.attachmentUrl" :disabled="canDownload" content="暂无 installation:attachment:download 权限"><span><el-button
                 link
                 type="primary"
+                :disabled="!canDownload"
                 @click="openAttachment(row.attachmentUrl, row.attachmentName)"
               >
                 {{ attachmentLabel(row.attachmentName) }}
-              </el-button>
+              </el-button></span></el-tooltip>
               <span v-else class="installation-empty-attachment">暂无附件</span>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="100" align="right">
             <template #default="{ row }">
-              <el-button link type="primary" @click="openEditor(row)">处理</el-button>
+              <el-tooltip :disabled="canUpdate" content="暂无 installation:update 权限"><span><el-button link type="primary" :disabled="!canUpdate" @click="openEditor(row)">处理</el-button></span></el-tooltip>
             </template>
           </el-table-column>
           <template #empty>
@@ -244,16 +244,19 @@
           />
         </el-form-item>
         <el-form-item label="验收附件" class="installation-field-full">
-          <DragAttachmentUpload
+          <el-tooltip :disabled="canAttach" content="上传附件需要 installation:update 与 installation:attachment:upload 权限"><div><DragAttachmentUpload
             title="上传施工照片、验收单或交付凭证"
-            :uploading="attachmentUploading"
+            :uploading="attachmentUploading || !canAttach"
+            :download-disabled="!canDownload"
+            :remove-disabled="!canUpdate"
+            disabled-reason="当前账号暂无对应附件权限"
             :file-name="editorForm.attachmentName"
             :file-url="editorForm.attachmentUrl"
             :file-size="editorForm.attachmentSize"
             @select="uploadAttachment"
             @download="openAttachment(editorForm.attachmentUrl, editorForm.attachmentName)"
             @remove="removeAttachment"
-          />
+          /></div></el-tooltip>
         </el-form-item>
       </el-form>
 
@@ -262,7 +265,7 @@
         <el-button
           type="primary"
           :loading="saving"
-          :disabled="attachmentUploading"
+          :disabled="attachmentUploading || !canUpdate"
           @click="submitEditor"
         >
           保存
@@ -290,6 +293,9 @@ import {
   ElTag
 } from 'element-plus'
 import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
+import { useUserStore } from '@/stores/user'
+import { createLatestRequest } from '@/utils/task7LatestRequest'
+import { resolveInstallationAccess } from './installationAccess.js'
 import {
   downloadInstallationTaskAttachment,
   getInstallationTaskPage,
@@ -320,6 +326,12 @@ const pagination = reactive({
 })
 
 const rows = ref([])
+const userStore = useUserStore()
+const listRequest = createLatestRequest()
+const installationAccess = computed(() => resolveInstallationAccess((code) => userStore.hasPermission(code)))
+const canUpdate = computed(() => installationAccess.value.canUpdate)
+const canAttach = computed(() => installationAccess.value.canAttach)
+const canDownload = computed(() => installationAccess.value.canDownload)
 const requestState = ref('loading')
 const requestErrorMessage = ref('')
 const loading = computed(() => requestState.value === 'loading')
@@ -421,6 +433,7 @@ onMounted(() => {
 })
 
 async function loadTasks() {
+  const request = listRequest.begin()
   requestState.value = 'loading'
   requestErrorMessage.value = ''
   rows.value = []
@@ -428,17 +441,21 @@ async function loadTasks() {
   pagination.pages = 0
   try {
     const result = await getInstallationTaskPage({...filters})
-    rows.value = result?.data || []
-    pagination.total = Number(result?.total || 0)
-    pagination.pages = Number(result?.pages || 0)
-    requestState.value = 'ready'
+    request.commit(() => {
+      rows.value = result?.data || []
+      pagination.total = Number(result?.total || 0)
+      pagination.pages = Number(result?.pages || 0)
+      requestState.value = 'ready'
+    })
   } catch (error) {
     const failure = resolveRequestFailure(error)
-    rows.value = []
-    pagination.total = 0
-    pagination.pages = 0
-    requestState.value = failure.state
-    requestErrorMessage.value = failure.message
+    request.commit(() => {
+      rows.value = []
+      pagination.total = 0
+      pagination.pages = 0
+      requestState.value = failure.state
+      requestErrorMessage.value = failure.message
+    })
   }
 }
 
@@ -480,6 +497,7 @@ function changePage(page) {
 }
 
 function openEditor(row) {
+  if (!canUpdate.value) return
   editorForm.id = row.id
   editorForm.orderId = row.orderId
   editorForm.customerName = row.customerName || ''
@@ -514,6 +532,7 @@ function beforeCloseEditor(done) {
 }
 
 async function submitEditor() {
+  if (!canUpdate.value) return
   if (editorForm.status === 'shipped_pending_install' && (!editorForm.expressCompany.trim() || !editorForm.expressNo.trim())) {
     ElMessage.warning('已发货待安装状态需要填写物流信息')
     return
@@ -546,6 +565,7 @@ async function submitEditor() {
 }
 
 async function uploadAttachment(file) {
+  if (!canAttach.value) return
   if (!file) return
   if (file.size > 10 * 1024 * 1024) {
     ElMessage.warning('附件不能超过 10MB')
@@ -566,12 +586,14 @@ async function uploadAttachment(file) {
 }
 
 function removeAttachment() {
+  if (!canUpdate.value) return
   editorForm.attachmentName = ''
   editorForm.attachmentUrl = ''
   editorForm.attachmentSize = null
 }
 
 async function openAttachment(url, name) {
+  if (!canDownload.value) return
   if (!url) return
   const blob = await downloadInstallationTaskAttachment({ url, name })
   const objectUrl = URL.createObjectURL(blob)
