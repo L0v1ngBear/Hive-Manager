@@ -19,7 +19,13 @@
     <main class="flex min-w-0 flex-1 flex-col bg-surface">
       <header class="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-outline-variant/20 bg-surface-container-lowest px-4 py-3 sm:px-6">
         <div class="flex flex-wrap items-center gap-2">
-          <el-button circle :disabled="currentParentId === 0" title="上一级" @click="navigateUp">
+          <el-button
+            circle
+            :disabled="currentParentId === 0 || !canBrowseDocuments"
+            :class="permissionDisabledClass(!canBrowseDocuments)"
+            :title="canBrowseDocuments ? '上一级' : breadcrumbPermissionReason"
+            @click="navigateUp"
+          >
             <span class="material-symbols-outlined">arrow_upward</span>
           </el-button>
           <el-button
@@ -66,7 +72,13 @@
         </el-button>
         <template v-for="crumb in breadcrumbs" :key="crumb.id">
           <span class="material-symbols-outlined text-[16px] text-on-surface-variant/40">chevron_right</span>
-          <el-button text @click="navigateTo(crumb.id)">{{ crumb.name }}</el-button>
+          <el-button
+            text
+            :disabled="!canBrowseDocuments"
+            :class="permissionDisabledClass(!canBrowseDocuments)"
+            :title="canBrowseDocuments ? `进入${crumb.name}` : breadcrumbPermissionReason"
+            @click="navigateTo(crumb.id)"
+          >{{ crumb.name }}</el-button>
         </template>
       </div>
 
@@ -112,7 +124,11 @@
                     <div v-else class="flex h-8 w-8 items-center justify-center rounded text-[10px] font-black text-white" :class="getFileIconColor(doc.fileExt)">
                       {{ (doc.fileExt || 'FILE').toUpperCase() }}
                     </div>
-                    <span class="truncate font-bold text-primary">{{ doc.name }}</span>
+                    <span
+                      class="truncate font-bold text-primary"
+                      :class="{ 'cursor-not-allowed opacity-50 grayscale': isFolder(doc) && !canBrowseDocuments }"
+                      :title="isFolder(doc) && !canBrowseDocuments ? breadcrumbPermissionReason : doc.name"
+                    >{{ doc.name }}</span>
                   </div>
                 </template>
                 <template v-else-if="column.key === 'createTime'">{{ formatTime(doc.createTime) }}</template>
@@ -173,6 +189,7 @@ import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useUserStore } from '@/stores/user'
+import { createDocumentNavigator } from './documentNavigation'
 
 const defaultDocumentTableColumns = [
   { key: 'name', label: '名称', widthClass: 'w-1/2' },
@@ -201,6 +218,8 @@ let documentRequestId = 0
 const canCreateFolder = computed(() => userStore.hasPermission('document:folder:create'))
 const canUploadDocument = computed(() => userStore.hasPermission('document:file:upload'))
 const canExportTable = computed(() => userStore.hasPermission('table:export'))
+const canBrowseDocuments = computed(() => userStore.hasPermission('document:breadcrumbs'))
+const breadcrumbPermissionReason = '当前账号暂无文档目录导航权限'
 const currentFolderName = computed(() => breadcrumbs.value.at(-1)?.name || '根目录')
 const hasDocumentFilters = computed(() => Boolean(filters.keyword || filters.type))
 const filteredDocumentList = computed(() => {
@@ -243,6 +262,11 @@ const fetchDocuments = async (parentId = 0) => {
   }
 }
 
+const documentNavigator = createDocumentNavigator({
+  canNavigate: () => canBrowseDocuments.value,
+  fetchDocuments
+})
+
 const isFolder = (doc) => Number(doc.type) === 0
 
 const documentCellClass = (key) => {
@@ -268,7 +292,7 @@ const openDocumentUrl = (fileUrl) => {
 
 const handleDoubleClick = async (doc) => {
   if (isFolder(doc)) {
-    await fetchDocuments(doc.id)
+    await documentNavigator.openFolder(doc.id)
     return
   }
   if (doc.fileUrl) {
@@ -281,11 +305,11 @@ const handleDoubleClick = async (doc) => {
 const navigateUp = async () => {
   if (currentParentId.value === 0) return
   const parent = breadcrumbs.value.length >= 2 ? breadcrumbs.value[breadcrumbs.value.length - 2].id : 0
-  await fetchDocuments(parent)
+  await documentNavigator.navigateUp(parent)
 }
 
 const navigateTo = async (id) => {
-  await fetchDocuments(id)
+  await documentNavigator.navigateTo(id)
 }
 
 const goRoot = async () => {

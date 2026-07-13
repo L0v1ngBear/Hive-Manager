@@ -178,11 +178,17 @@
         @success="handleCustomerCreated"
       />
 
-      <el-dialog v-model="detailVisible" title="客户详情" width="min(760px, calc(100vw - 2rem))" destroy-on-close>
+      <el-dialog v-model="detailVisible" title="客户详情" width="min(760px, calc(100vw - 2rem))" destroy-on-close @close="invalidateCustomerDetail">
         <p class="mb-6 text-sm text-on-surface-variant">查看客户基础信息、联系人和合作项目。</p>
         <div v-if="detailLoading" class="py-16 text-center text-on-surface-variant">
           <span class="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
         </div>
+        <el-result v-else-if="detailError" :icon="detailError.icon" :title="detailError.title" :sub-title="detailError.message">
+          <template #extra>
+            <el-button type="primary" @click="retryCustomerDetail">重试</el-button>
+          </template>
+        </el-result>
+        <el-empty v-else-if="detailEmpty" description="未找到客户详情" />
         <div v-else-if="detailData" class="space-y-6">
           <section class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div v-if="isCustomerFieldVisible('customerName')" class="rounded-xl bg-surface-container-low p-4">
@@ -255,8 +261,10 @@ import {
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useUserStore } from '@/stores/user'
+import { createLatestRequestRunner } from '@/utils/latestRequest'
 import CustomerCreateDrawer from './customerCreate.vue'
 import { getCustomerDetail, getCustomerPage } from './api/customer'
+import { resolveCustomerDetailOutcome } from './customerState'
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -266,6 +274,9 @@ const loading = ref(false)
 const detailLoading = ref(false)
 const detailVisible = ref(false)
 const detailData = ref(null)
+const detailError = ref(null)
+const detailEmpty = ref(false)
+const selectedCustomerId = ref(null)
 const filters = reactive({ keyword: '', customerType: '', createStart: '', createEnd: '' })
 const customerList = ref([])
 const listError = ref(null)
@@ -282,6 +293,47 @@ const hasCustomerFilters = computed(() => Boolean(
   filters.keyword || filters.customerType || filters.createStart || filters.createEnd
 ))
 const customerEmptyDescription = computed(() => hasCustomerFilters.value ? '没有符合筛选条件的客户' : '暂无客户数据')
+
+const customerListRunner = createLatestRequestRunner({
+  onLoading(value) {
+    loading.value = value
+    if (value) {
+      listError.value = null
+      customerList.value = []
+      total.value = 0
+      totalPages.value = 1
+    }
+  },
+  onSuccess(page) {
+    total.value = Number(page?.total || 0)
+    totalPages.value = Math.max(1, Number(page?.pages || 1))
+    customerList.value = page?.data || []
+  },
+  onError(error) {
+    listError.value = resolveCustomerListError(error)
+  }
+})
+
+const customerDetailRunner = createLatestRequestRunner({
+  onLoading(value) {
+    detailLoading.value = value
+    if (value) {
+      detailData.value = null
+      detailError.value = null
+      detailEmpty.value = false
+    }
+  },
+  onSuccess(detail) {
+    if (detail) {
+      detailData.value = detail
+      return
+    }
+    detailEmpty.value = true
+  },
+  onError(error) {
+    detailError.value = resolveCustomerDetailOutcome(error).error
+  }
+})
 
 const customerColumnRenderers = new Set(['customerName', 'customerType', 'contactName', 'contactPhone', 'projectName', 'projectOwner', 'projectCount', 'constructionArea'])
 const defaultCustomerColumns = computed(() => visibleTenantFields(customerFieldConfig.value, 'customerName').filter((field) => customerColumnRenderers.has(field.key)))
@@ -329,29 +381,14 @@ async function fetchCustomerFieldConfig() {
 }
 
 async function fetchCustomerList() {
-  loading.value = true
-  listError.value = null
-  customerList.value = []
-  total.value = 0
-  totalPages.value = 1
-  try {
-    const page = await getCustomerPage({
+  await customerListRunner.run(() => getCustomerPage({
       pageNum: pageNum.value,
       pageSize: pageSize.value,
       keyword: filters.keyword || undefined,
       customerType: filters.customerType === '' ? undefined : Number(filters.customerType),
       createStart: filters.createStart || undefined,
       createEnd: filters.createEnd || undefined
-    })
-
-    total.value = Number(page?.total || 0)
-    totalPages.value = Math.max(1, Number(page?.pages || 1))
-    customerList.value = page?.data || []
-  } catch (error) {
-    listError.value = resolveCustomerListError(error)
-  } finally {
-    loading.value = false
-  }
+    }))
 }
 
 async function handleCustomerCreated(payload) {
@@ -375,14 +412,22 @@ function openEditDrawer(id) {
 
 async function openDetail(id) {
   if (!canViewCustomerDetail.value) return
+  selectedCustomerId.value = id
   detailVisible.value = true
-  detailLoading.value = true
+  await customerDetailRunner.run(() => getCustomerDetail(id))
+}
+
+async function retryCustomerDetail() {
+  if (!selectedCustomerId.value) return
+  await customerDetailRunner.run(() => getCustomerDetail(selectedCustomerId.value))
+}
+
+function invalidateCustomerDetail() {
+  customerDetailRunner.invalidate()
+  selectedCustomerId.value = null
   detailData.value = null
-  try {
-    detailData.value = await getCustomerDetail(id)
-  } finally {
-    detailLoading.value = false
-  }
+  detailError.value = null
+  detailEmpty.value = false
 }
 
 function handleCustomerRowClick(customer) {

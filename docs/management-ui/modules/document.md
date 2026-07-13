@@ -44,8 +44,8 @@
 
 - 路由入口要求 `document:list` 和 `module.document`。
 - “新建文件夹”和上传区域分别检查 `document:folder:create` 与 `document:file:upload`。
-- 面包屑需要独立 `document:breadcrumbs`，但路由只检查 list。
-- 当前页导出检查 `table:export`；命令保持可见，权限不足时置灰、禁用鼠标并通过 title 说明原因。
+- 面包屑需要独立 `document:breadcrumbs`，但路由只检查 list；上级、面包屑和双击文件夹入口单独检查该权限。
+- 当前页导出检查 `table:export`；目录导航检查 `document:breadcrumbs`。命令保持可见，权限不足时置灰、禁用鼠标并通过 title 说明原因。
 - 后端权限仍是最终边界，前端禁用状态用于在发请求前提供一致反馈。
 
 ## 状态流
@@ -89,7 +89,7 @@
 
 ## 风险
 
-- 缺少 breadcrumbs 权限时进入文件夹会显示持久权限错误；列表与面包屑不会部分提交。
+- 缺少 breadcrumbs 权限时，上级、面包屑与文件夹导航保持可见但置灰并显示原因，事件边界不会调用目录 API。
 - 页面 accept 已包含 `.ppt/.pptx`，选择和拖放统一按 accept 校验；文件内容安全仍依赖服务端存储链路。
 - 前端检查 accept 扩展名、20MB 大小和打开链接协议，不校验文件内容或下载域名。
 - 后端 rename/move 已存在但页面无入口，不能在视觉迁移中误标为现有功能。
