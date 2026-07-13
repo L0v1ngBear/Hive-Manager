@@ -560,7 +560,7 @@ public class OrderService {
 
     @Transactional(rollbackFor = Exception.class)
     public void advanceSalesOrderToNextStage(String orderId, SalesOrderUpdateRequest request) {
-        SalesOrder order = findSalesOrder(orderId);
+        SalesOrder order = findSalesOrderForUpdate(orderId);
         String oldStatus = order.getStatus();
         String targetStatus = resolveNextSalesStatus(order);
         assertSalesOrderStagePermission(order, targetStatus);
@@ -609,6 +609,10 @@ public class OrderService {
                 order.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode).isEmpty()) {
             throw new BusinessException("该订单已有待处理审批，请审批完成后再操作");
         }
+        if (STATUS_PENDING_PAY.equals(order.getStatus()) && STATUS_PENDING_MATERIAL.equals(targetStatus)) {
+            submitSalesMaterialApproval(order, request);
+            return;
+        }
         if (request != null) {
             if (request.getInformationChannel() != null) {
                 order.setInformationChannel(blankToNull(request.getInformationChannel()));
@@ -632,6 +636,16 @@ public class OrderService {
         orderWarningCacheService.invalidate(order.getTenantCode());
         insertSalesLog(order, order.getStatus(), targetStatus, OrderLogOperateTypeEnum.APPROVAL_PENDING.getCode(),
                 request == null ? null : blankToNull(request.getRemark()), LocalDateTime.now());
+        replaceSalesOrderApprovalAuditors(order, request == null ? null : request.getAuditorIds());
+    }
+
+    private void submitSalesMaterialApproval(SalesOrder order, SalesOrderUpdateRequest request) {
+        if (request != null && request.getRemark() != null) {
+            order.setRemark(blankToNull(request.getRemark()));
+            order.setUpdateTime(LocalDateTime.now());
+            salesOrderMapper.updateById(order);
+            orderWarningCacheService.invalidate(order.getTenantCode());
+        }
         replaceSalesOrderApprovalAuditors(order, request == null ? null : request.getAuditorIds());
     }
 
@@ -1284,7 +1298,7 @@ public class OrderService {
 
     private void applyProductionOrderContent(ProductionOrder order, ProductionOrderSaveRequest request) {
         order.setSalesOrderId(blankToNull(request.getSalesOrderId()));
-        order.setStatus(StringUtils.hasText(request.getStatus()) ? request.getStatus().trim() : defaultProductionStatus(order.getStatus()));
+        order.setStatus(resolveProductionSaveStatus(order.getStatus(), request.getStatus()));
         order.setModelCode(request.getModelCode().trim());
         order.setFabric(blankToNull(request.getFabric()));
         order.setWeight(toBigDecimal(request.getWeight()));
@@ -1296,9 +1310,27 @@ public class OrderService {
         order.setBrandName(blankToNull(request.getBrandName()));
         order.setOrderCategory(OrderCategoryEnum.normalize(request.getOrderCategory()));
         order.setContactPhone(blankToNull(request.getContactPhone()));
-        order.setInformationChannel(blankToNull(request.getInformationChannel()));
+        order.setInformationChannel(resolveProductionInformationChannel(
+                order.getOrderCategory(), request.getInformationChannel()));
         order.setProcess(resolveProcess(order.getStatus(), request.getProcess()));
         ensureCustomerProjectExists(order.getCustomerName(), order.getContactPhone(), order.getProjectName());
+    }
+
+    private String resolveProductionInformationChannel(String orderCategory, String informationChannel) {
+        if (isDrawingBudgetOrder(orderCategory)) {
+            return blankToNull(informationChannel);
+        }
+        return requireText(informationChannel, "生产订单信息渠道不能为空");
+    }
+
+    private String resolveProductionSaveStatus(String currentStatus, String requestedStatus) {
+        String status = StringUtils.hasText(requestedStatus)
+                ? requestedStatus.trim()
+                : defaultProductionStatus(currentStatus);
+        if (!PRODUCTION_STATUS_CODES.contains(status)) {
+            throw new BusinessException("生产订单状态不合法");
+        }
+        return status;
     }
 
     private void insertProductionLog(ProductionOrder order, String oldStatusText, String remark) {
@@ -1848,6 +1880,15 @@ public class OrderService {
         return order;
     }
 
+    private SalesOrder findSalesOrderForUpdate(String orderId) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        SalesOrder order = salesOrderMapper.selectByOrderIdForUpdate(tenantCode, orderId);
+        if (order == null) {
+            throw new BusinessException("sales order not found");
+        }
+        return order;
+    }
+
     private ProductionOrder findProductionOrder(String orderId) {
         ProductionOrder order = productionOrderMapper.selectOne(new LambdaQueryWrapper<ProductionOrder>()
                 .eq(ProductionOrder::getOrderId, orderId)
@@ -2014,6 +2055,9 @@ public class OrderService {
         if (isDrawingBudgetOrder(category)) {
             if (!StringUtils.hasText(requested) || STATUS_PENDING_CONFIRM.equals(requested)) {
                 return isBudgetStatus(currentStatus) ? currentStatus.trim() : STATUS_BUDGETING;
+            }
+            if (createMode && STATUS_BUDGET_COMPLETED.equals(requested)) {
+                throw new BusinessException("图纸预算订单创建时只能处于预算中状态");
             }
             if (!isBudgetStatus(requested)) {
                 throw new BusinessException("图纸预算订单只能使用预算中或预算完成状态");

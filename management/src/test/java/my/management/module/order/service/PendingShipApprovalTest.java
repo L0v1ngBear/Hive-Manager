@@ -80,7 +80,7 @@ class PendingShipApprovalTest {
     @Test
     void submittingShipmentApprovalKeepsPendingShipAndPersistsShipmentFields() {
         SalesOrder order = pendingShipOrder();
-        when(salesOrderMapper.selectOne(any())).thenReturn(order);
+        when(salesOrderMapper.selectByOrderIdForUpdate("tenant-a", "SO-100")).thenReturn(order);
         when(employeeMapper.selectActiveApproverIdsByPermission(anyString(), anyString())).thenReturn(List.of(2L));
         SalesOrderUpdateRequest request = shipmentRequest();
 
@@ -102,9 +102,32 @@ class PendingShipApprovalTest {
     }
 
     @Test
+    void submittingPendingPayApprovalDoesNotPersistUnrelatedBusinessFields() {
+        SalesOrder order = pendingPayOrder();
+        when(salesOrderMapper.selectByOrderIdForUpdate("tenant-a", "SO-100")).thenReturn(order);
+        when(employeeMapper.selectActiveApproverIdsByPermission(anyString(), anyString())).thenReturn(List.of(2L));
+        SalesOrderUpdateRequest request = shipmentRequest();
+        request.setIsInvoice(1);
+        request.setRemark("payment approval submitted");
+
+        subject.advanceSalesOrderToNextStage(order.getOrderId(), request);
+
+        assertEquals("pending_pay", order.getStatus());
+        assertEquals("Original channel", order.getInformationChannel());
+        assertEquals("Original carrier", order.getExpressCompany());
+        assertEquals("OLD-100", order.getExpressNo());
+        assertEquals(0, order.getIsInvoice());
+        assertEquals("payment approval submitted", order.getRemark());
+        verify(salesOrderMapper).updateById(order);
+        verify(approvalAuditorCandidateService).replaceActiveCandidates(
+                "tenant-a", "ORDER", "sales:SO-100", List.of(2L));
+        verify(salesOrderStatusLogMapper, never()).insert(any());
+    }
+
+    @Test
     void submittingShipmentApprovalWithoutCompleteLogisticsRejectsWithoutSideEffects() {
         SalesOrder order = pendingShipOrder();
-        when(salesOrderMapper.selectOne(any())).thenReturn(order);
+        when(salesOrderMapper.selectByOrderIdForUpdate("tenant-a", "SO-100")).thenReturn(order);
         SalesOrderUpdateRequest request = new SalesOrderUpdateRequest();
         request.setExpressCompany("SF Express");
 
@@ -119,7 +142,7 @@ class PendingShipApprovalTest {
     @Test
     void submittingShipmentApprovalTwiceRejectsWithoutReplacingActiveCandidates() {
         SalesOrder order = pendingShipOrder();
-        when(salesOrderMapper.selectOne(any())).thenReturn(order);
+        when(salesOrderMapper.selectByOrderIdForUpdate("tenant-a", "SO-100")).thenReturn(order);
         when(approvalAuditorCandidateService.findPendingAuditorIds("tenant-a", "ORDER", "sales:SO-100"))
                 .thenReturn(List.of(2L));
 
@@ -142,6 +165,20 @@ class PendingShipApprovalTest {
 
         verify(orderService).approveSalesOrderTransition("SO-100", "shipped", "approved");
         verify(approvalAuditorCandidateService).closeActiveCandidates("tenant-a", "ORDER", "sales:SO-100");
+    }
+
+    @Test
+    void approvingOneOfMultipleShipmentCandidatesKeepsOrderPendingShip() {
+        SalesOrder order = pendingShipOrder();
+        ApprovalService approvalService = approvalServiceFor(order);
+        when(approvalAuditorCandidateService.hasPendingAuditors("tenant-a", "ORDER", "sales:SO-100"))
+                .thenReturn(true);
+
+        approvalService.auditOrder(orderAuditRequest(1));
+
+        assertEquals("pending_ship", order.getStatus());
+        verify(orderService, never()).approveSalesOrderTransition(anyString(), anyString(), anyString());
+        verify(approvalAuditorCandidateService, never()).closeActiveCandidates(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -218,13 +255,12 @@ class PendingShipApprovalTest {
         ReflectionTestUtils.setField(approvalService, "approvalDefaultAuditorService", approvalDefaultAuditorService);
         when(salesOrderMapper.selectOne(any())).thenReturn(order);
         when(approvalAuditorCandidateService.findActiveAuditorIds("tenant-a", "ORDER", "sales:SO-100"))
-                .thenReturn(List.of(2L));
+                .thenReturn(List.of(1L, 2L));
         when(approvalAuditorCandidateService.isPendingAuditor("tenant-a", "ORDER", "sales:SO-100", 1L))
                 .thenReturn(true);
         when(approvalAuditorCandidateService.markAuditorDecision(
                 eq("tenant-a"), eq("ORDER"), eq("sales:SO-100"), eq(1L), anyBoolean(), anyString()))
                 .thenReturn(true);
-        when(orderService.hasPendingSalesRollbackApproval("SO-100")).thenReturn(false);
         return approvalService;
     }
 
@@ -253,6 +289,17 @@ class PendingShipApprovalTest {
         order.setTenantCode("tenant-a");
         order.setOrderCategory("bulk");
         order.setStatus("pending_ship");
+        return order;
+    }
+
+    private SalesOrder pendingPayOrder() {
+        SalesOrder order = pendingShipOrder();
+        order.setStatus("pending_pay");
+        order.setInformationChannel("Original channel");
+        order.setExpressCompany("Original carrier");
+        order.setExpressNo("OLD-100");
+        order.setIsInvoice(0);
+        order.setRemark("original remark");
         return order;
     }
 
