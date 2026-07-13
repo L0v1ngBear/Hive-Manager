@@ -16,8 +16,10 @@
 
         <div class="order-header-button-row">
           <button
-              v-permission="'order:warning:setting'"
               class="order-warning-setting-btn"
+              :class="permissionDisabledClass(!canManageWarningSetting)"
+              :disabled="!canManageWarningSetting"
+              :title="canManageWarningSetting ? '预警设置' : '当前账号暂无订单预警设置权限'"
               @click="openOrderWarningSetting"
           >
             <span class="material-symbols-outlined text-[20px]">notification_important</span>
@@ -92,35 +94,31 @@
       </div>
       <div
           class="order-filter-grid grid grid-cols-1 gap-4 border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-5 md:grid-cols-2 xl:grid-cols-12">
-        <input
+        <el-input
             v-model.trim="filters.keyword"
             class="box-input xl:col-span-2"
             placeholder="搜索订单号、客户、项目、品牌或商品描述"
             @keyup.enter="refreshOrders"
         />
-        <input
+        <el-input
             v-model.trim="filters.customerName"
             class="box-input xl:col-span-2"
             placeholder="客户名称"
             @keyup.enter="refreshOrders"
         />
-        <input
+        <el-input
             v-model.trim="filters.brandName"
             class="box-input xl:col-span-2"
             placeholder="品牌名称"
             @keyup.enter="refreshOrders"
         />
-        <select v-model="filters.orderCategory" class="box-input xl:col-span-2">
-          <option value="">全部小项</option>
-          <option v-for="option in orderCategoryOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-        <select v-model="filters.invoiceStatus" class="box-input xl:col-span-2">
-          <option value="">全部开票</option>
-          <option value="1">已开票订单（{{ orderSummary.invoice_paid || 0 }}）</option>
-          <option value="0">未开票订单（{{ orderSummary.invoice_unpaid || 0 }}）</option>
-        </select>
+        <el-select v-model="filters.orderCategory" class="box-input xl:col-span-2" placeholder="全部小项" clearable>
+          <el-option v-for="option in orderCategoryOptions" :key="option.value" :label="option.label" :value="option.value" />
+        </el-select>
+        <el-select v-model="filters.invoiceStatus" class="box-input xl:col-span-2" placeholder="全部开票" clearable>
+          <el-option label="已开票订单" value="1" />
+          <el-option label="未开票订单" value="0" />
+        </el-select>
         <div class="order-filter-actions flex flex-wrap items-center gap-2 md:col-span-2 xl:col-span-12">
           <div class="order-query-actions">
             <button class="order-filter-action-btn rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-on-primary" @click="refreshOrders">
@@ -158,7 +156,7 @@
         </div>
       </div>
 
-      <div class="responsive-table-wrap">
+      <div v-loading="orderState.loading" class="responsive-table-wrap">
         <table class="order-list-table responsive-data-table w-full text-left">
           <thead class="bg-surface-container-low/50">
           <tr>
@@ -248,18 +246,18 @@
               </template>
               <template v-else-if="column.key === 'status'">
                 <div class="flex flex-col items-start gap-2">
-                  <span
+                  <el-tag
                       class="order-status-pill"
                       :class="orderStatusClass(row.status)"
                   >
                     {{ orderStatusLabel(row.status) }}
-                  </span>
-                  <span
+                  </el-tag>
+                  <el-tag
                       :class="invoiceClass(row.isInvoice)"
                       class="order-status-pill order-status-pill-sm"
                   >
                     {{ invoiceLabel(row.isInvoice) }}
-                  </span>
+                  </el-tag>
                 </div>
               </template>
               <template v-else-if="column.key === 'progress'">
@@ -268,12 +266,7 @@
                     <span>{{ orderProgress(row).label }}</span>
                     <strong>{{ orderProgress(row).percent }}%</strong>
                   </div>
-                  <div class="order-progress-track">
-                    <div
-                        class="order-progress-bar"
-                        :style="{ width: `${orderProgress(row).percent}%` }"
-                    ></div>
-                  </div>
+                  <el-progress :percentage="orderProgress(row).percent" :show-text="false" />
                   <div v-if="row.fulfillmentTracked && row.status === 'producing'" class="fulfillment-process-mini">
                     <div class="fulfillment-process-current">
                       当前工序：{{ fulfillmentProcessText(row) }}
@@ -339,8 +332,15 @@
               </div>
             </td>
           </tr>
-          <tr v-if="!orderState.loading && !orderState.rows.length">
-            <td :colspan="orderTableColumnCount" class="px-6 py-14 text-center text-sm text-on-surface-variant">暂无订单数据</td>
+          <tr v-if="!orderState.loading && orderState.requestState !== 'ready'">
+            <td :colspan="orderTableColumnCount" class="px-6 py-14 text-center text-sm text-on-surface-variant">
+              <el-empty :description="orderState.errorMessage">
+                <el-button type="primary" @click="loadOrders">重新加载</el-button>
+              </el-empty>
+            </td>
+          </tr>
+          <tr v-else-if="!orderState.loading && !orderState.rows.length">
+            <td :colspan="orderTableColumnCount" class="px-6 py-14 text-center text-sm text-on-surface-variant"><el-empty description="暂无订单数据" /></td>
           </tr>
           </tbody>
         </table>
@@ -348,26 +348,11 @@
       <div
           class="flex items-center justify-between border-t border-outline-variant/10 bg-surface-container-low/30 px-6 py-4 text-sm">
         <span class="text-on-surface-variant">共 {{ orderState.total }} 条</span>
-        <div class="flex items-center gap-2">
-          <button class="page-btn" :disabled="orderState.page <= 1 || orderState.loading"
-                  @click="changePage(orderState.page - 1)">上一页
-          </button>
-          <span>{{ orderState.page }} / {{ Math.max(orderState.pages, 1) }}</span>
-          <button class="page-btn"
-                  :disabled="orderState.page >= Math.max(orderState.pages, 1) || orderState.loading"
-                  @click="changePage(orderState.page + 1)">下一页
-          </button>
-        </div>
+        <el-pagination v-model:current-page="orderState.page" :page-size="orderState.size" :total="orderState.total" :disabled="orderState.loading" layout="prev, pager, next" @current-change="changePage" />
       </div>
     </section>
 
-    <Teleport defer to="body">
-      <transition name="fade">
-        <div v-if="detailVisible" class="fixed inset-0 z-[60] bg-primary/20 backdrop-blur-sm"
-             @click="closeDetail"></div>
-      </transition>
-      <transition name="slide">
-        <aside v-if="detailVisible" class="drawer-large">
+    <el-drawer v-model="detailVisible" size="min(60rem, 92vw)" class="drawer-large" :with-header="false" @closed="closeDetail">
           <div class="drawer-head">
             <div>
               <h2 class="text-xl font-bold tracking-tight text-primary">订单详情</h2>
@@ -377,10 +362,12 @@
               <span class="material-symbols-outlined text-[20px]">close</span>
             </button>
           </div>
-          <div class="flex-1 overflow-y-auto p-6">
-            <div v-if="detailLoading" class="py-12 text-center text-on-surface-variant">加载中...</div>
+          <div v-loading="detailLoading" class="flex-1 overflow-y-auto p-6">
+            <el-empty v-if="!detailLoading && detailErrorMessage" :description="detailErrorMessage">
+              <el-button type="primary" @click="openDetail(detailOrderId)">重新加载</el-button>
+            </el-empty>
 
-            <template v-else-if="orderDetail">
+            <template v-else-if="!detailLoading && orderDetail">
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="info-card">
                   <div class="info-label">订单号</div>
@@ -505,16 +492,13 @@
             </template>
 
           </div>
-        </aside>
-      </transition>
-    </Teleport>
+    </el-drawer>
+    <el-dialog v-model="warningDialogVisible" title="订单未更新预警设置" width="520px">
+      <el-form :model="warningForm" label-position="top"><p>不同订单小项可以设置不同未更新预警天数。</p><el-form-item v-for="item in warningFields" :key="item.key" :label="item.label"><el-input-number v-model="warningForm[item.key]" :min="1" :max="365" :precision="0" /></el-form-item></el-form>
+      <template #footer><el-button @click="warningDialogVisible = false">取消</el-button><el-button type="primary" :loading="warningSaving" @click="saveOrderWarningSetting">保存</el-button></template>
+    </el-dialog>
 
-    <Teleport defer to="body">
-      <transition name="fade">
-        <div v-if="formVisible" class="fixed inset-0 z-[60] bg-primary/20 backdrop-blur-sm" @click="closeForm"></div>
-      </transition>
-      <transition name="slide">
-        <aside v-if="formVisible" class="drawer-small">
+    <el-drawer v-model="formVisible" size="min(46rem, 94vw)" class="drawer-small" :with-header="false" @closed="closeForm">
           <div class="drawer-head">
             <div>
               <h2 class="text-xl font-bold tracking-tight text-primary">
@@ -543,12 +527,12 @@
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="relative">
                   <label class="field-label">客户名称 *</label>
-                  <input v-model.trim="orderForm.customerName" data-field="order.customerName" class="box-input pr-10" type="text"
+                  <el-input v-model.trim="orderForm.customerName" data-field="order.customerName" class="box-input pr-10"
                          placeholder="输入或选择客户"
                          autocomplete="off"
                          @focus="handleOrderCustomerFocus"
                          @input="handleOrderCustomerInput"
-                         @blur="handleOrderCustomerBlur"/>
+                         @blur="handleOrderCustomerBlur" />
                   <span class="material-symbols-outlined combo-arrow">expand_more</span>
                   <div v-if="showCustomerOptions" class="combo-panel">
                     <button v-for="option in customerOptions" :key="option.id" type="button" class="combo-option"
@@ -566,16 +550,16 @@
                 </div>
                 <div>
                   <label class="field-label">联系电话</label>
-                  <input v-model.trim="orderForm.customerPhone" class="box-input" type="text"/>
+                  <el-input v-model.trim="orderForm.customerPhone" class="box-input" />
                 </div>
                 <div class="relative">
                   <label class="field-label">项目名称 *</label>
-                  <input v-model.trim="orderForm.projectName" data-field="order.projectName" class="box-input pr-10" type="text"
+                  <el-input v-model.trim="orderForm.projectName" data-field="order.projectName" class="box-input pr-10"
                          placeholder="选择客户后自动带出，也可输入新项目"
                          autocomplete="off"
                          @focus="handleProjectFocus"
                          @input="handleProjectInput"
-                         @blur="handleProjectBlur"/>
+                         @blur="handleProjectBlur" />
                   <span class="material-symbols-outlined combo-arrow">expand_more</span>
                   <div v-if="showProjectOptions" class="combo-panel">
                     <button v-for="projectName in selectedCustomerProjects" :key="projectName" type="button"
@@ -589,19 +573,17 @@
                 </div>
                 <div>
                   <label class="field-label">{{ orderForm.orderCategory === 'drawing_budget' ? '交付日期' : '交付日期 *' }}</label>
-                  <input v-model="orderForm.deliveryDate" data-field="order.deliveryDate" class="box-input" type="date"/>
+                  <el-date-picker v-model="orderForm.deliveryDate" data-field="order.deliveryDate" class="box-input" type="date" value-format="YYYY-MM-DD" />
                 </div>
                 <div>
                   <label class="field-label">品牌</label>
-                  <input v-model.trim="orderForm.brandName" class="box-input" type="text" placeholder="请输入订单品牌"/>
+                  <el-input v-model.trim="orderForm.brandName" class="box-input" placeholder="请输入订单品牌" />
                 </div>
                 <div>
                   <label class="field-label">订单小项</label>
-                  <select v-model="orderForm.orderCategory" class="box-input">
-                    <option v-for="option in orderCategoryOptions" :key="option.value" :value="option.value">
-                      {{ option.label }}
-                    </option>
-                  </select>
+                  <el-select v-model="orderForm.orderCategory" class="box-input">
+                    <el-option v-for="option in orderCategoryOptions" :key="option.value" :label="option.label" :value="option.value" />
+                  </el-select>
                 </div>
               </div>
 
@@ -612,17 +594,12 @@
                 </div>
                 <div v-for="(item, index) in orderForm.items" :key="index" class="detail-item">
                   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input v-model.trim="item.modelCode" :data-field="`order.items.${index}.modelCode`" class="box-input" placeholder="型号" type="text"/>
-                    <input v-model.number="item.quantity" :data-field="`order.items.${index}.quantity`" class="box-input" placeholder="数量" type="number" min="0.01"
-                           step="0.01"/>
-                    <select v-model="item.weight" :data-field="`order.items.${index}.weight`" class="box-input">
-                      <option value="">请选择类别</option>
-                      <option v-for="option in productCategoryOptions" :key="option.value" :value="option.value">
-                        {{ option.label }}
-                      </option>
-                    </select>
-                    <input v-model.number="item.spec" :data-field="`order.items.${index}.spec`" class="box-input" placeholder="规格" type="number" min="0.01"
-                           step="0.01"/>
+                    <el-input v-model.trim="item.modelCode" :data-field="`order.items.${index}.modelCode`" class="box-input" placeholder="型号" />
+                    <el-input-number v-model="item.quantity" :data-field="`order.items.${index}.quantity`" class="box-input" placeholder="数量" :min="0.01" :step="0.01" :precision="2" controls-position="right" />
+                    <el-select v-model="item.weight" :data-field="`order.items.${index}.weight`" class="box-input" placeholder="请选择类别">
+                      <el-option v-for="option in productCategoryOptions" :key="option.value" :label="option.label" :value="option.value" />
+                    </el-select>
+                    <el-input-number v-model="item.spec" :data-field="`order.items.${index}.spec`" class="box-input" placeholder="规格" :min="0.01" :step="0.01" :precision="2" controls-position="right" />
                   </div>
                   <div class="mt-2 flex justify-end">
                     <button class="text-xs font-bold text-error" @click="removeOrderItem(index)">删除</button>
@@ -633,36 +610,33 @@
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label class="field-label">订单状态</label>
-                  <select
+                  <el-select
                     v-model="orderForm.status"
                     class="box-input"
                     :disabled="formMode === 'create' && orderForm.orderCategory === 'special_order'"
                   >
-                    <option v-for="status in orderStatuses" :key="status.value" :value="status.value">{{
-                        status.label
-                      }}
-                    </option>
-                  </select>
+                    <el-option v-for="status in orderStatuses" :key="status.value" :label="status.label" :value="status.value" />
+                  </el-select>
                 </div>
                 <div>
                   <label class="field-label">是否开票</label>
-                  <select v-model.number="orderForm.isInvoice" class="box-input">
-                    <option :value="0">未开票</option>
-                    <option :value="1">已开票</option>
-                  </select>
+                  <el-select v-model="orderForm.isInvoice" class="box-input">
+                    <el-option label="未开票" :value="0" />
+                    <el-option label="已开票" :value="1" />
+                  </el-select>
                 </div>
                 <div v-if="orderForm.status === 'shipped'">
                   <label class="field-label">物流公司</label>
-                  <input v-model.trim="orderForm.expressCompany" data-field="order.expressCompany" class="box-input" type="text"/>
+                  <el-input v-model.trim="orderForm.expressCompany" data-field="order.expressCompany" class="box-input" />
                 </div>
                 <div v-if="orderForm.status === 'shipped'">
                   <label class="field-label">物流单号</label>
-                  <input v-model.trim="orderForm.expressNo" data-field="order.expressNo" class="box-input" type="text"/>
+                  <el-input v-model.trim="orderForm.expressNo" data-field="order.expressNo" class="box-input" />
                 </div>
               </div>
               <div>
                 <label class="field-label">备注</label>
-                <textarea v-model.trim="orderForm.remark" class="box-input min-h-[92px] resize-none"></textarea>
+                <el-input v-model.trim="orderForm.remark" class="box-input" type="textarea" :rows="4" />
               </div>
               <div>
                 <label class="field-label">订单附件</label>
@@ -700,16 +674,14 @@
               {{ formMode === 'create' ? '提交创建' : '保存修改' }}
             </button>
           </div>
-        </aside>
-      </transition>
-    </Teleport>
+    </el-drawer>
     </div>
   </div>
 </template>
 
 <script setup>
 import {computed, onMounted, reactive, ref, watch} from 'vue'
-import {ElMessage, ElMessageBox} from 'element-plus'
+import {ElButton, ElDatePicker, ElDialog, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElPagination, ElProgress, ElSelect, ElTag} from 'element-plus'
 import {useRoute} from 'vue-router'
 import {useUserStore} from '@/stores/user'
 import {getCustomerOptions} from '../customer/api/customer'
@@ -742,6 +714,10 @@ import {
 
 const route = useRoute()
 const userStore = useUserStore()
+const warningDialogVisible = ref(false)
+const warningSaving = ref(false)
+const warningForm = reactive({ sampleRoomStaleWarningDays: 3, bulkStaleWarningDays: 3, replenishmentStaleWarningDays: 3, drawingBudgetStaleWarningDays: 3 })
+const warningFields = [{ key: 'sampleRoomStaleWarningDays', label: '样板间' }, { key: 'bulkStaleWarningDays', label: '大货' }, { key: 'replenishmentStaleWarningDays', label: '增补' }, { key: 'drawingBudgetStaleWarningDays', label: '图纸预算' }]
 const defaultOrderTableColumns = [
   {key: 'orderNo', label: '编号'},
   {key: 'customer', label: '客户 / 项目'},
@@ -820,7 +796,8 @@ const filters = reactive({
   createEnd: '',
   staleOnly: false
 })
-const orderState = reactive({rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false})
+const orderState = reactive({rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false, requestState: 'ready', errorMessage: ''})
+let orderRequestId = 0
 const orderSummary = reactive({total: 0})
 const orderWarningSetting = reactive({
   staleWarningDays: 3,
@@ -845,6 +822,9 @@ const warningRefreshing = ref(false)
 const rowWarningRefreshingKey = ref('')
 const detailVisible = ref(false)
 const detailLoading = ref(false)
+const detailErrorMessage = ref('')
+const detailOrderId = ref('')
+let detailRequestId = 0
 const orderDetail = ref(null)
 const statusLogTimeEdits = reactive({})
 const statusLogSavingKey = ref('')
@@ -889,6 +869,7 @@ function canMutateOrderStatus(status) {
 }
 
 const canCreateCurrentOrder = computed(() => hasAnyOrderPermission(ORDER_CREATE_PERMISSIONS))
+const canManageWarningSetting = computed(() => hasAnyOrderPermission([ORDER_ALL_PERMISSION, 'order:warning:setting']))
 const canEditCurrentOrderForm = computed(() => formMode.value === 'create'
     ? canCreateCurrentOrder.value
     : canMutateOrderStatus(orderForm.status))
@@ -1235,8 +1216,11 @@ async function loadOrderSummary() {
 
 async function loadOrderWarningSummary() {
   try {
-    const [setting, summary] = await Promise.all([getOrderWarningSetting(), getOrderWarningSummary()])
-    assignWarningSetting(orderWarningSetting, setting)
+    const [setting, summary] = await Promise.all([
+      canManageWarningSetting.value ? getOrderWarningSetting() : Promise.resolve(null),
+      getOrderWarningSummary()
+    ])
+    if (setting) assignWarningSetting(orderWarningSetting, setting)
     applyOrderWarningSummary(summary)
   } catch (error) {
     console.warn('加载订单预警统计失败', error)
@@ -1282,89 +1266,11 @@ function normalizeWarningDayValue(value, fallback = 3) {
 }
 
 async function openOrderWarningSetting() {
-  let nextSetting = null
-  try {
-    await ElMessageBox({
-        title: '订单未更新预警设置',
-        dangerouslyUseHTMLString: true,
-        showCancelButton: true,
-        confirmButtonText: '保存',
-        cancelButtonText: '取消',
-        message: buildOrderWarningSettingHtml(),
-        beforeClose: (action, instance, done) => {
-          if (action !== 'confirm') {
-            done()
-            return
-          }
-          try {
-            nextSetting = readOrderWarningSettingFromDialog()
-            done()
-          } catch (error) {
-            ElMessage.warning(error.message || '请输入 1-365 之间的整数')
-          }
-        }
-    })
-    if (!nextSetting) {
-      return
-    }
-    const setting = await updateOrderWarningSetting(nextSetting)
-    assignWarningSetting(orderWarningSetting, setting, nextSetting)
-    ElMessage.success('订单预警设置已保存')
-    await Promise.all([loadOrderSummaries(), refreshOrders()])
-  } catch (error) {
-    if (error !== 'cancel' && error !== 'close') {
-      throw error
-    }
-  }
+  if (!canManageWarningSetting.value) return
+  assignWarningSetting(warningForm, orderWarningSetting, orderWarningSetting)
+  warningDialogVisible.value = true
 }
-
-function buildOrderWarningSettingHtml() {
-  return `
-    <div class="order-warning-dialog" data-order-warning-form>
-      <p class="order-warning-dialog__desc">不同订单小项可以设置不同未更新预警天数。</p>
-      ${buildOrderWarningInputHtml('sampleRoomStaleWarningDays', '样板间', orderWarningSetting.sampleRoomStaleWarningDays)}
-      ${buildOrderWarningInputHtml('bulkStaleWarningDays', '大货', orderWarningSetting.bulkStaleWarningDays)}
-      ${buildOrderWarningInputHtml('replenishmentStaleWarningDays', '增补', orderWarningSetting.replenishmentStaleWarningDays)}
-      ${buildOrderWarningInputHtml('drawingBudgetStaleWarningDays', '图纸预算', orderWarningSetting.drawingBudgetStaleWarningDays)}
-    </div>
-  `
-}
-
-function buildOrderWarningInputHtml(name, label, value) {
-  return `
-    <label class="order-warning-dialog__row">
-      <span>${label}</span>
-      <input data-field="${name}" value="${normalizeWarningDayValue(value)}" inputmode="numeric" />
-      <em>天未更新后预警</em>
-    </label>
-  `
-}
-
-function readOrderWarningSettingFromDialog() {
-  const root = document.querySelector('[data-order-warning-form]')
-  if (!root) {
-    throw new Error('预警设置窗口已关闭，请重新打开')
-  }
-  const read = (field, label) => {
-    const input = root.querySelector(`[data-field="${field}"]`)
-    const value = Number(input?.value)
-    if (!Number.isInteger(value) || value < 1 || value > 365) {
-      throw new Error(`${label}预警天数请输入 1-365 之间的整数`)
-    }
-    return value
-  }
-  const sampleRoomStaleWarningDays = read('sampleRoomStaleWarningDays', '样板间')
-  const bulkStaleWarningDays = read('bulkStaleWarningDays', '大货')
-  const replenishmentStaleWarningDays = read('replenishmentStaleWarningDays', '增补')
-  const drawingBudgetStaleWarningDays = read('drawingBudgetStaleWarningDays', '图纸预算')
-  return {
-    staleWarningDays: bulkStaleWarningDays,
-    sampleRoomStaleWarningDays,
-    bulkStaleWarningDays,
-    replenishmentStaleWarningDays,
-    drawingBudgetStaleWarningDays
-  }
-}
+async function saveOrderWarningSetting() { if (!canManageWarningSetting.value) return; if (warningSaving.value) return; warningSaving.value = true; const next = { ...warningForm, staleWarningDays: warningForm.bulkStaleWarningDays }; try { const setting = await updateOrderWarningSetting(next); assignWarningSetting(orderWarningSetting, setting, next); warningDialogVisible.value = false; ElMessage.success('订单预警设置已保存'); await Promise.all([loadOrderSummaries(), refreshOrders()]) } finally { warningSaving.value = false } }
 
 async function refreshOrderWarnings(showToast = false) {
   if (warningRefreshing.value) {
@@ -1439,15 +1345,37 @@ function buildOrderQuery(pageNum = orderState.page, pageSize = orderState.size) 
 }
 
 async function loadOrders() {
+  const requestId = ++orderRequestId
   orderState.loading = true
+  orderState.requestState = 'loading'
+  orderState.errorMessage = ''
   try {
     const res = await getOrderPage(buildOrderQuery())
+    if (requestId !== orderRequestId) return
     orderState.rows = res.data || []
     orderState.total = res.total || 0
     orderState.pages = res.pages || 1
+    orderState.requestState = 'ready'
+  } catch (error) {
+    if (requestId !== orderRequestId) return
+    orderState.rows = []
+    orderState.total = 0
+    orderState.pages = 1
+    const failure = resolveOrderListFailure(error)
+    orderState.requestState = failure.state
+    orderState.errorMessage = failure.message
   } finally {
-    orderState.loading = false
+    if (requestId === orderRequestId) orderState.loading = false
   }
+}
+
+function resolveOrderListFailure(error) {
+  const status = Number(error?.response?.status || 0)
+  if (status === 401) return {state: 'permission', message: '登录状态已失效，请重新登录后重试。'}
+  if (status === 403) return {state: 'permission', message: '当前账号暂无订单查看权限，请联系管理员。'}
+  if (!error?.response) return {state: 'error', message: '网络连接异常，请检查网络后重新加载。'}
+  if (status >= 500) return {state: 'error', message: '服务暂时不可用，请稍后重新加载。'}
+  return {state: 'error', message: '订单列表加载失败，请重新加载。'}
 }
 
 async function exportAllOrders() {
@@ -1493,23 +1421,41 @@ function formatOrderExportCell(row, key) {
 }
 
 async function openDetail(orderId) {
+  const requestId = ++detailRequestId
+  detailOrderId.value = orderId
   detailVisible.value = true
   detailLoading.value = true
   orderDetail.value = null
+  detailErrorMessage.value = ''
   clearStatusLogTimeEdits()
   try {
-    orderDetail.value = await getOrderDetail(orderId)
+    const detail = await getOrderDetail(orderId)
+    if (requestId !== detailRequestId) return
+    orderDetail.value = detail
     hydrateStatusLogTimeEdits('order', orderDetail.value?.logs || [])
   } catch (error) {
-    detailVisible.value = false
-    ElMessage.error(error?.message || '订单详情加载失败，请稍后重试')
+    if (requestId !== detailRequestId) return
+    detailErrorMessage.value = resolveOrderDetailFailure(error)
   } finally {
-    detailLoading.value = false
+    if (requestId === detailRequestId) detailLoading.value = false
   }
 }
 
+function resolveOrderDetailFailure(error) {
+  const status = Number(error?.response?.status || 0)
+  if (status === 401) return '登录状态已失效，请重新登录后重试。'
+  if (status === 403) return '当前账号暂无订单详情查看权限，请联系管理员。'
+  if (!error?.response) return '网络连接异常，请检查网络后重新加载。'
+  if (status >= 500) return '服务暂时不可用，请稍后重新加载。'
+  return '订单详情加载失败，请重新加载。'
+}
+
 function closeDetail() {
+  detailRequestId += 1
   detailVisible.value = false
+  detailLoading.value = false
+  orderDetail.value = null
+  detailErrorMessage.value = ''
   clearStatusLogTimeEdits()
 }
 
