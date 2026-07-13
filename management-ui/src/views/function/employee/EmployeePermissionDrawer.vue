@@ -43,8 +43,9 @@
       </div>
 
       <div v-else class="space-y-5">
-        <div v-if="loadError" class="rounded-lg bg-error-container px-4 py-3 text-sm font-bold text-error">
-          {{ loadError }}
+        <div v-if="loadError" class="flex items-center justify-between gap-3 rounded-lg bg-error-container px-4 py-3 text-sm font-bold text-error">
+          <span>{{ loadError }}</span>
+          <button type="button" class="rounded bg-white px-3 py-1" @click="retry">重新加载</button>
         </div>
 
         <section class="rounded-lg border border-outline-variant/20 bg-white p-4">
@@ -164,6 +165,7 @@
 <script setup>
 import { computed, nextTick, ref } from 'vue'
 import { ElDrawer, ElMessage, ElTree, ElTreeSelect } from 'element-plus'
+import { createLatestRequest } from '@/utils/latestRequest'
 import { getAllPermissions } from '../role/api/role.js'
 import {
   getEmployeePermissionOverrides,
@@ -184,6 +186,7 @@ const denyPermissionIds = ref([])
 const treeProps = { value: 'id', label: 'permName', children: 'children' }
 const readonlyTreeProps = { value: 'id', label: 'permName', children: 'children', disabled: () => true }
 const roleTreeRef = ref(null)
+const permissionRequest = createLatestRequest()
 
 const overlapCount = computed(() => {
   const denySet = new Set(denyPermissionIds.value.map((id) => Number(id)))
@@ -194,6 +197,11 @@ async function open(employee) {
   if (!employee?.id) return
   currentEmployee.value = employee
   visible.value = true
+  await load(employee)
+}
+
+async function load(employee) {
+  const request = permissionRequest.begin()
   loading.value = true
   loadError.value = ''
   treeData.value = []
@@ -208,8 +216,10 @@ async function open(employee) {
     ])
     const permissionTree = permissions?.data?.data || permissions?.data || permissions || []
     const overrideData = overrides?.data?.data || overrides?.data || overrides || {}
+    if (!request.isLatest()) return
     treeData.value = Array.isArray(permissionTree) ? permissionTree : []
     await nextTick()
+    if (!request.isLatest()) return
     rolePermissionIds.value = normalizeIds(overrideData?.rolePermissionIds)
     grantPermissionIds.value = normalizeIds(overrideData?.grantPermissionIds)
     denyPermissionIds.value = normalizeIds(overrideData?.denyPermissionIds)
@@ -217,10 +227,14 @@ async function open(employee) {
     roleTreeRef.value?.setCheckedKeys(rolePermissionIds.value, false)
   } catch (error) {
     console.error('[Hive Auth] load employee permission overrides failed:', error)
-    loadError.value = '权限数据加载失败，请稍后重试。'
+    request.commit(() => { loadError.value = '权限数据加载失败，请稍后重试。' })
   } finally {
-    loading.value = false
+    request.commit(() => { loading.value = false })
   }
+}
+
+function retry() {
+  if (currentEmployee.value) load(currentEmployee.value)
 }
 
 function close() {

@@ -145,3 +145,39 @@ test('keeps employee and attendance list loading, empty, permission, and request
     assert.match(source, /<el-empty\b[^>]*v-if=["']!loading["']/)
   }
 })
+
+test('wires latest-request guards into employee and attendance data surfaces', () => {
+  assert.match(employeeList, /const employeeListRequest = createLatestRequest\(\)/)
+  assert.match(employeeList, /const organizationRequest = createLatestRequest\(\)/)
+  assert.match(employeeList, /request\.commit\(\(\) => \{ loading\.value = false \}\)/)
+  assert.match(employeeList, /organizationError/)
+  assert.match(employeeList, /@click=["']fetchOrganizationTree["']/)
+
+  assert.match(attendance, /const attendanceRequest = createLatestRequest\(\)/)
+  assert.match(attendance, /const snapshot = currentQuerySnapshot\(\)/)
+  assert.match(attendance, /fetchSummary\(snapshot, request\)/)
+  assert.match(attendance, /fetchData\(snapshot, request\)/)
+  for (const state of ['summaryLoading', 'summaryError', 'summaryEmpty', 'ruleLoading', 'ruleError', 'ruleEmpty', 'ruleSubmitting']) {
+    assert.match(attendance, new RegExp(`\\b${state}\\b`))
+  }
+  assert.match(attendance, /const ruleSubmitGuard = createSubmitGuard\(\)/)
+})
+
+test('keeps employee commands visible but guards their real permission combinations', () => {
+  assert.match(employeeList, /hasPermission\(['"]employee:detail['"]\)/)
+  assert.match(employeeList, /hasPermission\(['"]employee:update['"]\).*canViewEmployeeDetail\.value/)
+  assert.match(employeeList, /hasPermission\(['"]employee:update['"]\).*hasPermission\(['"]role:permission:list['"]\)/)
+  assert.match(employeeList, /:disabled=["']!canViewEmployeeDetail["']/)
+  assert.match(employeeList, /:disabled=["']!canEditEmployee["']/)
+  assert.match(employeeList, /:disabled=["']!canManageEmployeePermissions["']/)
+  assert.match(employeeList, /if \(!canViewEmployeeDetail\.value\) return/)
+  assert.match(employeeList, /if \(!canEditEmployee\.value\) return/)
+  assert.match(employeeList, /if \(!canManageEmployeePermissions\.value\) return/)
+})
+
+test('prevents stale employee permission responses and exposes retry', () => {
+  assert.match(employeePermissionDrawer, /const permissionRequest = createLatestRequest\(\)/)
+  assert.match(employeePermissionDrawer, /if \(!request\.isLatest\(\)\) return/)
+  assert.match(employeePermissionDrawer, /request\.commit\(\(\) => \{ loading\.value = false \}\)/)
+  assert.match(employeePermissionDrawer, /@click=["']retry["']/)
+})

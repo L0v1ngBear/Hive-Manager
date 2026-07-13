@@ -37,7 +37,14 @@
         </div>
       </header>
 
-      <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+      <section v-if="summaryLoading" v-loading="true" class="min-h-32 rounded-2xl bg-white" />
+      <section v-else-if="summaryError" class="flex min-h-32 flex-col items-center justify-center gap-2 rounded-2xl bg-white text-center">
+        <p class="font-bold text-slate-800">{{ summaryError.title }}</p>
+        <p class="text-sm text-slate-500">{{ summaryError.message }}</p>
+        <el-button type="primary" @click="fetchSummary(currentQuerySnapshot())">重新加载统计</el-button>
+      </section>
+      <section v-else-if="summaryEmpty" class="flex min-h-32 items-center justify-center rounded-2xl bg-white text-sm text-slate-500">暂无考勤统计</section>
+      <section v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
         <div
             v-for="stat in stats"
             :key="stat.label"
@@ -183,6 +190,17 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-8 space-y-10 bg-gradient-to-b from-white to-slate-50/50">
+          <div v-if="ruleLoading" v-loading="true" class="min-h-[320px]" />
+          <div v-else-if="ruleError" class="flex min-h-[320px] flex-col items-center justify-center gap-3 text-center">
+            <p class="font-bold text-slate-800">{{ ruleError.title }}</p>
+            <p class="text-sm text-slate-500">{{ ruleError.message }}</p>
+            <el-button type="primary" @click="loadRule">重新加载</el-button>
+          </div>
+          <div v-else-if="ruleEmpty" class="flex min-h-[320px] flex-col items-center justify-center gap-3 text-center">
+            <el-empty description="暂无考勤规则" />
+            <el-button type="primary" @click="initializeDefaultRule">使用默认规则创建</el-button>
+          </div>
+          <template v-else>
 
           <section class="space-y-4">
             <div class="flex items-center gap-2 pb-2 border-b border-slate-200/50">
@@ -208,6 +226,7 @@
               </div>
             </div>
           </section>
+          </template>
 
           <section class="space-y-4">
             <div class="flex items-center gap-2 pb-2 border-b border-slate-200/50">
@@ -356,7 +375,7 @@
 
         <div class="px-8 py-4 border-t border-slate-200/50 bg-white flex justify-end gap-3 shrink-0">
           <el-button @click="ruleDrawerVisible = false" class="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">取消</el-button>
-          <el-button @click="submitRule" class="px-5 py-2 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20 active:scale-95">保存配置</el-button>
+          <el-button :disabled="ruleLoading || !!ruleError || ruleEmpty || ruleSubmitting" :loading="ruleSubmitting" @click="submitRule" class="px-5 py-2 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20 active:scale-95">保存配置</el-button>
         </div>
 
       </div>
@@ -384,6 +403,7 @@ import {
   ElTimePicker
 } from 'element-plus'
 import { useRoute } from 'vue-router'
+import { createLatestRequest, createSubmitGuard } from '@/utils/latestRequest'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import {
@@ -396,6 +416,9 @@ import {
 } from './api/attendance.js'
 
 const route = useRoute()
+const attendanceRequest = createLatestRequest()
+const ruleRequest = createLatestRequest()
+const ruleSubmitGuard = createSubmitGuard()
 const defaultAttendanceTableColumns = [
   { key: 'employee', label: '员工' },
   { key: 'empNo', label: '工号' },
@@ -446,6 +469,13 @@ const rows = ref([])
 const departments = ref([])
 const loading = ref(false)
 const listError = ref(null)
+const summaryLoading = ref(false)
+const summaryError = ref(null)
+const summaryEmpty = ref(false)
+const ruleLoading = ref(false)
+const ruleError = ref(null)
+const ruleEmpty = ref(false)
+const ruleSubmitting = ref(false)
 const summary = reactive({ totalEmployeeCount: 0, actualCount: 0, lateCount: 0, earlyCount: 0, missingCount: 0, attendanceRate: 0 })
 const pagination = reactive({ total: 0, pages: 0 })
 const query = reactive({ pageNum: 1, pageSize: 10, keyword: '', departmentName: '', status: '', date: today })
@@ -479,11 +509,40 @@ function applyRouteKeyword() {
 }
 
 async function refreshAll() {
-  await Promise.all([fetchSummary(), fetchData(), fetchDepartments()])
+  const snapshot = currentQuerySnapshot()
+  const request = attendanceRequest.begin()
+  await Promise.all([fetchSummary(snapshot, request), fetchData(snapshot, request), fetchDepartments()])
 }
 
-async function fetchSummary() {
-  Object.assign(summary, await getAttendanceSummary({ date: query.date }))
+function currentQuerySnapshot() {
+  return {
+    pageNum: query.pageNum,
+    pageSize: query.pageSize,
+    keyword: query.keyword || undefined,
+    departmentName: query.departmentName || undefined,
+    status: query.status || undefined,
+    date: query.date || undefined
+  }
+}
+
+async function fetchSummary(snapshot = currentQuerySnapshot(), request = attendanceRequest.begin()) {
+  summaryLoading.value = true
+  summaryError.value = null
+  summaryEmpty.value = false
+  try {
+    const data = await getAttendanceSummary({ date: snapshot.date })
+    request.commit(() => {
+      Object.assign(summary, data || {})
+      summaryEmpty.value = !data || Object.keys(data).length === 0
+    })
+  } catch (error) {
+    request.commit(() => {
+      Object.assign(summary, { totalEmployeeCount: 0, actualCount: 0, lateCount: 0, earlyCount: 0, missingCount: 0, attendanceRate: 0 })
+      summaryError.value = resolveListError(error)
+    })
+  } finally {
+    request.commit(() => { summaryLoading.value = false })
+  }
 }
 
 function resolveListError(error) {
@@ -502,31 +561,28 @@ function resolveListError(error) {
   }
 }
 
-async function fetchData() {
+async function fetchData(snapshot = currentQuerySnapshot(), request = attendanceRequest.begin()) {
   loading.value = true
   listError.value = null
   rows.value = []
   pagination.total = 0
   pagination.pages = 0
   try {
-    const data = await getAttendancePage({
-      pageNum: query.pageNum,
-      pageSize: query.pageSize,
-      keyword: query.keyword || undefined,
-      departmentName: query.departmentName || undefined,
-      status: query.status || undefined,
-      date: query.date || undefined
+    const data = await getAttendancePage(snapshot)
+    request.commit(() => {
+      rows.value = data.data || []
+      pagination.total = Number(data.total || 0)
+      pagination.pages = Number(data.pages || 0)
     })
-    rows.value = data.data || []
-    pagination.total = Number(data.total || 0)
-    pagination.pages = Number(data.pages || 0)
   } catch (error) {
-    rows.value = []
-    pagination.total = 0
-    pagination.pages = 0
-    listError.value = resolveListError(error)
+    request.commit(() => {
+      rows.value = []
+      pagination.total = 0
+      pagination.pages = 0
+      listError.value = resolveListError(error)
+    })
   } finally {
-    loading.value = false
+    request.commit(() => { loading.value = false })
   }
 }
 
@@ -588,7 +644,21 @@ function normalizeLocationPayload() {
 }
 
 async function openRuleDrawer() {
+  ruleDrawerVisible.value = true
+  await loadRule()
+}
+
+async function loadRule() {
+  const request = ruleRequest.begin()
+  ruleLoading.value = true
+  ruleError.value = null
+  ruleEmpty.value = false
+  try {
   const data = await getAttendanceRule()
+  if (!data || Object.keys(data).length === 0) {
+    request.commit(() => { ruleEmpty.value = true })
+    return
+  }
   const locations = normalizeRuleLocations(data)
   const firstLocation = locations[0] || createDefaultLocation()
   Object.assign(ruleForm, {
@@ -602,10 +672,20 @@ async function openRuleDrawer() {
     address: firstLocation.address || firstLocation.locationName || '',
     locations
   })
-  ruleDrawerVisible.value = true
+  } catch (error) {
+    request.commit(() => { ruleError.value = resolveListError(error) })
+  } finally {
+    request.commit(() => { ruleLoading.value = false })
+  }
+}
+
+function initializeDefaultRule() {
+  Object.assign(ruleForm, { locations: [createDefaultLocation()] })
+  ruleEmpty.value = false
 }
 
 async function submitRule() {
+  if (ruleSubmitGuard.pending) return
   if (!ruleForm.workDays.length) {
     ElMessage.warning('请至少选择一个工作日')
     return
@@ -620,6 +700,8 @@ async function submitRule() {
     return
   }
   const firstLocation = locations[0] || {}
+  ruleSubmitting.value = true
+  await ruleSubmitGuard.run(async () => {
   await saveAttendanceRule({
     ...ruleForm,
     lateToleranceMinutes: Number(ruleForm.lateToleranceMinutes || 0),
@@ -632,6 +714,7 @@ async function submitRule() {
   })
   ElMessage.success('考勤规则已保存，小程序打卡规则已同步')
   ruleDrawerVisible.value = false
+  }).finally(() => { ruleSubmitting.value = false })
 }
 
 function handleFilter() {
@@ -649,7 +732,7 @@ function changePage(pageNum) {
     return
   }
   query.pageNum = pageNum
-  fetchData()
+  refreshAll()
 }
 
 async function exportExcel() {

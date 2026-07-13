@@ -8,7 +8,7 @@
 - 服务：`management/src/main/java/my/management/module/attendance/service/AttendanceManageService.java`。
 - 路由：`/function/attendance`。
 - 路由权限：`attendance:record:list` 或 `attendance:*`；feature 为 `module.attendance`。
-- 迁移批次：Batch 2；当前状态为 Audit baseline。
+- 迁移批次：Batch 2；当前状态为 Element Plus migrated（已完成 Element Plus 迁移）。
 
 ## 功能
 
@@ -67,11 +67,11 @@
 - 状态显示为自定义 class pill。
 - 文件下载由脚本创建链接完成；消息反馈使用 Element Plus 服务。
 
-## Element Plus Migration
+## Element Plus 迁移
 
-- Attendance filters, result table, loading/empty states, and pagination use explicit Element Plus component imports.
-- The rule drawer retains its existing query and save contracts while using `ElDatePicker`, `ElTimePicker`, `ElInputNumber`, and `ElCheckboxGroup` for date, time, numeric, and work-day controls.
-- The existing `attendance:record:list` and `attendance:*` permission boundaries, Blob export flow, overnight rule values, and query parameter formats are unchanged.
+- 考勤筛选、结果表格、加载/空错态和分页均显式导入 Element Plus 组件。
+- 规则抽屉保持原查询与保存契约，日期、时间、数值和工作日控件使用 `ElDatePicker`、`ElTimePicker`、`ElInputNumber` 和 `ElCheckboxGroup`。
+- `attendance:record:list` 与 `attendance:*` 权限边界、Blob 导出、跨夜规则值及查询参数格式保持不变。
 
 ## Element Plus 对照/保留项
 
