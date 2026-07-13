@@ -35,8 +35,13 @@ test('owns edit detail requests and exposes retryable mutually exclusive states'
   assert.match(source, /if \(requestId !== editRequestId\) return/)
   assert.match(source, /editRequestId \+= 1/)
   assert.match(source, /v-loading="editLoading"/)
+  assert.match(source, /<template v-else-if="!editLoading">/)
   assert.match(source, /editErrorMessage/)
   assert.match(source, /submitting \|\| editLoading \|\| !canSubmitCurrentForm/)
+})
+
+test('guards edit submission against concurrent and non-ready calls inside the handler', () => {
+  assert.match(source, /async function submitForm\(\) \{\s*if \(submitting\.value \|\| editLoading\.value \|\| editErrorMessage\.value\) return/)
 })
 
 test('keeps detail and export commands visible but permission disabled and guarded', () => {
