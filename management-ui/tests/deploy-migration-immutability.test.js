@@ -25,6 +25,22 @@ assert.ok(
   'V20260705_004 must retain the logistics columns present in the executed historical file'
 )
 
+const historicalInstallationTaskConvergence = read(
+  'db-migrations/migrations/V20260707_001_installation_task_schema_convergence.sql'
+)
+assert.equal(
+  createHash('sha256').update(historicalInstallationTaskConvergence).digest('hex'),
+  'd9fc573187377b1f37d7aa5af23bdfbdf864b36563438a9482ef76a6fa7e32e6',
+  'V20260707_001 must remain byte-for-byte identical to the migration already recorded by the server'
+)
+
+const historicalOrderScopeMigration = read('db-migrations/migrations/V20260710_004_order_role_status_scope.sql')
+assert.equal(
+  createHash('sha256').update(historicalOrderScopeMigration).digest('hex'),
+  '90e52c9d3735ddfecf84bafd0b7c64022d3211c0deec7962bbfe386f50c24b0e',
+  'V20260710_004 must remain byte-for-byte identical to the migration already recorded by the server'
+)
+
 const additiveMigration = read('db-migrations/migrations/V20260706_001_installation_task_special_exception_note.sql')
 assert.ok(
   additiveMigration.includes('special_exception_note'),
@@ -71,6 +87,11 @@ assert.ok(
   manifest.includes('migrations/V20260710_004_order_role_status_scope.sql'),
   'sales and production order scopes must be versioned after the role matrix'
 )
+assert.match(
+  manifest,
+  /migrations\/V20260710_004_order_role_status_scope\.sql\r?\n+migrations\/V20260713_001_order_information_channel_and_cancel_reason\.sql\r?\n?$/,
+  'order information-channel migration must be appended after every historical migration'
+)
 
 const deployHealth = read('scripts/check-deploy-health.sh')
 assert.ok(
@@ -84,6 +105,10 @@ assert.ok(
 assert.ok(
   deployHealth.includes('V20260710_004_order_role_status_scope.sql'),
   'deploy health check must guard the sales/production order scope migration'
+)
+assert.ok(
+  deployHealth.includes('V20260713_001_order_information_channel_and_cancel_reason.sql'),
+  'deploy health check must guard the order information-channel migration'
 )
 
 console.log('deploy migration immutability passed')
