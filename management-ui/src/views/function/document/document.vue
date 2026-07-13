@@ -8,7 +8,14 @@
       <div class="flex-1 space-y-6 overflow-y-auto p-4">
         <div class="space-y-1">
           <h3 class="mb-2 px-2 text-[10px] font-bold tracking-widest text-on-surface-variant uppercase">当前目录</h3>
-          <el-button text class="w-full justify-start" @click="goRoot">
+          <el-button
+            text
+            class="w-full justify-start"
+            :disabled="!canBrowseDocuments"
+            :class="permissionDisabledClass(!canBrowseDocuments)"
+            :title="canBrowseDocuments ? '返回根目录' : breadcrumbPermissionReason"
+            @click="goRoot"
+          >
             <span class="material-symbols-outlined text-[18px]">home</span>
             {{ currentFolderName }}
           </el-button>
@@ -66,7 +73,13 @@
       </header>
 
       <div class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-3 text-sm">
-        <el-button text @click="goRoot">
+        <el-button
+          text
+          :disabled="!canBrowseDocuments"
+          :class="permissionDisabledClass(!canBrowseDocuments)"
+          :title="canBrowseDocuments ? '返回根目录' : breadcrumbPermissionReason"
+          @click="goRoot"
+        >
           <span class="material-symbols-outlined text-[16px]">home</span>
           根目录
         </el-button>
@@ -313,7 +326,7 @@ const navigateTo = async (id) => {
 }
 
 const goRoot = async () => {
-  await fetchDocuments(0)
+  await documentNavigator.goRoot()
 }
 
 const promptCreateFolder = () => {

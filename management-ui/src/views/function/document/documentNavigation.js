@@ -8,6 +8,7 @@ export function createDocumentNavigator({ canNavigate, fetchDocuments }) {
   return {
     navigateUp: navigate,
     navigateTo: navigate,
-    openFolder: navigate
+    openFolder: navigate,
+    goRoot: () => navigate(0)
   }
 }

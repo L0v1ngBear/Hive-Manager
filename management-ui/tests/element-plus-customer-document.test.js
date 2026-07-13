@@ -163,4 +163,7 @@ test("document navigation keeps breadcrumb permission commands visible and disab
   assert.match(document, /:disabled="!canBrowseDocuments"/);
   assert.match(document, /breadcrumbPermissionReason/);
   assert.match(document, /documentNavigator\.openFolder/);
+  assert.equal((document.match(/:disabled="!canBrowseDocuments"/g) || []).length, 3);
+  assert.equal((document.match(/:title="canBrowseDocuments \?/g) || []).length, 4);
+  assert.match(document, /documentNavigator\.goRoot\(\)/);
 });
