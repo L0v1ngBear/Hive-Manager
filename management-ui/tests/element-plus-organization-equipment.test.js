@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { buildEquipmentExport } from "../src/views/function/equipment/equipmentExport.js";
 import { createLatestRequestGate, planEquipmentDrawerOpen, resolveEquipmentAccess, resolveInspectionEquipmentId } from "../src/views/function/equipment/equipmentAccess.js";
+import { createOverviewRequestGate } from "../src/views/function/organization/overviewRequestGate.js";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
@@ -253,4 +254,46 @@ test("equipment exposes independent detail and inspection commands and protected
   assert.doesNotMatch(openInspection, /getEquipmentDetail|openDetail/);
   assert.match(source, /<el-descriptions v-if="canViewDetail && detail"/);
   assert.match(source, /<section v-if="canViewInspection" class="mt-8">/);
+});
+
+test("organization overview commits success failure finally and auto-select only for latest deferred request", async () => {
+  const gate = createOverviewRequestGate();
+  const state = { data: null, failure: null, loading: false, selected: [] };
+  let resolveOld;
+  let rejectOlder;
+  const oldSuccess = new Promise((resolve) => { resolveOld = resolve; });
+  const olderFailure = new Promise((resolve, reject) => { rejectOlder = reject; });
+  const run = async (promise) => {
+    const requestId = gate.begin();
+    state.loading = true;
+    try {
+      const data = await promise;
+      if (!gate.isLatest(requestId)) return;
+      state.data = data;
+      state.selected.push(data.id);
+    } catch (error) {
+      if (!gate.isLatest(requestId)) return;
+      state.failure = error.message;
+    } finally {
+      if (gate.isLatest(requestId)) state.loading = false;
+    }
+  };
+  const oldRun = run(oldSuccess);
+  const olderFailureRun = run(olderFailure);
+  const latestRun = run(Promise.resolve({ id: "new" }));
+  await latestRun;
+  resolveOld({ id: "old" });
+  rejectOlder(new Error("old failure"));
+  await Promise.all([oldRun, olderFailureRun]);
+  assert.deepEqual(state, { data: { id: "new" }, failure: null, loading: false, selected: ["new"] });
+});
+
+test("organization overview guards every state commit and auto-select with its request gate", () => {
+  const source = read("../src/views/function/organization/organization.vue");
+  const fetchOverview = between(source, "async function fetchOverview()", "async function selectDepartment(node)");
+  assert.match(source, /const overviewRequestGate = createOverviewRequestGate\(\)/);
+  assert.match(fetchOverview, /const requestId = overviewRequestGate\.begin\(\)/);
+  assert.match(fetchOverview, /if \(!overviewRequestGate\.isLatest\(requestId\)\) return[\s\S]*departments\.value/);
+  assert.match(fetchOverview, /catch \(error\)[\s\S]*if \(!overviewRequestGate\.isLatest\(requestId\)\) return[\s\S]*overviewFailure\.value/);
+  assert.match(fetchOverview, /finally[\s\S]*overviewRequestGate\.isLatest\(requestId\)[\s\S]*loading\.value = false/);
 });
