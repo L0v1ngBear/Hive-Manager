@@ -147,3 +147,25 @@ test("organization and equipment mutation commands stay visible but disabled wit
   assert.match(equipment, /hasPermission\('equipment:save'\)/);
   assert.match(equipment, /暂无 equipment:save 权限/);
 });
+
+test("organization and equipment module records describe the migrated behavior consistently", () => {
+  const organization = read("../../docs/management-ui/modules/organization.md");
+  const equipment = read("../../docs/management-ui/modules/equipment.md");
+
+  for (const staleStatement of [
+    "overview 和成员请求没有本地 `catch`",
+    "选择新部门前不会先清空旧 `members`",
+    "已确认的成员请求竞态",
+    "变更按钮无前端权限门",
+  ]) {
+    assert.doesNotMatch(organization, new RegExp(staleStatement));
+  }
+  for (const staleStatement of [
+    "从 `ElTable` 的真实 DOM 根节点读取",
+    "页面缺少 `equipment:save` 的命令级禁用状态",
+    "当前导出绑定真实 DOM 表格",
+    "页面没有独立错误占位或重试面板",
+  ]) {
+    assert.doesNotMatch(equipment, new RegExp(staleStatement));
+  }
+});
