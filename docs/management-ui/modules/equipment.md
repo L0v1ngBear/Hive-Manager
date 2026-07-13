@@ -15,6 +15,8 @@
 - 新建、编辑、停用、保存按 `equipment:save` 保持可见但禁用，并用 tooltip 说明原因。
 - 设备名和详情命令按 `equipment:detail` 保持可见但禁用并说明原因，handler 同步拦截；巡检记录内容仅对 `equipment:inspection:list` 可见，刷新命令无权限时置灰并不发请求。
 - 行内另有独立“巡检记录”命令；只有 `equipment:inspection:list` 时可直接打开同一抽屉并仅请求巡检 API（不请求详情）。详情块与巡检块分别按 `equipment:detail`、`equipment:inspection:list` 渲染。
+- 列表请求严格要求 `equipment:list`；缺失时不调用 `/equipment/page`，显示明确授权态且不渲染列表内容。并发筛选/分页使用 last-request-wins，旧响应与旧 finally 不覆盖新状态。
+- 保留风险：路由虽允许 detail/inspection-only 进入，但当前路由、query 与 API 没有合法设备 ID 上下文，且唯一 ID 来源为需 `equipment:list` 的分页接口；迁移不绕过列表权限、不发明路由参数，也不扩大后端权限。只有在已有合法列表行上下文时，独立详情/巡检命令才可使用。
 
 ## 用户功能
 

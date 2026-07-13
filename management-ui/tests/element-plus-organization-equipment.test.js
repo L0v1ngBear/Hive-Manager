@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { buildEquipmentExport } from "../src/views/function/equipment/equipmentExport.js";
-import { planEquipmentDrawerOpen, resolveEquipmentAccess } from "../src/views/function/equipment/equipmentAccess.js";
+import { createLatestRequestGate, planEquipmentDrawerOpen, resolveEquipmentAccess, resolveInspectionEquipmentId } from "../src/views/function/equipment/equipmentAccess.js";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
@@ -173,10 +173,44 @@ test("organization and equipment module records describe the migrated behavior c
 
 test("equipment detail and inspection permissions remain independent", () => {
   const access = (permissions) => resolveEquipmentAccess((code) => permissions.includes(code));
-  assert.deepEqual(access([]), { canViewDetail: false, canViewInspection: false });
-  assert.deepEqual(access(["equipment:detail"]), { canViewDetail: true, canViewInspection: false });
-  assert.deepEqual(access(["equipment:inspection:list"]), { canViewDetail: false, canViewInspection: true });
-  assert.deepEqual(access(["equipment:detail", "equipment:inspection:list"]), { canViewDetail: true, canViewInspection: true });
+  assert.deepEqual(access([]), { canViewList: false, canViewDetail: false, canViewInspection: false });
+  assert.deepEqual(access(["equipment:detail"]), { canViewList: false, canViewDetail: true, canViewInspection: false });
+  assert.deepEqual(access(["equipment:inspection:list"]), { canViewList: false, canViewDetail: false, canViewInspection: true });
+  assert.deepEqual(access(["equipment:list", "equipment:detail", "equipment:inspection:list"]), { canViewList: true, canViewDetail: true, canViewInspection: true });
+});
+
+test("equipment list permission blocks the page API with an authorization state", () => {
+  const source = read("../src/views/function/equipment/equipment.vue");
+  const fetchDevices = between(source, "async function fetchDevices()", "function handleSearch()");
+  assert.match(fetchDevices, /if \(!canViewList\.value\)[\s\S]*listFailure\.value = [\s\S]*kind: 'forbidden'[\s\S]*return/);
+  assert.ok(fetchDevices.indexOf("return") < fetchDevices.indexOf("getEquipmentPage(queryParams.value)"));
+});
+
+test("equipment list applies only the latest deferred response", async () => {
+  const gate = createLatestRequestGate();
+  const applied = [];
+  let resolveSlow;
+  let resolveFast;
+  const slow = new Promise((resolve) => { resolveSlow = resolve; });
+  const fast = new Promise((resolve) => { resolveFast = resolve; });
+  const run = async (promise) => {
+    const requestId = gate.begin();
+    const value = await promise;
+    if (gate.isLatest(requestId)) applied.push(value);
+  };
+  const slowRun = run(slow);
+  const fastRun = run(fast);
+  resolveFast("新筛选");
+  await fastRun;
+  resolveSlow("旧筛选");
+  await slowRun;
+  assert.deepEqual(applied, ["新筛选"]);
+});
+
+test("inspection-only retry uses the stable selected device without detail data", () => {
+  assert.equal(resolveInspectionEquipmentId({ id: 42 }, null), 42);
+  const source = read("../src/views/function/equipment/equipment.vue");
+  assert.match(source, /function retryRecords\(\)[\s\S]*resolveInspectionEquipmentId\(selectedDevice, detail\.value\)[\s\S]*fetchRecords\(equipmentId\)/);
 });
 
 test("equipment guards detail requests and hides inspection content without permission", () => {
