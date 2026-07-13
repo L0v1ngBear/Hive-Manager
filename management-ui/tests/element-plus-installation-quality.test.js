@@ -163,6 +163,19 @@ test('installation commands use their real permission combinations', async () =>
   assert.match(attachmentUpload, /:disabled="removeDisabled"/)
 })
 
+test('attachment upload has an independent disabled state without faking upload progress', () => {
+  assert.match(attachmentUpload, /disabled:\s*\{\s*type: Boolean,\s*default: false\s*\}/)
+  assert.match(attachmentUpload, /:aria-disabled="disabled \|\| uploading"/)
+  assert.match(attachmentUpload, /:class="\{[^}]*'is-disabled': disabled[^}]*'is-uploading': uploading[^}]*\}"/)
+  assert.match(attachmentUpload, /if \(props\.disabled \|\| props\.uploading\) return/)
+  assert.match(attachmentUpload, /:disabled="disabled \|\| uploading"/)
+  assert.match(attachmentUpload, /:title="disabled \? disabledReason/)
+
+  assert.match(installationTask, /:disabled="!canAttach"/)
+  assert.match(installationTask, /:uploading="attachmentUploading"/)
+  assert.doesNotMatch(installationTask, /:uploading="attachmentUploading \|\| !canAttach"/)
+})
+
 test('both lists commit asynchronous results only through latest request ownership', () => {
   for (const source of [installationTask, quality]) {
     assert.match(source, /createLatestRequest/)

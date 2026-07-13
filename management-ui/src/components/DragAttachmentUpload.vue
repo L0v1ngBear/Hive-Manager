@@ -1,9 +1,11 @@
 <template>
   <div
     class="drag-attachment-upload"
-    :class="{ 'is-dragging': dragging, 'is-uploading': uploading }"
+    :class="{ 'is-disabled': disabled, 'is-dragging': dragging, 'is-uploading': uploading }"
     role="button"
-    tabindex="0"
+    :tabindex="disabled || uploading ? -1 : 0"
+    :aria-disabled="disabled || uploading"
+    :title="disabled ? disabledReason : undefined"
     @click="openPicker"
     @keydown.enter.prevent="openPicker"
     @keydown.space.prevent="openPicker"
@@ -17,7 +19,7 @@
       class="hidden"
       type="file"
       :accept="accept"
-      :disabled="uploading"
+      :disabled="disabled || uploading"
       @change="onFileChange"
     >
 
@@ -71,6 +73,10 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  disabled: {
+    type: Boolean,
+    default: false
+  },
   fileName: {
     type: String,
     default: ''
@@ -110,24 +116,24 @@ const formattedSize = computed(() => {
 })
 
 function openPicker() {
-  if (props.uploading) return
+  if (props.disabled || props.uploading) return
   inputRef.value?.click()
 }
 
 function onFileChange(event) {
   const file = event.target.files?.[0]
-  emitFile(file)
+  if (!props.disabled && !props.uploading) emitFile(file)
   event.target.value = ''
 }
 
 function onDragEnter() {
-  if (!props.uploading) {
+  if (!props.disabled && !props.uploading) {
     dragging.value = true
   }
 }
 
 function onDragOver() {
-  if (!props.uploading) {
+  if (!props.disabled && !props.uploading) {
     dragging.value = true
   }
 }
@@ -141,7 +147,7 @@ function onDragLeave(event) {
 
 function onDrop(event) {
   dragging.value = false
-  if (props.uploading) return
+  if (props.disabled || props.uploading) return
   emitFile(event.dataTransfer?.files?.[0])
 }
 
@@ -172,6 +178,20 @@ function emitFile(file) {
 .drag-attachment-upload.is-uploading {
   cursor: wait;
   opacity: 0.78;
+}
+
+.drag-attachment-upload.is-disabled {
+  cursor: not-allowed;
+  border-color: rgba(107, 122, 144, 0.28);
+  background: rgba(245, 247, 250, 0.9);
+  opacity: 0.7;
+}
+
+.drag-attachment-upload.is-disabled:hover {
+  border-color: rgba(107, 122, 144, 0.28);
+  background: rgba(245, 247, 250, 0.9);
+  box-shadow: none;
+  transform: none;
 }
 
 .drag-upload-main {
