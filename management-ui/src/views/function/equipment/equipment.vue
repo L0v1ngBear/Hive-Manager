@@ -140,7 +140,7 @@ import { ElButton, ElDescriptions, ElDescriptionsItem, ElDrawer, ElEmpty, ElForm
 import { exportRowsToExcel } from '@/utils/tableExport'
 import { useUserStore } from '@/stores/user'
 import { buildEquipmentExport } from './equipmentExport.js'
-import { planEquipmentDrawerOpen, resolveEquipmentAccess } from './equipmentAccess.js'
+import { createLatestRequestGate, planEquipmentDrawerOpen, resolveEquipmentAccess, resolveInspectionEquipmentId } from './equipmentAccess.js'
 import { disableEquipment, getEquipmentDetail, getEquipmentInspectionRecords, getEquipmentPage, saveEquipment } from './api/equipment'
 
 const loading = ref(false)
@@ -161,6 +161,7 @@ const recordsLoading = ref(false)
 const userStore = useUserStore()
 const canSave = computed(() => userStore.hasPermission('equipment:save'))
 const equipmentAccess = computed(() => resolveEquipmentAccess((code) => userStore.hasPermission(code)))
+const canViewList = computed(() => equipmentAccess.value.canViewList)
 const canViewDetail = computed(() => equipmentAccess.value.canViewDetail)
 const canViewInspection = computed(() => equipmentAccess.value.canViewInspection)
 const detailLoading = ref(false)
@@ -170,26 +171,35 @@ let detailRequestId = 0
 let recordsRequestId = 0
 let selectedDevice = null
 const drawerMode = ref('detail')
+const listRequestGate = createLatestRequestGate()
 
 const defaultForm = () => ({ equipmentCode: '', equipmentName: '', equipmentType: '', location: '', responsiblePerson: '', inspectionCycleDays: 7, status: 'enabled', remark: '' })
 const form = reactive(defaultForm())
 const queryParams = computed(() => ({ pageNum: pageNum.value, pageSize: pageSize.value, keyword: filters.keyword || undefined, status: filters.status || undefined }))
 
 async function fetchDevices() {
+  const requestId = listRequestGate.begin()
   loading.value = true
   listFailure.value = null
   devices.value = []
   total.value = 0
   totalPages.value = 1
+  if (!canViewList.value) {
+    listFailure.value = { kind: 'forbidden', title: '暂无权限查看设备列表', message: '当前账号缺少 equipment:list 权限，请联系管理员授权。' }
+    loading.value = false
+    return
+  }
   try {
     const page = await getEquipmentPage(queryParams.value)
+    if (!listRequestGate.isLatest(requestId)) return
     devices.value = page?.data || []
     total.value = Number(page?.total || 0)
     totalPages.value = Math.max(1, Number(page?.pages || 1))
   } catch (error) {
+    if (!listRequestGate.isLatest(requestId)) return
     listFailure.value = resolveRequestFailure(error)
   } finally {
-    loading.value = false
+    if (listRequestGate.isLatest(requestId)) loading.value = false
   }
 }
 
@@ -300,7 +310,10 @@ async function fetchRecords(equipmentId = detail.value?.id) {
 }
 
 function retryDetail() { if (selectedDevice) openDetail(selectedDevice) }
-function retryRecords() { if (detail.value?.id) fetchRecords(detail.value.id) }
+function retryRecords() {
+  const equipmentId = resolveInspectionEquipmentId(selectedDevice, detail.value)
+  if (equipmentId) fetchRecords(equipmentId)
+}
 
 function handleDetailClosed() {
   detailRequestId += 1
