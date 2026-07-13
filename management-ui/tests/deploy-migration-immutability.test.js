@@ -110,4 +110,14 @@ assert.ok(
   'deploy health check must guard the order information-channel migration'
 )
 
+const releaseIntegrity = read('scripts/verify-release-integrity.sh')
+for (const [migrationName, checksum] of [
+  ['V20260705_004_installation_task_schema.sql', '9ab18545b9f6ef0142a943d54a27ac726a813c3361f4a81f4763f6222d98cd2d'],
+  ['V20260707_001_installation_task_schema_convergence.sql', 'd9fc573187377b1f37d7aa5af23bdfbdf864b36563438a9482ef76a6fa7e32e6'],
+  ['V20260710_004_order_role_status_scope.sql', '90e52c9d3735ddfecf84bafd0b7c64022d3211c0deec7962bbfe386f50c24b0e']
+]) {
+  assert.ok(releaseIntegrity.includes(migrationName), `${migrationName} must be integrity-pinned`)
+  assert.ok(releaseIntegrity.includes(checksum), `${migrationName} must retain its known SHA-256`)
+}
+
 console.log('deploy migration immutability passed')
