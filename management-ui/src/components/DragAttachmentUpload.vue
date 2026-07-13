@@ -37,10 +37,10 @@
     </div>
 
     <div v-if="fileUrl" class="drag-upload-actions" @click.stop>
-      <button v-if="downloadable" type="button" class="drag-upload-action text-primary" @click="$emit('download')">
+      <button v-if="downloadable" type="button" class="drag-upload-action text-primary" :disabled="downloadDisabled" :title="downloadDisabled ? disabledReason : '查看附件'" @click="$emit('download')">
         查看附件
       </button>
-      <button type="button" class="drag-upload-action text-rose-600" @click="$emit('remove')">
+      <button type="button" class="drag-upload-action text-rose-600" :disabled="removeDisabled" :title="removeDisabled ? disabledReason : '移除附件'" @click="$emit('remove')">
         移除
       </button>
     </div>
@@ -86,7 +86,10 @@ const props = defineProps({
   downloadable: {
     type: Boolean,
     default: true
-  }
+  },
+  downloadDisabled: { type: Boolean, default: false },
+  removeDisabled: { type: Boolean, default: false },
+  disabledReason: { type: String, default: '当前账号暂无权限' }
 })
 
 const emit = defineEmits(['select', 'download', 'remove'])

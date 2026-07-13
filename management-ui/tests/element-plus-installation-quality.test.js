@@ -10,6 +10,7 @@ const quality = readFileSync(
   new URL('../src/views/function/badProduct/badProduct.vue', import.meta.url),
   'utf8'
 )
+const attachmentUpload = readFileSync(new URL('../src/components/DragAttachmentUpload.vue', import.meta.url), 'utf8')
 
 const requiredElements = [
   ['el-table', 'ElTable'],
@@ -129,4 +130,43 @@ function assertPersistentRequestStates(source, pageName, retryHandler) {
 test('keeps mutually exclusive persistent request states and retry controls', () => {
   assertPersistentRequestStates(installationTask, 'installation task', 'loadTasks')
   assertPersistentRequestStates(quality, 'quality', 'fetchData')
+})
+
+test('latest request ownership rejects stale success, failure and loading writes', async () => {
+  const { createLatestRequest } = await import('../src/utils/task7LatestRequest.js')
+  const gate = createLatestRequest()
+  const state = { rows: [], error: '', loading: false }
+  const first = gate.begin()
+  const second = gate.begin()
+  assert.equal(first.commit(() => { state.rows = ['旧']; state.error = '旧错误'; state.loading = false }), false)
+  assert.equal(second.commit(() => { state.rows = ['新']; state.loading = false }), true)
+  assert.deepEqual(state, { rows: ['新'], error: '', loading: false })
+})
+
+test('installation commands use their real permission combinations', async () => {
+  const { resolveInstallationAccess } = await import('../src/views/function/installationTask/installationAccess.js')
+  const access = resolveInstallationAccess((code) => ['installation:update', 'installation:attachment:download'].includes(code))
+  assert.deepEqual(access, {
+    canUpdate: true,
+    canUpload: false,
+    canDownload: true,
+    canAttach: false
+  })
+  assert.match(installationTask, /useUserStore/)
+  for (const permission of ['installation:update', 'installation:attachment:upload', 'installation:attachment:download']) {
+    assert.match(installationTask, new RegExp(permission.replace('*', '\\*')))
+  }
+  assert.match(installationTask, /if \(!canUpdate\.value\) return/)
+  assert.match(installationTask, /if \(!canAttach\.value\) return/)
+  assert.match(installationTask, /if \(!canDownload\.value\) return/)
+  assert.match(attachmentUpload, /:disabled="downloadDisabled"/)
+  assert.match(attachmentUpload, /:disabled="removeDisabled"/)
+})
+
+test('both lists commit asynchronous results only through latest request ownership', () => {
+  for (const source of [installationTask, quality]) {
+    assert.match(source, /createLatestRequest/)
+    assert.match(source, /const request = .*\.begin\(\)/)
+    assert.match(source, /request\.commit\(/)
+  }
 })

@@ -432,6 +432,7 @@ import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import DateFilterInput from '@/components/DateFilterInput.vue'
 import BusinessTimeCorrectionPanel from '@/components/BusinessTimeCorrectionPanel.vue'
 import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
+import { createLatestRequest } from '@/utils/task7LatestRequest'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
 import { useUserStore } from '@/stores/user'
@@ -521,6 +522,7 @@ const badProductTableColumnCount = computed(() => badProductTableColumns.value.l
 
 const rows = ref([])
 const requestState = ref('loading')
+const listRequest = createLatestRequest()
 const requestErrorMessage = ref('')
 const loading = computed(() => requestState.value === 'loading')
 const pagination = reactive({ total: 0, pages: 0 })
@@ -582,6 +584,7 @@ function handleScopeChange(scope) {
 }
 
 async function fetchData() {
+  const request = listRequest.begin()
   requestState.value = 'loading'
   requestErrorMessage.value = ''
   rows.value = []
@@ -598,17 +601,21 @@ async function fetchData() {
       startDate: query.startDate || undefined,
       endDate: query.endDate || undefined
     })
-    rows.value = data.data || []
-    pagination.total = Number(data.total || 0)
-    pagination.pages = Number(data.pages || 0)
-    requestState.value = 'ready'
+    request.commit(() => {
+      rows.value = data.data || []
+      pagination.total = Number(data.total || 0)
+      pagination.pages = Number(data.pages || 0)
+      requestState.value = 'ready'
+    })
   } catch (error) {
     const failure = resolveRequestFailure(error)
-    rows.value = []
-    pagination.total = 0
-    pagination.pages = 0
-    requestState.value = failure.state
-    requestErrorMessage.value = failure.message
+    request.commit(() => {
+      rows.value = []
+      pagination.total = 0
+      pagination.pages = 0
+      requestState.value = failure.state
+      requestErrorMessage.value = failure.message
+    })
   }
 }
 

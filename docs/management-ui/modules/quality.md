@@ -6,7 +6,7 @@
 - API：`management-ui/src/views/function/badProduct/api/badProduct.js`
 - 共享依赖：`BusinessTimeCorrectionPanel.vue`、`DragAttachmentUpload.vue`、`TableColumnSettings.vue`。
 - 路由：`/function/bad-product`，路由名 `BadProduct`，功能开关 `module.badProduct`。
-- 迁移批次：Batch 2；状态为 `Audit baseline`。
+- 迁移批次：Batch 2；状态为 `Element Plus migrated`。
 
 ## 用户功能
 
@@ -48,12 +48,12 @@
 
 - 列表有加载标志和空列表提示；详情/表单/处理层分别维护可见状态。
 - 附件上传组件有上传中、文件名/地址/大小和移除状态；单文件前端上限 10MB，接口失败由消息提示。
-- 页面没有持久错误面板；列表或详情失败时需避免继续显示上一筛选或上一记录数据。
+- 列表互斥显示 loading、真实空态、401/403 和网络/5xx 错误态；请求开始清空旧行，并用最新请求代次阻止过期响应覆盖。
 - 保存和处理属于高影响提交，迁移后需要独立按钮 loading 与失败后表单保留。
 
 ## UI 控件现状
 
-- 原生输入、选择、文本域、表格、分页和手写弹层/抽屉；状态使用自定义徽标。
+- 输入、选择、文本域、表格、分页和抽屉使用显式导入的 Element Plus 组件；状态使用 `ElTag`。
 - 已使用 `ElMessage`；业务时间和拖拽附件为项目自定义组件。
 - 表格动态列与导出依赖现有 DOM/列配置契约。
 
@@ -64,11 +64,11 @@
 - 替换：标准上传外围可用 `ElUpload`，但只有在完全兼容单附件返回值、移除、Blob 下载和预览行为时进行。
 - 保留：`BusinessTimeCorrectionPanel`、`DragAttachmentUpload`、附件元数据结构、动态列/导出、业务状态与权限指令。
 
-## Element Plus Migration
+## Element Plus 迁移结果
 
-- The list now uses explicitly imported `ElTable`, `ElPagination`, `ElTag`, `ElEmpty`, and `v-loading`.
-- Filters, record editing, and process submission use `ElForm`, `ElInput`, and `ElSelect`; details and commands use `ElDrawer`.
-- Type and scope values, loss-bracket payloads, attachment ordering, `BusinessTimeCorrectionPanel`, `DragAttachmentUpload`, and permission directives are retained.
+- 列表使用显式导入的 `ElTable`、`ElPagination`、`ElTag`、`ElEmpty` 和 `v-loading`。
+- 筛选、登记与处理使用 `ElForm`、`ElInput`、`ElSelect`，详情与命令使用 `ElDrawer`、`ElButton`。
+- 类型与范围值、损失档位、附件字段顺序、`BusinessTimeCorrectionPanel`、`DragAttachmentUpload` 和权限指令均保持不变。
 
 ## 风险
 
