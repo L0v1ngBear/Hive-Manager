@@ -91,6 +91,7 @@ test('文档面包屑无权限时所有目录导航均不调用 API', async () =
   assert.equal(await navigator.navigateUp(3), false)
   assert.equal(await navigator.navigateTo(2), false)
   assert.equal(await navigator.openFolder(9), false)
+  assert.equal(await navigator.goRoot(), false)
   assert.deepEqual(calls, [])
 })
 
