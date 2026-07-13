@@ -10,7 +10,7 @@
     </header>
 
     <el-result v-if="requestError" :icon="requestError.icon" :title="requestError.title" :sub-title="requestError.message"><template #extra><el-button type="primary" @click="retry">重试</el-button></template></el-result>
-    <el-alert v-else-if="featureError" :title="featureError.title" :description="featureError.message" type="warning" show-icon :closable="false"><template #default><el-button link type="primary" @click="retryFeatures">重试功能目录</el-button></template></el-alert>
+    <el-alert v-else-if="featureError" :title="featureError.title" :description="featureError.message" type="warning" show-icon :closable="false"><template #default><el-button link type="primary" @click="retryFeatures">重试功能目录</el-button></template></el-alert><div v-else-if="featureLoading">功能目录加载中…</div><el-empty v-else-if="featuresLoaded && !features.length" description="暂无功能目录" />
     <el-table v-else v-loading="loading" :data="tenants" class="tenant-table" row-key="id" empty-text="暂无租户数据">
       <el-table-column label="企业" min-width="190">
         <template #default="{ row }">
@@ -120,12 +120,14 @@ const features = ref([])
 const loading = ref(false)
 const requestError = ref(null)
 const featureError = ref(null)
+const featureLoading = ref(false), featuresLoaded = ref(false)
 const statusPending = reactive(new Set())
 const saving = ref(false)
 const profileSaving = ref(false)
 const ownerSaving = ref(false)
 const logoUploading = ref(false)
 let logoRequestId = 0
+let tenantListRequestId = 0, featureRequestId = 0
 const profileTenant = ref(null)
 const editingTenant = ref(null)
 const ownerTenant = ref(null)
@@ -169,25 +171,37 @@ onMounted(async () => {
 })
 
 async function loadFeatures() {
+  const requestId = ++featureRequestId
+  featureLoading.value = true
   featureError.value = null
   try {
-    features.value = await listTenantFeatures()
+    const result = await listTenantFeatures()
+    if (requestId !== featureRequestId) return
+    features.value = result
+    featuresLoaded.value = true
   } catch (error) {
+    if (requestId !== featureRequestId) return
     features.value = []
     featureError.value = errorState(error, '功能目录加载失败')
+  } finally {
+    if (requestId === featureRequestId) featureLoading.value = false
   }
 }
 
 async function loadTenants() {
+  const requestId = ++tenantListRequestId
   loading.value = true
   requestError.value = null
   try {
-    tenants.value = await listTenants()
+    const result = await listTenants()
+    if (requestId !== tenantListRequestId) return
+    tenants.value = result
   } catch (error) {
+    if (requestId !== tenantListRequestId) return
     tenants.value = []
     requestError.value = errorState(error, '租户列表加载失败')
   } finally {
-    loading.value = false
+    if (requestId === tenantListRequestId) loading.value = false
   }
 }
 
@@ -236,6 +250,7 @@ function closeOwnerEditor() {
 }
 
 async function saveLicense() {
+  if (saving.value) return
   if (!editingTenant.value) {
     return
   }
@@ -260,6 +275,7 @@ async function saveLicense() {
 }
 
 async function saveProfile() {
+  if (profileSaving.value) return
   if (!profileTenant.value) {
     return
   }
@@ -324,7 +340,7 @@ async function uploadLogoFile(file) {
     ElMessage.success('公司Logo已上传')
     await loadTenants()
   } finally {
-    logoUploading.value = false
+    if (requestId === logoRequestId) logoUploading.value = false
   }
 }
 
@@ -357,6 +373,7 @@ async function toggleStatus(tenant) {
 }
 
 async function saveOwnerAccount() {
+  if (ownerSaving.value) return
   if (!ownerTenant.value) {
     return
   }

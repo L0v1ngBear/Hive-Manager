@@ -75,7 +75,8 @@ test("retains dynamic columns and the complete price detail business content", (
   assert.match(price, /TableColumnSettings/);
   assert.match(price, /detail\?\.tierPrices/);
   assert.match(price, /detail\?\.overrides/);
-  assert.match(price, /detail\?\.changeLogs/);
+  assert.match(price, /detail\?\.logs/);
+  for (const field of ['createTime', 'remark', 'oldPrice', 'newPrice']) assert.match(price, new RegExp(field));
 });
 
 test("price commands use real permissions with disabled explanations and guards", () => {
@@ -85,6 +86,7 @@ test("price commands use real permissions with disabled explanations and guards"
   assert.match(price, /ElTooltip/);
   assert.match(price, /canViewDetail/);
   assert.match(price, /canPublish/);
+  assert.match(price, /canAdjust/);
   assert.match(price, /canDelete/);
   assert.match(priceCreate, /canPublish/);
 });
@@ -105,6 +107,7 @@ test("models mutually exclusive request states, retries, request ids, and pendin
   assert.match(price, /detailRequestId/);
   assert.match(priceCreate, /detailRequestId/);
   assert.match(tenant, /logoRequestId/);
+  assert.match(tenant, /requestId === logoRequestId[\s\S]*logoUploading\.value = false/);
   assert.match(tenant, /statusPending/);
   for (const pending of ["deletingId", "importing", "exporting", "downloadingTemplate"]) {
     assert.match(price, new RegExp(pending));
