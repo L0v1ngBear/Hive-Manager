@@ -69,3 +69,44 @@ test("migrates price list and editor controls while retaining date string values
   assert.match(priceCreate, /function formatLocalDate\(date = new Date\(\)\)/);
   assert.doesNotMatch(priceCreate, /toISOString\(\)\.slice\(0, 10\)/);
 });
+
+test("retains dynamic columns and the complete price detail business content", () => {
+  assert.match(price, /useLocalTableColumns/);
+  assert.match(price, /TableColumnSettings/);
+  assert.match(price, /detail\?\.tierPrices/);
+  assert.match(price, /detail\?\.overrides/);
+  assert.match(price, /detail\?\.changeLogs/);
+});
+
+test("price commands use real permissions with disabled explanations and guards", () => {
+  for (const permission of ["price:detail", "price:publish", "price:delete"]) {
+    assert.match(price, new RegExp(permission.replace(":", "\\:")));
+  }
+  assert.match(price, /ElTooltip/);
+  assert.match(price, /canViewDetail/);
+  assert.match(price, /canPublish/);
+  assert.match(price, /canDelete/);
+  assert.match(priceCreate, /canPublish/);
+});
+
+test("preserves zero numeric query and override values", () => {
+  assert.doesNotMatch(price, /priceMin:\s*query\.priceMin\s*\|\|/);
+  assert.doesNotMatch(price, /priceMax:\s*query\.priceMax\s*\|\|/);
+  assert.doesNotMatch(priceCreate, /item\.customerId\s*&&\s*item\.price\)/);
+  assert.match(priceCreate, /presentPriceOverrides\(form\.overrides\)/);
+});
+
+test("models mutually exclusive request states, retries, request ids, and pending commands", () => {
+  for (const source of [price, tenant]) {
+    assert.match(source, /requestError/);
+    assert.match(source, /retry/);
+  }
+  assert.match(tenant, /featureError/);
+  assert.match(price, /detailRequestId/);
+  assert.match(priceCreate, /detailRequestId/);
+  assert.match(tenant, /logoRequestId/);
+  assert.match(tenant, /statusPending/);
+  for (const pending of ["deletingId", "importing", "exporting", "downloadingTemplate"]) {
+    assert.match(price, new RegExp(pending));
+  }
+});

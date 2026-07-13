@@ -9,7 +9,9 @@
       <el-button type="primary" :loading="loading" @click="loadTenants">刷新</el-button>
     </header>
 
-    <el-table v-loading="loading" :data="tenants" class="tenant-table" row-key="id" empty-text="暂无租户数据">
+    <el-result v-if="requestError" :icon="requestError.icon" :title="requestError.title" :sub-title="requestError.message"><template #extra><el-button type="primary" @click="retry">重试</el-button></template></el-result>
+    <el-alert v-else-if="featureError" :title="featureError.title" :description="featureError.message" type="warning" show-icon :closable="false"><template #default><el-button link type="primary" @click="retryFeatures">重试功能目录</el-button></template></el-alert>
+    <el-table v-else v-loading="loading" :data="tenants" class="tenant-table" row-key="id" empty-text="暂无租户数据">
       <el-table-column label="企业" min-width="190">
         <template #default="{ row }">
           <div class="tenant-table__company">
@@ -28,7 +30,7 @@
       </el-table-column>
       <el-table-column label="状态" width="100"><template #default="{ row }"><el-tag :type="Number(row.status) === 1 ? 'success' : 'info'">{{ Number(row.status) === 1 ? '启用中' : '已停用' }}</el-tag></template></el-table-column>
       <el-table-column label="操作" fixed="right" width="260">
-        <template #default="{ row }"><el-button link type="primary" @click="openProfileEditor(row)">企业信息</el-button><el-button link type="primary" @click="openLicenseEditor(row)">授权配置</el-button><el-button link type="primary" @click="openOwnerEditor(row)">负责人账号</el-button><el-button link :type="Number(row.status) === 1 ? 'danger' : 'success'" @click="toggleStatus(row)">{{ Number(row.status) === 1 ? '停用' : '启用' }}</el-button></template>
+        <template #default="{ row }"><el-button link type="primary" @click="openProfileEditor(row)">企业信息</el-button><el-button link type="primary" @click="openLicenseEditor(row)">授权配置</el-button><el-button link type="primary" @click="openOwnerEditor(row)">负责人账号</el-button><el-button link :type="Number(row.status) === 1 ? 'danger' : 'success'" :loading="statusPending.has(row.id)" :disabled="statusPending.size > 0" @click="toggleStatus(row)">{{ Number(row.status) === 1 ? '停用' : '启用' }}</el-button></template>
       </el-table-column>
       <template #empty><el-empty description="暂无租户数据" /></template>
     </el-table>
@@ -90,6 +92,7 @@ import {
   ElMessage,
   ElMessageBox,
   ElOption,
+  ElResult,
   ElSelect,
   ElSwitch,
   ElTable,
@@ -115,10 +118,14 @@ const userStore = useUserStore()
 const tenants = ref([])
 const features = ref([])
 const loading = ref(false)
+const requestError = ref(null)
+const featureError = ref(null)
+const statusPending = reactive(new Set())
 const saving = ref(false)
 const profileSaving = ref(false)
 const ownerSaving = ref(false)
 const logoUploading = ref(false)
+let logoRequestId = 0
 const profileTenant = ref(null)
 const editingTenant = ref(null)
 const ownerTenant = ref(null)
@@ -162,17 +169,23 @@ onMounted(async () => {
 })
 
 async function loadFeatures() {
+  featureError.value = null
   try {
     features.value = await listTenantFeatures()
-  } catch {
+  } catch (error) {
     features.value = []
+    featureError.value = errorState(error, '功能目录加载失败')
   }
 }
 
 async function loadTenants() {
   loading.value = true
+  requestError.value = null
   try {
     tenants.value = await listTenants()
+  } catch (error) {
+    tenants.value = []
+    requestError.value = errorState(error, '租户列表加载失败')
   } finally {
     loading.value = false
   }
@@ -190,6 +203,7 @@ function openLicenseEditor(tenant) {
 }
 
 function openProfileEditor(tenant) {
+  logoRequestId += 1
   profileTenant.value = tenant
   profileForm.tenantName = tenant.tenantName || ''
   profileForm.tenantType = tenant.tenantType ?? 1
@@ -199,6 +213,7 @@ function openProfileEditor(tenant) {
 }
 
 function closeProfileEditor() {
+  logoRequestId += 1
   profileTenant.value = null
 }
 
@@ -273,6 +288,16 @@ async function handleLogoUpload(uploadFile) {
   await uploadLogoFile(uploadFile.raw)
 }
 
+function retry() { return loadTenants() }
+function retryFeatures() { return loadFeatures() }
+function errorState(error, title) {
+  const status = Number(error?.response?.status)
+  if (status === 401) return { icon: 'warning', title: '登录已失效', message: '请重新登录后重试。' }
+  if (status === 403) return { icon: 'warning', title: '无权访问', message: '当前账号不是平台租户账号。' }
+  if (status >= 500) return { icon: 'error', title, message: '服务器处理失败，请稍后重试。' }
+  return { icon: 'error', title, message: '网络异常，请检查连接后重试。' }
+}
+
 async function uploadLogoFile(file) {
   if (!file || !profileTenant.value) {
     return
@@ -285,11 +310,14 @@ async function uploadLogoFile(file) {
     ElMessage.warning('公司Logo不能超过2MB')
     return
   }
+  const targetTenant = profileTenant.value
+  const requestId = ++logoRequestId
   const formData = new FormData()
   formData.append('file', file)
   logoUploading.value = true
   try {
-    const result = await uploadTenantLogo(profileTenant.value.id, formData)
+    const result = await uploadTenantLogo(targetTenant.id, formData)
+    if (requestId !== logoRequestId || profileTenant.value?.id !== targetTenant.id) return
     profileForm.logoUrl = result.logoUrl || ''
     profileTenant.value = { ...profileTenant.value, logoUrl: profileForm.logoUrl }
     syncTenantBrand(result)
@@ -311,15 +339,21 @@ function syncTenantBrand(tenant) {
 }
 
 async function toggleStatus(tenant) {
+  if (statusPending.size > 0) return
   const nextStatus = Number(tenant.status) === 1 ? 0 : 1
   await ElMessageBox.confirm(
     `确认${nextStatus === 1 ? '启用' : '停用'}「${tenant.tenantName || tenant.tenantCode}」？`,
     '确认操作',
     { type: 'warning' }
   )
-  await updateTenantStatus(tenant.id, nextStatus)
-  ElMessage.success(nextStatus === 1 ? '租户已启用' : '租户已停用')
-  await loadTenants()
+  statusPending.add(tenant.id)
+  try {
+    await updateTenantStatus(tenant.id, nextStatus)
+    ElMessage.success(nextStatus === 1 ? '租户已启用' : '租户已停用')
+    await loadTenants()
+  } finally {
+    statusPending.delete(tenant.id)
+  }
 }
 
 async function saveOwnerAccount() {
