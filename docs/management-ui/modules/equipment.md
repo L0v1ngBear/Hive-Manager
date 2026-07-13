@@ -5,7 +5,14 @@
 - 页面：`management-ui/src/views/function/equipment/equipment.vue`
 - API：`management-ui/src/views/function/equipment/api/equipment.js`
 - 路由：`/function/equipment`，路由名 `Equipment`，功能开关 `module.equipment`。
-- 迁移批次：Batch 1；Task 4 已迁移至 Element Plus 控件。
+- 迁移批次：Batch 1；状态为 `Element Plus migrated`。
+
+### 迁移结果（2026-07-13）
+
+- 当前页 Excel 使用显式 headers/rows，不读取 `ElTable` DOM，fixed 操作列克隆不会重复导出行。
+- 打开详情前清空旧详情和巡检；详情、巡检各自互斥呈现 loading、empty、401/403、网络/5xx 失败并可重试。
+- 详情和巡检分别使用 request-id，跨设备慢响应与旧 finally 不覆盖新设备状态。
+- 新建、编辑、停用、保存按 `equipment:save` 保持可见但禁用，并用 tooltip 说明原因。
 
 ## 用户功能
 

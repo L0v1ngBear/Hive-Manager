@@ -10,10 +10,10 @@
           <h1 class="function-page-title">部门管理</h1>
           <p class="function-page-desc">统一维护部门层级、负责人和成员归属。</p>
         </div>
-        <el-button type="primary" @click="openCreate(null)">新增部门</el-button>
+        <el-tooltip :disabled="canUpdate" content="暂无 employee:update 权限" placement="bottom"><span><el-button type="primary" :disabled="!canUpdate" @click="openCreate(null)">新增部门</el-button></span></el-tooltip>
       </header>
 
-      <section class="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <section v-if="!loading && !overviewFailure" class="grid grid-cols-2 gap-4 md:grid-cols-4">
         <article class="stat-card"><p>部门总数</p><strong>{{ stats.departmentCount }}</strong></article>
         <article class="stat-card"><p>启用部门</p><strong>{{ stats.enabledDepartmentCount }}</strong></article>
         <article class="stat-card"><p>员工总数</p><strong>{{ stats.employeeCount }}</strong></article>
@@ -30,19 +30,21 @@
             <el-button @click="fetchOverview">刷新</el-button>
           </header>
           <div class="p-5">
-            <div v-if="departments.length" class="space-y-3">
+            <el-result v-if="overviewFailure" :icon="overviewFailure.kind === 'forbidden' ? 'warning' : 'error'" :title="overviewFailure.title" :sub-title="overviewFailure.message"><template #extra><el-button type="primary" :loading="loading" @click="fetchOverview">重试</el-button></template></el-result>
+            <div v-else-if="departments.length" class="space-y-3">
               <DepartmentNode
                 v-for="node in departments"
                 :key="node.id"
                 :node="node"
                 :active-id="activeDepartment?.id"
+                :can-update="canUpdate"
                 @select="selectDepartment"
                 @create-child="openCreate"
                 @edit="openEdit"
               />
             </div>
             <el-empty v-else-if="!loading" description="还没有部门">
-              <el-button type="primary" @click="openCreate(null)">新增部门</el-button>
+              <el-tooltip :disabled="canUpdate" content="暂无 employee:update 权限"><span><el-button type="primary" :disabled="!canUpdate" @click="openCreate(null)">新增部门</el-button></span></el-tooltip>
             </el-empty>
           </div>
         </section>
@@ -112,8 +114,8 @@
         <div class="flex justify-between gap-3">
           <el-button @click="closeDrawer">取消</el-button>
           <div class="flex gap-3">
-            <el-button v-if="form.id" type="danger" plain @click="handleDelete">删除</el-button>
-            <el-button type="primary" @click="submitDepartment">保存</el-button>
+            <el-tooltip v-if="form.id" :disabled="canDelete" content="暂无 employee:delete 权限"><span><el-button type="danger" plain :disabled="!canDelete" @click="handleDelete">删除</el-button></span></el-tooltip>
+            <el-tooltip :disabled="canUpdate" content="暂无 employee:update 权限"><span><el-button type="primary" :disabled="!canUpdate" @click="submitDepartment">保存</el-button></span></el-tooltip>
           </div>
         </div>
       </template>
@@ -123,7 +125,8 @@
 
 <script setup>
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
-import { ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElResult, ElSelect, ElSwitch, ElTag } from 'element-plus'
+import { ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElResult, ElSelect, ElSwitch, ElTag, ElTooltip } from 'element-plus'
+import { useUserStore } from '@/stores/user'
 import { warnAndFocusField } from '@/utils/formFocus'
 import { deleteDepartment, getDepartmentEmployees, getOrganizationOverview, saveDepartment } from './api/organization.js'
 
@@ -132,7 +135,8 @@ const DepartmentNode = defineComponent({
   props: {
     node: { type: Object, required: true },
     activeId: { type: Number, default: null },
-    level: { type: Number, default: 0 }
+    level: { type: Number, default: 0 },
+    canUpdate: { type: Boolean, default: false }
   },
   emits: ['select', 'create-child', 'edit'],
   setup(props, { emit }) {
@@ -148,14 +152,15 @@ const DepartmentNode = defineComponent({
         ]),
         h('div', { class: 'flex shrink-0 items-center gap-2' }, [
           h(ElTag, { type: Number(props.node.status) === 1 ? 'success' : 'info', size: 'small' }, () => Number(props.node.status) === 1 ? '启用' : '停用'),
-          h(ElButton, { size: 'small', onClick: (event) => { event.stopPropagation(); emit('create-child', props.node) } }, () => '新增下级'),
-          h(ElButton, { size: 'small', type: 'primary', plain: true, onClick: (event) => { event.stopPropagation(); emit('edit', props.node) } }, () => '编辑')
+          h(ElTooltip, { disabled: props.canUpdate, content: '暂无 employee:update 权限' }, () => h('span', [h(ElButton, { size: 'small', disabled: !props.canUpdate, onClick: (event) => { event.stopPropagation(); emit('create-child', props.node) } }, () => '新增下级')])),
+          h(ElTooltip, { disabled: props.canUpdate, content: '暂无 employee:update 权限' }, () => h('span', [h(ElButton, { size: 'small', type: 'primary', plain: true, disabled: !props.canUpdate, onClick: (event) => { event.stopPropagation(); emit('edit', props.node) } }, () => '编辑')]))
         ])
       ]),
       ...(props.node.children || []).map(child => h(DepartmentNode, {
         node: child,
         activeId: props.activeId,
         level: props.level + 1,
+        canUpdate: props.canUpdate,
         onSelect: node => emit('select', node),
         onCreateChild: node => emit('create-child', node),
         onEdit: node => emit('edit', node)
@@ -165,6 +170,10 @@ const DepartmentNode = defineComponent({
 })
 
 const loading = ref(false)
+const userStore = useUserStore()
+const canUpdate = computed(() => userStore.hasPermission('employee:update'))
+const canDelete = computed(() => userStore.hasPermission('employee:delete'))
+const overviewFailure = ref(null)
 const memberLoading = ref(false)
 const memberFailure = ref(null)
 const drawerVisible = ref(false)
@@ -181,6 +190,9 @@ onMounted(fetchOverview)
 
 async function fetchOverview() {
   loading.value = true
+  departments.value = []
+  Object.assign(stats, { departmentCount: 0, employeeCount: 0, enabledDepartmentCount: 0, emptyDepartmentCount: 0 })
+  overviewFailure.value = null
   try {
     const data = await getOrganizationOverview()
     departments.value = Array.isArray(data?.departments) ? data.departments : []
@@ -196,6 +208,8 @@ async function fetchOverview() {
         memberLoading.value = false
       }
     } else if (departments.value.length) await selectDepartment(departments.value[0])
+  } catch (error) {
+    overviewFailure.value = resolveOverviewFailure(error)
   } finally {
     loading.value = false
   }
@@ -227,12 +241,14 @@ function retryMembers() {
 }
 
 function openCreate(parent) {
+  if (!canUpdate.value) return
   Object.assign(form, createEmptyForm())
   form.parentId = parent?.id || ''
   drawerVisible.value = true
 }
 
 function openEdit(node) {
+  if (!canUpdate.value) return
   Object.assign(form, {
     id: node.id,
     parentId: node.parentId || '',
@@ -250,6 +266,7 @@ function closeDrawer() {
 }
 
 async function submitDepartment() {
+  if (!canUpdate.value) return
   const deptName = (form.deptName || '').trim()
   if (!deptName) {
     warnAndFocusField('请输入部门名称', 'organization.deptName')
@@ -268,6 +285,7 @@ async function submitDepartment() {
 }
 
 async function handleDelete() {
+  if (!canDelete.value) return
   if (!form.id) return
   await ElMessageBox.confirm('删除部门前请确认该部门下没有员工和下级部门。', '删除部门', { type: 'warning' })
   await deleteDepartment(form.id)
@@ -346,6 +364,14 @@ function resolveMemberFailure(error) {
     return { kind: 'request', title: '部门成员加载失败', message: '服务暂时不可用，请稍后重试。' }
   }
   return { kind: 'request', title: '部门成员加载失败', message: '网络连接异常，请检查网络后重试。' }
+}
+
+function resolveOverviewFailure(error) {
+  const statusCode = getRequestStatusCode(error)
+  if (statusCode === 401) return { kind: 'unauthorized', title: '登录状态已失效', message: '请重新登录后再重试组织架构。' }
+  if (statusCode === 403) return { kind: 'forbidden', title: '暂无权限查看组织架构', message: '请联系管理员确认员工查看权限。' }
+  if (statusCode >= 500) return { kind: 'request', title: '组织架构加载失败', message: '服务暂时不可用，请稍后重试。' }
+  return { kind: 'request', title: '组织架构加载失败', message: '网络连接异常，请检查网络后重试。' }
 }
 </script>
 

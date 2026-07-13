@@ -20,7 +20,7 @@
           <el-form-item><el-button type="primary" @click="handleSearch">查询</el-button></el-form-item>
           <el-form-item><el-button @click="resetSearch">重置</el-button></el-form-item>
           <el-form-item><el-button @click="exportEquipmentExcel">导出 Excel</el-button></el-form-item>
-          <el-form-item><el-button type="primary" @click="openCreate">新增设备</el-button></el-form-item>
+          <el-form-item><el-tooltip :disabled="canSave" content="暂无 equipment:save 权限"><span><el-button type="primary" :disabled="!canSave" @click="openCreate">新增设备</el-button></span></el-tooltip></el-form-item>
         </el-form>
       </header>
 
@@ -42,7 +42,7 @@
           </template>
         </el-result>
         <template v-else>
-          <el-table ref="equipmentTableRef" v-loading="loading" :data="devices" class="equipment-table" row-key="id">
+          <el-table v-loading="loading" :data="devices" class="equipment-table" row-key="id">
             <el-table-column label="设备" min-width="170">
               <template #default="{ row }">
                 <el-button link type="primary" @click="openDetail(row)">{{ row.equipmentName }}</el-button>
@@ -59,8 +59,8 @@
             <el-table-column label="操作" width="210" fixed="right">
               <template #default="{ row }">
                 <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-                <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-                <el-button v-if="row.status === 'enabled'" link type="danger" @click="handleDisable(row)">停用</el-button>
+                <el-tooltip :disabled="canSave" content="暂无 equipment:save 权限"><span><el-button link type="primary" :disabled="!canSave" @click="openEdit(row)">编辑</el-button></span></el-tooltip>
+                <el-tooltip v-if="row.status === 'enabled'" :disabled="canSave" content="暂无 equipment:save 权限"><span><el-button link type="danger" :disabled="!canSave" @click="handleDisable(row)">停用</el-button></span></el-tooltip>
               </template>
             </el-table-column>
             <template #empty>
@@ -94,11 +94,14 @@
         <el-form-item label="状态"><el-select v-model="form.status" class="w-full"><el-option label="启用中" value="enabled" /><el-option label="已停用" value="disabled" /></el-select></el-form-item>
         <el-form-item label="备注"><el-input v-model.trim="form.remark" type="textarea" :rows="4" placeholder="巡检重点、注意事项等" /></el-form-item>
       </el-form>
-      <template #footer><div class="flex justify-end gap-3"><el-button @click="closeDrawers">取消</el-button><el-button type="primary" :loading="saving" @click="submitForm">保存设备</el-button></div></template>
+      <template #footer><div class="flex justify-end gap-3"><el-button @click="closeDrawers">取消</el-button><el-tooltip :disabled="canSave" content="暂无 equipment:save 权限"><span><el-button type="primary" :disabled="!canSave" :loading="saving" @click="submitForm">保存设备</el-button></span></el-tooltip></div></template>
     </el-drawer>
 
-    <el-drawer v-model="detailVisible" :title="detail?.equipmentName || '设备详情'" size="760px" destroy-on-close @closed="detail = null">
+    <el-drawer v-model="detailVisible" :title="detail?.equipmentName || '设备详情'" size="760px" destroy-on-close @closed="handleDetailClosed">
       <template #header><div><h2 class="text-lg font-bold">{{ detail?.equipmentName || '设备详情' }}</h2><p class="mt-1 text-sm text-on-surface-variant">{{ detail?.equipmentCode }}</p></div></template>
+      <div v-loading="detailLoading" class="min-h-48">
+      <el-result v-if="detailFailure" :icon="detailFailure.kind === 'forbidden' ? 'warning' : 'error'" :title="detailFailure.title" :sub-title="detailFailure.message"><template #extra><el-button type="primary" :loading="detailLoading" @click="retryDetail">重试</el-button></template></el-result>
+      <template v-else-if="detail">
       <section class="detail-callout"><h3>固定巡检二维码</h3><p>打印一次后贴在设备上，员工扫码即可填写巡检记录。</p></section>
       <el-descriptions :column="2" border class="mt-6">
         <el-descriptions-item label="设备类型">{{ detail?.equipmentType || '--' }}</el-descriptions-item>
@@ -109,7 +112,8 @@
       <section class="mt-8">
         <div class="mb-4 flex items-center justify-between"><h3 class="text-lg font-bold">巡检记录</h3><el-button @click="fetchRecords">刷新</el-button></div>
         <div v-loading="recordsLoading" class="min-h-32">
-          <div v-if="records.length" class="space-y-3">
+          <el-result v-if="recordsFailure" :icon="recordsFailure.kind === 'forbidden' ? 'warning' : 'error'" :title="recordsFailure.title" :sub-title="recordsFailure.message"><template #extra><el-button type="primary" :loading="recordsLoading" @click="retryRecords">重试</el-button></template></el-result>
+          <div v-else-if="records.length" class="space-y-3">
             <article v-for="record in records" :key="record.id" class="record-card">
               <div class="flex items-center justify-between gap-3"><el-tag :type="record.inspectionResult === 'normal' ? 'success' : 'danger'">{{ record.inspectionResult === 'normal' ? '正常' : '异常' }}</el-tag><span class="text-xs text-on-surface-variant">{{ formatDateTime(record.inspectionTime) }}</span></div>
               <p v-if="record.abnormalDesc" class="mt-3 text-sm text-rose-700">{{ record.abnormalDesc }}</p>
@@ -120,6 +124,9 @@
           <el-empty v-else-if="!recordsLoading" description="暂无巡检记录" />
         </div>
       </section>
+      </template>
+      <el-empty v-else-if="!detailLoading" description="暂无设备详情" />
+      </div>
     </el-drawer>
   </div>
 </template>
@@ -127,7 +134,9 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { ElButton, ElDescriptions, ElDescriptionsItem, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElPagination, ElResult, ElSelect, ElTable, ElTableColumn, ElTag, ElTooltip } from 'element-plus'
-import { exportTableElementToExcel } from '@/utils/tableExport'
+import { exportRowsToExcel } from '@/utils/tableExport'
+import { useUserStore } from '@/stores/user'
+import { buildEquipmentExport } from './equipmentExport.js'
 import { disableEquipment, getEquipmentDetail, getEquipmentInspectionRecords, getEquipmentPage, saveEquipment } from './api/equipment'
 
 const loading = ref(false)
@@ -145,7 +154,14 @@ const editingId = ref(null)
 const detail = ref(null)
 const records = ref([])
 const recordsLoading = ref(false)
-const equipmentTableRef = ref(null)
+const userStore = useUserStore()
+const canSave = computed(() => userStore.hasPermission('equipment:save'))
+const detailLoading = ref(false)
+const detailFailure = ref(null)
+const recordsFailure = ref(null)
+let detailRequestId = 0
+let recordsRequestId = 0
+let selectedDevice = null
 
 const defaultForm = () => ({ equipmentCode: '', equipmentName: '', equipmentType: '', location: '', responsiblePerson: '', inspectionCycleDays: 7, status: 'enabled', remark: '' })
 const form = reactive(defaultForm())
@@ -174,7 +190,8 @@ function resetSearch() { filters.keyword = ''; filters.status = ''; pageNum.valu
 
 async function exportEquipmentExcel() {
   try {
-    await exportTableElementToExcel(equipmentTableRef.value?.$el, { fileName: '设备巡检记录', sheetName: '设备巡检记录' })
+    const { headers, rows } = buildEquipmentExport(devices.value)
+    await exportRowsToExcel({ headers, rows, fileName: '设备巡检记录', sheetName: '设备巡检记录', sourceModule: 'equipment' })
     ElMessage.success('Excel 已导出')
   } catch (error) {
     ElMessage.warning(error?.message || '导出失败，请稍后重试')
@@ -183,10 +200,11 @@ async function exportEquipmentExcel() {
 
 function changePage(nextPage) { pageNum.value = Math.min(Math.max(1, nextPage), totalPages.value); fetchDevices() }
 function resetForm(data = {}) { Object.assign(form, defaultForm(), data) }
-function openCreate() { editingId.value = null; resetForm(); editorVisible.value = true }
-function openEdit(device) { editingId.value = device.id; resetForm(device); editorVisible.value = true }
+function openCreate() { if (!canSave.value) return; editingId.value = null; resetForm(); editorVisible.value = true }
+function openEdit(device) { if (!canSave.value) return; editingId.value = device.id; resetForm(device); editorVisible.value = true }
 
 async function submitForm() {
+  if (!canSave.value) return
   if (!form.equipmentName?.trim()) {
     ElMessage.warning('请填写设备名称')
     return
@@ -203,6 +221,7 @@ async function submitForm() {
 }
 
 async function handleDisable(device) {
+  if (!canSave.value) return
   await ElMessageBox.confirm(`确认停用设备“${device.equipmentName}”？停用后现场人员无法继续扫码巡检。`, '停用设备', { confirmButtonText: '确认停用', cancelButtonText: '取消', type: 'warning' })
   await disableEquipment(device.id)
   ElMessage.success('设备已停用')
@@ -210,26 +229,65 @@ async function handleDisable(device) {
 }
 
 async function openDetail(device) {
+  selectedDevice = device
   detailVisible.value = true
-  detail.value = await getEquipmentDetail(device.id)
-  await fetchRecords()
+  detail.value = null
+  records.value = []
+  detailFailure.value = null
+  recordsFailure.value = null
+  recordsRequestId += 1
+  const requestId = ++detailRequestId
+  detailLoading.value = true
+  try {
+    const nextDetail = await getEquipmentDetail(device.id)
+    if (requestId !== detailRequestId) return
+    detail.value = nextDetail || null
+    if (detail.value) await fetchRecords(device.id)
+  } catch (error) {
+    if (requestId !== detailRequestId) return
+    detailFailure.value = resolveRequestFailure(error, '设备详情')
+  } finally {
+    if (requestId === detailRequestId) detailLoading.value = false
+  }
 }
 
-async function fetchRecords() {
-  if (!detail.value?.id) {
+async function fetchRecords(equipmentId = detail.value?.id) {
+  if (!equipmentId) {
     records.value = []
     return
   }
+  const requestId = ++recordsRequestId
+  records.value = []
+  recordsFailure.value = null
   recordsLoading.value = true
   try {
-    const page = await getEquipmentInspectionRecords({ equipmentId: detail.value.id, pageNum: 1, pageSize: 20 })
+    const page = await getEquipmentInspectionRecords({ equipmentId, pageNum: 1, pageSize: 20 })
+    if (requestId !== recordsRequestId) return
     records.value = page?.data || []
+  } catch (error) {
+    if (requestId !== recordsRequestId) return
+    recordsFailure.value = resolveRequestFailure(error, '巡检记录')
   } finally {
-    recordsLoading.value = false
+    if (requestId === recordsRequestId) recordsLoading.value = false
   }
 }
 
-function closeDrawers() { editorVisible.value = false; detailVisible.value = false }
+function retryDetail() { if (selectedDevice) openDetail(selectedDevice) }
+function retryRecords() { if (detail.value?.id) fetchRecords(detail.value.id) }
+
+function handleDetailClosed() {
+  detailRequestId += 1
+  recordsRequestId += 1
+  selectedDevice = null
+  detail.value = null
+  records.value = []
+  detailFailure.value = null
+  recordsFailure.value = null
+  detailLoading.value = false
+  recordsLoading.value = false
+}
+
+function closeDrawers() { editorVisible.value = false; detailVisible.value = false; detailRequestId += 1; recordsRequestId += 1 }
 function formatDateTime(value) { return value ? String(value).replace('T', ' ').slice(0, 16) : '--' }
 
 function getRequestStatusCode(error) {
@@ -241,18 +299,18 @@ function getRequestStatusCode(error) {
   return Number.isFinite(statusCode) ? statusCode : 0
 }
 
-function resolveRequestFailure(error) {
+function resolveRequestFailure(error, subject = '设备列表') {
   const statusCode = getRequestStatusCode(error)
   if (statusCode === 401) {
-    return { kind: 'unauthorized', title: '登录状态已失效', message: '请重新登录后再重试设备列表。' }
+    return { kind: 'unauthorized', title: '登录状态已失效', message: `请重新登录后再重试${subject}。` }
   }
   if (statusCode === 403) {
-    return { kind: 'forbidden', title: '暂无权限查看设备列表', message: '请联系管理员确认设备列表权限。' }
+    return { kind: 'forbidden', title: subject === '设备列表' ? '暂无权限查看设备列表' : `暂无权限查看${subject}`, message: `请联系管理员确认${subject}权限。` }
   }
   if (statusCode >= 500) {
-    return { kind: 'request', title: '设备列表加载失败', message: '服务暂时不可用，请稍后重试。' }
+    return { kind: 'request', title: subject === '设备列表' ? '设备列表加载失败' : `${subject}加载失败`, message: '服务暂时不可用，请稍后重试。' }
   }
-  return { kind: 'request', title: '设备列表加载失败', message: '网络连接异常，请检查网络后重试。' }
+  return { kind: 'request', title: subject === '设备列表' ? '设备列表加载失败' : `${subject}加载失败`, message: '网络连接异常，请检查网络后重试。' }
 }
 
 fetchDevices()

@@ -8,7 +8,14 @@
 - 服务：`management/src/main/java/my/management/module/organization/service/OrganizationService.java`。
 - 路由：`/function/organization`；入口权限 `employee:list`；feature 为 `module.employee`。
 - 迁移批次：Batch 1；组织层级展示属于保留的自定义可视面。
-- 当前状态：Task 4 已迁移至 Element Plus 控件。
+- 当前状态：Element Plus migrated with protected custom surface。
+
+### 迁移结果（2026-07-13）
+
+- 保留递归部门树；抽屉、表单、命令、加载/空错态使用显式导入的 Element Plus 组件。
+- overview 请求前清空旧树和统计，互斥呈现 loading、真实空态、401/403、网络/5xx 失败；失败可重试。
+- 成员请求切换前清旧数据并使用 request-id，忽略过期响应与过期 finally。
+- 新增、下级新增、编辑、保存按 `employee:update` 保持可见但禁用并说明原因；删除按 `employee:delete` 同样处理。
 
 ## 功能
 
