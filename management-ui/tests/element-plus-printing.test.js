@@ -15,6 +15,7 @@ function assertComponents(source, components, page) {
 
 test('receipt migrates only peripheral controls and preserves native print output', () => {
   assertComponents(receipt, ['ElTabs', 'ElTabPane', 'ElForm', 'ElFormItem', 'ElInput', 'ElInputNumber', 'ElCheckbox', 'ElSelect', 'ElOption', 'ElButton', 'ElEmpty', 'ElResult', 'ElTooltip'], 'receipt')
+  assert.doesNotMatch(receipt, /<input\b/, 'receipt peripheral editors must use Element Plus inputs')
   assert.match(receipt, /<table class="receipt-print-table">/)
   assert.match(receipt, /id="print-paper-area" class="paper-stack"/)
   assert.match(receipt, /printWindow\.document\.write\(buildPrintHtml\(printable\.innerHTML\)\)/)
