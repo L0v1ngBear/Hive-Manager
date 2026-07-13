@@ -17,6 +17,7 @@
 - Preserve order visibility by status and role: sales and production staff only see their authorized scopes.
 - `drawing_budget` permits only `budgeting -> budget_completed`; `budget_completed` is terminal.
 - Save edits with the current status before calling the next-stage endpoint; never prewrite the target status.
+- `pending_ship -> shipped` requires order approval; save logistics first, retain `pending_ship`, and change to `shipped` only after all auditors approve.
 - Cancellation requires `cancelReason`, trimmed nonblank, maximum 500 characters.
 - Explicit `auditorIds` override configured defaults; all selected auditors must approve and any rejection closes the approval.
 - The QR payload is exactly `HIVE_ORDER_FLOW:<sales|production>:<base64url-hmac-sha256>:<orderId>`.
@@ -171,7 +172,7 @@ Use a text input bound to `orderForm.informationChannel`, display the same field
 
 - [ ] **Step 4: Implement edit-before-advance**
 
-Set an explicit advance intent, load detail, open the existing modal, save with `status: currentStatus`, then call next. For target `shipped`, require `expressCompany` and `expressNo`. On partial failure show `订单已保存，流转未完成，请重试` and reload without changing status locally.
+Set an explicit advance intent, load detail, open the existing modal, save with `status: currentStatus`, then call next. For target `shipped`, require `expressCompany` and `expressNo`; treat a successful next call as an approval submission, show `已提交发货审批，审批通过后进入已发货`, and retain `pending_ship` locally. On partial failure show `订单已保存，流转未完成，请重试` and reload without changing status locally.
 
 - [ ] **Step 5: Verify and commit**
 
@@ -209,7 +210,7 @@ Expected: both fail against the old client.
 
 - [ ] **Step 3: Implement information-channel and edit mode**
 
-Load detail when `id` exists, bind `formData.informationChannel`, update the current order first, and invoke flow advance only when `advance=1` and update succeeds. Preserve horizontal click-only filters and the `budget_completed` terminal filter.
+Load detail when `id` exists, bind `formData.informationChannel`, update the current order first, and invoke flow advance only when `advance=1` and update succeeds. For `pending_ship`, require logistics, show `已提交发货审批，审批通过后进入已发货`, and keep the status unchanged until approval. Preserve horizontal click-only filters and the `budget_completed` terminal filter.
 
 - [ ] **Step 4: Verify and commit**
 
@@ -233,7 +234,7 @@ Commit: `feat: align mini order editing and information channel`
 
 - [ ] **Step 1: Write failing tests**
 
-Cover blank/whitespace/over-500 cancellation reasons, explicit auditors overriding defaults, cross-tenant/disabled/unauthorized auditors, all-approve/any-reject behavior, and assigned-auditor detail access.
+Cover blank/whitespace/over-500 cancellation reasons, explicit auditors overriding defaults, cross-tenant/disabled/unauthorized auditors, all-approve/any-reject behavior, assigned-auditor detail access, and `pending_ship -> shipped` remaining pending until all selected auditors approve.
 
 - [ ] **Step 2: Implement server validation and persistence**
 
