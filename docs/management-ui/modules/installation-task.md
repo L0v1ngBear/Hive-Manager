@@ -1,0 +1,106 @@
+# 安装任务维护档案
+
+> 当前状态：Audit baseline；Element Plus 改造归 Batch 2。
+
+## 源码 / 路由 / 改造批次
+
+- 页面：management-ui/src/views/function/installationTask/installationTask.vue。
+- 前端 API：management-ui/src/views/function/installationTask/api/installationTask.js。
+- 附件组件：management-ui/src/components/DragAttachmentUpload.vue。
+- 路由：/function/installation-task，名称 InstallationTask，标题“安装任务”。
+- 路由门槛：permissions = [order:list]，features = [module.order]。
+- 后端入口：InstallationTaskController。
+- 后端类级 feature：CODE_ORDER。
+- 改造批次：Batch 2（运营管理模块）。
+- 改造边界：不改状态枚举、物流/验收校验、附件契约和请求字段。
+
+## 用户可见功能
+
+- 查看安装任务总量、各状态和本页附件数量摘要。
+- 按状态卡片筛选；按关键字、客户和项目查询。
+- 分页查看订单、客户项目、交付物流、安装状态、施工信息和附件。
+- 刷新列表，查看当前更新时间和状态色。
+- 打开“处理”弹窗，维护安装状态、物流、施工人员、电话和备注。
+- 维护“特殊及异常情况说明”。
+- 上传、下载或移除验收附件；单文件前端限制 10MB。
+- 保存任务后关闭弹窗并刷新当前列表。
+
+## 前端 API
+
+| 封装函数                           | HTTP | 路径                                   | 用途                           |
+| ---------------------------------- | ---- | -------------------------------------- | ------------------------------ |
+| getInstallationTaskPage            | GET  | /installation-task/page                | 分页筛选安装任务               |
+| updateInstallationTaskStatus       | POST | /installation-task/status              | 保存状态、物流、施工和附件字段 |
+| uploadInstallationTaskAttachment   | POST | /installation-task/attachment/upload   | 上传附件，30 秒超时            |
+| downloadInstallationTaskAttachment | GET  | /installation-task/attachment/download | 下载附件 Blob，30 秒超时       |
+
+## 权限与 feature
+
+- 页面入口使用 module.order 与 order:list，而不是安装模块的细粒度权限。
+- 后端列表要求 installation:list。
+- 后端保存要求 installation:update。
+- 后端上传要求 installation:attachment:upload。
+- 后端下载要求 installation:attachment:download。
+- 权限枚举还定义 installation:\*。
+- 当前页面未使用 useUserStore 或 v-permission；处理、上传、下载和保存均未做前端权限禁用。
+- 内置安装岗位同时包含 order:list 与 installation:\* 子权限，但自定义角色仍可能触发入口/接口错配。
+
+## 关键状态 / 数据流
+
+- filters 包含 current、size、status、keyword、customerName、projectName。
+- 挂载后调用 loadTasks；状态卡、重置和翻页都会更新 filters 后重新请求。
+- 服务端返回 data、total、pages，分别写入 rows 与 pagination。
+- 状态固定为 production_completed、shipped_pending_install、completed_accepted。
+- 编辑器直接从当前行回填，不另发详情请求。
+- shipped_pending_install 保存前必须同时填写 expressCompany 与 expressNo。
+- completed_accepted 保存前必须填写 constructionPersonnel。
+- 保存 payload 同步包含状态、物流、施工、异常说明和附件元数据。
+- 上传成功只回填编辑器；最终关联任务依赖后续 status 保存。
+- 下载通过 Blob 和临时 object URL 触发浏览器保存。
+- 各状态摘要计数由当前 rows 计算；总数取服务端 pagination.total。
+
+## 加载 / 空态 / 错误态
+
+- loading 时表格显示一行“加载中...”，并禁用页头刷新。
+- 非加载且 rows 为空时显示“暂无安装任务”。
+- saving 与 attachmentUploading 控制保存、关闭和上传交互。
+- 请求错误由全局 request 拦截器提示；页面没有持久错误面板。
+- loadTasks 在失败时不清空旧 rows，因此错误后可能继续显示旧结果。
+- 上传或保存失败由 finally 恢复状态，弹窗保持当前编辑内容。
+
+## 当前原生 / 自定义控件
+
+- 原生：button、input、select、textarea、table、手写分页。
+- 自定义：摘要卡、状态标签、响应式表格、遮罩弹窗、DragAttachmentUpload。
+- 已用 Element Plus：ElMessage，仅用于成功与校验提示。
+- 图标使用 Material Symbols。
+
+## Element Plus 对照与明确保留项
+
+- button → ElButton；input → ElInput；select → ElSelect/ElOption；textarea → ElInput type=textarea。
+- 手写弹窗 → ElDialog；table/pagination → ElTable、ElPagination。
+- 加载/空态 → v-loading、ElEmpty；状态可映射 ElTag。
+- 明确保留：三个状态值及其提交字符串，不做名称重写。
+- 明确保留：发货待安装的物流必填、完成验收的施工人员必填。
+- 明确保留：specialExceptionNote、附件元数据和更新 payload 字段。
+- 明确保留：Blob 下载、10MB 前端限制和 30 秒附件请求超时。
+
+## 已发现风险
+
+- 路由要求 order:list，接口要求 installation:list；两者不等价，可能出现“能进不能查”或“有安装列表权却不能进”。
+- 页面不检查 installation:update/upload/download，权限不足的命令仍可见并在请求后失败。
+- 各状态摘要是当前页计数，却与服务端总数卡并列，不能代表全量状态分布。
+- 点击“查询”不会显式把 current 重置为 1；在后页修改条件可能请求同一页码并得到空页。
+- loading 失败后保留旧 rows，且没有错误标签，用户可能把旧数据当作新筛选结果。
+- 关闭按钮只受 saving 控制，模板中的取消按钮未同时禁用 attachmentUploading；closeEditor 会拒绝关闭但没有解释。
+
+## 验证清单
+
+- [ ] order:list 与 installation:list 不同组合的路由和列表行为已验证。
+- [ ] update、attachment upload、attachment download 的按钮权限状态与后端一致。
+- [ ] 三种状态筛选、分页、关键字/客户/项目查询通过。
+- [ ] 发货待安装缺物流时前后端均拒绝。
+- [ ] 完成验收缺施工人员时前后端均拒绝。
+- [ ] 特殊异常说明保存并回显。
+- [ ] 10MB 限制、上传、移除、下载和失败恢复通过。
+- [ ] 加载、空态、错误态及窄屏表格/弹窗布局通过。

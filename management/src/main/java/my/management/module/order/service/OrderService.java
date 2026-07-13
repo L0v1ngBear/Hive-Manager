@@ -118,6 +118,7 @@ public class OrderService {
     private static final String STATUS_PENDING_MATERIAL = OrderStatusEnum.PENDING_MATERIAL.getCode();
     private static final String STATUS_PRODUCING = OrderStatusEnum.PRODUCING.getCode();
     private static final String STATUS_PENDING_SHIP = OrderStatusEnum.PENDING_SHIP.getCode();
+    private static final String STATUS_SHIPPED = OrderStatusEnum.SHIPPED.getCode();
     private static final String STATUS_PENDING_CANCEL = OrderStatusEnum.PENDING_CANCEL.getCode();
     private static final String STATUS_CANCELLED = OrderStatusEnum.CANCELLED.getCode();
     private static final String CATEGORY_DRAWING_BUDGET = OrderCategoryEnum.DRAWING_BUDGET.getCode();
@@ -327,11 +328,8 @@ public class OrderService {
         if (request.getIsInvoice() != null) {
             wrapper.eq(SalesOrder::getIsInvoice, normalizeInvoiceFlag(request.getIsInvoice()));
         }
-        if (request.getDeliveryStart() != null) {
-            wrapper.ge(SalesOrder::getDeliveryDate, request.getDeliveryStart().toString());
-        }
-        if (request.getDeliveryEnd() != null) {
-            wrapper.le(SalesOrder::getDeliveryDate, request.getDeliveryEnd().toString());
+        if (StringUtils.hasText(request.getInformationChannel())) {
+            wrapper.like(SalesOrder::getInformationChannel, request.getInformationChannel().trim());
         }
         applyCreateTimeRange(wrapper, request.getCreateStart(), request.getCreateEnd(), SalesOrder::getCreateTime);
         if (Boolean.TRUE.equals(request.getStaleOnly())) {
@@ -534,8 +532,8 @@ public class OrderService {
         validateSalesStatusForward(order.getOrderCategory(), oldStatus, order.getStatus());
         assertDirectSalesTransitionAllowed(order.getOrderCategory(), oldStatus, order.getStatus());
         assertSalesOrderStagePermission(order, order.getStatus());
-        if (request.getDeliveryDate() != null) {
-            order.setDeliveryDate(blankToNull(request.getDeliveryDate()));
+        if (request.getInformationChannel() != null) {
+            order.setInformationChannel(blankToNull(request.getInformationChannel()));
         }
         if (request.getExpressCompany() != null) {
             order.setExpressCompany(blankToNull(request.getExpressCompany()));
@@ -562,18 +560,18 @@ public class OrderService {
 
     @Transactional(rollbackFor = Exception.class)
     public void advanceSalesOrderToNextStage(String orderId, SalesOrderUpdateRequest request) {
-        SalesOrder order = findSalesOrder(orderId);
+        SalesOrder order = findSalesOrderForUpdate(orderId);
         String oldStatus = order.getStatus();
         String targetStatus = resolveNextSalesStatus(order);
         assertSalesOrderStagePermission(order, targetStatus);
-        if (isSalesMaterialApprovalRequired(oldStatus, targetStatus)) {
-            submitSalesMaterialApproval(order, request);
+        if (isSalesTransitionApprovalRequired(oldStatus, targetStatus)) {
+            submitSalesTransitionApproval(order, targetStatus, request);
             return;
         }
         order.setStatus(targetStatus);
         if (request != null) {
-            if (request.getDeliveryDate() != null) {
-                order.setDeliveryDate(blankToNull(request.getDeliveryDate()));
+            if (request.getInformationChannel() != null) {
+                order.setInformationChannel(blankToNull(request.getInformationChannel()));
             }
             if (request.getExpressCompany() != null) {
                 order.setExpressCompany(blankToNull(request.getExpressCompany()));
@@ -600,26 +598,66 @@ public class OrderService {
         syncInstallationTaskIfCompleted(order);
     }
 
-    private boolean isSalesMaterialApprovalRequired(String oldStatus, String targetStatus) {
-        return STATUS_PENDING_PAY.equals(oldStatus) && STATUS_PENDING_MATERIAL.equals(targetStatus);
+    private boolean isSalesTransitionApprovalRequired(String oldStatus, String targetStatus) {
+        return (STATUS_PENDING_PAY.equals(oldStatus) && STATUS_PENDING_MATERIAL.equals(targetStatus))
+                || (STATUS_PENDING_SHIP.equals(oldStatus) && STATUS_SHIPPED.equals(targetStatus));
+    }
+
+    private void submitSalesTransitionApproval(SalesOrder order, String targetStatus, SalesOrderUpdateRequest request) {
+        String approvalCode = orderApprovalCode(ORDER_TYPE_SALES, order.getOrderId());
+        if (!approvalAuditorCandidateService.findPendingAuditorIds(
+                order.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode).isEmpty()) {
+            throw new BusinessException("该订单已有待处理审批，请审批完成后再操作");
+        }
+        if (STATUS_PENDING_PAY.equals(order.getStatus()) && STATUS_PENDING_MATERIAL.equals(targetStatus)) {
+            submitSalesMaterialApproval(order, request);
+            return;
+        }
+        if (request != null) {
+            if (request.getInformationChannel() != null) {
+                order.setInformationChannel(blankToNull(request.getInformationChannel()));
+            }
+            if (request.getExpressCompany() != null) {
+                order.setExpressCompany(blankToNull(request.getExpressCompany()));
+            }
+            if (request.getExpressNo() != null) {
+                order.setExpressNo(blankToNull(request.getExpressNo()));
+            }
+            if (request.getIsInvoice() != null) {
+                order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
+            }
+            if (request.getRemark() != null) {
+                order.setRemark(blankToNull(request.getRemark()));
+            }
+        }
+        validateShippingInfo(targetStatus, order.getExpressCompany(), order.getExpressNo());
+        order.setUpdateTime(LocalDateTime.now());
+        salesOrderMapper.updateById(order);
+        orderWarningCacheService.invalidate(order.getTenantCode());
+        insertSalesLog(order, order.getStatus(), targetStatus, OrderLogOperateTypeEnum.APPROVAL_PENDING.getCode(),
+                request == null ? null : blankToNull(request.getRemark()), LocalDateTime.now());
+        replaceSalesOrderApprovalAuditors(order, request == null ? null : request.getAuditorIds());
     }
 
     private void submitSalesMaterialApproval(SalesOrder order, SalesOrderUpdateRequest request) {
-        // 待收款进入备料前只进入订单审批，不在推进接口里直接改状态。
         if (request != null && request.getRemark() != null) {
             order.setRemark(blankToNull(request.getRemark()));
             order.setUpdateTime(LocalDateTime.now());
             salesOrderMapper.updateById(order);
             orderWarningCacheService.invalidate(order.getTenantCode());
         }
-        syncSalesOrderApprovalAuditorsIfNeeded(order, request == null ? null : request.getAuditorIds());
+        replaceSalesOrderApprovalAuditors(order, request == null ? null : request.getAuditorIds());
     }
 
     private void syncSalesOrderApprovalAuditorsIfNeeded(SalesOrder order, List<Long> auditorIds) {
-        List<Long> selectedAuditorIds = normalizeApprovalAuditorIds(auditorIds);
         if (order == null || !salesOrderNeedsApproval(order)) {
             return;
         }
+        replaceSalesOrderApprovalAuditors(order, auditorIds);
+    }
+
+    private void replaceSalesOrderApprovalAuditors(SalesOrder order, List<Long> auditorIds) {
+        List<Long> selectedAuditorIds = normalizeApprovalAuditorIds(auditorIds);
         if (selectedAuditorIds.isEmpty()) {
             selectedAuditorIds = approvalDefaultAuditorService.resolveAuditorIds(
                     order.getTenantCode(),
@@ -629,6 +667,9 @@ public class OrderService {
                     null,
                     PermissionCodeEnum.CODE_APPROVAL_ORDER_AUDIT,
                     false);
+        }
+        if (selectedAuditorIds.isEmpty()) {
+            throw new BusinessException("订单审批人不能为空");
         }
         List<Long> permittedIds = employeeMapper.selectActiveApproverIdsByPermission(
                 order.getTenantCode(), PermissionCodeEnum.CODE_APPROVAL_ORDER_AUDIT);
@@ -816,11 +857,8 @@ public class OrderService {
         if (request.getProcess() != null) {
             wrapper.eq(ProductionOrder::getProcess, request.getProcess());
         }
-        if (request.getDeliveryStart() != null) {
-            wrapper.ge(ProductionOrder::getDeliveryDate, request.getDeliveryStart().atStartOfDay());
-        }
-        if (request.getDeliveryEnd() != null) {
-            wrapper.lt(ProductionOrder::getDeliveryDate, request.getDeliveryEnd().plusDays(1).atStartOfDay());
+        if (StringUtils.hasText(request.getInformationChannel())) {
+            wrapper.like(ProductionOrder::getInformationChannel, request.getInformationChannel().trim());
         }
         applyCreateTimeRange(wrapper, request.getCreateStart(), request.getCreateEnd(), ProductionOrder::getCreateTime);
         if (Boolean.TRUE.equals(request.getStaleOnly())) {
@@ -1179,7 +1217,7 @@ public class OrderService {
         order.setBrandName(blankToNull(request.getBrandName()));
         String orderCategory = OrderCategoryEnum.normalize(request.getOrderCategory());
         order.setOrderCategory(orderCategory);
-        order.setDeliveryDate(resolveSalesDeliveryDate(orderCategory, request.getDeliveryDate()));
+        order.setInformationChannel(resolveSalesInformationChannel(orderCategory, request.getInformationChannel()));
         order.setExpressCompany(blankToNull(request.getExpressCompany()));
         order.setExpressNo(blankToNull(request.getExpressNo()));
         order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
@@ -1194,11 +1232,11 @@ public class OrderService {
         order.setTotalQuantity(sumSalesQuantity(request.getItems()));
     }
 
-    private String resolveSalesDeliveryDate(String orderCategory, String deliveryDate) {
+    private String resolveSalesInformationChannel(String orderCategory, String informationChannel) {
         if (isDrawingBudgetOrder(orderCategory)) {
-            return blankToNull(deliveryDate);
+            return blankToNull(informationChannel);
         }
-        return requireText(deliveryDate, "销售订单交付日期不能为空");
+        return requireText(informationChannel, "销售订单信息渠道不能为空");
     }
 
     private boolean canAutoCreateProductionOrder(String orderCategory) {
@@ -1249,7 +1287,7 @@ public class OrderService {
             productionOrder.setProjectName(order.getProjectName());
             productionOrder.setBrandName(order.getBrandName());
             productionOrder.setOrderCategory(order.getOrderCategory());
-            productionOrder.setDeliveryDate(parseDateTime(order.getDeliveryDate()));
+            productionOrder.setInformationChannel(order.getInformationChannel());
             productionOrder.setCreator(resolveCurrentUser());
             productionOrder.setUpdater(resolveCurrentUser());
             productionOrder.setCreateTime(order.getCreateTime());
@@ -1260,7 +1298,7 @@ public class OrderService {
 
     private void applyProductionOrderContent(ProductionOrder order, ProductionOrderSaveRequest request) {
         order.setSalesOrderId(blankToNull(request.getSalesOrderId()));
-        order.setStatus(StringUtils.hasText(request.getStatus()) ? request.getStatus().trim() : defaultProductionStatus(order.getStatus()));
+        order.setStatus(resolveProductionSaveStatus(order.getStatus(), request.getStatus()));
         order.setModelCode(request.getModelCode().trim());
         order.setFabric(blankToNull(request.getFabric()));
         order.setWeight(toBigDecimal(request.getWeight()));
@@ -1272,9 +1310,27 @@ public class OrderService {
         order.setBrandName(blankToNull(request.getBrandName()));
         order.setOrderCategory(OrderCategoryEnum.normalize(request.getOrderCategory()));
         order.setContactPhone(blankToNull(request.getContactPhone()));
-        order.setDeliveryDate(parseDateTime(request.getDeliveryDate()));
+        order.setInformationChannel(resolveProductionInformationChannel(
+                order.getOrderCategory(), request.getInformationChannel()));
         order.setProcess(resolveProcess(order.getStatus(), request.getProcess()));
         ensureCustomerProjectExists(order.getCustomerName(), order.getContactPhone(), order.getProjectName());
+    }
+
+    private String resolveProductionInformationChannel(String orderCategory, String informationChannel) {
+        if (isDrawingBudgetOrder(orderCategory)) {
+            return blankToNull(informationChannel);
+        }
+        return requireText(informationChannel, "生产订单信息渠道不能为空");
+    }
+
+    private String resolveProductionSaveStatus(String currentStatus, String requestedStatus) {
+        String status = StringUtils.hasText(requestedStatus)
+                ? requestedStatus.trim()
+                : defaultProductionStatus(currentStatus);
+        if (!PRODUCTION_STATUS_CODES.contains(status)) {
+            throw new BusinessException("生产订单状态不合法");
+        }
+        return status;
     }
 
     private void insertProductionLog(ProductionOrder order, String oldStatusText, String remark) {
@@ -1475,6 +1531,9 @@ public class OrderService {
         if (STATUS_PENDING_PAY.equals(oldStatus) && STATUS_PENDING_MATERIAL.equals(targetStatus)) {
             throw new BusinessException("待收款订单转备料中需要先通过订单审批");
         }
+        if (STATUS_PENDING_SHIP.equals(oldStatus) && STATUS_SHIPPED.equals(targetStatus)) {
+            throw new BusinessException("待发货订单转已发货需要先通过订单审批");
+        }
     }
 
     /**
@@ -1566,7 +1625,7 @@ public class OrderService {
                 order.getBrandName(),
                 firstItem == null ? order.getGoodsDesc() : firstItem.getModelCode());
         payload.put("customerPhone", safePrintText(order.getCustomerPhone(), ""));
-        payload.put("deliveryDate", safePrintText(order.getDeliveryDate(), ""));
+        payload.put("informationChannel", safePrintText(order.getInformationChannel(), ""));
         payload.put("printReason", "订单流转码待打印");
         payload.put("flowQrPayload", buildOrderFlowQrText(payload));
         return payload;
@@ -1821,6 +1880,15 @@ public class OrderService {
         return order;
     }
 
+    private SalesOrder findSalesOrderForUpdate(String orderId) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        SalesOrder order = salesOrderMapper.selectByOrderIdForUpdate(tenantCode, orderId);
+        if (order == null) {
+            throw new BusinessException("sales order not found");
+        }
+        return order;
+    }
+
     private ProductionOrder findProductionOrder(String orderId) {
         ProductionOrder order = productionOrderMapper.selectOne(new LambdaQueryWrapper<ProductionOrder>()
                 .eq(ProductionOrder::getOrderId, orderId)
@@ -1988,6 +2056,9 @@ public class OrderService {
             if (!StringUtils.hasText(requested) || STATUS_PENDING_CONFIRM.equals(requested)) {
                 return isBudgetStatus(currentStatus) ? currentStatus.trim() : STATUS_BUDGETING;
             }
+            if (createMode && STATUS_BUDGET_COMPLETED.equals(requested)) {
+                throw new BusinessException("图纸预算订单创建时只能处于预算中状态");
+            }
             if (!isBudgetStatus(requested)) {
                 throw new BusinessException("图纸预算订单只能使用预算中或预算完成状态");
             }
@@ -2013,6 +2084,12 @@ public class OrderService {
     private void validateSalesStatusForward(String orderCategory, String currentStatus, String targetStatus) {
         String target = StringUtils.hasText(targetStatus) ? targetStatus.trim() : defaultSalesStatus(currentStatus);
         String current = StringUtils.hasText(currentStatus) ? currentStatus.trim() : defaultSalesStatus(null);
+        if (isDrawingBudgetOrder(orderCategory)
+                && (STATUS_PENDING_CANCEL.equals(current) || STATUS_CANCELLED.equals(current)
+                || STATUS_PENDING_CANCEL.equals(target) || STATUS_CANCELLED.equals(target)
+                || (STATUS_BUDGET_COMPLETED.equals(current) && !STATUS_BUDGET_COMPLETED.equals(target)))) {
+            throw new BusinessException("图纸预算订单只能从预算中流转到预算完成，预算完成后不能取消或回退");
+        }
         if (Objects.equals(current, target)) {
             return;
         }
@@ -2062,6 +2139,9 @@ public class OrderService {
     private String resolvePreviousSalesStatus(SalesOrder order) {
         String category = order == null ? CATEGORY_BULK : normalizeOrderCategory(order.getOrderCategory());
         String current = order == null ? "" : normalizeStatus(order.getStatus());
+        if (isDrawingBudgetOrder(category) && STATUS_BUDGET_COMPLETED.equals(current)) {
+            throw new BusinessException("图纸预算订单预算完成后不能提交回退审批");
+        }
         if (STATUS_PENDING_CANCEL.equals(current) || STATUS_CANCELLED.equals(current)) {
             throw new BusinessException("取消中或已取消订单不能提交回退审批");
         }
@@ -2118,6 +2198,9 @@ public class OrderService {
         if (STATUS_PENDING_CANCEL.equals(current) || STATUS_CANCELLED.equals(current)
                 || STATUS_PENDING_CANCEL.equals(target) || STATUS_CANCELLED.equals(target)) {
             throw new BusinessException("取消相关状态不能作为订单回退目标");
+        }
+        if (isDrawingBudgetOrder(category) && STATUS_BUDGET_COMPLETED.equals(current)) {
+            throw new BusinessException("图纸预算订单预算完成后不能审批回退");
         }
         List<String> flow = isDrawingBudgetOrder(category) ? SALES_BUDGET_FORWARD_STATUS_CODES : SALES_FORWARD_STATUS_CODES;
         int currentIndex = flow.indexOf(current);
@@ -2378,7 +2461,7 @@ public class OrderService {
                 || !sameText(before.getBrandName(), after.getBrandName())
                 || !sameText(before.getGoodsDesc(), after.getGoodsDesc())
                 || !Objects.equals(before.getTotalQuantity(), after.getTotalQuantity())
-                || !sameText(before.getDeliveryDate(), after.getDeliveryDate())
+                || !sameText(before.getInformationChannel(), after.getInformationChannel())
                 || !sameText(before.getExpressCompany(), after.getExpressCompany())
                 || !sameText(before.getExpressNo(), after.getExpressNo())
                 || !Objects.equals(before.getIsInvoice(), after.getIsInvoice())
@@ -2402,7 +2485,7 @@ public class OrderService {
                 || !sameText(before.getProjectName(), after.getProjectName())
                 || !sameText(before.getBrandName(), after.getBrandName())
                 || !sameText(before.getContactPhone(), after.getContactPhone())
-                || !Objects.equals(before.getDeliveryDate(), after.getDeliveryDate());
+                || !sameText(before.getInformationChannel(), after.getInformationChannel());
     }
 
     private boolean salesOrderItemsChanged(String orderId, List<SalesOrderSaveRequest.ItemDTO> items) {

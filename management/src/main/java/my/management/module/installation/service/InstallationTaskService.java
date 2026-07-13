@@ -176,7 +176,7 @@ public class InstallationTaskService {
         task.setOrderCategory(order.getOrderCategory());
         task.setGoodsDesc(order.getGoodsDesc());
         task.setTotalQuantity(order.getTotalQuantity());
-        task.setDeliveryDate(order.getDeliveryDate());
+        task.setInformationChannel(order.getInformationChannel());
         task.setExpressCompany(order.getExpressCompany());
         task.setExpressNo(order.getExpressNo());
         task.setIsInvoice(order.getIsInvoice());
@@ -200,7 +200,7 @@ public class InstallationTaskService {
         vo.setOrderCategory(task.getOrderCategory());
         vo.setGoodsDesc(task.getGoodsDesc());
         vo.setTotalQuantity(task.getTotalQuantity());
-        vo.setDeliveryDate(task.getDeliveryDate());
+        vo.setInformationChannel(task.getInformationChannel());
         vo.setExpressCompany(task.getExpressCompany());
         vo.setExpressNo(task.getExpressNo());
         vo.setIsInvoice(task.getIsInvoice());

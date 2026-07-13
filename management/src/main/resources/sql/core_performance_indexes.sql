@@ -28,7 +28,7 @@ CALL add_index_if_absent('inventory_record', 'idx_inventory_record_tenant_model_
 
 CALL add_index_if_absent('sales_order', 'idx_sales_order_tenant_status_update', 'CREATE INDEX idx_sales_order_tenant_status_update ON sales_order(tenant_code, status, update_time)');
 CALL add_index_if_absent('sales_order', 'idx_sales_order_tenant_customer', 'CREATE INDEX idx_sales_order_tenant_customer ON sales_order(tenant_code, customer_name)');
-CALL add_index_if_absent('sales_order', 'idx_sales_order_tenant_delivery', 'CREATE INDEX idx_sales_order_tenant_delivery ON sales_order(tenant_code, delivery_date)');
+CALL add_index_if_absent('sales_order', 'idx_sales_order_tenant_information_channel', 'CREATE INDEX idx_sales_order_tenant_information_channel ON sales_order(tenant_code, information_channel)');
 
 CALL add_index_if_absent('production_order', 'idx_production_order_tenant_status_update', 'CREATE INDEX idx_production_order_tenant_status_update ON production_order(tenant_code, status, update_time)');
 CALL add_index_if_absent('production_order', 'idx_production_order_tenant_sales', 'CREATE INDEX idx_production_order_tenant_sales ON production_order(tenant_code, sales_order_id)');

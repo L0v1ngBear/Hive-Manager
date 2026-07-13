@@ -26,9 +26,7 @@ public class SalesOrderPageRequest {
 
     private Integer isInvoice;
 
-    private LocalDate deliveryStart;
-
-    private LocalDate deliveryEnd;
+    private String informationChannel;
 
     private LocalDate createStart;
 
