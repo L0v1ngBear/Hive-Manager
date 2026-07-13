@@ -63,7 +63,9 @@ test('online schema verifier enforces permission v3 invariants', () => {
     'order_responsibility',
     'assignable wildcard permissions remain',
     'orphan user permission relations remain',
-    'invalid role permission relations remain'
+    'invalid role permission relations remain',
+    'invalid user permission relations remain',
+    'invalid user permission effects remain'
   ]) {
     assert.ok(verifier.includes(fragment), `schema verifier must contain ${fragment}`)
   }
