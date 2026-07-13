@@ -59,6 +59,7 @@
             <el-table-column label="操作" width="210" fixed="right">
               <template #default="{ row }">
                 <el-tooltip :disabled="canViewDetail" content="暂无 equipment:detail 权限"><span><el-button link type="primary" :disabled="!canViewDetail" @click="openDetail(row)">详情</el-button></span></el-tooltip>
+                <el-tooltip :disabled="canViewInspection" content="暂无 equipment:inspection:list 权限"><span><el-button link type="primary" :disabled="!canViewInspection" @click="openInspection(row)">巡检记录</el-button></span></el-tooltip>
                 <el-tooltip :disabled="canSave" content="暂无 equipment:save 权限"><span><el-button link type="primary" :disabled="!canSave" @click="openEdit(row)">编辑</el-button></span></el-tooltip>
                 <el-tooltip v-if="row.status === 'enabled'" :disabled="canSave" content="暂无 equipment:save 权限"><span><el-button link type="danger" :disabled="!canSave" @click="handleDisable(row)">停用</el-button></span></el-tooltip>
               </template>
@@ -97,19 +98,22 @@
       <template #footer><div class="flex justify-end gap-3"><el-button @click="closeDrawers">取消</el-button><el-tooltip :disabled="canSave" content="暂无 equipment:save 权限"><span><el-button type="primary" :disabled="!canSave" :loading="saving" @click="submitForm">保存设备</el-button></span></el-tooltip></div></template>
     </el-drawer>
 
-    <el-drawer v-model="detailVisible" :title="detail?.equipmentName || '设备详情'" size="760px" destroy-on-close @closed="handleDetailClosed">
-      <template #header><div><h2 class="text-lg font-bold">{{ detail?.equipmentName || '设备详情' }}</h2><p class="mt-1 text-sm text-on-surface-variant">{{ detail?.equipmentCode }}</p></div></template>
+    <el-drawer v-model="detailVisible" :title="selectedDevice?.equipmentName || '设备档案'" size="760px" destroy-on-close @closed="handleDetailClosed">
+      <template #header><div><h2 class="text-lg font-bold">{{ selectedDevice?.equipmentName || '设备档案' }}</h2><p class="mt-1 text-sm text-on-surface-variant">{{ selectedDevice?.equipmentCode }}</p></div></template>
       <div v-loading="detailLoading" class="min-h-48">
-      <el-result v-if="detailFailure" :icon="detailFailure.kind === 'forbidden' ? 'warning' : 'error'" :title="detailFailure.title" :sub-title="detailFailure.message"><template #extra><el-button type="primary" :loading="detailLoading" @click="retryDetail">重试</el-button></template></el-result>
-      <template v-else-if="detail">
+      <el-result v-if="drawerMode === 'detail' && detailFailure" :icon="detailFailure.kind === 'forbidden' ? 'warning' : 'error'" :title="detailFailure.title" :sub-title="detailFailure.message"><template #extra><el-button type="primary" :loading="detailLoading" @click="retryDetail">重试</el-button></template></el-result>
+      <template v-else>
+      <template v-if="canViewDetail && detail">
       <section class="detail-callout"><h3>固定巡检二维码</h3><p>打印一次后贴在设备上，员工扫码即可填写巡检记录。</p></section>
-      <el-descriptions :column="2" border class="mt-6">
+      <el-descriptions v-if="canViewDetail && detail" :column="2" border class="mt-6">
         <el-descriptions-item label="设备类型">{{ detail?.equipmentType || '--' }}</el-descriptions-item>
         <el-descriptions-item label="设备位置">{{ detail?.location || '--' }}</el-descriptions-item>
         <el-descriptions-item label="负责人">{{ detail?.responsiblePerson || '--' }}</el-descriptions-item>
         <el-descriptions-item label="最近巡检">{{ formatDateTime(detail?.lastInspectionTime) }}</el-descriptions-item>
       </el-descriptions>
-      <section class="mt-8">
+      </template>
+      <el-empty v-else-if="drawerMode === 'detail' && !detailLoading" description="暂无设备详情" />
+      <section v-if="canViewInspection" class="mt-8">
         <div class="mb-4 flex items-center justify-between"><h3 class="text-lg font-bold">巡检记录</h3><el-tooltip :disabled="canViewInspection" content="暂无 equipment:inspection:list 权限"><span><el-button :disabled="!canViewInspection" @click="fetchRecords">刷新</el-button></span></el-tooltip></div>
         <div v-if="canViewInspection" v-loading="recordsLoading" class="min-h-32">
           <el-result v-if="recordsFailure" :icon="recordsFailure.kind === 'forbidden' ? 'warning' : 'error'" :title="recordsFailure.title" :sub-title="recordsFailure.message"><template #extra><el-button type="primary" :loading="recordsLoading" @click="retryRecords">重试</el-button></template></el-result>
@@ -125,7 +129,6 @@
         </div>
       </section>
       </template>
-      <el-empty v-else-if="!detailLoading" description="暂无设备详情" />
       </div>
     </el-drawer>
   </div>
@@ -137,7 +140,7 @@ import { ElButton, ElDescriptions, ElDescriptionsItem, ElDrawer, ElEmpty, ElForm
 import { exportRowsToExcel } from '@/utils/tableExport'
 import { useUserStore } from '@/stores/user'
 import { buildEquipmentExport } from './equipmentExport.js'
-import { resolveEquipmentAccess } from './equipmentAccess.js'
+import { planEquipmentDrawerOpen, resolveEquipmentAccess } from './equipmentAccess.js'
 import { disableEquipment, getEquipmentDetail, getEquipmentInspectionRecords, getEquipmentPage, saveEquipment } from './api/equipment'
 
 const loading = ref(false)
@@ -166,6 +169,7 @@ const recordsFailure = ref(null)
 let detailRequestId = 0
 let recordsRequestId = 0
 let selectedDevice = null
+const drawerMode = ref('detail')
 
 const defaultForm = () => ({ equipmentCode: '', equipmentName: '', equipmentType: '', location: '', responsiblePerson: '', inspectionCycleDays: 7, status: 'enabled', remark: '' })
 const form = reactive(defaultForm())
@@ -232,8 +236,25 @@ async function handleDisable(device) {
   fetchDevices()
 }
 
+function openInspection(device) {
+  const plan = planEquipmentDrawerOpen('inspection', equipmentAccess.value)
+  if (!plan.open) return
+  drawerMode.value = 'inspection'
+  selectedDevice = device
+  detailRequestId += 1
+  detail.value = null
+  detailFailure.value = null
+  detailLoading.value = false
+  records.value = []
+  recordsFailure.value = null
+  detailVisible.value = true
+  if (plan.requestInspection) fetchRecords(device.id)
+}
+
 async function openDetail(device) {
-  if (!canViewDetail.value) return
+  const plan = planEquipmentDrawerOpen('detail', equipmentAccess.value)
+  if (!plan.open) return
+  drawerMode.value = 'detail'
   selectedDevice = device
   detailVisible.value = true
   detail.value = null
@@ -247,7 +268,7 @@ async function openDetail(device) {
     const nextDetail = await getEquipmentDetail(device.id)
     if (requestId !== detailRequestId) return
     detail.value = nextDetail || null
-    if (detail.value) await fetchRecords(device.id)
+    if (detail.value && plan.requestInspection) await fetchRecords(device.id)
   } catch (error) {
     if (requestId !== detailRequestId) return
     detailFailure.value = resolveRequestFailure(error, '设备详情')
@@ -285,6 +306,7 @@ function handleDetailClosed() {
   detailRequestId += 1
   recordsRequestId += 1
   selectedDevice = null
+  drawerMode.value = 'detail'
   detail.value = null
   records.value = []
   detailFailure.value = null

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { buildEquipmentExport } from "../src/views/function/equipment/equipmentExport.js";
-import { resolveEquipmentAccess } from "../src/views/function/equipment/equipmentAccess.js";
+import { planEquipmentDrawerOpen, resolveEquipmentAccess } from "../src/views/function/equipment/equipmentAccess.js";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
@@ -184,7 +184,7 @@ test("equipment guards detail requests and hides inspection content without perm
   const openDetail = between(source, "async function openDetail(device)", "async function fetchRecords(");
   const fetchRecords = between(source, "async function fetchRecords(", "function retryDetail()");
   assert.match(source, /content="暂无 equipment:detail 权限"[\s\S]*:disabled="!canViewDetail"[\s\S]*@click="openDetail\(row\)"/);
-  assert.match(openDetail, /if \(!canViewDetail\.value\) return/);
+  assert.match(openDetail, /planEquipmentDrawerOpen\('detail', equipmentAccess\.value\)[\s\S]*if \(!plan\.open\) return/);
   assert.match(source, /content="暂无 equipment:inspection:list 权限"[\s\S]*:disabled="!canViewInspection"[\s\S]*@click="fetchRecords"/);
   assert.match(source, /<div v-if="canViewInspection" v-loading="recordsLoading"/);
   assert.match(fetchRecords, /if \(!canViewInspection\.value\) return/);
@@ -198,4 +198,25 @@ test("organization overview invalidates members and clears protected content bef
     const index = fetchOverview.indexOf(statement)
     assert.ok(index >= 0 && index < requestIndex, `${statement} must run before overview request`)
   }
+});
+
+test("equipment drawer plans API requests from command and permission combinations", () => {
+  const inspectionOnly = { canViewDetail: false, canViewInspection: true };
+  const detailOnly = { canViewDetail: true, canViewInspection: false };
+  const denied = { canViewDetail: false, canViewInspection: false };
+  assert.deepEqual(planEquipmentDrawerOpen("inspection", inspectionOnly), { open: true, requestDetail: false, requestInspection: true });
+  assert.deepEqual(planEquipmentDrawerOpen("detail", detailOnly), { open: true, requestDetail: true, requestInspection: false });
+  assert.deepEqual(planEquipmentDrawerOpen("detail", denied), { open: false, requestDetail: false, requestInspection: false });
+  assert.deepEqual(planEquipmentDrawerOpen("inspection", denied), { open: false, requestDetail: false, requestInspection: false });
+});
+
+test("equipment exposes independent detail and inspection commands and protected drawer blocks", () => {
+  const source = read("../src/views/function/equipment/equipment.vue");
+  const openInspection = between(source, "function openInspection(device)", "async function openDetail(device)");
+  assert.match(source, /content="暂无 equipment:inspection:list 权限"[\s\S]*:disabled="!canViewInspection"[\s\S]*@click="openInspection\(row\)"[\s\S]*巡检记录/);
+  assert.match(openInspection, /planEquipmentDrawerOpen\('inspection', equipmentAccess\.value\)[\s\S]*if \(!plan\.open\) return/);
+  assert.match(openInspection, /fetchRecords\(device\.id\)/);
+  assert.doesNotMatch(openInspection, /getEquipmentDetail|openDetail/);
+  assert.match(source, /<el-descriptions v-if="canViewDetail && detail"/);
+  assert.match(source, /<section v-if="canViewInspection" class="mt-8">/);
 });

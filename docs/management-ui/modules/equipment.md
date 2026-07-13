@@ -14,6 +14,7 @@
 - 详情和巡检分别使用 request-id，跨设备慢响应与旧 finally 不覆盖新设备状态。
 - 新建、编辑、停用、保存按 `equipment:save` 保持可见但禁用，并用 tooltip 说明原因。
 - 设备名和详情命令按 `equipment:detail` 保持可见但禁用并说明原因，handler 同步拦截；巡检记录内容仅对 `equipment:inspection:list` 可见，刷新命令无权限时置灰并不发请求。
+- 行内另有独立“巡检记录”命令；只有 `equipment:inspection:list` 时可直接打开同一抽屉并仅请求巡检 API（不请求详情）。详情块与巡检块分别按 `equipment:detail`、`equipment:inspection:list` 渲染。
 
 ## 用户功能
 

@@ -4,3 +4,11 @@ export function resolveEquipmentAccess(hasPermission) {
     canViewInspection: Boolean(hasPermission?.('equipment:inspection:list'))
   }
 }
+
+export function planEquipmentDrawerOpen(mode, access) {
+  const requestDetail = mode === 'detail' && Boolean(access?.canViewDetail)
+  const requestInspection = mode === 'inspection'
+    ? Boolean(access?.canViewInspection)
+    : requestDetail && Boolean(access?.canViewInspection)
+  return { open: requestDetail || requestInspection, requestDetail, requestInspection }
+}
