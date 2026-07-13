@@ -7,9 +7,11 @@ import my.management.module.approval.service.ApprovalAuditorCandidateService;
 import my.management.module.approval.service.ApprovalDefaultAuditorService;
 import my.management.module.approval.service.ApprovalService;
 import my.management.module.employee.mapper.EmployeeMapper;
+import my.management.module.order.mapper.ProductionOrderMapper;
 import my.management.module.order.mapper.SalesOrderMapper;
 import my.management.module.order.mapper.SalesOrderStatusLogMapper;
 import my.management.module.order.model.dto.SalesOrderUpdateRequest;
+import my.management.module.order.model.entity.ProductionOrder;
 import my.management.module.order.model.entity.SalesOrder;
 import my.management.module.order.model.entity.SalesOrderStatusLog;
 import org.junit.jupiter.api.AfterEach;
@@ -39,6 +41,9 @@ class PendingShipApprovalTest {
 
     @Mock
     private SalesOrderMapper salesOrderMapper;
+
+    @Mock
+    private ProductionOrderMapper productionOrderMapper;
 
     @Mock
     private SalesOrderStatusLogMapper salesOrderStatusLogMapper;
@@ -158,8 +163,9 @@ class PendingShipApprovalTest {
     void approvingAllShipmentCandidatesAdvancesOrderToShipped() {
         SalesOrder order = pendingShipOrder();
         ApprovalService approvalService = approvalServiceFor(order);
-        when(approvalAuditorCandidateService.hasPendingAuditors("tenant-a", "ORDER", "sales:SO-100"))
-                .thenReturn(false);
+        when(approvalAuditorCandidateService.recordDecision(
+                "tenant-a", "ORDER", "sales:SO-100", 1L, true, "approved"))
+                .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.APPROVED);
 
         approvalService.auditOrder(orderAuditRequest(1));
 
@@ -171,8 +177,9 @@ class PendingShipApprovalTest {
     void approvingOneOfMultipleShipmentCandidatesKeepsOrderPendingShip() {
         SalesOrder order = pendingShipOrder();
         ApprovalService approvalService = approvalServiceFor(order);
-        when(approvalAuditorCandidateService.hasPendingAuditors("tenant-a", "ORDER", "sales:SO-100"))
-                .thenReturn(true);
+        when(approvalAuditorCandidateService.recordDecision(
+                "tenant-a", "ORDER", "sales:SO-100", 1L, true, "approved"))
+                .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.PENDING);
 
         approvalService.auditOrder(orderAuditRequest(1));
 
@@ -185,12 +192,67 @@ class PendingShipApprovalTest {
     void rejectingShipmentApprovalKeepsOrderPendingShip() {
         SalesOrder order = pendingShipOrder();
         ApprovalService approvalService = approvalServiceFor(order);
+        when(approvalAuditorCandidateService.recordDecision(
+                "tenant-a", "ORDER", "sales:SO-100", 1L, false, "approved"))
+                .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.REJECTED);
 
         approvalService.auditOrder(orderAuditRequest(2));
 
         assertEquals("pending_ship", order.getStatus());
         verify(orderService, never()).approveSalesOrderTransition(anyString(), anyString(), anyString());
         verify(approvalAuditorCandidateService).closeActiveCandidates("tenant-a", "ORDER", "sales:SO-100");
+    }
+
+    @Test
+    void rejectingMaterialApprovalKeepsOrderPendingPay() {
+        SalesOrder order = pendingPayOrder();
+        ApprovalService approvalService = approvalServiceFor(order);
+        when(approvalAuditorCandidateService.recordDecision(
+                "tenant-a", "ORDER", "sales:SO-100", 1L, false, "approved"))
+                .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.REJECTED);
+
+        approvalService.auditOrder(orderAuditRequest(2));
+
+        assertEquals("pending_pay", order.getStatus());
+        verify(orderService, never()).approveSalesOrderTransition(anyString(), anyString(), anyString());
+        verify(approvalAuditorCandidateService).closeActiveCandidates("tenant-a", "ORDER", "sales:SO-100");
+    }
+
+    @Test
+    void lastRollbackApproverAppliesSalesRollbackOnce() {
+        SalesOrder order = pendingShipOrder();
+        order.setStatus("pending_material");
+        when(orderService.hasPendingSalesRollbackApproval("SO-100")).thenReturn(true);
+        ApprovalService approvalService = approvalServiceFor(order);
+        when(approvalAuditorCandidateService.recordDecision(
+                "tenant-a", "ORDER", "sales:SO-100", 1L, true, "approved"))
+                .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.APPROVED);
+
+        approvalService.auditOrder(orderAuditRequest(1));
+
+        verify(orderService).approveSalesOrderRollback("SO-100", "approved");
+        verify(approvalAuditorCandidateService).closeActiveCandidates("tenant-a", "ORDER", "sales:SO-100");
+    }
+
+    @Test
+    void lastRollbackApproverAppliesProductionRollbackOnce() {
+        ProductionOrder order = new ProductionOrder();
+        order.setOrderId("PO-100");
+        order.setTenantCode("tenant-a");
+        order.setStatus("pending_material");
+        when(orderService.hasPendingProductionRollbackApproval("PO-100")).thenReturn(true);
+        ApprovalService approvalService = approvalServiceFor(order);
+        when(approvalAuditorCandidateService.recordDecision(
+                "tenant-a", "ORDER", "production:PO-100", 1L, true, "approved"))
+                .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.APPROVED);
+
+        OrderApprovalAuditRequest request = orderAuditRequest(1);
+        request.setOrderType("production");
+        request.setOrderId("PO-100");
+        approvalService.auditOrder(request);
+
+        verify(orderService).approveProductionOrderRollback("PO-100", "approved");
+        verify(approvalAuditorCandidateService).closeActiveCandidates("tenant-a", "ORDER", "production:PO-100");
     }
 
     @Test
@@ -224,6 +286,9 @@ class PendingShipApprovalTest {
         SalesOrder order = completedDrawingBudgetOrder();
         order.setStatus("pending_cancel");
         ApprovalService approvalService = approvalServiceFor(order);
+        when(approvalAuditorCandidateService.recordDecision(
+                "tenant-a", "ORDER", "sales:SO-100", 1L, true, "approved"))
+                .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.APPROVED);
 
         approvalService.auditOrder(orderAuditRequest(1));
 
@@ -236,8 +301,9 @@ class PendingShipApprovalTest {
     void completedDrawingBudgetApprovalCannotApplyHistoricalRollback() {
         SalesOrder order = completedDrawingBudgetOrder();
         ApprovalService approvalService = approvalServiceFor(order);
-        when(approvalAuditorCandidateService.hasPendingAuditors("tenant-a", "ORDER", "sales:SO-100"))
-                .thenReturn(false);
+        when(approvalAuditorCandidateService.recordDecision(
+                "tenant-a", "ORDER", "sales:SO-100", 1L, true, "approved"))
+                .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.APPROVED);
         when(orderService.hasPendingSalesRollbackApproval("SO-100")).thenReturn(true);
 
         approvalService.auditOrder(orderAuditRequest(1));
@@ -250,6 +316,7 @@ class PendingShipApprovalTest {
     private ApprovalService approvalServiceFor(SalesOrder order) {
         ApprovalService approvalService = new ApprovalService();
         ReflectionTestUtils.setField(approvalService, "salesOrderMapper", salesOrderMapper);
+        ReflectionTestUtils.setField(approvalService, "productionOrderMapper", productionOrderMapper);
         ReflectionTestUtils.setField(approvalService, "orderService", orderService);
         ReflectionTestUtils.setField(approvalService, "approvalAuditorCandidateService", approvalAuditorCandidateService);
         ReflectionTestUtils.setField(approvalService, "approvalDefaultAuditorService", approvalDefaultAuditorService);
@@ -258,8 +325,20 @@ class PendingShipApprovalTest {
                 .thenReturn(List.of(1L, 2L));
         when(approvalAuditorCandidateService.isPendingAuditor("tenant-a", "ORDER", "sales:SO-100", 1L))
                 .thenReturn(true);
-        when(approvalAuditorCandidateService.markAuditorDecision(
-                eq("tenant-a"), eq("ORDER"), eq("sales:SO-100"), eq(1L), anyBoolean(), anyString()))
+        return approvalService;
+    }
+
+    private ApprovalService approvalServiceFor(ProductionOrder order) {
+        ApprovalService approvalService = new ApprovalService();
+        ReflectionTestUtils.setField(approvalService, "salesOrderMapper", salesOrderMapper);
+        ReflectionTestUtils.setField(approvalService, "productionOrderMapper", productionOrderMapper);
+        ReflectionTestUtils.setField(approvalService, "orderService", orderService);
+        ReflectionTestUtils.setField(approvalService, "approvalAuditorCandidateService", approvalAuditorCandidateService);
+        ReflectionTestUtils.setField(approvalService, "approvalDefaultAuditorService", approvalDefaultAuditorService);
+        when(productionOrderMapper.selectOne(any())).thenReturn(order);
+        when(approvalAuditorCandidateService.findActiveAuditorIds("tenant-a", "ORDER", "production:PO-100"))
+                .thenReturn(List.of(1L, 2L));
+        when(approvalAuditorCandidateService.isPendingAuditor("tenant-a", "ORDER", "production:PO-100", 1L))
                 .thenReturn(true);
         return approvalService;
     }

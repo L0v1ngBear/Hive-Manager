@@ -3,9 +3,12 @@ package my.management.module.approval.service;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
+import my.hive.common.exception.BusinessException;
 import my.management.module.approval.mapper.ApprovalAuditorCandidateMapper;
 import my.management.module.approval.model.entity.ApprovalAuditorCandidate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -15,6 +18,17 @@ import java.util.List;
 
 @Service
 public class ApprovalAuditorCandidateService {
+
+    public enum ApprovalDecision {
+        LEGACY,
+        PENDING,
+        APPROVED,
+        REJECTED;
+
+        public boolean isCandidateFlow() {
+            return this != LEGACY;
+        }
+    }
 
     public static final int STATUS_ACTIVE = 1;
     public static final int STATUS_CLOSED = 2;
@@ -123,6 +137,63 @@ public class ApprovalAuditorCandidateService {
         return !findPendingAuditorIds(tenantCode, approvalType, approvalCode).isEmpty();
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    public ApprovalDecision recordDecision(String tenantCode,
+                                           String approvalType,
+                                           String approvalCode,
+                                           Long auditorId,
+                                           boolean approved,
+                                           String comment) {
+        if (!StringUtils.hasText(tenantCode) || !StringUtils.hasText(approvalType)
+                || !StringUtils.hasText(approvalCode) || auditorId == null || auditorId <= 0) {
+            throw new BusinessException("approval decision parameters are invalid");
+        }
+        List<ApprovalAuditorCandidate> history = approvalAuditorCandidateMapper.selectApprovalForUpdate(
+                tenantCode, approvalType, approvalCode);
+        if (history == null || history.isEmpty()) {
+            return ApprovalDecision.LEGACY;
+        }
+        boolean pendingCandidate = history.stream().anyMatch(candidate ->
+                STATUS_ACTIVE == valueOrDefault(candidate.getStatus())
+                        && AUDIT_STATUS_PENDING == valueOrDefault(candidate.getAuditStatus())
+                        && auditorId.equals(candidate.getAuditorId()));
+        if (!pendingCandidate) {
+            throw new BusinessException("approval has already been processed or current user is not an auditor");
+        }
+
+        LocalDateTime auditTime = LocalDateTime.now();
+        int updatedRows = approvalAuditorCandidateMapper.updatePendingDecision(
+                tenantCode,
+                approvalType,
+                approvalCode,
+                auditorId,
+                approved ? AUDIT_STATUS_APPROVED : AUDIT_STATUS_REJECTED,
+                comment,
+                auditTime);
+        if (updatedRows != 1) {
+            throw new BusinessException("approval has already been processed or current user is not an auditor");
+        }
+
+        List<ApprovalAuditorCandidate> current = approvalAuditorCandidateMapper.selectApprovalForUpdate(
+                tenantCode, approvalType, approvalCode);
+        List<ApprovalAuditorCandidate> active = current == null ? List.of() : current.stream()
+                .filter(candidate -> STATUS_ACTIVE == valueOrDefault(candidate.getStatus()))
+                .toList();
+        if (active.isEmpty()) {
+            throw new BusinessException("approval instance is no longer active");
+        }
+        if (active.stream().anyMatch(candidate -> AUDIT_STATUS_REJECTED == valueOrDefault(candidate.getAuditStatus()))) {
+            return ApprovalDecision.REJECTED;
+        }
+        if (active.stream().anyMatch(candidate -> AUDIT_STATUS_PENDING == valueOrDefault(candidate.getAuditStatus()))) {
+            return ApprovalDecision.PENDING;
+        }
+        if (active.stream().allMatch(candidate -> AUDIT_STATUS_APPROVED == valueOrDefault(candidate.getAuditStatus()))) {
+            return ApprovalDecision.APPROVED;
+        }
+        throw new BusinessException("approval candidate state is invalid");
+    }
+
     public boolean markAuditorDecision(String tenantCode,
                                        String approvalType,
                                        String approvalCode,
@@ -144,6 +215,10 @@ public class ApprovalAuditorCandidateService {
                 .set(ApprovalAuditorCandidate::getAuditTime, LocalDateTime.now())
                 .set(ApprovalAuditorCandidate::getUpdateTime, LocalDateTime.now()));
         return rows > 0;
+    }
+
+    private int valueOrDefault(Integer value) {
+        return value == null ? -1 : value;
     }
 
     public void replaceActiveCandidates(String tenantCode, String approvalType, String approvalCode, List<Long> auditorIds) {

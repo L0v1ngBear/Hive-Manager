@@ -226,9 +226,9 @@ public class ApprovalService {
         }
         String auditComment = trimToNull(request.getComment());
         boolean approve = ApprovalActionEnum.isApprove(request.getAction());
-        boolean candidateFlow = markCandidateDecisionIfPresent(
+        ApprovalAuditorCandidateService.ApprovalDecision decision = recordCandidateDecision(
                 userLeave.getTenantCode(), APPROVAL_TYPE_LEAVE, userLeave.getLeaveCode(), currentUserId, approve, auditComment);
-        if (candidateFlow) {
+        if (decision.isCandidateFlow()) {
             userLeave.setAuditComment(auditComment);
             if (!approve) {
                 userLeave.setStatus(ApprovalStatusEnum.REJECTED.getCode());
@@ -237,8 +237,7 @@ public class ApprovalService {
                 leaveMapper.updateById(userLeave);
                 return;
             }
-            if (approvalAuditorCandidateService.hasPendingAuditors(
-                    userLeave.getTenantCode(), APPROVAL_TYPE_LEAVE, userLeave.getLeaveCode())) {
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
                 leaveMapper.updateById(userLeave);
                 return;
             }
@@ -426,7 +425,7 @@ public class ApprovalService {
         }
         String auditComment = trimToNull(request.getComment());
         boolean approve = ApprovalActionEnum.isApprove(request.getAction());
-        boolean candidateFlow = markCandidateDecisionIfPresent(
+        ApprovalAuditorCandidateService.ApprovalDecision decision = recordCandidateDecision(
                 record.getTenantCode(), APPROVAL_TYPE_QUALITY, approvalCode, currentUserId, approve, auditComment);
         if (!approve) {
             badProductService.rejectProcessApproval(record.getDefectiveId());
@@ -434,8 +433,7 @@ public class ApprovalService {
                     record.getTenantCode(), APPROVAL_TYPE_QUALITY, approvalCode);
             return;
         }
-        if (candidateFlow && approvalAuditorCandidateService.hasPendingAuditors(
-                record.getTenantCode(), APPROVAL_TYPE_QUALITY, approvalCode)) {
+        if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
             return;
         }
         badProductService.approveProcess(record.getDefectiveId());
@@ -516,7 +514,7 @@ public class ApprovalService {
             validateCurrentOrderAuditor(orderType, salesOrder.getOrderId(), salesOrder.getTenantCode());
             String approvalCode = orderApprovalCode(orderType, salesOrder.getOrderId());
             boolean approve = ApprovalActionEnum.isApprove(request.getAction());
-            boolean candidateFlow = markCandidateDecisionIfPresent(
+            ApprovalAuditorCandidateService.ApprovalDecision decision = recordCandidateDecision(
                     salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode, TenantPermissionContext.getUserId(), approve, remark);
             if (!ApprovalActionEnum.isApprove(request.getAction())) {
                 if (orderService.hasPendingSalesRollbackApproval(salesOrder.getOrderId())) {
@@ -528,14 +526,14 @@ public class ApprovalService {
                     approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
                     return;
                 }
-                if (ORDER_STATUS_PENDING_SHIP.equals(salesOrder.getStatus())) {
+                if (ORDER_STATUS_PENDING_PAY.equals(salesOrder.getStatus())
+                        || ORDER_STATUS_PENDING_SHIP.equals(salesOrder.getStatus())) {
                     approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
                     return;
                 }
                 throw new BusinessException("订单驳回/取消请到订单管理中处理，避免误改业务单据状态");
             }
-            if (candidateFlow && approvalAuditorCandidateService.hasPendingAuditors(
-                    salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode)) {
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
                 return;
             }
             if (orderService.hasPendingSalesRollbackApproval(salesOrder.getOrderId())) {
@@ -564,7 +562,7 @@ public class ApprovalService {
             validateCurrentOrderAuditor(orderType, productionOrder.getOrderId(), productionOrder.getTenantCode());
             String approvalCode = orderApprovalCode(orderType, productionOrder.getOrderId());
             boolean approve = ApprovalActionEnum.isApprove(request.getAction());
-            boolean candidateFlow = markCandidateDecisionIfPresent(
+            ApprovalAuditorCandidateService.ApprovalDecision decision = recordCandidateDecision(
                     productionOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode, TenantPermissionContext.getUserId(), approve, remark);
             if (!approve) {
                 if (orderService.hasPendingProductionRollbackApproval(productionOrder.getOrderId())) {
@@ -573,8 +571,7 @@ public class ApprovalService {
                 }
                 throw new BusinessException("订单驳回/取消请到订单管理中处理，避免误改业务单据状态");
             }
-            if (candidateFlow && approvalAuditorCandidateService.hasPendingAuditors(
-                    productionOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode)) {
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
                 return;
             }
             if (orderService.hasPendingProductionRollbackApproval(productionOrder.getOrderId())) {
@@ -628,9 +625,9 @@ public class ApprovalService {
 
         String auditComment = trimToNull(request.getComment());
         boolean approve = ApprovalActionEnum.isApprove(request.getAction());
-        boolean candidateFlow = markCandidateDecisionIfPresent(
+        ApprovalAuditorCandidateService.ApprovalDecision decision = recordCandidateDecision(
                 approval.getTenantCode(), APPROVAL_TYPE_RESIGNATION, approval.getResignationCode(), currentUserId, approve, auditComment);
-        if (candidateFlow) {
+        if (decision.isCandidateFlow()) {
             approval.setAuditComment(auditComment);
             if (!approve) {
                 approval.setStatus(ApprovalStatusEnum.REJECTED.getCode());
@@ -639,8 +636,7 @@ public class ApprovalService {
                 resignationApprovalMapper.updateById(approval);
                 return;
             }
-            if (approvalAuditorCandidateService.hasPendingAuditors(
-                    approval.getTenantCode(), APPROVAL_TYPE_RESIGNATION, approval.getResignationCode())) {
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
                 resignationApprovalMapper.updateById(approval);
                 return;
             }
@@ -710,9 +706,9 @@ public class ApprovalService {
 
         String auditComment = trimToNull(request.getComment());
         boolean approve = ApprovalActionEnum.isApprove(request.getAction());
-        boolean candidateFlow = markCandidateDecisionIfPresent(
+        ApprovalAuditorCandidateService.ApprovalDecision decision = recordCandidateDecision(
                 approval.getTenantCode(), APPROVAL_TYPE_FINANCE, approval.getApprovalCode(), currentUserId, approve, auditComment);
-        if (candidateFlow) {
+        if (decision.isCandidateFlow()) {
             approval.setAuditComment(auditComment);
             if (!approve) {
                 approval.setStatus(ApprovalStatusEnum.REJECTED.getCode());
@@ -721,8 +717,7 @@ public class ApprovalService {
                 financeApprovalMapper.updateById(approval);
                 return;
             }
-            if (approvalAuditorCandidateService.hasPendingAuditors(
-                    approval.getTenantCode(), APPROVAL_TYPE_FINANCE, approval.getApprovalCode())) {
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
                 financeApprovalMapper.updateById(approval);
                 return;
             }
@@ -1278,22 +1273,14 @@ public class ApprovalService {
         idsSetter.accept(auditorIds.size() > 1 ? joinAuditorIds(auditorIds) : null);
     }
 
-    private boolean markCandidateDecisionIfPresent(String tenantCode,
-                                                   String approvalType,
-                                                   String approvalCode,
-                                                   Long currentUserId,
-                                                   boolean approved,
-                                                   String comment) {
-        List<Long> activeAuditors = approvalAuditorCandidateService.findActiveAuditorIds(tenantCode, approvalType, approvalCode);
-        if (activeAuditors == null || activeAuditors.isEmpty()) {
-            return false;
-        }
-        boolean marked = approvalAuditorCandidateService.markAuditorDecision(
+    private ApprovalAuditorCandidateService.ApprovalDecision recordCandidateDecision(String tenantCode,
+                                                                                      String approvalType,
+                                                                                      String approvalCode,
+                                                                                      Long currentUserId,
+                                                                                      boolean approved,
+                                                                                      String comment) {
+        return approvalAuditorCandidateService.recordDecision(
                 tenantCode, approvalType, approvalCode, currentUserId, approved, comment);
-        if (!marked) {
-            throw new BusinessException("该审批已处理或您不是当前审批人");
-        }
-        return true;
     }
 
     private boolean canCurrentUserAudit(Long currentUserId, Long auditorId, String auditorIds) {
