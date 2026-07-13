@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { buildEquipmentExport } from "../src/views/function/equipment/equipmentExport.js";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 
@@ -103,4 +104,46 @@ test("equipment explains its locked code and disables pagination while loading",
 
   assert.match(source, /<el-tooltip\b[\s\S]*设备码已用于固定二维码，创建后不可修改。[\s\S]*<el-input\b[\s\S]*:disabled="!!editingId"/);
   assert.match(pagination, /:disabled="loading"/);
+});
+
+test("equipment export serializes the current page rows without table DOM clones", () => {
+  const devices = [{ id: 7, equipmentName: "定型机01", equipmentCode: "EQ-001", equipmentType: "生产设备", location: "一车间", responsiblePerson: "张三", inspectionCycleDays: 0, lastInspectionTime: "2026-07-13T08:09:00", status: "enabled" }];
+  const result = buildEquipmentExport(devices);
+  assert.deepEqual(result.headers, ["设备名称", "设备编码", "设备类型", "设备位置", "负责人", "巡检周期（天）", "最近巡检", "状态"]);
+  assert.deepEqual(result.rows, [["定型机01", "EQ-001", "生产设备", "一车间", "张三", 0, "2026-07-13 08:09", "启用中"]]);
+  assert.equal(result.rows.length, devices.length, "fixed 操作列克隆不能产生重复导出行");
+});
+
+test("organization overview has mutually exclusive failure and retry state", () => {
+  const source = read("../src/views/function/organization/organization.vue");
+  const fetchOverview = between(source, "async function fetchOverview()", "async function selectDepartment(node)");
+  assert.match(source, /const overviewFailure = ref\(null\)/);
+  assert.match(fetchOverview, /departments\.value = \[\][\s\S]*overviewFailure\.value = null[\s\S]*getOrganizationOverview/);
+  assert.match(fetchOverview, /catch \(error\)[\s\S]*overviewFailure\.value = resolveOverviewFailure\(error/);
+  assert.match(source, /v-if="overviewFailure"[\s\S]*@click="fetchOverview"[^>]*>重试<\/el-button>/);
+});
+
+test("equipment detail and records reject stale responses and expose retryable states", () => {
+  const source = read("../src/views/function/equipment/equipment.vue");
+  const openDetail = between(source, "async function openDetail(device)", "async function fetchRecords(");
+  const fetchRecords = between(source, "async function fetchRecords(", "function closeDrawers()");
+  assert.match(source, /let detailRequestId = 0/);
+  assert.match(openDetail, /detail\.value = null[\s\S]*records\.value = \[\][\s\S]*const requestId = \+\+detailRequestId/);
+  assert.match(openDetail, /if \(requestId !== detailRequestId\) return/);
+  assert.match(fetchRecords, /const requestId = \+\+recordsRequestId[\s\S]*if \(requestId !== recordsRequestId\) return/);
+  assert.match(source, /detailFailure/);
+  assert.match(source, /recordsFailure/);
+  assert.match(source, /retryDetail/);
+  assert.match(source, /retryRecords/);
+});
+
+test("organization and equipment mutation commands stay visible but disabled with reasons", () => {
+  const organization = read("../src/views/function/organization/organization.vue");
+  const equipment = read("../src/views/function/equipment/equipment.vue");
+  assert.match(organization, /hasPermission\('employee:update'\)/);
+  assert.match(organization, /hasPermission\('employee:delete'\)/);
+  assert.match(organization, /暂无 employee:update 权限/);
+  assert.match(organization, /暂无 employee:delete 权限/);
+  assert.match(equipment, /hasPermission\('equipment:save'\)/);
+  assert.match(equipment, /暂无 equipment:save 权限/);
 });
