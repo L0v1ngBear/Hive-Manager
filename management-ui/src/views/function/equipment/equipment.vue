@@ -45,7 +45,7 @@
           <el-table v-loading="loading" :data="devices" class="equipment-table" row-key="id">
             <el-table-column label="设备" min-width="170">
               <template #default="{ row }">
-                <el-button link type="primary" @click="openDetail(row)">{{ row.equipmentName }}</el-button>
+                <el-tooltip :disabled="canViewDetail" content="暂无 equipment:detail 权限"><span><el-button link type="primary" :disabled="!canViewDetail" @click="openDetail(row)">{{ row.equipmentName }}</el-button></span></el-tooltip>
                 <p class="mt-1 text-xs text-on-surface-variant">{{ row.equipmentCode }}</p>
               </template>
             </el-table-column>
@@ -58,7 +58,7 @@
             <el-table-column label="状态" min-width="100"><template #default="{ row }"><el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用中' : '已停用' }}</el-tag></template></el-table-column>
             <el-table-column label="操作" width="210" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+                <el-tooltip :disabled="canViewDetail" content="暂无 equipment:detail 权限"><span><el-button link type="primary" :disabled="!canViewDetail" @click="openDetail(row)">详情</el-button></span></el-tooltip>
                 <el-tooltip :disabled="canSave" content="暂无 equipment:save 权限"><span><el-button link type="primary" :disabled="!canSave" @click="openEdit(row)">编辑</el-button></span></el-tooltip>
                 <el-tooltip v-if="row.status === 'enabled'" :disabled="canSave" content="暂无 equipment:save 权限"><span><el-button link type="danger" :disabled="!canSave" @click="handleDisable(row)">停用</el-button></span></el-tooltip>
               </template>
@@ -110,8 +110,8 @@
         <el-descriptions-item label="最近巡检">{{ formatDateTime(detail?.lastInspectionTime) }}</el-descriptions-item>
       </el-descriptions>
       <section class="mt-8">
-        <div class="mb-4 flex items-center justify-between"><h3 class="text-lg font-bold">巡检记录</h3><el-button @click="fetchRecords">刷新</el-button></div>
-        <div v-loading="recordsLoading" class="min-h-32">
+        <div class="mb-4 flex items-center justify-between"><h3 class="text-lg font-bold">巡检记录</h3><el-tooltip :disabled="canViewInspection" content="暂无 equipment:inspection:list 权限"><span><el-button :disabled="!canViewInspection" @click="fetchRecords">刷新</el-button></span></el-tooltip></div>
+        <div v-if="canViewInspection" v-loading="recordsLoading" class="min-h-32">
           <el-result v-if="recordsFailure" :icon="recordsFailure.kind === 'forbidden' ? 'warning' : 'error'" :title="recordsFailure.title" :sub-title="recordsFailure.message"><template #extra><el-button type="primary" :loading="recordsLoading" @click="retryRecords">重试</el-button></template></el-result>
           <div v-else-if="records.length" class="space-y-3">
             <article v-for="record in records" :key="record.id" class="record-card">
@@ -137,6 +137,7 @@ import { ElButton, ElDescriptions, ElDescriptionsItem, ElDrawer, ElEmpty, ElForm
 import { exportRowsToExcel } from '@/utils/tableExport'
 import { useUserStore } from '@/stores/user'
 import { buildEquipmentExport } from './equipmentExport.js'
+import { resolveEquipmentAccess } from './equipmentAccess.js'
 import { disableEquipment, getEquipmentDetail, getEquipmentInspectionRecords, getEquipmentPage, saveEquipment } from './api/equipment'
 
 const loading = ref(false)
@@ -156,6 +157,9 @@ const records = ref([])
 const recordsLoading = ref(false)
 const userStore = useUserStore()
 const canSave = computed(() => userStore.hasPermission('equipment:save'))
+const equipmentAccess = computed(() => resolveEquipmentAccess((code) => userStore.hasPermission(code)))
+const canViewDetail = computed(() => equipmentAccess.value.canViewDetail)
+const canViewInspection = computed(() => equipmentAccess.value.canViewInspection)
 const detailLoading = ref(false)
 const detailFailure = ref(null)
 const recordsFailure = ref(null)
@@ -229,6 +233,7 @@ async function handleDisable(device) {
 }
 
 async function openDetail(device) {
+  if (!canViewDetail.value) return
   selectedDevice = device
   detailVisible.value = true
   detail.value = null
@@ -252,6 +257,7 @@ async function openDetail(device) {
 }
 
 async function fetchRecords(equipmentId = detail.value?.id) {
+  if (!canViewInspection.value) return
   if (!equipmentId) {
     records.value = []
     return

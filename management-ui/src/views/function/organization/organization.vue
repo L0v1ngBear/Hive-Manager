@@ -189,7 +189,13 @@ const parentOptions = computed(() => flattenDepartments(departments.value).filte
 onMounted(fetchOverview)
 
 async function fetchOverview() {
+  const activeDepartmentId = activeDepartment.value?.id
   loading.value = true
+  memberRequestId += 1
+  activeDepartment.value = null
+  members.value = []
+  memberFailure.value = null
+  memberLoading.value = false
   departments.value = []
   Object.assign(stats, { departmentCount: 0, employeeCount: 0, enabledDepartmentCount: 0, emptyDepartmentCount: 0 })
   overviewFailure.value = null
@@ -197,8 +203,8 @@ async function fetchOverview() {
     const data = await getOrganizationOverview()
     departments.value = Array.isArray(data?.departments) ? data.departments : []
     Object.assign(stats, data?.stats || {})
-    if (activeDepartment.value) {
-      const latest = findDepartmentById(departments.value, activeDepartment.value.id)
+    if (activeDepartmentId) {
+      const latest = findDepartmentById(departments.value, activeDepartmentId)
       if (latest) await selectDepartment(latest)
       else {
         memberRequestId += 1
