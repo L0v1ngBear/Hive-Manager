@@ -23,13 +23,23 @@
         <el-form-item label="分配权限" class="space-y-2 relative">
           <p class="text-[10px] font-normal lowercase text-on-surface-variant opacity-60">勾选下方列表授予功能访问权</p>
 
-          <div v-if="permissionLoadError" class="rounded-lg bg-amber-50 text-amber-700 px-4 py-3 text-sm">
-            {{ permissionLoadError }}
+          <el-alert
+            v-if="permissionLoader.state.loadState === 'forbidden'"
+            title="无权查看权限树"
+            description="当前账号缺少角色权限查看能力，请联系管理员分配 role:permission:list 权限。"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
+          <div v-else-if="permissionLoader.state.loadState === 'failed'" class="space-y-3">
+            <el-alert title="权限树加载失败" description="无法连接权限服务，请检查网络或稍后重试。" type="error" :closable="false" show-icon />
+            <el-button type="primary" plain @click="fetchPermissions">重新加载</el-button>
           </div>
-          <div v-else class="atelier-tree-select-wrapper">
+          <el-empty v-else-if="permissionLoader.state.loadState === 'empty'" description="暂无可分配权限" />
+          <div v-else-if="permissionLoader.state.loadState === 'ready' || permissionLoader.state.loading" class="atelier-tree-select-wrapper">
             <el-tree-select
               v-model="form.permissionIds"
-              :data="allPermissions"
+              :data="permissionLoader.state.treeData"
               node-key="id"
               value-key="id"
               multiple
@@ -39,10 +49,10 @@
               check-on-click-node
               :render-after-expand="false"
               :props="{ value: 'id', label: 'permName', children: 'children' }"
-              :placeholder="isLoadingPerms ? '正在加载权限列表...' : '点击选择系统权限'"
+              :placeholder="permissionLoader.state.loading ? '正在加载权限列表...' : '点击选择系统权限'"
               class="atelier-tree-select w-full"
               filterable
-              :loading="isLoadingPerms"
+              :loading="permissionLoader.state.loading"
             >
               <template #default="scope">
                 <div v-if="scope?.data" class="flex items-center gap-2">
@@ -59,7 +69,7 @@
 
       <div class="p-8 bg-surface-container-low border-t border-surface-variant/30 grid grid-cols-2 gap-4">
         <el-button @click="close">取消返回</el-button>
-        <el-button type="primary" :loading="isSubmitting" @click="submit">
+        <el-button type="primary" :loading="isSubmitting" :disabled="!permissionTreeCanSubmit(permissionLoader.state.loadState)" @click="submit">
           {{ isSubmitting ? '提交中...' : '确认创建' }}
         </el-button>
       </div>
@@ -69,32 +79,18 @@
 
 <script setup>
 import { ref } from 'vue'
-import { ElButton, ElDrawer, ElForm, ElFormItem, ElInput, ElMessage, ElTreeSelect } from 'element-plus'
+import { ElAlert, ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElMessage, ElTreeSelect } from 'element-plus'
 import { createRole, getAllPermissions } from './api/role.js'
+import { createPermissionTreeLoader, permissionTreeCanSubmit } from './permissionLoaders.js'
 
 const emit = defineEmits(['success', 'closed'])
 const visible = ref(false)
 const isSubmitting = ref(false)
-const isLoadingPerms = ref(false)
-const permissionLoadError = ref('')
 const form = ref({ roleName: '', permissionIds: [] })
-const allPermissions = ref([])
+const permissionLoader = createPermissionTreeLoader({ getAllPermissions })
 
 async function fetchPermissions() {
-  isLoadingPerms.value = true
-  permissionLoadError.value = ''
-  try {
-    const rawData = await getAllPermissions()
-    allPermissions.value = Array.isArray(rawData) ? rawData : []
-  } catch (error) {
-    console.error('获取权限异常:', error)
-    allPermissions.value = []
-    permissionLoadError.value = error?.response?.status === 403
-      ? '您暂无权限查看权限树，请联系企业负责人确认角色权限配置。'
-      : '权限树加载失败，请稍后重试。'
-  } finally {
-    isLoadingPerms.value = false
-  }
+  await permissionLoader.load()
 }
 
 async function open() {
@@ -113,8 +109,8 @@ async function submit() {
     ElMessage.warning('角色名称是必填项')
     return
   }
-  if (permissionLoadError.value) {
-    ElMessage.warning(permissionLoadError.value)
+  if (!permissionTreeCanSubmit(permissionLoader.state.loadState)) {
+    ElMessage.warning('权限树尚未准备完成')
     return
   }
   isSubmitting.value = true

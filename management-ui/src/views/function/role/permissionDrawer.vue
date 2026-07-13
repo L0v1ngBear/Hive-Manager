@@ -12,7 +12,7 @@
     <div class="h-1 bg-primary w-full sticky top-0 z-10"></div>
 
     <div class="flex flex-col h-full bg-surface-container-lowest relative">
-      <div v-if="isLoadingData" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
+      <div v-if="permissionLoader.state.loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
         <span class="material-symbols-outlined text-primary text-4xl animate-spin">progress_activity</span>
         <span class="text-sm font-bold text-primary mt-2">正在同步权限矩阵...</span>
       </div>
@@ -35,7 +35,7 @@
 
       <div class="flex-1 overflow-y-auto p-8 space-y-3 no-scrollbar">
         <el-alert
-            v-if="permissionLoadState === 'forbidden'"
+            v-if="permissionLoader.state.loadState === 'forbidden'"
             title="无权查看角色权限"
             description="当前账号缺少角色权限查看能力，请联系管理员分配 role:permission:list 权限。"
             type="warning"
@@ -43,7 +43,7 @@
             show-icon
         />
 
-        <div v-else-if="permissionLoadState === 'failed'" class="space-y-4">
+        <div v-else-if="permissionLoader.state.loadState === 'failed'" class="space-y-4">
           <el-alert
               title="权限数据加载失败"
               description="无法连接权限服务，请检查网络或稍后重试。"
@@ -57,7 +57,7 @@
           </el-button>
         </div>
 
-        <template v-else-if="treeData.length > 0">
+        <template v-else-if="permissionLoader.state.treeData.length > 0">
           <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant flex justify-between mb-2">
             权限结构树
             <span class="text-[10px] font-normal lowercase opacity-60">支持搜索与折叠</span>
@@ -66,7 +66,7 @@
           <div class="atelier-tree-select-wrapper">
             <el-tree-select
                 v-model="checkedPermissionIds"
-                :data="treeData"
+                :data="permissionLoader.state.treeData"
                 node-key="id"
                 value-key="id"
                 multiple
@@ -94,7 +94,7 @@
           </div>
         </template>
 
-        <el-empty v-else-if="!isLoadingData && permissionLoadState === 'ready'" description="暂无权限数据结构" />
+        <el-empty v-else-if="permissionLoader.state.loadState === 'empty'" description="暂无权限数据结构" />
       </div>
 
       <div class="p-8 bg-surface-container-low border-t border-surface-variant/30 grid grid-cols-2 gap-4 flex-shrink-0">
@@ -102,7 +102,7 @@
         <el-button
             type="primary"
             :loading="isSubmitting"
-            :disabled="treeData.length === 0 || permissionLoadState !== 'ready'"
+            :disabled="permissionLoader.state.treeData.length === 0 || permissionLoader.state.loadState !== 'ready'"
             @click="save"
         >
           {{ isSubmitting ? '保存中...' : '确认分配' }}
@@ -116,16 +116,19 @@
 import { ref, nextTick } from 'vue'
 import { ElAlert, ElButton, ElDrawer, ElEmpty, ElMessage, ElTreeSelect } from 'element-plus'
 import {getAllPermissions, getRolePermissionIds, updateRolePermissions} from './api/role.js'
+import { createRolePermissionLoader } from './permissionLoaders.js'
 
 const visible = ref(false)
 const currentRole = ref(null)
 const emit = defineEmits(['updated', 'closed'])
 
-const isLoadingData = ref(false)
 const isSubmitting = ref(false)
-const treeData = ref([])
 const checkedPermissionIds = ref([])
-const permissionLoadState = ref('idle')
+const permissionLoader = createRolePermissionLoader({
+  getAllPermissions,
+  getRolePermissionIds,
+  afterTreeReady: nextTick
+})
 
 async function open(role) {
   if (!role) return
@@ -137,40 +140,9 @@ async function open(role) {
 async function loadPermissionData() {
   if (!currentRole.value) return
 
-  treeData.value = []
   checkedPermissionIds.value = []
-  permissionLoadState.value = 'loading'
-  isLoadingData.value = true
-
-  try {
-    const [permissionsRes, ownedIdsRes] = await Promise.all([
-      getAllPermissions(),
-      getRolePermissionIds(currentRole.value.id)
-    ])
-
-    // 剥离包裹层，拿到后端返回的原始树形数据
-    const rawList = permissionsRes?.data?.data || permissionsRes?.data || permissionsRes || []
-    const ownedIds = ownedIdsRes?.data?.data || ownedIdsRes?.data || ownedIdsRes || []
-
-    // 🌟 核心修改：直接把后端返回的自带 children 的数组扔给组件，不需要再 buildTree 了！
-    treeData.value = Array.isArray(rawList) ? rawList : []
-
-    // 等待 DOM 树渲染完成，再赋选中值，确保能正确回显文字而不是 ID
-    await nextTick()
-
-    if (Array.isArray(ownedIds)) {
-      checkedPermissionIds.value = ownedIds.map(id => Number(id))
-    } else {
-      checkedPermissionIds.value = []
-    }
-    permissionLoadState.value = 'ready'
-  } catch (error) {
-    console.error('[Hive Auth] 权限初始化失败:', error)
-    const statusCode = Number(error?.response?.status ?? error?.code)
-    permissionLoadState.value = [401, 403].includes(statusCode) ? 'forbidden' : 'failed'
-  } finally {
-    isLoadingData.value = false
-  }
+  await permissionLoader.load(currentRole.value.id)
+  checkedPermissionIds.value = [...permissionLoader.state.checkedPermissionIds]
 }
 
 function close() {

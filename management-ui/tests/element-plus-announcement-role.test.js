@@ -60,12 +60,10 @@ test("role list keeps request failure separate from its true empty state", () =>
 
 test("permission drawer distinguishes authorization failures from request failures", () => {
   const permission = read("../src/views/function/role/permissionDrawer.vue");
-  assert.match(permission, /const permissionLoadState = ref\('idle'\)/);
-  assert.match(permission, /error\?\.response\?\.status/);
-  assert.match(permission, /error\?\.code/);
-  assert.match(permission, /\[401, 403\]\.includes\(statusCode\)/);
-  assert.match(permission, /permissionLoadState === 'forbidden'/);
-  assert.match(permission, /permissionLoadState === 'failed'/);
+  assert.match(permission, /createRolePermissionLoader/);
+  assert.match(permission, /permissionLoader\.state\.loadState === 'forbidden'/);
+  assert.match(permission, /permissionLoader\.state\.loadState === 'failed'/);
+  assert.match(permission, /permissionLoader\.state\.loadState === 'empty'/);
   assert.match(permission, /无权查看角色权限/);
   assert.match(permission, /权限数据加载失败/);
   assert.doesNotMatch(permission, /permissionLoadError/);
@@ -136,4 +134,67 @@ test("role table empty slot suppresses error and empty states while loading", ()
     list,
     /<template #empty>[\s\S]*v-if="loading"[\s\S]*v-else-if="roleLoadError"[\s\S]*<el-empty v-else/,
   );
+});
+
+test("permission loader keeps only the latest role response when requests finish out of order", async () => {
+  const { createRolePermissionLoader } = await import(
+    "../src/views/function/role/permissionLoaders.js"
+  );
+  const pending = new Map();
+  const deferred = (key) => new Promise((resolve, reject) => pending.set(key, { resolve, reject }));
+  const loader = createRolePermissionLoader({
+    getAllPermissions: () => deferred(`tree-${pending.size}`),
+    getRolePermissionIds: (roleId) => deferred(`owned-${roleId}`),
+  });
+
+  const first = loader.load(11);
+  const second = loader.load(22);
+  pending.get("tree-2").resolve([{ id: 220, permName: "新角色权限" }]);
+  pending.get("owned-22").resolve([220]);
+  await second;
+  assert.deepEqual(loader.state.treeData, [{ id: 220, permName: "新角色权限" }]);
+  assert.deepEqual(loader.state.checkedPermissionIds, [220]);
+  assert.equal(loader.state.loadState, "ready");
+  assert.equal(loader.state.loading, false);
+
+  pending.get("tree-0").resolve([{ id: 110, permName: "旧角色权限" }]);
+  pending.get("owned-11").resolve([110]);
+  await first;
+  assert.deepEqual(loader.state.treeData, [{ id: 220, permName: "新角色权限" }]);
+  assert.deepEqual(loader.state.checkedPermissionIds, [220]);
+  assert.equal(loader.state.loadState, "ready");
+  assert.equal(loader.state.loading, false);
+});
+
+test("create-role permission loader separates forbidden, failed and empty outcomes", async () => {
+  const { createPermissionTreeLoader, permissionTreeCanSubmit } = await import(
+    "../src/views/function/role/permissionLoaders.js"
+  );
+  const outcomes = [
+    [{ code: 401 }, "forbidden"],
+    [{ code: 403 }, "forbidden"],
+    [{ response: { status: 401 } }, "forbidden"],
+    [{ response: { status: 403 } }, "forbidden"],
+    [{ code: 500 }, "failed"],
+    [new Error("network down"), "failed"],
+  ];
+
+  for (const [error, expected] of outcomes) {
+    const loader = createPermissionTreeLoader({ getAllPermissions: async () => { throw error; } });
+    await loader.load();
+    assert.equal(loader.state.loadState, expected);
+    assert.equal(loader.state.loading, false);
+    assert.deepEqual(loader.state.treeData, []);
+  }
+
+  const emptyLoader = createPermissionTreeLoader({ getAllPermissions: async () => [] });
+  await emptyLoader.load();
+  assert.equal(emptyLoader.state.loadState, "empty");
+  assert.equal(emptyLoader.state.loading, false);
+  assert.deepEqual(emptyLoader.state.treeData, []);
+  assert.equal(permissionTreeCanSubmit("empty"), true);
+  assert.equal(permissionTreeCanSubmit("ready"), true);
+  assert.equal(permissionTreeCanSubmit("loading"), false);
+  assert.equal(permissionTreeCanSubmit("forbidden"), false);
+  assert.equal(permissionTreeCanSubmit("failed"), false);
 });
