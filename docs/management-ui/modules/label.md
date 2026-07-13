@@ -36,9 +36,8 @@
 
 - 路由入口要求 `label:template:list`，并受 `module.label` 控制。
 - 后端模板列表/变量要求 `label:template:list`，保存要求 `label:template:save`；API 中另有上传、设默认、停用的独立权限接口，但当前页面未调用。
-- 设备页签及概览计数调用 `/equipment/page`，前端按 `equipment:view` 保护；无权限时不请求设备接口、不展示页签，也不会用待打印计数伪装设备数量。
+- 设备页签、设备内容及概览计数调用 `/equipment/page`，统一按仓库真实权限 `equipment:list` 保护；无权限时不请求设备接口、不展示设备页签和内容，也不会用待打印计数伪装设备数量。
 - “编辑模板/保存模板”按 `label:template:save` 保持可见但禁用，并通过 tooltip 说明原因；保存函数也执行权限防线。
-- 设备巡检标签页及其设备内容按 `equipment:list` 控制，无权内容不进入可访问 tabs，也不发起设备请求。
 - 当前 `management` 源码中未找到 `/print-task/*` 控制器，打印任务接口的服务来源与权限无法由本仓库后端实现继续确认。
 
 ## 状态流

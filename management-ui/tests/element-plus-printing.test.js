@@ -47,27 +47,38 @@ test('label migrates only peripheral controls and preserves QR barcode and print
 test('label hides unauthorized content and exposes retryable latest-request states', () => {
   assert.match(label, /useUserStore/)
   assert.match(label, /label:template:save/)
-  assert.match(label, /equipment:view/)
+  assert.match(label, /equipment:list/)
   assert.match(label, /loadError/)
   assert.match(label, /loadRequestId/)
   assert.match(label, /retryCurrentTab/)
-  assert.match(label, /v-if="[^"]*canViewEquipment[^"]*"/)
+  assert.match(label, /v-if="[^"]*canListEquipment[^"]*"/)
 })
 
-test('equipment overview never requests protected equipment data without equipment:view', async () => {
+test('equipment overview never requests protected equipment data without equipment:list', async () => {
   const { loadEquipmentOverviewCount } = await import('../src/views/function/label/labelOverviewAccess.js')
   let calls = 0
   const count = await loadEquipmentOverviewCount({
-    canViewEquipment: false,
+    canListEquipment: false,
     getEquipmentPage: async () => { calls += 1; return { total: 9 } }
   })
   assert.equal(calls, 0)
   assert.equal(count, null)
 })
 
-test('label wires equipment overview and content to equipment:view without fake counts', () => {
-  assert.match(label, /hasPermission\('equipment:view'\)/)
+test('equipment overview requests equipment data when equipment:list is granted', async () => {
+  const { loadEquipmentOverviewCount } = await import('../src/views/function/label/labelOverviewAccess.js')
+  let calls = 0
+  const count = await loadEquipmentOverviewCount({
+    canListEquipment: true,
+    getEquipmentPage: async () => { calls += 1; return { total: 9 } }
+  })
+  assert.equal(calls, 1)
+  assert.equal(count, 9)
+})
+
+test('label wires equipment overview and content to equipment:list without fake counts', () => {
+  assert.match(label, /hasPermission\('equipment:list'\)/)
   assert.match(label, /loadEquipmentOverviewCount/)
   assert.match(label, /if \(equipmentCount === null\)[\s\S]*updateTabCount\('equipment_inspection', 0\)/)
-  assert.doesNotMatch(label, /hasPermission\('equipment:list'\)/)
+  assert.doesNotMatch(label, /hasPermission\('equipment:view'\)/)
 })

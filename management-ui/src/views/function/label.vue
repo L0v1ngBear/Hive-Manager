@@ -123,7 +123,7 @@
           </div>
         </div>
 
-        <template v-if="activeTab === 'equipment_inspection' && canViewEquipment">
+        <template v-if="activeTab === 'equipment_inspection' && canListEquipment">
           <div class="search-row">
             <el-input v-model.trim="equipmentKeyword" placeholder="搜索设备名称或编号" @keyup.enter="loadEquipmentList" />
             <el-button @click="loadEquipmentList">搜索</el-button>
@@ -286,8 +286,8 @@ const loadError = ref('')
 let loadRequestId = 0
 const userStore = useUserStore()
 const canSaveTemplate = computed(() => userStore.hasPermission('label:template:save'))
-const canViewEquipment = computed(() => userStore.hasPermission('equipment:view'))
-const accessibleTabs = computed(() => printTabs.value.filter((tab) => tab.key !== 'equipment_inspection' || canViewEquipment.value))
+const canListEquipment = computed(() => userStore.hasPermission('equipment:list'))
+const accessibleTabs = computed(() => printTabs.value.filter((tab) => tab.key !== 'equipment_inspection' || canListEquipment.value))
 
 const TEMPLATE_FIELD_LABEL_MAP = {
   barcode: '条码',
@@ -489,7 +489,7 @@ onUnmounted(() => {
 })
 
 async function switchTab(tabKey) {
-  if (tabKey === 'equipment_inspection' && !canViewEquipment.value) return
+  if (tabKey === 'equipment_inspection' && !canListEquipment.value) return
   const requestId = ++loadRequestId
   activeTab.value = tabKey
   loadError.value = ''
@@ -572,7 +572,7 @@ async function loadPrintOverviewCounts() {
   }
   try {
     const equipmentCount = await loadEquipmentOverviewCount({
-      canViewEquipment: canViewEquipment.value,
+      canListEquipment: canListEquipment.value,
       getEquipmentPage
     })
     if (equipmentCount === null) {
@@ -599,7 +599,7 @@ async function loadPendingTasks() {
 }
 
 async function loadEquipmentList() {
-  if (!canViewEquipment.value) return
+  if (!canListEquipment.value) return
   const requestId = ++loadRequestId
   loading.value = true
   loadError.value = ''
