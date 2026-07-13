@@ -1,0 +1,72 @@
+spring:
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 4
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/hive?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: guest
+    password: guest
+
+notification:
+  sms:
+    enabled: ${NOTIFICATION_SMS_ENABLED:true}
+    provider: ${NOTIFICATION_SMS_PROVIDER:console}
+
+app:
+  default-password:
+    employee: ${EMPLOYEE_DEFAULT_PASSWORD:Test@123456}
+    tenant-owner: ${TENANT_OWNER_DEFAULT_PASSWORD:Test@123456}
+
+xxl:
+  job:
+    # Local dev registers with XXL-JOB by default; start local xxl-job-admin first.
+    enabled: ${XXL_JOB_ENABLED:true}
+    admin-addresses: ${XXL_JOB_ADMIN_ADDRESSES:http://127.0.0.1:8088/xxl-job-admin}
+    access-token: ${XXL_JOB_ACCESS_TOKEN:dev_xxl_token}
+    executor:
+      app-name: ${XXL_JOB_EXECUTOR_APP_NAME:hive-management}
+      port: ${XXL_JOB_EXECUTOR_PORT:9999}
+
+hive:
+  operation-log:
+    enabled: true
+    collect-to-db: true
+    collect-to-slf4j: true
+    async-db: true
+    queue-type: rabbitmq
+    rabbit-exchange: hive.operation.log.exchange
+    rabbit-routing-key: hive.operation.log
+    rabbit-queue: hive.operation.log.queue
+    cleanup-enabled: true
+    retention-days: 90
+    cleanup-batch-size: 5000
+    cleanup-cron: "0 20 3 * * ?"
+
+logging:
+  level:
+    root: INFO
+    my.management: DEBUG
+    my.management.module: DEBUG
+    my.management.controller: DEBUG
+    my.management.module.auth.mapper: TRACE
+    my.management.module.customer.mapper: DEBUG
+    my.management.module.document.mapper: DEBUG
+    my.management.module.employee.mapper: DEBUG
+    my.management.module.price.mapper: DEBUG
+    my.management.module.receipt.mapper: DEBUG
+    my.management.module.sys.mapper: DEBUG
+    my.management.module.tenant.mapper: DEBUG
+    com.baomidou.mybatisplus: DEBUG
+    org.apache.ibatis: TRACE
+    org.mybatis: DEBUG
+    java.sql: DEBUG
+    javax.sql: DEBUG
