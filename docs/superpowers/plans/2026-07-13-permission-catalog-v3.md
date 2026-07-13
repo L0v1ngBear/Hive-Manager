@@ -12,6 +12,7 @@
 
 - Do not create a git worktree. Use branch `codex/fix-permission-catalog-v3` in each affected repository after the current order branches are integrated and each checkout is clean.
 - Do not modify or delete any historical migration. Reserve `V20260713_002` for uninvoiced warnings; use `V20260713_003_permission_catalog_v3.sql` unless `_003` is already committed before integration, in which case use the next unused number and update the manifest in the same commit.
+- Production launch starts from the documented data cleanup and a fresh business database. Do not map old permission codes, migrate custom roles, preserve old role grants or personal overrides, or backfill historical order responsibilities.
 - Enterprise tenant permission matching is exact. Do not support `*`, `*:*`, `module:*`, or implicit order-entry inference.
 - Directory/group nodes are never assignable. Only enabled leaves may be written to role or user relation tables.
 - A personal `DENY` wins over role grants and personal grants. User overrides must never update role permission rows.
@@ -101,7 +102,7 @@ git -C D:/HiveCommon commit -m "fix: enforce exact tenant permissions"
 - Create: `C:/Users/HUAWEI/Desktop/hive部署_全新配置/db-migrations/migrations/V20260713_003_permission_catalog_v3.sql`
 - Modify: `C:/Users/HUAWEI/Desktop/hive部署_全新配置/db-migrations/migration_manifest.txt`
 - Modify: `C:/Users/HUAWEI/Desktop/hive部署_全新配置/db-migrations/scripts/verify-online-schema.sh`
-- Modify: `C:/Users/HUAWEI/Desktop/hive部署_全新配置/db-migrations/scripts/rebuild-mysql-from-baseline.sh`
+- Modify: `C:/Users/HUAWEI/Desktop/hive部署_全新配置/db-migrations/scripts/import-baseline-to-shadow.sh`
 - Create: `D:/HiveManager/management-ui/tests/deploy-permission-catalog-v3.test.js`
 
 **Interfaces:**
@@ -134,44 +135,11 @@ Run: `node --test D:/HiveManager/management-ui/tests/deploy-permission-catalog-v
 
 Expected: FAIL because the V3 migration does not exist.
 
-- [ ] **Step 3: Add schema changes and deterministic permission mapping**
+- [ ] **Step 3: Add fresh-install schema and deterministic V3 seeds**
 
-The migration must use guarded `information_schema` checks for additive DDL and a temporary mapping table with explicit conflict precedence:
+Use guarded `information_schema` checks for additive DDL so the startup migration runner remains idempotent. Insert every V3 node with a stable `perm_code`, set group nodes `assignable=0`, and seed the exact built-in role matrix for tenants created after cleanup.
 
-```sql
-CREATE TEMPORARY TABLE permission_code_map (
-  old_code VARCHAR(128) NOT NULL,
-  new_code VARCHAR(128) NOT NULL,
-  PRIMARY KEY (old_code, new_code)
-);
-
-INSERT INTO permission_code_map (old_code, new_code) VALUES
-('dashboard:*', 'dashboard:view'),
-('customer:page', 'customer:list'),
-('customer:add', 'customer:create'),
-('inventory:record:recent', 'inventory:record:list'),
-('approval:order:audit', 'order:audit:shipment');
-
-INSERT INTO sys_user_permission
-  (tenant_code, user_id, permission_id, effect, create_time, update_time, is_deleted)
-SELECT source.tenant_code,
-       source.user_id,
-       target.id,
-       CASE WHEN SUM(source.effect = 'DENY') > 0 THEN 'DENY' ELSE 'GRANT' END,
-       NOW(), NOW(), 0
-FROM sys_user_permission source
-JOIN sys_permission old_perm ON old_perm.id = source.permission_id
-JOIN permission_code_map map ON map.old_code = old_perm.perm_code
-JOIN sys_permission target ON target.perm_code = map.new_code AND target.is_deleted = 0
-WHERE source.is_deleted = 0
-GROUP BY source.tenant_code, source.user_id, target.id
-ON DUPLICATE KEY UPDATE
-  effect = IF(effect = 'DENY' OR VALUES(effect) = 'DENY', 'DENY', 'GRANT'),
-  is_deleted = 0,
-  update_time = NOW();
-```
-
-Insert every V3 leaf with stable `perm_code`, set all group nodes `assignable=0`, rebuild built-in role relations exactly, and soft-delete old wildcards only after validation queries succeed.
+Do not create an old-to-new permission map. Do not copy rows from legacy `sys_role_permission` or `sys_user_permission`. The production cutover cleanup removes tenant roles, user assignments, personal overrides and business data before this release is accepted.
 
 - [ ] **Step 4: Add online schema assertions**
 
@@ -197,7 +165,7 @@ Expected value for each query: `0`.
 
 Run: `node --test D:/HiveManager/management-ui/tests/deploy-permission-catalog-v3.test.js D:/HiveManager/management-ui/tests/deploy-migration-immutability.test.js`
 
-Expected: all tests PASS and historical migration checksums remain unchanged.
+Expected: all tests PASS, historical migration checksums remain unchanged, and the V3 migration contains no legacy permission-copy SQL.
 
 - [ ] **Step 6: Commit deployment changes in the deployment repository or release branch**
 
@@ -267,9 +235,9 @@ public Set<String> leaves() {
 
 Represent every code from design section 5 once. `BuiltInRoleCatalog` composes immutable baseline, staff, and manager sets from those constants.
 
-- [ ] **Step 4: Make provisioning reconcile existing system roles**
+- [ ] **Step 4: Make fresh-tenant provisioning idempotent**
 
-Change provisioning from “skip existing role” to: create missing system roles; normalize name and `is_system`; replace permission relations only for retained built-in roles; never modify custom roles.
+For every newly created tenant, create the complete V3 system-role set and exact permission matrix. Re-running provisioning for the same fresh tenant must be idempotent. Do not inspect, translate, or preserve legacy custom-role grants.
 
 - [ ] **Step 5: Run management role tests**
 
@@ -920,9 +888,9 @@ npm --prefix D:/HiveManager/management-ui run build
 
 Expected: every command succeeds.
 
-- [ ] **Step 2: Rehearse an empty database and an upgrade database**
+- [ ] **Step 2: Rehearse the production cleanup and fresh database path**
 
-Run the deployment package’s baseline rebuild against an empty MySQL 8 instance. Then restore a pre-V3 snapshot and run versioned migrations. Expected in both databases: no failed migration history, no assignable wildcards, no orphan role/user relations, built-in role checksum match, and permission catalog version exactly `3`.
+Run the production cleanup contract, then rebuild an empty MySQL 8 database from the packaged baseline and execute every manifest migration after the baseline cutoff. Expected: no tenant test data, no failed migration history, no assignable wildcards, no orphan role/user relations, built-in role checksum match, and permission catalog version exactly `3`. Do not run or accept a pre-V3 upgrade rehearsal as a release requirement.
 
 - [ ] **Step 3: Build and copy release artifacts**
 
