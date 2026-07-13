@@ -53,7 +53,6 @@
               <template #default="{ row }"><p>{{ row.equipmentType || '--' }}</p><p class="mt-1 text-xs text-on-surface-variant">{{ row.location || '--' }}</p></template>
             </el-table-column>
             <el-table-column prop="responsiblePerson" label="负责人" min-width="120"><template #default="{ row }">{{ row.responsiblePerson || '--' }}</template></el-table-column>
-            <el-table-column label="巡检周期" min-width="110"><template #default="{ row }">{{ row.inspectionCycleDays ?? 7 }} 天</template></el-table-column>
             <el-table-column label="最近巡检" min-width="150"><template #default="{ row }">{{ formatDateTime(row.lastInspectionTime) }}</template></el-table-column>
             <el-table-column label="状态" min-width="100"><template #default="{ row }"><el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用中' : '已停用' }}</el-tag></template></el-table-column>
             <el-table-column label="操作" width="210" fixed="right">
@@ -86,10 +85,7 @@
             </div>
           </el-tooltip>
         </el-form-item>
-        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <el-form-item label="设备类型"><el-input v-model.trim="form.equipmentType" placeholder="生产设备/仓储设备" /></el-form-item>
-          <el-form-item label="巡检周期（天）"><el-input-number v-model="form.inspectionCycleDays" :min="1" :max="3650" class="w-full" /></el-form-item>
-        </div>
+        <el-form-item label="设备类型"><el-input v-model.trim="form.equipmentType" placeholder="生产设备/仓储设备" /></el-form-item>
         <el-form-item label="设备位置"><el-input v-model.trim="form.location" placeholder="例如：一车间 A 区" /></el-form-item>
         <el-form-item label="负责人"><el-input v-model.trim="form.responsiblePerson" placeholder="设备责任人" /></el-form-item>
         <el-form-item label="状态"><el-select v-model="form.status" class="w-full"><el-option label="启用中" value="enabled" /><el-option label="已停用" value="disabled" /></el-select></el-form-item>
@@ -136,7 +132,7 @@
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
-import { ElButton, ElDescriptions, ElDescriptionsItem, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElPagination, ElResult, ElSelect, ElTable, ElTableColumn, ElTag, ElTooltip } from 'element-plus'
+import { ElButton, ElDescriptions, ElDescriptionsItem, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElMessage, ElMessageBox, ElOption, ElPagination, ElResult, ElSelect, ElTable, ElTableColumn, ElTag, ElTooltip } from 'element-plus'
 import { exportRowsToExcel } from '@/utils/tableExport'
 import { useUserStore } from '@/stores/user'
 import { buildEquipmentExport } from './equipmentExport.js'

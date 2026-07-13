@@ -41,10 +41,17 @@ test("equipment uses Element Plus table pagination and drawers", () => {
     "el-pagination",
     "el-drawer",
     "el-form",
-    "el-input-number",
   ]) {
     assert.match(source, new RegExp(`<${tag}\\b`));
   }
+});
+
+test("equipment management no longer exposes an inspection cycle", () => {
+  const source = read("../src/views/function/equipment/equipment.vue");
+
+  assert.doesNotMatch(source, /巡检周期/);
+  assert.doesNotMatch(source, /v-model="form\.inspectionCycleDays"/);
+  assert.doesNotMatch(source, /row\.inspectionCycleDays/);
 });
 
 test("equipment renders one empty state through the ElTable empty slot", () => {
