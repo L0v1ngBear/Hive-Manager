@@ -240,6 +240,11 @@
           </div>
         </div>
 
+        <div v-if="invalidOrderFlowQr" class="qr-invalid-warning" role="alert">
+          <span class="material-symbols-outlined">error</span>
+          <p>流转二维码格式无效，无法生成二维码</p>
+        </div>
+
         <div v-if="printTarget" class="print-tips">
           <span class="material-symbols-outlined">info</span>
           <p>浏览器打印时请选择热敏打印机，纸张尺寸设为当前标签尺寸，并关闭浏览器“页眉和页脚”。打印窗口关闭后需要确认结果，确认成功后系统才会回写打印任务状态。</p>
@@ -267,6 +272,7 @@ import {
 import { listLabelTemplateVariables, listLabelTemplates, saveLabelTemplate } from './label/api/label'
 import { getPendingPrintTaskCount, listPendingPrintTasks, reportPrintTask } from './label/api/printTask'
 import { getEquipmentPage } from './equipment/api/equipment'
+import { selectOrderFlowQrValue } from './order/orderFlow.js'
 
 defineOptions({ name: 'LabelPrintCenter' })
 
@@ -413,7 +419,7 @@ const maxBusinessRows = computed(() => {
 const barcodeValue = computed(() => {
   const target = printTarget.value || {}
   if (activeTab.value === 'order_flow') {
-    return safeText(target.flowBarcode || target.flowScanCode || target.flowCode || (String(target.barcode || '').startsWith('HIVE_ORDER_FLOW:') ? target.barcode : ''))
+    return selectOrderFlowQrValue(target.flowBarcode, target.flowScanCode, target.flowQrPayload, target.barcode)
   }
   return safeText(target.barcode || target.flowBarcode || target.flowScanCode || target.equipmentCode || target.clothCode)
 })
@@ -424,11 +430,12 @@ const qrValue = computed(() => {
     return safeText(target.inspectionQrPayload || target.equipmentCode)
   }
   if (activeTab.value === 'order_flow') {
-    return safeText(target.flowQrPayload || target.flowScanCode || target.flowBarcode || target.flowCode)
+    return selectOrderFlowQrValue(target.flowQrPayload, target.flowScanCode, target.flowBarcode)
   }
   const barcode = target.barcode || target.barCode || target.clothCode || target.bizNo
   return safeText(target.labelQrPayload || target.clothQrPayload || target.inventoryQrPayload || buildInventoryQrPayload(barcode))
 })
+const invalidOrderFlowQr = computed(() => activeTab.value === 'order_flow' && Boolean(printTarget.value) && !qrValue.value)
 
 const availableBusinessRows = computed(() => {
   const target = printTarget.value || {}
@@ -867,6 +874,10 @@ async function renderQrCode() {
 async function printCurrentLabel() {
   if (!printTarget.value) {
     ElMessage.warning('请选择需要打印的业务记录')
+    return
+  }
+  if (invalidOrderFlowQr.value) {
+    ElMessage.warning('流转二维码格式无效，无法预览或打印')
     return
   }
   await refreshPreview()
@@ -1827,6 +1838,18 @@ function formatDate(value) {
 
 .preview-empty .material-symbols-outlined {
   font-size: 54px;
+}
+
+.qr-invalid-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  color: #991b1b;
+  background: #fef2f2;
+  border-top: 1px solid #fecaca;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .print-tips {

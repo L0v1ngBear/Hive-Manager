@@ -83,7 +83,7 @@
             <tr>
               <th class="th-cell">订单信息</th>
               <th class="th-cell">客户项目</th>
-              <th class="th-cell">交付物流</th>
+              <th class="th-cell">信息渠道与物流</th>
               <th class="th-cell">安装状态</th>
               <th class="th-cell">施工信息</th>
               <th class="th-cell text-right">操作</th>
@@ -116,8 +116,8 @@
                   <span>{{ row.deliveryAddress || '未填写安装地址' }}</span>
                 </div>
               </td>
-              <td class="td-cell" data-label="交付物流">
-                <div class="installation-main-text">{{ row.deliveryDate || '未填写交付日期' }}</div>
+              <td class="td-cell" data-label="信息渠道与物流">
+                <div class="installation-main-text">{{ row.informationChannel || '未填写信息渠道' }}</div>
                 <div class="installation-logistics">
                   <span class="material-symbols-outlined">local_shipping</span>
                   <span>
@@ -178,7 +178,7 @@
             <div class="installation-modal-subtitle">
               <span>{{ editorForm.customerName || '未填写客户' }}</span>
               <span>{{ editorForm.projectName || '未填写项目' }}</span>
-              <span>{{ editorForm.deliveryDate || '未填写交付日期' }}</span>
+              <span>{{ editorForm.informationChannel || '未填写信息渠道' }}</span>
             </div>
           </div>
           <button class="installation-icon-btn" @click="closeEditor">
@@ -303,7 +303,7 @@ const editorForm = reactive({
   orderId: '',
   customerName: '',
   projectName: '',
-  deliveryDate: '',
+  informationChannel: '',
   status: 'production_completed',
   expressCompany: '',
   expressNo: '',
@@ -429,7 +429,7 @@ function openEditor(row) {
   editorForm.orderId = row.orderId
   editorForm.customerName = row.customerName || ''
   editorForm.projectName = row.projectName || ''
-  editorForm.deliveryDate = row.deliveryDate || ''
+  editorForm.informationChannel = row.informationChannel || ''
   editorForm.status = row.installationStatus || 'production_completed'
   editorForm.expressCompany = row.expressCompany || ''
   editorForm.expressNo = row.expressNo || ''
