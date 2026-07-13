@@ -35,7 +35,9 @@ test('permission catalog v3 migration is present and complete', () => {
     assert.ok(sql.includes(fragment), `migration must contain ${fragment}`)
   }
 
-  assert.match(sql, /CASE\s+WHEN\s+SUM\([^)]*effect\s*=\s*'DENY'[^)]*\)\s*>\s*0\s+THEN\s+'DENY'/i)
+  assert.doesNotMatch(sql, /permission_v3_code_map/i)
+  assert.doesNotMatch(sql, /FROM\s+sys_user_permission\s+source/i)
+  assert.doesNotMatch(sql, /FROM\s+sys_role_permission\s+rp[\s\S]+old_code/i)
   assert.match(sql, /UPDATE\s+`?sys_permission`?[\s\S]+SET[\s\S]+`?is_deleted`?\s*=\s*1/i)
   const catalogSeed = sql.match(/INSERT INTO permission_v3_catalog[\s\S]+?;\r?\n\r?\nDELIMITER/)
   assert.ok(catalogSeed, 'migration must have a bounded permission_v3_catalog seed')
