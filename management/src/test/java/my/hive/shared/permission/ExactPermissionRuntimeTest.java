@@ -31,4 +31,10 @@ class ExactPermissionRuntimeTest {
             TenantPermissionContext.clear();
         }
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"order", "order:status", "print:label"})
+    void rejectsCatalogGroupNodes(String code) {
+        assertThatThrownBy(() -> evaluator.require(code)).isInstanceOf(IllegalArgumentException.class);
+    }
 }

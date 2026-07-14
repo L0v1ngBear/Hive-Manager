@@ -12,6 +12,7 @@ import jakarta.annotation.Resource;
 import my.hive.shared.auth.TokenService;
 import my.hive.shared.exception.BusinessException;
 import my.hive.shared.privacy.PrivacyProtectionUtil;
+import my.hive.shared.permission.EffectivePermissionService;
 import my.hive.shared.redis.HiveRedisKeyBuilder;
 import my.hive.shared.utils.EncryptUtil;
 import my.hive.shared.utils.ResponseEncryptUtil;
@@ -95,6 +96,9 @@ public class AuthService {
 
     @Resource
     private AuthMapper authMapper;
+
+    @Resource
+    private EffectivePermissionService effectivePermissionService;
 
     @Resource
     private TokenService tokenService;
@@ -737,8 +741,7 @@ public class AuthService {
                     loginUser.getUserId(), loginUser.getTenantCode(), encryptUtil.encode(rawPassword));
         }
 
-        List<String> permissionList = authMapper.selectPermCodesByUserIdAndTenantCode(loginUser.getUserId(), loginUser.getTenantCode());
-        Set<String> permCodes = new LinkedHashSet<>(permissionList == null ? List.of() : permissionList);
+        Set<String> permCodes = effectivePermissionService.resolve(loginUser.getUserId(), loginUser.getTenantCode());
         String token = tokenService.create(
                 loginUser.getUserId(), loginUser.getTenantCode(), requireAuthVersion(loginUser));
 

@@ -63,6 +63,13 @@ class PermissionV3SessionContractTest {
     }
 
     @Test
+    void loginUsesUnifiedEffectivePermissionResolutionOnly() throws IOException {
+        String source = readJava("my/management/module/auth/service/AuthService.java");
+        assertTrue(source.contains("effectivePermissionService.resolve(loginUser.getUserId(), loginUser.getTenantCode())"));
+        assertFalse(source.contains("authMapper.selectPermCodesByUserIdAndTenantCode(loginUser.getUserId()"));
+    }
+
+    @Test
     void permissionSqlAndApproverQueriesUseEnabledExactLeavesOnly() throws IOException {
         String authMapper = readJava("my/management/module/auth/mapper/AuthMapper.java");
         String employeeMapper = readJava("my/management/module/employee/mapper/EmployeeMapper.java");

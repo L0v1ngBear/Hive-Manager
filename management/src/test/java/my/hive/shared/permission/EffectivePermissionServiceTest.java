@@ -21,4 +21,15 @@ class EffectivePermissionServiceTest {
 
         assertThat(service.resolve(9L, "tenant-001")).containsExactly("order:list");
     }
+
+    @Test
+    void personalDenyOverridesRoleGrantWithoutTreatingDenyMarkerAsCatalogCode() {
+        AuthMapper mapper = mock(AuthMapper.class);
+        when(mapper.selectPermCodesByUserIdAndTenantCode(9L, "tenant-001"))
+                .thenReturn(List.of("order:list", "!order:list"));
+
+        EffectivePermissionService service = new EffectivePermissionService(mapper, new PermissionCatalogV3());
+
+        assertThat(service.resolve(9L, "tenant-001")).containsExactly("!order:list");
+    }
 }

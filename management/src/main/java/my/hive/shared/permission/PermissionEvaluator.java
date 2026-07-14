@@ -14,12 +14,18 @@ public class PermissionEvaluator {
     }
 
     public boolean isAllowed(String permissionCode) {
-        permissionCatalog.require(permissionCode);
+        requireAssignable(permissionCode);
         return TenantPermissionContext.hasPermission(permissionCode);
     }
 
     public boolean require(String permissionCode) {
-        permissionCatalog.require(permissionCode);
+        requireAssignable(permissionCode);
         return TenantPermissionContext.hasPermission(permissionCode);
+    }
+
+    private void requireAssignable(String permissionCode) {
+        if (!permissionCatalog.isAssignable(permissionCode)) {
+            throw new IllegalArgumentException("Permission must be an exact assignable V3 leaf: " + permissionCode);
+        }
     }
 }

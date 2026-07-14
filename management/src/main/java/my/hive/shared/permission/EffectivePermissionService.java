@@ -25,9 +25,23 @@ public class EffectivePermissionService {
         }
         List<String> persisted = authMapper.selectPermCodesByUserIdAndTenantCode(userId, tenantCode);
         LinkedHashSet<String> resolved = new LinkedHashSet<>();
+        LinkedHashSet<String> denied = new LinkedHashSet<>();
         if (persisted != null) {
-            persisted.stream().filter(permissionCatalog::isAssignable).forEach(resolved::add);
+            for (String value : persisted) {
+                boolean deny = value != null && value.startsWith("!");
+                String code = deny ? value.substring(1) : value;
+                if (!permissionCatalog.isAssignable(code)) {
+                    continue;
+                }
+                if (deny) {
+                    denied.add(code);
+                } else {
+                    resolved.add(code);
+                }
+            }
         }
+        resolved.removeAll(denied);
+        denied.forEach(code -> resolved.add("!" + code));
         return Collections.unmodifiableSet(resolved);
     }
 }

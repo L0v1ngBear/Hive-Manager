@@ -1,7 +1,6 @@
 package my.management.security;
 
 import my.hive.shared.permission.PermissionCatalogV3;
-import my.hive.shared.permission.PermissionCatalogV3;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -49,7 +48,6 @@ class RuntimePermissionCatalogV3ContractTest {
         try (var paths = Files.walk(MAIN_JAVA)) {
             for (Path path : paths.filter(Files::isRegularFile)
                     .filter(item -> item.toString().endsWith(".java"))
-                    .filter(item -> !item.endsWith("PermissionCatalogV3.java"))
                     .filter(item -> !item.endsWith("PermissionCatalogV3.java"))
                     .toList()) {
                 String source = Files.readString(path, StandardCharsets.UTF_8);
