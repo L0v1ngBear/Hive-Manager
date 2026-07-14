@@ -1,11 +1,11 @@
 package my.hive.domain.order.service;
 
 import my.hive.shared.context.TenantPermissionContext;
-import my.hive.shared.print.PrintTaskService;
+import my.hive.domain.print.PrintTaskService;
 import my.management.common.utils.CodeGeneratorUtil;
-import my.management.module.customer.mapper.CustomerMapper;
-import my.management.module.customer.mapper.CustomerProjectMapper;
-import my.management.module.customer.model.entity.Customer;
+import my.hive.domain.customer.mapper.CustomerMapper;
+import my.hive.domain.customer.mapper.CustomerProjectMapper;
+import my.hive.domain.customer.model.entity.Customer;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.hive.domain.installation.mapper.InstallationTaskMapper;
 import my.hive.domain.installation.model.entity.InstallationTask;

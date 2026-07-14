@@ -10,7 +10,7 @@ import my.hive.shared.annotation.CollectLog;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.dto.PageResult;
 import my.hive.shared.exception.BusinessException;
-import my.hive.shared.print.PrintTaskService;
+import my.hive.domain.print.PrintTaskService;
 import my.hive.shared.redis.HiveRedisKeyBuilder;
 import my.hive.shared.utils.RedisCacheHelper;
 import my.management.common.storage.BusinessAttachmentService;

@@ -29,10 +29,11 @@ Task 2 establishes `my.hive.HiveApplication` as the only executable entry point.
 | inventory | COMPLETE |
 | quality | COMPLETE |
 | installation | COMPLETE |
-| customer | PLANNED |
-| document | PLANNED |
-| equipment | PLANNED |
-| print | PLANNED |
+| customer | COMPLETE |
+| document | COMPLETE |
+| equipment | COMPLETE |
+| label | COMPLETE |
+| print | COMPLETE |
 | notification | PLANNED |
 | attendance | PLANNED |
 | migration | PLANNED |
@@ -41,6 +42,10 @@ Task 2 establishes `my.hive.HiveApplication` as the only executable entry point.
 ## Task 6 domain convergence
 
 Inventory, quality, and installation now use canonical implementations under `my.hive.domain.inventory`, `my.hive.domain.quality`, and `my.hive.domain.installation`, with public adapters under `my.hive.api.inventory`, `my.hive.api.quality`, and `my.hive.api.installation`. Dashboard, notification, approval, and order collaborators import the canonical services instead of the retired `my.management.module.inventory`, `my.management.module.badproduct`, and `my.management.module.installation` packages.
+
+## Task 7 domain convergence
+
+Customer, document, equipment, label-template, receipt-print, and generic print-task code now live under canonical `my.hive.domain.customer`, `my.hive.domain.document`, `my.hive.domain.equipment`, `my.hive.domain.label`, and `my.hive.domain.print` packages. HTTP adapters were moved to `my.hive.api.customer`, `my.hive.api.document`, `my.hive.api.equipment`, `my.hive.api.label`, and `my.hive.api.print`. The previous `my.management.module.customer`, `document`, `equipment`, `label`, and `receipt` runtime packages were retired for these domains; `PrintTaskController` exists only once under the canonical print API.
 ## Permission, employee, role, and tenant convergence
 
 Permission Catalog V3 now lives only at `my.hive.shared.permission.PermissionCatalogV3`. Runtime checks validate an exact assignable catalog leaf before consulting the request grants. `EffectivePermissionService` resolves the canonical management employee/role persistence query and discards all non-catalog values. The single authenticated-route initializer is `TenantContextFilter`, backed by the shared authenticated session and tenant context contracts.

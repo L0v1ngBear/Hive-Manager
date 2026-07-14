@@ -18,10 +18,11 @@ Configure `wechat.mini-program.enabled`, `wechat.mini-program.app-id`, and `wech
 | inventory | COMPLETE |
 | quality | COMPLETE |
 | installation | COMPLETE |
-| customer | PLANNED |
-| document | PLANNED |
-| equipment | PLANNED |
-| print | PLANNED |
+| customer | COMPLETE |
+| document | COMPLETE |
+| equipment | COMPLETE |
+| label | COMPLETE |
+| print | COMPLETE |
 | notification | PLANNED |
 | attendance | PLANNED |
 | migration | PLANNED |
@@ -30,6 +31,10 @@ Configure `wechat.mini-program.enabled`, `wechat.mini-program.app-id`, and `wech
 ## Task 6 deployment note
 
 The unified backend JAR now serves inventory, quality, and installation APIs from the same process and `/api` context. No additional backend container, scheduler instance, or migration entry point is introduced by this task.
+
+## Task 7 deployment note
+
+The unified backend JAR now serves customer, document, equipment, label-template, receipt-print, and generic print-task APIs from the same process and `/api` context. No extra backend container, print service container, scheduler instance, or migration entry point is introduced by this task.
 ## Permission runtime
 
 The unified process has one Permission Catalog V3 bean and one authenticated-route tenant-context initializer. Deployments must not seed wildcard, alias, prefix, or legacy permission codes; only exact assignable V3 leaves are effective.

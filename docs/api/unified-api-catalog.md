@@ -20,10 +20,11 @@ WeChat login resolves phone matches only inside the bounded tenant set. A phone 
 | inventory | COMPLETE |
 | quality | COMPLETE |
 | installation | COMPLETE |
-| customer | PLANNED |
-| document | PLANNED |
-| equipment | PLANNED |
-| print | PLANNED |
+| customer | COMPLETE |
+| document | COMPLETE |
+| equipment | COMPLETE |
+| label | COMPLETE |
+| print | COMPLETE |
 | notification | PLANNED |
 | attendance | PLANNED |
 | migration | PLANNED |
@@ -117,3 +118,16 @@ The retained routes are rooted at `/api/inventory/**`, `/api/quality/**`, and `/
 | GET | admin `/installation-task/page` | `/api/installation-tasks/page` | `installation:list` | `InstallationTaskPageRequest` | `PageResult<InstallationTaskVO>` | `page` | RENAMED |
 | POST | admin `/installation-task/status` | `/api/installation-tasks/status` | `installation:update` | `InstallationTaskStatusUpdateRequest` | `InstallationTaskVO` | `updateStatus` | RENAMED |
 | POST/GET | admin `/installation-task/attachment/*` | `/api/installation-tasks/attachment/*` | `installation:attachment:upload/download` | multipart `file`, `url,name` | `BusinessAttachmentVO` / resource | `uploadAttachment`, `loadAttachment` | RENAMED |
+
+## Customer, document, equipment, label, and print convergence matrix
+
+The retained routes are rooted at `/api/customer/**`, `/api/document/**`, `/api/equipment/**`, `/api/label-template/**`, `/api/receipt/**`, and `/api/print-task/**`. The old management package implementations under `my.management.module.customer`, `my.management.module.document`, `my.management.module.equipment`, `my.management.module.label`, and `my.management.module.receipt` were moved into canonical `my.hive.domain.*` packages. Generic print-task endpoints are served by exactly one `PrintTaskController` under `my.hive.api.print`.
+
+| Domain | Old route root | New route root | Canonical service |
+| --- | --- | --- | --- |
+| customer | admin `/customer` | `/api/customer` | `my.hive.domain.customer.service.CustomerService` |
+| document | admin `/document` | `/api/document` | `my.hive.domain.document.service.DocumentService` |
+| equipment | admin `/equipment` | `/api/equipment` | `my.hive.domain.equipment.service.EquipmentService` |
+| label | admin `/label-template` | `/api/label-template` | `my.hive.domain.label.service.LabelTemplateService` |
+| receipt print | admin `/receipt` | `/api/receipt` | `my.hive.domain.print.receipt.service.ReceiptPrintService` |
+| print task | common `/print-task` | `/api/print-task` | `my.hive.domain.print.PrintTaskService` |
