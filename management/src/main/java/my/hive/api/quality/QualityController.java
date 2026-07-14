@@ -44,7 +44,7 @@ public class QualityController {
     }
 
     @PostMapping("/save")
-    @RequirePermission(value = PermissionCatalogV3.CODE_QUALITY_CREATE, message = "No permission to create quality records")
+    @RequirePermission(value = {PermissionCatalogV3.CODE_QUALITY_CREATE, PermissionCatalogV3.CODE_QUALITY_UPDATE}, message = "No permission to save quality records")
     @CollectLog(module = "bad_product", action = "save", bizType = "bad_product", bizNo = "#request.defectiveId", description = "Save quality record")
     public Result<Void> save(@Valid @RequestBody BadProductSaveRequest request) {
         qualityService.save(request);

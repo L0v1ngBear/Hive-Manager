@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 class UnifiedQualityServiceTest {
@@ -127,7 +128,7 @@ class UnifiedQualityServiceTest {
         BadProductRecord existing = qualityRecord("tenant-a", "Q-1", "pending");
         when(mapper.selectOne(any())).thenReturn(existing).thenReturn(null);
         ApprovalDefaultAuditorService defaultAuditors = mock(ApprovalDefaultAuditorService.class);
-        when(defaultAuditors.resolveAuditorIds(any(), any(), any(), any(), any(), any(), any(Boolean.class)))
+        when(defaultAuditors.resolveAuditorIds(any(), any(), any(), any(), any(), any(), anyBoolean()))
                 .thenReturn(List.of(9L));
         ApprovalAuditorCandidateService candidates = mock(ApprovalAuditorCandidateService.class);
         QualityService service = serviceWithMapper(mapper);
@@ -139,6 +140,24 @@ class UnifiedQualityServiceTest {
         request.setMethod("repair");
 
         service.process(request);
+
+        ArgumentCaptor<Wrapper<BadProductRecord>> captor = ArgumentCaptor.forClass(Wrapper.class);
+        verify(mapper, org.mockito.Mockito.times(2)).selectOne(captor.capture());
+        assertTenantScoped(captor.getAllValues().get(0), "tenant-a");
+        assertTenantScoped(captor.getAllValues().get(1), "tenant-a");
+    }
+
+    @Test
+    void approvalCompletionLookupsAreTenantScoped() {
+        TenantPermissionContext.init("tenant-a", 7L, Set.of(PermissionCatalogV3.CODE_QUALITY_AUDIT));
+        BadProductMapper mapper = mock(BadProductMapper.class);
+        when(mapper.selectOne(any()))
+                .thenReturn(qualityRecord("tenant-a", "Q-1", "pending_audit"))
+                .thenReturn(qualityRecord("tenant-a", "Q-2", "pending_audit"));
+        QualityService service = serviceWithMapper(mapper);
+
+        service.approveProcess("Q-1");
+        service.rejectProcessApproval("Q-2");
 
         ArgumentCaptor<Wrapper<BadProductRecord>> captor = ArgumentCaptor.forClass(Wrapper.class);
         verify(mapper, org.mockito.Mockito.times(2)).selectOne(captor.capture());

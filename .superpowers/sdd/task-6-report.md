@@ -34,7 +34,7 @@ Final Task 6 gate:
 Final review follow-up gate:
 
 - `management\.\mvnw.cmd clean "-Dtest=*Inventory*Test,*Quality*Test,*Installation*Test,*Approval*Test,*Permission*Test,UniqueRuntimeComponentTest" test`
-- PASS: 79 tests, 0 failures, 0 errors, 0 skipped; 448 main sources were recompiled.
+- PASS: 80 tests, 0 failures, 0 errors, 0 skipped; 448 main sources were recompiled.
 - Static checks confirmed no `my.management.module.inventory`, `my.management.module.badproduct`, `my.management.module.installation`, `my.hive_back`, or `PermissionCodeEnum` references remain in the unified Task 6 runtime surface.
 
 ## Other branch and dev-target note

@@ -75,6 +75,13 @@ class UnifiedApprovalServiceTest {
                 throw ex.getCause();
             }
         });
+        assertThrows(BusinessException.class, () -> {
+            try {
+                method.invoke(service, "bad_product");
+            } catch (java.lang.reflect.InvocationTargetException ex) {
+                throw ex.getCause();
+            }
+        });
     }
 
     private void assertApprovalListContract(String methodName) throws Exception {
