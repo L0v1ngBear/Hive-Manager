@@ -29,6 +29,7 @@ GREEN:
 - One canonical print-task controller: PASS.
 - Customer/document/equipment/label/print canonical source roots: PASS.
 - No Task 7 legacy runtime package imports in main/test source: PASS.
+- No Task 7 legacy runtime package roots in Java or resource configuration: PASS.
 - No new SQL migration required: PASS.
 - Existing unrelated `management-ui` changes were not staged: PASS.
 

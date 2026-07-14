@@ -58,11 +58,11 @@ logging:
     my.management.module: DEBUG
     my.management.controller: DEBUG
     my.management.module.auth.mapper: TRACE
-    my.management.module.customer.mapper: DEBUG
-    my.management.module.document.mapper: DEBUG
+    my.hive.domain.customer.mapper: DEBUG
+    my.hive.domain.document.mapper: DEBUG
     my.management.module.employee.mapper: DEBUG
     my.management.module.price.mapper: DEBUG
-    my.management.module.receipt.mapper: DEBUG
+    my.hive.domain.print.receipt.mapper: DEBUG
     my.management.module.sys.mapper: DEBUG
     my.management.module.tenant.mapper: DEBUG
     com.baomidou.mybatisplus: DEBUG
