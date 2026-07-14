@@ -3,30 +3,30 @@ package my.hive.api.inventory;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import my.hive.shared.annotation.RequirePermission;
-import my.hive.shared.permission.PermissionCatalogV3;
-import my.hive.shared.dto.PageResult;
-import my.hive.shared.dto.Result;
-import my.management.common.tenant.RequireTenantFeature;
-import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.hive.domain.inventory.model.dto.InventoryInRequest;
 import my.hive.domain.inventory.model.dto.InventoryOutRequest;
 import my.hive.domain.inventory.model.dto.InventoryPageRequest;
 import my.hive.domain.inventory.model.dto.InventoryWarningSettingUpdateRequest;
-import my.hive.domain.inventory.model.vo.ClothInventoryVO;
 import my.hive.domain.inventory.model.vo.ClothInventoryDetailVO;
+import my.hive.domain.inventory.model.vo.ClothInventoryVO;
 import my.hive.domain.inventory.model.vo.InventoryImageRecognitionVO;
 import my.hive.domain.inventory.model.vo.InventoryImportResultVO;
 import my.hive.domain.inventory.model.vo.InventoryInResultVO;
-import my.hive.domain.inventory.model.vo.InventoryModelSummaryVO;
 import my.hive.domain.inventory.model.vo.InventoryModelOptionVO;
+import my.hive.domain.inventory.model.vo.InventoryModelSummaryVO;
 import my.hive.domain.inventory.model.vo.InventoryRecordVO;
 import my.hive.domain.inventory.model.vo.InventorySummaryVO;
 import my.hive.domain.inventory.model.vo.InventoryTrendVO;
 import my.hive.domain.inventory.model.vo.InventoryWarningSettingVO;
 import my.hive.domain.inventory.model.vo.InventoryWarningVO;
-import my.hive.domain.inventory.service.InventorySettingService;
 import my.hive.domain.inventory.service.InventoryService;
+import my.hive.domain.inventory.service.InventorySettingService;
+import my.hive.shared.annotation.RequirePermission;
+import my.hive.shared.dto.PageResult;
+import my.hive.shared.dto.Result;
+import my.hive.shared.permission.PermissionCatalogV3;
+import my.management.common.tenant.RequireTenantFeature;
+import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -38,7 +38,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 /**
- * 绠＄悊绔簱瀛樻帶鍒跺櫒锛岀粰缃戦〉绔簱瀛橀〉闈㈡彁渚涚湡瀹炲簱瀛樻帴鍙ｃ€? */
+ * 统一库存控制器，为管理端和小程序提供库存领域接口。
+ */
 @RestController
 @RequestMapping("/inventory")
 @RequireTenantFeature(TenantFeatureEnum.CODE_INVENTORY)
@@ -78,7 +79,7 @@ public class InventoryController {
     }
 
     @GetMapping("/cloth/detail")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_DETAIL, message = "鎮ㄦ病鏈夋潈闄愭煡鐪嬪崟鍖瑰竷璇︽儏")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_DETAIL, message = "No permission to view cloth inventory detail")
     public Result<ClothInventoryDetailVO> clothDetail(@RequestParam(required = false) Long id,
                                                       @RequestParam(required = false) String barcode) {
         return Result.success(inventoryService.clothDetail(id, barcode));
