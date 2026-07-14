@@ -39,9 +39,9 @@ import my.management.module.attendance.model.enums.AttendancePunchStatusEnum;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.employee.model.entity.Employee;
 import my.management.module.employee.service.EmployeeService;
-import my.management.module.badproduct.mapper.BadProductMapper;
-import my.management.module.badproduct.model.entity.BadProductRecord;
-import my.management.module.badproduct.service.BadProductService;
+import my.hive.domain.quality.mapper.BadProductMapper;
+import my.hive.domain.quality.model.entity.BadProductRecord;
+import my.hive.domain.quality.service.QualityService;
 import my.hive.domain.order.mapper.ProductionOrderMapper;
 import my.hive.domain.order.mapper.SalesOrderMapper;
 import my.hive.domain.order.model.dto.ProductionOrderUpdateRequest;
@@ -136,7 +136,7 @@ public class ApprovalService {
     private BadProductMapper badProductMapper;
 
     @Resource
-    private BadProductService badProductService;
+    private QualityService qualityService;
 
     @Resource
     private ApprovalAuditorCandidateService approvalAuditorCandidateService;
@@ -468,7 +468,7 @@ public class ApprovalService {
     @Transactional(rollbackFor = Exception.class)
     public void auditQuality(QualityAuditRequest request) {
         BadProductRecord record = findQualityForApproval(request.getDefectiveId());
-        String approvalCode = badProductService.qualityApprovalCode(record.getDefectiveId());
+        String approvalCode = qualityService.qualityApprovalCode(record.getDefectiveId());
         Long currentUserId = TenantPermissionContext.getUserId();
         if (!approvalAuditorCandidateService.isPendingAuditor(
                 record.getTenantCode(), APPROVAL_TYPE_QUALITY, approvalCode, currentUserId)) {
@@ -479,7 +479,7 @@ public class ApprovalService {
         ApprovalAuditorCandidateService.ApprovalDecision decision = recordCandidateDecision(
                 record.getTenantCode(), APPROVAL_TYPE_QUALITY, approvalCode, currentUserId, approve, auditComment);
         if (!approve) {
-            badProductService.rejectProcessApproval(record.getDefectiveId());
+            qualityService.rejectProcessApproval(record.getDefectiveId());
             approvalAuditorCandidateService.closeActiveCandidates(
                     record.getTenantCode(), APPROVAL_TYPE_QUALITY, approvalCode);
             return;
@@ -487,7 +487,7 @@ public class ApprovalService {
         if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
             return;
         }
-        badProductService.approveProcess(record.getDefectiveId());
+        qualityService.approveProcess(record.getDefectiveId());
         approvalAuditorCandidateService.closeActiveCandidates(
                 record.getTenantCode(), APPROVAL_TYPE_QUALITY, approvalCode);
     }
@@ -907,7 +907,7 @@ public class ApprovalService {
     }
 
     private void applyQualityAuditor(QualityApprovalVO vo, BadProductRecord record) {
-        String approvalCode = badProductService.qualityApprovalCode(record.getDefectiveId());
+        String approvalCode = qualityService.qualityApprovalCode(record.getDefectiveId());
         List<Long> auditorIds = approvalAuditorCandidateService.findPendingAuditorIds(
                 record.getTenantCode(), APPROVAL_TYPE_QUALITY, approvalCode);
         if (auditorIds.isEmpty()) {

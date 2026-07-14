@@ -24,7 +24,7 @@ import my.hive.domain.approval.service.ApprovalAuditorCandidateService;
 import my.hive.domain.approval.service.ApprovalDefaultAuditorService;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.employee.model.entity.Employee;
-import my.management.module.installation.service.InstallationTaskService;
+import my.hive.domain.installation.service.InstallationTaskService;
 import my.hive.domain.order.mapper.ProductionOrderMapper;
 import my.hive.domain.order.mapper.ProductionOrderStatusLogMapper;
 import my.hive.domain.order.mapper.SalesOrderDetailMapper;

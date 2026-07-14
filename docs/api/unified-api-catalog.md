@@ -17,9 +17,9 @@ Authentication routes are `POST /api/auth/admin/login`, `POST /api/auth/admin/sc
 WeChat login resolves phone matches only inside the bounded tenant set. A phone matching multiple tenants is rejected unless the request supplies an explicit allowed `tenantCode`; the server never selects an unordered tenant candidate.
 | order | COMPLETE |
 | approval | COMPLETE |
-| inventory | PLANNED |
-| quality | PLANNED |
-| installation | PLANNED |
+| inventory | COMPLETE |
+| quality | COMPLETE |
+| installation | COMPLETE |
 | customer | PLANNED |
 | document | PLANNED |
 | equipment | PLANNED |
@@ -88,3 +88,32 @@ All retained routes are rooted at `/api/approval/**` and delegate to the single 
 | GET | admin/mini `/approval/order/list` | `/api/approval/order` | `approval:list` | `limit` | `List<OrderApprovalVO>` | `listOrderApprovals` | MERGED |
 | GET | admin/mini `/approval/order/{orderType}/{orderId}` | `/api/approval/order/{orderType}/{orderId}` | `approval:list` | path `orderType,orderId` | `OrderApprovalVO` | `getOrderApprovalDetail` | MERGED |
 | POST | admin/mini `/approval/order/audit` | `/api/approval/order/audit` | `approval:list` | `OrderApprovalAuditRequest` | void | `auditOrder` | MERGED |
+
+## Inventory, quality, and installation convergence matrix
+
+The retained routes are rooted at `/api/inventory/**`, `/api/quality/**`, and `/api/installation-tasks/**`. Old management package implementations under `my.management.module.inventory`, `my.management.module.badproduct`, and `my.management.module.installation` were moved into the canonical `my.hive.domain.*` services; dependent dashboard, notification, approval, and order flows now import those canonical services.
+
+| Method | Old route | New route | Permission | Request | Response | Canonical service method | Disposition |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| GET | admin `/inventory/summary` | `/api/inventory/summary` | `inventory:list` | none | `InventorySummaryVO` | `summary` | RENAMED |
+| GET | admin `/inventory/page` | `/api/inventory/page` | `inventory:list` | `InventoryPageRequest` | `PageResult<ClothInventoryVO>` | `page` | RENAMED |
+| GET | admin `/inventory/model/page` | `/api/inventory/model/page` | `inventory:list` | `InventoryPageRequest` | `PageResult<InventoryModelSummaryVO>` | `modelPage` | RENAMED |
+| GET | admin `/inventory/model/detail` | `/api/inventory/model/detail` | `inventory:detail` | `modelCode,spec,status,timeOrder` | `List<ClothInventoryVO>` | `modelDetail` | RENAMED |
+| GET | admin `/inventory/cloth/detail` | `/api/inventory/cloth/detail` | `inventory:detail` | `id,barcode` | `ClothInventoryDetailVO` | `clothDetail` | RENAMED |
+| POST | admin `/inventory/cloth/in` | `/api/inventory/cloth/in` | `inventory:cloth:in` | `InventoryInRequest` | `InventoryInResultVO` | `in` | RENAMED |
+| POST | admin `/inventory/cloth/out` | `/api/inventory/cloth/out` | `inventory:cloth:out` | `InventoryOutRequest` | void | `out` | RENAMED |
+| POST | admin `/inventory/cloth/image-recognition` | `/api/inventory/cloth/image-recognition` | `inventory:cloth:in` | multipart `file` | `InventoryImageRecognitionVO` | `recognizeInboundImage` | RENAMED |
+| GET | admin `/inventory/warning/list` | `/api/inventory/warning/list` | `inventory:warning:list` | none | `List<InventoryWarningVO>` | `warnings` | RENAMED |
+| GET/POST | admin `/inventory/warning/setting` | `/api/inventory/warning/setting` | `inventory:warning:list` / `inventory:warning:setting` | `InventoryWarningSettingUpdateRequest` | `InventoryWarningSettingVO` | `currentSetting`, `updateCurrentSetting` | RENAMED |
+| GET | admin `/inventory/record/recent` | `/api/inventory/record/recent` | `inventory:record:list` | none | `List<InventoryRecordVO>` | `recentRecords` | RENAMED |
+| GET | admin `/inventory/trend` | `/api/inventory/trend` | `inventory:trend` | none | `List<InventoryTrendVO>` | `trend` | RENAMED |
+| GET | admin `/inventory/model/search` | `/api/inventory/model/search` | `inventory:model:search` | `keyword` | `List<InventoryModelOptionVO>` | `searchModels` | RENAMED |
+| GET | admin `/inventory/barCode/search` | `/api/inventory/barCode/search` | `inventory:barcode:search` | `barCode` | `ClothInventoryVO` | `searchByBarcode` | RENAMED |
+| GET/POST | admin `/inventory/import-template`, `/inventory/import` | `/api/inventory/import-template`, `/api/inventory/import` | `inventory:import` | multipart `file` | `InventoryImportResultVO` | `downloadImportTemplate`, `importInventory` | RENAMED |
+| GET | admin `/bad-product/list` | `/api/quality/list` | `quality:list` | `BadProductPageRequest` | `PageResult<BadProductVO>` | `page` | RENAMED |
+| POST | admin `/bad-product/save` | `/api/quality/save` | `quality:create` | `BadProductSaveRequest` | void | `save` | RENAMED |
+| POST | admin `/bad-product/process` | `/api/quality/process` | `quality:process` | `BadProductProcessRequest` | void | `process` | RENAMED |
+| POST/GET | admin `/bad-product/attachment/*` | `/api/quality/attachment/*` | `quality:attachment:upload/download` | multipart `file`, `url,name` | `BusinessAttachmentVO` / resource | `uploadAttachment`, `loadAttachment` | RENAMED |
+| GET | admin `/installation-task/page` | `/api/installation-tasks/page` | `installation:list` | `InstallationTaskPageRequest` | `PageResult<InstallationTaskVO>` | `page` | RENAMED |
+| POST | admin `/installation-task/status` | `/api/installation-tasks/status` | `installation:update` | `InstallationTaskStatusUpdateRequest` | `InstallationTaskVO` | `updateStatus` | RENAMED |
+| POST/GET | admin `/installation-task/attachment/*` | `/api/installation-tasks/attachment/*` | `installation:attachment:upload/download` | multipart `file`, `url,name` | `BusinessAttachmentVO` / resource | `uploadAttachment`, `loadAttachment` | RENAMED |

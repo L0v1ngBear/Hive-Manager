@@ -26,9 +26,9 @@ Task 2 establishes `my.hive.HiveApplication` as the only executable entry point.
 | auth | COMPLETE |
 | order | PLANNED |
 | approval | PLANNED |
-| inventory | PLANNED |
-| quality | PLANNED |
-| installation | PLANNED |
+| inventory | COMPLETE |
+| quality | COMPLETE |
+| installation | COMPLETE |
 | customer | PLANNED |
 | document | PLANNED |
 | equipment | PLANNED |
@@ -37,6 +37,10 @@ Task 2 establishes `my.hive.HiveApplication` as the only executable entry point.
 | attendance | PLANNED |
 | migration | PLANNED |
 | deployment | PLANNED |
+
+## Task 6 domain convergence
+
+Inventory, quality, and installation now use canonical implementations under `my.hive.domain.inventory`, `my.hive.domain.quality`, and `my.hive.domain.installation`, with public adapters under `my.hive.api.inventory`, `my.hive.api.quality`, and `my.hive.api.installation`. Dashboard, notification, approval, and order collaborators import the canonical services instead of the retired `my.management.module.inventory`, `my.management.module.badproduct`, and `my.management.module.installation` packages.
 ## Permission, employee, role, and tenant convergence
 
 Permission Catalog V3 now lives only at `my.hive.shared.permission.PermissionCatalogV3`. Runtime checks validate an exact assignable catalog leaf before consulting the request grants. `EffectivePermissionService` resolves the canonical management employee/role persistence query and discards all non-catalog values. The single authenticated-route initializer is `TenantContextFilter`, backed by the shared authenticated session and tenant context contracts.

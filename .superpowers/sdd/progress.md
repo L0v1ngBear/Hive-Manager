@@ -12,3 +12,5 @@ Task 4: complete (commits 8184891..5d11db8, final review PASS/PASS, 46 tests pas
 - Final review note: add direct security-regression coverage for exact auth allowlist and WeChat malformed-json/errcode/interruption branches if later auth code changes.
 Task 4: implementation complete pending commit (focused auth 3 tests passed; auth/permission/context suite 40 tests passed)
 Task 5: complete (focused order/approval 36 tests passed; runtime uniqueness/mapping 3 tests passed)
+Task 5 final review retry: complete (commits 5d11db8..c17104e, final review PASS/PASS, focused order/approval/runtime suite 41 tests passed)
+Task 6: complete (focused inventory/quality/installation suite 10 tests passed; final inventory/quality/installation/permission/runtime suite 47 tests passed)

@@ -15,9 +15,9 @@ The release topology will contain one business service named `backend`, one cont
 Configure `wechat.mini-program.enabled`, `wechat.mini-program.app-id`, and `wechat.mini-program.app-secret` to enable mini WeChat login. Clients must use the namespaced admin/mini routes; no ambiguous login alias is deployed.
 | order | PLANNED |
 | approval | PLANNED |
-| inventory | PLANNED |
-| quality | PLANNED |
-| installation | PLANNED |
+| inventory | COMPLETE |
+| quality | COMPLETE |
+| installation | COMPLETE |
 | customer | PLANNED |
 | document | PLANNED |
 | equipment | PLANNED |
@@ -26,6 +26,10 @@ Configure `wechat.mini-program.enabled`, `wechat.mini-program.app-id`, and `wech
 | attendance | PLANNED |
 | migration | PLANNED |
 | deployment | PLANNED |
+
+## Task 6 deployment note
+
+The unified backend JAR now serves inventory, quality, and installation APIs from the same process and `/api` context. No additional backend container, scheduler instance, or migration entry point is introduced by this task.
 ## Permission runtime
 
 The unified process has one Permission Catalog V3 bean and one authenticated-route tenant-context initializer. Deployments must not seed wildcard, alias, prefix, or legacy permission codes; only exact assignable V3 leaves are effective.
