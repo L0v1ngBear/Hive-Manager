@@ -10,7 +10,9 @@ The release topology will contain one business service named `backend`, one cont
 | --- | --- |
 | foundation | PLANNED |
 | permission | PLANNED |
-| auth | PLANNED |
+| auth | COMPLETE |
+
+Configure `wechat.mini-program.enabled`, `wechat.mini-program.app-id`, and `wechat.mini-program.app-secret` to enable mini WeChat login. Clients must use the namespaced admin/mini routes; no ambiguous login alias is deployed.
 | order | PLANNED |
 | approval | PLANNED |
 | inventory | PLANNED |

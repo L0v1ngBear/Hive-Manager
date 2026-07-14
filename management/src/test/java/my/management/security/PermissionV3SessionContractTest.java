@@ -64,7 +64,7 @@ class PermissionV3SessionContractTest {
 
     @Test
     void loginUsesUnifiedEffectivePermissionResolutionOnly() throws IOException {
-        String source = readJava("my/management/module/auth/service/AuthService.java");
+        String source = readJava("my/hive/domain/auth/service/AuthenticationService.java");
         assertTrue(source.contains("effectivePermissionService.resolve(loginUser.getUserId(), loginUser.getTenantCode())"));
         assertFalse(source.contains("authMapper.selectPermCodesByUserIdAndTenantCode(loginUser.getUserId()"));
     }

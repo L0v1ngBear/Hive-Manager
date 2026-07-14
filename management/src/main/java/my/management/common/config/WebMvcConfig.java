@@ -20,13 +20,15 @@ import java.nio.file.Path;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private static final String[] PUBLIC_PATHS = {
-            "/auth/login",
-            "/auth/password-reset/code",
-            "/auth/password-reset",
-            "/auth/join-organization/code",
-            "/auth/join-organization",
-            "/auth/scan-login/session",
-            "/auth/scan-login/status",
+            "/auth/admin/login",
+            "/auth/admin/password-reset/code",
+            "/auth/admin/password-reset",
+            "/auth/admin/join-organization/code",
+            "/auth/admin/join-organization",
+            "/auth/admin/scan-login/session",
+            "/auth/admin/scan-login/status",
+            "/auth/mini/login",
+            "/auth/mini/wechat-login",
             "/v3/api-docs",
             "/v3/api-docs/**",
             "/swagger-ui.html",

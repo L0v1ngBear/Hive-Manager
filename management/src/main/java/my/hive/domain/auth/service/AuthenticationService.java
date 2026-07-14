@@ -1,4 +1,4 @@
-package my.management.module.auth.service;
+package my.hive.domain.auth.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +17,8 @@ import my.hive.shared.redis.HiveRedisKeyBuilder;
 import my.hive.shared.utils.EncryptUtil;
 import my.hive.shared.utils.ResponseEncryptUtil;
 import my.hive.shared.context.TenantContext;
+import my.hive.domain.auth.model.WechatLoginRequest;
+import my.hive.infrastructure.wechat.WechatMiniProgramClient;
 import my.management.module.auth.mapper.AuthMapper;
 import my.management.module.auth.model.dto.InitialPasswordChangeRequest;
 import my.management.module.auth.model.dto.LoginRequest;
@@ -29,6 +31,7 @@ import my.management.module.auth.model.vo.LoginUserRow;
 import my.management.module.auth.model.vo.LoginVO;
 import my.management.module.auth.model.vo.WebScanSessionVO;
 import my.management.module.auth.model.vo.WebScanStatusVO;
+import my.management.module.auth.service.WebScanLoginRedisPayload;
 import my.management.common.enums.CommonStatusEnum;
 import my.management.common.enums.DeleteFlagEnum;
 import my.management.common.tenant.BoundedTenantProperties;
@@ -77,7 +80,7 @@ import java.util.concurrent.TimeUnit;
  * 管理端认证服务，负责账号密码登录以及小程序扫码网页登录。
  */
 @Service
-public class AuthService {
+public class AuthenticationService {
 
     private static final long WEB_SCAN_LOGIN_EXPIRE_SECONDS = 180L;
     private static final long PASSWORD_RESET_CODE_EXPIRE_MINUTES = 5L;
@@ -159,6 +162,9 @@ public class AuthService {
 
     @Resource
     private CodeGeneratorUtil codeGeneratorUtil;
+
+    @Resource
+    private WechatMiniProgramClient wechatMiniProgramClient;
 
     @Value("${auth.login.max-fail-count:5}")
     private Long maxFailCount;
@@ -326,6 +332,46 @@ public class AuthService {
         stringRedisTemplate.delete(ipFailKey);
         return buildLoginVO(loginUser, request.getPassword());
     }
+
+    public LoginVO adminLogin(LoginRequest request, String clientIp) {
+        return login(request, clientIp);
+    }
+
+    public LoginVO miniLogin(LoginRequest request, String clientIp) {
+        return login(request, clientIp);
+    }
+
+    public LoginVO wechatLogin(WechatLoginRequest request) {
+        String phone = wechatMiniProgramClient.getPhoneNumber(request.getPhoneCode());
+        LoginUserRow loginUser = authMapper.selectLoginUserByPhone(phone, privacyProtectionUtil.hashPhone(phone));
+        if (loginUser == null || !CommonStatusEnum.isEnabled(loginUser.getUserStatus())) {
+            throw new BusinessException(401, "Account is disabled or unavailable");
+        }
+        return buildLoginVO(loginUser, null);
+    }
+
+    public LoginVO currentUser() {
+        LoginUserRow loginUser = authMapper.selectLoginUserByUserIdAndTenantCode(tenantContext.userId(), tenantContext.tenantCode());
+        if (loginUser == null || !CommonStatusEnum.isEnabled(loginUser.getUserStatus())) {
+            throw new BusinessException(401, "Authentication required");
+        }
+        LoginVO result = buildLoginVO(loginUser, null);
+        result.setToken(null);
+        result.setResponseKey(null);
+        return result;
+    }
+
+    public void logout() {
+        Long userId = tenantContext.userId();
+        String tenantCode = tenantContext.tenantCode();
+        if (userId == null || !StringUtils.hasText(tenantCode)) {
+            throw new BusinessException(401, "Authentication required");
+        }
+        authMapper.incrementAuthVersion(userId, tenantCode);
+    }
+
+    public WebScanSessionVO createScanLoginSession() { return createWebScanLoginSession(); }
+    public WebScanStatusVO scanLoginStatus(String sceneKey) { return getWebScanLoginStatus(sceneKey); }
 
     public WebScanSessionVO createWebScanLoginSession() {
         String sceneKey = UUID.randomUUID().toString().replace("-", "");

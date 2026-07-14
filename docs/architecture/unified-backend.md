@@ -23,7 +23,7 @@ Task 2 establishes `my.hive.HiveApplication` as the only executable entry point.
 | --- | --- |
 | foundation | COMPLETE |
 | permission | PLANNED |
-| auth | PLANNED |
+| auth | COMPLETE |
 | order | PLANNED |
 | approval | PLANNED |
 | inventory | PLANNED |
@@ -40,3 +40,5 @@ Task 2 establishes `my.hive.HiveApplication` as the only executable entry point.
 ## Permission, employee, role, and tenant convergence
 
 Permission Catalog V3 now lives only at `my.hive.shared.permission.PermissionCatalogV3`. Runtime checks validate an exact assignable catalog leaf before consulting the request grants. `EffectivePermissionService` resolves the canonical management employee/role persistence query and discards all non-catalog values. The single authenticated-route initializer is `TenantContextFilter`, backed by the shared authenticated session and tenant context contracts.
+
+Authentication now has three HTTP adapters (`AdminAuthController`, `MiniAuthController`, and `SessionController`) and one stateful domain implementation, `AuthenticationService`. Both credential channels use the canonical employee status, tenant, effective-permission, versioned-token, and response-key pipeline. Logout increments `auth_version`, invalidating previously issued tokens.

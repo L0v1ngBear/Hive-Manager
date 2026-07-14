@@ -84,9 +84,10 @@ public class ResultEncryptAdvice implements ResponseBodyAdvice<Object> {
         if (path == null) {
             return false;
         }
-        return path.endsWith("/auth/login")
-                || path.endsWith("/auth/wechat-login")
-                || path.contains("/auth/scan-login/");
+        return path.endsWith("/auth/admin/login")
+                || path.endsWith("/auth/mini/login")
+                || path.endsWith("/auth/mini/wechat-login")
+                || path.contains("/auth/admin/scan-login/");
     }
 
     private String extractBearerToken(HttpServletRequest request) {

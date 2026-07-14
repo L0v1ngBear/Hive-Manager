@@ -10,7 +10,9 @@ Historical versioned SQL is immutable. Any convergence schema change must be a n
 | --- | --- |
 | foundation | PLANNED |
 | permission | PLANNED |
-| auth | PLANNED |
+| auth | COMPLETE |
+
+Task 4 requires no schema change. Both clients use the existing user `auth_version` for versioned sessions and logout invalidation.
 | order | PLANNED |
 | approval | PLANNED |
 | inventory | PLANNED |

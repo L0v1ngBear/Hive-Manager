@@ -360,7 +360,7 @@ class CommercialHardeningStaticTest {
     @Test
     void tenantRoleProvisioningShouldBeCentralized() throws IOException {
         Path tenantService = MAIN_SOURCE.resolve("my/management/module/tenant/service/TenantManageService.java");
-        Path authService = MAIN_SOURCE.resolve("my/management/module/auth/service/AuthService.java");
+        Path authService = MAIN_SOURCE.resolve("my/hive/domain/auth/service/AuthenticationService.java");
         String tenantContent = Files.readString(tenantService, StandardCharsets.UTF_8);
         String authContent = Files.readString(authService, StandardCharsets.UTF_8);
 
@@ -436,7 +436,7 @@ class CommercialHardeningStaticTest {
         assertTrue(mapperContent.contains("updatePasswordHashByUserIdAndTenantCode"),
                 "AuthMapper must expose a tenant-scoped password hash upgrade method: " + mapper);
 
-        Path service = MAIN_SOURCE.resolve("my/management/module/auth/service/AuthService.java");
+        Path service = MAIN_SOURCE.resolve("my/hive/domain/auth/service/AuthenticationService.java");
         String serviceContent = Files.readString(service, StandardCharsets.UTF_8);
         assertTrue(serviceContent.contains("authMapper.updatePasswordHashByUserIdAndTenantCode("),
                 "Login password hash upgrade must call the tenant-scoped method: " + service);

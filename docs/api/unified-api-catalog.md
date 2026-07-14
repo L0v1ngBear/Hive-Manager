@@ -10,7 +10,9 @@ All public business routes will use `/api/**`; no `/web/**` compatibility route 
 | --- | --- |
 | foundation | PLANNED |
 | permission | PLANNED |
-| auth | PLANNED |
+| auth | COMPLETE |
+
+Authentication routes are `POST /api/auth/admin/login`, `POST /api/auth/admin/scan-login/session`, `GET /api/auth/admin/scan-login/status`, `POST /api/auth/admin/scan-login/confirm`, `POST /api/auth/mini/login`, `POST /api/auth/mini/wechat-login`, `GET /api/auth/me`, and `POST /api/auth/logout`. Reset, initial-password, and organization-join routes are retained only below `/api/auth/admin/**`; `/api/auth/login` does not exist.
 | order | PLANNED |
 | approval | PLANNED |
 | inventory | PLANNED |

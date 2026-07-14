@@ -8,7 +8,7 @@ import my.hive.shared.context.TenantContext;
 import my.hive.shared.aop.PermissionAspect;
 import my.management.common.config.WebMvcConfig;
 import my.management.common.interceptor.TenantContextFilter;
-import my.management.module.auth.service.AuthService;
+import my.hive.domain.auth.service.AuthenticationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -54,7 +54,7 @@ class SharedInfrastructureContextTest {
     @Test
     void productionAuthenticationAndAuthorizationUseCanonicalContracts() {
         TenantContextFilter interceptor = context.getBean(TenantContextFilter.class);
-        AuthService authService = context.getBean(AuthService.class);
+        AuthenticationService authService = context.getBean(AuthenticationService.class);
         PermissionAspect permissionAspect = context.getBean(PermissionAspect.class);
 
         assertThat(ReflectionTestUtils.getField(interceptor, "authenticatedSessionService"))

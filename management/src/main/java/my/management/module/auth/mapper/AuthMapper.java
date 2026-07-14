@@ -140,6 +140,9 @@ public interface AuthMapper {
                                             @Param("tenantCode") String tenantCode,
                                             @Param("password") String password);
 
+    @Update("UPDATE user SET auth_version = COALESCE(auth_version, 1) + 1 WHERE id = #{userId} AND tenant_code = #{tenantCode}")
+    int incrementAuthVersion(@Param("userId") Long userId, @Param("tenantCode") String tenantCode);
+
     @Select("SELECT login_name FROM user WHERE id = #{userId} AND tenant_code = #{tenantCode} LIMIT 1")
     String selectLoginNameByUserId(@Param("userId") Long userId, @Param("tenantCode") String tenantCode);
 }

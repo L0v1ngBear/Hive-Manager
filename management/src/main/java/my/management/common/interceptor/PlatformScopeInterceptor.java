@@ -14,7 +14,7 @@ public class PlatformScopeInterceptor implements HandlerInterceptor {
 
     private static final String PLATFORM_TENANT_CODE = "super";
     private static final String PLATFORM_PATH_PREFIX = "/platform/";
-    private static final String INITIAL_PASSWORD_PATH = "/auth/initial-password";
+    private static final String INITIAL_PASSWORD_PATH = "/auth/admin/initial-password";
     private static final String UPLOAD_PATH_PREFIX = "/uploads/";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
