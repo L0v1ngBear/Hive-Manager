@@ -423,17 +423,13 @@ public class PrintTaskService {
         }
         return switch (type) {
             case PRINT_TYPE_LABEL -> hasAnyPermission(
-                    "label:template:list", "label:template:detail", "inventory:cloth:in", "inventory:cloth:out");
+                    "print:label:list", "print:label:detail", "inventory:cloth:in", "inventory:cloth:out");
             case PRINT_TYPE_ORDER_FLOW -> hasAnyPermission(
-                    "order:*", "order:list", "order:detail", "order:status:*",
-                    "sales:order:list", "sales:order:detail", "sales:order:status",
-                    "sales:order:pre-confirm", "sales:order:fulfillment",
-                    "production:order:list", "production:order:detail", "production:order:log", "production:order:status",
-                    "production:order:pre-production", "production:order:fulfillment");
+                    "order:list", "order:detail", "order:print");
             case PRINT_TYPE_EQUIPMENT_INSPECTION -> hasAnyPermission(
                     "equipment:list", "equipment:detail", "equipment:inspection:list", "equipment:inspection:submit");
             case PRINT_TYPE_RECEIPT -> hasAnyPermission(
-                    "receipt:print:list", "receipt:print:detail", "receipt:print:mark", "inventory:cloth:out");
+                    "print:receipt:list", "print:receipt:detail", "print:receipt:execute", "inventory:cloth:out");
             default -> false;
         };
     }
