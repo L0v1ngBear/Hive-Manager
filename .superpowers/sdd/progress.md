@@ -15,3 +15,4 @@ Task 5: complete (focused order/approval 36 tests passed; runtime uniqueness/map
 Task 5 final review retry: complete (commits 5d11db8..c17104e, final review PASS/PASS, focused order/approval/runtime suite 41 tests passed)
 Task 6: complete (focused inventory/quality/installation suite 10 tests passed; final inventory/quality/installation/permission/runtime suite 47 tests passed)
 Task 6 review follow-up: fixed controller text-encoding artifacts after file-level review flagged stale incremental compilation risk; re-ran clean focused inventory/quality/installation/permission/runtime suite with 448 main sources recompiled and 47 tests passed (commit f492695).
+Task 6 final review blocker: fixed quality tenant isolation, update permission enforcement, and legacy quality approval aliases; clean inventory/quality/installation/approval/permission/runtime suite passed with 79 tests.

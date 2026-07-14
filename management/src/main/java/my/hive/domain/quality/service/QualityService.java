@@ -91,7 +91,9 @@ public class QualityService {
         if (request == null) {
             request = new BadProductPageRequest();
         }
+        String tenantCode = requireTenantCode();
         LambdaQueryWrapper<BadProductRecord> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(BadProductRecord::getTenantCode, tenantCode);
 
         String status = normalizeQueryValue(request.getStatus());
         String type = normalizeQueryValue(request.getType());
@@ -161,14 +163,17 @@ public class QualityService {
 
     @Transactional(rollbackFor = Exception.class)
     public void save(BadProductSaveRequest request) {
-        String tenantCode = TenantPermissionContext.getTenantCode();
+        String tenantCode = requireTenantCode();
+        boolean update = request.getDefectiveId() != null && !request.getDefectiveId().isBlank();
+        requireQualitySavePermission(update);
         Long userId = TenantPermissionContext.getUserId();
         Employee operator = userId == null ? null : employeeMapper.selectById(userId);
 
         BadProductRecord entity;
         BadProductRecord before = null;
-        if (request.getDefectiveId() != null && !request.getDefectiveId().isBlank()) {
+        if (update) {
             entity = badProductMapper.selectOne(new LambdaQueryWrapper<BadProductRecord>()
+                    .eq(BadProductRecord::getTenantCode, tenantCode)
                     .eq(BadProductRecord::getDefectiveId, request.getDefectiveId()));
             if (entity == null) {
                 throw new BusinessException("质量记录不存在");
@@ -218,7 +223,9 @@ public class QualityService {
 
     @Transactional(rollbackFor = Exception.class)
     public void process(BadProductProcessRequest request) {
+        String tenantCode = requireTenantCode();
         BadProductRecord entity = badProductMapper.selectOne(new LambdaQueryWrapper<BadProductRecord>()
+                .eq(BadProductRecord::getTenantCode, tenantCode)
                 .eq(BadProductRecord::getDefectiveId, request.getDefectiveId()));
         if (entity == null) {
             throw new BusinessException("质量记录不存在");
@@ -274,6 +281,7 @@ public class QualityService {
             return false;
         }
         BadProductRecord entity = badProductMapper.selectOne(new LambdaQueryWrapper<BadProductRecord>()
+                .eq(BadProductRecord::getTenantCode, requireTenantCode())
                 .eq(BadProductRecord::getDefectiveId, defectiveId.trim())
                 .last("LIMIT 1"));
         if (entity == null || !STATUS_PENDING_AUDIT.equals(entity.getStatus())) {
@@ -304,11 +312,29 @@ public class QualityService {
 
     private BadProductRecord findByDefectiveId(String defectiveId) {
         BadProductRecord entity = badProductMapper.selectOne(new LambdaQueryWrapper<BadProductRecord>()
+                .eq(BadProductRecord::getTenantCode, requireTenantCode())
                 .eq(BadProductRecord::getDefectiveId, defectiveId));
         if (entity == null) {
             throw new BusinessException("质量记录不存在");
         }
         return entity;
+    }
+
+    private String requireTenantCode() {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        if (tenantCode == null || tenantCode.isBlank()) {
+            throw new BusinessException(403, "Tenant context is required for quality records");
+        }
+        return tenantCode;
+    }
+
+    private void requireQualitySavePermission(boolean update) {
+        String permissionCode = update ? PermissionCatalogV3.CODE_QUALITY_UPDATE : PermissionCatalogV3.CODE_QUALITY_CREATE;
+        if (!TenantPermissionContext.hasPermission(permissionCode)) {
+            throw new BusinessException(403, update
+                    ? "No permission to update quality records"
+                    : "No permission to create quality records");
+        }
     }
 
     private BadProductVO toVO(BadProductRecord entity) {

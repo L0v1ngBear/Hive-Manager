@@ -1577,7 +1577,7 @@ public class ApprovalService {
             case "finance" -> PermissionCatalogV3.CODE_APPROVAL_FINANCE_AUDIT;
             case "resignation" -> PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_AUDIT;
             case "order" -> PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
-            case "quality", "badproduct", "bad_product" -> PermissionCatalogV3.CODE_QUALITY_AUDIT;
+            case "quality" -> PermissionCatalogV3.CODE_QUALITY_AUDIT;
             default -> throw new BusinessException("审批类型不合法");
         };
     }

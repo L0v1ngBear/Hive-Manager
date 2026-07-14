@@ -2,6 +2,7 @@ package my.hive.domain.approval;
 
 import my.hive.api.approval.ApprovalController;
 import my.hive.shared.annotation.RequirePermission;
+import my.hive.shared.exception.BusinessException;
 import my.hive.shared.permission.PermissionCatalogV3;
 import my.hive.domain.approval.service.ApprovalAuditorCandidateService;
 import my.hive.domain.approval.service.ApprovalService;
@@ -15,6 +16,7 @@ import java.lang.reflect.Method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class UnifiedApprovalServiceTest {
 
@@ -57,6 +59,22 @@ class UnifiedApprovalServiceTest {
         assertApprovalListContract("listLeaveApprovals");
         assertApprovalListContract("listFinanceApprovals");
         assertApprovalListContract("listResignationApprovals");
+    }
+
+    @Test
+    void approvalAuditorPermissionTypeUsesCanonicalQualityOnly() throws Exception {
+        ApprovalService service = new ApprovalService();
+        Method method = ApprovalService.class.getDeclaredMethod("resolveAuditorPermissionCode", String.class);
+        method.setAccessible(true);
+
+        assertEquals(PermissionCatalogV3.CODE_QUALITY_AUDIT, method.invoke(service, "quality"));
+        assertThrows(BusinessException.class, () -> {
+            try {
+                method.invoke(service, "badproduct");
+            } catch (java.lang.reflect.InvocationTargetException ex) {
+                throw ex.getCause();
+            }
+        });
     }
 
     private void assertApprovalListContract(String methodName) throws Exception {
