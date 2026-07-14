@@ -343,18 +343,20 @@ public class AuthenticationService {
 
     public LoginVO wechatLogin(WechatLoginRequest request) {
         String phone = wechatMiniProgramClient.getPhoneNumber(request.getPhoneCode());
-        LoginUserRow loginUser = authMapper.selectLoginUserByPhone(phone, privacyProtectionUtil.hashPhone(phone));
-        if (loginUser == null || !CommonStatusEnum.isEnabled(loginUser.getUserStatus())) {
-            throw new BusinessException(401, "Account is disabled or unavailable");
-        }
+        String tenantCode = StringUtils.hasText(request.getTenantCode()) ? request.getTenantCode().trim() : null;
+        if (tenantCode != null && !boundedTenantProperties.isTenantAllowed(tenantCode)) throw new BusinessException(403, "Tenant is not allowed");
+        List<LoginUserRow> candidates = authMapper.selectLoginUsersByPhoneInTenants(phone, privacyProtectionUtil.hashPhone(phone), null,
+                tenantCode == null ? allowedTenantCodes() : List.of(tenantCode));
+        if (candidates == null || candidates.isEmpty()) throw new BusinessException(401, "Account is disabled or unavailable");
+        if (candidates.size() != 1) throw new BusinessException(409, "Phone belongs to multiple tenants; select a tenant");
+        LoginUserRow loginUser = candidates.get(0);
+        validateLoginEligibility(loginUser);
         return buildLoginVO(loginUser, null);
     }
 
     public LoginVO currentUser() {
         LoginUserRow loginUser = authMapper.selectLoginUserByUserIdAndTenantCode(tenantContext.userId(), tenantContext.tenantCode());
-        if (loginUser == null || !CommonStatusEnum.isEnabled(loginUser.getUserStatus())) {
-            throw new BusinessException(401, "Authentication required");
-        }
+        validateLoginEligibility(loginUser);
         LoginVO result = buildLoginVO(loginUser, null);
         result.setToken(null);
         result.setResponseKey(null);
@@ -451,6 +453,7 @@ public class AuthenticationService {
             recordLoginFail(ipFailKey);
             throw new BusinessException(401, "账号或密码错误");
         }
+        validateLoginEligibility(loginUser);
         if (!isUsableEmployeeStatus(loginUser.getUserStatus())) {
             recordLoginFail(accountFailKey);
             recordLoginFail(ipFailKey);
@@ -782,6 +785,7 @@ public class AuthenticationService {
     }
 
     private LoginVO buildLoginVO(LoginUserRow loginUser, String rawPassword) {
+        validateLoginEligibility(loginUser);
         if (rawPassword != null && !encryptUtil.isBcryptHash(loginUser.getPassword())) {
             authMapper.updatePasswordHashByUserIdAndTenantCode(
                     loginUser.getUserId(), loginUser.getTenantCode(), encryptUtil.encode(rawPassword));
@@ -806,6 +810,13 @@ public class AuthenticationService {
                 ? List.of()
                 : tenantLicenseService.enabledFeatureKeys(loginUser.getTenantCode()));
         return loginVO;
+    }
+
+    private void validateLoginEligibility(LoginUserRow loginUser) {
+        if (loginUser == null || !isUsableEmployeeStatus(loginUser.getUserStatus())) throw new BusinessException(403, "Account is disabled or unavailable");
+        if (!StringUtils.hasText(loginUser.getTenantCode())) throw new BusinessException(403, "Tenant is disabled or unavailable");
+        boundedTenantProperties.assertTenantAllowed(loginUser.getTenantCode());
+        tenantLicenseService.ensureTenantUsable(loginUser.getTenantCode());
     }
 
     private Long requireAuthVersion(LoginUserRow loginUser) {

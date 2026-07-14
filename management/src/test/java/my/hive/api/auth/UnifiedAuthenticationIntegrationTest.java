@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -67,5 +68,18 @@ class UnifiedAuthenticationIntegrationTest {
         Path canonical = Path.of("src/main/java/my/hive/domain/auth/service/AuthenticationService.java");
         org.assertj.core.api.Assertions.assertThat(Files.exists(legacy)).isFalse();
         org.assertj.core.api.Assertions.assertThat(Files.exists(canonical)).isTrue();
+    }
+
+    @Test void exposesWechatScanConfirmMeAndLogoutThroughSharedService() throws Exception {
+        LoginVO principal=new LoginVO(); principal.setUserId(7L); principal.setTenantCode("tenant-a");
+        when(authenticationService.wechatLogin(any())).thenReturn(principal);
+        when(authenticationService.currentUser()).thenReturn(principal);
+        mvc.perform(post("/auth/mini/wechat-login").contentType(MediaType.APPLICATION_JSON).content("{\"phoneCode\":\"wx\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.userId").value(7));
+        mvc.perform(post("/auth/admin/scan-login/confirm").contentType(MediaType.APPLICATION_JSON).content("{\"sceneKey\":\"scene\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(get("/auth/me")).andExpect(status().isOk()).andExpect(jsonPath("$.data.tenantCode").value("tenant-a"));
+        mvc.perform(post("/auth/logout")).andExpect(status().isOk());
+        verify(authenticationService).confirmWebScanLogin(any()); verify(authenticationService).logout();
     }
 }

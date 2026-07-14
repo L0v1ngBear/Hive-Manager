@@ -7,46 +7,65 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 
-/** Adapter for WeChat Mini Program phone-number authorization. */
 @Component
 public class WechatMiniProgramClient {
-    private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
+    private final HttpClient http;
+    private volatile String cachedToken;
+    private volatile long tokenValidUntil;
     @Value("${wechat.mini-program.enabled:false}") boolean enabled;
     @Value("${wechat.mini-program.app-id:}") String appId;
     @Value("${wechat.mini-program.app-secret:}") String appSecret;
 
-    public String getPhoneNumber(String phoneCode) {
-        if (!enabled || blank(appId) || blank(appSecret)) throw new BusinessException(503, "WeChat Mini Program login is not configured");
-        String token = accessToken();
-        JSONObject response = post("https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=" + token,
-                Map.of("code", phoneCode));
-        if (response.getIntValue("errcode") != 0) throw new BusinessException(502, "WeChat phone authorization failed");
-        JSONObject info = response.getJSONObject("phone_info");
-        String phone = info == null ? null : info.getString("purePhoneNumber");
-        if (blank(phone) && info != null) phone = info.getString("phoneNumber");
-        if (blank(phone)) throw new BusinessException(502, "WeChat did not return a phone number");
+    public WechatMiniProgramClient() { this(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build()); }
+    WechatMiniProgramClient(HttpClient http) { this.http = http; }
+
+    public String getPhoneNumber(String code) {
+        requireConfigured();
+        JSONObject result = post("https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=" + accessToken(), Map.of("code", code));
+        if (result.getIntValue("errcode") != 0) throw failure("phone authorization");
+        JSONObject info=result.getJSONObject("phone_info");
+        String phone=info==null?null:info.getString("purePhoneNumber");
+        if (blank(phone)&&info!=null) phone=info.getString("phoneNumber");
+        if (blank(phone)) throw failure("phone authorization");
         return phone;
     }
 
     private String accessToken() {
-        String url = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=" + appId + "&secret=" + appSecret;
-        JSONObject response = get(url);
-        String token = response.getString("access_token");
-        if (blank(token)) throw new BusinessException(502, "WeChat access-token request failed");
-        return token;
+        long now=Instant.now().getEpochSecond();
+        if (!blank(cachedToken)&&now<tokenValidUntil) return cachedToken;
+        synchronized(this) {
+            now=Instant.now().getEpochSecond();
+            if (!blank(cachedToken)&&now<tokenValidUntil) return cachedToken;
+            JSONObject result=get("https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid="+encode(appId)+"&secret="+encode(appSecret));
+            if (result.getIntValue("errcode")!=0 || blank(result.getString("access_token"))) throw failure("access token");
+            cachedToken=result.getString("access_token");
+            tokenValidUntil=now+Math.max(60,result.getLongValue("expires_in",7200)-300);
+            return cachedToken;
+        }
     }
-    private JSONObject get(String url) { return send(HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(10)).GET().build()); }
-    private JSONObject post(String url, Map<String,Object> body) { return send(HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(10)).header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(JSON.toJSONString(body), StandardCharsets.UTF_8)).build()); }
-    private JSONObject send(HttpRequest request) {
-        try { return JSON.parseObject(http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)).body()); }
-        catch (Exception e) { Thread.currentThread().interrupt(); throw new BusinessException(502, "WeChat request failed"); }
+    private JSONObject get(String url){return send(HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(10)).GET().build());}
+    private JSONObject post(String url,Map<String,Object> body){return send(HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(10)).header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofString(JSON.toJSONString(body),StandardCharsets.UTF_8)).build());}
+    private JSONObject send(HttpRequest request){
+        try {
+            HttpResponse<String> response=http.send(request,HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if(response.statusCode()<200||response.statusCode()>=300) throw failure("request");
+            JSONObject json=JSON.parseObject(response.body());
+            if(json==null) throw failure("response");
+            return json;
+        } catch(InterruptedException e){Thread.currentThread().interrupt();throw failure("request interrupted");}
+        catch(BusinessException e){throw e;} catch(Exception e){throw failure("request");}
     }
-    private boolean blank(String value) { return value == null || value.isBlank(); }
+    private void requireConfigured(){if(!enabled||blank(appId)||blank(appSecret))throw new BusinessException(503,"WeChat Mini Program login is not configured");}
+    private BusinessException failure(String operation){return new BusinessException(502,"WeChat "+operation+" failed");}
+    private String encode(String value){return URLEncoder.encode(value,StandardCharsets.UTF_8);}
+    private boolean blank(String value){return value==null||value.isBlank();}
 }
