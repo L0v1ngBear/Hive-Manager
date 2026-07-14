@@ -17,7 +17,7 @@ import my.management.module.inventory.model.vo.InventoryWarningVO;
 import my.management.module.inventory.service.InventoryWarningCacheService;
 import my.management.module.order.model.vo.OrderWarningSummaryVO;
 import my.management.module.order.service.OrderWarningCacheService;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
+import my.hive.shared.permission.PermissionCatalogV3;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,12 +40,12 @@ public class NotificationService {
     private static final int NOTIFICATION_CONTENT_LIMIT = 950;
     private static final int WARNING_NOTIFICATION_LIMIT = 8;
     private static final List<String> INVENTORY_WARNING_PERMISSIONS = List.of(
-            PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, PermissionCodeEnum.CODE_INVENTORY_WARNING_SETTING,
-            PermissionCodeEnum.CODE_INVENTORY_RECORD_LIST, PermissionCodeEnum.CODE_INVENTORY_CLOTH_IN,
-            PermissionCodeEnum.CODE_INVENTORY_CLOTH_OUT
+            PermissionCatalogV3.CODE_INVENTORY_WARNING_LIST, PermissionCatalogV3.CODE_INVENTORY_WARNING_SETTING,
+            PermissionCatalogV3.CODE_INVENTORY_RECORD_LIST, PermissionCatalogV3.CODE_INVENTORY_CLOTH_IN,
+            PermissionCatalogV3.CODE_INVENTORY_CLOTH_OUT
     );
     private static final List<String> ORDER_WARNING_PERMISSIONS = List.of(
-            PermissionCodeEnum.CODE_ORDER_WARNING_SETTING, PermissionCodeEnum.CODE_ORDER_LIST
+            PermissionCatalogV3.CODE_ORDER_WARNING_SETTING, PermissionCatalogV3.CODE_ORDER_LIST
     );
 
     @Resource

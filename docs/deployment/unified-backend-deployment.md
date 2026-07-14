@@ -24,3 +24,6 @@ The release topology will contain one business service named `backend`, one cont
 | attendance | PLANNED |
 | migration | PLANNED |
 | deployment | PLANNED |
+## Permission runtime
+
+The unified process has one Permission Catalog V3 bean and one authenticated-route tenant-context initializer. Deployments must not seed wildcard, alias, prefix, or legacy permission codes; only exact assignable V3 leaves are effective.

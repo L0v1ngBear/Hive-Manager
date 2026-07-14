@@ -57,7 +57,7 @@ import my.management.module.order.model.vo.OrderWarningSummaryVO;
 import my.management.module.order.model.vo.SalesOrderAttachmentVO;
 import my.management.module.order.model.vo.SalesOrderDetailVO;
 import my.management.module.order.model.vo.SalesOrderPageVO;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
+import my.hive.shared.permission.PermissionCatalogV3;
 import my.management.module.order.model.vo.SalesOrderStatusLogVO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.BeanUtils;
@@ -702,7 +702,7 @@ public class OrderService {
             throw new BusinessException("该订单已有待处理审批，请审批完成后再操作");
         }
         List<Long> auditorIds = normalizeApprovalAuditorIds(request == null ? null : request.getAuditorIds());
-        String requiredPermission = PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
+        String requiredPermission = PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
         if (auditorIds.isEmpty()) {
             auditorIds = approvalDefaultAuditorService.resolveAuditorIds(
                     order.getTenantCode(),
@@ -1137,7 +1137,7 @@ public class OrderService {
             throw new BusinessException("该订单已有待处理审批，请审批完成后再操作");
         }
         List<Long> auditorIds = normalizeApprovalAuditorIds(request == null ? null : request.getAuditorIds());
-        String requiredPermission = PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
+        String requiredPermission = PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
         if (auditorIds.isEmpty()) {
             auditorIds = approvalDefaultAuditorService.resolveAuditorIds(
                     order.getTenantCode(),
@@ -1840,7 +1840,7 @@ public class OrderService {
 
     private String orderStatusPermission(String status) {
         String normalizedStatus = StringUtils.hasText(status) ? status.trim().replace('_', '-') : "";
-        return PermissionCodeEnum.CODE_ORDER_STATUS_PREFIX + normalizedStatus + ":view";
+        return PermissionCatalogV3.CODE_ORDER_STATUS_PREFIX + normalizedStatus + ":view";
     }
 
     private void assertOrderStatusTransitionPermission(String currentStatus, String targetStatus) {
@@ -1863,7 +1863,7 @@ public class OrderService {
 
     private void assertOrderStatusActionPermission(String status, String action) {
         String normalizedStatus = normalizeStatus(status).replace('_', '-');
-        String permissionCode = PermissionCodeEnum.CODE_ORDER_STATUS_PREFIX + normalizedStatus + ":" + action;
+        String permissionCode = PermissionCatalogV3.CODE_ORDER_STATUS_PREFIX + normalizedStatus + ":" + action;
         if (!TenantPermissionContext.hasPermission(permissionCode)) {
             throw new BusinessException(403, "当前账号没有对应的订单状态操作权限");
         }
@@ -1871,8 +1871,8 @@ public class OrderService {
 
     private String orderAuditPermission(SalesOrder order) {
         return order != null && STATUS_PENDING_CANCEL.equals(normalizeStatus(order.getStatus()))
-                ? PermissionCodeEnum.CODE_ORDER_AUDIT_CANCEL
-                : PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
+                ? PermissionCatalogV3.CODE_ORDER_AUDIT_CANCEL
+                : PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
     }
 
     private String orderStatusStageName(String status) {

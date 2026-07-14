@@ -37,3 +37,6 @@ Task 2 establishes `my.hive.HiveApplication` as the only executable entry point.
 | attendance | PLANNED |
 | migration | PLANNED |
 | deployment | PLANNED |
+## Permission, employee, role, and tenant convergence
+
+Permission Catalog V3 now lives only at `my.hive.shared.permission.PermissionCatalogV3`. Runtime checks validate an exact assignable catalog leaf before consulting the request grants. `EffectivePermissionService` resolves the canonical management employee/role persistence query and discards all non-catalog values. The single authenticated-route initializer is `TenantContextFilter`, backed by the shared authenticated session and tenant context contracts.

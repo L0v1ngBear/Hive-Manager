@@ -19,7 +19,7 @@ import my.management.module.badproduct.model.entity.BadProductRecord;
 import my.management.module.badproduct.model.vo.BadProductVO;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.employee.model.entity.Employee;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
+import my.hive.shared.permission.PermissionCatalogV3;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -238,7 +238,7 @@ public class BadProductService {
                 TenantPermissionContext.getUserId(),
                 null,
                 null,
-                PermissionCodeEnum.CODE_QUALITY_AUDIT,
+                PermissionCatalogV3.CODE_QUALITY_AUDIT,
                 false);
         approvalAuditorCandidateService.replaceActiveCandidates(
                 entity.getTenantCode(), APPROVAL_TYPE_QUALITY, qualityApprovalCode(entity.getDefectiveId()), normalizeApprovalAuditorIds(auditorIds));

@@ -26,7 +26,7 @@ import my.management.module.sys.model.entity.SysPermission;
 import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.model.entity.SysRolePermission;
 import my.management.module.sys.model.entity.SysUserPermission;
-import my.management.module.sys.service.PermissionCatalogV3;
+import my.hive.shared.permission.PermissionCatalogV3;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

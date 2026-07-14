@@ -11,7 +11,7 @@ import my.management.module.approval.model.vo.ApprovalAuditorOptionVO;
 import my.management.module.approval.model.vo.ApprovalDefaultAuditorVO;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.employee.model.entity.Employee;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
+import my.hive.shared.permission.PermissionCatalogV3;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -161,11 +161,11 @@ public class ApprovalDefaultAuditorService {
 
     public String permissionCode(String approvalType) {
         return switch (normalizeType(approvalType)) {
-            case TYPE_LEAVE -> PermissionCodeEnum.CODE_APPROVAL_LEAVE_AUDIT;
-            case TYPE_FINANCE -> PermissionCodeEnum.CODE_APPROVAL_FINANCE_AUDIT;
-            case TYPE_RESIGNATION -> PermissionCodeEnum.CODE_APPROVAL_RESIGNATION_AUDIT;
-            case TYPE_ORDER -> PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
-            case TYPE_QUALITY -> PermissionCodeEnum.CODE_QUALITY_AUDIT;
+            case TYPE_LEAVE -> PermissionCatalogV3.CODE_APPROVAL_LEAVE_AUDIT;
+            case TYPE_FINANCE -> PermissionCatalogV3.CODE_APPROVAL_FINANCE_AUDIT;
+            case TYPE_RESIGNATION -> PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_AUDIT;
+            case TYPE_ORDER -> PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
+            case TYPE_QUALITY -> PermissionCatalogV3.CODE_QUALITY_AUDIT;
             default -> throw new BusinessException("审批类型不合法");
         };
     }

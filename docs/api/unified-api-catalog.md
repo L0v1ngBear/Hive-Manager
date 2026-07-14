@@ -24,3 +24,6 @@ All public business routes will use `/api/**`; no `/web/**` compatibility route 
 | attendance | PLANNED |
 | migration | PLANNED |
 | deployment | PLANNED |
+## Authorization contract
+
+Protected endpoints accept only exact assignable Permission Catalog V3 codes. Wildcards, aliases, prefixes, legacy enum names, and dot-form codes are invalid. Both authentication channels resolve employee state and effective permissions through the same tenant-scoped pipeline.

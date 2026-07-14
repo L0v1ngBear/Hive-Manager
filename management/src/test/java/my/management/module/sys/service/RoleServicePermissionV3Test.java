@@ -1,5 +1,7 @@
 package my.management.module.sys.service;
 
+import my.hive.shared.permission.PermissionCatalogV3;
+
 import my.management.module.sys.mapper.SysPermissionMapper;
 import my.management.module.sys.model.entity.SysPermission;
 import my.management.module.sys.model.vo.SysPermissionTreeVO;

@@ -7,7 +7,7 @@ import my.hive.shared.annotation.RequirePermission;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
 import my.management.common.utils.ExcelUtil;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
+import my.hive.shared.permission.PermissionCatalogV3;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,17 +28,17 @@ public class TableExportController {
     private static final int MAX_EXPORT_COLUMNS = 80;
     private static final int MAX_CELL_LENGTH = 1000;
     private static final Map<String, String> MODULE_PERMISSION_MAP = Map.ofEntries(
-            Map.entry("order", PermissionCodeEnum.CODE_ORDER_LIST),
-            Map.entry("inventory", PermissionCodeEnum.CODE_INVENTORY_EXPORT),
-            Map.entry("customer", PermissionCodeEnum.CODE_CUSTOMER_EXPORT),
-            Map.entry("approval-order", PermissionCodeEnum.CODE_ORDER_LIST),
-            Map.entry("approval-finance", PermissionCodeEnum.CODE_APPROVAL_FINANCE_LIST),
-            Map.entry("approval-leave", PermissionCodeEnum.CODE_APPROVAL_LEAVE_LIST),
-            Map.entry("approval-resignation", PermissionCodeEnum.CODE_APPROVAL_RESIGNATION_LIST),
-            Map.entry("badproduct", PermissionCodeEnum.CODE_QUALITY_EXPORT),
-            Map.entry("document", PermissionCodeEnum.CODE_DOCUMENT_EXPORT),
-            Map.entry("role", PermissionCodeEnum.CODE_ROLE_LIST),
-            Map.entry("equipment", PermissionCodeEnum.CODE_EQUIPMENT_EXPORT)
+            Map.entry("order", PermissionCatalogV3.CODE_ORDER_LIST),
+            Map.entry("inventory", PermissionCatalogV3.CODE_INVENTORY_EXPORT),
+            Map.entry("customer", PermissionCatalogV3.CODE_CUSTOMER_EXPORT),
+            Map.entry("approval-order", PermissionCatalogV3.CODE_ORDER_LIST),
+            Map.entry("approval-finance", PermissionCatalogV3.CODE_APPROVAL_FINANCE_LIST),
+            Map.entry("approval-leave", PermissionCatalogV3.CODE_APPROVAL_LEAVE_LIST),
+            Map.entry("approval-resignation", PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_LIST),
+            Map.entry("badproduct", PermissionCatalogV3.CODE_QUALITY_EXPORT),
+            Map.entry("document", PermissionCatalogV3.CODE_DOCUMENT_EXPORT),
+            Map.entry("role", PermissionCatalogV3.CODE_ROLE_LIST),
+            Map.entry("equipment", PermissionCatalogV3.CODE_EQUIPMENT_EXPORT)
     );
 
     @Resource

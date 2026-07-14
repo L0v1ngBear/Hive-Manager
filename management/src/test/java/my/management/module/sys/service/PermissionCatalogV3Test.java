@@ -1,5 +1,7 @@
 package my.management.module.sys.service;
 
+import my.hive.shared.permission.PermissionCatalogV3;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;

@@ -1,4 +1,4 @@
-package my.hive.shared.tenant;
+package my.hive.shared.context;
 
 import my.hive.shared.context.TenantPermissionContext;
 import org.springframework.stereotype.Component;

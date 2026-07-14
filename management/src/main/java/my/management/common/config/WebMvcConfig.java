@@ -3,7 +3,7 @@ package my.management.common.config;
 import jakarta.annotation.Resource;
 import my.hive.shared.web.TenantUploadResourceResolver;
 import my.hive.shared.utils.TokenUtil;
-import my.management.common.interceptor.AuthTokenInterceptor;
+import my.management.common.interceptor.TenantContextFilter;
 import my.management.common.interceptor.PlatformScopeInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -39,7 +39,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     };
 
     @Resource
-    private AuthTokenInterceptor authTokenInterceptor;
+    private TenantContextFilter tenantContextFilter;
 
     @Resource
     private PlatformScopeInterceptor platformScopeInterceptor;
@@ -52,7 +52,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(authTokenInterceptor)
+        registry.addInterceptor(tenantContextFilter)
                 .addPathPatterns("/**")
                 .excludePathPatterns(PUBLIC_PATHS);
         registry.addInterceptor(platformScopeInterceptor)

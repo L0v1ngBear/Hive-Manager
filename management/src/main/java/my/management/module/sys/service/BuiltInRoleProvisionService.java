@@ -1,5 +1,7 @@
 package my.management.module.sys.service;
 
+import my.hive.shared.permission.PermissionCatalogV3;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
 import my.hive.shared.exception.BusinessException;

@@ -5,7 +5,7 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import my.hive.shared.annotation.CollectLog;
 import my.hive.shared.annotation.RequirePermission;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
+import my.hive.shared.permission.PermissionCatalogV3;
 import my.hive.shared.dto.PageResult;
 import my.hive.shared.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
@@ -40,7 +40,7 @@ public class CustomerController {
     private CustomerService customerService;
 
     @PostMapping("/add")
-    @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_CREATE, message = "您没有权限新增客户")
+    @RequirePermission(value = PermissionCatalogV3.CODE_CUSTOMER_CREATE, message = "您没有权限新增客户")
     @CollectLog(module = "customer", action = "create", bizType = "customer", bizNo = "#request.customerName", description = "管理端新增客户")
     public Result<Void> addCustomer(@Valid @RequestBody CustomerAddRequest request) {
         customerService.addCustomer(request);
@@ -48,7 +48,7 @@ public class CustomerController {
     }
 
     @PostMapping("/update")
-    @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_UPDATE, message = "您没有权限编辑客户")
+    @RequirePermission(value = PermissionCatalogV3.CODE_CUSTOMER_UPDATE, message = "您没有权限编辑客户")
     @CollectLog(module = "customer", action = "update", bizType = "customer", bizNo = "#request.id", description = "管理端编辑客户")
     public Result<Void> updateCustomer(@Valid @RequestBody CustomerUpdateRequest request) {
         customerService.updateCustomer(request);
@@ -56,7 +56,7 @@ public class CustomerController {
     }
 
     @GetMapping("/page")
-    @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_LIST, message = "您没有权限查看客户列表")
+    @RequirePermission(value = PermissionCatalogV3.CODE_CUSTOMER_LIST, message = "您没有权限查看客户列表")
     public Result<PageResult<CustomerPageVO>> getCustomerPage(@Valid CustomerPageRequest request) {
         Page<CustomerPageVO> page = Optional.ofNullable(customerService.pageSearchCustomer(request)).orElse(new Page<>());
 
@@ -70,13 +70,13 @@ public class CustomerController {
     }
 
     @GetMapping("/detail/{id}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_DETAIL, message = "您没有权限查看客户详情")
+    @RequirePermission(value = PermissionCatalogV3.CODE_CUSTOMER_DETAIL, message = "您没有权限查看客户详情")
     public Result<CustomerDetailVO> getCustomer(@PathVariable Long id) {
         return Result.success(customerService.getCustomer(id));
     }
 
     @GetMapping("/options")
-    @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_LIST, message = "您没有权限查看客户选项")
+    @RequirePermission(value = PermissionCatalogV3.CODE_CUSTOMER_LIST, message = "您没有权限查看客户选项")
     public Result<List<CustomerOptionVO>> listCustomerOptions(String keyword) {
         return Result.success(customerService.listCustomerOptions(keyword));
     }

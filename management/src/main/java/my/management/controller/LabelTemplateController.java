@@ -5,7 +5,7 @@ import jakarta.validation.Valid;
 import my.hive.shared.annotation.CollectLog;
 import my.hive.shared.annotation.RequirePermission;
 import my.hive.shared.context.TenantPermissionContext;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
+import my.hive.shared.permission.PermissionCatalogV3;
 import my.hive.shared.dto.Result;
 import my.hive.shared.exception.BusinessException;
 import my.management.common.tenant.RequireTenantFeature;
@@ -41,25 +41,25 @@ public class LabelTemplateController {
     private LabelTemplateService labelTemplateService;
 
     @GetMapping("/variables")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRINT_LABEL_LIST, message = "您没有权限查看标签模板变量")
+    @RequirePermission(value = PermissionCatalogV3.CODE_PRINT_LABEL_LIST, message = "您没有权限查看标签模板变量")
     public Result<List<LabelTemplateVariableVO>> variables(@RequestParam(required = false, defaultValue = "label") String printType) {
         return Result.success(labelTemplateService.variables(printType));
     }
 
     @GetMapping("/list")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRINT_LABEL_LIST, message = "您没有权限查看标签模板")
+    @RequirePermission(value = PermissionCatalogV3.CODE_PRINT_LABEL_LIST, message = "您没有权限查看标签模板")
     public Result<List<LabelTemplateVO>> list(@RequestParam(required = false) String printType) {
         return Result.success(labelTemplateService.list(printType));
     }
 
     @GetMapping("/{id}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRINT_LABEL_DETAIL, message = "您没有权限查看标签模板详情")
+    @RequirePermission(value = PermissionCatalogV3.CODE_PRINT_LABEL_DETAIL, message = "您没有权限查看标签模板详情")
     public Result<LabelTemplateVO> detail(@PathVariable Long id) {
         return Result.success(labelTemplateService.detail(id));
     }
 
     @GetMapping("/default")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRINT_LABEL_LIST, message = "您没有权限查看默认标签模板")
+    @RequirePermission(value = PermissionCatalogV3.CODE_PRINT_LABEL_LIST, message = "您没有权限查看默认标签模板")
     public Result<LabelTemplateVO> defaultTemplate(@RequestParam(required = false, defaultValue = "label") String printType) {
         return Result.success(labelTemplateService.defaultTemplate(printType));
     }
@@ -68,13 +68,13 @@ public class LabelTemplateController {
     @CollectLog(module = "label_template", action = "save", bizType = "label_template", bizNo = "#request.id", description = "管理端保存标签模板")
     public Result<LabelTemplateVO> save(@Valid @RequestBody LabelTemplateSaveRequest request) {
         assertPermission(request.getId() == null
-                ? PermissionCodeEnum.CODE_PRINT_LABEL_CREATE
-                : PermissionCodeEnum.CODE_PRINT_LABEL_UPDATE, "您没有权限保存标签模板");
+                ? PermissionCatalogV3.CODE_PRINT_LABEL_CREATE
+                : PermissionCatalogV3.CODE_PRINT_LABEL_UPDATE, "您没有权限保存标签模板");
         return Result.success(labelTemplateService.save(request));
     }
 
     @PostMapping("/upload")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRINT_LABEL_UPLOAD, message = "您没有权限上传标签模板")
+    @RequirePermission(value = PermissionCatalogV3.CODE_PRINT_LABEL_UPLOAD, message = "您没有权限上传标签模板")
     @CollectLog(module = "label_template", action = "upload", bizType = "label_template", description = "管理端上传标签模板")
     public Result<LabelTemplateVO> upload(@RequestParam("file") MultipartFile file,
                                           @RequestParam(required = false) String name,
@@ -84,7 +84,7 @@ public class LabelTemplateController {
     }
 
     @PostMapping("/{id}/default")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRINT_LABEL_DEFAULT, message = "您没有权限设置默认标签模板")
+    @RequirePermission(value = PermissionCatalogV3.CODE_PRINT_LABEL_DEFAULT, message = "您没有权限设置默认标签模板")
     @CollectLog(module = "label_template", action = "set_default", bizType = "label_template", bizNo = "#id", description = "管理端设置默认标签模板")
     public Result<Void> setDefault(@PathVariable Long id) {
         labelTemplateService.setDefault(id);
@@ -92,7 +92,7 @@ public class LabelTemplateController {
     }
 
     @DeleteMapping("/{id}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRINT_LABEL_DISABLE, message = "您没有权限停用标签模板")
+    @RequirePermission(value = PermissionCatalogV3.CODE_PRINT_LABEL_DISABLE, message = "您没有权限停用标签模板")
     @CollectLog(module = "label_template", action = "disable", bizType = "label_template", bizNo = "#id", description = "管理端停用标签模板")
     public Result<Void> disable(@PathVariable Long id) {
         labelTemplateService.disable(id);

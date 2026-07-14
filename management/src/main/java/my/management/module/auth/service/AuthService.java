@@ -15,7 +15,7 @@ import my.hive.shared.privacy.PrivacyProtectionUtil;
 import my.hive.shared.redis.HiveRedisKeyBuilder;
 import my.hive.shared.utils.EncryptUtil;
 import my.hive.shared.utils.ResponseEncryptUtil;
-import my.hive.shared.tenant.TenantContext;
+import my.hive.shared.context.TenantContext;
 import my.management.module.auth.mapper.AuthMapper;
 import my.management.module.auth.model.dto.InitialPasswordChangeRequest;
 import my.management.module.auth.model.dto.LoginRequest;

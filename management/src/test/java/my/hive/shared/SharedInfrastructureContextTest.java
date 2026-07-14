@@ -3,11 +3,11 @@ package my.hive.shared;
 import my.hive.HiveApplication;
 import my.hive.shared.auth.AuthenticatedSessionService;
 import my.hive.shared.auth.TokenService;
-import my.hive.shared.security.PermissionEvaluator;
-import my.hive.shared.tenant.TenantContext;
+import my.hive.shared.permission.PermissionEvaluator;
+import my.hive.shared.context.TenantContext;
 import my.hive.shared.aop.PermissionAspect;
 import my.management.common.config.WebMvcConfig;
-import my.management.common.interceptor.AuthTokenInterceptor;
+import my.management.common.interceptor.TenantContextFilter;
 import my.management.module.auth.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,7 +53,7 @@ class SharedInfrastructureContextTest {
 
     @Test
     void productionAuthenticationAndAuthorizationUseCanonicalContracts() {
-        AuthTokenInterceptor interceptor = context.getBean(AuthTokenInterceptor.class);
+        TenantContextFilter interceptor = context.getBean(TenantContextFilter.class);
         AuthService authService = context.getBean(AuthService.class);
         PermissionAspect permissionAspect = context.getBean(PermissionAspect.class);
 

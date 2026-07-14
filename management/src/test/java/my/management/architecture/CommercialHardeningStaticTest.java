@@ -102,7 +102,7 @@ class CommercialHardeningStaticTest {
     void tenantManualCustomWriteShouldRequireDocumentEditPermission() throws IOException {
         Path file = MAIN_SOURCE.resolve("my/management/controller/TenantManualController.java");
         String annotationBlock = annotationBlockForMapping(file, "@PostMapping(\"/custom\")");
-        assertTrue(annotationBlock.contains("@RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_RENAME"),
+        assertTrue(annotationBlock.contains("@RequirePermission(value = PermissionCatalogV3.CODE_DOCUMENT_RENAME"),
                 "Custom tenant manual save must require document edit permission: " + file);
     }
 
@@ -222,11 +222,11 @@ class CommercialHardeningStaticTest {
         Path file = MAIN_SOURCE.resolve("my/management/controller/NotificationController.java");
 
         String announcementsBlock = annotationBlockForMapping(file, "@GetMapping(\"/announcements\")");
-        assertTrue(announcementsBlock.contains("@RequirePermission(value = PermissionCodeEnum.CODE_NOTIFICATION_ANNOUNCEMENT_LIST"),
+        assertTrue(announcementsBlock.contains("@RequirePermission(value = PermissionCatalogV3.CODE_NOTIFICATION_ANNOUNCEMENT_LIST"),
                 "Enterprise announcement list must require notification announcement list permission: " + file);
 
         String syncBlock = annotationBlockForMapping(file, "@PostMapping(\"/sync\")");
-        assertTrue(syncBlock.contains("@RequirePermission(value = PermissionCodeEnum.CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH"),
+        assertTrue(syncBlock.contains("@RequirePermission(value = PermissionCatalogV3.CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH"),
                 "Manual notification sync mutates tenant-wide notification records and must require an explicit admin permission: " + file);
     }
 
@@ -334,9 +334,9 @@ class CommercialHardeningStaticTest {
         );
         for (Map.Entry<String, String> entry : expectedPermissions.entrySet()) {
             String block = annotationBlockForMapping(file, entry.getKey());
-            assertTrue(block.contains("PermissionCodeEnum." + entry.getValue()),
+            assertTrue(block.contains("PermissionCatalogV3." + entry.getValue()),
                     entry.getKey() + " must require " + entry.getValue());
-            assertFalse(block.contains("PermissionCodeEnum.CODE_ORDER_LIST"),
+            assertFalse(block.contains("PermissionCatalogV3.CODE_ORDER_LIST"),
                     entry.getKey() + " must not borrow order:list");
         }
     }
@@ -461,9 +461,9 @@ class CommercialHardeningStaticTest {
 
         Path webMvcConfig = MAIN_SOURCE.resolve("my/management/common/config/WebMvcConfig.java");
         String webMvcContent = Files.readString(webMvcConfig, StandardCharsets.UTF_8);
-        int authIndex = webMvcContent.indexOf("registry.addInterceptor(authTokenInterceptor)");
+        int authIndex = webMvcContent.indexOf("registry.addInterceptor(tenantContextFilter)");
         int platformIndex = webMvcContent.indexOf("registry.addInterceptor(platformScopeInterceptor)");
-        assertTrue(authIndex >= 0, "AuthTokenInterceptor must be registered for management APIs: " + webMvcConfig);
+        assertTrue(authIndex >= 0, "TenantContextFilter must be registered for management APIs: " + webMvcConfig);
         assertTrue(platformIndex > authIndex, "PlatformScopeInterceptor must run after authentication context is initialized: " + webMvcConfig);
         String interceptorBlock = webMvcContent.substring(authIndex, Math.min(webMvcContent.length(), platformIndex + 160));
         assertTrue(interceptorBlock.contains(".addPathPatterns(\"/**\")") && interceptorBlock.contains(".excludePathPatterns(PUBLIC_PATHS)"),

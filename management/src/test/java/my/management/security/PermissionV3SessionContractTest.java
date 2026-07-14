@@ -52,9 +52,9 @@ class PermissionV3SessionContractTest {
 
     @Test
     void interceptorValidatesAccountBeforePermissionLookupAndRenewsCurrentVersion() throws IOException {
-        String source = readJava("my/management/common/interceptor/AuthTokenInterceptor.java");
+        String source = readJava("my/management/common/interceptor/TenantContextFilter.java");
         int authCheck = source.indexOf("getAuthVersion()");
-        int permissionLoad = source.indexOf("selectPermCodesByUserIdAndTenantCode");
+        int permissionLoad = source.indexOf("effectivePermissionService.resolve");
 
         assertTrue(authCheck >= 0);
         assertTrue(permissionLoad > authCheck);

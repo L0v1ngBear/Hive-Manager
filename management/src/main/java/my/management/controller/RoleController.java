@@ -5,7 +5,7 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import my.hive.shared.annotation.CollectLog;
 import my.hive.shared.annotation.RequirePermission;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
+import my.hive.shared.permission.PermissionCatalogV3;
 import my.hive.shared.dto.PageResult;
 import my.hive.shared.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
@@ -40,7 +40,7 @@ public class RoleController {
     private RoleService roleService;
 
     @GetMapping("/page")
-    @RequirePermission(value = PermissionCodeEnum.CODE_ROLE_LIST, message = "您没有权限查看角色列表")
+    @RequirePermission(value = PermissionCatalogV3.CODE_ROLE_LIST, message = "您没有权限查看角色列表")
     public Result<PageResult<SysRole>> page(@RequestParam(defaultValue = "1") Integer page,
                                             @RequestParam(defaultValue = "10") Integer size,
                                             @RequestParam(required = false) String keyword) {
@@ -52,7 +52,7 @@ public class RoleController {
     }
 
     @PostMapping("/create")
-    @RequirePermission(value = PermissionCodeEnum.CODE_ROLE_CREATE, message = "您没有权限创建角色")
+    @RequirePermission(value = PermissionCatalogV3.CODE_ROLE_CREATE, message = "您没有权限创建角色")
     @CollectLog(module = "role", action = "create", bizType = "role", bizNo = "#request.roleName", description = "管理端创建角色")
     public Result<Void> create(@Valid @RequestBody SysRoleAddRequest request) {
         roleService.createNewRole(request);
@@ -60,19 +60,19 @@ public class RoleController {
     }
 
     @GetMapping("/role/all")
-    @RequirePermission(value = PermissionCodeEnum.CODE_ROLE_PERMISSION_LIST, message = "您没有权限查看权限列表")
+    @RequirePermission(value = PermissionCatalogV3.CODE_ROLE_PERMISSION_LIST, message = "您没有权限查看权限列表")
     public Result<List<SysPermissionTreeVO>> all() {
         return Result.success(roleService.selectAllPermissionTree());
     }
 
     @GetMapping("/{roleId}/permission-ids")
-    @RequirePermission(value = PermissionCodeEnum.CODE_ROLE_PERMISSION_LIST, message = "您没有权限查看角色权限")
+    @RequirePermission(value = PermissionCatalogV3.CODE_ROLE_PERMISSION_LIST, message = "您没有权限查看角色权限")
     public Result<Set<Long>> getRolePermissionIds(@PathVariable Long roleId) {
         return Result.success(roleService.getRolePermissionIds(roleId));
     }
 
     @PostMapping("/role/update")
-    @RequirePermission(value = PermissionCodeEnum.CODE_ROLE_PERMISSION_UPDATE, message = "您没有权限配置角色权限")
+    @RequirePermission(value = PermissionCatalogV3.CODE_ROLE_PERMISSION_UPDATE, message = "您没有权限配置角色权限")
     @CollectLog(module = "role", action = "update_permissions", bizType = "role", bizNo = "#request.roleId", description = "管理端更新角色权限")
     public Result<Void> update(@Valid @RequestBody SysRoleUpdateRequest request) {
         roleService.updateRole(request);

@@ -51,7 +51,7 @@ import my.management.module.order.model.entity.SalesOrder;
 import my.management.module.order.model.entity.SalesOrderStatusLog;
 import my.management.module.order.model.enums.OrderCategoryEnum;
 import my.management.module.order.service.OrderService;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
+import my.hive.shared.permission.PermissionCatalogV3;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -1094,12 +1094,12 @@ public class ApprovalService {
 
     private String resolveOrderAuditPermissionCode(SalesOrder order) {
         return order != null && ORDER_STATUS_PENDING_CANCEL.equals(order.getStatus())
-                ? PermissionCodeEnum.CODE_ORDER_AUDIT_CANCEL
-                : PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
+                ? PermissionCatalogV3.CODE_ORDER_AUDIT_CANCEL
+                : PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
     }
 
     private String resolveOrderAuditPermissionCode(ProductionOrder order) {
-        return PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
+        return PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
     }
 
     private void assertOrderAuditPermission(String permissionCode) {
@@ -1166,7 +1166,7 @@ public class ApprovalService {
                 approval.getApplyUserId(),
                 primaryAuditorId,
                 APPROVAL_TYPE_LEAVE,
-                PermissionCodeEnum.CODE_APPROVAL_LEAVE_AUDIT,
+                PermissionCatalogV3.CODE_APPROVAL_LEAVE_AUDIT,
                 false
         );
         applySingleAuditor(approval::setAuditorId, approval::setAuditorIds, auditorId);
@@ -1192,7 +1192,7 @@ public class ApprovalService {
                 specifiedAuditorIds,
                 primaryAuditorId,
                 APPROVAL_TYPE_FINANCE,
-                PermissionCodeEnum.CODE_APPROVAL_FINANCE_AUDIT,
+                PermissionCatalogV3.CODE_APPROVAL_FINANCE_AUDIT,
                 strictPrimary
         );
         applyAuditors(approval::setAuditorId, approval::setAuditorIds, auditorIds);
@@ -1218,7 +1218,7 @@ public class ApprovalService {
                 specifiedAuditorIds,
                 primaryAuditorId,
                 APPROVAL_TYPE_RESIGNATION,
-                PermissionCodeEnum.CODE_APPROVAL_RESIGNATION_AUDIT,
+                PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_AUDIT,
                 strictPrimary
         );
         applyAuditors(approval::setAuditorId, approval::setAuditorIds, auditorIds);
@@ -1418,11 +1418,11 @@ public class ApprovalService {
     private String resolveAuditorPermissionCode(String type) {
         String normalized = type == null ? "" : type.trim().toLowerCase();
         return switch (normalized) {
-            case "leave" -> PermissionCodeEnum.CODE_APPROVAL_LEAVE_AUDIT;
-            case "finance" -> PermissionCodeEnum.CODE_APPROVAL_FINANCE_AUDIT;
-            case "resignation" -> PermissionCodeEnum.CODE_APPROVAL_RESIGNATION_AUDIT;
-            case "order" -> PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
-            case "quality", "badproduct", "bad_product" -> PermissionCodeEnum.CODE_QUALITY_AUDIT;
+            case "leave" -> PermissionCatalogV3.CODE_APPROVAL_LEAVE_AUDIT;
+            case "finance" -> PermissionCatalogV3.CODE_APPROVAL_FINANCE_AUDIT;
+            case "resignation" -> PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_AUDIT;
+            case "order" -> PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
+            case "quality", "badproduct", "bad_product" -> PermissionCatalogV3.CODE_QUALITY_AUDIT;
             default -> throw new BusinessException("审批类型不合法");
         };
     }

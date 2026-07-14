@@ -11,7 +11,7 @@ import my.management.module.notification.model.dto.NotificationTaskCloseRequest;
 import my.management.module.notification.model.vo.NotificationVO;
 import my.management.module.notification.service.EnterpriseAnnouncementService;
 import my.management.module.notification.service.NotificationService;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
+import my.hive.shared.permission.PermissionCatalogV3;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,14 +51,14 @@ public class NotificationController {
     }
 
     @GetMapping("/announcements")
-    @RequirePermission(value = PermissionCodeEnum.CODE_NOTIFICATION_ANNOUNCEMENT_LIST, message = "您没有权限查看企业通知公告")
+    @RequirePermission(value = PermissionCatalogV3.CODE_NOTIFICATION_ANNOUNCEMENT_LIST, message = "您没有权限查看企业通知公告")
     public Result<List<NotificationVO>> announcements(@RequestParam(required = false) Integer limit,
                                                       @RequestParam(required = false) String levels) {
         return Result.success(enterpriseAnnouncementService.announcements(limit, levels));
     }
 
     @PostMapping("/announcements")
-    @RequirePermission(value = PermissionCodeEnum.CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH, message = "您没有权限发布企业通知")
+    @RequirePermission(value = PermissionCatalogV3.CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH, message = "您没有权限发布企业通知")
     @CollectLog(module = "notification", action = "publish_announcement", bizType = "announcement", description = "发布企业通知公告")
     public Result<NotificationVO> publishAnnouncement(@RequestBody AnnouncementPublishRequest request) {
         return Result.success(enterpriseAnnouncementService.publishAnnouncement(request));
@@ -79,7 +79,7 @@ public class NotificationController {
     }
 
     @PostMapping("/sync")
-    @RequirePermission(value = PermissionCodeEnum.CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH, message = "您没有权限同步待办通知")
+    @RequirePermission(value = PermissionCatalogV3.CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH, message = "您没有权限同步待办通知")
     @CollectLog(module = "notification", action = "sync_all", bizType = "notification", description = "同步待办通知")
     public Result<Integer> syncAll() {
         return Result.success(notificationService.syncAllNotificationsForCurrentTenant());

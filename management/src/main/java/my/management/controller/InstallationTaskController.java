@@ -13,7 +13,7 @@ import my.management.module.installation.model.dto.InstallationTaskPageRequest;
 import my.management.module.installation.model.dto.InstallationTaskStatusUpdateRequest;
 import my.management.module.installation.model.vo.InstallationTaskVO;
 import my.management.module.installation.service.InstallationTaskService;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
+import my.hive.shared.permission.PermissionCatalogV3;
 import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -40,27 +40,27 @@ public class InstallationTaskController {
     private InstallationTaskService installationTaskService;
 
     @GetMapping("/page")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INSTALLATION_LIST, message = "您没有权限查看安装任务")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INSTALLATION_LIST, message = "您没有权限查看安装任务")
     public Result<PageResult<InstallationTaskVO>> page(InstallationTaskPageRequest request) {
         return Result.success(toPageResult(installationTaskService.page(request)));
     }
 
     @PostMapping("/status")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INSTALLATION_UPDATE, message = "您没有权限更新安装任务")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INSTALLATION_UPDATE, message = "您没有权限更新安装任务")
     @CollectLog(module = "installation-task", action = "update_status", bizType = "installation_task", bizNo = "#request.id", description = "管理端更新安装任务状态")
     public Result<InstallationTaskVO> updateStatus(@RequestBody @Valid InstallationTaskStatusUpdateRequest request) {
         return Result.success(installationTaskService.updateStatus(request));
     }
 
     @PostMapping("/attachment/upload")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INSTALLATION_ATTACHMENT_UPLOAD, message = "您没有权限上传安装任务附件")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INSTALLATION_ATTACHMENT_UPLOAD, message = "您没有权限上传安装任务附件")
     @CollectLog(module = "installation-task", action = "upload_attachment", bizType = "installation_task_attachment", description = "管理端上传安装任务附件")
     public Result<BusinessAttachmentVO> uploadAttachment(@RequestParam("file") MultipartFile file) {
         return Result.success(installationTaskService.uploadAttachment(file));
     }
 
     @GetMapping("/attachment/download")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INSTALLATION_ATTACHMENT_DOWNLOAD, message = "您没有权限下载安装任务附件")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INSTALLATION_ATTACHMENT_DOWNLOAD, message = "您没有权限下载安装任务附件")
     public ResponseEntity<org.springframework.core.io.Resource> downloadAttachment(@RequestParam String url,
                                                                                   @RequestParam(required = false) String name) {
         org.springframework.core.io.Resource resource = installationTaskService.loadAttachment(url);

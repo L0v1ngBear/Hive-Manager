@@ -1,7 +1,7 @@
 package my.management.security;
 
-import my.management.module.sys.model.enums.PermissionCodeEnum;
-import my.management.module.sys.service.PermissionCatalogV3;
+import my.hive.shared.permission.PermissionCatalogV3;
+import my.hive.shared.permission.PermissionCatalogV3;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -28,7 +28,7 @@ class RuntimePermissionCatalogV3ContractTest {
     @Test
     void everyRuntimePermissionConstantIsAnAssignableV3Leaf() throws IllegalAccessException {
         Set<String> invalid = new LinkedHashSet<>();
-        for (Field field : PermissionCodeEnum.class.getDeclaredFields()) {
+        for (Field field : PermissionCatalogV3.class.getDeclaredFields()) {
             if (!Modifier.isStatic(field.getModifiers())
                     || field.getType() != String.class
                     || !field.getName().startsWith("CODE_")
@@ -50,7 +50,7 @@ class RuntimePermissionCatalogV3ContractTest {
             for (Path path : paths.filter(Files::isRegularFile)
                     .filter(item -> item.toString().endsWith(".java"))
                     .filter(item -> !item.endsWith("PermissionCatalogV3.java"))
-                    .filter(item -> !item.endsWith("PermissionCodeEnum.java"))
+                    .filter(item -> !item.endsWith("PermissionCatalogV3.java"))
                     .toList()) {
                 String source = Files.readString(path, StandardCharsets.UTF_8);
                 Matcher matcher = PERMISSION_LITERAL.matcher(source);

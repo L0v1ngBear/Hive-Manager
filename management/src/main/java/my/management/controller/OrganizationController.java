@@ -4,7 +4,7 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import my.hive.shared.annotation.CollectLog;
 import my.hive.shared.annotation.RequirePermission;
-import my.management.module.sys.model.enums.PermissionCodeEnum;
+import my.hive.shared.permission.PermissionCatalogV3;
 import my.hive.shared.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.tenant.model.enums.TenantFeatureEnum;
@@ -35,33 +35,33 @@ public class OrganizationController {
     private OrganizationService organizationService;
 
     @GetMapping("/overview")
-    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_LIST, message = "您没有权限查看组织架构")
+    @RequirePermission(value = PermissionCatalogV3.CODE_EMPLOYEE_LIST, message = "您没有权限查看组织架构")
     public Result<OrganizationOverviewVO> overview() {
         return Result.success(organizationService.overview());
     }
 
     @GetMapping("/department/{departmentId}/employees")
-    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_LIST, message = "您没有权限查看部门员工")
+    @RequirePermission(value = PermissionCatalogV3.CODE_EMPLOYEE_LIST, message = "您没有权限查看部门员工")
     public Result<List<OrganizationEmployeeVO>> employees(@PathVariable Long departmentId) {
         return Result.success(organizationService.employees(departmentId));
     }
 
     @PostMapping("/join-code")
-    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_CREATE, message = "您没有权限生成组织加入码")
+    @RequirePermission(value = PermissionCatalogV3.CODE_EMPLOYEE_CREATE, message = "您没有权限生成组织加入码")
     @CollectLog(module = "organization", action = "create_join_code", bizType = "organization", description = "管理端生成组织加入码", recordResult = false)
     public Result<OrganizationJoinCodeVO> createJoinCode() {
         return Result.success(organizationService.createJoinCode());
     }
 
     @PostMapping("/department/save")
-    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_UPDATE, message = "您没有权限维护组织架构")
+    @RequirePermission(value = PermissionCatalogV3.CODE_EMPLOYEE_UPDATE, message = "您没有权限维护组织架构")
     @CollectLog(module = "organization", action = "save_department", bizType = "department", bizNo = "#request.id", description = "管理端保存部门")
     public Result<Long> saveDepartment(@Valid @RequestBody OrganizationDepartmentSaveRequest request) {
         return Result.success(organizationService.save(request));
     }
 
     @DeleteMapping("/department/{departmentId}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_DELETE, message = "您没有权限删除部门")
+    @RequirePermission(value = PermissionCatalogV3.CODE_EMPLOYEE_DELETE, message = "您没有权限删除部门")
     @CollectLog(module = "organization", action = "delete_department", bizType = "department", bizNo = "#departmentId", description = "管理端删除部门")
     public Result<Void> deleteDepartment(@PathVariable Long departmentId) {
         organizationService.delete(departmentId);

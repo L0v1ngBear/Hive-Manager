@@ -8,8 +8,9 @@ import my.hive.shared.auth.AuthUserInfo;
 import my.hive.shared.auth.AuthenticatedSessionService;
 import my.hive.shared.auth.TokenService;
 import my.hive.shared.dto.Result;
+import my.hive.shared.permission.EffectivePermissionService;
 import my.hive.shared.tenant.TenantIsolationSupport;
-import my.hive.shared.tenant.TenantContext;
+import my.hive.shared.context.TenantContext;
 import my.hive.shared.utils.ResponseEncryptUtil;
 import my.hive.shared.utils.TokenUtil;
 import my.management.common.tenant.BoundedTenantProperties;
@@ -29,7 +30,7 @@ import java.util.Objects;
 import java.util.Set;
 
 @Component
-public class AuthTokenInterceptor implements HandlerInterceptor {
+public class TenantContextFilter implements HandlerInterceptor {
 
     private static final String PLATFORM_TENANT_CODE = "super";
 
@@ -49,6 +50,9 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
 
     @Resource
     private PermissionCacheUtil permissionCacheUtil;
+
+    @Resource
+    private EffectivePermissionService effectivePermissionService;
 
     @Resource
     private TenantIsolationSupport tenantIsolationSupport;
@@ -125,8 +129,7 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
         Set<String> permCodes = permissionCacheUtil.get(
                 tenantCode, authUserInfo.getUserId(), currentPermissionVersion);
         if (permCodes == null) {
-            List<String> permissionList = authMapper.selectPermCodesByUserIdAndTenantCode(authUserInfo.getUserId(), tenantCode);
-            permCodes = new LinkedHashSet<>(permissionList == null ? List.of() : permissionList);
+            permCodes = effectivePermissionService.resolve(authUserInfo.getUserId(), tenantCode);
             permissionCacheUtil.put(
                     tenantCode, authUserInfo.getUserId(), currentPermissionVersion, permCodes);
         }

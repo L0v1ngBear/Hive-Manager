@@ -2,7 +2,7 @@ package my.hive.shared.aop;
 
 import my.hive.shared.annotation.RequirePermission;
 import my.hive.shared.exception.BusinessException;
-import my.hive.shared.security.PermissionEvaluator;
+import my.hive.shared.permission.PermissionEvaluator;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;

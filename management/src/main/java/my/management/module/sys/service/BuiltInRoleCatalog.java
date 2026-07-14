@@ -1,5 +1,7 @@
 package my.management.module.sys.service;
 
+import my.hive.shared.permission.PermissionCatalogV3;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
