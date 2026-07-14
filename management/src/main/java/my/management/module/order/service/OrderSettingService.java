@@ -1,10 +1,10 @@
 package my.management.module.order.service;
 
 import jakarta.annotation.Resource;
-import my.hive.common.context.TenantPermissionContext;
-import my.hive.common.exception.BusinessException;
-import my.hive.common.redis.HiveRedisKeyBuilder;
-import my.hive.common.utils.RedisCacheHelper;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.exception.BusinessException;
+import my.hive.shared.redis.HiveRedisKeyBuilder;
+import my.hive.shared.utils.RedisCacheHelper;
 import my.management.module.order.mapper.OrderSettingMapper;
 import my.management.module.order.model.dto.OrderWarningSettingUpdateRequest;
 import my.management.module.order.model.entity.OrderSetting;

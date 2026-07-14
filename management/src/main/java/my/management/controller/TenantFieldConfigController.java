@@ -1,7 +1,7 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
-import my.hive.common.dto.Result;
+import my.hive.shared.dto.Result;
 import my.management.module.tenant.model.vo.TenantFieldConfigVO;
 import my.management.module.tenant.service.TenantFieldConfigService;
 import org.springframework.web.bind.annotation.GetMapping;

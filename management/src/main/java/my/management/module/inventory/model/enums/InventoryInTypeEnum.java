@@ -1,6 +1,6 @@
 package my.management.module.inventory.model.enums;
 
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.exception.BusinessException;
 
 /**
  * 库存入库来源类型。

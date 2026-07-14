@@ -1,6 +1,6 @@
 package my.management.module.installation.model.enums;
 
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.exception.BusinessException;
 
 public enum InstallationTaskStatusEnum {
     PRODUCTION_COMPLETED("production_completed"),

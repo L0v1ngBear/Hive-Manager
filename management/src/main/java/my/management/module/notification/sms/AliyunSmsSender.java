@@ -7,7 +7,7 @@ import com.aliyun.teaopenapi.models.Config;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
-import my.hive.common.external.ExternalApiGuardService;
+import my.hive.shared.external.ExternalApiGuardService;
 import my.management.module.notification.config.SmsProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

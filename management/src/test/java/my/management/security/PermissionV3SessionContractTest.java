@@ -1,7 +1,7 @@
 package my.management.security;
 
-import my.hive.common.redis.HiveRedisKeyBuilder;
-import my.hive.common.redis.HiveRedisKeyProperties;
+import my.hive.shared.redis.HiveRedisKeyBuilder;
+import my.hive.shared.redis.HiveRedisKeyProperties;
 import my.management.common.utils.PermissionCacheUtil;
 import my.management.module.auth.model.vo.LoginUserRow;
 import my.management.module.employee.mapper.EmployeeMapper;

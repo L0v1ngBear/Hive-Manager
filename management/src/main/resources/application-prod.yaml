@@ -21,7 +21,7 @@ logging:
   level:
     root: ${LOGGING_LEVEL_ROOT:INFO}
     my.management: ${LOGGING_LEVEL_MY_MANAGEMENT:INFO}
-    my.hive.common: ${LOGGING_LEVEL_MY_HIVE_COMMON:INFO}
+    my.hive.shared: ${LOGGING_LEVEL_MY_HIVE_SHARED:INFO}
     com.xxl.job: ${LOGGING_LEVEL_XXL_JOB:INFO}
     org.springframework: ${LOGGING_LEVEL_SPRING:WARN}
     com.baomidou.mybatisplus: ${LOGGING_LEVEL_MYBATIS_PLUS:WARN}
@@ -59,7 +59,7 @@ hive:
     cleanup-cron: "${OPERATION_LOG_CLEANUP_CRON:0 20 3 * * ?}"
   system-event:
     enabled: ${SYSTEM_EVENT_ENABLED:true}
-    source-app: ${SYSTEM_EVENT_SOURCE_APP:hive-management}
+    source-app: ${SYSTEM_EVENT_SOURCE_APP:hive-backend}
     max-title-length: ${SYSTEM_EVENT_MAX_TITLE_LENGTH:180}
     max-content-length: ${SYSTEM_EVENT_MAX_CONTENT_LENGTH:1000}
     max-json-length: ${SYSTEM_EVENT_MAX_JSON_LENGTH:4000}

@@ -1,6 +1,6 @@
 package my.management.common.utils;
 
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.exception.BusinessException;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;

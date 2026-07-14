@@ -1,7 +1,7 @@
 package my.management.common.tenant;
 
 import jakarta.annotation.Resource;
-import my.hive.common.context.TenantPermissionContext;
+import my.hive.shared.context.TenantPermissionContext;
 import my.management.module.tenant.service.TenantLicenseService;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;

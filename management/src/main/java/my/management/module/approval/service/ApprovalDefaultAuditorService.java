@@ -2,8 +2,8 @@ package my.management.module.approval.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
-import my.hive.common.context.TenantPermissionContext;
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.exception.BusinessException;
 import my.management.module.approval.mapper.ApprovalDefaultAuditorMapper;
 import my.management.module.approval.model.dto.ApprovalDefaultAuditorSaveRequest;
 import my.management.module.approval.model.entity.ApprovalDefaultAuditor;

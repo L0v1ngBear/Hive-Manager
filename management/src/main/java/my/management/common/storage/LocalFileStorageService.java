@@ -1,7 +1,7 @@
 package my.management.common.storage;
 
 import lombok.extern.slf4j.Slf4j;
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.exception.BusinessException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;

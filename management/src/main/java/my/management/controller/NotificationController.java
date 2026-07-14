@@ -1,10 +1,10 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
-import my.hive.common.annotation.CollectLog;
-import my.hive.common.annotation.RequirePermission;
-import my.hive.common.dto.PageResult;
-import my.hive.common.dto.Result;
+import my.hive.shared.annotation.CollectLog;
+import my.hive.shared.annotation.RequirePermission;
+import my.hive.shared.dto.PageResult;
+import my.hive.shared.dto.Result;
 import my.management.module.notification.model.dto.AnnouncementPublishRequest;
 import my.management.module.notification.model.dto.NotificationPageRequest;
 import my.management.module.notification.model.dto.NotificationTaskCloseRequest;

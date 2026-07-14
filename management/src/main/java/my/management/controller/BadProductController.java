@@ -2,11 +2,11 @@ package my.management.controller;
 
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
-import my.hive.common.annotation.CollectLog;
-import my.hive.common.annotation.RequirePermission;
+import my.hive.shared.annotation.CollectLog;
+import my.hive.shared.annotation.RequirePermission;
 import my.management.module.sys.model.enums.PermissionCodeEnum;
-import my.hive.common.dto.PageResult;
-import my.hive.common.dto.Result;
+import my.hive.shared.dto.PageResult;
+import my.hive.shared.dto.Result;
 import my.management.common.storage.BusinessAttachmentService;
 import my.management.common.storage.BusinessAttachmentVO;
 import my.management.common.tenant.RequireTenantFeature;

@@ -3,7 +3,7 @@ package my.management.module.approval.service;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.exception.BusinessException;
 import my.management.module.approval.mapper.ApprovalAuditorCandidateMapper;
 import my.management.module.approval.model.entity.ApprovalAuditorCandidate;
 import org.springframework.stereotype.Service;

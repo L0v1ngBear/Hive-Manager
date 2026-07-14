@@ -2,8 +2,8 @@ package my.management.controller;
 
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
-import my.hive.common.annotation.CollectLog;
-import my.hive.common.dto.Result;
+import my.hive.shared.annotation.CollectLog;
+import my.hive.shared.dto.Result;
 import my.management.module.tenant.model.dto.TenantLicenseUpdateRequest;
 import my.management.module.tenant.model.dto.TenantOwnerAccountRequest;
 import my.management.module.tenant.model.dto.TenantProfileUpdateRequest;

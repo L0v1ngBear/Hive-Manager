@@ -1,8 +1,8 @@
 package my.management.module.notification.service;
 
 import jakarta.annotation.Resource;
-import my.hive.common.context.TenantPermissionContext;
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.exception.BusinessException;
 import my.management.common.enums.BinaryFlagEnum;
 import my.management.common.enums.CommonStatusEnum;
 import my.management.module.notification.mapper.EnterpriseAnnouncementMapper;

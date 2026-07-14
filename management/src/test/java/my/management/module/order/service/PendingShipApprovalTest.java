@@ -1,7 +1,7 @@
 package my.management.module.order.service;
 
-import my.hive.common.context.TenantPermissionContext;
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.exception.BusinessException;
 import my.management.module.approval.model.dto.OrderApprovalAuditRequest;
 import my.management.module.approval.service.ApprovalAuditorCandidateService;
 import my.management.module.approval.service.ApprovalDefaultAuditorService;

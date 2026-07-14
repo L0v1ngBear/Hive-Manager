@@ -1,8 +1,8 @@
 package my.management.common.config;
 
 import jakarta.annotation.Resource;
-import my.hive.common.web.TenantUploadResourceResolver;
-import my.hive.common.utils.TokenUtil;
+import my.hive.shared.web.TenantUploadResourceResolver;
+import my.hive.shared.utils.TokenUtil;
 import my.management.common.interceptor.AuthTokenInterceptor;
 import my.management.common.interceptor.PlatformScopeInterceptor;
 import org.springframework.beans.factory.annotation.Value;

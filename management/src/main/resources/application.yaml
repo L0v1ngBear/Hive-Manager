@@ -1,7 +1,7 @@
 server:
-  port: 8081
+  port: 8080
   servlet:
-    context-path: /web
+    context-path: /api
 
 spring:
   config:
@@ -26,7 +26,7 @@ mybatis-plus:
 
 auth:
   token:
-    secret: ${AUTH_TOKEN_SECRET:hive-manager-dev-token-secret}
+    secret: ${AUTH_TOKEN_SECRET:hive-backend-dev-token-secret}
     expire-hours: ${AUTH_TOKEN_EXPIRE_HOURS:24}
     renew-enabled: ${AUTH_TOKEN_RENEW_ENABLED:true}
     renew-before-minutes: ${AUTH_TOKEN_RENEW_BEFORE_MINUTES:120}
@@ -79,7 +79,7 @@ xxl:
     admin-addresses: ${XXL_JOB_ADMIN_ADDRESSES:http://127.0.0.1:8088/xxl-job-admin}
     access-token: ${XXL_JOB_ACCESS_TOKEN:}
     executor:
-      app-name: ${XXL_JOB_EXECUTOR_APP_NAME:hive-management}
+      app-name: ${XXL_JOB_EXECUTOR_APP_NAME:hive-backend}
       address: ${XXL_JOB_EXECUTOR_ADDRESS:}
       ip: ${XXL_JOB_EXECUTOR_IP:}
       port: ${XXL_JOB_EXECUTOR_PORT:9999}
@@ -145,7 +145,7 @@ hive:
     environment: ${HIVE_REDIS_ENV:${spring.profiles.active:dev}}
   system-event:
     enabled: ${SYSTEM_EVENT_ENABLED:true}
-    source-app: ${SYSTEM_EVENT_SOURCE_APP:hive-management}
+    source-app: ${SYSTEM_EVENT_SOURCE_APP:hive-backend}
     max-title-length: ${SYSTEM_EVENT_MAX_TITLE_LENGTH:180}
     max-content-length: ${SYSTEM_EVENT_MAX_CONTENT_LENGTH:1000}
     max-json-length: ${SYSTEM_EVENT_MAX_JSON_LENGTH:4000}

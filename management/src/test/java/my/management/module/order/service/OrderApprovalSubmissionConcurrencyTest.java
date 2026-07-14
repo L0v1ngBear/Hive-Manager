@@ -1,8 +1,8 @@
 package my.management.module.order.service;
 
 import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
-import my.hive.common.context.TenantPermissionContext;
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.exception.BusinessException;
 import my.management.module.approval.service.ApprovalAuditorCandidateService;
 import my.management.module.approval.service.ApprovalDefaultAuditorService;
 import my.management.module.employee.mapper.EmployeeMapper;

@@ -1,10 +1,10 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
-import my.hive.common.annotation.CollectLog;
-import my.hive.common.annotation.RequirePermission;
+import my.hive.shared.annotation.CollectLog;
+import my.hive.shared.annotation.RequirePermission;
 import my.management.module.sys.model.enums.PermissionCodeEnum;
-import my.hive.common.dto.Result;
+import my.hive.shared.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.receipt.model.dto.OutboundPrintUpdateRequest;

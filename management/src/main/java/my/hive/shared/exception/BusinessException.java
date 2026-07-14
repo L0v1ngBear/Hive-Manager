@@ -1,0 +1,29 @@
+package my.hive.shared.exception;
+
+
+import lombok.Getter;
+import lombok.Setter;
+/**
+ * BusinessException 属于管理端后端通用能力层，定义异常语义或异常处理行为。
+ */
+@Getter
+@Setter
+public class BusinessException extends RuntimeException {
+    /** 业务响应码 */
+    private Integer code;
+    /** 错误提示 */
+    private String msg;
+
+    // 构造方法
+    public BusinessException(Integer code, String msg) {
+        super(msg);
+        this.code = code;
+        this.msg = msg;
+    }
+
+    // 重载：默认业务码400
+    public BusinessException(String msg) {
+        this(400, msg);
+    }
+
+}

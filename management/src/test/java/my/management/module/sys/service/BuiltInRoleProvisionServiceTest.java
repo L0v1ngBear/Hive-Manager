@@ -1,6 +1,6 @@
 package my.management.module.sys.service;
 
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.exception.BusinessException;
 import my.management.module.sys.mapper.SysPermissionMapper;
 import my.management.module.sys.mapper.SysRoleMapper;
 import my.management.module.sys.mapper.SysRolePermissionMapper;

@@ -1,6 +1,6 @@
 package my.management.module.approval.service;
 
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.exception.BusinessException;
 import my.management.module.approval.mapper.ApprovalAuditorCandidateMapper;
 import my.management.module.approval.model.entity.ApprovalAuditorCandidate;
 import org.junit.jupiter.api.BeforeEach;

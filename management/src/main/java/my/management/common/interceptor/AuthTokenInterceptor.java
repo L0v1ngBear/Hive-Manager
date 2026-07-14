@@ -4,12 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import my.hive.common.auth.AuthUserInfo;
-import my.hive.common.context.TenantPermissionContext;
-import my.hive.common.dto.Result;
-import my.hive.common.tenant.TenantIsolationSupport;
-import my.hive.common.utils.ResponseEncryptUtil;
-import my.hive.common.utils.TokenUtil;
+import my.hive.shared.auth.AuthUserInfo;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.dto.Result;
+import my.hive.shared.tenant.TenantIsolationSupport;
+import my.hive.shared.utils.ResponseEncryptUtil;
+import my.hive.shared.utils.TokenUtil;
 import my.management.common.tenant.BoundedTenantProperties;
 import my.management.common.utils.PermissionCacheUtil;
 import my.management.module.auth.mapper.AuthMapper;
@@ -105,7 +105,7 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
         if (!platformTenant) {
             try {
                 tenantLicenseService.ensureTenantUsable(tenantCode);
-            } catch (my.hive.common.exception.BusinessException ex) {
+            } catch (my.hive.shared.exception.BusinessException ex) {
                 writeErrorResponse(response, HttpStatus.FORBIDDEN, ex.getCode(), ex.getMsg());
                 return false;
             }

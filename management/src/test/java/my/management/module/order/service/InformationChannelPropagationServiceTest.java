@@ -1,7 +1,7 @@
 package my.management.module.order.service;
 
-import my.hive.common.context.TenantPermissionContext;
-import my.hive.common.print.PrintTaskService;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.print.PrintTaskService;
 import my.management.common.utils.CodeGeneratorUtil;
 import my.management.module.customer.mapper.CustomerMapper;
 import my.management.module.customer.mapper.CustomerProjectMapper;

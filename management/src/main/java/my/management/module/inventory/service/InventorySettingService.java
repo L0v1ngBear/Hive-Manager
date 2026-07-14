@@ -1,10 +1,10 @@
 package my.management.module.inventory.service;
 
 import jakarta.annotation.Resource;
-import my.hive.common.context.TenantPermissionContext;
-import my.hive.common.exception.BusinessException;
-import my.hive.common.redis.HiveRedisKeyBuilder;
-import my.hive.common.utils.RedisCacheHelper;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.exception.BusinessException;
+import my.hive.shared.redis.HiveRedisKeyBuilder;
+import my.hive.shared.utils.RedisCacheHelper;
 import my.management.module.inventory.mapper.InventorySettingMapper;
 import my.management.module.inventory.model.dto.InventoryWarningSettingUpdateRequest;
 import my.management.module.inventory.model.entity.InventorySetting;

@@ -9,11 +9,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>my</groupId>
-    <artifactId>management</artifactId>
+    <groupId>my.hive</groupId>
+    <artifactId>hive-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>management</name>
-    <description>management</description>
+    <name>hive-backend</name>
+    <description>Unified Hive backend</description>
     <packaging>jar</packaging>
 
     <properties>
@@ -180,12 +180,6 @@
     </dependencyManagement>
 
     <dependencies>
-        <dependency>
-            <groupId>my.hive</groupId>
-            <artifactId>hive-backend-common</artifactId>
-            <version>0.2.0</version>
-        </dependency>
-
         <!-- ====================== 已加入 RabbitMQ 依赖 ====================== -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -229,6 +223,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

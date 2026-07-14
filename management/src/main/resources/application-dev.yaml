@@ -33,7 +33,7 @@ xxl:
     admin-addresses: ${XXL_JOB_ADMIN_ADDRESSES:http://127.0.0.1:8088/xxl-job-admin}
     access-token: ${XXL_JOB_ACCESS_TOKEN:dev_xxl_token}
     executor:
-      app-name: ${XXL_JOB_EXECUTOR_APP_NAME:hive-management}
+      app-name: ${XXL_JOB_EXECUTOR_APP_NAME:hive-backend}
       port: ${XXL_JOB_EXECUTOR_PORT:9999}
 
 hive:

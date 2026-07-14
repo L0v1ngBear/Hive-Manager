@@ -1,7 +1,7 @@
 package my.management.module.employee.service;
 
-import my.hive.common.context.TenantPermissionContext;
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.exception.BusinessException;
 import my.management.common.utils.PermissionCacheUtil;
 import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.employee.mapper.EmployeeChangeLogMapper;

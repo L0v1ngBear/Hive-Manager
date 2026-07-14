@@ -3,7 +3,7 @@ package my.management.common.utils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
-import my.hive.common.redis.HiveRedisKeyBuilder;
+import my.hive.shared.redis.HiveRedisKeyBuilder;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;

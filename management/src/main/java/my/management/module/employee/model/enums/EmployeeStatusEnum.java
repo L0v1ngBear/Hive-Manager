@@ -1,6 +1,6 @@
 package my.management.module.employee.model.enums;
 
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.exception.BusinessException;
 import org.springframework.util.StringUtils;
 
 /**

@@ -1,6 +1,6 @@
 package my.management.controller;
 
-import my.hive.common.annotation.RequirePermission;
+import my.hive.shared.annotation.RequirePermission;
 import my.management.module.employee.model.vo.EmployeePermissionNodeVO;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.bind.annotation.GetMapping;

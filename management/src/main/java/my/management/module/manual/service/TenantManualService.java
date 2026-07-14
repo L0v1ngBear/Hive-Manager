@@ -1,8 +1,8 @@
 package my.management.module.manual.service;
 
 import jakarta.annotation.Resource;
-import my.hive.common.context.TenantPermissionContext;
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.exception.BusinessException;
 import my.management.module.manual.mapper.TenantManualMapper;
 import my.management.module.manual.model.dto.TenantManualSaveRequest;
 import my.management.module.manual.model.entity.TenantManual;

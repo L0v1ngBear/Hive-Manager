@@ -2,9 +2,9 @@ package my.management.controller;
 
 import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
-import my.hive.common.annotation.CollectLog;
-import my.hive.common.annotation.RequirePermission;
-import my.hive.common.dto.Result;
+import my.hive.shared.annotation.CollectLog;
+import my.hive.shared.annotation.RequirePermission;
+import my.hive.shared.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.manual.model.dto.TenantManualSaveRequest;
 import my.management.module.manual.model.vo.TenantManualVO;

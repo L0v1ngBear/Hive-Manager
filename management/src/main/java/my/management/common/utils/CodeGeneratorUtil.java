@@ -1,8 +1,8 @@
 package my.management.common.utils;
 
 import jakarta.annotation.Resource;
-import my.hive.common.context.TenantPermissionContext;
-import my.hive.common.redis.HiveRedisKeyBuilder;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.redis.HiveRedisKeyBuilder;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;

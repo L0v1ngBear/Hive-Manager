@@ -2,10 +2,10 @@ package my.management.module.organization.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
-import my.hive.common.context.TenantPermissionContext;
-import my.hive.common.exception.BusinessException;
-import my.hive.common.privacy.PrivacyProtectionUtil;
-import my.hive.common.redis.HiveRedisKeyBuilder;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.exception.BusinessException;
+import my.hive.shared.privacy.PrivacyProtectionUtil;
+import my.hive.shared.redis.HiveRedisKeyBuilder;
 import my.management.common.enums.CommonStatusEnum;
 import my.management.common.enums.DeleteFlagEnum;
 import my.management.common.utils.CodeGeneratorUtil;

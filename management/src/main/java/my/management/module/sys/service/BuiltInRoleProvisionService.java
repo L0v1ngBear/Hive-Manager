@@ -2,7 +2,7 @@ package my.management.module.sys.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import jakarta.annotation.Resource;
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.exception.BusinessException;
 import my.management.common.enums.DeleteFlagEnum;
 import my.management.module.sys.mapper.SysPermissionMapper;
 import my.management.module.sys.mapper.SysRoleMapper;

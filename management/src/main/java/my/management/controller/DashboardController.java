@@ -1,7 +1,7 @@
 package my.management.controller;
 
 import jakarta.annotation.Resource;
-import my.hive.common.dto.Result;
+import my.hive.shared.dto.Result;
 import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.management.module.dashboard.model.vo.DashboardOverviewVO;

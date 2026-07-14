@@ -1,6 +1,6 @@
 package my.management.common.security;
 
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

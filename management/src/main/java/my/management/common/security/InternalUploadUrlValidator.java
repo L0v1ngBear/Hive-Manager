@@ -1,6 +1,6 @@
 package my.management.common.security;
 
-import my.hive.common.exception.BusinessException;
+import my.hive.shared.exception.BusinessException;
 import org.springframework.util.StringUtils;
 
 import java.util.Locale;
