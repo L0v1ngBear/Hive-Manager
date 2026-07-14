@@ -245,7 +245,10 @@ public class EmployeeService {
         employee.setAttendanceRequired(normalizeAttendanceRequired(request.getAttendanceRequired()));
         if (reuseJoinedUser) {
             employeeMapper.updateById(employee);
+            rotateAuthVersion(employee.getId());
         } else {
+            employee.setPermissionVersion(1L);
+            employee.setAuthVersion(1L);
             employeeMapper.insert(employee);
         }
 
@@ -311,6 +314,7 @@ public class EmployeeService {
         employee.setStatus(request.getStatus());
         employee.setAttendanceRequired(normalizeAttendanceRequired(request.getAttendanceRequired()));
         employeeMapper.updateById(employee);
+        rotateAuthVersion(employee.getId());
 
         ext.setEmail(request.getEmail());
         // Preserve the stored type on update when the caller omits the field.
@@ -330,6 +334,9 @@ public class EmployeeService {
         Integer beforeStatus = employee.getStatus();
         employee.setStatus(request.getStatus());
         employeeMapper.updateById(employee);
+        if (!Objects.equals(beforeStatus, request.getStatus())) {
+            rotateAuthVersion(employee.getId());
+        }
         if (isResigned(request.getStatus())) {
             revokeUserRoles(employee.getId());
         }
@@ -355,6 +362,7 @@ public class EmployeeService {
         for (Long id : request.getIds()) {
             Employee employee = requireEmployee(id);
             EmployeeDetailVO before = detail(id);
+            Integer beforeStatus = employee.getStatus();
             if (department != null) {
                 employee.setDepartmentName(department.getDeptName());
             }
@@ -369,6 +377,9 @@ public class EmployeeService {
                 employee.setStatus(request.getStatus());
             }
             employeeMapper.updateById(employee);
+            if (request.getStatus() != null && !Objects.equals(beforeStatus, request.getStatus())) {
+                rotateAuthVersion(employee.getId());
+            }
             if (isResigned(request.getStatus())) {
                 revokeUserRoles(employee.getId());
             }
@@ -392,6 +403,7 @@ public class EmployeeService {
         Integer beforeStatus = employee.getStatus();
         employee.setStatus(EmployeeStatusEnum.RESIGNED.getCode());
         employeeMapper.updateById(employee);
+        rotateAuthVersion(employee.getId());
         revokeUserRoles(employee.getId());
         if (StringUtils.hasText(remark)) {
             EmployeeExt ext = getOrCreateExt(employeeId);
@@ -407,7 +419,13 @@ public class EmployeeService {
 
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        requireEmployee(id);
+        Employee employee = requireEmployee(id);
+        if (!isResigned(employee.getStatus())) {
+            employee.setStatus(EmployeeStatusEnum.RESIGNED.getCode());
+            employeeMapper.updateById(employee);
+            rotateAuthVersion(employee.getId());
+        }
+        revokeUserRoles(employee.getId());
         EmployeeExt ext = getOrCreateExt(id);
         ext.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
         saveOrUpdateExt(ext);
@@ -801,20 +819,17 @@ public class EmployeeService {
             sysUserRoleMapper.updateById(item);
         }
 
-        if (normalizedRoleIds.isEmpty()) {
-            permissionCacheUtil.evict(tenantCode, userId);
-            return;
+        if (!normalizedRoleIds.isEmpty()) {
+            for (Long roleId : normalizedRoleIds) {
+                SysUserRole userRole = new SysUserRole();
+                userRole.setUserId(userId);
+                userRole.setTenantCode(tenantCode);
+                userRole.setRoleId(roleId);
+                userRole.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
+                sysUserRoleMapper.insert(userRole);
+            }
         }
-
-        for (Long roleId : normalizedRoleIds) {
-            SysUserRole userRole = new SysUserRole();
-            userRole.setUserId(userId);
-            userRole.setTenantCode(tenantCode);
-            userRole.setRoleId(roleId);
-            userRole.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
-            sysUserRoleMapper.insert(userRole);
-        }
-        permissionCacheUtil.evict(tenantCode, userId);
+        rotatePermissionVersion(userId);
     }
 
     private void syncUserRolesByStatus(Long userId, List<Long> roleIds, Integer status) {
@@ -852,7 +867,25 @@ public class EmployeeService {
             item.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
             sysUserRoleMapper.updateById(item);
         }
-        permissionCacheUtil.evict(TenantPermissionContext.getTenantCode(), userId);
+        if (!existed.isEmpty()) {
+            rotatePermissionVersion(userId);
+        }
+    }
+
+    private void rotatePermissionVersion(Long userId) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        if (employeeMapper.incrementPermissionVersion(tenantCode, userId) != 1) {
+            throw new BusinessException(404, "员工不存在");
+        }
+        permissionCacheUtil.evict(tenantCode, userId);
+    }
+
+    private void rotateAuthVersion(Long userId) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        if (employeeMapper.incrementAuthVersion(tenantCode, userId) != 1) {
+            throw new BusinessException(404, "员工不存在");
+        }
+        permissionCacheUtil.evict(tenantCode, userId);
     }
 
     private boolean isResigned(Integer status) {

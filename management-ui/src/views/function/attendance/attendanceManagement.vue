@@ -14,7 +14,7 @@
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <button
-              v-permission="'attendance:*'"
+              v-permission="'attendance:rule:update'"
               class="function-action-dark"
               @click="openRuleDrawer"
           >
@@ -28,7 +28,7 @@
             <span class="material-symbols-outlined text-[20px]">refresh</span>刷新数据
           </button>
           <button
-              v-permission="'attendance:record:list'"
+              v-permission="'attendance:export'"
               class="function-action-secondary"
               @click="exportExcel"
           >

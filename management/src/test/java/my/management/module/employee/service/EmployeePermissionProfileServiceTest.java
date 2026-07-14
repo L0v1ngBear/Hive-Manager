@@ -171,7 +171,7 @@ class EmployeePermissionProfileServiceTest {
                 () -> service.updateOverrides(USER_ID, request));
 
         assertEquals(409, exception.getCode());
-        verify(employeeMapper, never()).incrementPermissionVersion(any(), any(), any());
+        verify(employeeMapper, never()).incrementPermissionVersionIfCurrent(any(), any(), any());
         verify(userPermissionMapper, never()).delete(any());
         verify(userPermissionMapper, never()).upsertBatch(any());
     }
@@ -188,7 +188,7 @@ class EmployeePermissionProfileServiceTest {
                 () -> service.updateOverrides(USER_ID, request));
 
         assertEquals(403, exception.getCode());
-        verify(employeeMapper, never()).incrementPermissionVersion(any(), any(), any());
+        verify(employeeMapper, never()).incrementPermissionVersionIfCurrent(any(), any(), any());
     }
 
     @Test
@@ -209,12 +209,12 @@ class EmployeePermissionProfileServiceTest {
         request.setPermissionVersion(5L);
         request.setGrants(Set.of("order:detail"));
         request.setDenies(Set.of("order:list"));
-        when(employeeMapper.incrementPermissionVersion(TENANT_CODE, USER_ID, 5L)).thenReturn(1);
+        when(employeeMapper.incrementPermissionVersionIfCurrent(TENANT_CODE, USER_ID, 5L)).thenReturn(1);
 
         long nextVersion = service.updateOverrides(USER_ID, request);
 
         assertEquals(6L, nextVersion);
-        verify(employeeMapper).incrementPermissionVersion(TENANT_CODE, USER_ID, 5L);
+        verify(employeeMapper).incrementPermissionVersionIfCurrent(TENANT_CODE, USER_ID, 5L);
         verify(userPermissionMapper).delete(any());
         verify(userPermissionMapper).upsertBatch(any());
         verify(permissionCacheUtil).evict(TENANT_CODE, USER_ID);

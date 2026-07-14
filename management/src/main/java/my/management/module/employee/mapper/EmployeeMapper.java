@@ -24,15 +24,46 @@ public interface EmployeeMapper extends BaseMapper<Employee> {
 
     @Update("""
             UPDATE `user`
-            SET permission_version = permission_version + 1,
+            SET permission_version = COALESCE(permission_version, 1) + 1,
                 update_time = NOW()
             WHERE tenant_code = #{tenantCode}
               AND id = #{userId}
               AND permission_version = #{expectedVersion}
             """)
+    int incrementPermissionVersionIfCurrent(@Param("tenantCode") String tenantCode,
+                                            @Param("userId") Long userId,
+                                            @Param("expectedVersion") Long expectedVersion);
+
+    @Update("""
+            UPDATE `user`
+            SET permission_version = COALESCE(permission_version, 1) + 1,
+                update_time = NOW()
+            WHERE tenant_code = #{tenantCode}
+              AND id = #{userId}
+            """)
     int incrementPermissionVersion(@Param("tenantCode") String tenantCode,
-                                   @Param("userId") Long userId,
-                                   @Param("expectedVersion") Long expectedVersion);
+                                   @Param("userId") Long userId);
+
+    @Update("""
+            UPDATE `user`
+            SET auth_version = COALESCE(auth_version, 1) + 1,
+                update_time = NOW()
+            WHERE tenant_code = #{tenantCode}
+              AND id = #{userId}
+            """)
+    int incrementAuthVersion(@Param("tenantCode") String tenantCode,
+                             @Param("userId") Long userId);
+
+    @Update("""
+            UPDATE `user`
+            SET permission_version = COALESCE(permission_version, 1) + 1,
+                auth_version = COALESCE(auth_version, 1) + 1,
+                update_time = NOW()
+            WHERE tenant_code = #{tenantCode}
+              AND id = #{userId}
+            """)
+    int incrementPermissionAndAuthVersion(@Param("tenantCode") String tenantCode,
+                                          @Param("userId") Long userId);
 
     @Select({
             "<script>",
@@ -167,27 +198,23 @@ public interface EmployeeMapper extends BaseMapper<Employee> {
                     ON rp.role_id = r.id AND IFNULL(rp.is_deleted, 0) = 0
                   INNER JOIN sys_permission p
                     ON p.id = rp.permission_id AND IFNULL(p.is_deleted, 0) = 0
+                   AND p.status = 1 AND p.assignable = 1
                   WHERE ur.user_id = u.id
                     AND ur.tenant_code = u.tenant_code
                     AND IFNULL(ur.is_deleted, 0) = 0
-                    AND (p.perm_code = #{permissionCode}
-                         OR p.perm_code = CONCAT(SUBSTRING_INDEX(#{permissionCode}, ':', 1), ':*')
-                         OR p.perm_code = CONCAT(SUBSTRING_INDEX(#{permissionCode}, ':', 2), ':*')
-                         OR p.perm_code IN ('*', '*:*'))
+                    AND p.perm_code = #{permissionCode}
                 )
                 OR EXISTS (
                   SELECT 1
                   FROM sys_user_permission up
                   INNER JOIN sys_permission p
                     ON p.id = up.permission_id AND IFNULL(p.is_deleted, 0) = 0
+                   AND p.status = 1 AND p.assignable = 1
                   WHERE up.user_id = u.id
                     AND up.tenant_code = u.tenant_code
                     AND IFNULL(up.is_deleted, 0) = 0
                     AND up.effect = 'GRANT'
-                    AND (p.perm_code = #{permissionCode}
-                         OR p.perm_code = CONCAT(SUBSTRING_INDEX(#{permissionCode}, ':', 1), ':*')
-                         OR p.perm_code = CONCAT(SUBSTRING_INDEX(#{permissionCode}, ':', 2), ':*')
-                         OR p.perm_code IN ('*', '*:*'))
+                    AND p.perm_code = #{permissionCode}
                 )
               )
               AND NOT EXISTS (
@@ -195,14 +222,12 @@ public interface EmployeeMapper extends BaseMapper<Employee> {
                 FROM sys_user_permission up
                 INNER JOIN sys_permission p
                   ON p.id = up.permission_id AND IFNULL(p.is_deleted, 0) = 0
+                 AND p.status = 1 AND p.assignable = 1
                 WHERE up.user_id = u.id
                   AND up.tenant_code = u.tenant_code
                   AND IFNULL(up.is_deleted, 0) = 0
                   AND up.effect = 'DENY'
-                  AND (p.perm_code = #{permissionCode}
-                       OR p.perm_code = CONCAT(SUBSTRING_INDEX(#{permissionCode}, ':', 1), ':*')
-                       OR p.perm_code = CONCAT(SUBSTRING_INDEX(#{permissionCode}, ':', 2), ':*')
-                       OR p.perm_code IN ('*', '*:*'))
+                  AND p.perm_code = #{permissionCode}
               )
             GROUP BY u.id
             ORDER BY MAX(COALESCE(u.role_level, 0)) DESC, u.id ASC
@@ -222,28 +247,19 @@ public interface EmployeeMapper extends BaseMapper<Employee> {
             "AND (EXISTS (SELECT 1 FROM sys_user_role ur ",
             "  INNER JOIN sys_role r ON r.id = ur.role_id AND r.tenant_code = u.tenant_code AND IFNULL(r.is_deleted, 0) = 0 ",
             "  INNER JOIN sys_role_permission rp ON rp.role_id = r.id AND IFNULL(rp.is_deleted, 0) = 0 ",
-            "  INNER JOIN sys_permission p ON p.id = rp.permission_id AND IFNULL(p.is_deleted, 0) = 0 ",
+            "  INNER JOIN sys_permission p ON p.id = rp.permission_id AND IFNULL(p.is_deleted, 0) = 0 AND p.status = 1 AND p.assignable = 1 ",
             "  WHERE ur.user_id = u.id AND ur.tenant_code = u.tenant_code AND IFNULL(ur.is_deleted, 0) = 0 ",
-            "  AND (p.perm_code = #{permissionCode} ",
-            "       OR p.perm_code = CONCAT(SUBSTRING_INDEX(#{permissionCode}, ':', 1), ':*') ",
-            "       OR p.perm_code = CONCAT(SUBSTRING_INDEX(#{permissionCode}, ':', 2), ':*') ",
-            "       OR p.perm_code IN ('*', '*:*'))) ",
+            "  AND p.perm_code = #{permissionCode}) ",
             "OR EXISTS (SELECT 1 FROM sys_user_permission up ",
-            "  INNER JOIN sys_permission p ON p.id = up.permission_id AND IFNULL(p.is_deleted, 0) = 0 ",
+            "  INNER JOIN sys_permission p ON p.id = up.permission_id AND IFNULL(p.is_deleted, 0) = 0 AND p.status = 1 AND p.assignable = 1 ",
             "  WHERE up.user_id = u.id AND up.tenant_code = u.tenant_code AND IFNULL(up.is_deleted, 0) = 0 ",
             "  AND up.effect = 'GRANT' ",
-            "  AND (p.perm_code = #{permissionCode} ",
-            "       OR p.perm_code = CONCAT(SUBSTRING_INDEX(#{permissionCode}, ':', 1), ':*') ",
-            "       OR p.perm_code = CONCAT(SUBSTRING_INDEX(#{permissionCode}, ':', 2), ':*') ",
-            "       OR p.perm_code IN ('*', '*:*')))) ",
+            "  AND p.perm_code = #{permissionCode})) ",
             "AND NOT EXISTS (SELECT 1 FROM sys_user_permission up ",
-            "  INNER JOIN sys_permission p ON p.id = up.permission_id AND IFNULL(p.is_deleted, 0) = 0 ",
+            "  INNER JOIN sys_permission p ON p.id = up.permission_id AND IFNULL(p.is_deleted, 0) = 0 AND p.status = 1 AND p.assignable = 1 ",
             "  WHERE up.user_id = u.id AND up.tenant_code = u.tenant_code AND IFNULL(up.is_deleted, 0) = 0 ",
             "  AND up.effect = 'DENY' ",
-            "  AND (p.perm_code = #{permissionCode} ",
-            "       OR p.perm_code = CONCAT(SUBSTRING_INDEX(#{permissionCode}, ':', 1), ':*') ",
-            "       OR p.perm_code = CONCAT(SUBSTRING_INDEX(#{permissionCode}, ':', 2), ':*') ",
-            "       OR p.perm_code IN ('*', '*:*'))) ",
+            "  AND p.perm_code = #{permissionCode}) ",
             "<if test='keyword != null and keyword != \"\"'>",
             "AND (u.name LIKE CONCAT('%', #{keyword}, '%') ",
             "     OR ext.emp_no LIKE CONCAT('%', #{keyword}, '%') ",

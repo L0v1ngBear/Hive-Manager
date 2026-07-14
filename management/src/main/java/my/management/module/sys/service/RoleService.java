@@ -20,6 +20,7 @@ import my.management.module.sys.model.entity.SysPermission;
 import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.model.entity.SysRolePermission;
 import my.management.module.sys.model.vo.SysPermissionTreeVO;
+import my.management.module.employee.mapper.EmployeeMapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +67,9 @@ public class RoleService {
 
     @Resource
     private PermissionCacheUtil permissionCacheUtil;
+
+    @Resource
+    private EmployeeMapper employeeMapper;
 
     public Page<SysRole> selectPage(Integer pages, Integer size, String keyword) {
         Page<SysRole> page = new Page<>(safePageNum(pages), safePageSize(size));
@@ -242,7 +246,12 @@ public class RoleService {
 
     private void evictRoleUsersPermissionCache(String tenantCode, Long roleId) {
         List<Long> userIds = sysUserRoleMapper.selectUserIdsByRoleId(tenantCode, roleId);
-        userIds.forEach(userId -> permissionCacheUtil.evict(tenantCode, userId));
+        for (Long userId : userIds) {
+            if (employeeMapper.incrementPermissionVersion(tenantCode, userId) != 1) {
+                throw new BusinessException(404, "员工不存在");
+            }
+            permissionCacheUtil.evict(tenantCode, userId);
+        }
     }
 
     private Set<Long> filterAssignablePermissionIds(Set<Long> permissionIds) {

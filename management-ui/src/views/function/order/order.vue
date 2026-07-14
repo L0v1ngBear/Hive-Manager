@@ -932,8 +932,7 @@ const orderAttachmentUploading = ref(false)
 const latestOrderFlowPrintTask = ref(null)
 const filterOverviewExpanded = ref(true)
 
-const ORDER_ALL_PERMISSION = 'order:*'
-const ORDER_CREATE_PERMISSIONS = [ORDER_ALL_PERMISSION, 'order:create']
+const ORDER_CREATE_PERMISSIONS = ['order:create']
 const ORDER_STATUS_PERMISSION_PREFIX = 'order:status:'
 
 function hasAnyOrderPermission(permissions) {
@@ -947,8 +946,8 @@ function normalizeOrderStatusPermission(status) {
 function orderStatusPermissions(status) {
   const normalizedStatus = normalizeOrderStatusPermission(status)
   return normalizedStatus
-      ? [ORDER_ALL_PERMISSION, `${ORDER_STATUS_PERMISSION_PREFIX}${normalizedStatus}`]
-      : [ORDER_ALL_PERMISSION]
+      ? [`${ORDER_STATUS_PERMISSION_PREFIX}${normalizedStatus}`]
+      : []
 }
 
 function canMutateOrderStatus(status) {

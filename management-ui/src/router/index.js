@@ -7,8 +7,7 @@ import { routeAccessDenied } from '@/utils/access'
 
 const ANNOUNCEMENT_PERMISSIONS = [
   'notification:announcement:list',
-  'notification:announcement:publish',
-  'dashboard:*'
+  'notification:announcement:publish'
 ]
 
 export const constantRoutes = [
@@ -92,7 +91,7 @@ export const constantRoutes = [
         component: () => import('@/views/function/announcement/publish.vue'),
         meta: {
           title: '发布公告',
-          permissions: ['notification:announcement:publish', 'dashboard:*'],
+          permissions: ['notification:announcement:publish'],
           features: ['module.dashboard']
         }
       },
@@ -150,7 +149,7 @@ export const constantRoutes = [
         path: 'attendance',
         name: 'Attendance',
         component: () => import('@/views/function/attendance/attendanceManagement.vue'),
-        meta: { title: '考勤管理', permissions: ['attendance:record:list', 'attendance:*'], features: ['module.attendance'] }
+        meta: { title: '考勤管理', permissions: ['attendance:record:list', 'attendance:rule:list', 'attendance:rule:update', 'attendance:export'], features: ['module.attendance'] }
       },
       {
         path: 'equipment',
@@ -196,7 +195,7 @@ export const constantRoutes = [
         path: 'installation-task',
         name: 'InstallationTask',
         component: () => import('@/views/function/installationTask/installationTask.vue'),
-        meta: { title: '安装任务', permissions: ['order:list'], features: ['module.order'] }
+        meta: { title: '安装任务', permissions: ['installation:list'], features: ['module.order'] }
       },
       {
         path: 'bad-product',

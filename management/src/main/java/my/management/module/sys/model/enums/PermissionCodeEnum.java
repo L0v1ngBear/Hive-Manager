@@ -17,10 +17,8 @@ public enum PermissionCodeEnum {
     APPROVAL_RESIGNATION_DETAIL("approval:resignation:detail"),
     APPROVAL_RESIGNATION_SUBMIT("approval:resignation:submit"),
     APPROVAL_ORDER_AUDIT("approval:order:audit"),
-    ATTENDANCE_ALL("attendance:*"),
     ATTENDANCE_PUNCH("attendance:punch"),
     ATTENDANCE_RECORD_LIST("attendance:record:list"),
-    BADPRODUCT_ALL("badproduct:*"),
     BADPRODUCT_LIST("badproduct:list"),
     BADPRODUCT_PROCESS("badproduct:process"),
     BADPRODUCT_SAVE("badproduct:save"),
@@ -47,7 +45,6 @@ public enum PermissionCodeEnum {
     EQUIPMENT_LIST("equipment:list"),
     EQUIPMENT_SAVE("equipment:save"),
     INVENTORY("inventory"),
-    INVENTORY_ALL("inventory:*"),
     INVENTORY_BARCODE_SEARCH("inventory:barcode:search"),
     INVENTORY_CLOTH_IN("inventory:cloth:in"),
     INVENTORY_CLOTH_OUT("inventory:cloth:out"),
@@ -56,7 +53,6 @@ public enum PermissionCodeEnum {
     INVENTORY_TREND("inventory:trend"),
     INVENTORY_WARNING_LIST("inventory:warning:list"),
     INVENTORY_WARNING_SETTING("inventory:warning:setting"),
-    INSTALLATION_ALL("installation:*"),
     INSTALLATION_ATTACHMENT_DOWNLOAD("installation:attachment:download"),
     INSTALLATION_ATTACHMENT_UPLOAD("installation:attachment:upload"),
     INSTALLATION_LIST("installation:list"),
@@ -69,7 +65,6 @@ public enum PermissionCodeEnum {
     LABEL_TEMPLATE_UPLOAD("label:template:upload"),
     NOTIFICATION_ANNOUNCEMENT_LIST("notification:announcement:list"),
     NOTIFICATION_ANNOUNCEMENT_PUBLISH("notification:announcement:publish"),
-    ORDER_ALL("order:*"),
     ORDER_CREATE("order:create"),
     ORDER_DETAIL("order:detail"),
     ORDER_LIST("order:list"),
@@ -112,10 +107,11 @@ public enum PermissionCodeEnum {
     public static final String CODE_APPROVAL_RESIGNATION_DETAIL = "approval:resignation:detail";
     public static final String CODE_APPROVAL_RESIGNATION_SUBMIT = "approval:resignation:submit";
     public static final String CODE_APPROVAL_ORDER_AUDIT = "approval:order:audit";
-    public static final String CODE_ATTENDANCE_ALL = "attendance:*";
     public static final String CODE_ATTENDANCE_PUNCH = "attendance:punch";
     public static final String CODE_ATTENDANCE_RECORD_LIST = "attendance:record:list";
-    public static final String CODE_BADPRODUCT_ALL = "badproduct:*";
+    public static final String CODE_ATTENDANCE_RULE_LIST = "attendance:rule:list";
+    public static final String CODE_ATTENDANCE_RULE_UPDATE = "attendance:rule:update";
+    public static final String CODE_ATTENDANCE_EXPORT = "attendance:export";
     public static final String CODE_BADPRODUCT_LIST = "badproduct:list";
     public static final String CODE_BADPRODUCT_PROCESS = "badproduct:process";
     public static final String CODE_BADPRODUCT_SAVE = "badproduct:save";
@@ -142,7 +138,6 @@ public enum PermissionCodeEnum {
     public static final String CODE_EQUIPMENT_LIST = "equipment:list";
     public static final String CODE_EQUIPMENT_SAVE = "equipment:save";
     public static final String CODE_INVENTORY = "inventory";
-    public static final String CODE_INVENTORY_ALL = "inventory:*";
     public static final String CODE_INVENTORY_BARCODE_SEARCH = "inventory:barcode:search";
     public static final String CODE_INVENTORY_CLOTH_IN = "inventory:cloth:in";
     public static final String CODE_INVENTORY_CLOTH_OUT = "inventory:cloth:out";
@@ -151,7 +146,6 @@ public enum PermissionCodeEnum {
     public static final String CODE_INVENTORY_TREND = "inventory:trend";
     public static final String CODE_INVENTORY_WARNING_LIST = "inventory:warning:list";
     public static final String CODE_INVENTORY_WARNING_SETTING = "inventory:warning:setting";
-    public static final String CODE_INSTALLATION_ALL = "installation:*";
     public static final String CODE_INSTALLATION_ATTACHMENT_DOWNLOAD = "installation:attachment:download";
     public static final String CODE_INSTALLATION_ATTACHMENT_UPLOAD = "installation:attachment:upload";
     public static final String CODE_INSTALLATION_LIST = "installation:list";
@@ -164,11 +158,9 @@ public enum PermissionCodeEnum {
     public static final String CODE_LABEL_TEMPLATE_UPLOAD = "label:template:upload";
     public static final String CODE_NOTIFICATION_ANNOUNCEMENT_LIST = "notification:announcement:list";
     public static final String CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH = "notification:announcement:publish";
-    public static final String CODE_ORDER_ALL = "order:*";
     public static final String CODE_ORDER_CREATE = "order:create";
     public static final String CODE_ORDER_DETAIL = "order:detail";
     public static final String CODE_ORDER_LIST = "order:list";
-    public static final String CODE_ORDER_STATUS_ALL = "order:status:*";
     public static final String CODE_ORDER_STATUS_PREFIX = "order:status:";
     public static final String CODE_ORDER_STATUS_BUDGET_COMPLETED = "order:status:budget-completed";
     public static final String CODE_ORDER_STATUS_BUDGETING = "order:status:budgeting";

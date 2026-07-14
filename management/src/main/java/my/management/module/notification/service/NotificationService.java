@@ -40,13 +40,12 @@ public class NotificationService {
     private static final int NOTIFICATION_CONTENT_LIMIT = 950;
     private static final int WARNING_NOTIFICATION_LIMIT = 8;
     private static final List<String> INVENTORY_WARNING_PERMISSIONS = List.of(
-            "*", "*:*", PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, PermissionCodeEnum.CODE_INVENTORY_WARNING_SETTING,
+            PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, PermissionCodeEnum.CODE_INVENTORY_WARNING_SETTING,
             PermissionCodeEnum.CODE_INVENTORY_RECORD_RECENT, PermissionCodeEnum.CODE_INVENTORY_CLOTH_IN,
             PermissionCodeEnum.CODE_INVENTORY_CLOTH_OUT
     );
     private static final List<String> ORDER_WARNING_PERMISSIONS = List.of(
-            "*", "*:*", PermissionCodeEnum.CODE_ORDER_WARNING_SETTING, PermissionCodeEnum.CODE_ORDER_LIST,
-            PermissionCodeEnum.CODE_ORDER_ALL, PermissionCodeEnum.CODE_ORDER_STATUS_ALL
+            PermissionCodeEnum.CODE_ORDER_WARNING_SETTING, PermissionCodeEnum.CODE_ORDER_LIST
     );
 
     @Resource

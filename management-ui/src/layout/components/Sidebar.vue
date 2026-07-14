@@ -147,8 +147,7 @@ const brandTitle = computed(() => tenantLogoUrl.value && !userStore.isPlatformTe
 const brandSubtitle = computed(() => tenantLogoUrl.value && !userStore.isPlatformTenant ? '企业工作台' : '业务协同系统')
 const ANNOUNCEMENT_PERMISSIONS = [
   'notification:announcement:list',
-  'notification:announcement:publish',
-  'dashboard:*'
+  'notification:announcement:publish'
 ]
 const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value
@@ -194,7 +193,7 @@ const primaryMenus = computed(() => {
     name: '安装任务',
     path: '/function/installation-task',
     icon: 'engineering',
-    permissions: ['order:list']
+    permissions: ['installation:list']
   },
   {name: '库存管理', path: '/function/inventory', icon: 'storage', permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:in', 'inventory:cloth:out']},
   {name: '质量管理', path: '/function/bad-product', icon: 'warning', permissions: ['badproduct:list', 'badproduct:save', 'badproduct:process']},
@@ -216,7 +215,7 @@ const secondaryMenus = computed(() => {
   }
   return resolveMenus([
   {name: '公告查看', path: '/function/announcement', icon: 'campaign', permissions: ANNOUNCEMENT_PERMISSIONS},
-  {name: '考勤管理', path: '/function/attendance', icon: 'timer', permissions: ['attendance:record:list', 'attendance:*']},
+  {name: '考勤管理', path: '/function/attendance', icon: 'timer', permissions: ['attendance:record:list', 'attendance:rule:list', 'attendance:rule:update', 'attendance:export']},
   {name: '设备巡检', path: '/function/equipment', icon: 'qr_code_scanner', permissions: ['equipment:list', 'equipment:detail', 'equipment:inspection:list']},
   {name: '员工管理', path: '/function/employee', icon: 'people', permissions: ['employee:list']},
   {name: '部门管理', path: '/function/organization', icon: 'account_tree', permissions: ['employee:list']},

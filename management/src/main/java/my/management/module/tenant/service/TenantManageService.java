@@ -199,7 +199,9 @@ public class TenantManageService {
             SysRole ownerRole = builtInRoles.get(OWNER_ROLE_CODE);
             SysRole employeeRole = builtInRoles.get(EMPLOYEE_ROLE_CODE);
             Employee owner = resolveOrCreateOwnerEmployee(tenant.getTenantCode(), request, department, position);
-            bindUserRole(owner.getId(), tenant.getTenantCode(), ownerRole.getId());
+            if (bindUserRole(owner.getId(), tenant.getTenantCode(), ownerRole.getId())) {
+                employeeMapper.incrementPermissionVersion(tenant.getTenantCode(), owner.getId());
+            }
             reassignOwnerRole(tenant.getTenantCode(), owner.getId(), ownerRole.getId(), employeeRole.getId());
             permissionCacheUtil.evict(tenant.getTenantCode(), owner.getId());
             return owner;
@@ -268,9 +270,12 @@ public class TenantManageService {
         owner.setAttendanceRequired(Boolean.TRUE.equals(request.getAttendanceRequired()) ? 1 : 0);
         owner.setRoleLevel(OWNER_ROLE_LEVEL);
         if (owner.getId() == null) {
+            owner.setPermissionVersion(1L);
+            owner.setAuthVersion(1L);
             employeeMapper.insert(owner);
         } else {
             employeeMapper.updateById(owner);
+            employeeMapper.incrementAuthVersion(tenantCode, owner.getId());
         }
         upsertOwnerEmployeeExt(owner.getId(), tenantCode);
         return owner;
@@ -418,7 +423,7 @@ public class TenantManageService {
         return created;
     }
 
-    private void bindUserRole(Long userId, String tenantCode, Long roleId) {
+    private boolean bindUserRole(Long userId, String tenantCode, Long roleId) {
         SysUserRole existing = sysUserRoleMapper.selectOne(new LambdaQueryWrapper<SysUserRole>()
                 .eq(SysUserRole::getUserId, userId)
                 .eq(SysUserRole::getTenantCode, tenantCode)
@@ -426,7 +431,7 @@ public class TenantManageService {
                 .eq(SysUserRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .last("LIMIT 1"));
         if (existing != null) {
-            return;
+            return false;
         }
         SysUserRole userRole = new SysUserRole();
         userRole.setUserId(userId);
@@ -435,6 +440,7 @@ public class TenantManageService {
         userRole.setCreateTime(LocalDateTime.now());
         userRole.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
         sysUserRoleMapper.insert(userRole);
+        return true;
     }
 
     private void reassignOwnerRole(String tenantCode, Long ownerUserId, Long ownerRoleId, Long employeeRoleId) {
@@ -450,6 +456,7 @@ public class TenantManageService {
             sysUserRoleMapper.updateById(binding);
             bindUserRole(binding.getUserId(), tenantCode, employeeRoleId);
             downgradePreviousOwner(binding.getUserId(), tenantCode);
+            employeeMapper.incrementPermissionVersion(tenantCode, binding.getUserId());
             permissionCacheUtil.evict(tenantCode, binding.getUserId());
         }
     }

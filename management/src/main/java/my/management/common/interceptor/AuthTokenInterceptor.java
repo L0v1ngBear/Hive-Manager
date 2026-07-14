@@ -13,6 +13,8 @@ import my.hive.common.utils.TokenUtil;
 import my.management.common.tenant.BoundedTenantProperties;
 import my.management.common.utils.PermissionCacheUtil;
 import my.management.module.auth.mapper.AuthMapper;
+import my.management.module.auth.model.vo.LoginUserRow;
+import my.management.module.employee.model.enums.EmployeeStatusEnum;
 import my.management.module.tenant.service.TenantLicenseService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Component
@@ -83,6 +86,22 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
         // FIELD mode is a no-op today; DATABASE mode can route after tenant identity is trusted.
         tenantIsolationSupport.bindTenantDatasource(tenantCode);
 
+        LoginUserRow accountState = authMapper.selectLoginUserByUserIdAndTenantCode(
+                authUserInfo.getUserId(), tenantCode);
+        if (accountState == null
+                || !isUsableEmployeeStatus(accountState.getUserStatus())
+                || accountState.getPermissionVersion() == null
+                || accountState.getPermissionVersion() <= 0
+                || accountState.getAuthVersion() == null
+                || accountState.getAuthVersion() <= 0
+                || !Objects.equals(authUserInfo.getAuthVersion(), accountState.getAuthVersion())) {
+            tenantIsolationSupport.clearTenantDatasource();
+            writeErrorResponse(response, HttpStatus.UNAUTHORIZED, 401, "登录状态已失效，请重新登录");
+            return false;
+        }
+        Long currentPermissionVersion = accountState.getPermissionVersion();
+        Long currentAuthVersion = accountState.getAuthVersion();
+
         if (!platformTenant) {
             try {
                 tenantLicenseService.ensureTenantUsable(tenantCode);
@@ -92,14 +111,16 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
             }
         }
 
-        Set<String> permCodes = permissionCacheUtil.get(tenantCode, authUserInfo.getUserId());
+        Set<String> permCodes = permissionCacheUtil.get(
+                tenantCode, authUserInfo.getUserId(), currentPermissionVersion);
         if (permCodes == null) {
             List<String> permissionList = authMapper.selectPermCodesByUserIdAndTenantCode(authUserInfo.getUserId(), tenantCode);
             permCodes = new LinkedHashSet<>(permissionList == null ? List.of() : permissionList);
-            permissionCacheUtil.put(tenantCode, authUserInfo.getUserId(), permCodes);
+            permissionCacheUtil.put(
+                    tenantCode, authUserInfo.getUserId(), currentPermissionVersion, permCodes);
         }
         TenantPermissionContext.init(tenantCode, authUserInfo.getUserId(), permCodes);
-        maybeRenewToken(response, authUserInfo);
+        maybeRenewToken(response, authUserInfo, currentAuthVersion);
         return true;
     }
 
@@ -123,11 +144,14 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
         }
     }
 
-    private void maybeRenewToken(HttpServletResponse response, AuthUserInfo authUserInfo) {
+    private void maybeRenewToken(HttpServletResponse response,
+                                 AuthUserInfo authUserInfo,
+                                 Long currentAuthVersion) {
         if (!tokenRenewEnabled || response.isCommitted() || !TokenUtil.shouldRenew(authUserInfo, tokenRenewBeforeMinutes)) {
             return;
         }
-        String renewedToken = TokenUtil.createToken(authUserInfo.getUserId(), authUserInfo.getTenantCode());
+        String renewedToken = TokenUtil.createToken(
+                authUserInfo.getUserId(), authUserInfo.getTenantCode(), currentAuthVersion);
         AuthUserInfo renewedUserInfo = TokenUtil.parseToken(renewedToken);
         if (renewedUserInfo == null || renewedUserInfo.getExpireAt() == null) {
             return;
@@ -136,5 +160,10 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
         response.setHeader(TokenUtil.HEADER_RENEWED_TOKEN, renewedToken);
         response.setHeader(TokenUtil.HEADER_RENEWED_EXPIRE_AT, String.valueOf(renewedUserInfo.getExpireAt()));
         response.setHeader(TokenUtil.HEADER_RENEWED_RESPONSE_KEY, renewedResponseKey);
+    }
+
+    private boolean isUsableEmployeeStatus(Integer status) {
+        return Objects.equals(status, EmployeeStatusEnum.ACTIVE.getCode())
+                || Objects.equals(status, EmployeeStatusEnum.PROBATION.getCode());
     }
 }

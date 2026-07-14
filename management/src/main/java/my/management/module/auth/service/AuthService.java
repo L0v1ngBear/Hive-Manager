@@ -32,6 +32,7 @@ import my.management.common.enums.CommonStatusEnum;
 import my.management.common.enums.DeleteFlagEnum;
 import my.management.common.tenant.BoundedTenantProperties;
 import my.management.common.utils.CodeGeneratorUtil;
+import my.management.common.utils.PermissionCacheUtil;
 import my.management.module.employee.mapper.DepartmentMapper;
 import my.management.module.employee.mapper.EmployeeExtMapper;
 import my.management.module.employee.mapper.EmployeeMapper;
@@ -121,6 +122,9 @@ public class AuthService {
 
     @Resource
     private BoundedTenantProperties boundedTenantProperties;
+
+    @Resource
+    private PermissionCacheUtil permissionCacheUtil;
 
     @Resource
     private TenantMapper tenantMapper;
@@ -255,6 +259,7 @@ public class AuthService {
         if (updated <= 0) {
             throw new BusinessException(500, "密码修改失败，请稍后重试");
         }
+        permissionCacheUtil.evict(loginUser.getTenantCode(), loginUser.getUserId());
         stringRedisTemplate.delete(List.of(
                 passwordResetCodeKey(phoneHash),
                 passwordResetSendLockKey(phoneHash),
@@ -293,6 +298,7 @@ public class AuthService {
         if (updated <= 0) {
             throw new BusinessException(500, "密码修改失败，请稍后重试");
         }
+        permissionCacheUtil.evict(tenantCode, userId);
     }
 
     public LoginVO login(LoginRequest request, String clientIp) {
@@ -642,6 +648,8 @@ public class AuthService {
             employee.setStatus(EmployeeStatusEnum.ACTIVE.getCode());
             employee.setRoleLevel(0);
             if (reusableUnjoined == null) {
+                employee.setPermissionVersion(1L);
+                employee.setAuthVersion(1L);
                 employeeMapper.insert(employee);
             } else {
                 employeeMapper.updateById(employee);
@@ -664,6 +672,12 @@ public class AuthService {
             userRole.setCreateTime(LocalDateTime.now());
             userRole.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
             sysUserRoleMapper.insert(userRole);
+            if (reusableUnjoined == null) {
+                employeeMapper.incrementPermissionVersion(tenantCode, employee.getId());
+            } else {
+                employeeMapper.incrementPermissionAndAuthVersion(tenantCode, employee.getId());
+            }
+            permissionCacheUtil.evict(tenantCode, employee.getId());
             return employee;
         } finally {
             TenantPermissionContext.clear();
@@ -719,7 +733,8 @@ public class AuthService {
 
         List<String> permissionList = authMapper.selectPermCodesByUserIdAndTenantCode(loginUser.getUserId(), loginUser.getTenantCode());
         Set<String> permCodes = new LinkedHashSet<>(permissionList == null ? List.of() : permissionList);
-        String token = TokenUtil.createToken(loginUser.getUserId(), loginUser.getTenantCode());
+        String token = TokenUtil.createToken(
+                loginUser.getUserId(), loginUser.getTenantCode(), requireAuthVersion(loginUser));
 
         LoginVO loginVO = new LoginVO();
         loginVO.setToken(token);
@@ -736,6 +751,13 @@ public class AuthService {
                 ? List.of()
                 : tenantLicenseService.enabledFeatureKeys(loginUser.getTenantCode()));
         return loginVO;
+    }
+
+    private Long requireAuthVersion(LoginUserRow loginUser) {
+        if (loginUser == null || loginUser.getAuthVersion() == null || loginUser.getAuthVersion() <= 0) {
+            throw new BusinessException(401, "登录状态异常，请重新登录");
+        }
+        return loginUser.getAuthVersion();
     }
 
     private boolean isPlatformTenant(String tenantCode) {

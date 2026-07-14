@@ -26,4 +26,8 @@ public class LoginUserRow {
     private Integer mustChangePassword;
 
     private Integer userStatus;
+
+    private Long permissionVersion;
+
+    private Long authVersion;
 }

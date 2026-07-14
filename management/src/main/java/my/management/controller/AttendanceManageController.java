@@ -57,13 +57,13 @@ public class AttendanceManageController {
     }
 
     @GetMapping("/rule")
-    @RequirePermission(value = PermissionCodeEnum.CODE_ATTENDANCE_RECORD_LIST, message = "您没有权限查看考勤规则")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ATTENDANCE_RULE_LIST, message = "您没有权限查看考勤规则")
     public Result<AttendanceRuleVO> rule() {
         return Result.success(attendanceManageService.getRule());
     }
 
     @PostMapping("/rule/save")
-    @RequirePermission(value = PermissionCodeEnum.CODE_ATTENDANCE_ALL, message = "您没有权限保存考勤规则")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ATTENDANCE_RULE_UPDATE, message = "您没有权限保存考勤规则")
     @CollectLog(module = "attendance", action = "save_rule", bizType = "tenant_attendance_rule", description = "save tenant attendance rule")
     public Result<Void> saveRule(@Valid @RequestBody AttendanceRuleSaveRequest request) {
         attendanceManageService.saveRule(request);
@@ -71,7 +71,7 @@ public class AttendanceManageController {
     }
 
     @GetMapping("/export-excel")
-    @RequirePermission(value = PermissionCodeEnum.CODE_ATTENDANCE_RECORD_LIST, message = "您没有权限导出考勤记录")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ATTENDANCE_EXPORT, message = "您没有权限导出考勤记录")
     public void exportExcel(AttendancePageRequest request, HttpServletResponse response) {
         attendanceManageService.exportExcel(request, response);
     }

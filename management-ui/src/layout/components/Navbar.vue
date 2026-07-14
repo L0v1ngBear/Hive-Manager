@@ -217,8 +217,7 @@ const userStore = useUserStore()
 const navbarRef = ref(null)
 const ANNOUNCEMENT_PERMISSIONS = [
   'notification:announcement:list',
-  'notification:announcement:publish',
-  'dashboard:*'
+  'notification:announcement:publish'
 ]
 const menuFeatureMap = {
   '/dashboard': 'module.dashboard',
@@ -264,16 +263,16 @@ const searchableMenus = computed(() => {
   { name: '总览大盘', path: '/dashboard', icon: 'dashboard', desc: '查看经营总览、企业公告和关键待办' },
   { name: '使用手册', path: '/manual', icon: 'menu_book', desc: '查看系统使用流程、打印说明和常见问题' },
   { name: '公告查看', path: '/function/announcement', icon: 'campaign', desc: '查看企业公告和员工已读状态', permissions: ANNOUNCEMENT_PERMISSIONS },
-  { name: '发布公告', path: '/function/announcement/publish', icon: 'edit_notifications', desc: '发布普通、紧急或重要公告', permissions: ['notification:announcement:publish', 'dashboard:*'] },
+  { name: '发布公告', path: '/function/announcement/publish', icon: 'edit_notifications', desc: '发布普通、紧急或重要公告', permissions: ['notification:announcement:publish'] },
   { name: '订单列表', path: '/function/order', icon: 'list_alt', desc: '订单创建、履约和状态流转', permissions: ['order:list'] },
-  { name: '安装任务', path: '/function/installation-task', icon: 'engineering', desc: '安装状态跟进和验收记录', permissions: ['order:list'] },
+  { name: '安装任务', path: '/function/installation-task', icon: 'engineering', desc: '安装状态跟进和验收记录', permissions: ['installation:list'] },
   { name: '库存管理', path: '/function/inventory', icon: 'inventory_2', desc: '布匹入库、出库、库存预警和流水', permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:in', 'inventory:cloth:out'] },
   { name: '质量管理', path: '/function/bad-product', icon: 'report_problem', desc: '质量异常登记、处理闭环和损失跟踪', permissions: ['badproduct:list', 'badproduct:save', 'badproduct:process'] },
   { name: '客户管理', path: '/function/customer', icon: 'handshake', desc: '客户档案、联系人和合作项目维护', permissions: ['customer:page'] },
   { name: '价格管理', path: '/function/price', icon: 'sell', desc: 'SKU 基准价、客户等级价和特价维护', permissions: ['price:list'] },
   { name: '出库单打印', path: '/function/receipt', icon: 'print', desc: '待打印出库单、连续纸模板和打印确认', permissions: ['receipt:print:list'] },
   { name: '审批中心', path: '/function/approval', icon: 'approval', desc: '请假、财务、离职和订单审批待办处理', permissions: ['approval:leave', 'approval:finance', 'approval:resignation', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'order:list', 'badproduct:process'] },
-  { name: '考勤管理', path: '/function/attendance', icon: 'fingerprint', desc: '移动打卡记录、规则配置和异常统计', permissions: ['attendance:record:list', 'attendance:*'] },
+  { name: '考勤管理', path: '/function/attendance', icon: 'fingerprint', desc: '移动打卡记录、规则配置和异常统计', permissions: ['attendance:record:list', 'attendance:rule:list', 'attendance:rule:update', 'attendance:export'] },
   { name: '员工管理', path: '/function/employee', icon: 'groups', desc: '员工名录、组织架构和人员状态', permissions: ['employee:list'] },
   { name: '部门管理', path: '/function/organization', icon: 'account_tree', desc: '维护部门层级、负责人和部门成员归属', permissions: ['employee:list'] },
   { name: '角色管理', path: '/function/role', icon: 'admin_panel_settings', desc: '角色权限配置和员工授权', permissions: ['role:list'] },

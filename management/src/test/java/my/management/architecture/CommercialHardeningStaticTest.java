@@ -345,8 +345,12 @@ class CommercialHardeningStaticTest {
     void permissionCachesShouldUseVersionedKeys() throws IOException {
         Path file = MAIN_SOURCE.resolve("my/management/common/utils/PermissionCacheUtil.java");
         String content = Files.readString(file, StandardCharsets.UTF_8);
-        assertTrue(content.contains("\"perm-v2\""),
-                "Role-matrix rollout must use a new permission cache namespace");
+        assertTrue(content.contains("\"perm-v3\""),
+                "Permission reads must use the current versioned cache namespace");
+        assertTrue(content.contains("\"account-v3\""),
+                "Cross-app session invalidation must target the shared account-state key");
+        assertFalse(content.contains("perm-v2"),
+                "Retired cache namespaces must not remain in production code");
         assertFalse(content.contains("cache(\"management\", \"perm\""),
                 "Management permission reads must not reuse stale pre-migration cache entries");
         assertFalse(content.contains("cache(\"mini\", \"perm\""),

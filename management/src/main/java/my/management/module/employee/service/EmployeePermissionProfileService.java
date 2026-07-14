@@ -121,7 +121,7 @@ public class EmployeePermissionProfileService {
         }
         Map<Long, String> previousEffects = selectPersonalEffects(tenantCode, userId, permissionById.keySet());
 
-        if (employeeMapper.incrementPermissionVersion(tenantCode, userId, expectedVersion) != 1) {
+        if (employeeMapper.incrementPermissionVersionIfCurrent(tenantCode, userId, expectedVersion) != 1) {
             throw new BusinessException(409, "员工权限已被其他人修改，请刷新后重试");
         }
         sysUserPermissionMapper.delete(new LambdaQueryWrapper<SysUserPermission>()
