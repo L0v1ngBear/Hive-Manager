@@ -45,13 +45,13 @@ public class BadProductController {
     private BusinessAttachmentService businessAttachmentService;
 
     @GetMapping("/list")
-    @RequirePermission(value = PermissionCodeEnum.CODE_BADPRODUCT_LIST, message = "您没有权限查看质量记录列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_QUALITY_LIST, message = "您没有权限查看质量记录列表")
     public Result<PageResult<BadProductVO>> list(BadProductPageRequest request) {
         return Result.success(badProductService.page(request));
     }
 
     @PostMapping("/save")
-    @RequirePermission(value = PermissionCodeEnum.CODE_BADPRODUCT_SAVE, message = "您没有权限登记质量记录")
+    @RequirePermission(value = PermissionCodeEnum.CODE_QUALITY_CREATE, message = "您没有权限登记质量记录")
     @CollectLog(module = "bad_product", action = "save", bizType = "bad_product", bizNo = "#request.defectiveId", description = "管理端登记质量记录")
     public Result<Void> save(@Valid @RequestBody BadProductSaveRequest request) {
         badProductService.save(request);
@@ -59,14 +59,14 @@ public class BadProductController {
     }
 
     @PostMapping("/attachment/upload")
-    @RequirePermission(value = PermissionCodeEnum.CODE_BADPRODUCT_SAVE, message = "您没有权限上传质量附件")
+    @RequirePermission(value = PermissionCodeEnum.CODE_QUALITY_ATTACHMENT_UPLOAD, message = "您没有权限上传质量附件")
     @CollectLog(module = "bad_product", action = "upload_attachment", bizType = "bad_product_attachment", description = "管理端上传质量/售后附件")
     public Result<BusinessAttachmentVO> uploadAttachment(@RequestParam("file") MultipartFile file) {
         return Result.success(businessAttachmentService.upload(file, "bad-product"));
     }
 
     @GetMapping("/attachment/download")
-    @RequirePermission(value = PermissionCodeEnum.CODE_BADPRODUCT_LIST, message = "您没有权限下载质量附件")
+    @RequirePermission(value = PermissionCodeEnum.CODE_QUALITY_ATTACHMENT_DOWNLOAD, message = "您没有权限下载质量附件")
     public ResponseEntity<org.springframework.core.io.Resource> downloadAttachment(@RequestParam String url,
                                                                                   @RequestParam(required = false) String name) {
         org.springframework.core.io.Resource resource = businessAttachmentService.load(url, "bad-product");
@@ -80,7 +80,7 @@ public class BadProductController {
     }
 
     @PostMapping("/process")
-    @RequirePermission(value = PermissionCodeEnum.CODE_BADPRODUCT_PROCESS, message = "您没有权限处理质量记录")
+    @RequirePermission(value = PermissionCodeEnum.CODE_QUALITY_PROCESS, message = "您没有权限处理质量记录")
     @CollectLog(module = "bad_product", action = "process", bizType = "bad_product", bizNo = "#request.defectiveId", description = "管理端处理质量记录")
     public Result<Void> process(@Valid @RequestBody BadProductProcessRequest request) {
         badProductService.process(request);

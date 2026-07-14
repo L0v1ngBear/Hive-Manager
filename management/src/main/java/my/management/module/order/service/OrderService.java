@@ -498,6 +498,7 @@ public class OrderService {
         applySalesOrderContent(order, request, false);
         validateSalesStatusForward(order.getOrderCategory(), oldStatus, order.getStatus());
         assertDirectSalesTransitionAllowed(order.getOrderCategory(), oldStatus, order.getStatus());
+        assertOrderStatusTransitionPermission(oldStatus, order.getStatus());
         assertSalesOrderStagePermission(order, order.getStatus());
         applyManualCreateTime(order, request.getCreateTime(), "销售订单录单时间");
         boolean businessChanged = salesOrderContentChanged(beforeOrder, order) || itemsChanged;
@@ -531,6 +532,7 @@ public class OrderService {
         }
         validateSalesStatusForward(order.getOrderCategory(), oldStatus, order.getStatus());
         assertDirectSalesTransitionAllowed(order.getOrderCategory(), oldStatus, order.getStatus());
+        assertOrderStatusTransitionPermission(oldStatus, order.getStatus());
         assertSalesOrderStagePermission(order, order.getStatus());
         if (request.getInformationChannel() != null) {
             order.setInformationChannel(blankToNull(request.getInformationChannel()));
@@ -563,6 +565,7 @@ public class OrderService {
         SalesOrder order = findSalesOrderForUpdate(orderId);
         String oldStatus = order.getStatus();
         String targetStatus = resolveNextSalesStatus(order);
+        assertOrderStatusActionPermission(oldStatus, "advance");
         assertSalesOrderStagePermission(order, targetStatus);
         if (isSalesTransitionApprovalRequired(oldStatus, targetStatus)) {
             submitSalesTransitionApproval(order, targetStatus, request);
@@ -657,6 +660,7 @@ public class OrderService {
     }
 
     private void replaceSalesOrderApprovalAuditors(SalesOrder order, List<Long> auditorIds) {
+        String requiredPermission = orderAuditPermission(order);
         List<Long> selectedAuditorIds = normalizeApprovalAuditorIds(auditorIds);
         if (selectedAuditorIds.isEmpty()) {
             selectedAuditorIds = approvalDefaultAuditorService.resolveAuditorIds(
@@ -665,14 +669,14 @@ public class OrderService {
                     TenantPermissionContext.getUserId(),
                     null,
                     null,
-                    PermissionCodeEnum.CODE_APPROVAL_ORDER_AUDIT,
+                    requiredPermission,
                     false);
         }
         if (selectedAuditorIds.isEmpty()) {
             throw new BusinessException("订单审批人不能为空");
         }
         List<Long> permittedIds = employeeMapper.selectActiveApproverIdsByPermission(
-                order.getTenantCode(), PermissionCodeEnum.CODE_APPROVAL_ORDER_AUDIT);
+                order.getTenantCode(), requiredPermission);
         for (Long auditorId : selectedAuditorIds) {
             if (permittedIds == null || !permittedIds.contains(auditorId)) {
                 throw new BusinessException("所选审批人没有订单审批权限");
@@ -690,6 +694,7 @@ public class OrderService {
                 ? request.getStatus().trim()
                 : resolvePreviousSalesStatus(order);
         validateSalesRollbackTarget(order, currentStatus, targetStatus);
+        assertOrderStatusActionPermission(currentStatus, "rollback");
         assertSalesOrderStagePermission(order, currentStatus);
         String approvalCode = orderApprovalCode(ORDER_TYPE_SALES, order.getOrderId());
         if (!approvalAuditorCandidateService.findPendingAuditorIds(
@@ -697,6 +702,7 @@ public class OrderService {
             throw new BusinessException("该订单已有待处理审批，请审批完成后再操作");
         }
         List<Long> auditorIds = normalizeApprovalAuditorIds(request == null ? null : request.getAuditorIds());
+        String requiredPermission = PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
         if (auditorIds.isEmpty()) {
             auditorIds = approvalDefaultAuditorService.resolveAuditorIds(
                     order.getTenantCode(),
@@ -704,11 +710,11 @@ public class OrderService {
                     TenantPermissionContext.getUserId(),
                     null,
                     null,
-                    PermissionCodeEnum.CODE_APPROVAL_ORDER_AUDIT,
+                    requiredPermission,
                     false);
         }
         List<Long> permittedIds = employeeMapper.selectActiveApproverIdsByPermission(
-                order.getTenantCode(), PermissionCodeEnum.CODE_APPROVAL_ORDER_AUDIT);
+                order.getTenantCode(), requiredPermission);
         for (Long auditorId : auditorIds) {
             if (permittedIds == null || !permittedIds.contains(auditorId)) {
                 throw new BusinessException("所选审批人没有订单审批权限");
@@ -1090,6 +1096,7 @@ public class OrderService {
         }
         validateProductionStatusForward(oldStatus, targetStatus);
         if (!approvalBypass) {
+            assertOrderStatusTransitionPermission(oldStatus, targetStatus);
             assertProductionOrderStagePermission(order, targetStatus);
         }
         Integer targetProcess = resolveProductionUpdateProcess(order, targetStatus, request.getProcess());
@@ -1122,6 +1129,7 @@ public class OrderService {
                 ? request.getStatus().trim()
                 : resolvePreviousProductionStatus(order);
         validateProductionRollbackTarget(currentStatus, targetStatus);
+        assertOrderStatusActionPermission(currentStatus, "rollback");
         assertProductionOrderStagePermission(order, currentStatus);
         String approvalCode = orderApprovalCode(ORDER_TYPE_PRODUCTION, order.getOrderId());
         if (!approvalAuditorCandidateService.findPendingAuditorIds(
@@ -1129,6 +1137,7 @@ public class OrderService {
             throw new BusinessException("该订单已有待处理审批，请审批完成后再操作");
         }
         List<Long> auditorIds = normalizeApprovalAuditorIds(request == null ? null : request.getAuditorIds());
+        String requiredPermission = PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
         if (auditorIds.isEmpty()) {
             auditorIds = approvalDefaultAuditorService.resolveAuditorIds(
                     order.getTenantCode(),
@@ -1136,11 +1145,11 @@ public class OrderService {
                     TenantPermissionContext.getUserId(),
                     null,
                     null,
-                    PermissionCodeEnum.CODE_APPROVAL_ORDER_AUDIT,
+                    requiredPermission,
                     false);
         }
         List<Long> permittedIds = employeeMapper.selectActiveApproverIdsByPermission(
-                order.getTenantCode(), PermissionCodeEnum.CODE_APPROVAL_ORDER_AUDIT);
+                order.getTenantCode(), requiredPermission);
         for (Long auditorId : auditorIds) {
             if (permittedIds == null || !permittedIds.contains(auditorId)) {
                 throw new BusinessException("所选审批人没有订单审批权限");
@@ -1831,7 +1840,39 @@ public class OrderService {
 
     private String orderStatusPermission(String status) {
         String normalizedStatus = StringUtils.hasText(status) ? status.trim().replace('_', '-') : "";
-        return PermissionCodeEnum.CODE_ORDER_STATUS_PREFIX + normalizedStatus;
+        return PermissionCodeEnum.CODE_ORDER_STATUS_PREFIX + normalizedStatus + ":view";
+    }
+
+    private void assertOrderStatusTransitionPermission(String currentStatus, String targetStatus) {
+        String current = normalizeStatus(currentStatus);
+        String target = normalizeStatus(targetStatus);
+        if (Objects.equals(current, target)) {
+            return;
+        }
+        if (STATUS_PENDING_CANCEL.equals(target)) {
+            assertOrderStatusActionPermission(current, "cancel");
+            return;
+        }
+        int currentIndex = SALES_STATUS_CODES.indexOf(current);
+        int targetIndex = SALES_STATUS_CODES.indexOf(target);
+        String action = currentIndex >= 0 && targetIndex >= 0 && targetIndex < currentIndex
+                ? "rollback"
+                : "advance";
+        assertOrderStatusActionPermission(current, action);
+    }
+
+    private void assertOrderStatusActionPermission(String status, String action) {
+        String normalizedStatus = normalizeStatus(status).replace('_', '-');
+        String permissionCode = PermissionCodeEnum.CODE_ORDER_STATUS_PREFIX + normalizedStatus + ":" + action;
+        if (!TenantPermissionContext.hasPermission(permissionCode)) {
+            throw new BusinessException(403, "当前账号没有对应的订单状态操作权限");
+        }
+    }
+
+    private String orderAuditPermission(SalesOrder order) {
+        return order != null && STATUS_PENDING_CANCEL.equals(normalizeStatus(order.getStatus()))
+                ? PermissionCodeEnum.CODE_ORDER_AUDIT_CANCEL
+                : PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
     }
 
     private String orderStatusStageName(String status) {
@@ -2424,21 +2465,7 @@ public class OrderService {
             return false;
         }
         String normalizedPermCode = permCode.trim();
-        if (permCodes.contains(prefix + "*") || permCodes.contains(prefix + "*:*")) {
-            return true;
-        }
-        if (permCodes.contains(prefix + normalizedPermCode)) {
-            return true;
-        }
-        int lastColonIndex = normalizedPermCode.lastIndexOf(":");
-        while (lastColonIndex > 0) {
-            String codePrefix = normalizedPermCode.substring(0, lastColonIndex);
-            if (permCodes.contains(prefix + codePrefix + ":*")) {
-                return true;
-            }
-            lastColonIndex = codePrefix.lastIndexOf(":");
-        }
-        return false;
+        return permCodes.contains(prefix + normalizedPermCode);
     }
 
     private SalesOrder copySalesOrder(SalesOrder source) {

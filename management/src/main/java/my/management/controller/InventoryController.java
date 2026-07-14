@@ -52,25 +52,25 @@ public class InventoryController {
     private InventorySettingService inventorySettingService;
 
     @GetMapping("/summary")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存概览")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_LIST, message = "您没有权限查看库存概览")
     public Result<InventorySummaryVO> summary() {
         return Result.success(inventoryService.summary());
     }
 
     @GetMapping("/page")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_LIST, message = "您没有权限查看库存列表")
     public Result<PageResult<ClothInventoryVO>> page(InventoryPageRequest request) {
         return Result.success(inventoryService.page(request));
     }
 
     @GetMapping("/model/page")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存聚合列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_LIST, message = "您没有权限查看库存聚合列表")
     public Result<PageResult<InventoryModelSummaryVO>> modelPage(InventoryPageRequest request) {
         return Result.success(inventoryService.modelPage(request));
     }
 
     @GetMapping("/model/detail")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看库存明细")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_DETAIL, message = "您没有权限查看库存明细")
     public Result<List<ClothInventoryVO>> modelDetail(@RequestParam String modelCode,
                                                       @RequestParam(required = false) java.math.BigDecimal spec,
                                                       @RequestParam(required = false) Integer status,
@@ -79,7 +79,7 @@ public class InventoryController {
     }
 
     @GetMapping("/cloth/detail")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限查看单匹布详情")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_DETAIL, message = "您没有权限查看单匹布详情")
     public Result<ClothInventoryDetailVO> clothDetail(@RequestParam(required = false) Long id,
                                                       @RequestParam(required = false) String barcode) {
         return Result.success(inventoryService.clothDetail(id, barcode));
@@ -104,7 +104,7 @@ public class InventoryController {
     }
 
     @GetMapping("/record/recent")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_RECORD_RECENT, message = "您没有权限查看库存流水")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_RECORD_LIST, message = "您没有权限查看库存流水")
     public Result<List<InventoryRecordVO>> recentRecords() {
         return Result.success(inventoryService.recentRecords());
     }
@@ -116,13 +116,13 @@ public class InventoryController {
     }
 
     @GetMapping("/model/search")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限搜索库存型号")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_MODEL_SEARCH, message = "您没有权限搜索库存型号")
     public Result<List<InventoryModelOptionVO>> searchModels(@RequestParam(required = false) String keyword) {
         return Result.success(inventoryService.searchModels(keyword));
     }
 
     @GetMapping("/barCode/search")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST, message = "您没有权限搜索库存条码")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_BARCODE_SEARCH, message = "您没有权限搜索库存条码")
     public Result<ClothInventoryVO> searchByBarcode(@RequestParam String barCode) {
         return Result.success(inventoryService.searchByBarcode(barCode));
     }
@@ -147,13 +147,13 @@ public class InventoryController {
     }
 
     @GetMapping("/import-template")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_CLOTH_IN, message = "您没有权限下载库存导入模板")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_IMPORT, message = "您没有权限下载库存导入模板")
     public void downloadImportTemplate(HttpServletResponse response) {
         inventoryService.downloadImportTemplate(response);
     }
 
     @PostMapping("/import")
-    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_CLOTH_IN, message = "您没有权限导入库存数据")
+    @RequirePermission(value = PermissionCodeEnum.CODE_INVENTORY_IMPORT, message = "您没有权限导入库存数据")
     public Result<InventoryImportResultVO> importInventory(@RequestParam("file") MultipartFile file) {
         return Result.success(inventoryService.importInventory(file));
     }

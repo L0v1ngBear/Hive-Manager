@@ -94,10 +94,13 @@ public class DashboardService {
     private DashboardOverviewVO.Visibility buildVisibility() {
         DashboardOverviewVO.Visibility visibility = new DashboardOverviewVO.Visibility();
         visibility.setOrderVisible(hasOrderPermission());
-        visibility.setInventoryVisible(hasAnyPermission("inventory", "inventory:*", "inventory:warning:list", "inventory:trend"));
-        visibility.setApprovalVisible(hasAnyPermission("approval:*", "approval:leave:audit", "approval:finance:audit", "approval:leave", "approval:finance"));
-        visibility.setReceiptVisible(hasAnyPermission("receipt:print:list", "receipt:print:detail", "receipt:print:mark", "receipt:print:cancel"));
-        visibility.setAttendanceVisible(hasAnyPermission("employee:list", "attendance:*", "attendance:record:list"));
+        visibility.setInventoryVisible(hasAnyPermission("inventory:list", "inventory:warning:list", "inventory:trend"));
+        visibility.setApprovalVisible(hasAnyPermission("approval:list", "approval:leave:list", "approval:leave:audit",
+                "approval:finance:list", "approval:finance:audit", "approval:resignation:list", "approval:resignation:audit",
+                "order:audit:shipment", "order:audit:cancel", "quality:audit"));
+        visibility.setReceiptVisible(hasAnyPermission("print:receipt:list", "print:receipt:detail",
+                "print:receipt:execute", "print:receipt:update", "print:receipt:cancel"));
+        visibility.setAttendanceVisible(hasAnyPermission("employee:list", "attendance:record:list"));
         return visibility;
     }
 
@@ -235,7 +238,7 @@ public class DashboardService {
 
     private List<DashboardOverviewVO.QuickAction> buildQuickActions(DashboardOverviewVO.Visibility visibility) {
         List<DashboardOverviewVO.QuickAction> actions = new ArrayList<>();
-        if (hasAnyPermission("notification:announcement:publish", "dashboard:*")) {
+        if (hasAnyPermission("notification:announcement:publish")) {
             actions.add(buildAction("发布通知", "发布企业通知公告", "/function/announcement/publish", "campaign"));
         }
         if (Boolean.TRUE.equals(visibility.getApprovalVisible())) {
@@ -247,7 +250,7 @@ public class DashboardService {
         if (hasAnyPermission("employee:list", "employee:create", "employee:update")) {
             actions.add(buildAction("员工管理", "查看组织与员工状态", "/function/employee", "groups"));
         }
-        if (hasAnyPermission("customer:page", "customer:add")) {
+        if (hasAnyPermission("customer:list", "customer:create")) {
             actions.add(buildAction("客户管理", "维护客户与项目资料", "/function/customer", "handshake"));
         }
         if (hasAnyPermission("price:list", "price:publish")) {
@@ -275,7 +278,7 @@ public class DashboardService {
     }
 
     private boolean hasOrderPermission() {
-        if (hasAnyPermission("order:list", "order:detail", "order:*", "order:status:*")) {
+        if (hasAnyPermission("order:list", "order:detail")) {
             return true;
         }
         Set<String> permCodes = TenantPermissionContext.getPermCodes();

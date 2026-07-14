@@ -579,11 +579,11 @@ import {
 const userStore = useUserStore()
 
 const tabs = [
-  { label: '订单审批', value: 'order', permissions: ['order:list'], listPermission: 'order:list', auditPermission: 'approval:order:audit' },
-  { label: '质量审核', value: 'quality', permissions: ['badproduct:process'], listPermission: 'badproduct:process', auditPermission: 'badproduct:process' },
-  { label: '财务审批', value: 'finance', permissions: ['approval:finance', 'approval:finance:submit', 'approval:finance:audit'], listPermission: 'approval:finance', auditPermission: 'approval:finance:audit' },
-  { label: '请假审批', value: 'leave', permissions: ['approval:leave'], listPermission: 'approval:leave', auditPermission: 'approval:leave:audit' },
-  { label: '离职审批', value: 'resignation', permissions: ['approval:resignation', 'approval:resignation:submit', 'approval:resignation:audit'], listPermission: 'approval:resignation', auditPermission: 'approval:resignation:audit' }
+  { label: '订单审批', value: 'order', permissions: ['order:list', 'order:audit:shipment', 'order:audit:cancel'], listPermission: 'order:list' },
+  { label: '质量审核', value: 'quality', permissions: ['quality:audit'], listPermission: 'quality:audit', auditPermission: 'quality:audit' },
+  { label: '财务审批', value: 'finance', permissions: ['approval:finance:list', 'approval:finance:submit', 'approval:finance:audit'], listPermission: 'approval:finance:list', auditPermission: 'approval:finance:audit' },
+  { label: '请假审批', value: 'leave', permissions: ['approval:leave:list'], listPermission: 'approval:leave:list', auditPermission: 'approval:leave:audit' },
+  { label: '离职审批', value: 'resignation', permissions: ['approval:resignation:list', 'approval:resignation:submit', 'approval:resignation:audit'], listPermission: 'approval:resignation:list', auditPermission: 'approval:resignation:audit' }
 ]
 const defaultApprovalTableColumns = [
   { key: 'code', label: '单号' },
@@ -688,15 +688,26 @@ function tabMetaByValue(value) {
   return tabs.find((tab) => tab.value === value)
 }
 
-function auditPermissionForType(type) {
-  return tabMetaByValue(type)?.auditPermission || ''
+function auditPermissionForItem(item) {
+  if (item?.type !== 'order') {
+    return tabMetaByValue(item?.type)?.auditPermission || ''
+  }
+  const status = String(item?.orderStatus || item?.raw?.status || '').trim().toLowerCase()
+  const statusText = String(item?.statusText || item?.raw?.statusText || '')
+  if (status === 'pending_cancel' || status === 'pending-cancel' || statusText.includes('取消')) {
+    return 'order:audit:cancel'
+  }
+  if (status === 'pending_ship' || status === 'pending-ship' || statusText.includes('发货')) {
+    return 'order:audit:shipment'
+  }
+  return ''
 }
 
 function canAuditAction(item) {
   if (!canAuditApproval(item)) {
     return false
   }
-  const permission = auditPermissionForType(item?.type)
+  const permission = auditPermissionForItem(item)
   return !permission || userStore.hasPermission(permission)
 }
 
@@ -968,6 +979,7 @@ const fetchList = async () => {
         typeLabel: item.orderTypeText || '订单审批',
         orderType: item.orderType,
         orderTypeText: item.orderTypeText,
+        orderStatus: item.status,
         code: item.orderId,
         applicantName: item.customerName || '未填写客户',
         departmentName: item.projectName || '未填写项目',
@@ -1094,6 +1106,7 @@ const openDetail = async (item) => {
       code: detail.orderId,
       orderType: detail.orderType,
       orderTypeText: detail.orderTypeText || '订单',
+      orderStatus: detail.status,
       applicantName: detail.customerName || '未填写客户',
       category: detail.projectName || '未填写项目',
       reason: detail.summary || '待确认订单',

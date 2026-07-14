@@ -13,11 +13,14 @@ function assertContains(file, expected, message) {
 }
 
 const badProductView = 'src/views/function/badProduct/badProduct.vue'
-assertContains(badProductView, `v-permission="'badproduct:save'"`, 'quality save actions must use unified disabled permission UI')
-assertContains(badProductView, `v-permission="'badproduct:process'"`, 'quality process actions must use unified disabled permission UI')
+assertContains(badProductView, `v-permission="'quality:create'"`, 'quality create actions must use the V3 create permission')
+assertContains(badProductView, `v-permission="'quality:update'"`, 'quality update actions must use the V3 update permission')
+assertContains(badProductView, `v-permission="'quality:process'"`, 'quality process actions must use the V3 process permission')
 
 const approvalView = 'src/views/function/approval/approvalCenter.vue'
-assertContains(approvalView, `badproduct:process`, 'approval center must include quality audit permission checks')
+assertContains(approvalView, `quality:audit`, 'approval center must include the V3 quality audit permission')
+assertContains(approvalView, `order:audit:shipment`, 'shipment approval must use its exact V3 permission')
+assertContains(approvalView, `order:audit:cancel`, 'cancel approval must use its exact V3 permission')
 assertContains(approvalView, `approval:finance:audit`, 'approval owner configuration must be permission-gated')
 assertContains(approvalView, `approval:finance:submit`, 'finance submit UI must be permission-gated')
 assertContains(approvalView, `approval:resignation:submit`, 'resignation submit UI must be permission-gated')
@@ -25,13 +28,13 @@ assertContains(approvalView, 'accessibleTabs', 'approval tabs must hide concrete
 assertContains(approvalView, 'activeTabMeta', 'approval list loading must be based on the active tab permission')
 
 const router = 'src/router/index.js'
-assertContains(router, `'badproduct:process'`, 'quality audit users must be able to reach approval center')
+assertContains(router, `'quality:audit'`, 'quality audit users must be able to reach approval center')
 
 const sidebar = 'src/layout/components/Sidebar.vue'
-assertContains(sidebar, `'badproduct:process'`, 'sidebar approval entry must be visible disabled/enabled for quality audit users')
+assertContains(sidebar, `'quality:audit'`, 'sidebar approval entry must be visible disabled/enabled for quality audit users')
 
 const navbar = 'src/layout/components/Navbar.vue'
-assertContains(navbar, `'badproduct:process'`, 'navbar approval entry must be visible disabled/enabled for quality audit users')
+assertContains(navbar, `'quality:audit'`, 'navbar approval entry must be visible disabled/enabled for quality audit users')
 assertContains(navbar, `v-permission="'notification:announcement:publish'"`, 'navbar notification sync button must use unified disabled permission UI')
 assertContains(navbar, 'canSyncNotifications', 'navbar notification sync must guard tenant-wide sync calls by permission')
 

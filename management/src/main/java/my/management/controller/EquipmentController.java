@@ -5,8 +5,10 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import my.hive.common.annotation.CollectLog;
 import my.hive.common.annotation.RequirePermission;
+import my.hive.common.context.TenantPermissionContext;
 import my.hive.common.dto.PageResult;
 import my.hive.common.dto.Result;
+import my.hive.common.exception.BusinessException;
 import my.management.common.tenant.RequireTenantFeature;
 import my.management.module.equipment.model.dto.EquipmentInspectionSubmitRequest;
 import my.management.module.equipment.model.dto.EquipmentPageRequest;
@@ -53,14 +55,19 @@ public class EquipmentController {
     }
 
     @PostMapping("/save")
-    @RequirePermission(value = PermissionCodeEnum.CODE_EQUIPMENT_SAVE, message = "您没有权限维护设备")
     @CollectLog(module = "equipment", action = "save", bizType = "equipment", bizNo = "#request.equipmentCode", description = "保存设备档案")
     public Result<EquipmentDeviceVO> save(@Valid @RequestBody EquipmentSaveRequest request) {
+        String permissionCode = request.getId() == null
+                ? PermissionCodeEnum.CODE_EQUIPMENT_CREATE
+                : PermissionCodeEnum.CODE_EQUIPMENT_UPDATE;
+        if (!TenantPermissionContext.hasPermission(permissionCode)) {
+            throw new BusinessException(403, "您没有权限维护设备");
+        }
         return Result.success(equipmentService.save(request));
     }
 
     @PostMapping("/disable/{id}")
-    @RequirePermission(value = PermissionCodeEnum.CODE_EQUIPMENT_SAVE, message = "您没有权限停用设备")
+    @RequirePermission(value = PermissionCodeEnum.CODE_EQUIPMENT_DISABLE, message = "您没有权限停用设备")
     @CollectLog(module = "equipment", action = "disable", bizType = "equipment", bizNo = "#id", description = "停用设备档案")
     public Result<Void> disable(@PathVariable Long id) {
         equipmentService.disable(id);

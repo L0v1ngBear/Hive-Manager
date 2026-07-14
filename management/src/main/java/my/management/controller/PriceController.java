@@ -97,20 +97,20 @@ public class PriceController {
     }
 
     @GetMapping("/export-excel")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_LIST, message = "您没有权限导出价格数据")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_EXPORT, message = "您没有权限导出价格数据")
     @CollectLog(module = "price", action = "export_excel", bizType = "price", description = "管理端导出价格 Excel")
     public void exportExcel(@Valid PricePageRequest request, HttpServletResponse response) {
         priceService.exportExcel(request, response);
     }
 
     @GetMapping("/import-template")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_LIST, message = "您没有权限下载价格导入模板")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_IMPORT, message = "您没有权限下载价格导入模板")
     public void downloadImportTemplate(HttpServletResponse response) {
         priceService.downloadImportTemplate(response);
     }
 
     @PostMapping("/import")
-    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_PUBLISH, message = "您没有权限导入价格数据")
+    @RequirePermission(value = PermissionCodeEnum.CODE_PRICE_IMPORT, message = "您没有权限导入价格数据")
     @CollectLog(module = "price", action = "import", bizType = "price", description = "管理端导入价格数据")
     public Result<ImportResultVO> importPrices(@RequestParam("file") MultipartFile file) {
         return Result.success(priceService.importPrices(file));

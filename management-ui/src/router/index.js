@@ -99,13 +99,13 @@ export const constantRoutes = [
         path: 'label',
         name: 'Label',
         component: () => import('@/views/function/label.vue'),
-        meta: { title: '标签打印', permissions: ['label:template:list'], features: ['module.label'] }
+        meta: { title: '标签打印', permissions: ['print:label:list'], features: ['module.label'] }
       },
       {
         path: 'receipt',
         name: 'Receipt',
         component: () => import('@/views/function/receipt.vue'),
-        meta: { title: '出库单打印', permissions: ['receipt:print:list'], features: ['module.receipt'] }
+        meta: { title: '出库单打印', permissions: ['print:receipt:list'], features: ['module.receipt'] }
       },
       {
         path: 'inventory',
@@ -113,7 +113,7 @@ export const constantRoutes = [
         component: () => import('@/views/function/inventory/inventory.vue'),
         meta: {
           title: '库存管理',
-          permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:in', 'inventory:cloth:out'],
+          permissions: ['inventory:warning:list', 'inventory:record:list', 'inventory:cloth:in', 'inventory:cloth:out'],
           features: ['module.inventory']
         }
       },
@@ -123,7 +123,7 @@ export const constantRoutes = [
         component: () => import('@/views/function/inventory/InventoryModelDetail.vue'),
         meta: {
           title: '单匹布明细',
-          permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:out'],
+          permissions: ['inventory:warning:list', 'inventory:record:list', 'inventory:cloth:out'],
           features: ['module.inventory']
         }
       },
@@ -177,7 +177,7 @@ export const constantRoutes = [
         path: 'customer',
         name: 'Customer',
         component: () => import('@/views/function/customer/customer.vue'),
-        meta: { title: '客户管理', permissions: ['customer:page'], features: ['module.customer'] }
+        meta: { title: '客户管理', permissions: ['customer:list'], features: ['module.customer'] }
       },
       {
         path: 'document',
@@ -203,7 +203,7 @@ export const constantRoutes = [
         component: () => import('@/views/function/badProduct/badProduct.vue'),
         meta: {
           title: '质量管理',
-          permissions: ['badproduct:list', 'badproduct:save', 'badproduct:process'],
+          permissions: ['quality:list'],
           features: ['module.badProduct']
         }
       },
@@ -213,7 +213,7 @@ export const constantRoutes = [
         component: () => import('@/views/function/approval/approvalCenter.vue'),
         meta: {
           title: '审批中心',
-          permissions: ['approval:leave', 'approval:finance', 'approval:resignation', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'order:list', 'badproduct:process'],
+          permissions: ['approval:leave:list', 'approval:finance:list', 'approval:resignation:list', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'order:list', 'order:audit:shipment', 'order:audit:cancel', 'quality:audit'],
           features: ['module.approval']
         }
       }

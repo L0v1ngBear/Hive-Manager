@@ -14,7 +14,7 @@
         </div>
         <div class="flex items-center gap-3">
           <button
-            v-permission="'badproduct:save'"
+            v-permission="'quality:create'"
             @click="openCreate"
             class="function-action-primary"
           >
@@ -158,15 +158,15 @@
                   <template v-else-if="column.key === 'createTime'">{{ formatDateTime(item.createTime) }}</template>
                 </td>
                 <td class="px-6 py-4 text-right space-x-2" data-label="操作">
-                  <button @click.stop="openDetail(item)" class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-xs font-bold">
+                  <button v-permission="'quality:detail'" @click.stop="openDetail(item)" class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-xs font-bold">
                     详情
                   </button>
-                  <button v-permission="'badproduct:save'" @click.stop="openEdit(item)" class="text-secondary hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-xs font-bold">
+                  <button v-permission="'quality:update'" @click.stop="openEdit(item)" class="text-secondary hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-xs font-bold">
                     编辑
                   </button>
                   <button
                     v-if="item.status === 'pending'"
-                    v-permission="'badproduct:process'"
+                    v-permission="'quality:process'"
                     @click.stop="openProcess(item)"
                     class="text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 rounded-lg text-xs font-bold"
                   >
@@ -357,7 +357,7 @@
       </div>
       <div class="p-6 border-t border-outline-variant/30 flex gap-3">
         <button @click="closeForm" class="flex-1 px-4 py-3 rounded-xl bg-surface-container-high text-on-surface font-bold text-sm">取消</button>
-        <button v-permission="'badproduct:save'" @click="submitForm" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-md">保存</button>
+        <button v-permission="editingRecord ? 'quality:update' : 'quality:create'" @click="submitForm" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-md">保存</button>
       </div>
     </aside>
 
@@ -430,7 +430,7 @@
       </div>
       <div class="p-6 border-t border-outline-variant/30 flex gap-3">
         <button @click="closeProcess" class="flex-1 px-4 py-3 rounded-xl bg-surface-container-high text-on-surface font-bold text-sm">取消</button>
-        <button v-permission="'badproduct:process'" @click="submitProcess" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-md">提交审核</button>
+        <button v-permission="'quality:process'" @click="submitProcess" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-md">提交审核</button>
       </div>
     </aside>
   </div>
@@ -642,6 +642,9 @@ function changePage(pageNum) {
 }
 
 function openDetail(record) {
+  if (!ensurePermission('quality:detail')) {
+    return
+  }
   detailRecord.value = record
   detailVisible.value = true
 }
@@ -655,7 +658,7 @@ function ensurePermission(permission) {
 }
 
 function openCreate() {
-  if (!ensurePermission('badproduct:save')) {
+  if (!ensurePermission('quality:create')) {
     return
   }
   resetForm()
@@ -664,7 +667,7 @@ function openCreate() {
 }
 
 function openEdit(record) {
-  if (!ensurePermission('badproduct:save')) {
+  if (!ensurePermission('quality:update')) {
     return
   }
   editingRecord.value = record
@@ -689,7 +692,7 @@ function closeForm() {
 }
 
 function openProcess(record) {
-  if (!ensurePermission('badproduct:process')) {
+  if (!ensurePermission('quality:process')) {
     return
   }
   processingRecord.value = record
@@ -710,7 +713,7 @@ function closePanels() {
 }
 
 async function handleAttachmentFile(file) {
-  if (!ensurePermission('badproduct:save')) {
+  if (!ensurePermission('quality:attachment:upload')) {
     return
   }
   if (!file) {
@@ -742,6 +745,9 @@ function removeAttachment() {
 }
 
 async function openAttachment(url, name) {
+  if (!ensurePermission('quality:attachment:download')) {
+    return
+  }
   if (!url) {
     return
   }
@@ -757,7 +763,8 @@ async function openAttachment(url, name) {
 }
 
 async function submitForm() {
-  if (!ensurePermission('badproduct:save')) {
+  const permission = editingRecord.value ? 'quality:update' : 'quality:create'
+  if (!ensurePermission(permission)) {
     return
   }
   if (!form.quantity || Number(form.quantity) <= 0) {
@@ -788,7 +795,7 @@ async function submitForm() {
 }
 
 async function submitProcess() {
-  if (!ensurePermission('badproduct:process')) {
+  if (!ensurePermission('quality:process')) {
     return
   }
   if (!processForm.responsiblePerson) {

@@ -85,7 +85,7 @@ public class DocumentController {
     }
 
     @GetMapping("/breadcrumbs")
-    @RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_BREADCRUMBS, message = "您没有权限查看文档面包屑")
+    @RequirePermission(value = PermissionCodeEnum.CODE_DOCUMENT_LIST, message = "您没有权限查看文档面包屑")
     public Result<List<DocumentVO>> breadcrumbs(@RequestParam Long documentId) {
         return Result.success(documentService.getBreadcrumbs(documentId));
     }

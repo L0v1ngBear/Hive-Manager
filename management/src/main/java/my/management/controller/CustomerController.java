@@ -40,7 +40,7 @@ public class CustomerController {
     private CustomerService customerService;
 
     @PostMapping("/add")
-    @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_ADD, message = "您没有权限新增客户")
+    @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_CREATE, message = "您没有权限新增客户")
     @CollectLog(module = "customer", action = "create", bizType = "customer", bizNo = "#request.customerName", description = "管理端新增客户")
     public Result<Void> addCustomer(@Valid @RequestBody CustomerAddRequest request) {
         customerService.addCustomer(request);
@@ -56,7 +56,7 @@ public class CustomerController {
     }
 
     @GetMapping("/page")
-    @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_PAGE, message = "您没有权限查看客户列表")
+    @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_LIST, message = "您没有权限查看客户列表")
     public Result<PageResult<CustomerPageVO>> getCustomerPage(@Valid CustomerPageRequest request) {
         Page<CustomerPageVO> page = Optional.ofNullable(customerService.pageSearchCustomer(request)).orElse(new Page<>());
 
@@ -76,7 +76,7 @@ public class CustomerController {
     }
 
     @GetMapping("/options")
-    @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_PAGE, message = "您没有权限查看客户选项")
+    @RequirePermission(value = PermissionCodeEnum.CODE_CUSTOMER_LIST, message = "您没有权限查看客户选项")
     public Result<List<CustomerOptionVO>> listCustomerOptions(String keyword) {
         return Result.success(customerService.listCustomerOptions(keyword));
     }

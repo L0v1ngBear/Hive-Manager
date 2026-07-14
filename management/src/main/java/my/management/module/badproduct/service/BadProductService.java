@@ -238,7 +238,7 @@ public class BadProductService {
                 TenantPermissionContext.getUserId(),
                 null,
                 null,
-                PermissionCodeEnum.CODE_BADPRODUCT_PROCESS,
+                PermissionCodeEnum.CODE_QUALITY_AUDIT,
                 false);
         approvalAuditorCandidateService.replaceActiveCandidates(
                 entity.getTenantCode(), APPROVAL_TYPE_QUALITY, qualityApprovalCode(entity.getDefectiveId()), normalizeApprovalAuditorIds(auditorIds));

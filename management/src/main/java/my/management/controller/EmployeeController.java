@@ -93,13 +93,13 @@ public class EmployeeController {
     }
 
     @GetMapping("/{id}/permission-profile")
-    @RequirePermission(value = "employee:permission:manage", message = "您没有权限配置员工单独权限")
+    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_PERMISSION_MANAGE, message = "您没有权限配置员工单独权限")
     public Result<EmployeePermissionProfileVO> permissionProfile(@PathVariable Long id) {
         return Result.success(employeePermissionProfileService.profile(id));
     }
 
     @PutMapping("/{id}/permission-overrides")
-    @RequirePermission(value = "employee:permission:manage", message = "您没有权限配置员工单独权限")
+    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_PERMISSION_MANAGE, message = "您没有权限配置员工单独权限")
     @CollectLog(module = "employee", action = "permission_overrides", bizType = "employee", bizNo = "#id", description = "管理端配置员工单独权限")
     public Result<Long> updatePermissionOverrides(@PathVariable Long id,
                                                   @Valid @RequestBody EmployeePermissionOverrideRequest request) {
@@ -158,13 +158,13 @@ public class EmployeeController {
     }
 
     @GetMapping("/import-template")
-    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_EXPORT, message = "您没有权限下载员工导入模板")
+    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_IMPORT, message = "您没有权限下载员工导入模板")
     public void downloadImportTemplate(HttpServletResponse response) {
         employeeService.downloadImportTemplate(response);
     }
 
     @PostMapping("/import")
-    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_CREATE, message = "您没有权限导入员工数据")
+    @RequirePermission(value = PermissionCodeEnum.CODE_EMPLOYEE_IMPORT, message = "您没有权限导入员工数据")
     @CollectLog(module = "employee", action = "import", bizType = "employee", description = "管理端导入员工数据")
     public Result<ImportResultVO> importEmployees(@RequestParam("file") MultipartFile file) {
         return Result.success(employeeService.importEmployees(file));

@@ -72,7 +72,7 @@ public class RoleController {
     }
 
     @PostMapping("/role/update")
-    @RequirePermission(value = PermissionCodeEnum.CODE_ROLE_UPDATE, message = "您没有权限配置角色权限")
+    @RequirePermission(value = PermissionCodeEnum.CODE_ROLE_PERMISSION_UPDATE, message = "您没有权限配置角色权限")
     @CollectLog(module = "role", action = "update_permissions", bizType = "role", bizNo = "#request.roleId", description = "管理端更新角色权限")
     public Result<Void> update(@Valid @RequestBody SysRoleUpdateRequest request) {
         roleService.updateRole(request);

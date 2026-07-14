@@ -195,16 +195,16 @@ const primaryMenus = computed(() => {
     icon: 'engineering',
     permissions: ['installation:list']
   },
-  {name: '库存管理', path: '/function/inventory', icon: 'storage', permissions: ['inventory:warning:list', 'inventory:record:recent', 'inventory:cloth:in', 'inventory:cloth:out']},
-  {name: '质量管理', path: '/function/bad-product', icon: 'warning', permissions: ['badproduct:list', 'badproduct:save', 'badproduct:process']},
-  {name: '客户管理', path: '/function/customer', icon: 'handshake', permissions: ['customer:page']},
+  {name: '库存管理', path: '/function/inventory', icon: 'storage', permissions: ['inventory:warning:list', 'inventory:record:list', 'inventory:cloth:in', 'inventory:cloth:out']},
+  {name: '质量管理', path: '/function/bad-product', icon: 'warning', permissions: ['quality:list']},
+  {name: '客户管理', path: '/function/customer', icon: 'handshake', permissions: ['customer:list']},
   {name: '价格管理', path: '/function/price', icon: 'price_change', permissions: ['price:list']},
-  {name: '出库单打印', path: '/function/receipt', icon: 'print', permissions: ['receipt:print:list']},
+  {name: '出库单打印', path: '/function/receipt', icon: 'print', permissions: ['print:receipt:list']},
   {
     name: '审批中心',
     path: '/function/approval',
     icon: 'approval',
-    permissions: ['approval:leave', 'approval:finance', 'approval:resignation', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'order:list', 'badproduct:process']
+    permissions: ['approval:leave:list', 'approval:finance:list', 'approval:resignation:list', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'order:list', 'order:audit:shipment', 'order:audit:cancel', 'quality:audit']
   },
 ])
 })
@@ -221,7 +221,7 @@ const secondaryMenus = computed(() => {
   {name: '部门管理', path: '/function/organization', icon: 'account_tree', permissions: ['employee:list']},
   {name: '角色管理', path: '/function/role', icon: 'settings_accessibility', permissions: ['role:list']},
   {name: '企业授权', path: '/function/tenant', icon: 'domain', developerOnly: true},
-  {name: '标签模板', path: '/function/label', icon: 'sell', permissions: ['label:template:list']},
+  {name: '标签模板', path: '/function/label', icon: 'sell', permissions: ['print:label:list']},
   {name: '文档管理', path: '/function/document', icon: 'folder_open', permissions: ['document:list']},
   {name: '使用手册', path: '/manual', icon: 'menu_book'},
 ])
@@ -277,7 +277,7 @@ const refreshApprovalPendingCount = async () => {
     return
   }
   if (!userStore.hasAnyFeature(['module.approval']) ||
-      !userStore.hasAnyPermission(['approval:leave', 'approval:finance', 'approval:resignation', 'order:list'])) {
+      !userStore.hasAnyPermission(['approval:leave:list', 'approval:finance:list', 'approval:resignation:list', 'order:list'])) {
     approvalPendingCount.value = 0
     return
   }

@@ -511,7 +511,9 @@ public class ApprovalService {
 
         if (ORDER_TYPE_SALES.equals(orderType)) {
             SalesOrder salesOrder = findSalesOrderForApproval(request.getOrderId());
-            validateCurrentOrderAuditor(orderType, salesOrder.getOrderId(), salesOrder.getTenantCode());
+            String requiredPermission = resolveOrderAuditPermissionCode(salesOrder);
+            assertOrderAuditPermission(requiredPermission);
+            validateCurrentOrderAuditor(orderType, salesOrder.getOrderId(), salesOrder.getTenantCode(), requiredPermission);
             String approvalCode = orderApprovalCode(orderType, salesOrder.getOrderId());
             boolean approve = ApprovalActionEnum.isApprove(request.getAction());
             ApprovalAuditorCandidateService.ApprovalDecision decision = recordCandidateDecision(
@@ -559,7 +561,9 @@ public class ApprovalService {
         }
         if (ORDER_TYPE_PRODUCTION.equals(orderType)) {
             ProductionOrder productionOrder = findProductionOrderForApproval(request.getOrderId());
-            validateCurrentOrderAuditor(orderType, productionOrder.getOrderId(), productionOrder.getTenantCode());
+            String requiredPermission = resolveOrderAuditPermissionCode(productionOrder);
+            assertOrderAuditPermission(requiredPermission);
+            validateCurrentOrderAuditor(orderType, productionOrder.getOrderId(), productionOrder.getTenantCode(), requiredPermission);
             String approvalCode = orderApprovalCode(orderType, productionOrder.getOrderId());
             boolean approve = ApprovalActionEnum.isApprove(request.getAction());
             ApprovalAuditorCandidateService.ApprovalDecision decision = recordCandidateDecision(
@@ -918,7 +922,8 @@ public class ApprovalService {
             vo.setStatusText("待审核回退至" + statusLabel(rollbackLog.getNewStatus()));
         }
         vo.setCreateTime(order.getCreateTime());
-        applyOrderAuditor(vo, order.getTenantCode(), ORDER_TYPE_SALES, order.getOrderId());
+        applyOrderAuditor(vo, order.getTenantCode(), ORDER_TYPE_SALES, order.getOrderId(),
+                resolveOrderAuditPermissionCode(order));
         return vo;
     }
 
@@ -941,7 +946,8 @@ public class ApprovalService {
         vo.setStatus(order.getStatus());
         vo.setStatusText(rollbackApproval && rollbackLog != null ? "待审核回退至" + statusLabel(rollbackLog.getNewStatus()) : (payToMaterialApproval ? "待审批转备料中" : "待确认"));
         vo.setCreateTime(order.getCreateTime());
-        applyOrderAuditor(vo, order.getTenantCode(), ORDER_TYPE_PRODUCTION, order.getOrderId());
+        applyOrderAuditor(vo, order.getTenantCode(), ORDER_TYPE_PRODUCTION, order.getOrderId(),
+                resolveOrderAuditPermissionCode(order));
         return vo;
     }
 
@@ -1027,17 +1033,25 @@ public class ApprovalService {
         return approvalAuditorCandidateService.countPendingAudits(tenantCode, APPROVAL_TYPE_ORDER, currentUserId);
     }
 
-    private void applyOrderAuditor(OrderApprovalVO vo, String tenantCode, String orderType, String orderId) {
-        List<Long> auditorIds = ensureOrderAuditorIds(tenantCode, orderType, orderId);
+    private void applyOrderAuditor(OrderApprovalVO vo,
+                                   String tenantCode,
+                                   String orderType,
+                                   String orderId,
+                                   String requiredPermission) {
+        List<Long> auditorIds = ensureOrderAuditorIds(tenantCode, orderType, orderId, requiredPermission);
         Long auditorId = auditorIds.isEmpty() ? null : auditorIds.get(0);
         vo.setAuditorId(auditorId);
         vo.setAuditorIds(joinAuditorIds(auditorIds));
         vo.setAuditorName(resolveOrderAuditorNames(auditorIds));
-        vo.setCanAudit(approvalAuditorCandidateService.isPendingAuditor(
+        vo.setCanAudit(TenantPermissionContext.hasPermission(requiredPermission)
+                && approvalAuditorCandidateService.isPendingAuditor(
                 tenantCode, APPROVAL_TYPE_ORDER, orderApprovalCode(orderType, orderId), TenantPermissionContext.getUserId()));
     }
 
-    private List<Long> ensureOrderAuditorIds(String tenantCode, String orderType, String orderId) {
+    private List<Long> ensureOrderAuditorIds(String tenantCode,
+                                             String orderType,
+                                             String orderId,
+                                             String requiredPermission) {
         String approvalCode = orderApprovalCode(orderType, orderId);
         List<Long> activeAuditors = approvalAuditorCandidateService.findActiveAuditorIds(
                 tenantCode, APPROVAL_TYPE_ORDER, approvalCode);
@@ -1050,7 +1064,7 @@ public class ApprovalService {
                 null,
                 null,
                 null,
-                resolveOrderAuditPermissionCode(orderType),
+                requiredPermission,
                 false
         );
         approvalAuditorCandidateService.replaceActiveCandidates(
@@ -1058,9 +1072,12 @@ public class ApprovalService {
         return auditorIds;
     }
 
-    private void validateCurrentOrderAuditor(String orderType, String orderId, String tenantCode) {
+    private void validateCurrentOrderAuditor(String orderType,
+                                             String orderId,
+                                             String tenantCode,
+                                             String requiredPermission) {
         Long currentUserId = TenantPermissionContext.getUserId();
-        ensureOrderAuditorIds(tenantCode, orderType, orderId);
+        ensureOrderAuditorIds(tenantCode, orderType, orderId, requiredPermission);
         if (!approvalAuditorCandidateService.isPendingAuditor(
                 tenantCode, APPROVAL_TYPE_ORDER, orderApprovalCode(orderType, orderId), currentUserId)) {
             throw new BusinessException("您不是该订单的当前审批人");
@@ -1075,8 +1092,20 @@ public class ApprovalService {
         return type + ":" + orderId.trim();
     }
 
-    private String resolveOrderAuditPermissionCode(String orderType) {
-        return PermissionCodeEnum.CODE_APPROVAL_ORDER_AUDIT;
+    private String resolveOrderAuditPermissionCode(SalesOrder order) {
+        return order != null && ORDER_STATUS_PENDING_CANCEL.equals(order.getStatus())
+                ? PermissionCodeEnum.CODE_ORDER_AUDIT_CANCEL
+                : PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
+    }
+
+    private String resolveOrderAuditPermissionCode(ProductionOrder order) {
+        return PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
+    }
+
+    private void assertOrderAuditPermission(String permissionCode) {
+        if (!TenantPermissionContext.hasPermission(permissionCode)) {
+            throw new BusinessException(403, "您没有权限处理该类型的订单审批");
+        }
     }
 
     private String resolveOrderAuditorName(Long auditorId) {
@@ -1392,8 +1421,8 @@ public class ApprovalService {
             case "leave" -> PermissionCodeEnum.CODE_APPROVAL_LEAVE_AUDIT;
             case "finance" -> PermissionCodeEnum.CODE_APPROVAL_FINANCE_AUDIT;
             case "resignation" -> PermissionCodeEnum.CODE_APPROVAL_RESIGNATION_AUDIT;
-            case "order" -> PermissionCodeEnum.CODE_APPROVAL_ORDER_AUDIT;
-            case "quality", "badproduct", "bad_product" -> PermissionCodeEnum.CODE_BADPRODUCT_PROCESS;
+            case "order" -> PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
+            case "quality", "badproduct", "bad_product" -> PermissionCodeEnum.CODE_QUALITY_AUDIT;
             default -> throw new BusinessException("审批类型不合法");
         };
     }

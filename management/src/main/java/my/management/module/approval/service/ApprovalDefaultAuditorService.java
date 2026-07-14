@@ -164,8 +164,8 @@ public class ApprovalDefaultAuditorService {
             case TYPE_LEAVE -> PermissionCodeEnum.CODE_APPROVAL_LEAVE_AUDIT;
             case TYPE_FINANCE -> PermissionCodeEnum.CODE_APPROVAL_FINANCE_AUDIT;
             case TYPE_RESIGNATION -> PermissionCodeEnum.CODE_APPROVAL_RESIGNATION_AUDIT;
-            case TYPE_ORDER -> PermissionCodeEnum.CODE_APPROVAL_ORDER_AUDIT;
-            case TYPE_QUALITY -> PermissionCodeEnum.CODE_BADPRODUCT_PROCESS;
+            case TYPE_ORDER -> PermissionCodeEnum.CODE_ORDER_AUDIT_SHIPMENT;
+            case TYPE_QUALITY -> PermissionCodeEnum.CODE_QUALITY_AUDIT;
             default -> throw new BusinessException("审批类型不合法");
         };
     }

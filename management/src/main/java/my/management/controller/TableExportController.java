@@ -29,23 +29,22 @@ public class TableExportController {
     private static final int MAX_CELL_LENGTH = 1000;
     private static final Map<String, String> MODULE_PERMISSION_MAP = Map.ofEntries(
             Map.entry("order", PermissionCodeEnum.CODE_ORDER_LIST),
-            Map.entry("inventory", PermissionCodeEnum.CODE_INVENTORY_WARNING_LIST),
-            Map.entry("customer", PermissionCodeEnum.CODE_CUSTOMER_PAGE),
+            Map.entry("inventory", PermissionCodeEnum.CODE_INVENTORY_EXPORT),
+            Map.entry("customer", PermissionCodeEnum.CODE_CUSTOMER_EXPORT),
             Map.entry("approval-order", PermissionCodeEnum.CODE_ORDER_LIST),
-            Map.entry("approval-finance", PermissionCodeEnum.CODE_APPROVAL_FINANCE),
-            Map.entry("approval-leave", PermissionCodeEnum.CODE_APPROVAL_LEAVE),
-            Map.entry("approval-resignation", PermissionCodeEnum.CODE_APPROVAL_RESIGNATION),
-            Map.entry("badproduct", PermissionCodeEnum.CODE_BADPRODUCT_LIST),
-            Map.entry("document", PermissionCodeEnum.CODE_DOCUMENT_LIST),
+            Map.entry("approval-finance", PermissionCodeEnum.CODE_APPROVAL_FINANCE_LIST),
+            Map.entry("approval-leave", PermissionCodeEnum.CODE_APPROVAL_LEAVE_LIST),
+            Map.entry("approval-resignation", PermissionCodeEnum.CODE_APPROVAL_RESIGNATION_LIST),
+            Map.entry("badproduct", PermissionCodeEnum.CODE_QUALITY_EXPORT),
+            Map.entry("document", PermissionCodeEnum.CODE_DOCUMENT_EXPORT),
             Map.entry("role", PermissionCodeEnum.CODE_ROLE_LIST),
-            Map.entry("equipment", PermissionCodeEnum.CODE_EQUIPMENT_LIST)
+            Map.entry("equipment", PermissionCodeEnum.CODE_EQUIPMENT_EXPORT)
     );
 
     @Resource
     private ExcelUtil excelUtil;
 
     @PostMapping("/table")
-    @RequirePermission(value = PermissionCodeEnum.CODE_TABLE_EXPORT, message = "您没有权限导出列表数据")
     @CollectLog(module = "table_export", action = "export_current_page", bizType = "table_export", description = "管理端导出当前列表数据", recordArgs = false, recordResult = false)
     public void exportTable(@RequestBody TableExportRequest request, HttpServletResponse response) {
         if (request == null) {

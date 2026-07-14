@@ -1,200 +1,142 @@
 package my.management.module.sys.model.enums;
 
 /**
- * ??????????????????????????? CODE_* ???
+ * V3 tenant permission leaves used by management runtime authorization.
+ * All constants except suffix helpers must be assignable entries in PermissionCatalogV3.
  */
-public enum PermissionCodeEnum {
-    APPROVAL_FINANCE("approval:finance"),
-    APPROVAL_FINANCE_AUDIT("approval:finance:audit"),
-    APPROVAL_FINANCE_DETAIL("approval:finance:detail"),
-    APPROVAL_FINANCE_SUBMIT("approval:finance:submit"),
-    APPROVAL_LEAVE("approval:leave"),
-    APPROVAL_LEAVE_AUDIT("approval:leave:audit"),
-    APPROVAL_LEAVE_DETAIL("approval:leave:detail"),
-    APPROVAL_LEAVE_SUBMIT("approval:leave:submit"),
-    APPROVAL_RESIGNATION("approval:resignation"),
-    APPROVAL_RESIGNATION_AUDIT("approval:resignation:audit"),
-    APPROVAL_RESIGNATION_DETAIL("approval:resignation:detail"),
-    APPROVAL_RESIGNATION_SUBMIT("approval:resignation:submit"),
-    APPROVAL_ORDER_AUDIT("approval:order:audit"),
-    ATTENDANCE_PUNCH("attendance:punch"),
-    ATTENDANCE_RECORD_LIST("attendance:record:list"),
-    BADPRODUCT_LIST("badproduct:list"),
-    BADPRODUCT_PROCESS("badproduct:process"),
-    BADPRODUCT_SAVE("badproduct:save"),
-    CUSTOMER_ADD("customer:add"),
-    CUSTOMER_DETAIL("customer:detail"),
-    CUSTOMER_PAGE("customer:page"),
-    CUSTOMER_UPDATE("customer:update"),
-    DOCUMENT_BREADCRUMBS("document:breadcrumbs"),
-    DOCUMENT_FILE_UPLOAD("document:file:upload"),
-    DOCUMENT_FOLDER_CREATE("document:folder:create"),
-    DOCUMENT_LIST("document:list"),
-    DOCUMENT_MOVE("document:move"),
-    DOCUMENT_RENAME("document:rename"),
-    EMPLOYEE_CREATE("employee:create"),
-    EMPLOYEE_DELETE("employee:delete"),
-    EMPLOYEE_DETAIL("employee:detail"),
-    EMPLOYEE_EXPORT("employee:export"),
-    EMPLOYEE_LIST("employee:list"),
-    EMPLOYEE_STATUS("employee:status"),
-    EMPLOYEE_UPDATE("employee:update"),
-    EQUIPMENT_DETAIL("equipment:detail"),
-    EQUIPMENT_INSPECTION_LIST("equipment:inspection:list"),
-    EQUIPMENT_INSPECTION_SUBMIT("equipment:inspection:submit"),
-    EQUIPMENT_LIST("equipment:list"),
-    EQUIPMENT_SAVE("equipment:save"),
-    INVENTORY("inventory"),
-    INVENTORY_BARCODE_SEARCH("inventory:barcode:search"),
-    INVENTORY_CLOTH_IN("inventory:cloth:in"),
-    INVENTORY_CLOTH_OUT("inventory:cloth:out"),
-    INVENTORY_MODEL_SEARCH("inventory:model:search"),
-    INVENTORY_RECORD_RECENT("inventory:record:recent"),
-    INVENTORY_TREND("inventory:trend"),
-    INVENTORY_WARNING_LIST("inventory:warning:list"),
-    INVENTORY_WARNING_SETTING("inventory:warning:setting"),
-    INSTALLATION_ATTACHMENT_DOWNLOAD("installation:attachment:download"),
-    INSTALLATION_ATTACHMENT_UPLOAD("installation:attachment:upload"),
-    INSTALLATION_LIST("installation:list"),
-    INSTALLATION_UPDATE("installation:update"),
-    LABEL_TEMPLATE_DEFAULT("label:template:default"),
-    LABEL_TEMPLATE_DETAIL("label:template:detail"),
-    LABEL_TEMPLATE_DISABLE("label:template:disable"),
-    LABEL_TEMPLATE_LIST("label:template:list"),
-    LABEL_TEMPLATE_SAVE("label:template:save"),
-    LABEL_TEMPLATE_UPLOAD("label:template:upload"),
-    NOTIFICATION_ANNOUNCEMENT_LIST("notification:announcement:list"),
-    NOTIFICATION_ANNOUNCEMENT_PUBLISH("notification:announcement:publish"),
-    ORDER_CREATE("order:create"),
-    ORDER_DETAIL("order:detail"),
-    ORDER_LIST("order:list"),
-    ORDER_STATUS_BUDGET_COMPLETED("order:status:budget-completed"),
-    ORDER_STATUS_BUDGETING("order:status:budgeting"),
-    ORDER_STATUS_CANCELLED("order:status:cancelled"),
-    ORDER_STATUS_COMPLETED("order:status:completed"),
-    ORDER_STATUS_PENDING_CANCEL("order:status:pending-cancel"),
-    ORDER_STATUS_PENDING_CONFIRM("order:status:pending-confirm"),
-    ORDER_STATUS_PENDING_MATERIAL("order:status:pending-material"),
-    ORDER_STATUS_PENDING_PAY("order:status:pending-pay"),
-    ORDER_STATUS_PENDING_SHIP("order:status:pending-ship"),
-    ORDER_STATUS_PRODUCING("order:status:producing"),
-    ORDER_STATUS_SHIPPED("order:status:shipped"),
-    ORDER_WARNING_SETTING("order:warning:setting"),
-    PRICE_DELETE("price:delete"),
-    PRICE_DETAIL("price:detail"),
-    PRICE_LIST("price:list"),
-    PRICE_PUBLISH("price:publish"),
-    RECEIPT_PRINT_CANCEL("receipt:print:cancel"),
-    RECEIPT_PRINT_DETAIL("receipt:print:detail"),
-    RECEIPT_PRINT_LIST("receipt:print:list"),
-    RECEIPT_PRINT_MARK("receipt:print:mark"),
-    ROLE_CREATE("role:create"),
-    ROLE_LIST("role:list"),
-    ROLE_PERMISSION_LIST("role:permission:list"),
-    ROLE_UPDATE("role:update"),
-    TABLE_EXPORT("table:export");
+public final class PermissionCodeEnum {
 
-    public static final String CODE_APPROVAL_FINANCE = "approval:finance";
+    public static final String CODE_APPROVAL_LIST = "approval:list";
+    public static final String CODE_APPROVAL_AUDITOR_LIST = "approval:auditor:list";
+    public static final String CODE_APPROVAL_AUDITOR_SETTING = "approval:auditor:setting";
+    public static final String CODE_APPROVAL_FINANCE_LIST = "approval:finance:list";
     public static final String CODE_APPROVAL_FINANCE_AUDIT = "approval:finance:audit";
     public static final String CODE_APPROVAL_FINANCE_DETAIL = "approval:finance:detail";
     public static final String CODE_APPROVAL_FINANCE_SUBMIT = "approval:finance:submit";
-    public static final String CODE_APPROVAL_LEAVE = "approval:leave";
+    public static final String CODE_APPROVAL_LEAVE_LIST = "approval:leave:list";
     public static final String CODE_APPROVAL_LEAVE_AUDIT = "approval:leave:audit";
     public static final String CODE_APPROVAL_LEAVE_DETAIL = "approval:leave:detail";
     public static final String CODE_APPROVAL_LEAVE_SUBMIT = "approval:leave:submit";
-    public static final String CODE_APPROVAL_RESIGNATION = "approval:resignation";
+    public static final String CODE_APPROVAL_RESIGNATION_LIST = "approval:resignation:list";
     public static final String CODE_APPROVAL_RESIGNATION_AUDIT = "approval:resignation:audit";
     public static final String CODE_APPROVAL_RESIGNATION_DETAIL = "approval:resignation:detail";
     public static final String CODE_APPROVAL_RESIGNATION_SUBMIT = "approval:resignation:submit";
-    public static final String CODE_APPROVAL_ORDER_AUDIT = "approval:order:audit";
+    public static final String CODE_ORDER_AUDIT_SHIPMENT = "order:audit:shipment";
+    public static final String CODE_ORDER_AUDIT_CANCEL = "order:audit:cancel";
+
     public static final String CODE_ATTENDANCE_PUNCH = "attendance:punch";
     public static final String CODE_ATTENDANCE_RECORD_LIST = "attendance:record:list";
     public static final String CODE_ATTENDANCE_RULE_LIST = "attendance:rule:list";
     public static final String CODE_ATTENDANCE_RULE_UPDATE = "attendance:rule:update";
     public static final String CODE_ATTENDANCE_EXPORT = "attendance:export";
-    public static final String CODE_BADPRODUCT_LIST = "badproduct:list";
-    public static final String CODE_BADPRODUCT_PROCESS = "badproduct:process";
-    public static final String CODE_BADPRODUCT_SAVE = "badproduct:save";
-    public static final String CODE_CUSTOMER_ADD = "customer:add";
+
+    public static final String CODE_QUALITY_LIST = "quality:list";
+    public static final String CODE_QUALITY_DETAIL = "quality:detail";
+    public static final String CODE_QUALITY_CREATE = "quality:create";
+    public static final String CODE_QUALITY_UPDATE = "quality:update";
+    public static final String CODE_QUALITY_PROCESS = "quality:process";
+    public static final String CODE_QUALITY_AUDIT = "quality:audit";
+    public static final String CODE_QUALITY_ATTACHMENT_UPLOAD = "quality:attachment:upload";
+    public static final String CODE_QUALITY_ATTACHMENT_DOWNLOAD = "quality:attachment:download";
+    public static final String CODE_QUALITY_EXPORT = "quality:export";
+
+    public static final String CODE_CUSTOMER_LIST = "customer:list";
     public static final String CODE_CUSTOMER_DETAIL = "customer:detail";
-    public static final String CODE_CUSTOMER_PAGE = "customer:page";
+    public static final String CODE_CUSTOMER_CREATE = "customer:create";
     public static final String CODE_CUSTOMER_UPDATE = "customer:update";
-    public static final String CODE_DOCUMENT_BREADCRUMBS = "document:breadcrumbs";
-    public static final String CODE_DOCUMENT_FILE_UPLOAD = "document:file:upload";
-    public static final String CODE_DOCUMENT_FOLDER_CREATE = "document:folder:create";
+    public static final String CODE_CUSTOMER_DELETE = "customer:delete";
+    public static final String CODE_CUSTOMER_IMPORT = "customer:import";
+    public static final String CODE_CUSTOMER_EXPORT = "customer:export";
+
     public static final String CODE_DOCUMENT_LIST = "document:list";
-    public static final String CODE_DOCUMENT_MOVE = "document:move";
+    public static final String CODE_DOCUMENT_FOLDER_CREATE = "document:folder:create";
+    public static final String CODE_DOCUMENT_FILE_UPLOAD = "document:file:upload";
+    public static final String CODE_DOCUMENT_FILE_DOWNLOAD = "document:file:download";
     public static final String CODE_DOCUMENT_RENAME = "document:rename";
-    public static final String CODE_EMPLOYEE_CREATE = "employee:create";
-    public static final String CODE_EMPLOYEE_DELETE = "employee:delete";
-    public static final String CODE_EMPLOYEE_DETAIL = "employee:detail";
-    public static final String CODE_EMPLOYEE_EXPORT = "employee:export";
+    public static final String CODE_DOCUMENT_MOVE = "document:move";
+    public static final String CODE_DOCUMENT_DELETE = "document:delete";
+    public static final String CODE_DOCUMENT_EXPORT = "document:export";
+
     public static final String CODE_EMPLOYEE_LIST = "employee:list";
-    public static final String CODE_EMPLOYEE_STATUS = "employee:status";
+    public static final String CODE_EMPLOYEE_DETAIL = "employee:detail";
+    public static final String CODE_EMPLOYEE_CREATE = "employee:create";
     public static final String CODE_EMPLOYEE_UPDATE = "employee:update";
+    public static final String CODE_EMPLOYEE_STATUS = "employee:status";
+    public static final String CODE_EMPLOYEE_DELETE = "employee:delete";
+    public static final String CODE_EMPLOYEE_IMPORT = "employee:import";
+    public static final String CODE_EMPLOYEE_EXPORT = "employee:export";
+    public static final String CODE_EMPLOYEE_PERMISSION_MANAGE = "employee:permission:manage";
+
+    public static final String CODE_EQUIPMENT_LIST = "equipment:list";
     public static final String CODE_EQUIPMENT_DETAIL = "equipment:detail";
+    public static final String CODE_EQUIPMENT_CREATE = "equipment:create";
+    public static final String CODE_EQUIPMENT_UPDATE = "equipment:update";
+    public static final String CODE_EQUIPMENT_DISABLE = "equipment:disable";
     public static final String CODE_EQUIPMENT_INSPECTION_LIST = "equipment:inspection:list";
     public static final String CODE_EQUIPMENT_INSPECTION_SUBMIT = "equipment:inspection:submit";
-    public static final String CODE_EQUIPMENT_LIST = "equipment:list";
-    public static final String CODE_EQUIPMENT_SAVE = "equipment:save";
-    public static final String CODE_INVENTORY = "inventory";
-    public static final String CODE_INVENTORY_BARCODE_SEARCH = "inventory:barcode:search";
-    public static final String CODE_INVENTORY_CLOTH_IN = "inventory:cloth:in";
-    public static final String CODE_INVENTORY_CLOTH_OUT = "inventory:cloth:out";
-    public static final String CODE_INVENTORY_MODEL_SEARCH = "inventory:model:search";
-    public static final String CODE_INVENTORY_RECORD_RECENT = "inventory:record:recent";
-    public static final String CODE_INVENTORY_TREND = "inventory:trend";
+    public static final String CODE_EQUIPMENT_EXPORT = "equipment:export";
+
+    public static final String CODE_INVENTORY_LIST = "inventory:list";
+    public static final String CODE_INVENTORY_DETAIL = "inventory:detail";
     public static final String CODE_INVENTORY_WARNING_LIST = "inventory:warning:list";
     public static final String CODE_INVENTORY_WARNING_SETTING = "inventory:warning:setting";
-    public static final String CODE_INSTALLATION_ATTACHMENT_DOWNLOAD = "installation:attachment:download";
-    public static final String CODE_INSTALLATION_ATTACHMENT_UPLOAD = "installation:attachment:upload";
+    public static final String CODE_INVENTORY_RECORD_LIST = "inventory:record:list";
+    public static final String CODE_INVENTORY_TREND = "inventory:trend";
+    public static final String CODE_INVENTORY_BARCODE_SEARCH = "inventory:barcode:search";
+    public static final String CODE_INVENTORY_MODEL_SEARCH = "inventory:model:search";
+    public static final String CODE_INVENTORY_CLOTH_IN = "inventory:cloth:in";
+    public static final String CODE_INVENTORY_CLOTH_OUT = "inventory:cloth:out";
+    public static final String CODE_INVENTORY_IMPORT = "inventory:import";
+    public static final String CODE_INVENTORY_EXPORT = "inventory:export";
+
     public static final String CODE_INSTALLATION_LIST = "installation:list";
+    public static final String CODE_INSTALLATION_DETAIL = "installation:detail";
     public static final String CODE_INSTALLATION_UPDATE = "installation:update";
-    public static final String CODE_LABEL_TEMPLATE_DEFAULT = "label:template:default";
-    public static final String CODE_LABEL_TEMPLATE_DETAIL = "label:template:detail";
-    public static final String CODE_LABEL_TEMPLATE_DISABLE = "label:template:disable";
-    public static final String CODE_LABEL_TEMPLATE_LIST = "label:template:list";
-    public static final String CODE_LABEL_TEMPLATE_SAVE = "label:template:save";
-    public static final String CODE_LABEL_TEMPLATE_UPLOAD = "label:template:upload";
+    public static final String CODE_INSTALLATION_ATTACHMENT_UPLOAD = "installation:attachment:upload";
+    public static final String CODE_INSTALLATION_ATTACHMENT_DOWNLOAD = "installation:attachment:download";
+    public static final String CODE_INSTALLATION_EXPORT = "installation:export";
+
+    public static final String CODE_PRINT_LABEL_LIST = "print:label:list";
+    public static final String CODE_PRINT_LABEL_DETAIL = "print:label:detail";
+    public static final String CODE_PRINT_LABEL_CREATE = "print:label:create";
+    public static final String CODE_PRINT_LABEL_UPDATE = "print:label:update";
+    public static final String CODE_PRINT_LABEL_UPLOAD = "print:label:upload";
+    public static final String CODE_PRINT_LABEL_DEFAULT = "print:label:default";
+    public static final String CODE_PRINT_LABEL_DISABLE = "print:label:disable";
+    public static final String CODE_PRINT_RECEIPT_LIST = "print:receipt:list";
+    public static final String CODE_PRINT_RECEIPT_DETAIL = "print:receipt:detail";
+    public static final String CODE_PRINT_RECEIPT_EXECUTE = "print:receipt:execute";
+    public static final String CODE_PRINT_RECEIPT_UPDATE = "print:receipt:update";
+    public static final String CODE_PRINT_RECEIPT_CANCEL = "print:receipt:cancel";
+
     public static final String CODE_NOTIFICATION_ANNOUNCEMENT_LIST = "notification:announcement:list";
     public static final String CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH = "notification:announcement:publish";
-    public static final String CODE_ORDER_CREATE = "order:create";
-    public static final String CODE_ORDER_DETAIL = "order:detail";
+
     public static final String CODE_ORDER_LIST = "order:list";
-    public static final String CODE_ORDER_STATUS_PREFIX = "order:status:";
-    public static final String CODE_ORDER_STATUS_BUDGET_COMPLETED = "order:status:budget-completed";
-    public static final String CODE_ORDER_STATUS_BUDGETING = "order:status:budgeting";
-    public static final String CODE_ORDER_STATUS_CANCELLED = "order:status:cancelled";
-    public static final String CODE_ORDER_STATUS_COMPLETED = "order:status:completed";
-    public static final String CODE_ORDER_STATUS_PENDING_CANCEL = "order:status:pending-cancel";
-    public static final String CODE_ORDER_STATUS_PENDING_CONFIRM = "order:status:pending-confirm";
-    public static final String CODE_ORDER_STATUS_PENDING_MATERIAL = "order:status:pending-material";
-    public static final String CODE_ORDER_STATUS_PENDING_PAY = "order:status:pending-pay";
-    public static final String CODE_ORDER_STATUS_PENDING_SHIP = "order:status:pending-ship";
-    public static final String CODE_ORDER_STATUS_PRODUCING = "order:status:producing";
-    public static final String CODE_ORDER_STATUS_SHIPPED = "order:status:shipped";
+    public static final String CODE_ORDER_DETAIL = "order:detail";
+    public static final String CODE_ORDER_CREATE = "order:create";
+    public static final String CODE_ORDER_UPDATE = "order:update";
+    public static final String CODE_ORDER_PRINT = "order:print";
+    public static final String CODE_ORDER_WARNING_LIST = "order:warning:list";
     public static final String CODE_ORDER_WARNING_SETTING = "order:warning:setting";
-    public static final String CODE_PRICE_DELETE = "price:delete";
-    public static final String CODE_PRICE_DETAIL = "price:detail";
+    public static final String CODE_ORDER_STATUS_PREFIX = "order:status:";
+
     public static final String CODE_PRICE_LIST = "price:list";
+    public static final String CODE_PRICE_DETAIL = "price:detail";
+    public static final String CODE_PRICE_CREATE = "price:create";
+    public static final String CODE_PRICE_UPDATE = "price:update";
     public static final String CODE_PRICE_PUBLISH = "price:publish";
-    public static final String CODE_RECEIPT_PRINT_CANCEL = "receipt:print:cancel";
-    public static final String CODE_RECEIPT_PRINT_DETAIL = "receipt:print:detail";
-    public static final String CODE_RECEIPT_PRINT_LIST = "receipt:print:list";
-    public static final String CODE_RECEIPT_PRINT_MARK = "receipt:print:mark";
-    public static final String CODE_ROLE_CREATE = "role:create";
+    public static final String CODE_PRICE_DELETE = "price:delete";
+    public static final String CODE_PRICE_IMPORT = "price:import";
+    public static final String CODE_PRICE_EXPORT = "price:export";
+
     public static final String CODE_ROLE_LIST = "role:list";
-    public static final String CODE_ROLE_PERMISSION_LIST = "role:permission:list";
+    public static final String CODE_ROLE_CREATE = "role:create";
     public static final String CODE_ROLE_UPDATE = "role:update";
-    public static final String CODE_TABLE_EXPORT = "table:export";
+    public static final String CODE_ROLE_DELETE = "role:delete";
+    public static final String CODE_ROLE_PERMISSION_LIST = "role:permission:list";
+    public static final String CODE_ROLE_PERMISSION_UPDATE = "role:permission:update";
 
-    private final String code;
-
-    PermissionCodeEnum(String code) {
-        this.code = code;
-    }
-
-    public String getCode() {
-        return code;
+    private PermissionCodeEnum() {
     }
 }
