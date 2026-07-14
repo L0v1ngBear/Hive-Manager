@@ -12,8 +12,8 @@ import my.management.module.dashboard.model.vo.DashboardOverviewVO;
 import my.management.module.dashboard.model.vo.DashboardPendingPrintRowVO;
 import my.management.module.inventory.model.vo.InventoryWarningVO;
 import my.management.module.inventory.service.InventoryWarningCacheService;
-import my.management.module.order.service.OrderService;
-import my.management.module.order.service.OrderWarningCacheService;
+import my.hive.domain.order.service.OrderService;
+import my.hive.domain.order.service.OrderWarningCacheService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 

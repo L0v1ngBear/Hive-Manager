@@ -14,8 +14,8 @@ import my.management.module.installation.model.dto.InstallationTaskStatusUpdateR
 import my.management.module.installation.model.entity.InstallationTask;
 import my.management.module.installation.model.enums.InstallationTaskStatusEnum;
 import my.management.module.installation.model.vo.InstallationTaskVO;
-import my.management.module.order.model.entity.SalesOrder;
-import my.management.module.order.model.enums.OrderStatusEnum;
+import my.hive.domain.order.model.entity.SalesOrder;
+import my.hive.domain.order.model.enums.OrderStatusEnum;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

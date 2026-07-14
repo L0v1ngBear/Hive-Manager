@@ -1,4 +1,4 @@
-package my.management.module.order.service;
+package my.hive.domain.order.service;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -7,9 +7,9 @@ import jakarta.validation.ValidatorFactory;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
 import my.management.common.utils.CodeGeneratorUtil;
-import my.management.module.order.mapper.ProductionOrderMapper;
-import my.management.module.order.model.dto.ProductionOrderSaveRequest;
-import my.management.module.order.model.entity.ProductionOrder;
+import my.hive.domain.order.mapper.ProductionOrderMapper;
+import my.hive.domain.order.model.dto.ProductionOrderSaveRequest;
+import my.hive.domain.order.model.entity.ProductionOrder;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -61,7 +61,7 @@ class ProductionOrderInformationChannelValidationTest {
 
     @BeforeEach
     void setUp() {
-        TenantPermissionContext.init("tenant-a", 1L, Set.of("*"));
+        TenantPermissionContext.init("tenant-a", 1L, Set.of("order:status:budgeting:view", "order:status:budget-completed:view", "order:status:pending-confirm:view", "order:status:pending-pay:view", "order:status:pending-material:view", "order:status:producing:view", "order:status:pending-ship:view", "order:status:shipped:view", "order:status:completed:view", "order:status:pending-cancel:view", "order:status:cancelled:view", "order:status:budgeting:advance", "order:status:budgeting:cancel", "order:status:pending-confirm:advance", "order:status:pending-confirm:cancel", "order:status:pending-pay:advance", "order:status:pending-pay:rollback", "order:status:pending-pay:cancel", "order:status:pending-material:advance", "order:status:pending-material:rollback", "order:status:pending-material:cancel", "order:status:producing:advance", "order:status:producing:rollback", "order:status:producing:cancel", "order:status:pending-ship:advance", "order:status:pending-ship:rollback", "order:status:pending-ship:cancel", "order:status:shipped:advance", "order:status:shipped:rollback", "order:status:shipped:cancel", "order:status:completed:rollback", "order:audit:shipment", "order:audit:cancel"));
         subject = new OrderService();
         ReflectionTestUtils.setField(subject, "codeGeneratorUtil", codeGeneratorUtil);
         ReflectionTestUtils.setField(subject, "productionOrderMapper", productionOrderMapper);

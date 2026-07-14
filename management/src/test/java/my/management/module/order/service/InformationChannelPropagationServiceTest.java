@@ -1,4 +1,4 @@
-package my.management.module.order.service;
+package my.hive.domain.order.service;
 
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.print.PrintTaskService;
@@ -10,15 +10,15 @@ import my.management.module.employee.mapper.EmployeeMapper;
 import my.management.module.installation.mapper.InstallationTaskMapper;
 import my.management.module.installation.model.entity.InstallationTask;
 import my.management.module.installation.service.InstallationTaskService;
-import my.management.module.order.mapper.ProductionOrderMapper;
-import my.management.module.order.mapper.SalesOrderDetailMapper;
-import my.management.module.order.mapper.SalesOrderMapper;
-import my.management.module.order.mapper.SalesOrderStatusLogMapper;
-import my.management.module.order.model.dto.OrderFlowPrintTaskRequest;
-import my.management.module.order.model.dto.SalesOrderSaveRequest;
-import my.management.module.order.model.entity.ProductionOrder;
-import my.management.module.order.model.entity.SalesOrder;
-import my.management.module.order.model.vo.OrderFlowPrintTaskVO;
+import my.hive.domain.order.mapper.ProductionOrderMapper;
+import my.hive.domain.order.mapper.SalesOrderDetailMapper;
+import my.hive.domain.order.mapper.SalesOrderMapper;
+import my.hive.domain.order.mapper.SalesOrderStatusLogMapper;
+import my.hive.domain.order.model.dto.OrderFlowPrintTaskRequest;
+import my.hive.domain.order.model.dto.SalesOrderSaveRequest;
+import my.hive.domain.order.model.entity.ProductionOrder;
+import my.hive.domain.order.model.entity.SalesOrder;
+import my.hive.domain.order.model.vo.OrderFlowPrintTaskVO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -84,7 +84,7 @@ class InformationChannelPropagationServiceTest {
 
     @BeforeEach
     void setUp() {
-        TenantPermissionContext.init("tenant-a", 1L, Set.of("*"));
+        TenantPermissionContext.init("tenant-a", 1L, Set.of("order:status:budgeting:view", "order:status:budget-completed:view", "order:status:pending-confirm:view", "order:status:pending-pay:view", "order:status:pending-material:view", "order:status:producing:view", "order:status:pending-ship:view", "order:status:shipped:view", "order:status:completed:view", "order:status:pending-cancel:view", "order:status:cancelled:view", "order:status:budgeting:advance", "order:status:budgeting:cancel", "order:status:pending-confirm:advance", "order:status:pending-confirm:cancel", "order:status:pending-pay:advance", "order:status:pending-pay:rollback", "order:status:pending-pay:cancel", "order:status:pending-material:advance", "order:status:pending-material:rollback", "order:status:pending-material:cancel", "order:status:producing:advance", "order:status:producing:rollback", "order:status:producing:cancel", "order:status:pending-ship:advance", "order:status:pending-ship:rollback", "order:status:pending-ship:cancel", "order:status:shipped:advance", "order:status:shipped:rollback", "order:status:shipped:cancel", "order:status:completed:rollback", "order:audit:shipment", "order:audit:cancel"));
         subject = new OrderService();
         ReflectionTestUtils.setField(subject, "codeGeneratorUtil", codeGeneratorUtil);
         ReflectionTestUtils.setField(subject, "salesOrderMapper", salesOrderMapper);

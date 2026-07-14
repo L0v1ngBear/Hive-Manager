@@ -3,7 +3,7 @@ package my.management.module.employee.mapper;
 import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import my.management.module.approval.model.vo.ApprovalAuditorOptionVO;
+import my.hive.domain.approval.model.vo.ApprovalAuditorOptionVO;
 import my.management.module.employee.model.entity.Employee;
 import my.management.module.employee.model.vo.EmployeeDetailVO;
 import my.management.module.employee.model.vo.EmployeeLeaderOptionVO;

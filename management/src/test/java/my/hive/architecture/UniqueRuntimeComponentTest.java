@@ -2,7 +2,7 @@ package my.hive.architecture;
 
 import my.hive.HiveApplication;
 import my.hive.api.auth.AdminAuthController;
-import my.management.controller.OrderController;
+import my.hive.api.order.OrderController;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -49,8 +49,8 @@ class UniqueRuntimeComponentTest {
     void resolvedRequestMappingsExposeConcreteManagementRoutes() {
         assertThat(context.getEnvironment().getProperty("server.servlet.context-path")).isEqualTo("/api");
         assertResolvedMapping(AdminAuthController.class, HttpMethod.POST, "/auth/admin/login");
-        assertResolvedMapping(OrderController.class, HttpMethod.GET, "/order/page");
-        assertResolvedMapping(OrderController.class, HttpMethod.POST, "/order/create");
+        assertResolvedMapping(OrderController.class, HttpMethod.GET, "/orders");
+        assertResolvedMapping(OrderController.class, HttpMethod.POST, "/orders");
     }
 
     @Test

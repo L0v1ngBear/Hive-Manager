@@ -1,15 +1,15 @@
-package my.management.module.order.service;
+package my.hive.domain.order.service;
 
 import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
-import my.management.module.approval.service.ApprovalAuditorCandidateService;
-import my.management.module.approval.service.ApprovalDefaultAuditorService;
+import my.hive.domain.approval.service.ApprovalAuditorCandidateService;
+import my.hive.domain.approval.service.ApprovalDefaultAuditorService;
 import my.management.module.employee.mapper.EmployeeMapper;
-import my.management.module.order.mapper.SalesOrderMapper;
-import my.management.module.order.mapper.SalesOrderStatusLogMapper;
-import my.management.module.order.model.dto.SalesOrderUpdateRequest;
-import my.management.module.order.model.entity.SalesOrder;
+import my.hive.domain.order.mapper.SalesOrderMapper;
+import my.hive.domain.order.mapper.SalesOrderStatusLogMapper;
+import my.hive.domain.order.model.dto.SalesOrderUpdateRequest;
+import my.hive.domain.order.model.entity.SalesOrder;
 import org.apache.ibatis.annotations.Select;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -187,7 +187,7 @@ class OrderApprovalSubmissionConcurrencyTest {
     }
 
     private Throwable submit(String tenantCode, SalesOrderUpdateRequest request, CountDownLatch startGate) {
-        TenantPermissionContext.init(tenantCode, 1L, Set.of("*"));
+        TenantPermissionContext.init(tenantCode, 1L, Set.of("order:status:budgeting:view", "order:status:budget-completed:view", "order:status:pending-confirm:view", "order:status:pending-pay:view", "order:status:pending-material:view", "order:status:producing:view", "order:status:pending-ship:view", "order:status:shipped:view", "order:status:completed:view", "order:status:pending-cancel:view", "order:status:cancelled:view", "order:status:budgeting:advance", "order:status:budgeting:cancel", "order:status:pending-confirm:advance", "order:status:pending-confirm:cancel", "order:status:pending-pay:advance", "order:status:pending-pay:rollback", "order:status:pending-pay:cancel", "order:status:pending-material:advance", "order:status:pending-material:rollback", "order:status:pending-material:cancel", "order:status:producing:advance", "order:status:producing:rollback", "order:status:producing:cancel", "order:status:pending-ship:advance", "order:status:pending-ship:rollback", "order:status:pending-ship:cancel", "order:status:shipped:advance", "order:status:shipped:rollback", "order:status:shipped:cancel", "order:status:completed:rollback", "order:audit:shipment", "order:audit:cancel"));
         try {
             assertTrue(startGate.await(5, TimeUnit.SECONDS));
             subject.advanceSalesOrderToNextStage("SO-100", request);
