@@ -14,6 +14,7 @@ import my.management.module.tenant.model.enums.TenantFeatureEnum;
 import my.hive.domain.approval.model.dto.FinanceAuditRequest;
 import my.hive.domain.approval.model.dto.FinanceSubmitRequest;
 import my.hive.domain.approval.model.dto.LeaveAuditRequest;
+import my.hive.domain.approval.model.dto.LeaveSubmitRequest;
 import my.hive.domain.approval.model.dto.OrderApprovalAuditRequest;
 import my.hive.domain.approval.model.dto.ApprovalDefaultAuditorSaveRequest;
 import my.hive.domain.approval.model.dto.QualityAuditRequest;
@@ -91,9 +92,22 @@ public class ApprovalController {
     }
 
     @GetMapping("/leave")
-    @RequirePermission(value = PermissionCatalogV3.CODE_APPROVAL_LEAVE_LIST, message = "您没有权限查看请假审批列表")
-    public Result<List<LeaveApprovalListVO>> listLeaveApprovals(@RequestParam(required = false) Integer limit) {
-        return Result.success(approvalService.listLeaveApprovals(limit));
+    @RequirePermission(value = {
+            PermissionCatalogV3.CODE_APPROVAL_LEAVE_SUBMIT,
+            PermissionCatalogV3.CODE_APPROVAL_LEAVE_LIST,
+            PermissionCatalogV3.CODE_APPROVAL_LEAVE_AUDIT
+    }, message = "您没有权限查看请假审批列表")
+    public Result<List<LeaveApprovalListVO>> listLeaveApprovals(@RequestParam(defaultValue = "pending") String scope,
+                                                                @RequestParam(required = false) Integer status,
+                                                                @RequestParam(required = false) Integer limit) {
+        return Result.success(approvalService.listLeaveApprovals(scope, status, limit));
+    }
+
+    @PostMapping("/leave")
+    @RequirePermission(value = PermissionCatalogV3.CODE_APPROVAL_LEAVE_SUBMIT, message = "没有权限提交请假申请")
+    @CollectLog(module = "approval", action = "submit_leave", bizType = "leave_approval", description = "提交请假审批")
+    public Result<String> submitLeave(@Valid @RequestBody LeaveSubmitRequest request) {
+        return Result.success(approvalService.submitLeave(request));
     }
 
     @GetMapping("/leave/{leaveCode}")
@@ -111,9 +125,15 @@ public class ApprovalController {
     }
 
     @GetMapping("/finance")
-    @RequirePermission(value = PermissionCatalogV3.CODE_APPROVAL_FINANCE_LIST, message = "您没有权限查看财务审批列表")
-    public Result<List<FinanceApprovalVO>> listFinanceApprovals(@RequestParam(required = false) Integer limit) {
-        return Result.success(approvalService.listFinanceApprovals(limit));
+    @RequirePermission(value = {
+            PermissionCatalogV3.CODE_APPROVAL_FINANCE_SUBMIT,
+            PermissionCatalogV3.CODE_APPROVAL_FINANCE_LIST,
+            PermissionCatalogV3.CODE_APPROVAL_FINANCE_AUDIT
+    }, message = "您没有权限查看财务审批列表")
+    public Result<List<FinanceApprovalVO>> listFinanceApprovals(@RequestParam(defaultValue = "pending") String scope,
+                                                                @RequestParam(required = false) Integer status,
+                                                                @RequestParam(required = false) Integer limit) {
+        return Result.success(approvalService.listFinanceApprovals(scope, status, limit));
     }
 
     @GetMapping("/finance/{approvalCode}")
@@ -159,9 +179,15 @@ public class ApprovalController {
     }
 
     @GetMapping("/resignation")
-    @RequirePermission(value = PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_LIST, message = "您没有权限查看离职审批列表")
-    public Result<List<ResignationApprovalVO>> listResignationApprovals(@RequestParam(required = false) Integer limit) {
-        return Result.success(approvalService.listResignationApprovals(limit));
+    @RequirePermission(value = {
+            PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_SUBMIT,
+            PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_LIST,
+            PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_AUDIT
+    }, message = "您没有权限查看离职审批列表")
+    public Result<List<ResignationApprovalVO>> listResignationApprovals(@RequestParam(defaultValue = "pending") String scope,
+                                                                        @RequestParam(required = false) Integer status,
+                                                                        @RequestParam(required = false) Integer limit) {
+        return Result.success(approvalService.listResignationApprovals(scope, status, limit));
     }
 
     @GetMapping("/resignation/{resignationCode}")

@@ -51,6 +51,7 @@ class UniqueRuntimeComponentTest {
         assertResolvedMapping(AdminAuthController.class, HttpMethod.POST, "/auth/admin/login");
         assertResolvedMapping(OrderController.class, HttpMethod.GET, "/orders");
         assertResolvedMapping(OrderController.class, HttpMethod.POST, "/orders");
+        assertNoResolvedMapping(OrderController.class, HttpMethod.GET, "/orders/health");
     }
 
     @Test
@@ -68,5 +69,15 @@ class UniqueRuntimeComponentTest {
                         .anyMatch(method -> method.name().equals(httpMethod.name())))
                 .as(httpMethod + " " + path + " (servlet context /api is applied separately)")
                 .hasSize(1);
+    }
+
+    private void assertNoResolvedMapping(Class<?> controller, HttpMethod httpMethod, String path) {
+        assertThat(handlerMapping.getHandlerMethods().entrySet())
+                .filteredOn(entry -> entry.getValue().getBeanType().equals(controller))
+                .filteredOn(entry -> entry.getKey().getPatternValues().contains(path))
+                .filteredOn(entry -> entry.getKey().getMethodsCondition().getMethods().stream()
+                        .anyMatch(method -> method.name().equals(httpMethod.name())))
+                .as(httpMethod + " " + path + " must not be exposed by the canonical order domain")
+                .isEmpty();
     }
 }

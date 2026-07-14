@@ -203,12 +203,6 @@ public class OrderController {
         return Result.success(orderService.refreshOrderWarning(orderId));
     }
 
-    @GetMapping("/health")
-    @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_LIST, message = "您没有权限查看订单模块检查结果")
-    public Result<Map<String, Object>> health() {
-        return Result.success(orderService.checkOrderTables());
-    }
-
     private <T> PageResult<T> toPageResult(Page<T> page) {
         PageResult<T> result = new PageResult<>();
         result.setCurrent(page.getCurrent());

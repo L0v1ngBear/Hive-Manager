@@ -69,17 +69,17 @@ All retained routes are rooted at `/api/approval/**` and delegate to the single 
 | GET | admin `/approval/default-auditors` | `/api/approval/default-auditors` | `approval:auditor:list` | none | `List<ApprovalDefaultAuditorVO>` | `listDefaultAuditors` | RENAMED |
 | POST | admin `/approval/default-auditors` | `/api/approval/default-auditors` | `approval:auditor:setting` | `ApprovalDefaultAuditorSaveRequest` | void | `saveDefaultAuditor` | RENAMED |
 | POST | mini `/approval/leave/submit` | `/api/approval/leave` | `approval:leave:submit` | `LeaveSubmitRequest` | `String` | `submitLeave` | RENAMED |
-| GET | admin/mini `/approval/leave/list` | `/api/approval/leave` | `approval:leave:list` | `limit` | `List<LeaveApprovalListVO>` | `listLeaveApprovals` | MERGED |
+| GET | admin/mini `/approval/leave/list` | `/api/approval/leave` | scope-dependent: `approval:leave:submit`/`approval:leave:list`/`approval:leave:audit` | `scope,status,limit` | `List<LeaveApprovalListVO>` | `listLeaveApprovals` | MERGED |
 | GET | admin/mini `/approval/leave/{leaveCode}` | `/api/approval/leave/{leaveCode}` | `approval:leave:detail` | path `leaveCode` | `LeaveDetailVO` | `getLeaveDetail` | MERGED |
 | POST | admin/mini `/approval/leave/audit` | `/api/approval/leave/audit` | `approval:leave:audit` | `LeaveAuditRequest` | void | `auditLeave` | MERGED |
 | POST | admin/mini `/approval/finance/submit` | `/api/approval/finance` | `approval:finance:submit` | `FinanceSubmitRequest` | `String` | `submitFinance` | RENAMED |
 | POST | admin/mini `/approval/finance/attachment/upload` | `/api/approval/finance/attachment` | `approval:finance:submit` | multipart `file` | `BusinessAttachmentVO` | attachment collaborator `upload` | RENAMED |
 | GET | admin/mini `/approval/finance/attachment/download` | `/api/approval/finance/attachment` | `approval:finance:detail` | `url,name` | resource | attachment collaborator `load` | RENAMED |
-| GET | admin/mini `/approval/finance/list` | `/api/approval/finance` | `approval:finance:list` | `limit` | `List<FinanceApprovalVO>` | `listFinanceApprovals` | MERGED |
+| GET | admin/mini `/approval/finance/list` | `/api/approval/finance` | scope-dependent: `approval:finance:submit`/`approval:finance:list`/`approval:finance:audit` | `scope,status,limit` | `List<FinanceApprovalVO>` | `listFinanceApprovals` | MERGED |
 | GET | admin/mini `/approval/finance/{approvalCode}` | `/api/approval/finance/{approvalCode}` | `approval:finance:detail` | path `approvalCode` | `FinanceApprovalVO` | `getFinanceDetail` | MERGED |
 | POST | admin/mini `/approval/finance/audit` | `/api/approval/finance/audit` | `approval:finance:audit` | `FinanceAuditRequest` | void | `auditFinance` | MERGED |
 | POST | admin/mini `/approval/resignation/submit` | `/api/approval/resignation` | `approval:resignation:submit` | `ResignationSubmitRequest` | `String` | `submitResignation` | RENAMED |
-| GET | admin/mini `/approval/resignation/list` | `/api/approval/resignation` | `approval:resignation:list` | `limit` | `List<ResignationApprovalVO>` | `listResignationApprovals` | MERGED |
+| GET | admin/mini `/approval/resignation/list` | `/api/approval/resignation` | scope-dependent: `approval:resignation:submit`/`approval:resignation:list`/`approval:resignation:audit` | `scope,status,limit` | `List<ResignationApprovalVO>` | `listResignationApprovals` | MERGED |
 | GET | admin/mini `/approval/resignation/{resignationCode}` | `/api/approval/resignation/{resignationCode}` | `approval:resignation:detail` | path `resignationCode` | `ResignationApprovalVO` | `getResignationDetail` | MERGED |
 | POST | admin/mini `/approval/resignation/audit` | `/api/approval/resignation/audit` | `approval:resignation:audit` | `ResignationAuditRequest` | void | `auditResignation` | MERGED |
 | GET | admin/mini `/approval/quality/list` | `/api/approval/quality` | `quality:audit` | `limit` | `List<QualityApprovalVO>` | `listQualityApprovals` | MERGED |

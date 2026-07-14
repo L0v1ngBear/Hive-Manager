@@ -45,3 +45,15 @@ Runtime uniqueness/mapping gate:
 
 - Maven emits existing Byte Buddy dynamic-agent and deprecated-API warnings; tests still exit successfully.
 - The source tree still contains other `my.management.module.*` domains by design; only order and approval were in Task 5 scope.
+
+## Review fix
+
+- Added canonical leave submission at `POST /api/approval/leave`, backed by `ApprovalService.submitLeave` and `LeaveSubmitRequest`, using `approval:leave:submit`.
+- Restored mini list filter semantics on the canonical leave, finance, and resignation list routes: `scope`, `status`, and `limit` are now accepted by one shared `ApprovalService` implementation. The controller accepts exact submit/list/audit V3 leaves, then the service constrains `mine`, `pending`, `others_pending`, and `all` by scope.
+- Removed the order-domain `GET /api/orders/health` endpoint; health remains a deployment/runtime concern, not an order business API.
+- Updated `docs/api/unified-api-catalog.md` so the approval list matrix records `scope,status,limit`.
+
+Review-fix verification:
+
+- `management\.\mvnw.cmd "-Dtest=*Order*Test,*Approval*Test,UniqueRuntimeComponentTest" test`
+- PASS: 41 tests, 0 failures, 0 errors, 0 skipped.

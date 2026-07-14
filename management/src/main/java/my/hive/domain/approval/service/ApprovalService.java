@@ -12,6 +12,7 @@ import my.hive.domain.approval.mapper.ResignationApprovalMapper;
 import my.hive.domain.approval.model.dto.FinanceAuditRequest;
 import my.hive.domain.approval.model.dto.FinanceSubmitRequest;
 import my.hive.domain.approval.model.dto.LeaveAuditRequest;
+import my.hive.domain.approval.model.dto.LeaveSubmitRequest;
 import my.hive.domain.approval.model.dto.OrderApprovalAuditRequest;
 import my.hive.domain.approval.model.dto.QualityAuditRequest;
 import my.hive.domain.approval.model.dto.ResignationAuditRequest;
@@ -67,6 +68,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Locale;
 /**
  * ApprovalService 属于管理端后端审批模块，实现核心业务编排与规则逻辑。
  */
@@ -191,17 +193,57 @@ public class ApprovalService {
         ));
     }
 
-    public List<LeaveApprovalListVO> listLeaveApprovals(Integer limit) {
+    public List<LeaveApprovalListVO> listLeaveApprovals(String scope, Integer status, Integer limit) {
+        String normalizedScope = requireApprovalListScope(
+                scope,
+                PermissionCatalogV3.CODE_APPROVAL_LEAVE_SUBMIT,
+                PermissionCatalogV3.CODE_APPROVAL_LEAVE_LIST,
+                PermissionCatalogV3.CODE_APPROVAL_LEAVE_AUDIT,
+                "请假");
         Long userId = TenantPermissionContext.getUserId();
         LambdaQueryWrapper<UserLeave> wrapper = new LambdaQueryWrapper<>();
-        wrapper.and(q -> q.eq(UserLeave::getApplyUserId, userId)
-                        .or()
-                        .eq(UserLeave::getAuditorId, userId)
-                        .or()
-                        .apply("FIND_IN_SET({0}, auditor_ids) > 0", String.valueOf(userId)));
+        if (status != null) {
+            wrapper.eq(UserLeave::getStatus, status);
+        }
+        applyLeaveScope(wrapper, normalizedScope, userId);
         wrapper.orderByDesc(UserLeave::getCreateTime);
         wrapper.last("LIMIT " + safeApprovalListLimit(limit));
         return leaveMapper.selectList(wrapper).stream().map(this::toLeaveListVO).toList();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public String submitLeave(LeaveSubmitRequest request) {
+        Long userId = TenantPermissionContext.getUserId();
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        if (request.getStartTime() == null || request.getEndTime() == null
+                || !request.getStartTime().isBefore(request.getEndTime())) {
+            throw new BusinessException("提交失败：请假开始时间必须早于结束时间");
+        }
+        if (request.getStartTime().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("提交失败：不能提交过去的请假申请");
+        }
+        boolean hasOverlap = leaveMapper.exists(new LambdaQueryWrapper<UserLeave>()
+                .eq(UserLeave::getApplyUserId, userId)
+                .ne(UserLeave::getStatus, ApprovalStatusEnum.REJECTED.getCode())
+                .and(wrapper -> wrapper
+                        .lt(UserLeave::getStartTime, request.getEndTime())
+                        .gt(UserLeave::getEndTime, request.getStartTime())));
+        if (hasOverlap) {
+            throw new BusinessException("提交失败：该时间段已有待审批或已通过的请假单");
+        }
+
+        UserLeave approval = new UserLeave();
+        approval.setLeaveCode(codeGeneratorUtil.generateCode("LV", 4));
+        approval.setTenantCode(tenantCode);
+        approval.setApplyUserId(userId);
+        approval.setLeaveType(request.getLeaveType());
+        approval.setStartTime(request.getStartTime());
+        approval.setEndTime(request.getEndTime());
+        approval.setReason(request.getReason().trim());
+        approval.setStatus(ApprovalStatusEnum.PENDING.getCode());
+        assignLeaveAuditors(approval, request.getAuditorId(), request.getAuditorIds(), true);
+        leaveMapper.insert(approval);
+        return approval.getLeaveCode();
     }
 
     public LeaveDetailVO getLeaveDetail(String leaveCode) {
@@ -350,14 +392,19 @@ public class ApprovalService {
         return leave.getStartTime().isBefore(segmentEnd) && leave.getEndTime().isAfter(segmentStart);
     }
 
-    public List<FinanceApprovalVO> listFinanceApprovals(Integer limit) {
+    public List<FinanceApprovalVO> listFinanceApprovals(String scope, Integer status, Integer limit) {
+        String normalizedScope = requireApprovalListScope(
+                scope,
+                PermissionCatalogV3.CODE_APPROVAL_FINANCE_SUBMIT,
+                PermissionCatalogV3.CODE_APPROVAL_FINANCE_LIST,
+                PermissionCatalogV3.CODE_APPROVAL_FINANCE_AUDIT,
+                "财务");
         Long userId = TenantPermissionContext.getUserId();
         LambdaQueryWrapper<FinanceApproval> wrapper = new LambdaQueryWrapper<>();
-        wrapper.and(q -> q.eq(FinanceApproval::getApplyUserId, userId)
-                        .or()
-                        .eq(FinanceApproval::getAuditorId, userId)
-                        .or()
-                        .apply("FIND_IN_SET({0}, auditor_ids) > 0", String.valueOf(userId)));
+        if (status != null) {
+            wrapper.eq(FinanceApproval::getStatus, status);
+        }
+        applyFinanceScope(wrapper, normalizedScope, userId);
         wrapper.orderByDesc(FinanceApproval::getCreateTime);
         wrapper.last("LIMIT " + safeApprovalListLimit(limit));
         return financeApprovalMapper.selectList(wrapper).stream().map(this::toFinanceVO).toList();
@@ -367,15 +414,19 @@ public class ApprovalService {
         return toFinanceVO(getFinanceByCode(approvalCode));
     }
 
-    public List<ResignationApprovalVO> listResignationApprovals(Integer limit) {
+    public List<ResignationApprovalVO> listResignationApprovals(String scope, Integer status, Integer limit) {
+        String normalizedScope = requireApprovalListScope(
+                scope,
+                PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_SUBMIT,
+                PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_LIST,
+                PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_AUDIT,
+                "离职");
         Long userId = TenantPermissionContext.getUserId();
-        String tenantCode = TenantPermissionContext.getTenantCode();
         LambdaQueryWrapper<ResignationApproval> wrapper = new LambdaQueryWrapper<>();
-        wrapper.and(q -> q.eq(ResignationApproval::getApplyUserId, userId)
-                .or()
-                .eq(ResignationApproval::getAuditorId, userId)
-                .or()
-                .apply("FIND_IN_SET({0}, auditor_ids) > 0", String.valueOf(userId)));
+        if (status != null) {
+            wrapper.eq(ResignationApproval::getStatus, status);
+        }
+        applyResignationScope(wrapper, normalizedScope, userId);
         wrapper.orderByDesc(ResignationApproval::getCreateTime);
         wrapper.last("LIMIT " + safeApprovalListLimit(limit));
         return resignationApprovalMapper.selectList(wrapper).stream().map(this::toResignationVO).toList();
@@ -1160,6 +1211,92 @@ public class ApprovalService {
                 .apply("FIND_IN_SET({0}, auditor_ids) > 0", String.valueOf(userId)));
     }
 
+    private String normalizeApprovalScope(String scope) {
+        if (!StringUtils.hasText(scope)) {
+            return "pending";
+        }
+        String normalized = scope.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "mine", "pending", "self_pending", "others_pending", "all" -> normalized;
+            default -> "pending";
+        };
+    }
+
+    private String requireApprovalListScope(String scope,
+                                            String submitPermission,
+                                            String listPermission,
+                                            String auditPermission,
+                                            String label) {
+        String normalizedScope = normalizeApprovalScope(scope);
+        boolean canCreate = TenantPermissionContext.hasPermission(submitPermission);
+        boolean canList = TenantPermissionContext.hasPermission(listPermission);
+        boolean canAudit = TenantPermissionContext.hasPermission(auditPermission);
+        if ("mine".equals(normalizedScope)) {
+            if (canCreate || canList || canAudit) {
+                return normalizedScope;
+            }
+            throw new BusinessException(403, "您没有权限查看本人" + label + "审批");
+        }
+        if ("all".equals(normalizedScope)) {
+            if (canList) {
+                return normalizedScope;
+            }
+            throw new BusinessException(403, "您没有权限查看全部" + label + "审批");
+        }
+        if (canList || canAudit) {
+            return normalizedScope;
+        }
+        throw new BusinessException(403, "您没有权限查看待处理" + label + "审批");
+    }
+
+    private void applyLeaveScope(LambdaQueryWrapper<UserLeave> wrapper, String scope, Long userId) {
+        if ("mine".equals(scope)) {
+            wrapper.eq(UserLeave::getApplyUserId, userId);
+        } else if ("self_pending".equals(scope)) {
+            wrapper.eq(UserLeave::getApplyUserId, userId)
+                    .eq(UserLeave::getStatus, ApprovalStatusEnum.PENDING.getCode());
+            appendLeaveAuditorFilter(wrapper, userId);
+        } else if ("others_pending".equals(scope)) {
+            wrapper.ne(UserLeave::getApplyUserId, userId)
+                    .eq(UserLeave::getStatus, ApprovalStatusEnum.PENDING.getCode());
+            appendLeaveAuditorFilter(wrapper, userId);
+        } else if (!"all".equals(scope)) {
+            appendLeaveAuditorFilter(wrapper, userId);
+        }
+    }
+
+    private void applyFinanceScope(LambdaQueryWrapper<FinanceApproval> wrapper, String scope, Long userId) {
+        if ("mine".equals(scope)) {
+            wrapper.eq(FinanceApproval::getApplyUserId, userId);
+        } else if ("self_pending".equals(scope)) {
+            wrapper.eq(FinanceApproval::getApplyUserId, userId)
+                    .eq(FinanceApproval::getStatus, ApprovalStatusEnum.PENDING.getCode());
+            appendFinanceAuditorFilter(wrapper, userId);
+        } else if ("others_pending".equals(scope)) {
+            wrapper.ne(FinanceApproval::getApplyUserId, userId)
+                    .eq(FinanceApproval::getStatus, ApprovalStatusEnum.PENDING.getCode());
+            appendFinanceAuditorFilter(wrapper, userId);
+        } else if (!"all".equals(scope)) {
+            appendFinanceAuditorFilter(wrapper, userId);
+        }
+    }
+
+    private void applyResignationScope(LambdaQueryWrapper<ResignationApproval> wrapper, String scope, Long userId) {
+        if ("mine".equals(scope)) {
+            wrapper.eq(ResignationApproval::getApplyUserId, userId);
+        } else if ("self_pending".equals(scope)) {
+            wrapper.eq(ResignationApproval::getApplyUserId, userId)
+                    .eq(ResignationApproval::getStatus, ApprovalStatusEnum.PENDING.getCode());
+            appendResignationAuditorFilter(wrapper, userId);
+        } else if ("others_pending".equals(scope)) {
+            wrapper.ne(ResignationApproval::getApplyUserId, userId)
+                    .eq(ResignationApproval::getStatus, ApprovalStatusEnum.PENDING.getCode());
+            appendResignationAuditorFilter(wrapper, userId);
+        } else if (!"all".equals(scope)) {
+            appendResignationAuditorFilter(wrapper, userId);
+        }
+    }
+
     private void assignLeaveAuditors(UserLeave approval, Long primaryAuditorId) {
         Long auditorId = resolveSingleAuditorId(
                 approval.getTenantCode(),
@@ -1172,6 +1309,24 @@ public class ApprovalService {
         applySingleAuditor(approval::setAuditorId, approval::setAuditorIds, auditorId);
         approvalAuditorCandidateService.replaceActiveCandidates(
                 approval.getTenantCode(), APPROVAL_TYPE_LEAVE, approval.getLeaveCode(), List.of(auditorId));
+    }
+
+    private void assignLeaveAuditors(UserLeave approval,
+                                     Long primaryAuditorId,
+                                     List<Long> specifiedAuditorIds,
+                                     boolean strictPrimary) {
+        List<Long> auditorIds = resolveAuditorIds(
+                approval.getTenantCode(),
+                approval.getApplyUserId(),
+                specifiedAuditorIds,
+                primaryAuditorId,
+                APPROVAL_TYPE_LEAVE,
+                PermissionCatalogV3.CODE_APPROVAL_LEAVE_AUDIT,
+                strictPrimary
+        );
+        applyAuditors(approval::setAuditorId, approval::setAuditorIds, auditorIds);
+        approvalAuditorCandidateService.replaceActiveCandidates(
+                approval.getTenantCode(), APPROVAL_TYPE_LEAVE, approval.getLeaveCode(), auditorIds);
     }
 
     private void assignFinanceAuditors(FinanceApproval approval, Long primaryAuditorId) {
