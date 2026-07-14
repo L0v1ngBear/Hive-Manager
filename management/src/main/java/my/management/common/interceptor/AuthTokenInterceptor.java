@@ -5,9 +5,11 @@ import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import my.hive.shared.auth.AuthUserInfo;
-import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.auth.AuthenticatedSessionService;
+import my.hive.shared.auth.TokenService;
 import my.hive.shared.dto.Result;
 import my.hive.shared.tenant.TenantIsolationSupport;
+import my.hive.shared.tenant.TenantContext;
 import my.hive.shared.utils.ResponseEncryptUtil;
 import my.hive.shared.utils.TokenUtil;
 import my.management.common.tenant.BoundedTenantProperties;
@@ -35,6 +37,15 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
 
     @Resource
     private AuthMapper authMapper;
+
+    @Resource
+    private AuthenticatedSessionService authenticatedSessionService;
+
+    @Resource
+    private TokenService tokenService;
+
+    @Resource
+    private TenantContext tenantContext;
 
     @Resource
     private PermissionCacheUtil permissionCacheUtil;
@@ -69,7 +80,7 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        AuthUserInfo authUserInfo = TokenUtil.parseToken(authorization.substring(7).trim());
+        AuthUserInfo authUserInfo = authenticatedSessionService.authenticate(authorization.substring(7).trim());
         if (authUserInfo == null || authUserInfo.getUserId() == null
                 || authUserInfo.getTenantCode() == null || authUserInfo.getTenantCode().isBlank()) {
             writeErrorResponse(response, HttpStatus.UNAUTHORIZED, 401, "登录状态已失效，请重新登录");
@@ -119,7 +130,7 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
             permissionCacheUtil.put(
                     tenantCode, authUserInfo.getUserId(), currentPermissionVersion, permCodes);
         }
-        TenantPermissionContext.init(tenantCode, authUserInfo.getUserId(), permCodes);
+        tenantContext.initialize(tenantCode, authUserInfo.getUserId(), permCodes);
         maybeRenewToken(response, authUserInfo, currentAuthVersion);
         return true;
     }
@@ -127,7 +138,7 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
         tenantIsolationSupport.clearTenantDatasource();
-        TenantPermissionContext.clear();
+        tenantContext.clear();
     }
 
     private boolean isPlatformTenant(String tenantCode) {
@@ -147,12 +158,12 @@ public class AuthTokenInterceptor implements HandlerInterceptor {
     private void maybeRenewToken(HttpServletResponse response,
                                  AuthUserInfo authUserInfo,
                                  Long currentAuthVersion) {
-        if (!tokenRenewEnabled || response.isCommitted() || !TokenUtil.shouldRenew(authUserInfo, tokenRenewBeforeMinutes)) {
+        if (!tokenRenewEnabled || response.isCommitted() || !tokenService.shouldRenew(authUserInfo, tokenRenewBeforeMinutes)) {
             return;
         }
-        String renewedToken = TokenUtil.createToken(
+        String renewedToken = tokenService.create(
                 authUserInfo.getUserId(), authUserInfo.getTenantCode(), currentAuthVersion);
-        AuthUserInfo renewedUserInfo = TokenUtil.parseToken(renewedToken);
+        AuthUserInfo renewedUserInfo = tokenService.parse(renewedToken);
         if (renewedUserInfo == null || renewedUserInfo.getExpireAt() == null) {
             return;
         }

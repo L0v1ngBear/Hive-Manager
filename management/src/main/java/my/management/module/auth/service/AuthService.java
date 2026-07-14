@@ -9,13 +9,13 @@ import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import jakarta.annotation.Resource;
-import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.auth.TokenService;
 import my.hive.shared.exception.BusinessException;
 import my.hive.shared.privacy.PrivacyProtectionUtil;
 import my.hive.shared.redis.HiveRedisKeyBuilder;
 import my.hive.shared.utils.EncryptUtil;
 import my.hive.shared.utils.ResponseEncryptUtil;
-import my.hive.shared.utils.TokenUtil;
+import my.hive.shared.tenant.TenantContext;
 import my.management.module.auth.mapper.AuthMapper;
 import my.management.module.auth.model.dto.InitialPasswordChangeRequest;
 import my.management.module.auth.model.dto.LoginRequest;
@@ -95,6 +95,12 @@ public class AuthService {
 
     @Resource
     private AuthMapper authMapper;
+
+    @Resource
+    private TokenService tokenService;
+
+    @Resource
+    private TenantContext tenantContext;
 
     @Resource
     private EncryptUtil encryptUtil;
@@ -268,8 +274,8 @@ public class AuthService {
     }
 
     public void changeInitialPassword(InitialPasswordChangeRequest request) {
-        Long userId = TenantPermissionContext.getUserId();
-        String tenantCode = TenantPermissionContext.getTenantCode();
+        Long userId = tenantContext.userId();
+        String tenantCode = tenantContext.tenantCode();
         if (userId == null || tenantCode == null || tenantCode.isBlank()) {
             throw new BusinessException(401, "请先登录后再修改密码");
         }
@@ -369,8 +375,8 @@ public class AuthService {
             throw new BusinessException(409, "当前二维码已处理，请刷新网页后重试");
         }
 
-        Long userId = TenantPermissionContext.getUserId();
-        String tenantCode = TenantPermissionContext.getTenantCode();
+        Long userId = tenantContext.userId();
+        String tenantCode = tenantContext.tenantCode();
         if (userId == null || tenantCode == null || tenantCode.isBlank()) {
             throw new BusinessException(401, "请先登录小程序后再扫码");
         }
@@ -602,7 +608,7 @@ public class AuthService {
     }
 
     private Employee resolveOrCreateJoinEmployee(String tenantCode, String name, String phone, String phoneHash, String password) {
-        TenantPermissionContext.init(tenantCode, null, Collections.emptySet());
+        tenantContext.initialize(tenantCode, null, Collections.emptySet());
         try {
             Employee reusableUnjoined = null;
             List<Employee> matched = employeeMapper.selectList(new LambdaQueryWrapper<Employee>()
@@ -680,7 +686,7 @@ public class AuthService {
             permissionCacheUtil.evict(tenantCode, employee.getId());
             return employee;
         } finally {
-            TenantPermissionContext.clear();
+            tenantContext.clear();
         }
     }
 
@@ -733,7 +739,7 @@ public class AuthService {
 
         List<String> permissionList = authMapper.selectPermCodesByUserIdAndTenantCode(loginUser.getUserId(), loginUser.getTenantCode());
         Set<String> permCodes = new LinkedHashSet<>(permissionList == null ? List.of() : permissionList);
-        String token = TokenUtil.createToken(
+        String token = tokenService.create(
                 loginUser.getUserId(), loginUser.getTenantCode(), requireAuthVersion(loginUser));
 
         LoginVO loginVO = new LoginVO();

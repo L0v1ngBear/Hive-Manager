@@ -1,8 +1,8 @@
 package my.hive.shared.aop;
 
 import my.hive.shared.annotation.RequirePermission;
-import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
+import my.hive.shared.security.PermissionEvaluator;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
@@ -19,6 +19,12 @@ import java.lang.reflect.Method;
 @Component
 @Aspect
 public class PermissionAspect {
+
+    private final PermissionEvaluator permissionEvaluator;
+
+    public PermissionAspect(PermissionEvaluator permissionEvaluator) {
+        this.permissionEvaluator = permissionEvaluator;
+    }
 
     @Pointcut("@annotation(my.hive.shared.annotation.RequirePermission)")
     public void permissionPointcut() {
@@ -41,7 +47,7 @@ public class PermissionAspect {
             if (!StringUtils.hasText(permCode)) {
                 continue;
             }
-            if (TenantPermissionContext.hasPermission(permCode)) {
+            if (permissionEvaluator.isAllowed(permCode)) {
                 return;
             }
         }

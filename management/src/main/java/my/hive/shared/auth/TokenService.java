@@ -14,4 +14,8 @@ public class TokenService {
     public AuthUserInfo parse(String token) {
         return TokenUtil.parseToken(token);
     }
+
+    public boolean shouldRenew(AuthUserInfo userInfo, long renewBeforeMinutes) {
+        return TokenUtil.shouldRenew(userInfo, renewBeforeMinutes);
+    }
 }

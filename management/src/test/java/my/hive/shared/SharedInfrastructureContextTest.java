@@ -5,12 +5,17 @@ import my.hive.shared.auth.AuthenticatedSessionService;
 import my.hive.shared.auth.TokenService;
 import my.hive.shared.security.PermissionEvaluator;
 import my.hive.shared.tenant.TenantContext;
+import my.hive.shared.aop.PermissionAspect;
+import my.management.common.config.WebMvcConfig;
+import my.management.common.interceptor.AuthTokenInterceptor;
+import my.management.module.auth.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,5 +49,29 @@ class SharedInfrastructureContextTest {
         assertThat(context.getBeansOfType(WebMvcConfigurer.class).values())
                 .filteredOn(bean -> AopUtils.getTargetClass(bean).getPackageName().startsWith("my."))
                 .hasSize(1);
+    }
+
+    @Test
+    void productionAuthenticationAndAuthorizationUseCanonicalContracts() {
+        AuthTokenInterceptor interceptor = context.getBean(AuthTokenInterceptor.class);
+        AuthService authService = context.getBean(AuthService.class);
+        PermissionAspect permissionAspect = context.getBean(PermissionAspect.class);
+
+        assertThat(ReflectionTestUtils.getField(interceptor, "authenticatedSessionService"))
+                .isSameAs(context.getBean(AuthenticatedSessionService.class));
+        assertThat(ReflectionTestUtils.getField(interceptor, "tokenService"))
+                .isSameAs(context.getBean(TokenService.class));
+        assertThat(ReflectionTestUtils.getField(interceptor, "tenantContext"))
+                .isSameAs(context.getBean(TenantContext.class));
+        assertThat(ReflectionTestUtils.getField(authService, "tokenService"))
+                .isSameAs(context.getBean(TokenService.class));
+        assertThat(ReflectionTestUtils.getField(permissionAspect, "permissionEvaluator"))
+                .isSameAs(context.getBean(PermissionEvaluator.class));
+    }
+
+    @Test
+    void publicPathsContainNoLegacyWebPrefix() {
+        String[] publicPaths = (String[]) ReflectionTestUtils.getField(WebMvcConfig.class, "PUBLIC_PATHS");
+        assertThat(publicPaths).isNotNull().noneMatch(path -> path.startsWith("/web/"));
     }
 }

@@ -12,10 +12,7 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
-
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import org.springframework.http.HttpMethod;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -49,19 +46,11 @@ class UniqueRuntimeComponentTest {
     }
 
     @Test
-    void resolvedRequestMappingsAreUniqueBySpringRequestCondition() {
-        Map<RequestMappingInfo, List<HandlerMethod>> registrations = new LinkedHashMap<>();
-        handlerMapping.getHandlerMethods().forEach((mapping, method) ->
-                registrations.compute(mapping, (ignored, methods) -> methods == null
-                        ? List.of(method)
-                        : append(methods, method)));
-
-        assertThat(registrations).allSatisfy((mapping, methods) ->
-                assertThat(methods).as(mapping.toString()).hasSize(1));
-
-        assertThat(handlerMapping.getHandlerMethods().values())
-                .extracting(HandlerMethod::getBeanType)
-                .contains(AuthController.class, OrderController.class);
+    void resolvedRequestMappingsExposeConcreteManagementRoutes() {
+        assertThat(context.getEnvironment().getProperty("server.servlet.context-path")).isEqualTo("/api");
+        assertResolvedMapping(AuthController.class, HttpMethod.POST, "/auth/login");
+        assertResolvedMapping(OrderController.class, HttpMethod.GET, "/order/page");
+        assertResolvedMapping(OrderController.class, HttpMethod.POST, "/order/create");
     }
 
     @Test
@@ -71,7 +60,13 @@ class UniqueRuntimeComponentTest {
                 .hasSize(1);
     }
 
-    private static List<HandlerMethod> append(List<HandlerMethod> methods, HandlerMethod method) {
-        return java.util.stream.Stream.concat(methods.stream(), java.util.stream.Stream.of(method)).toList();
+    private void assertResolvedMapping(Class<?> controller, HttpMethod httpMethod, String path) {
+        assertThat(handlerMapping.getHandlerMethods().entrySet())
+                .filteredOn(entry -> entry.getValue().getBeanType().equals(controller))
+                .filteredOn(entry -> entry.getKey().getPatternValues().contains(path))
+                .filteredOn(entry -> entry.getKey().getMethodsCondition().getMethods().stream()
+                        .anyMatch(method -> method.name().equals(httpMethod.name())))
+                .as(httpMethod + " " + path + " (servlet context /api is applied separately)")
+                .hasSize(1);
     }
 }
