@@ -3,8 +3,14 @@
 ## Global Teal Theme Contract (2026-07-15)
 
 **Migration status:** The management UI global teal migration is complete at the
-shared-foundation layer. CLI verification is recorded below; browser QA is owned
-by the controller and remains pending.
+shared-foundation layer. CLI verification is recorded in the
+[`management UI README`](../README.md#verification-status).
+
+Controller browser QA passed the recorded contrast and overflow checks for public
+entry screens: Login at 1440x900, 1024x768, and 390x844, plus JoinOrganization
+at 1024x768. Protected business pages remain unapproved: `/function/order`
+redirected to login because no local authenticated session was available and the
+local API surfaced HTTP 502.
 
 ## Canonical Semantic Palette
 

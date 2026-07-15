@@ -12,8 +12,11 @@ Authentication payloads, password behavior, redirects, session storage, scan
 flows, validation, permissions, and responsive structure are unchanged. Status
 and print-color exceptions remain outside this theme contract.
 
-CLI verification is complete. Browser inspection is pending controller-owned QA
-and is not represented here as visual approval.
+Controller browser QA passed the recorded contrast and overflow checks for public
+entry screens: Login at 1440x900, 1024x768, and 390x844, plus JoinOrganization
+at 1024x768. Protected business pages remain unapproved: `/function/order`
+redirected to login because no local authenticated session was available and the
+local API surfaced HTTP 502.
 
 > 状态：Task 8 Element Plus migrated；迁移批次：Batch 2；范围：登录、加入组织、强制改密、法律页、拒绝页、会话 store 与路由守卫。
 
