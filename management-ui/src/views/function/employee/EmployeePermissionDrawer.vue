@@ -122,7 +122,7 @@
                       <span
                           v-if="data.assignable"
                           class="permission-result"
-                          :class="isEffective(data) ? 'is-enabled' : 'is-disabled'"
+                          :class="isEffective(data) ? 'is-enabled' : 'is-inactive'"
                       >
                         {{ isEffective(data) ? '已生效' : '未生效' }}
                       </span>
@@ -386,9 +386,9 @@ defineExpose({ open })
   color: #047857;
 }
 
-.permission-result.is-disabled {
-  background: var(--ys-disabled-bg);
-  color: var(--ys-disabled-text);
+.permission-result.is-inactive {
+  background: #f1f5f9;
+  color: #475569;
 }
 
 :deep(.permission-profile-tree) {

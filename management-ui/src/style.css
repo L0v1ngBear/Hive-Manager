@@ -181,7 +181,6 @@ button[aria-disabled="true"],
 [role="menuitem"][aria-disabled="true"],
 .permission-action-disabled[aria-disabled="true"],
 .is-permission-disabled[aria-disabled="true"],
-.order-detail-disabled[aria-disabled="true"],
 .el-button.is-disabled,
 .el-button[aria-disabled="true"] {
   color: var(--ys-disabled-text) !important;
@@ -191,7 +190,7 @@ button[aria-disabled="true"],
   opacity: 1 !important;
 }
 
-:is(button:disabled, button[aria-disabled="true"], [role="button"][aria-disabled="true"], [role="menuitem"][aria-disabled="true"], .permission-action-disabled[aria-disabled="true"], .is-permission-disabled[aria-disabled="true"], .order-detail-disabled[aria-disabled="true"], .el-button.is-disabled, .el-button[aria-disabled="true"])
+:is(button:disabled, button[aria-disabled="true"], [role="button"][aria-disabled="true"], [role="menuitem"][aria-disabled="true"], .permission-action-disabled[aria-disabled="true"], .is-permission-disabled[aria-disabled="true"], .el-button.is-disabled, .el-button[aria-disabled="true"])
   * {
   color: var(--ys-disabled-text) !important;
 }

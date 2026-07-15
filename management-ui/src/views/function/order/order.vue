@@ -232,17 +232,10 @@
               class="order-table-row group cursor-pointer"
               :class="[
                 orderRowClass(row.status),
-                row.staleWarning ? 'order-row-stale-warning' : '',
-                permissionDisabledClass(!canViewOrderDetail(row)),
-                !canViewOrderDetail(row) ? 'order-detail-disabled' : ''
+                row.staleWarning ? 'order-row-stale-warning' : ''
               ]"
-              role="button"
-              :tabindex="canViewOrderDetail(row) ? 0 : -1"
-              :aria-disabled="!canViewOrderDetail(row)"
               :title="canViewOrderDetail(row) ? '查看订单详情' : '当前账号暂无查看该订单详情权限'"
               @click="openDetail(row.orderId, row)"
-              @keydown.enter.self.prevent="openDetail(row.orderId, row)"
-              @keydown.space.self.prevent="openDetail(row.orderId, row)"
           >
             <td
                 v-for="column in orderTableColumns"
@@ -3735,11 +3728,7 @@ function fulfillmentProcessText(row = {}) {
 }
 
 .permission-action-disabled,
-.permission-action-disabled:hover,
-.order-table-row.permission-action-disabled,
-.order-table-row.permission-action-disabled:hover,
-.order-table-row.order-detail-disabled,
-.order-table-row.order-detail-disabled:hover {
+.permission-action-disabled:hover {
   color: var(--ys-disabled-text) !important;
   border-color: var(--ys-disabled-bg) !important;
   background: var(--ys-disabled-bg) !important;
@@ -3749,7 +3738,7 @@ function fulfillmentProcessText(row = {}) {
   box-shadow: none !important;
 }
 
-:is(.permission-action-disabled, .order-detail-disabled) * {
+.permission-action-disabled * {
   color: var(--ys-disabled-text) !important;
 }
 

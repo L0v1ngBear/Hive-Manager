@@ -45,6 +45,10 @@ RGB compatibility, and Element Plus theme variables.
   must not outrank this shared disabled cascade. Permission directives and named
   permission-disabled state classes use the same contract, and disabled function
   actions do not apply hover or active transforms.
+- Business-status labels are not disabled controls. Inactive employee and
+  permission-result badges use status-specific opaque foregrounds with at least
+  `4.5:1` contrast and status class names that stay outside the disabled-control
+  cascade.
 - Error red, warning amber/yellow/orange, success green, order-stage colors,
   chart palettes, and black/white print-only rules are semantic exceptions and
   are not recolored by the teal migration. Warning surfaces, borders, rings, and

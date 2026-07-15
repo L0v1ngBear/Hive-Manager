@@ -16,6 +16,7 @@ const badProductSource = readSource('views/function/badProduct/badProduct.vue')
 const orderSource = readSource('views/function/order/order.vue')
 const receiptSource = readSource('views/function/receipt.vue')
 const employeePermissionSource = readSource('views/function/employee/EmployeePermissionDrawer.vue')
+const employeeSource = readSource('views/function/employee/employee.vue')
 const sharedThemeFiles = [
   'layout/index.vue',
   'layout/components/Sidebar.vue',
@@ -266,6 +267,26 @@ function alphaPrimaryForegrounds(relativePath, source) {
   return findings
 }
 
+function isInteractiveDisabledSelector(selector) {
+  const enabledPredicatesRemoved = selector.replace(/:not\([^)]*disabled[^)]*\)/gi, '')
+  if (/:disabled\b|\[aria-disabled\s*=\s*["']?true/i.test(enabledPredicatesRemoved)) return true
+  if (/\.is-permission-disabled\b/i.test(enabledPredicatesRemoved)) return true
+
+  const classNames = [...enabledPredicatesRemoved.matchAll(/\.([\w-]+)/g)].map((match) => match[1])
+  const namesControl = (className) => /(?:action|button|btn|control|menu-item|trigger|upload)/i.test(className)
+  const explicitControlState = classNames.some((className) => (
+    /disabled/i.test(className) && namesControl(className)
+  ))
+  const pairedControlState = classNames.some((className) => /^is-disabled$/i.test(className))
+    && classNames.some(namesControl)
+  const disabledInteractiveElement = (
+    /(?:^|[\s>,+~])(?:button|input|select|textarea|a)\b[^,{]*\.(?:disabled|is-disabled)\b/i.test(enabledPredicatesRemoved)
+    || /\[role\s*=\s*["']?(?:button|menuitem)["']?\][^,{]*\.(?:disabled|is-disabled)\b/i.test(enabledPredicatesRemoved)
+  )
+
+  return explicitControlState || pairedControlState || disabledInteractiveElement
+}
+
 function disabledRuleViolations(relativePath, source) {
   const violations = []
   const styleBlocks = relativePath.endsWith('.vue')
@@ -274,9 +295,7 @@ function disabledRuleViolations(relativePath, source) {
 
   for (const styleBlock of styleBlocks) {
     for (const rule of cssRules(styleBlock)) {
-      const selector = rule.selector
-        .replace(/:not\([^)]*disabled[^)]*\)/gi, '')
-      if (!/disabled/i.test(selector)) continue
+      if (!isInteractiveDisabledSelector(rule.selector)) continue
 
       for (const opacity of rule.declarations.matchAll(/(?:^|;)\s*opacity:\s*([.\d]+)/g)) {
         if (Number(opacity[1]) < 1) {
@@ -419,18 +438,38 @@ test('alpha-primary foreground scanner covers fill, stroke, utilities, and attri
   }
 })
 
-test('disabled selector audit recognizes named state classes', () => {
-  const fixture = `
+test('disabled selector audit recognizes controls without classifying status labels', () => {
+  const controlFixture = `
     .permission-action-disabled {
       color: rgba(100, 116, 139, 0.5);
       background: rgba(226, 232, 240, 0.45);
       opacity: 0.55;
     }
+    .disabled-control {
+      color: #b45309;
+    }
+    button.disabled {
+      background: #dcfce7;
+    }
   `
-  const violations = disabledRuleViolations('fixture.css', fixture)
+  const statusFixture = `
+    .employee-disabled-status {
+      color: #475569;
+      background: #f1f5f9;
+      opacity: 0.75;
+    }
+    .permission-result.is-disabled {
+      color: #475569;
+      background: #f1f5f9;
+    }
+  `
+  const violations = disabledRuleViolations('fixture.css', controlFixture)
   assert.ok(violations.some((item) => item.includes('opacity 0.55')))
   assert.ok(violations.some((item) => item.includes('non-neutral color')))
   assert.ok(violations.some((item) => item.includes('non-neutral background')))
+  assert.ok(violations.some((item) => item.includes('.disabled-control')))
+  assert.ok(violations.some((item) => item.includes('button.disabled')))
+  assert.deepEqual(disabledRuleViolations('fixture.css', statusFixture), [])
 })
 
 test('global theme exposes the approved teal semantic tokens', () => {
@@ -547,6 +586,27 @@ test('small foregrounds use opaque semantic colors with AA contrast', () => {
   assertNormalTextContrast('#ccfbf1', '#020617', 'security check label')
 })
 
+test('employee inactive badges retain accessible business-status semantics', () => {
+  assert.match(employeePermissionSource, /isEffective\(data\) \? 'is-enabled' : 'is-inactive'/)
+  const permissionBadge = cssRule(vueStyle(employeePermissionSource), '.permission-result.is-inactive')
+  assert.match(permissionBadge.declarations, /background:\s*#f1f5f9/)
+  assert.match(permissionBadge.declarations, /color:\s*#475569/)
+  assert.doesNotMatch(permissionBadge.declarations, /--ys-disabled/)
+
+  assert.match(employeeSource, /Number\(node\.\$\$data\?\.status\) === 1 \? 'enabled' : 'inactive'/)
+  for (const [selector, background] of [
+    ['.org-chart-status.inactive', '#e2e8f0'],
+    ['.org-chart-card.root .org-chart-status.inactive', '#f1f5f9']
+  ]) {
+    const statusBadge = cssRule(vueStyle(employeeSource), selector)
+    assert.match(statusBadge.declarations, new RegExp(`background:\\s*${background}`))
+    assert.match(statusBadge.declarations, /color:\s*#475569/)
+    assert.doesNotMatch(statusBadge.declarations, /--ys-disabled/)
+    assertNormalTextContrast('#475569', background, selector)
+  }
+  assertNormalTextContrast('#475569', '#f1f5f9', 'permission inactive badge')
+})
+
 test('management source has no semantic alpha-primary foregrounds', () => {
   const findings = []
   for (const filePath of listSourceFiles()) {
@@ -617,12 +677,11 @@ test('all native and aria-disabled button-like controls use the shared neutral c
     [role="menuitem"][aria-disabled="true"],
     .permission-action-disabled[aria-disabled="true"],
     .is-permission-disabled[aria-disabled="true"],
-    .order-detail-disabled[aria-disabled="true"],
     .el-button.is-disabled,
     .el-button[aria-disabled="true"]
   `)
   const genericDisabledDescendantRule = cssRule(styleSource, `
-    :is(button:disabled, button[aria-disabled="true"], [role="button"][aria-disabled="true"], [role="menuitem"][aria-disabled="true"], .permission-action-disabled[aria-disabled="true"], .is-permission-disabled[aria-disabled="true"], .order-detail-disabled[aria-disabled="true"], .el-button.is-disabled, .el-button[aria-disabled="true"])
+    :is(button:disabled, button[aria-disabled="true"], [role="button"][aria-disabled="true"], [role="menuitem"][aria-disabled="true"], .permission-action-disabled[aria-disabled="true"], .is-permission-disabled[aria-disabled="true"], .el-button.is-disabled, .el-button[aria-disabled="true"])
       *
   `)
 
@@ -671,29 +730,34 @@ test('all native and aria-disabled button-like controls use the shared neutral c
   )
 })
 
-test('permission-disabled representations expose semantics and neutral local precedence', () => {
-  const rowClassIndex = orderSource.indexOf('permissionDisabledClass(!canViewOrderDetail(row))')
+test('order rows preserve table semantics while permission-disabled controls stay neutral', () => {
+  const rowClassIndex = orderSource.indexOf('v-for="row in visibleOrderRows"')
   const rowStart = orderSource.lastIndexOf('<tr', rowClassIndex)
   const rowEnd = orderSource.indexOf('>', rowClassIndex)
   const rowTag = orderSource.slice(rowStart, rowEnd + 1)
 
-  assert.match(rowTag, /role="button"/)
-  assert.match(rowTag, /:tabindex="canViewOrderDetail\(row\) \? 0 : -1"/)
-  assert.match(rowTag, /:aria-disabled="!canViewOrderDetail\(row\)"/)
-  assert.match(rowTag, /@keydown\.enter\.self\.prevent=/)
-  assert.match(rowTag, /@keydown\.space\.self\.prevent=/)
+  assert.match(rowTag, /@click="openDetail\(row\.orderId, row\)"/)
+  assert.doesNotMatch(rowTag, /role="button"/)
+  assert.doesNotMatch(rowTag, /\btabindex=/)
+  assert.doesNotMatch(rowTag, /\baria-disabled=/)
+  assert.doesNotMatch(rowTag, /@keydown/)
+  assert.doesNotMatch(rowTag, /permissionDisabledClass|order-detail-disabled/)
+
+  const detailClassIndex = orderSource.indexOf(':disabled="!canViewOrderDetail(row)"', rowEnd)
+  const detailButtonStart = orderSource.lastIndexOf('<el-button', detailClassIndex)
+  const detailButtonEnd = orderSource.indexOf('>', detailClassIndex)
+  const detailButton = orderSource.slice(detailButtonStart, detailButtonEnd + 1)
+  assert.match(detailButton, /:class="permissionDisabledClass\(!canViewOrderDetail\(row\)\)"/)
+  assert.match(detailButton, /:disabled="!canViewOrderDetail\(row\)"/)
+  assert.match(detailButton, /@click\.stop="openDetail\(row\.orderId, row\)"/)
 
   const localDisabledRule = cssRule(vueStyle(orderSource), `
     .permission-action-disabled,
-    .permission-action-disabled:hover,
-    .order-table-row.permission-action-disabled,
-    .order-table-row.permission-action-disabled:hover,
-    .order-table-row.order-detail-disabled,
-    .order-table-row.order-detail-disabled:hover
+    .permission-action-disabled:hover
   `)
   const localDescendantRule = cssRule(
     vueStyle(orderSource),
-    ':is(.permission-action-disabled, .order-detail-disabled) *'
+    '.permission-action-disabled *'
   )
   for (const declaration of [
     /color:\s*var\(--ys-disabled-text\)\s*!important/,
@@ -707,7 +771,8 @@ test('permission-disabled representations expose semantics and neutral local pre
   }
   assert.match(localDescendantRule.declarations, /color:\s*var\(--ys-disabled-text\)\s*!important/)
 
-  assert.match(permissionDirectiveSource, /classList\.add\('is-permission-disabled'\)/)
+  assert.match(permissionDirectiveSource, /createPermissionDirectiveLifecycle/)
+  assert.doesNotMatch(permissionDirectiveSource, /el\.disabled\s*=/)
   assert.doesNotMatch(permissionDirectiveSource, /el\.style\.(?:opacity|filter)\s*=/)
 })
 
@@ -758,7 +823,6 @@ test('primary controls expose non-disabled hover and active feedback before disa
     [role="menuitem"][aria-disabled="true"],
     .permission-action-disabled[aria-disabled="true"],
     .is-permission-disabled[aria-disabled="true"],
-    .order-detail-disabled[aria-disabled="true"],
     .el-button.is-disabled,
     .el-button[aria-disabled="true"]
   `)

@@ -320,7 +320,7 @@ Output:
                         {{ node.$$data?.departmentName || '未分配部门' }} · {{ node.$$data?.positionName || '未设置职位' }}
                       </p>
                     </div>
-                    <span :class="['org-chart-status', Number(node.$$data?.status) === 1 ? 'enabled' : 'disabled']">
+                    <span :class="['org-chart-status', Number(node.$$data?.status) === 1 ? 'enabled' : 'inactive']">
                       {{ employeeStatusLabel(node.$$data?.status) }}
                     </span>
                   </div>
@@ -897,9 +897,9 @@ watch(
   color: rgb(4, 120, 87);
 }
 
-.org-chart-status.disabled {
-  background: var(--ys-disabled-bg);
-  color: var(--ys-disabled-text);
+.org-chart-status.inactive {
+  background: #e2e8f0;
+  color: #475569;
 }
 
 .org-chart-card.root .org-chart-status {
@@ -907,9 +907,9 @@ watch(
   color: white;
 }
 
-.org-chart-card.root .org-chart-status.disabled {
-  background: var(--ys-disabled-bg);
-  color: var(--ys-disabled-text);
+.org-chart-card.root .org-chart-status.inactive {
+  background: #f1f5f9;
+  color: #475569;
 }
 
 :deep(.zm-tree-org) {
