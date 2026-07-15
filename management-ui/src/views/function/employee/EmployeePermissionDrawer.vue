@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.4 seconds
-Output:
 <template>
   <transition
       enter-active-class="transition-opacity duration-300"
@@ -171,8 +168,8 @@ Output:
 </template>
 
 <script setup>
+import { ElButton, ElEmpty, ElInput, ElTree, ElSegmented, ElMessage } from 'element-plus'
 import { computed, nextTick, reactive, ref } from 'vue'
-import { ElButton, ElEmpty, ElMessage } from 'element-plus'
 import { createLatestRequest } from '@/utils/latestRequest'
 import {
   getEmployeePermissionProfile,

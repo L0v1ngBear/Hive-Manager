@@ -31,7 +31,7 @@ test('orders use informationChannel everywhere instead of delivery dates', () =>
   assert.match(orderSource, /row\.informationChannel/)
   assert.match(orderSource, /orderDetail\.informationChannel/)
   assert.match(orderSource, /filters\.informationChannel \|\| undefined/)
-  assert.match(orderSource, /if \(key === 'informationChannel'\) return \[row\.informationChannel/)
+  assert.match(orderSource, /if \(key === 'informationChannel'\) return row\.informationChannel \|\| ''/)
   assert.doesNotMatch(orderSource, /deliveryDate|deliveryStart|deliveryEnd|toDateInput/)
 })
 
@@ -48,7 +48,11 @@ test('drawing budget completion is a separately selectable terminal status', () 
   assert.match(orderSource, /key: 'drawing-budget-completed',[\s\S]*status: 'budget_completed'/)
   assert.match(orderSource, /isDrawingBudgetTerminal\(row\)/)
   assert.match(orderSource, /isDrawingBudgetTerminal\(orderForm\)/)
-  assert.match(orderSource, /if \(!canEditOrder\(detail\)\)/)
+  assert.match(
+    orderSource,
+    /const canEditDetail = intent\?\.targetStatus \? canAdvanceOrder\(detail\) : canEditOrder\(detail\)/
+  )
+  assert.match(orderSource, /if \(!canEditDetail\)/)
 })
 
 test('advance intent saves the current status before attempting the next-stage request', () => {
@@ -67,6 +71,30 @@ test('advance intent saves the current status before attempting the next-stage r
     'the order must save before it advances'
   )
   assert.match(submitSource, /订单已保存，流转未完成，请重试/)
+})
+
+test('order list replaces remark with the form logistics tracking number', () => {
+  const informationChannelCell = sourceBetween(
+    orderSource,
+    `<template v-else-if="column.key === 'informationChannel'">`,
+    `<template v-else-if="column.key === 'invoice'">`
+  )
+  const exportSource = functionSource(orderSource, 'formatOrderExportCell', 'openDetail')
+
+  assert.match(orderSource, /\{key: 'expressNo', label: '物流单号'\}/)
+  assert.doesNotMatch(orderSource, /\{key: 'remark', label: '备注'\}/)
+  assert.match(orderSource, /column\.key === 'expressNo'[\s\S]*row\.expressNo \|\| '未填写物流单号'/)
+  assert.match(informationChannelCell, /row\.informationChannel \|\| '未填写信息渠道'/)
+  assert.doesNotMatch(informationChannelCell, /row\.(?:expressCompany|expressNo)/)
+  assert.match(exportSource, /if \(key === 'expressNo'\) return row\.expressNo \|\| ''/)
+  assert.doesNotMatch(exportSource, /key === 'remark'/)
+  assert.match(orderSource, /class="order-information-channel-cell text-sm text-on-surface-variant"/)
+  assert.match(orderSource, /\.order-column-informationChannel\s*\{[\s\S]*?min-width:\s*11rem/)
+  assert.match(orderSource, /\.order-column-expressNo\s*\{[\s\S]*?min-width:\s*11rem/)
+  assert.match(orderSource, /\.order-information-channel-cell\s*\{[\s\S]*?overflow-wrap:\s*anywhere/)
+  assert.match(orderSource, /\.order-express-number-cell\s*\{[\s\S]*?overflow-wrap:\s*anywhere/)
+  assert.match(orderSource, /\.order-list-table\.responsive-data-table\s*\{[\s\S]*?table-layout:\s*auto/)
+  assert.match(orderSource, /useLocalTableColumns\('order\.list\.commercial\.v4'/)
 })
 
 test('shipping advance requires logistics fields within the edit dialog', () => {

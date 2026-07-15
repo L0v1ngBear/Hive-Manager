@@ -97,7 +97,7 @@ public class DashboardService {
         visibility.setInventoryVisible(hasAnyPermission("inventory:list", "inventory:warning:list", "inventory:trend"));
         visibility.setApprovalVisible(hasAnyPermission("approval:list", "approval:leave:list", "approval:leave:audit",
                 "approval:finance:list", "approval:finance:audit", "approval:resignation:list", "approval:resignation:audit",
-                "order:audit:shipment", "order:audit:cancel", "quality:audit"));
+                "order:audit:material", "order:audit:shipment", "order:audit:cancel", "quality:audit"));
         visibility.setReceiptVisible(hasAnyPermission("print:receipt:list", "print:receipt:detail",
                 "print:receipt:execute", "print:receipt:update", "print:receipt:cancel"));
         visibility.setAttendanceVisible(hasAnyPermission("employee:list", "attendance:record:list"));

@@ -40,8 +40,6 @@ public class SalesOrderPageVO {
 
     private String creator;
 
-    private String remark;
-
     private String attachmentName;
 
     private String attachmentUrl;

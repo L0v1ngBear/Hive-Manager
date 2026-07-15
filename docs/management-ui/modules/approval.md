@@ -45,11 +45,12 @@
 | `list/get/auditQualityApproval`     | GET/POST `/approval/quality/*`              | `quality:process`             |
 | `listOrderApprovals`                | GET `/approval/order/list`                  | `order:list`                  |
 | `getOrderApprovalDetail`            | GET `/approval/order/{type}/{id}`           | `order:detail`                |
-| `auditOrderApproval`                | POST `/approval/order/audit`                | `approval:order:audit`        |
+| `auditOrderApproval`                | POST `/approval/order/audit`                | 控制器 `approval:list`；服务按订单阶段校验精确审核权限 |
 
 ## 权限/feature
 
 - `ApprovalController` 整体受 `module.approval` 约束。
+- 订单审批列表入口要求 `approval:list`；服务层再按订单阶段要求 `order:audit:material`、`order:audit:shipment`、`order:audit:cancel` 或 `order:audit:rollback`，旧 `approval:order:audit` 已停用。
 - 前端标签权限：订单 `order:list`；质量 `quality:process`；财务为列表/提交/审核并集；请假为 `approval:leave`；离职为列表/提交/审核并集。
 - 列表加载另按各标签的 `listPermission` 判断；提交账号可进入财务/离职标签但不会请求无权列表。
 - 审批按钮同时检查类型审核权限和后端返回的 `canAudit`/审核人 ID。
@@ -70,7 +71,8 @@
 7. 财务/离职提交生成审批编号，成功后切换相应标签并刷新列表。
 8. 默认审核人保存后刷新配置；具体申请仍可提交显式审核人集合。
 9. 多审核人审批写入 `approval_auditor_candidate`；服务在同一事务内锁定候选集合、原子记录当前审核人的决定，再返回 `PENDING/APPROVED/REJECTED` 汇总结果。只有全部通过才执行领域推进，任一驳回立即关闭本次候选集合。
-10. 订单 `pending_pay -> pending_material` 与 `pending_ship -> shipped` 均走订单审批；驳回时保持原订单状态，仅结束本次审批，不误推进业务单据。
+10. 创建/保存待收款订单不会创建审批候选；只有显式执行 `pending_pay -> pending_material` 才创建备料审批。`pending_ship -> shipped` 继续走发货审批；驳回时保持原订单状态。
+11. 审批中心订单列表只展示存在有效候选的记录；GET 列表和详情不补建候选、不产生写操作。
 
 ## 空错态
 

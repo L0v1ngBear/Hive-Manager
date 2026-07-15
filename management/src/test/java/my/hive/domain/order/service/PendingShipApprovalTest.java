@@ -27,12 +27,14 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -67,7 +69,7 @@ class PendingShipApprovalTest {
 
     @BeforeEach
     void setUp() {
-        TenantPermissionContext.init("tenant-a", 1L, Set.of("order:status:budgeting:view", "order:status:budget-completed:view", "order:status:pending-confirm:view", "order:status:pending-pay:view", "order:status:pending-material:view", "order:status:producing:view", "order:status:pending-ship:view", "order:status:shipped:view", "order:status:completed:view", "order:status:pending-cancel:view", "order:status:cancelled:view", "order:status:budgeting:advance", "order:status:budgeting:cancel", "order:status:pending-confirm:advance", "order:status:pending-confirm:cancel", "order:status:pending-pay:advance", "order:status:pending-pay:rollback", "order:status:pending-pay:cancel", "order:status:pending-material:advance", "order:status:pending-material:rollback", "order:status:pending-material:cancel", "order:status:producing:advance", "order:status:producing:rollback", "order:status:producing:cancel", "order:status:pending-ship:advance", "order:status:pending-ship:rollback", "order:status:pending-ship:cancel", "order:status:shipped:advance", "order:status:shipped:rollback", "order:status:shipped:cancel", "order:status:completed:rollback", "order:audit:shipment", "order:audit:cancel"));
+        TenantPermissionContext.init("tenant-a", 1L, Set.of("order:status:budgeting:view", "order:status:budget-completed:view", "order:status:pending-confirm:view", "order:status:pending-pay:view", "order:status:pending-material:view", "order:status:producing:view", "order:status:pending-ship:view", "order:status:shipped:view", "order:status:completed:view", "order:status:pending-cancel:view", "order:status:cancelled:view", "order:status:budgeting:advance", "order:status:budgeting:cancel", "order:status:pending-confirm:advance", "order:status:pending-confirm:cancel", "order:status:pending-pay:advance", "order:status:pending-pay:rollback", "order:status:pending-pay:cancel", "order:status:pending-material:advance", "order:status:pending-material:rollback", "order:status:pending-material:cancel", "order:status:producing:advance", "order:status:producing:rollback", "order:status:producing:cancel", "order:status:pending-ship:advance", "order:status:pending-ship:rollback", "order:status:pending-ship:cancel", "order:status:shipped:advance", "order:status:shipped:rollback", "order:status:shipped:cancel", "order:status:completed:rollback", "order:audit:material", "order:audit:shipment", "order:audit:cancel"));
         subject = new OrderService();
         ReflectionTestUtils.setField(subject, "salesOrderMapper", salesOrderMapper);
         ReflectionTestUtils.setField(subject, "salesOrderStatusLogMapper", salesOrderStatusLogMapper);
@@ -95,7 +97,6 @@ class PendingShipApprovalTest {
         assertEquals("SF Express", order.getExpressCompany());
         assertEquals("SF-100", order.getExpressNo());
         assertEquals("WeChat", order.getInformationChannel());
-        assertEquals("ready to ship", order.getRemark());
         verify(salesOrderMapper).updateById(order);
         verify(approvalAuditorCandidateService).replaceActiveCandidates(
                 "tenant-a", "ORDER", "sales:SO-100", List.of(2L));
@@ -104,6 +105,7 @@ class PendingShipApprovalTest {
         assertEquals("pending_ship", logCaptor.getValue().getOldStatus());
         assertEquals("shipped", logCaptor.getValue().getNewStatus());
         assertEquals("approval_pending", logCaptor.getValue().getOperateType());
+        assertEquals("ready to ship", logCaptor.getValue().getRemark());
     }
 
     @Test
@@ -122,11 +124,29 @@ class PendingShipApprovalTest {
         assertEquals("Original carrier", order.getExpressCompany());
         assertEquals("OLD-100", order.getExpressNo());
         assertEquals(0, order.getIsInvoice());
-        assertEquals("payment approval submitted", order.getRemark());
-        verify(salesOrderMapper).updateById(order);
+        verify(salesOrderMapper, never()).updateById(order);
         verify(approvalAuditorCandidateService).replaceActiveCandidates(
                 "tenant-a", "ORDER", "sales:SO-100", List.of(2L));
-        verify(salesOrderStatusLogMapper, never()).insert(any());
+        verify(employeeMapper).selectActiveApproverIdsByPermission("tenant-a", "order:audit:material");
+        ArgumentCaptor<SalesOrderStatusLog> logCaptor = ArgumentCaptor.forClass(SalesOrderStatusLog.class);
+        verify(salesOrderStatusLogMapper).insert(logCaptor.capture());
+        assertEquals("pending_pay", logCaptor.getValue().getOldStatus());
+        assertEquals("pending_material", logCaptor.getValue().getNewStatus());
+        assertEquals("approval_pending", logCaptor.getValue().getOperateType());
+        assertEquals("payment approval submitted", logCaptor.getValue().getRemark());
+    }
+
+    @Test
+    void pendingPayOrderWithoutApprovalCandidateIsHiddenFromApprovalCenter() {
+        ApprovalService approvalService = approvalServiceFor(pendingPayOrder());
+        when(salesOrderMapper.selectList(any())).thenReturn(List.of(pendingPayOrder()));
+        when(productionOrderMapper.selectList(any())).thenReturn(List.of());
+        when(approvalAuditorCandidateService.findActiveAuditorIds(
+                "tenant-a", "ORDER", "sales:SO-100")).thenReturn(List.of());
+        when(approvalAuditorCandidateService.findPendingApprovalCodes(
+                "tenant-a", "ORDER", 1L)).thenReturn(List.of());
+
+        assertTrue(approvalService.listOrderApprovals(20).isEmpty());
     }
 
     @Test
@@ -258,7 +278,7 @@ class PendingShipApprovalTest {
     @Test
     void completedDrawingBudgetCannotEnterCancellationReview() {
         SalesOrder order = completedDrawingBudgetOrder();
-        when(salesOrderMapper.selectOne(any())).thenReturn(order);
+        lenient().when(salesOrderMapper.selectOne(any())).thenReturn(order);
         SalesOrderUpdateRequest request = new SalesOrderUpdateRequest();
         request.setStatus("pending_cancel");
 
@@ -271,7 +291,7 @@ class PendingShipApprovalTest {
     @Test
     void completedDrawingBudgetCannotSubmitRollbackApproval() {
         SalesOrder order = completedDrawingBudgetOrder();
-        when(salesOrderMapper.selectOne(any())).thenReturn(order);
+        lenient().when(salesOrderMapper.selectOne(any())).thenReturn(order);
         SalesOrderUpdateRequest request = new SalesOrderUpdateRequest();
         request.setAuditorIds(List.of(2L));
 
@@ -320,10 +340,10 @@ class PendingShipApprovalTest {
         ReflectionTestUtils.setField(approvalService, "orderService", orderService);
         ReflectionTestUtils.setField(approvalService, "approvalAuditorCandidateService", approvalAuditorCandidateService);
         ReflectionTestUtils.setField(approvalService, "approvalDefaultAuditorService", approvalDefaultAuditorService);
-        when(salesOrderMapper.selectOne(any())).thenReturn(order);
-        when(approvalAuditorCandidateService.findActiveAuditorIds("tenant-a", "ORDER", "sales:SO-100"))
+        lenient().when(salesOrderMapper.selectOne(any())).thenReturn(order);
+        lenient().when(approvalAuditorCandidateService.findActiveAuditorIds("tenant-a", "ORDER", "sales:SO-100"))
                 .thenReturn(List.of(1L, 2L));
-        when(approvalAuditorCandidateService.isPendingAuditor("tenant-a", "ORDER", "sales:SO-100", 1L))
+        lenient().when(approvalAuditorCandidateService.isPendingAuditor("tenant-a", "ORDER", "sales:SO-100", 1L))
                 .thenReturn(true);
         return approvalService;
     }
@@ -335,10 +355,10 @@ class PendingShipApprovalTest {
         ReflectionTestUtils.setField(approvalService, "orderService", orderService);
         ReflectionTestUtils.setField(approvalService, "approvalAuditorCandidateService", approvalAuditorCandidateService);
         ReflectionTestUtils.setField(approvalService, "approvalDefaultAuditorService", approvalDefaultAuditorService);
-        when(productionOrderMapper.selectOne(any())).thenReturn(order);
-        when(approvalAuditorCandidateService.findActiveAuditorIds("tenant-a", "ORDER", "production:PO-100"))
+        lenient().when(productionOrderMapper.selectOne(any())).thenReturn(order);
+        lenient().when(approvalAuditorCandidateService.findActiveAuditorIds("tenant-a", "ORDER", "production:PO-100"))
                 .thenReturn(List.of(1L, 2L));
-        when(approvalAuditorCandidateService.isPendingAuditor("tenant-a", "ORDER", "production:PO-100", 1L))
+        lenient().when(approvalAuditorCandidateService.isPendingAuditor("tenant-a", "ORDER", "production:PO-100", 1L))
                 .thenReturn(true);
         return approvalService;
     }
@@ -378,7 +398,6 @@ class PendingShipApprovalTest {
         order.setExpressCompany("Original carrier");
         order.setExpressNo("OLD-100");
         order.setIsInvoice(0);
-        order.setRemark("original remark");
         return order;
     }
 

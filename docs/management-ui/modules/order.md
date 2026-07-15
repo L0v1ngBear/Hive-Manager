@@ -21,7 +21,8 @@
 - 查看分页订单表；点击行或“查看”图标打开订单详情。
 - 查看订单明细、附件、物流、开票、流转码和状态流转日志。
 - 新建订单；客户与项目可从客户选项联动，也允许录入新值。
-- 编辑订单主体、明细、状态、物流、开票、备注、业务时间和附件。
+- 编辑订单主体、明细、状态、物流、开票、业务时间和附件。
+- 订单备注使用独立多记录：可新增、可修改，不允许删除；每条显示最后修改人和最后修改时间。
 - 按当前订单阶段权限执行推进、回退审批和流转码补打。
 - 配置分订单小项的未更新预警天数，并支持全量或单条重新计算。
 - 调整表格列顺序，恢复默认，并导出当前页或当前筛选的全部数据。
@@ -31,31 +32,30 @@
 
 | 封装函数                   | HTTP | 路径                             | 用途                         |
 | -------------------------- | ---- | -------------------------------- | ---------------------------- |
-| getOrderPage               | GET  | /order/page                      | 分页查询与全量导出取数       |
-| getOrderStatusSummary      | GET  | /order/status-summary            | 状态、小项和开票统计         |
-| getOrderDetail             | GET  | /order/detail/{orderId}          | 详情、编辑回填、日志刷新     |
-| createOrder                | POST | /order/create                    | 新建订单                     |
-| uploadOrderAttachment      | POST | /order/attachment/upload         | 上传订单附件，30 秒超时      |
-| downloadOrderAttachment    | GET  | /order/attachment/download       | 下载附件 Blob，30 秒超时     |
-| saveOrder                  | POST | /order/save/{orderId}            | 保存编辑后的订单             |
-| updateOrder                | POST | /order/update/{orderId}          | 通用更新封装；当前页面未调用 |
-| advanceOrderNextStage      | POST | /order/next/{orderId}            | 推进到下一阶段或提交关键审批 |
-| submitOrderRollback        | POST | /order/rollback/{orderId}        | 提交回退审批                 |
-| createOrderFlowPrintTask   | POST | /order/flow-print-task           | 创建流转码补打任务           |
-| correctOrderLogTime        | POST | /order/log/{logId}/time          | 修正状态日志时间             |
-| getOrderWarningSetting     | GET  | /order/warning/setting           | 读取预警阈值                 |
-| updateOrderWarningSetting  | POST | /order/warning/setting           | 保存预警阈值                 |
-| getOrderWarningSummary     | GET  | /order/warning/summary           | 读取预警统计                 |
-| refreshOrderWarningSummary | POST | /order/warning/refresh           | 刷新摘要封装；当前页面未调用 |
-| refreshOrderWarnings       | POST | /order/warning/refresh-all       | 重算全部订单预警             |
-| refreshOrderWarning        | POST | /order/warning/{orderId}/refresh | 重算单条订单预警             |
-| checkOrderModuleHealth     | GET  | /order/health                    | 健康检查封装；当前页面未调用 |
+| getOrderPage               | GET  | /orders                           | 分页查询与全量导出取数       |
+| getOrderStatusSummary      | GET  | /orders/status-summary            | 状态、小项和开票统计         |
+| getOrderDetail             | GET  | /orders/{orderId}                 | 详情、编辑回填、备注与日志刷新 |
+| createOrder                | POST | /orders                           | 新建订单并保存备注           |
+| uploadOrderAttachment      | POST | /orders/attachment                | 上传订单附件，30 秒超时      |
+| downloadOrderAttachment    | GET  | /orders/attachment                | 下载附件 Blob，30 秒超时     |
+| saveOrder                  | PUT  | /orders/{orderId}                 | 保存订单及新增/修改备注      |
+| advanceOrderNextStage      | POST | /orders/{orderId}/advance         | 推进到下一阶段或提交关键审批 |
+| submitOrderRollback        | POST | /orders/{orderId}/rollback        | 提交回退审批                 |
+| createOrderFlowPrintTask   | POST | /orders/flow-print-task           | 创建流转码补打任务           |
+| correctOrderLogTime        | POST | /orders/status-log/{logId}/time   | 修正状态日志时间             |
+| getOrderWarningSetting     | GET  | /orders/warning/setting           | 读取预警阈值                 |
+| updateOrderWarningSetting  | POST | /orders/warning/setting           | 保存预警阈值                 |
+| getOrderWarningSummary     | GET  | /orders/warning/summary           | 读取预警统计                 |
+| refreshOrderWarningSummary | POST | /orders/warning/refresh           | 刷新预警摘要                 |
+| refreshOrderWarnings       | POST | /orders/warning/refresh-all       | 重算全部订单预警             |
+| refreshOrderWarning        | POST | /orders/warning/{orderId}/refresh | 重算单条订单预警             |
 
 ## 权限与 feature
 
 - 页面和侧栏以 module.order 与 order:list 控制入口；路由权限数组按“任一满足”判断。
 - 新建按钮要求 order:\* 或 order:create。
-- 编辑、保存、推进、回退和流转码补打按订单当前状态检查 order:\* 或 order:status:{kebab-status}。
+- 编辑和保存要求 `order:update`，推进、回退与订单阶段动作还要求对应的精确状态操作权限。
+- 备注内容按 `order:note:view` 控制可见；新增要求 `order:note:create`，修改要求 `order:note:update`，并同时要求 `order:update`。无查看权限时前端不渲染内容，后端也不返回备注。
 - 下划线状态会转为连字符权限码，例如 pending_confirm 对应 order:status:pending-confirm。
 - 预警设置按钮使用 v-permission=order:warning:setting。
 - 后端详情要求 order:detail；附件上传要求 order:create；附件下载要求 order:detail。
@@ -69,10 +69,10 @@
 - 列表请求参数由 filters 与 page/size 组成；查询和卡片切换会回到第 1 页。
 - 默认普通流程：pending_confirm → pending_pay → pending_material → producing → pending_ship → shipped → completed。
 - 图纸预算流程：budgeting → budget_completed。
-- pending_pay 推进到 pending_material 时提交订单审批，不直接完成阶段切换。
+- 创建或保存 `pending_pay` 不创建审批。只有用户执行 `pending_pay -> pending_material` 推进时才创建备料审批候选；审批通过后进入备料中，拒绝后保持待收款。
 - 回退动作提交审批；特殊订单创建固定从 pending_confirm 进入审核语义。
 - 推进到 shipped 前要求物流公司和物流单号；编辑保存也执行同样前端校验。
-- 动态列默认 7 列：编号、客户/项目、订单信息、备注、状态、进度、时间。
+- 动态列默认 8 列：编号、客户/项目、订单信息、信息渠道、物流单号、状态、进度、时间。
 - 列顺序以 hive.table.columns.order.list.commercial.v3 存在 localStorage；当前实现只排序，不隐藏列。
 - 当前页导出读取 DOM；全部导出按当前筛选重新请求，最多 2000 条，并严格使用当前动态列顺序。
 
@@ -114,6 +114,8 @@
 ## 验证清单
 
 - [ ] order:list、order:detail、order:create、order:warning:setting 与各 order:status:\* 组合逐一验证。
+- [ ] `order:note:view/create/update` 分别验证可见、新增、修改和无删除入口；并发版本冲突不得覆盖他人内容。
+- [ ] 新建待收款无审批，推进备料才生成 `order:audit:material` 审批候选。
 - [ ] 普通流程、图纸预算、特殊订单、推进审批和回退审批不变。
 - [ ] shipped 的物流校验、附件上传下载与日志时间修正通过。
 - [ ] 筛选、卡片、路由关键字、分页和统计刷新一致。

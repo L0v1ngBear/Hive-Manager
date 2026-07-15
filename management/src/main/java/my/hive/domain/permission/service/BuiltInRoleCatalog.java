@@ -203,6 +203,16 @@ public class BuiltInRoleCatalog {
     private RoleDefinition employeeRole(String code, String name, String... permissions) {
         LinkedHashSet<String> result = new LinkedHashSet<>(employeeBaseline);
         Collections.addAll(result, permissions);
+        if (result.contains(PermissionCatalogV3.CODE_ORDER_DETAIL)) {
+            result.add(PermissionCatalogV3.CODE_ORDER_NOTE_VIEW);
+        }
+        if (result.contains(PermissionCatalogV3.CODE_ORDER_UPDATE)) {
+            result.add(PermissionCatalogV3.CODE_ORDER_NOTE_CREATE);
+            result.add(PermissionCatalogV3.CODE_ORDER_NOTE_UPDATE);
+        }
+        if ("APPROVAL_MANAGER".equals(code)) {
+            result.add(PermissionCatalogV3.CODE_ORDER_AUDIT_MATERIAL);
+        }
         return new RoleDefinition(code, name, result, false);
     }
 

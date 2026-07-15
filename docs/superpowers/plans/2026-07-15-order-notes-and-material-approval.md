@@ -576,8 +576,7 @@ git commit -m "test: enforce order note and material approval contracts"
 ### Task 8: Build and Refresh the Deployment Package
 
 **Files:**
-- Replace: `C:/Users/HUAWEI/Desktop/hive部署_全新配置/management-backend/management-0.0.1-SNAPSHOT.jar`
-- Replace: `C:/Users/HUAWEI/Desktop/hive部署_全新配置/backend/Hive_Back-0.0.1-SNAPSHOT.jar`
+- Replace: `C:/Users/HUAWEI/Desktop/hive部署_全新配置/backend/hive-backend.jar`
 - Replace: `C:/Users/HUAWEI/Desktop/hive部署_全新配置/management-ui/dist/`
 - Modify: `C:/Users/HUAWEI/Desktop/hive部署_全新配置/RELEASE_BUILD_INFO.txt`
 
@@ -588,8 +587,6 @@ git commit -m "test: enforce order note and material approval contracts"
 
 ```powershell
 cd D:\HiveManager\management
-mvn test
-cd D:\HiveBackend\server
 mvn test
 cd D:\HiveManager\management-ui
 node --test
@@ -608,11 +605,11 @@ cd D:\HiveManager\management-ui
 npm run build
 ```
 
-Expected: both executable JARs and `management-ui/dist` are created.
+Expected: the single executable unified JAR and `management-ui/dist` are created.
 
 - [ ] **Step 3: Mirror artifacts without touching runtime data**
 
-Copy the two JARs and management UI `dist` into the exact deployment paths. Copy the new migration and updated manifest. Do not modify or delete `mysql/data`, `uploads`, logs, backups, snapshots, or certificates.
+Copy the unified JAR and management UI `dist` into the exact deployment paths. Copy the new migration and updated manifest. Do not modify or delete `mysql/data`, `uploads`, logs, backups, snapshots, or certificates.
 
 - [ ] **Step 4: Recreate and validate the mini release directory locally**
 

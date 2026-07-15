@@ -502,7 +502,7 @@ public class ApprovalService {
                         .orderByDesc(SalesOrder::getCreateTime)
                         .last("LIMIT " + safeLimit))
                 .stream()
-                .filter(order -> !ORDER_STATUS_PENDING_SHIP.equals(order.getStatus()) || hasActiveSalesShipmentApproval(order))
+                .filter(this::hasActiveSalesOrderApproval)
                 .map(this::toSalesOrderApprovalVO)
                 .toList();
         List<OrderApprovalVO> productionRows = productionOrderMapper.selectList(new LambdaQueryWrapper<ProductionOrder>()
@@ -510,6 +510,7 @@ public class ApprovalService {
                         .orderByDesc(ProductionOrder::getCreateTime)
                         .last("LIMIT " + safeLimit))
                 .stream()
+                .filter(this::hasActiveProductionOrderApproval)
                 .map(this::toProductionOrderApprovalVO)
                 .toList();
         List<OrderApprovalVO> rollbackRows = approvalAuditorCandidateService
@@ -1020,19 +1021,31 @@ public class ApprovalService {
         if (order == null) {
             throw new BusinessException("待审批销售订单不存在或已处理");
         }
-        if (ORDER_STATUS_PENDING_CONFIRM.equals(order.getStatus())
+        boolean eligibleStatus = ORDER_STATUS_PENDING_CONFIRM.equals(order.getStatus())
                 || ORDER_STATUS_PENDING_PAY.equals(order.getStatus())
                 || ORDER_STATUS_PENDING_CANCEL.equals(order.getStatus())
-                || (ORDER_STATUS_PENDING_SHIP.equals(order.getStatus()) && hasActiveSalesShipmentApproval(order))
+                || ORDER_STATUS_PENDING_SHIP.equals(order.getStatus());
+        if ((eligibleStatus && hasActiveSalesOrderApproval(order))
                 || orderService.hasPendingSalesRollbackApproval(order.getOrderId())) {
             return order;
         }
         throw new BusinessException("待审批销售订单不存在或已处理");
     }
 
-    private boolean hasActiveSalesShipmentApproval(SalesOrder order) {
-        return order != null && !approvalAuditorCandidateService.findActiveAuditorIds(
-                order.getTenantCode(), APPROVAL_TYPE_ORDER, orderApprovalCode(ORDER_TYPE_SALES, order.getOrderId())).isEmpty();
+    private boolean hasActiveSalesOrderApproval(SalesOrder order) {
+        return order != null && hasActiveOrderApproval(
+                order.getTenantCode(), ORDER_TYPE_SALES, order.getOrderId());
+    }
+
+    private boolean hasActiveProductionOrderApproval(ProductionOrder order) {
+        return order != null && hasActiveOrderApproval(
+                order.getTenantCode(), ORDER_TYPE_PRODUCTION, order.getOrderId());
+    }
+
+    private boolean hasActiveOrderApproval(String tenantCode, String orderType, String orderId) {
+        List<Long> auditorIds = approvalAuditorCandidateService.findActiveAuditorIds(
+                tenantCode, APPROVAL_TYPE_ORDER, orderApprovalCode(orderType, orderId));
+        return auditorIds != null && !auditorIds.isEmpty();
     }
 
     private boolean isDrawingBudgetOrder(SalesOrder order) {
@@ -1069,8 +1082,9 @@ public class ApprovalService {
         if (order == null) {
             throw new BusinessException("待审批生产订单不存在或已处理");
         }
-        if (ORDER_STATUS_PENDING_CONFIRM.equals(order.getStatus())
-                || ORDER_STATUS_PENDING_PAY.equals(order.getStatus())
+        boolean eligibleStatus = ORDER_STATUS_PENDING_CONFIRM.equals(order.getStatus())
+                || ORDER_STATUS_PENDING_PAY.equals(order.getStatus());
+        if ((eligibleStatus && hasActiveProductionOrderApproval(order))
                 || orderService.hasPendingProductionRollbackApproval(order.getOrderId())) {
             return order;
         }
@@ -1089,7 +1103,11 @@ public class ApprovalService {
                                    String orderType,
                                    String orderId,
                                    String requiredPermission) {
-        List<Long> auditorIds = ensureOrderAuditorIds(tenantCode, orderType, orderId, requiredPermission);
+        List<Long> auditorIds = approvalAuditorCandidateService.findActiveAuditorIds(
+                tenantCode, APPROVAL_TYPE_ORDER, orderApprovalCode(orderType, orderId));
+        if (auditorIds == null) {
+            auditorIds = List.of();
+        }
         Long auditorId = auditorIds.isEmpty() ? null : auditorIds.get(0);
         vo.setAuditorId(auditorId);
         vo.setAuditorIds(joinAuditorIds(auditorIds));
@@ -1099,36 +1117,11 @@ public class ApprovalService {
                 tenantCode, APPROVAL_TYPE_ORDER, orderApprovalCode(orderType, orderId), TenantPermissionContext.getUserId()));
     }
 
-    private List<Long> ensureOrderAuditorIds(String tenantCode,
-                                             String orderType,
-                                             String orderId,
-                                             String requiredPermission) {
-        String approvalCode = orderApprovalCode(orderType, orderId);
-        List<Long> activeAuditors = approvalAuditorCandidateService.findActiveAuditorIds(
-                tenantCode, APPROVAL_TYPE_ORDER, approvalCode);
-        if (activeAuditors != null && !activeAuditors.isEmpty()) {
-            return activeAuditors;
-        }
-        List<Long> auditorIds = approvalDefaultAuditorService.resolveAuditorIds(
-                tenantCode,
-                APPROVAL_TYPE_ORDER,
-                null,
-                null,
-                null,
-                requiredPermission,
-                false
-        );
-        approvalAuditorCandidateService.replaceActiveCandidates(
-                tenantCode, APPROVAL_TYPE_ORDER, approvalCode, auditorIds);
-        return auditorIds;
-    }
-
     private void validateCurrentOrderAuditor(String orderType,
                                              String orderId,
                                              String tenantCode,
                                              String requiredPermission) {
         Long currentUserId = TenantPermissionContext.getUserId();
-        ensureOrderAuditorIds(tenantCode, orderType, orderId, requiredPermission);
         if (!approvalAuditorCandidateService.isPendingAuditor(
                 tenantCode, APPROVAL_TYPE_ORDER, orderApprovalCode(orderType, orderId), currentUserId)) {
             throw new BusinessException("您不是该订单的当前审批人");
@@ -1144,9 +1137,13 @@ public class ApprovalService {
     }
 
     private String resolveOrderAuditPermissionCode(SalesOrder order) {
-        return order != null && ORDER_STATUS_PENDING_CANCEL.equals(order.getStatus())
-                ? PermissionCatalogV3.CODE_ORDER_AUDIT_CANCEL
-                : PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
+        if (order != null && ORDER_STATUS_PENDING_CANCEL.equals(order.getStatus())) {
+            return PermissionCatalogV3.CODE_ORDER_AUDIT_CANCEL;
+        }
+        if (order != null && "pending_pay".equals(order.getStatus())) {
+            return PermissionCatalogV3.CODE_ORDER_AUDIT_MATERIAL;
+        }
+        return PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
     }
 
     private String resolveOrderAuditPermissionCode(ProductionOrder order) {

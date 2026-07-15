@@ -33,6 +33,10 @@ public class PermissionCatalogV3 {
     public static final String CODE_APPROVAL_RESIGNATION_AUDIT = "approval:resignation:audit";
     public static final String CODE_APPROVAL_RESIGNATION_DETAIL = "approval:resignation:detail";
     public static final String CODE_APPROVAL_RESIGNATION_SUBMIT = "approval:resignation:submit";
+    public static final String CODE_ORDER_NOTE_VIEW = "order:note:view";
+    public static final String CODE_ORDER_NOTE_CREATE = "order:note:create";
+    public static final String CODE_ORDER_NOTE_UPDATE = "order:note:update";
+    public static final String CODE_ORDER_AUDIT_MATERIAL = "order:audit:material";
     public static final String CODE_ORDER_AUDIT_SHIPMENT = "order:audit:shipment";
     public static final String CODE_ORDER_AUDIT_CANCEL = "order:audit:cancel";
     public static final String CODE_ATTENDANCE_PUNCH = "attendance:punch";
@@ -255,7 +259,12 @@ public class PermissionCatalogV3 {
                 .action("order:print", "order", "order", 205, "打印订单")
                 .entry("order:warning:list", "order", "order", 206, "查看订单预警")
                 .action("order:warning:setting", "order", "order", 207, "设置订单预警")
+                .group("order:note", "order", "order", 208, "订单备注")
+                .entry("order:note:view", "order:note", "order", 2081, "查看订单备注")
+                .action("order:note:create", "order:note", "order", 2082, "新增订单备注")
+                .action("order:note:update", "order:note", "order", 2083, "修改订单备注")
                 .group("order:audit", "order", "order", 220, "订单审核")
+                .action("order:audit:material", "order:audit", "order", 220, "审核备料申请")
                 .action("order:audit:shipment", "order:audit", "order", 221, "审核发货申请")
                 .action("order:audit:cancel", "order:audit", "order", 222, "审核取消申请")
                 .group("order:scope", "order", "order", 230, "订单数据范围")

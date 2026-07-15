@@ -187,6 +187,9 @@ public class OrderService {
     @Resource
     private InstallationTaskService installationTaskService;
 
+    @Resource
+    private OrderNoteService orderNoteService;
+
     @Value("${app.upload.root:uploads}")
     private String uploadRoot;
 
@@ -423,6 +426,7 @@ public class OrderService {
             BeanUtils.copyProperties(detail, itemVO);
             return itemVO;
         }).toList());
+        vo.setNotes(orderNoteService.listNotesIfPermitted(order.getTenantCode(), orderId));
         vo.setLogs(listSalesLogs(orderId));
         return vo;
     }
@@ -479,8 +483,8 @@ public class OrderService {
         salesOrderMapper.insert(order);
         orderWarningCacheService.invalidate(order.getTenantCode());
         replaceSalesOrderItems(order.getOrderId(), request.getItems(), businessCreateTime);
+        orderNoteService.saveNotes(order.getTenantCode(), order.getOrderId(), order.getStatus(), request.getNotes());
         insertSalesLog(order, null, OrderLogOperateTypeEnum.CREATE.getCode(), "创建销售订单", businessCreateTime);
-        syncSalesOrderApprovalAuditorsIfNeeded(order, request.getAuditorIds());
 
         if (BinaryFlagEnum.isYes(request.getCreateProductionOrder()) && canAutoCreateProductionOrder(order.getOrderCategory())) {
             createProductionOrdersFromSales(order, request.getItems());
@@ -508,10 +512,10 @@ public class OrderService {
             orderWarningCacheService.invalidate(order.getTenantCode());
             replaceSalesOrderItems(orderId, request.getItems(), order.getCreateTime());
         }
-        syncSalesOrderApprovalAuditorsIfNeeded(order, request.getAuditorIds());
-        boolean logChanged = !Objects.equals(oldStatus, order.getStatus()) || StringUtils.hasText(request.getRemark());
+        orderNoteService.saveNotes(order.getTenantCode(), orderId, order.getStatus(), request.getNotes());
+        boolean logChanged = !Objects.equals(oldStatus, order.getStatus());
         if (logChanged) {
-            insertSalesLog(order, oldStatus, OrderLogOperateTypeEnum.STATUS_CHANGE.getCode(), blankToNull(request.getRemark()));
+            insertSalesLog(order, oldStatus, OrderLogOperateTypeEnum.STATUS_CHANGE.getCode(), "管理端更新订单状态");
         }
         syncLinkedProductionOrders(order, oldStatus);
         syncInstallationTaskIfCompleted(order);
@@ -545,9 +549,6 @@ public class OrderService {
         }
         if (request.getIsInvoice() != null) {
             order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
-        }
-        if (request.getRemark() != null) {
-            order.setRemark(blankToNull(request.getRemark()));
         }
         validateShippingInfo(order.getStatus(), order.getExpressCompany(), order.getExpressNo());
         order.setUpdateTime(LocalDateTime.now());
@@ -584,9 +585,6 @@ public class OrderService {
             }
             if (request.getIsInvoice() != null) {
                 order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
-            }
-            if (request.getRemark() != null) {
-                order.setRemark(blankToNull(request.getRemark()));
             }
         }
         validateSalesStatusForward(order.getOrderCategory(), oldStatus, order.getStatus());
@@ -629,9 +627,6 @@ public class OrderService {
             if (request.getIsInvoice() != null) {
                 order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
             }
-            if (request.getRemark() != null) {
-                order.setRemark(blankToNull(request.getRemark()));
-            }
         }
         validateShippingInfo(targetStatus, order.getExpressCompany(), order.getExpressNo());
         order.setUpdateTime(LocalDateTime.now());
@@ -643,20 +638,12 @@ public class OrderService {
     }
 
     private void submitSalesMaterialApproval(SalesOrder order, SalesOrderUpdateRequest request) {
-        if (request != null && request.getRemark() != null) {
-            order.setRemark(blankToNull(request.getRemark()));
-            order.setUpdateTime(LocalDateTime.now());
-            salesOrderMapper.updateById(order);
-            orderWarningCacheService.invalidate(order.getTenantCode());
-        }
+        String remark = request == null ? null : blankToNull(request.getRemark());
+        insertSalesLog(order, order.getStatus(), STATUS_PENDING_MATERIAL,
+                OrderLogOperateTypeEnum.APPROVAL_PENDING.getCode(),
+                StringUtils.hasText(remark) ? remark : "提交备料审批",
+                LocalDateTime.now());
         replaceSalesOrderApprovalAuditors(order, request == null ? null : request.getAuditorIds());
-    }
-
-    private void syncSalesOrderApprovalAuditorsIfNeeded(SalesOrder order, List<Long> auditorIds) {
-        if (order == null || !salesOrderNeedsApproval(order)) {
-            return;
-        }
-        replaceSalesOrderApprovalAuditors(order, auditorIds);
     }
 
     private void replaceSalesOrderApprovalAuditors(SalesOrder order, List<Long> auditorIds) {
@@ -728,17 +715,6 @@ public class OrderService {
                 LocalDateTime.now());
         approvalAuditorCandidateService.replaceActiveCandidates(
                 order.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode, auditorIds);
-    }
-
-    private boolean salesOrderNeedsApproval(SalesOrder order) {
-        if (order == null || !StringUtils.hasText(order.getStatus())) {
-            return false;
-        }
-        if (STATUS_PENDING_PAY.equals(order.getStatus()) || STATUS_PENDING_CANCEL.equals(order.getStatus())) {
-            return true;
-        }
-        return STATUS_PENDING_CONFIRM.equals(order.getStatus())
-                && CATEGORY_SPECIAL_ORDER.equals(normalizeOrderCategory(order.getOrderCategory()));
     }
 
     private List<Long> normalizeApprovalAuditorIds(List<Long> auditorIds) {
@@ -1230,7 +1206,6 @@ public class OrderService {
         order.setExpressCompany(blankToNull(request.getExpressCompany()));
         order.setExpressNo(blankToNull(request.getExpressNo()));
         order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
-        order.setRemark(blankToNull(request.getRemark()));
         order.setAttachmentName(blankToNull(request.getAttachmentName()));
         order.setAttachmentUrl(normalizeSalesOrderAttachmentUrlForStorage(request.getAttachmentUrl()));
         order.setAttachmentSize(request.getAttachmentSize());
@@ -1887,9 +1862,14 @@ public class OrderService {
     }
 
     private String orderAuditPermission(SalesOrder order) {
-        return order != null && STATUS_PENDING_CANCEL.equals(normalizeStatus(order.getStatus()))
-                ? PermissionCatalogV3.CODE_ORDER_AUDIT_CANCEL
-                : PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
+        String status = order == null ? "" : normalizeStatus(order.getStatus());
+        if (STATUS_PENDING_CANCEL.equals(status)) {
+            return PermissionCatalogV3.CODE_ORDER_AUDIT_CANCEL;
+        }
+        if (STATUS_PENDING_PAY.equals(status)) {
+            return PermissionCatalogV3.CODE_ORDER_AUDIT_MATERIAL;
+        }
+        return PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
     }
 
     private String orderStatusStageName(String status) {
@@ -2509,7 +2489,6 @@ public class OrderService {
                 || !sameText(before.getExpressCompany(), after.getExpressCompany())
                 || !sameText(before.getExpressNo(), after.getExpressNo())
                 || !Objects.equals(before.getIsInvoice(), after.getIsInvoice())
-                || !sameText(before.getRemark(), after.getRemark())
                 || !sameText(before.getAttachmentName(), after.getAttachmentName())
                 || !sameText(before.getAttachmentUrl(), after.getAttachmentUrl())
                 || !Objects.equals(before.getAttachmentSize(), after.getAttachmentSize());

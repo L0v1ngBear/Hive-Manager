@@ -78,8 +78,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
 import { ElAlert, ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElMessage, ElTreeSelect } from 'element-plus'
+import { ref } from 'vue'
 import { createRole, getAllPermissions } from './api/role.js'
 import { createPermissionTreeLoader, permissionTreeCanSubmit } from './permissionLoaders.js'
 

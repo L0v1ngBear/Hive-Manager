@@ -75,6 +75,9 @@ class InformationChannelPropagationServiceTest {
     private OrderWarningCacheService orderWarningCacheService;
 
     @Mock
+    private OrderNoteService orderNoteService;
+
+    @Mock
     private PrintTaskService printTaskService;
 
     @Mock
@@ -95,6 +98,7 @@ class InformationChannelPropagationServiceTest {
         ReflectionTestUtils.setField(subject, "customerProjectMapper", customerProjectMapper);
         ReflectionTestUtils.setField(subject, "employeeMapper", employeeMapper);
         ReflectionTestUtils.setField(subject, "orderWarningCacheService", orderWarningCacheService);
+        ReflectionTestUtils.setField(subject, "orderNoteService", orderNoteService);
         ReflectionTestUtils.setField(subject, "printTaskService", printTaskService);
         ReflectionTestUtils.setField(subject, "orderFlowCodeSecret", "test-order-flow-secret");
     }

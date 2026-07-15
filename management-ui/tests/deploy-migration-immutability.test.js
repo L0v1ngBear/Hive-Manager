@@ -72,6 +72,22 @@ assert.ok(
   'sales and production order scopes must be versioned after the role matrix'
 )
 
+const orderNoteMigration = read('db-migrations/migrations/V20260715_001_order_notes_and_material_approval.sql')
+for (const token of [
+  'CREATE TABLE IF NOT EXISTS `sales_order_note`',
+  'DROP COLUMN `remark`',
+  'order:note:view',
+  'order:note:create',
+  'order:note:update',
+  'order:audit:material'
+]) {
+  assert.ok(orderNoteMigration.includes(token), `order note migration must contain: ${token}`)
+}
+assert.ok(
+  manifest.includes('migrations/V20260715_001_order_notes_and_material_approval.sql'),
+  'order notes and material approval migration must be in migration_manifest.txt'
+)
+
 const deployHealth = read('scripts/check-deploy-health.sh')
 assert.ok(
   deployHealth.includes('V20260710_001_installation_task_unique_key_repair.sql'),
@@ -84,6 +100,10 @@ assert.ok(
 assert.ok(
   deployHealth.includes('V20260710_004_order_role_status_scope.sql'),
   'deploy health check must guard the sales/production order scope migration'
+)
+assert.ok(
+  deployHealth.includes('V20260715_001_order_notes_and_material_approval.sql'),
+  'deploy health check must guard the order notes and material approval migration'
 )
 
 console.log('deploy migration immutability passed')

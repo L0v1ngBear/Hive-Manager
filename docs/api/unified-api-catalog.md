@@ -75,7 +75,7 @@ The canonical collection is `/api/orders/**`. `PermissionCatalogV3` constants be
 | POST | admin `/order/create`; mini `/orders/add` | `/api/orders` | `order:create` | `SalesOrderSaveRequest` | `String` order id | `createSalesOrder` | MERGED |
 | POST | admin `/order/attachment/upload` | `/api/orders/attachment` | `order:create` | multipart `file` | `SalesOrderAttachmentVO` | `uploadSalesAttachment` | RENAMED |
 | GET | admin `/order/attachment/download` | `/api/orders/attachment` | `order:detail` | query `url,name` | resource | `loadSalesAttachment` | RENAMED |
-| POST | admin `/order/save/{orderId}` | `/api/orders/{orderId}/save` | `order:update` | `SalesOrderSaveRequest` | void | `saveSalesOrder` | RENAMED |
+| PUT | admin `/order/save/{orderId}`; mini detail save | `/api/orders/{orderId}` | `order:update` | `SalesOrderSaveRequest` | void | `saveSalesOrder` | MERGED; old save alias removed |
 | POST | admin `/order/update/{orderId}`; mini `/orders/{orderId}/status` | `/api/orders/{orderId}/status` | `order:update` | `SalesOrderUpdateRequest` | void | `updateSalesOrder` | MERGED |
 | POST | admin `/order/next/{orderId}` | `/api/orders/{orderId}/advance` | `order:update` | `SalesOrderUpdateRequest` | void | `advanceSalesOrderToNextStage` | RENAMED |
 | POST | mini `/orders/{flowCode}/flow-advance` | `/api/orders/flow/{flowCode}/advance` | `order:update` | path `flowCode` | void | `advanceSalesOrderByFlowCode` | RENAMED |
@@ -87,6 +87,10 @@ The canonical collection is `/api/orders/**`. `PermissionCatalogV3` constants be
 | GET | admin `/order/warning/summary` | `/api/orders/warning/summary` | `order:warning:list` | none | `OrderWarningSummaryVO` | `getOrderWarningSummary` | RENAMED |
 | POST | admin `/order/warning/refresh`, `/refresh-all`, `/{orderId}/refresh` | `/api/orders/warning/refresh`, `/refresh-all`, `/{orderId}/refresh` | `order:warning:list` | optional path `orderId` | `OrderWarningSummaryVO` | `refreshOrderWarningSummary`, `refreshOrderWarnings`, `refreshOrderWarning` | RENAMED |
 | GET | admin `/order/health` | removed | none | none | none | none | REMOVED |
+
+`SalesOrderSaveRequest` and `SalesOrderDetailVO` use `notes[]` instead of the retired single `remark` field. Each note carries `id`, `content`, `version`, updater and update time; saved notes can be modified but cannot be deleted. Visibility and mutation use `order:note:view`, `order:note:create`, and `order:note:update` in addition to the order operation permission.
+
+Creating or saving a `pending_pay` order is side-effect free for approval. Only `POST /api/orders/{orderId}/advance` from `pending_pay` creates a material-approval candidate, which requires `order:audit:material` when processed.
 
 ## Approval endpoint convergence matrix
 

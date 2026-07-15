@@ -61,8 +61,6 @@ public class SalesOrder {
 
     private String creator;
 
-    private String remark;
-
     /**
      * 销售订单附件原始文件名。
      */

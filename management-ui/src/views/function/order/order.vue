@@ -226,12 +226,17 @@
           </thead>
           <tbody class="divide-y divide-outline-variant/10">
           <tr
-              v-for="row in orderState.rows"
+              v-for="row in visibleOrderRows"
               :key="row.orderId"
               class="order-table-row group cursor-pointer"
-              :class="[orderRowClass(row.status), row.staleWarning ? 'order-row-stale-warning' : '', !canViewOrderDetail ? 'order-detail-disabled' : '']"
-              :title="canViewOrderDetail ? '查看订单详情' : '当前账号暂无订单详情查看权限'"
-              @click="openDetail(row.orderId)"
+              :class="[
+                orderRowClass(row.status),
+                row.staleWarning ? 'order-row-stale-warning' : '',
+                permissionDisabledClass(!canViewOrderDetail(row))
+              ]"
+              :aria-disabled="!canViewOrderDetail(row)"
+              :title="canViewOrderDetail(row) ? '查看订单详情' : '当前账号暂无查看该订单详情权限'"
+              @click="openDetail(row.orderId, row)"
           >
             <td
                 v-for="column in orderTableColumns"
@@ -283,14 +288,12 @@
                   {{ orderCoreMeta(row) }}
                 </div>
               </template>
-              <template v-else-if="column.key === 'remark'">
-                <div class="order-remark-cell">{{ row.remark || '暂无备注' }}</div>
+              <template v-else-if="column.key === 'expressNo'">
+                <div class="order-express-number-cell">{{ row.expressNo || '未填写物流单号' }}</div>
               </template>
               <template v-else-if="column.key === 'informationChannel'">
-                <div class="text-sm text-on-surface-variant">{{ row.informationChannel || '未填写信息渠道' }}</div>
-                <div class="mt-1 text-xs text-on-surface-variant">
-                  {{ row.expressCompany || '未发货' }}
-                  <template v-if="row.expressNo"> / {{ row.expressNo }}</template>
+                <div class="order-information-channel-cell text-sm text-on-surface-variant">
+                  {{ row.informationChannel || '未填写信息渠道' }}
                 </div>
               </template>
               <template v-else-if="column.key === 'invoice'">
@@ -344,7 +347,13 @@
             </td>
             <td class="td-cell" data-label="操作">
               <div class="order-row-actions">
-                <el-button class="icon-btn text-secondary" :disabled="!canViewOrderDetail" :title="canViewOrderDetail ? '查看订单详情' : '当前账号暂无订单详情查看权限'" @click.stop="openDetail(row.orderId)">
+                <el-button
+                    class="icon-btn text-secondary"
+                    :class="permissionDisabledClass(!canViewOrderDetail(row))"
+                    :disabled="!canViewOrderDetail(row)"
+                    :title="canViewOrderDetail(row) ? '查看订单详情' : '当前账号暂无查看该订单详情权限'"
+                    @click.stop="openDetail(row.orderId, row)"
+                >
                   <span class="material-symbols-outlined text-[18px]">visibility</span>
                 </el-button>
                 <el-button
@@ -393,7 +402,7 @@
               </el-empty>
             </td>
           </tr>
-          <tr v-else-if="!orderState.loading && !orderState.rows.length">
+          <tr v-else-if="!orderState.loading && !visibleOrderRows.length">
             <td :colspan="orderTableColumnCount" class="px-6 py-14 text-center text-sm text-on-surface-variant"><el-empty description="暂无订单数据" /></td>
           </tr>
           </tbody>
@@ -676,7 +685,13 @@
                     class="box-input"
                     :disabled="(formMode === 'create' && orderForm.orderCategory === 'special_order') || Boolean(advanceIntent) || isDrawingBudgetTerminal(orderForm)"
                   >
-                    <el-option v-for="status in orderStatuses" :key="status.value" :label="status.label" :value="status.value" />
+                    <el-option
+                      v-for="status in orderStatuses"
+                      :key="status.value"
+                      :label="status.label"
+                      :value="status.value"
+                      :disabled="!canSelectOrderStatus(status.value)"
+                    />
                   </el-select>
                 </div>
                 <div>
@@ -695,9 +710,53 @@
                   <el-input v-model.trim="orderForm.expressNo" data-field="order.expressNo" class="box-input" />
                 </div>
               </div>
-              <div>
-                <label class="field-label">备注</label>
-                <el-input v-model.trim="orderForm.remark" class="box-input" type="textarea" :rows="4" />
+              <div class="order-notes-editor">
+                <div class="order-notes-editor-header">
+                  <label class="field-label">备注明细</label>
+                  <el-button
+                    text
+                    class="text-xs font-bold text-primary"
+                    :class="permissionDisabledClass(!canCreateOrderNote)"
+                    :disabled="!canCreateOrderNote"
+                    :title="canCreateOrderNote ? '新增备注' : '当前账号暂无新增订单备注权限'"
+                    @click="addOrderNote"
+                  >
+                    新增备注
+                  </el-button>
+                </div>
+                <div v-if="canViewOrderNotes" class="space-y-3">
+                  <div v-for="(note, index) in orderForm.notes" :key="note.id || `new-note-${index}`" class="order-note-row">
+                    <el-input
+                      v-model="note.content"
+                      class="box-input"
+                      type="textarea"
+                      :rows="3"
+                      maxlength="1000"
+                      show-word-limit
+                      :disabled="note.id ? !canUpdateOrderNote : !canCreateOrderNote"
+                      :data-field="`order.notes.${index}.content`"
+                    />
+                    <div class="order-note-row-footer">
+                      <span v-if="note.id" class="order-note-meta">
+                        最后修改：{{ formatOrderNoteTime(note.updateTime) }}{{ note.updaterName ? ` · ${note.updaterName}` : '' }}
+                      </span>
+                      <span v-else class="order-note-meta">保存后记录修改时间</span>
+                      <el-button
+                        v-if="!note.id"
+                        text
+                        type="danger"
+                        class="text-xs font-bold"
+                        @click="discardUnsavedOrderNote(index)"
+                      >
+                        撤销
+                      </el-button>
+                    </div>
+                  </div>
+                  <div v-if="!orderForm.notes.length" class="order-note-empty">暂无备注</div>
+                </div>
+                <div v-else class="order-note-permission-empty" title="当前账号暂无查看订单备注权限">
+                  当前账号暂无查看订单备注权限
+                </div>
               </div>
               <div>
                 <label class="field-label">订单附件</label>
@@ -765,6 +824,15 @@ import {
   selectOrderFlowQrValue
 } from './orderFlow.js'
 import {
+  canAdvanceOrder as hasOrderAdvancePermission,
+  canCancelOrder as hasOrderCancelPermission,
+  canEditOrder as hasOrderEditPermission,
+  canPrintOrder as hasOrderPrintPermission,
+  canRollbackOrder as hasOrderRollbackPermission,
+  canViewOrder as hasOrderViewPermission,
+  canViewOrderDetail as hasOrderDetailPermission
+} from './orderPermissions.js'
+import {
   advanceOrderNextStage,
   correctOrderLogTime,
   createOrder,
@@ -794,7 +862,7 @@ const defaultOrderTableColumns = [
   {key: 'customer', label: '客户 / 项目'},
   {key: 'core', label: '订单信息'},
   {key: 'informationChannel', label: '信息渠道'},
-  {key: 'remark', label: '备注'},
+  {key: 'expressNo', label: '物流单号'},
   {key: 'status', label: '状态'},
   {key: 'progress', label: '进度'},
   {key: 'time', label: '时间'}
@@ -803,7 +871,7 @@ const {
   orderedColumns: orderTableColumns,
   moveColumn: moveOrderTableColumn,
   resetColumns: resetOrderTableColumns
-} = useLocalTableColumns('order.list.commercial.v3', defaultOrderTableColumns)
+} = useLocalTableColumns('order.list.commercial.v4', defaultOrderTableColumns)
 const MAX_ORDER_EXPORT_ROWS = 2000
 const orderTableColumnCount = computed(() => orderTableColumns.value.length + 1)
 const orderColumnClass = (key) => `order-column-${key}`
@@ -923,54 +991,74 @@ const orderAttachmentUploading = ref(false)
 const latestOrderFlowPrintTask = ref(null)
 const filterOverviewExpanded = ref(true)
 
-const ORDER_CREATE_PERMISSIONS = ['order:create']
-const ORDER_STATUS_PERMISSION_PREFIX = 'order:status:'
-
-function hasAnyOrderPermission(permissions) {
-  return userStore.hasAnyPermission(permissions)
-}
-
-function normalizeOrderStatusPermission(status) {
-  return String(status || '').trim().replace(/_/g, '-')
-}
-
-function orderStatusPermissions(status) {
-  const normalizedStatus = normalizeOrderStatusPermission(status)
-  return normalizedStatus
-      ? [`${ORDER_STATUS_PERMISSION_PREFIX}${normalizedStatus}`]
-      : []
-}
-
-function canMutateOrderStatus(status) {
-  return hasAnyOrderPermission(orderStatusPermissions(status))
-}
-
-const canCreateCurrentOrder = computed(() => hasAnyOrderPermission(ORDER_CREATE_PERMISSIONS))
-const canManageWarningSetting = computed(() => hasAnyOrderPermission([ORDER_ALL_PERMISSION, 'order:warning:setting']))
-const canViewOrderDetail = computed(() => userStore.hasPermission('order:detail'))
+const canCreateCurrentOrder = computed(() => userStore.hasPermission('order:create'))
+const canManageWarningSetting = computed(() => userStore.hasPermission('order:warning:setting'))
+const canViewOrderNotes = computed(() => userStore.hasPermission('order:note:view'))
+const canCreateOrderNote = computed(() => userStore.hasPermission('order:note:create'))
+const canUpdateOrderNote = computed(() => userStore.hasPermission('order:note:update'))
 const canExportTable = computed(() => userStore.hasPermission('table:export'))
-const canEditCurrentOrderForm = computed(() => formMode.value === 'create'
-    ? canCreateCurrentOrder.value
-    : canEditOrder(orderForm))
-const canSubmitCurrentForm = canEditCurrentOrderForm
+const visibleOrderRows = computed(() => orderState.rows.filter((row) => canViewOrder(row)))
+const currentOrderBeforeEdit = computed(() => ({
+  ...orderForm,
+  status: editingOrderStatus.value || orderForm.status
+}))
+const isCancelIntent = computed(() => formMode.value !== 'create'
+  && orderForm.status === 'cancelled'
+  && editingOrderStatus.value !== 'cancelled')
+const isUnsupportedStatusChange = computed(() => formMode.value !== 'create'
+  && !advanceIntent.value
+  && orderForm.status !== editingOrderStatus.value
+  && orderForm.status !== 'cancelled')
+const canCancelCurrentOrder = computed(() => formMode.value !== 'create'
+  && canCancelOrder(currentOrderBeforeEdit.value))
+const canSubmitCurrentForm = computed(() => {
+  if (formMode.value === 'create') return canCreateCurrentOrder.value
+  if (advanceIntent.value) return canAdvanceOrder(currentOrderBeforeEdit.value)
+  if (isCancelIntent.value) return canCancelCurrentOrder.value
+  if (isUnsupportedStatusChange.value) return false
+  return canEditOrder(currentOrderBeforeEdit.value)
+})
+const canEditCurrentOrderForm = canSubmitCurrentForm
 const requiresShippingDetails = computed(() => orderForm.status === 'shipped' || advanceIntent.value?.targetStatus === 'shipped')
 
+function canViewOrder(row = {}) {
+  return hasOrderViewPermission(userStore.permissions, row)
+}
+
+function canViewOrderDetail(row = {}) {
+  return hasOrderDetailPermission(userStore.permissions, row)
+}
+
 function canEditOrder(row = {}) {
-  return canViewOrderDetail.value && !isDrawingBudgetTerminal(row) && canMutateOrderStatus(row.status)
+  return !isDrawingBudgetTerminal(row) && hasOrderEditPermission(userStore.permissions, row)
 }
 
 function canPrintOrderFlowCode(row = {}) {
-  return canMutateOrderStatus(row.status)
+  return hasOrderPrintPermission(userStore.permissions, row)
 }
 
 function canAdvanceOrder(row = {}) {
   const targetStatus = nextOrderStatus(row)
-  return Boolean(targetStatus && canMutateOrderStatus(row.status))
+  return Boolean(targetStatus && hasOrderAdvancePermission(userStore.permissions, row))
 }
 
 function canRollbackOrder(row = {}) {
   const targetStatus = previousOrderStatus(row)
-  return Boolean(row?.orderId && targetStatus && canMutateOrderStatus(row.status))
+  return Boolean(row?.orderId && targetStatus && hasOrderRollbackPermission(userStore.permissions, row))
+}
+
+function canCancelOrder(row = {}) {
+  return hasOrderCancelPermission(userStore.permissions, row)
+}
+
+function canSelectOrderStatus(status) {
+  if (formMode.value === 'create') {
+    return true
+  }
+  if (status === editingOrderStatus.value) {
+    return true
+  }
+  return status === 'cancelled' && canCancelCurrentOrder.value
 }
 
 function permissionDisabledClass(disabled) {
@@ -1140,6 +1228,30 @@ function defaultOrderItem() {
   return {modelCode: '', quantity: '', weight: '', spec: ''}
 }
 
+function defaultOrderNote() {
+  return {id: null, content: '', version: null, updaterName: '', updateTime: '', isNew: true}
+}
+
+function normalizeOrderNote(note = {}) {
+  return {
+    ...defaultOrderNote(),
+    id: note.id ?? null,
+    content: String(note.content || ''),
+    version: note.version ?? null,
+    updaterName: note.updaterName || '',
+    updateTime: note.updateTime || '',
+    isNew: !note.id
+  }
+}
+
+function addOrderNote() {
+  if (canCreateOrderNote.value) orderForm.notes.push(defaultOrderNote())
+}
+
+function discardUnsavedOrderNote(index) {
+  if (!orderForm.notes[index]?.id) orderForm.notes.splice(index, 1)
+}
+
 function defaultOrderForm() {
   return {
     customerName: '',
@@ -1152,7 +1264,7 @@ function defaultOrderForm() {
     expressCompany: '',
     expressNo: '',
     isInvoice: 0,
-    remark: '',
+    notes: [],
     attachmentName: '',
     attachmentUrl: '',
     attachmentSize: null,
@@ -1547,8 +1659,8 @@ function formatOrderExportCell(row, key) {
   if (key === 'customer') return [row.customerName, row.projectName].filter(Boolean).join(' / ')
   if (key === 'brand') return row.brandName || ''
   if (key === 'core') return orderCoreExportText(row)
-  if (key === 'remark') return row.remark || ''
-  if (key === 'informationChannel') return [row.informationChannel, row.expressCompany, row.expressNo].filter(Boolean).join(' / ')
+  if (key === 'informationChannel') return row.informationChannel || ''
+  if (key === 'expressNo') return row.expressNo || ''
   if (key === 'invoice') return invoiceLabel(row.isInvoice)
   if (key === 'status') return orderStatusLabel(row.status)
   if (key === 'progress') {
@@ -1559,8 +1671,11 @@ function formatOrderExportCell(row, key) {
   return ''
 }
 
-async function openDetail(orderId) {
-  if (!canViewOrderDetail.value) return
+async function openDetail(orderId, row = {}) {
+  if (!canViewOrderDetail(row)) {
+    ElMessage.warning('当前账号暂无查看该订单详情权限')
+    return
+  }
   const requestId = ++detailRequestId
   detailOrderId.value = orderId
   detailVisible.value = true
@@ -1571,8 +1686,13 @@ async function openDetail(orderId) {
   try {
     const detail = await getOrderDetail(orderId)
     if (requestId !== detailRequestId) return
+    if (!canViewOrderDetail(detail)) {
+      detailVisible.value = false
+      ElMessage.warning('当前账号暂无查看该订单详情权限')
+      return
+    }
     orderDetail.value = detail
-    hydrateStatusLogTimeEdits('order', orderDetail.value?.logs || [])
+    hydrateStatusLogTimeEdits('order', detail?.logs || [])
   } catch (error) {
     if (requestId !== detailRequestId) return
     detailErrorMessage.value = resolveOrderDetailFailure(error)
@@ -1610,7 +1730,9 @@ async function openFlowCode(row) {
   }
   const task = await createOrderFlowPrintTask({orderId: row.orderId})
   latestOrderFlowPrintTask.value = task
-  await openDetail(row.orderId)
+  if (canViewOrderDetail(row)) {
+    await openDetail(row.orderId, row)
+  }
   ElMessage.success('已创建补打任务，请到小程序待打印队列处理')
 }
 
@@ -1637,7 +1759,7 @@ async function advanceOrder(row = {}) {
   if (!row.orderId || !targetStatus) {
     return
   }
-  if (!canMutateOrderStatus(row.status)) {
+  if (!canAdvanceOrder(row)) {
     warnNoOrderStagePermission()
     return
   }
@@ -1649,7 +1771,7 @@ async function rollbackOrder(row = {}) {
   if (!row.orderId || !targetStatus) {
     return
   }
-  if (!canMutateOrderStatus(row.status)) {
+  if (!canRollbackOrder(row)) {
     warnNoOrderStagePermission()
     return
   }
@@ -1691,8 +1813,8 @@ function openCreate() {
 }
 
 async function openEdit(orderId, row = {}, intent = null) {
-  if (!canViewOrderDetail.value) return
-  if (row.status && !canEditOrder(row)) {
+  const canOpenForm = intent?.targetStatus ? canAdvanceOrder(row) : canEditOrder(row)
+  if (row.status && !canOpenForm) {
     warnNoOrderStagePermission()
     return
   }
@@ -1708,7 +1830,8 @@ async function openEdit(orderId, row = {}, intent = null) {
   try {
     const detail = await getOrderDetail(orderId)
     if (requestId !== editRequestId) return
-    if (!canEditOrder(detail)) {
+    const canEditDetail = intent?.targetStatus ? canAdvanceOrder(detail) : canEditOrder(detail)
+    if (!canEditDetail) {
       warnNoOrderStagePermission()
       closeForm()
       return
@@ -1723,7 +1846,9 @@ async function openEdit(orderId, row = {}, intent = null) {
     orderForm.expressCompany = detail.expressCompany || ''
     orderForm.expressNo = detail.expressNo || ''
     orderForm.isInvoice = Number(detail.isInvoice || 0)
-    orderForm.remark = detail.remark || ''
+    orderForm.notes = canViewOrderNotes.value
+        ? (detail.notes || []).map(normalizeOrderNote)
+        : []
     orderForm.attachmentName = detail.attachmentName || ''
     orderForm.attachmentUrl = detail.attachmentUrl || ''
     orderForm.attachmentSize = detail.attachmentSize || null
@@ -1876,6 +2001,12 @@ function validateOrderForm() {
   if (requiresShippingDetails.value && !String(orderForm.expressNo || '').trim()) {
     fail('订单变更为已发货时必须填写物流单号', 'order.expressNo')
   }
+  if (orderForm.notes.length > 50) fail('每个订单最多添加50条备注', 'order.notes')
+  orderForm.notes.forEach((note, index) => {
+    const content = String(note.content || '').trim()
+    if (!content) fail('备注内容不能为空', `order.notes.${index}.content`)
+    if (content.length > 1000) fail('单条备注不能超过1000字', `order.notes.${index}.content`)
+  })
 }
 
 function buildOrderPayload() {
@@ -1899,7 +2030,7 @@ function buildOrderPayload() {
     expressCompany: blank(orderForm.expressCompany),
     expressNo: blank(orderForm.expressNo),
     isInvoice: Number(orderForm.isInvoice || 0),
-    remark: blank(orderForm.remark),
+    notes: orderForm.notes.map(({ id, content, version }) => ({ id, content: content.trim(), version })),
     attachmentName: blank(orderForm.attachmentName),
     attachmentUrl: blank(orderForm.attachmentUrl),
     attachmentSize: orderForm.attachmentSize || null,
@@ -2112,6 +2243,10 @@ function orderCoreExportText(row = {}) {
 function formatDateTime(value) {
   if (!value) return '未记录'
   return String(value).replace('T', ' ').slice(0, 19)
+}
+
+function formatOrderNoteTime(value) {
+  return formatDateTime(value)
 }
 
 function buildOrderFlowCode(order) {
@@ -3383,7 +3518,9 @@ function fulfillmentProcessText(row = {}) {
 }
 
 .function-page-shell .order-list-table.responsive-data-table {
-  table-layout: fixed;
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
 }
 
 .function-page-shell .order-list-table.responsive-data-table th:last-child,
@@ -3405,51 +3542,58 @@ function fulfillmentProcessText(row = {}) {
 }
 
 .order-column-orderNo {
-  width: 16%;
+  width: 12rem;
   min-width: 11rem;
 }
 
 .order-column-customer {
-  width: 22%;
+  width: 14rem;
   min-width: 13rem;
 }
 
 .order-column-core {
-  width: 22%;
+  width: 15rem;
   min-width: 13rem;
 }
 
-.order-column-remark {
-  width: 12%;
-  min-width: 9rem;
+.order-column-informationChannel {
+  width: 12rem;
+  min-width: 11rem;
+}
+
+.order-column-expressNo {
+  width: 12rem;
+  min-width: 11rem;
 }
 
 .order-column-status {
-  width: 11%;
+  width: 9rem;
   min-width: 8rem;
 }
 
 .order-column-progress {
-  width: 15%;
+  width: 12rem;
   min-width: 10rem;
 }
 
 .order-column-time {
-  width: 10%;
+  width: 10rem;
   min-width: 8rem;
 }
 
 .order-column-orderNo,
 .order-column-customer,
 .order-column-core,
-.order-column-remark {
-  word-break: keep-all;
+.order-column-informationChannel,
+.order-column-expressNo {
+  overflow: hidden;
 }
 
 .order-column-orderNo > *,
 .order-column-customer > *,
 .order-column-core > *,
-.order-column-remark > * {
+.order-column-informationChannel > *,
+.order-column-expressNo > * {
   min-width: 0;
 }
 
@@ -3462,13 +3606,57 @@ function fulfillmentProcessText(row = {}) {
   white-space: nowrap;
 }
 
-.order-remark-cell {
+.order-express-number-cell {
   max-width: 100%;
   overflow: hidden;
   color: rgb(var(--on-surface-variant));
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+
+.order-information-channel-cell {
+  max-width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+
+.order-notes-editor {
+  display: grid;
+  gap: .75rem;
+}
+
+.order-notes-editor-header,
+.order-note-row-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+
+.order-note-row {
+  border: 1px solid rgba(148, 163, 184, .28);
+  border-radius: .5rem;
+  background: rgb(var(--surface-container-low));
+  padding: .75rem;
+}
+
+.order-note-meta,
+.order-note-empty,
+.order-note-permission-empty {
+  font-size: .75rem;
+  color: rgb(var(--on-surface-variant));
+}
+
+.order-note-empty,
+.order-note-permission-empty {
+  border: 1px dashed rgba(148, 163, 184, .35);
+  border-radius: .5rem;
+  padding: .85rem 1rem;
 }
 
 .order-column-time {

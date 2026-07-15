@@ -3,11 +3,15 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 const source = readFileSync(new URL('../src/views/function/order/order.vue', import.meta.url), 'utf8')
+const permissionSource = readFileSync(new URL('../src/views/function/order/orderPermissions.js', import.meta.url), 'utf8')
 
 test('migrates order standard controls while retaining protected business surfaces', () => {
   for (const tag of ['el-input','el-select','el-input-number','el-pagination','el-drawer','el-dialog','el-form','el-tag','el-progress','el-empty']) assert.match(source, new RegExp(`<${tag}\\b`))
   assert.match(source, /v-loading/)
-  for (const invariant of ['orderStatuses','ORDER_STATUS_PERMISSION_PREFIX','order:status:','TableColumnSettings','DragAttachmentUpload','BusinessTimeCorrectionPanel']) assert.match(source, new RegExp(invariant))
+  for (const invariant of ['orderStatuses','TableColumnSettings','DragAttachmentUpload','BusinessTimeCorrectionPanel']) assert.match(source, new RegExp(invariant))
+  for (const permissionInvariant of ['ORDER_STATUS_PERMISSION_PREFIX', 'order:status:', 'canViewOrderDetail']) {
+    assert.match(permissionSource, new RegExp(permissionInvariant))
+  }
   assert.match(source, /class="order-list-table/)
   assert.match(source, /:data-label="column\.label"/)
 })
@@ -45,13 +49,14 @@ test('guards edit submission against concurrent and non-ready calls inside the h
 })
 
 test('keeps detail and export commands visible but permission disabled and guarded', () => {
-  assert.match(source, /const canViewOrderDetail = computed\(\(\) => userStore\.hasPermission\('order:detail'\)\)/)
+  assert.match(source, /function canViewOrderDetail\(row = \{\}\) \{\s*return hasOrderDetailPermission\(userStore\.permissions, row\)/)
+  assert.match(permissionSource, /'order:detail'/)
   assert.match(source, /const canExportTable = computed\(\(\) => userStore\.hasPermission\('table:export'\)\)/)
   assert.match(source, /:export-disabled="!canExportTable"/)
   assert.match(source, /export-disabled-reason="当前账号暂无表格导出权限"/)
   assert.match(source, /if \(!canExportTable\.value\) return/)
-  assert.match(source, /if \(!canViewOrderDetail\.value\) return/)
-  assert.match(source, /:disabled="!canViewOrderDetail"/)
+  assert.match(source, /if \(!canViewOrderDetail\(row\)\) \{/)
+  assert.match(source, /:disabled="!canViewOrderDetail\(row\)"/)
   assert.match(source, /当前账号暂无订单详情查看权限/)
 })
 

@@ -23,6 +23,7 @@ require_file db-migrations/migration_checksums.sha256
 require_file db-migrations/migrations/V20260710_001_installation_task_unique_key_repair.sql
 require_file db-migrations/migrations/V20260710_003_builtin_role_permission_matrix.sql
 require_file db-migrations/migrations/V20260710_004_order_role_status_scope.sql
+require_file db-migrations/migrations/V20260715_001_order_notes_and_material_approval.sql
 require_file scripts/migrate-db.sh
 
 for key in MYSQL_ROOT_PASSWORD DB_APP_USERNAME DB_APP_PASSWORD AUTH_TOKEN_SECRET RESPONSE_ENCRYPT_KEY PRIVACY_HASH_SECRET EMPLOYEE_DEFAULT_PASSWORD TENANT_OWNER_DEFAULT_PASSWORD; do

@@ -294,7 +294,8 @@ import {
   ElSelect,
   ElTable,
   ElTableColumn,
-  ElTag
+  ElTag,
+  ElTooltip
 } from 'element-plus'
 import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import { useUserStore } from '@/stores/user'

@@ -90,7 +90,7 @@ class CommercialHardeningStaticTest {
                 Map.entry("my/hive/api/auth/AdminAuthController.java", List.of("/login", "/password-reset", "/initial-password", "/scan-login/confirm")),
                 Map.entry("my/hive/api/approval/ApprovalController.java", List.of("/leave/audit", "/finance/audit", "/finance", "/resignation", "/resignation/audit")),
                 Map.entry("my/hive/api/employee/EmployeeController.java", List.of("/create", "/update", "/change-status", "/batch-update", "/import")),
-                Map.entry("my/hive/api/order/OrderController.java", List.of("", "/{orderId}/save", "/{orderId}/status")),
+                Map.entry("my/hive/api/order/OrderController.java", List.of("", "/{orderId}", "/{orderId}/status")),
                 Map.entry("my/hive/api/role/RoleController.java", List.of("/create", "/role/update")),
                 Map.entry("my/hive/api/print/ReceiptPrintController.java", List.of("/print/update", "/print/mark-printed", "/print/cancel", "/template/save", "/template/{id}/default")),
                 Map.entry("my/hive/api/tenant/TenantManageController.java", List.of("/{id}/profile", "/{id}/logo", "/{id}/license", "/{id}/status", "/{id}/owner-account"))
@@ -115,7 +115,7 @@ class CommercialHardeningStaticTest {
                 "@GetMapping(\"/status-summary\")",
                 "@GetMapping(\"/{orderId}\")",
                 "@PostMapping",
-                "@PostMapping(\"/{orderId}/save\")",
+                "@PutMapping(\"/{orderId}\")",
                 "@PostMapping(\"/{orderId}/status\")",
                 "@PostMapping(\"/{orderId}/advance\")",
                 "@PostMapping(\"/{orderId}/rollback\")",
@@ -124,6 +124,7 @@ class CommercialHardeningStaticTest {
         }
         assertFalse(content.contains("\"/sales/"), "Order controller must not expose retired sales-order routes");
         assertFalse(content.contains("\"/production/"), "Order controller must not expose retired production-order routes");
+        assertFalse(content.contains("@PostMapping(\"/{orderId}/save\")"), "Order controller must not expose the retired save alias");
     }
 
     @Test

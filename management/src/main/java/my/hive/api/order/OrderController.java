@@ -30,6 +30,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -99,10 +100,10 @@ public class OrderController {
                 .body(resource);
     }
 
-    @PostMapping("/{orderId}/save")
+    @PutMapping("/{orderId}")
     @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_UPDATE, message = "您没有权限编辑订单")
-    @CollectLog(module = "order", action = "save_order", bizType = "order", bizNo = "#orderId", description = "管理端保存订单")
-    public Result<Void> save(@PathVariable String orderId, @RequestBody @Valid SalesOrderSaveRequest request) {
+    @CollectLog(module = "order", action = "save_order", bizType = "order", bizNo = "#orderId", description = "保存订单")
+    public Result<Void> replace(@PathVariable String orderId, @RequestBody @Valid SalesOrderSaveRequest request) {
         orderService.saveSalesOrder(orderId, request);
         return Result.success(null);
     }

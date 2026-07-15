@@ -14,7 +14,7 @@
         </div>
         <div class="flex items-center gap-3">
           <el-button
-            v-permission="'approval:finance:audit'"
+            v-permission="'approval:auditor:list'"
             @click="openDefaultAuditorDialog"
             plain
           >
@@ -372,7 +372,7 @@
               />
             </el-select>
             <el-button
-              v-permission="'approval:finance:audit'"
+              v-permission="'approval:auditor:setting'"
               native-type="button"
               :disabled="defaultAuditorSaving[row.approvalType]"
               :loading="defaultAuditorSaving[row.approvalType]"
@@ -500,7 +500,6 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
 import {
   ElBadge,
   ElButton,
@@ -526,6 +525,7 @@ import {
   ElResult,
   ElTag
 } from 'element-plus'
+import { computed, reactive, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
@@ -780,7 +780,7 @@ const loadDefaultAuditors = async () => {
 }
 
 const openDefaultAuditorDialog = async () => {
-  if (!requireUiPermission('approval:finance:audit')) {
+  if (!requireUiPermission('approval:auditor:list')) {
     return
   }
   defaultAuditorDialogVisible.value = true
@@ -788,7 +788,7 @@ const openDefaultAuditorDialog = async () => {
 }
 
 const saveDefaultAuditorRow = async (row) => {
-  if (!requireUiPermission('approval:finance:audit')) {
+  if (!requireUiPermission('approval:auditor:setting')) {
     return
   }
   const auditorIds = parseAuditorIds(row?.auditorIds)

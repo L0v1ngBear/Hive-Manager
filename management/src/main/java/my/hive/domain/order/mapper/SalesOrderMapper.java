@@ -30,7 +30,6 @@ public interface SalesOrderMapper extends BaseMapper<SalesOrder> {
                    express_no AS expressNo,
                    is_invoice AS isInvoice,
                    creator,
-                   remark,
                    attachment_name AS attachmentName,
                    attachment_url AS attachmentUrl,
                    attachment_size AS attachmentSize,

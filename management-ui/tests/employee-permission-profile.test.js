@@ -16,6 +16,7 @@ const employeePage = readFileSync(
 )
 
 test('employee permissions use one V3 profile tree and one tri-state control', () => {
+  assert.match(drawer, /import\s+\{[^}]*ElInput[^}]*ElTree[^}]*ElSegmented[^}]*\}\s+from 'element-plus'/s)
   assert.equal((drawer.match(/<el-tree\b/g) || []).length, 1)
   assert.match(drawer, /<el-segmented/)
   assert.match(drawer, /继承角色/)

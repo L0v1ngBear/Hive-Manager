@@ -181,7 +181,6 @@ public class InstallationTaskService {
         task.setExpressNo(order.getExpressNo());
         task.setIsInvoice(order.getIsInvoice());
         task.setCreator(order.getCreator());
-        task.setRemark(order.getRemark());
         task.setOrderAttachmentName(order.getAttachmentName());
         task.setOrderAttachmentUrl(order.getAttachmentUrl());
         task.setOrderAttachmentSize(order.getAttachmentSize());

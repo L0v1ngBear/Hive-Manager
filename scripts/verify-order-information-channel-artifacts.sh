@@ -5,8 +5,7 @@ cd "$(dirname "$0")/.."
 
 MIGRATION_VERSION="V20260713_001"
 RELEASE_INFO="${RELEASE_INFO:-RELEASE_BUILD_INFO.txt}"
-MINI_BACKEND_ARTIFACT="${MINI_BACKEND_ARTIFACT:-backend/Hive_Back-0.0.1-SNAPSHOT.jar}"
-MANAGEMENT_BACKEND_ARTIFACT="${MANAGEMENT_BACKEND_ARTIFACT:-management-backend/management-0.0.1-SNAPSHOT.jar}"
+BACKEND_ARTIFACT="${BACKEND_ARTIFACT:-backend/hive-backend.jar}"
 MANAGEMENT_UI_ARTIFACT="${MANAGEMENT_UI_ARTIFACT:-management-ui/dist}"
 
 fail_blocked() {
@@ -74,8 +73,7 @@ scan_artifact() {
   fi
 }
 
-scan_artifact "mini backend" "${MINI_BACKEND_ARTIFACT}" "mini-backend"
-scan_artifact "management backend" "${MANAGEMENT_BACKEND_ARTIFACT}" "management-backend"
+scan_artifact "unified backend" "${BACKEND_ARTIFACT}" "backend"
 scan_artifact "management UI" "${MANAGEMENT_UI_ARTIFACT}" "management-ui"
 
 if ! grep -qxF 'OrderInformationChannelContract=READY' "${RELEASE_INFO}"; then
@@ -93,6 +91,15 @@ fi
 if ! grep -qxF 'MiniProgramWechatDevtoolsVerification=UPLOADED' "${RELEASE_INFO}"; then
   issues+=("release metadata: MiniProgramWechatDevtoolsVerification=UPLOADED is absent")
 fi
+
+for contract in \
+  'OrderMultiNoteContract=READY' \
+  'OrderNotePermissionContract=READY' \
+  'PendingPayMaterialApprovalTrigger=ADVANCE_ONLY'; do
+  if ! grep -qxF "${contract}" "${RELEASE_INFO}"; then
+    issues+=("release metadata: ${contract} is absent")
+  fi
+done
 
 if [ "${#issues[@]}" -gt 0 ]; then
   for issue in "${issues[@]}"; do

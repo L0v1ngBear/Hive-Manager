@@ -2,6 +2,7 @@ package my.hive.domain.order.model.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -41,8 +42,6 @@ public class SalesOrderSaveRequest {
      */
     private Integer isInvoice;
 
-    private String remark;
-
     /**
      * 销售订单附件名称，通常用于保存合同、客户需求或沟通截图的原始文件名。
      */
@@ -66,6 +65,10 @@ public class SalesOrderSaveRequest {
 
     @Valid
     private List<ItemDTO> items;
+
+    @Valid
+    @Size(max = 50, message = "每个订单最多添加50条备注")
+    private List<SalesOrderNoteSaveRequest> notes;
 
     /**
      * 明细项结构和小程序下单页保持一致，减少两端心智差异。

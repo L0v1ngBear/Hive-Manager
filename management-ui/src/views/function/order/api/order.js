@@ -36,11 +36,7 @@ export function downloadOrderAttachment(params) {
 }
 
 export function saveOrder(orderId, data) {
-  return request({ url: `/orders/${orderId}/save`, method: 'post', data })
-}
-
-export function updateOrder(orderId, data) {
-  return request({ url: `/orders/${orderId}/status`, method: 'post', data })
+  return request({ url: `/orders/${orderId}`, method: 'put', data })
 }
 
 export function advanceOrderNextStage(orderId, data) {

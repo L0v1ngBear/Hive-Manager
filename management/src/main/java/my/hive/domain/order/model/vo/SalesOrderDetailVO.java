@@ -40,8 +40,6 @@ public class SalesOrderDetailVO {
 
     private String creator;
 
-    private String remark;
-
     private String attachmentName;
 
     private String attachmentUrl;
@@ -69,6 +67,8 @@ public class SalesOrderDetailVO {
     private List<ProductionProcessStepVO> processSteps;
 
     private List<ItemVO> items;
+
+    private List<SalesOrderNoteVO> notes;
 
     private List<SalesOrderStatusLogVO> logs;
 

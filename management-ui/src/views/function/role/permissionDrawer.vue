@@ -113,8 +113,8 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
 import { ElAlert, ElButton, ElDrawer, ElEmpty, ElMessage, ElTreeSelect } from 'element-plus'
+import { ref, nextTick } from 'vue'
 import {getAllPermissions, getRolePermissionIds, updateRolePermissions} from './api/role.js'
 import { createRolePermissionLoader, syncCommittedPermissionIds } from './permissionLoaders.js'
 

@@ -92,6 +92,15 @@ if ! grep -qxF 'MiniProgramWechatDevtoolsVerification=UPLOADED' "${RELEASE_INFO}
   issues+=("release metadata: MiniProgramWechatDevtoolsVerification=UPLOADED is absent")
 fi
 
+for contract in \
+  'OrderMultiNoteContract=READY' \
+  'OrderNotePermissionContract=READY' \
+  'PendingPayMaterialApprovalTrigger=ADVANCE_ONLY'; do
+  if ! grep -qxF "${contract}" "${RELEASE_INFO}"; then
+    issues+=("release metadata: ${contract} is absent")
+  fi
+done
+
 if [ "${#issues[@]}" -gt 0 ]; then
   for issue in "${issues[@]}"; do
     echo "FAIL: ${issue}" >&2
