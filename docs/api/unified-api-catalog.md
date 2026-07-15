@@ -38,6 +38,12 @@ The generic print-task contract is served only by `my.hive.api.print.PrintTaskCo
 
 Task 10 does not alter any HTTP contract. Database setup and upgrades are performed only through repository `scripts/migrate-db.sh` and the versioned `db-migrations/migration_manifest.txt`; application classpath SQL is no longer shipped as an alternate migration source.
 
+## Task 11 management UI consumer status
+
+The management UI is migrated to this catalog. Its environment base URL, Axios default, and Vite development proxy are all `/api`; admin login, password reset, organization join, initial-password change, and scan-login polling use `/api/auth/admin/**`. Order, approval, quality, and installation request modules use the canonical routes listed below. No management request fallback to `/web`, singular `/order/**`, `/bad-product/**`, or `/installation-task/**` remains.
+
+`management-ui/tests/unified-api-routes.test.js` is the client-side contract gate. It covers the shared prefix, namespaced admin authentication, canonical resource roots, removed health probe, and retired route patterns.
+
 ## Authorization contract
 
 Protected endpoints accept only exact assignable Permission Catalog V3 codes. Wildcards, aliases, prefixes, legacy enum names, and dot-form codes are invalid. Both authentication channels resolve employee state and effective permissions through the same tenant-scoped pipeline.

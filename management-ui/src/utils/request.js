@@ -7,7 +7,7 @@ import {decryptPayload} from '@/utils/secure'
 import { buildLoginQuery, isLoginPath } from '@/utils/redirect'
 
 const service = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || '/web',
+    baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
     timeout: 10000
 })
 

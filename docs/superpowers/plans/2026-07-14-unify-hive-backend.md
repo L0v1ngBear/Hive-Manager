@@ -588,7 +588,7 @@ git commit -m "build: consolidate the database migration entry point"
 - Consumes: unified API catalog and authentication paths.
 - Produces: a management UI build with no `/web` request target.
 
-- [ ] **Step 1: Write the failing route-source test**
+- [x] **Step 1: Write the failing route-source test**
 
 ```javascript
 test('management UI uses only the unified API prefix', () => {
@@ -599,17 +599,17 @@ test('management UI uses only the unified API prefix', () => {
 })
 ```
 
-- [ ] **Step 2: Run the test and confirm failure**
+- [x] **Step 2: Run the test and confirm failure**
 
 Run: `node --test tests/unified-api-routes.test.js`
 
 Expected: FAIL because `request.js` defaults to `/web`.
 
-- [ ] **Step 3: Change the base URL and every renamed endpoint**
+- [x] **Step 3: Change the base URL and every renamed endpoint**
 
 Set `baseURL` to `import.meta.env.VITE_API_BASE_URL || '/api'`. Update admin authentication and singular/plural domain path changes from the approved API catalog.
 
-- [ ] **Step 4: Run UI tests and build**
+- [x] **Step 4: Run UI tests and build**
 
 Run:
 
@@ -620,7 +620,7 @@ npm run build
 
 Expected: all Node tests pass and Vite produces `dist` successfully.
 
-- [ ] **Step 5: Update documents and commit**
+- [x] **Step 5: Update documents and commit**
 
 ```powershell
 git add management-ui docs

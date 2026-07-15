@@ -2,7 +2,7 @@ import request from '@/utils/request.js'
 
 export function login(data) {
   return request({
-    url: '/auth/login',
+    url: '/auth/admin/login',
     method: 'post',
     data
   })
@@ -10,7 +10,7 @@ export function login(data) {
 
 export function sendPasswordResetCode(data) {
   return request({
-    url: '/auth/password-reset/code',
+    url: '/auth/admin/password-reset/code',
     method: 'post',
     data
   })
@@ -18,7 +18,7 @@ export function sendPasswordResetCode(data) {
 
 export function resetPassword(data) {
   return request({
-    url: '/auth/password-reset',
+    url: '/auth/admin/password-reset',
     method: 'post',
     data
   })
@@ -26,7 +26,7 @@ export function resetPassword(data) {
 
 export function sendOrganizationJoinCode(data) {
   return request({
-    url: '/auth/join-organization/code',
+    url: '/auth/admin/join-organization/code',
     method: 'post',
     data
   })
@@ -34,7 +34,7 @@ export function sendOrganizationJoinCode(data) {
 
 export function joinOrganization(data) {
   return request({
-    url: '/auth/join-organization',
+    url: '/auth/admin/join-organization',
     method: 'post',
     data
   })
@@ -42,7 +42,7 @@ export function joinOrganization(data) {
 
 export function changeInitialPassword(data) {
   return request({
-    url: '/auth/initial-password',
+    url: '/auth/admin/initial-password',
     method: 'post',
     data
   })
@@ -50,14 +50,14 @@ export function changeInitialPassword(data) {
 
 export function createScanLoginSession() {
   return request({
-    url: '/auth/scan-login/session',
+    url: '/auth/admin/scan-login/session',
     method: 'post'
   })
 }
 
 export function getScanLoginStatus(params) {
   return request({
-    url: '/auth/scan-login/status',
+    url: '/auth/admin/scan-login/status',
     method: 'get',
     params
   })

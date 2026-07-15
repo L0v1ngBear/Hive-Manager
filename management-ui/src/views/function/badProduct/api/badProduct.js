@@ -2,7 +2,7 @@ import request from '@/utils/request.js'
 
 export function getBadProductPage(params) {
   return request({
-    url: '/bad-product/list',
+    url: '/quality/list',
     method: 'get',
     params: cleanParams(params)
   })
@@ -10,7 +10,7 @@ export function getBadProductPage(params) {
 
 export function saveBadProduct(data) {
   return request({
-    url: '/bad-product/save',
+    url: '/quality/save',
     method: 'post',
     data
   })
@@ -18,7 +18,7 @@ export function saveBadProduct(data) {
 
 export function uploadBadProductAttachment(data) {
   return request({
-    url: '/bad-product/attachment/upload',
+    url: '/quality/attachment/upload',
     method: 'post',
     data,
     timeout: 30000
@@ -27,7 +27,7 @@ export function uploadBadProductAttachment(data) {
 
 export function downloadBadProductAttachment(params) {
   return request({
-    url: '/bad-product/attachment/download',
+    url: '/quality/attachment/download',
     method: 'get',
     params,
     responseType: 'blob',
@@ -37,7 +37,7 @@ export function downloadBadProductAttachment(params) {
 
 export function processBadProduct(data) {
   return request({
-    url: '/bad-product/process',
+    url: '/quality/process',
     method: 'post',
     data
   })

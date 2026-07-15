@@ -65,6 +65,12 @@ The repository now owns the versioned migration tree at `db-migrations`, with `s
 
 The former `management/src/main/resources/sql` tree was unreferenced and duplicated versioned migration responsibilities; all 28 files were removed. Source-contract tests now read the authoritative versioned migration when schema evidence is required.
 
+## Task 11 management-client convergence
+
+The management UI now uses `/api` as its only backend base path in all Vite environments, the Axios fallback, and the development proxy. Administrator authentication is explicitly namespaced below `/api/auth/admin/**`; it remains a distinct authentication adapter while sharing the backend token, tenant, permission, and employee-state pipeline with mini-program authentication.
+
+Management order, approval, quality, and installation clients now call the canonical resource routes (`/api/orders/**`, `/api/approval/**`, `/api/quality/**`, and `/api/installation-tasks/**`). The retired singular and action-suffixed request paths are not client fallbacks. A source contract test prevents `/web` or those retired API roots from returning.
+
 ## Permission, employee, role, and tenant convergence
 
 Permission Catalog V3 now lives only at `my.hive.shared.permission.PermissionCatalogV3`. Runtime checks validate an exact assignable catalog leaf before consulting the request grants. `EffectivePermissionService` resolves the canonical management employee/role persistence query and discards all non-catalog values. The single authenticated-route initializer is `TenantContextFilter`, backed by the shared authenticated session and tenant context contracts.

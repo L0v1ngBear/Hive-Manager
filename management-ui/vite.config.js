@@ -30,8 +30,8 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 5173,
     proxy: {
-      '/web': {
-        target: 'http://localhost:8081',
+      '/api': {
+        target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false
       }

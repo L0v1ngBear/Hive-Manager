@@ -54,6 +54,12 @@ The repository migration source is imported byte-for-byte from the approved depl
 
 The current manifest contains 74 ordered migrations and has a matching full checksum snapshot. Task 10 changes no schema and does not require an online migration run. The deployment topology and remaining operational scripts will be rewritten for the single backend in Task 12 before release synchronization.
 
+## Task 11 deployment note
+
+The management production build now targets `/api`, matching the mini-program public prefix and the single Spring Boot context path. Local Vite proxying uses `http://localhost:8080`; production nginx must therefore expose only `/api/**` to the one `hive-backend` process. No `/web` compatibility location should be retained during Task 12.
+
+The client route gate and all management UI Node tests pass, and the Vite production bundle builds successfully. This verifies the client contract but is not yet a deployable release package; Compose, nginx, health checks, restart/smoke scripts, and deployment-directory synchronization remain Tasks 12-14.
+
 ## Permission runtime
 
 The unified process has one Permission Catalog V3 bean and one authenticated-route tenant-context initializer. Deployments must not seed wildcard, alias, prefix, or legacy permission codes; only exact assignable V3 leaves are effective.

@@ -2,7 +2,7 @@ import request from '@/utils/request.js'
 
 export function getInstallationTaskPage(params) {
   return request({
-    url: '/installation-task/page',
+    url: '/installation-tasks/page',
     method: 'get',
     params
   })
@@ -10,7 +10,7 @@ export function getInstallationTaskPage(params) {
 
 export function updateInstallationTaskStatus(data) {
   return request({
-    url: '/installation-task/status',
+    url: '/installation-tasks/status',
     method: 'post',
     data
   })
@@ -18,7 +18,7 @@ export function updateInstallationTaskStatus(data) {
 
 export function uploadInstallationTaskAttachment(data) {
   return request({
-    url: '/installation-task/attachment/upload',
+    url: '/installation-tasks/attachment/upload',
     method: 'post',
     data,
     timeout: 30000
@@ -27,7 +27,7 @@ export function uploadInstallationTaskAttachment(data) {
 
 export function downloadInstallationTaskAttachment(params) {
   return request({
-    url: '/installation-task/attachment/download',
+    url: '/installation-tasks/attachment/download',
     method: 'get',
     params,
     responseType: 'blob',

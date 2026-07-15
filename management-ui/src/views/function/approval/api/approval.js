@@ -32,7 +32,7 @@ export function saveApprovalDefaultAuditor(data) {
 
 export function listLeaveApprovals() {
   return request({
-    url: '/approval/leave/list',
+    url: '/approval/leave',
     method: 'get',
   })
 }
@@ -54,7 +54,7 @@ export function auditLeaveApproval(data) {
 
 export function listFinanceApprovals() {
   return request({
-    url: '/approval/finance/list',
+    url: '/approval/finance',
     method: 'get',
   })
 }
@@ -76,7 +76,7 @@ export function auditFinanceApproval(data) {
 
 export function submitFinanceApproval(data) {
   return request({
-    url: '/approval/finance/submit',
+    url: '/approval/finance',
     method: 'post',
     data,
   })
@@ -84,7 +84,7 @@ export function submitFinanceApproval(data) {
 
 export function uploadFinanceApprovalAttachment(data) {
   return request({
-    url: '/approval/finance/attachment/upload',
+    url: '/approval/finance/attachment',
     method: 'post',
     data,
     timeout: 30000,
@@ -93,7 +93,7 @@ export function uploadFinanceApprovalAttachment(data) {
 
 export function downloadFinanceApprovalAttachment(params) {
   return request({
-    url: '/approval/finance/attachment/download',
+    url: '/approval/finance/attachment',
     method: 'get',
     params,
     responseType: 'blob',
@@ -103,7 +103,7 @@ export function downloadFinanceApprovalAttachment(params) {
 
 export function listResignationApprovals() {
   return request({
-    url: '/approval/resignation/list',
+    url: '/approval/resignation',
     method: 'get',
   })
 }
@@ -117,7 +117,7 @@ export function getResignationApprovalDetail(resignationCode) {
 
 export function submitResignationApproval(data) {
   return request({
-    url: '/approval/resignation/submit',
+    url: '/approval/resignation',
     method: 'post',
     data,
   })
@@ -133,7 +133,7 @@ export function auditResignationApproval(data) {
 
 export function listQualityApprovals() {
   return request({
-    url: '/approval/quality/list',
+    url: '/approval/quality',
     method: 'get',
   })
 }
@@ -155,7 +155,7 @@ export function auditQualityApproval(data) {
 
 export function listOrderApprovals() {
   return request({
-    url: '/approval/order/list',
+    url: '/approval/order',
     method: 'get',
   })
 }

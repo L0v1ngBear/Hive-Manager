@@ -50,6 +50,10 @@ Removing the Java legacy roots and narrowing component/mapper scanning does not 
 
 The migration runner refuses a previously successful version whose checksum has changed. The schema-only baseline passed `db-migrations/scripts/verify-schema-only-baseline.sh`. Backend convergence required no schema change, so no `V20260715_*` file was created. The retired 28-file application resource SQL directory was deleted; runtime startup and tests succeed without it.
 
+## Task 11 migration note
+
+Changing the management client from `/web` and retired action routes to the unified `/api` contract is an HTTP-client configuration change only. It adds no table, column, seed, or data conversion, so Task 11 creates no migration and changes none of the 74 protected historical files.
+
 ## Task 3 persistence decision
 
 No schema migration is required. Existing management `employee`, `sys_role`, `sys_permission`, `sys_user_role`, `sys_role_permission`, and `sys_user_permission` tables and mappers are the canonical persistence model for both clients.

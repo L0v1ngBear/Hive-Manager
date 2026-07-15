@@ -7,11 +7,10 @@ const pageSource = readFileSync(new URL('../src/views/function/order/order.vue',
 
 test('order API exposes one canonical route family', () => {
   for (const route of [
-    '/order/page',
-    '/order/status-summary',
-    '/order/create',
-    '/order/attachment/upload',
-    '/order/flow-print-task'
+    '/orders',
+    '/orders/status-summary',
+    '/orders/attachment',
+    '/orders/flow-print-task'
   ]) {
     assert.match(apiSource, new RegExp(route.replaceAll('/', '\\/')))
   }
