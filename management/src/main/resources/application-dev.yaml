@@ -54,17 +54,17 @@ hive:
 logging:
   level:
     root: INFO
-    my.management: DEBUG
-    my.management.module: DEBUG
-    my.management.controller: DEBUG
-    my.management.module.auth.mapper: TRACE
+    my.hive: DEBUG
+    my.hive.domain: DEBUG
+    my.hive.api: DEBUG
+    my.hive.domain.auth.mapper: TRACE
     my.hive.domain.customer.mapper: DEBUG
     my.hive.domain.document.mapper: DEBUG
-    my.management.module.employee.mapper: DEBUG
-    my.management.module.price.mapper: DEBUG
+    my.hive.domain.employee.mapper: DEBUG
+    my.hive.domain.price.mapper: DEBUG
     my.hive.domain.print.receipt.mapper: DEBUG
-    my.management.module.sys.mapper: DEBUG
-    my.management.module.tenant.mapper: DEBUG
+    my.hive.domain.permission.mapper: DEBUG
+    my.hive.domain.tenant.mapper: DEBUG
     com.baomidou.mybatisplus: DEBUG
     org.apache.ibatis: TRACE
     org.mybatis: DEBUG

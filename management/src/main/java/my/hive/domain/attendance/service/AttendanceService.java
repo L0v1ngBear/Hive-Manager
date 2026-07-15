@@ -9,9 +9,9 @@ import my.hive.shared.dto.PageResult;
 import my.hive.shared.exception.BusinessException;
 import my.hive.shared.privacy.PrivacyProtectionUtil;
 import my.hive.shared.redis.HiveRedisKeyBuilder;
-import my.management.common.enums.BinaryFlagEnum;
-import my.management.common.enums.CommonStatusEnum;
-import my.management.common.utils.ExcelUtil;
+import my.hive.shared.enums.BinaryFlagEnum;
+import my.hive.shared.enums.CommonStatusEnum;
+import my.hive.shared.utils.ExcelUtil;
 import my.hive.domain.attendance.mapper.AttendanceManageMapper;
 import my.hive.domain.attendance.mapper.AttendanceRecordMapper;
 import my.hive.domain.attendance.mapper.TenantAttendanceLocationManageMapper;
@@ -30,9 +30,9 @@ import my.hive.domain.attendance.model.vo.AttendanceRecordManageVO;
 import my.hive.domain.attendance.model.vo.AttendanceRuleVO;
 import my.hive.domain.attendance.model.vo.AttendanceSummaryVO;
 import my.hive.shared.utils.TimeUtil;
-import my.management.module.employee.mapper.EmployeeAttendanceLocationMapper;
-import my.management.module.employee.mapper.EmployeeMapper;
-import my.management.module.employee.model.entity.Employee;
+import my.hive.domain.employee.mapper.EmployeeAttendanceLocationMapper;
+import my.hive.domain.employee.mapper.EmployeeMapper;
+import my.hive.domain.employee.model.entity.Employee;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -237,11 +237,11 @@ public class AttendanceService {
             return new LocationMatch(0D, rule.getAddress(), safeRadius(rule.getRadius()));
         }
         Set<Long> assignedIds = employeeAttendanceLocationMapper.selectList(
-                        new LambdaQueryWrapper<my.management.module.employee.model.entity.EmployeeAttendanceLocation>()
-                                .eq(my.management.module.employee.model.entity.EmployeeAttendanceLocation::getTenantCode, tenantCode)
-                                .eq(my.management.module.employee.model.entity.EmployeeAttendanceLocation::getUserId, userId))
+                        new LambdaQueryWrapper<my.hive.domain.employee.model.entity.EmployeeAttendanceLocation>()
+                                .eq(my.hive.domain.employee.model.entity.EmployeeAttendanceLocation::getTenantCode, tenantCode)
+                                .eq(my.hive.domain.employee.model.entity.EmployeeAttendanceLocation::getUserId, userId))
                 .stream()
-                .map(my.management.module.employee.model.entity.EmployeeAttendanceLocation::getAttendanceLocationId)
+                .map(my.hive.domain.employee.model.entity.EmployeeAttendanceLocation::getAttendanceLocationId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         List<TenantAttendanceLocation> active = tenantAttendanceLocationManageMapper.selectActiveByTenantCode(tenantCode);

@@ -2,9 +2,9 @@ package my.hive.api.auth;
 
 import my.hive.domain.auth.service.AuthenticationService;
 import my.hive.shared.utils.ResponseEncryptUtil;
-import my.management.common.interceptor.PlatformScopeInterceptor;
-import my.management.common.interceptor.TenantContextFilter;
-import my.management.module.auth.model.vo.LoginVO;
+import my.hive.shared.interceptor.PlatformScopeInterceptor;
+import my.hive.shared.interceptor.TenantContextFilter;
+import my.hive.domain.auth.model.vo.LoginVO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = {AdminAuthController.class, MiniAuthController.class, SessionController.class},
         excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE,
-                classes = my.management.common.config.WebMvcConfig.class))
+                classes = my.hive.shared.config.WebMvcConfig.class))
 @ContextConfiguration(classes = {AdminAuthController.class, MiniAuthController.class, SessionController.class})
 class UnifiedAuthenticationIntegrationTest {
     @Autowired MockMvc mvc;

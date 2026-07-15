@@ -2,7 +2,7 @@ package my.hive.api.auth;
 
 import my.hive.domain.auth.service.AuthenticationService;
 import my.hive.shared.dto.Result;
-import my.management.module.auth.model.vo.LoginVO;
+import my.hive.domain.auth.model.vo.LoginVO;
 import org.springframework.web.bind.annotation.*;
 
 @RestController @RequestMapping("/auth")

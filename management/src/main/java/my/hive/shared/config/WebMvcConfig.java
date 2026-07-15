@@ -1,0 +1,93 @@
+package my.hive.shared.config;
+
+import jakarta.annotation.Resource;
+import my.hive.shared.web.TenantUploadResourceResolver;
+import my.hive.shared.utils.TokenUtil;
+import my.hive.shared.interceptor.TenantContextFilter;
+import my.hive.shared.interceptor.PlatformScopeInterceptor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.nio.file.Path;
+/**
+ * WebMvcConfig 属于管理端后端通用能力层，定义框架配置，用于组织基础设施行为。
+ */
+@Configuration
+public class WebMvcConfig implements WebMvcConfigurer {
+
+    private static final String[] PUBLIC_PATHS = {
+            "/auth/admin/login",
+            "/auth/admin/password-reset/code",
+            "/auth/admin/password-reset",
+            "/auth/admin/join-organization/code",
+            "/auth/admin/join-organization",
+            "/auth/admin/scan-login/session",
+            "/auth/admin/scan-login/status",
+            "/auth/mini/login",
+            "/auth/mini/wechat-login",
+            "/v3/api-docs",
+            "/v3/api-docs/**",
+            "/swagger-ui.html",
+            "/swagger-ui/**",
+            "/swagger-resources/**",
+            "/webjars/**",
+            "/uploads/tenant-logo/**",
+            "/favicon.ico",
+            "/error"
+    };
+
+    @Resource
+    private TenantContextFilter tenantContextFilter;
+
+    @Resource
+    private PlatformScopeInterceptor platformScopeInterceptor;
+
+    @Value("${app.cors.allowed-origin-patterns:https://hellohive.top,http://localhost:*,http://127.0.0.1:*}")
+    private String allowedOriginPatterns;
+
+    @Value("${app.upload.root:uploads}")
+    private String uploadRoot;
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(tenantContextFilter)
+                .addPathPatterns("/**")
+                .excludePathPatterns(PUBLIC_PATHS);
+        registry.addInterceptor(platformScopeInterceptor)
+                .addPathPatterns("/**")
+                .excludePathPatterns(PUBLIC_PATHS);
+    }
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+                .allowedOriginPatterns(resolveAllowedOrigins())
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .exposedHeaders(
+                        "Authorization",
+                        TokenUtil.HEADER_RENEWED_TOKEN,
+                        TokenUtil.HEADER_RENEWED_EXPIRE_AT,
+                        TokenUtil.HEADER_RENEWED_RESPONSE_KEY
+                )
+                .allowCredentials(false)
+                .maxAge(3600);
+    }
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        String uploadLocation = Path.of(uploadRoot).toAbsolutePath().normalize().toUri().toString();
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations(uploadLocation)
+                .resourceChain(true)
+                .addResolver(new TenantUploadResourceResolver());
+    }
+
+    private String[] resolveAllowedOrigins() {
+        return allowedOriginPatterns.split("\\s*,\\s*");
+    }
+}

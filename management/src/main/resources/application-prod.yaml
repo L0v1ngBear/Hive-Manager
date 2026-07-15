@@ -20,7 +20,7 @@ logging:
       total-size-cap: ${LOGGING_FILE_TOTAL_SIZE_CAP:512MB}
   level:
     root: ${LOGGING_LEVEL_ROOT:INFO}
-    my.management: ${LOGGING_LEVEL_MY_MANAGEMENT:INFO}
+    my.hive: ${LOGGING_LEVEL_MY_HIVE:INFO}
     my.hive.shared: ${LOGGING_LEVEL_MY_HIVE_SHARED:INFO}
     com.xxl.job: ${LOGGING_LEVEL_XXL_JOB:INFO}
     org.springframework: ${LOGGING_LEVEL_SPRING:WARN}

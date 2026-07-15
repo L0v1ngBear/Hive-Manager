@@ -501,27 +501,27 @@ git commit -m "refactor: unify notifications attendance and scheduled work"
 **Interfaces:**
 - Produces a single `my.hive` source root and one Spring Boot main class.
 
-- [ ] **Step 1: Run the source guard**
+- [x] **Step 1: Run the source guard**
 
 Run: `./mvnw -Dtest=UnifiedBackendSourceGuardTest test`
 
 Expected: FAIL until every old package and reference is removed.
 
-- [ ] **Step 2: Remove legacy roots and dead dependencies**
+- [x] **Step 2: Remove legacy roots and dead dependencies**
 
 Delete only after imports compile and focused tests pass. Remove dependencies used solely by retired duplicate implementations.
 
-- [ ] **Step 3: Add static cardinality assertions**
+- [x] **Step 3: Add static cardinality assertions**
 
 Assert exactly one `@SpringBootApplication`, no source import starts with `my.management` or `my.hive_back`, no permission constant contains `*`, and no `context-path: /web` exists.
 
-- [ ] **Step 4: Run the complete backend suite**
+- [x] **Step 4: Run the complete backend suite**
 
 Run: `./mvnw clean test`
 
 Expected: BUILD SUCCESS.
 
-- [ ] **Step 5: Update documents and commit**
+- [x] **Step 5: Update documents and commit**
 
 ```powershell
 git add management docs
@@ -788,4 +788,3 @@ git commit -m "release: package the unified Hive backend"
 - [ ] Compose contains one Hive business container named `hive-backend`.
 - [ ] Admin and mini authentication plus representative business APIs respond from the same process.
 - [ ] Deployment package, scripts, documentation, and `RELEASE_BUILD_INFO.txt` match the built artifacts.
-

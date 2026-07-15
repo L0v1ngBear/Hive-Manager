@@ -1,0 +1,11 @@
+package my.hive.domain.tenant.model.dto;
+
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
+@Data
+public class TenantStatusUpdateRequest {
+
+    @NotNull(message = "状态不能为空")
+    private Integer status;
+}

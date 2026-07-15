@@ -2,14 +2,14 @@
 
 ## Contract
 
-All public business routes will use `/api/**`; no `/web/**` compatibility route will remain. Authentication entry points will be separated into `/api/auth/admin/**` and `/api/auth/mini/**` while sharing session, tenant, permission, and user-state services. Domain endpoint matrices will be added as each capability converges.
+All public business routes use `/api/**`; no `/web/**` compatibility route remains. Authentication entry points are separated into `/api/auth/admin/**` and `/api/auth/mini/**` while sharing session, tenant, permission, and user-state services. The matrices below are the converged contract consumed by both clients.
 
 ## Module status
 
 | Module | Status |
 | --- | --- |
-| foundation | PLANNED |
-| permission | PLANNED |
+| foundation | COMPLETE |
+| permission | COMPLETE |
 | auth | COMPLETE |
 
 Authentication routes are `POST /api/auth/admin/login`, `POST /api/auth/admin/scan-login/session`, `GET /api/auth/admin/scan-login/status`, `POST /api/auth/admin/scan-login/confirm`, `POST /api/auth/mini/login`, `POST /api/auth/mini/wechat-login`, `GET /api/auth/me`, and `POST /api/auth/logout`. Reset, initial-password, and organization-join routes are retained only below `/api/auth/admin/**`; `/api/auth/login` does not exist.
@@ -29,6 +29,13 @@ WeChat login resolves phone matches only inside the bounded tenant set. A phone 
 | attendance | COMPLETE |
 | migration | PLANNED |
 | deployment | PLANNED |
+
+## Task 9 source closure
+
+Every route in this catalog is implemented by a Controller under `my.hive.api` and a single canonical domain service under `my.hive.domain`. The runtime no longer scans or imports `my.management` or `my.hive_back`. Admin authentication writes and mini-program login writes use the shared operation-log aspect with request argument recording disabled so credentials, verification codes, and WeChat login payloads are not persisted in audit arguments.
+
+The generic print-task contract is served only by `my.hive.api.print.PrintTaskController`; the former external-common Controller location is not part of the executable application. All public route roots remain relative to the single `/api` context.
+
 ## Authorization contract
 
 Protected endpoints accept only exact assignable Permission Catalog V3 codes. Wildcards, aliases, prefixes, legacy enum names, and dot-form codes are invalid. Both authentication channels resolve employee state and effective permissions through the same tenant-scoped pipeline.

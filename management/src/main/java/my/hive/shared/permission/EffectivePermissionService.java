@@ -1,6 +1,6 @@
 package my.hive.shared.permission;
 
-import my.management.module.auth.mapper.AuthMapper;
+import my.hive.domain.auth.mapper.AuthMapper;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashSet;

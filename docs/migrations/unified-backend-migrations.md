@@ -8,13 +8,13 @@ Historical versioned SQL is immutable. Any convergence schema change must be a n
 
 | Module | Status |
 | --- | --- |
-| foundation | PLANNED |
-| permission | PLANNED |
+| foundation | COMPLETE |
+| permission | COMPLETE |
 | auth | COMPLETE |
 
 Task 4 requires no schema change. Both clients use the existing user `auth_version` for versioned sessions and logout invalidation.
-| order | PLANNED |
-| approval | PLANNED |
+| order | COMPLETE |
+| approval | COMPLETE |
 | inventory | COMPLETE |
 | quality | COMPLETE |
 | installation | COMPLETE |
@@ -39,6 +39,11 @@ Customer, document, equipment, label-template, receipt-print, and print-task con
 ## Task 8 migration note
 
 Task 8 does not modify an executed historical SQL file. The unified implementation consumes the existing `notification_record`, `enterprise_announcement`, `attendance_record`, `tenant_attendance_rule`, `tenant_attendance_location`, `employee_attendance_location`, `attendance_statics`, `inventory_statics`, and `wechat_subscribe_user` contracts already present in the approved deployment baseline/version history. Task 10 will import that history unchanged into the repository and verify its manifest checksums; any subsequently discovered schema delta must be introduced as a new version file.
+
+## Task 9 migration note
+
+Removing the Java legacy roots and narrowing component/mapper scanning does not change the database schema. Task 9 therefore adds no migration and modifies no historical SQL. The canonical employee, role, permission, order, approval, tenant, notification, attendance, print, and other domain mappers continue to use the existing tables; migration-history import and checksum enforcement remain Task 10 work.
+
 ## Task 3 persistence decision
 
 No schema migration is required. Existing management `employee`, `sys_role`, `sys_permission`, `sys_user_role`, `sys_role_permission`, and `sys_user_permission` tables and mappers are the canonical persistence model for both clients.

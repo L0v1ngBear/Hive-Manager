@@ -2,7 +2,7 @@ package my.hive.domain.inventory.model.vo;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import my.management.common.vo.ImportResultVO;
+import my.hive.shared.dto.ImportResultVO;
 
 import java.util.ArrayList;
 import java.util.List;

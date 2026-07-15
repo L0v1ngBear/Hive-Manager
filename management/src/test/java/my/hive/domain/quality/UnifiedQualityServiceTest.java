@@ -13,7 +13,7 @@ import my.hive.domain.quality.model.entity.BadProductRecord;
 import my.hive.domain.quality.service.QualityService;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.permission.PermissionCatalogV3;
-import my.management.module.employee.mapper.EmployeeMapper;
+import my.hive.domain.employee.mapper.EmployeeMapper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.AfterEach;

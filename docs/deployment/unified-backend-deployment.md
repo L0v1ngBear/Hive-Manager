@@ -8,13 +8,13 @@ The release topology will contain one business service named `backend`, one cont
 
 | Module | Status |
 | --- | --- |
-| foundation | PLANNED |
-| permission | PLANNED |
+| foundation | COMPLETE |
+| permission | COMPLETE |
 | auth | COMPLETE |
 
 Configure `wechat.mini-program.enabled`, `wechat.mini-program.app-id`, and `wechat.mini-program.app-secret` to enable mini WeChat login. Clients must use the namespaced admin/mini routes; no ambiguous login alias is deployed.
-| order | PLANNED |
-| approval | PLANNED |
+| order | COMPLETE |
+| approval | COMPLETE |
 | inventory | COMPLETE |
 | quality | COMPLETE |
 | installation | COMPLETE |
@@ -41,6 +41,13 @@ The unified backend JAR now serves customer, document, equipment, label-template
 The single backend process owns all notification, SMS, WeChat subscription, attendance, statistics, maintenance-job, and operation-log consumer registrations. Configure one XXL-JOB executor with app name `hive-backend`, one executor port, one log path, and the single `XXL_JOB_ENABLED` flag. Required unique handlers are `attendanceDailyStatJob`, `inventoryDailyStatJob`, `notificationClosedLoopJob`, `runtimeStabilityAuditJob`, `dbCapacityReportJob`, and `dbCleanupJob`.
 
 Optional WeChat subscription delivery uses `WECHAT_SUBSCRIBE_ENABLED`, `WECHAT_SUBSCRIBE_TODO_TEMPLATE_ID`, and the three template field-key variables in addition to the shared mini-program app ID/secret. The operation-log RabbitMQ queue has one listener declaration. A second scheduler executor, notification consumer, attendance scheduler, or mini-backend listener must not be deployed.
+
+## Task 9 deployment note
+
+The executable source boundary is now exclusively `my.hive`, with one `HiveApplication`, one Controller registry, six unique XXL-JOB handler names, and one operation-log Rabbit listener. There is no legacy package scanning and no runtime dependency on either retired backend source tree. Authentication audit is registered in the same process for both admin and mini-program entry points and suppresses credential arguments.
+
+Task 9 changes no environment-variable name, container topology, migration command, or database schema. The deployable JAR and Docker/deployment-directory cutover are intentionally deferred to the remaining migration, client-route, and deployment tasks; do not publish the Task 9 intermediate artifact as the final release package.
+
 ## Permission runtime
 
 The unified process has one Permission Catalog V3 bean and one authenticated-route tenant-context initializer. Deployments must not seed wildcard, alias, prefix, or legacy permission codes; only exact assignable V3 leaves are effective.

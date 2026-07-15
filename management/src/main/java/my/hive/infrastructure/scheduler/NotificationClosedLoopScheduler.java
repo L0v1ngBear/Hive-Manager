@@ -7,10 +7,10 @@ import my.hive.domain.notification.service.NotificationService;
 import lombok.extern.slf4j.Slf4j;
 import my.hive.shared.event.SystemEvent;
 import my.hive.shared.event.SystemEventPublisher;
-import my.management.module.tenant.mapper.TenantMapper;
-import my.management.module.tenant.model.entity.Tenant;
-import my.management.common.enums.CommonStatusEnum;
-import my.management.common.enums.DeleteFlagEnum;
+import my.hive.domain.tenant.mapper.TenantMapper;
+import my.hive.domain.tenant.model.entity.Tenant;
+import my.hive.shared.enums.CommonStatusEnum;
+import my.hive.shared.enums.DeleteFlagEnum;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
