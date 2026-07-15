@@ -26,7 +26,7 @@ Configure `wechat.mini-program.enabled`, `wechat.mini-program.app-id`, and `wech
 | notification | COMPLETE |
 | attendance | COMPLETE |
 | migration | COMPLETE |
-| deployment | IN PROGRESS (SINGLE-SERVICE SOURCE COMPLETE) |
+| deployment | IN PROGRESS (ARTIFACT AND ROUTES VERIFIED) |
 
 ## Task 6 deployment note
 
@@ -75,7 +75,15 @@ Operational entry points are:
 - `scripts/stop.sh` and `scripts/logs.sh` for operations;
 - `scripts/migrate-db.sh` as the sole database migration entry in an assembled package.
 
-The topology contract, YAML duplicate-key/structure validation, complete application-variable mapping, retired-reference scan, and Bash syntax checks pass. Docker CLI is not installed on the current workstation, so `docker compose --env-file .env.example config -q` remains a mandatory release-host gate before start or restart. Task 13 still needs to build and exercise the unique JAR; Task 14 still needs to assemble and synchronize the final deployment directory.
+The topology contract, YAML duplicate-key/structure validation, complete application-variable mapping, retired-reference scan, and Bash syntax checks pass. Docker CLI is not installed on the current workstation, so `docker compose --env-file .env.example config -q` remains a mandatory release-host gate before start or restart. Task 14 still needs to assemble and synchronize the final deployment directory.
+
+## Task 13 artifact and smoke verification
+
+`mvnw clean package` passed 186 tests and produced exactly one `target/*.jar`: `hive-backend-0.0.1-SNAPSHOT.jar`. Inspection found one `HiveApplication`, one build-info resource, one admin auth Controller, one mini auth Controller, one health Controller, and zero `my.management`/`my.hive_back` classes. The Task 13 verification artifact SHA-256 was `B0B291B6C4473BA5345AF6BF4733AC57451573594965967BC2DB26146758AFDD`; Task 14 must rebuild and record the final release hash after the source commit.
+
+The JAR started successfully with Java 21 on local MySQL/Redis/RabbitMQ while schedulers, maintenance, outbound messaging, and operation logging were disabled. `smoke-unified-backend.sh` verified the health route, both login rejection paths, current user, employees, orders, approval, inventory, notifications, and print tasks. All responses reported build `hive-backend:0.0.1-SNAPSHOT:2026-07-15T03:46:47.379Z` and process instance `76ab10e7-6788-4c33-8536-f84d42aab9c9`; startup logs contained no duplicate Bean, mapping, listener, or handler failure. The temporary process was stopped after verification.
+
+Container startup remains untested on this workstation because Docker CLI is absent. Release-host Compose expansion, nginx TLS validation, container health, and full deployment smoke remain mandatory Task 14 gates.
 
 ## Permission runtime
 

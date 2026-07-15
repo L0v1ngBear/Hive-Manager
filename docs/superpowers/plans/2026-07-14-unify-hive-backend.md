@@ -693,27 +693,27 @@ git commit -m "build: replace dual backends with one deployment service"
 **Interfaces:**
 - Verifies admin and mini routes are served by the same process identity.
 
-- [ ] **Step 1: Add an application-instance header or actuator info value**
+- [x] **Step 1: Add an application-instance header or actuator info value**
 
 Expose a non-secret build identifier from `BuildProperties` so smoke tests can prove admin and mini responses originate from the same artifact.
 
-- [ ] **Step 2: Write endpoint smoke tests**
+- [x] **Step 2: Write endpoint smoke tests**
 
 Cover health, admin login rejection/success fixture, mini login rejection/success fixture, current user, employee query, orders, approval summary, inventory summary, notification list, and print-task query. Assert the same build identifier on both client paths.
 
-- [ ] **Step 3: Build the unique executable JAR**
+- [x] **Step 3: Build the unique executable JAR**
 
 Run: `./mvnw clean package`
 
 Expected: BUILD SUCCESS and exactly one executable `management/target/hive-backend-0.0.1-SNAPSHOT.jar` excluding `original-*` files.
 
-- [ ] **Step 4: Start the application and run smoke tests**
+- [x] **Step 4: Start the application and run smoke tests**
 
 Run the JAR with an isolated test database/Redis configuration, wait for health, execute `smoke-unified-backend.sh`, then terminate the process cleanly.
 
 Expected: every route responds from one process; logs contain no duplicate mapping, Bean, listener, or handler error.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add management deploy/scripts docs

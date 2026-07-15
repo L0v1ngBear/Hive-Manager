@@ -20,6 +20,7 @@ bash scripts/check-deploy-health.sh
 bash scripts/start.sh
 bash scripts/restart.sh
 bash scripts/smoke-test.sh
+bash scripts/smoke-unified-backend.sh
 bash scripts/rollback-release.sh
 ```
 

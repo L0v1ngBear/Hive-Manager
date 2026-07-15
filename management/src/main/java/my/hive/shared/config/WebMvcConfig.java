@@ -5,6 +5,7 @@ import my.hive.shared.web.TenantUploadResourceResolver;
 import my.hive.shared.utils.TokenUtil;
 import my.hive.shared.interceptor.TenantContextFilter;
 import my.hive.shared.interceptor.PlatformScopeInterceptor;
+import my.hive.shared.web.BuildIdentityFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -20,6 +21,7 @@ import java.nio.file.Path;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private static final String[] PUBLIC_PATHS = {
+            "/health",
             "/auth/admin/login",
             "/auth/admin/password-reset/code",
             "/auth/admin/password-reset",
@@ -72,7 +74,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "Authorization",
                         TokenUtil.HEADER_RENEWED_TOKEN,
                         TokenUtil.HEADER_RENEWED_EXPIRE_AT,
-                        TokenUtil.HEADER_RENEWED_RESPONSE_KEY
+                        TokenUtil.HEADER_RENEWED_RESPONSE_KEY,
+                        BuildIdentityFilter.BUILD_HEADER,
+                        BuildIdentityFilter.INSTANCE_HEADER
                 )
                 .allowCredentials(false)
                 .maxAge(3600);

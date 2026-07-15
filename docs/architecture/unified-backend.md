@@ -37,7 +37,7 @@ The management application is the convergence shell for one Spring Boot applicat
 | notification | COMPLETE |
 | attendance | COMPLETE |
 | migration | COMPLETE |
-| deployment | IN PROGRESS (SINGLE-SERVICE SOURCE COMPLETE) |
+| deployment | IN PROGRESS (ARTIFACT AND ROUTES VERIFIED) |
 
 ## Task 6 domain convergence
 
@@ -76,6 +76,12 @@ Management order, approval, quality, and installation clients now call the canon
 The version-controlled deployment source now lives under `deploy`. Compose contains exactly one Hive business service named `backend` and one container identity `hive-backend`; MySQL, Redis, optional RabbitMQ, optional XXL-JOB admin, and nginx are infrastructure services rather than alternate application runtimes. The backend exposes only port 8080 to the Compose network and owns one log/upload mount, one health check, one executor configuration, and the union of admin and mini-program channel variables.
 
 Nginx has one `/api/**` upstream at `backend:8080` and no compatibility location. Operational start, restart, health, smoke, low-cost, artifact inspection, release-integrity, snapshot, rollback, stop, and log scripts all address the same service. Runtime secrets, certificates, persistent data, generated UI assets, release JARs, reports, and snapshots are excluded from the repository template.
+
+## Task 13 artifact and process identity
+
+The Maven build generates `META-INF/build-info.properties`. `BuildIdentityFilter` adds `X-Hive-Build` (application, version, build time) and a process-lifetime `X-Hive-Instance` UUID to every response, including validation and authentication failures. `/api/health` is the public application liveness route; the identity headers are also exposed through CORS.
+
+`UnifiedEndpointSmokeTest` resolves health, admin/mini authentication, current-user, employee, order, approval, inventory, notification, and print mappings and verifies the same build/instance values across both authentication adapters. The packaged JAR was also started as a Java 21 process and the release smoke script confirmed all ten representative requests reached one build and one process.
 
 ## Permission, employee, role, and tenant convergence
 

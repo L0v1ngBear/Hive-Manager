@@ -58,6 +58,10 @@ Changing the management client from `/web` and retired action routes to the unif
 
 The assembled deployment package exposes `scripts/migrate-db.sh` as its only migration command and carries the same immutable `db-migrations` manifest imported in Task 10. Start and restart stop/start only the one business service around that command. Compose consolidation changes no schema and adds no migration; database rollback remains a separate, explicit restore from a verified backup rather than an automatic reverse-SQL operation.
 
+## Task 13 migration note
+
+Build identity headers and the public health route are runtime metadata only. The Task 13 verification process did not run migrations or mutate business data; it exercised health, validation failures, and unauthenticated route guards against local infrastructure. No version file was added and all 74 protected migration checksums remain unchanged.
+
 ## Task 3 persistence decision
 
 No schema migration is required. Existing management `employee`, `sys_role`, `sys_permission`, `sys_user_role`, `sys_role_permission`, and `sys_user_permission` tables and mappers are the canonical persistence model for both clients.

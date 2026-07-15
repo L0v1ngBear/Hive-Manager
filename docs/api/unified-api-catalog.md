@@ -48,6 +48,16 @@ The management UI is migrated to this catalog. Its environment base URL, Axios d
 
 The deployment nginx configuration exposes one application upstream: every `/api/**` request is forwarded without path rewriting to `backend:8080`. There is no client-specific upstream and no compatibility location. `/health` is an nginx liveness endpoint; application identity and representative admin/mini business probes are completed in Task 13.
 
+## Task 13 health and identity contract
+
+| Method | Route | Authorization | Response | Identity |
+| --- | --- | --- | --- | --- |
+| GET | `/api/health` | public | `Result<{status,application,version}>` | `X-Hive-Build`, `X-Hive-Instance` |
+
+Every application response carries the same two non-secret headers. `X-Hive-Build` is derived from packaged Spring Boot build properties; `X-Hive-Instance` is generated once when the process starts. Management and mini-program clients therefore share both an artifact identity and a process identity without sharing their authentication entry paths.
+
+The Java smoke contract registers exactly one mapping for `/api/health`, `/api/auth/admin/login`, `/api/auth/mini/login`, `/api/auth/me`, `/api/emp/employee/page`, `/api/orders`, `/api/approval/summary`, `/api/inventory/summary`, `/api/notifications/page`, and `/api/print-task/recent`. The release script accepts expected 200/400/401 outcomes and rejects a missing or divergent identity header.
+
 ## Authorization contract
 
 Protected endpoints accept only exact assignable Permission Catalog V3 codes. Wildcards, aliases, prefixes, legacy enum names, and dot-form codes are invalid. Both authentication channels resolve employee state and effective permissions through the same tenant-scoped pipeline.
