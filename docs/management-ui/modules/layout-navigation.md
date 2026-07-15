@@ -1,5 +1,20 @@
 # 布局与导航维护档案
 
+## Global Teal Theme Migration Note (2026-07-15)
+
+**Migration status:** The application shell, sidebar, and navbar consume the
+shared teal contract. Selected navigation, primary shell commands, badges, and
+loading affordances use the canonical primary tokens while protected status
+colors retain their existing meaning.
+
+The migration does not change routes, route metadata, access checks, permissions,
+menu structure, responsive layout behavior, or notification APIs. Deep-primary
+shell descendants retain white text and icons through the shared cascade rule;
+disabled primary controls use the neutral disabled palette.
+
+CLI verification is complete. Browser inspection is pending controller-owned QA
+and is not represented here as visual approval.
+
 > 状态：Task 8 Element Plus migrated；迁移批次：Batch 2；范围：应用壳、路由守卫、侧栏、顶栏、搜索与通知入口。
 
 ## 功能

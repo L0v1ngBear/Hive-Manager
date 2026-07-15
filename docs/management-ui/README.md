@@ -62,6 +62,6 @@ The migration design is documented in
 
 ## Verification Status
 
-- Full management UI verification passes: 154 Node tests, ESLint, and the Vite production build.
-- Responsive browser inspection at 1440×900, 1024×768, and 390×844 confirms the login shell has no page-level horizontal overflow; the mobile layout stacks correctly.
-- Authenticated route visual QA remains environment-dependent: the local API currently returns HTTP 502 and the router correctly redirects order, inventory, receipt, label, and manual routes to login. Do not treat an unauthenticated redirect as visual approval of those protected pages.
+- Global teal theme CLI verification (2026-07-15): `npm test` passed **197/197** Node tests with zero failures, and `npm run build` completed successfully with Vite 8.1.3 after transforming 1,858 modules.
+- The retired interactive-blue scan found **0** matches for `#1f3f5f`, `#0b1f33`, `rgba(31, 63, 95, ...)`, or `rgba(30, 64, 104, ...)` in `management-ui/src`. The required placeholder scan also found **0** matches.
+- Browser QA is pending controller inspection. This task did not start a persistent dev server and makes no visual-approval claim for login or authenticated routes. Authenticated route coverage remains environment-dependent; an unauthenticated redirect is not visual approval of a protected page.

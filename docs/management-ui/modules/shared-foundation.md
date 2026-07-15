@@ -1,5 +1,41 @@
 # 共享基础维护档案
 
+## Global Teal Theme Contract (2026-07-15)
+
+**Migration status:** The management UI global teal migration is complete at the
+shared-foundation layer. CLI verification is recorded below; browser QA is owned
+by the controller and remains pending.
+
+## Canonical Semantic Palette
+
+| Token | Value |
+| --- | --- |
+| Primary | `#0F766E` |
+| Primary dark | `#115E59` |
+| Primary container | `#CCFBF1` |
+| On-primary-container | `#134E4A` |
+| On-primary | `#FFFFFF` |
+| Main text | `#0F172A` |
+| Secondary text | `#475569` |
+| Disabled text | `#94A3B8` |
+| Disabled background | `#E2E8F0` |
+
+`management-ui/src/style.css` is the shared contract for Tailwind, Hive semantic,
+RGB compatibility, and Element Plus theme variables.
+
+## Cascade and Preservation Rules
+
+- Deep-primary surfaces (`.bg-primary`, `.el-button--primary`, and
+  `.function-action-primary`) set their foreground to `--ys-on-primary`; the
+  descendant rule runs after global text utilities so nested text and Material
+  Symbols stay white.
+- Disabled primary controls take precedence with neutral `--ys-disabled-text` and
+  `--ys-disabled-bg`, including nested text and icons.
+- Error red, warning orange, success green, order-stage colors, chart palettes,
+  and black/white print-only rules are semantic exceptions and are not recolored
+  by the teal migration. Receipt and label print output remain outside the
+  interactive retired-color scan.
+
 > 状态：Foundation migrated；迁移批次：Batch 1；范围：`management-ui` 应用级依赖、根入口、全局样式、请求状态与公共组件。
 
 ## 功能与边界

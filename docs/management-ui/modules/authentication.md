@@ -1,5 +1,20 @@
 # 认证与入口维护档案
 
+## Global Teal Theme Migration Note (2026-07-15)
+
+**Migration status:** Login, join-organization, force-password-change, and legal
+entry surfaces consume the shared teal contract. Primary authentication commands
+and loading states use the canonical primary tokens, retain white foregrounds
+inside deep-primary descendants, and use neutral disabled foreground/background
+tokens when unavailable.
+
+Authentication payloads, password behavior, redirects, session storage, scan
+flows, validation, permissions, and responsive structure are unchanged. Status
+and print-color exceptions remain outside this theme contract.
+
+CLI verification is complete. Browser inspection is pending controller-owned QA
+and is not represented here as visual approval.
+
 > 状态：Task 8 Element Plus migrated；迁移批次：Batch 2；范围：登录、加入组织、强制改密、法律页、拒绝页、会话 store 与路由守卫。
 
 ## 功能
