@@ -124,3 +124,7 @@ The workstation passed static deployment health, full artifact hash verification
 ## Permission runtime
 
 The unified process has one Permission Catalog V3 bean and one authenticated-route tenant-context initializer. Deployments must not seed wildcard, alias, prefix, or legacy permission codes; only exact assignable V3 leaves are effective.
+
+## Integrated management UI release
+
+The deployment UI was rebuilt from commit `c1d3733` after merging the latest `origin/main`. The build contains 98 files, its `index.html` SHA-256 is `6e9adcb2f7ffa32a21c9de247cf32965f0bcfc673b10e9a35a62d4f77e7f5d10`, and its deterministic tree SHA-256 is `86e74733e4743e48cafbbe2516133e1b995a2723228b9ed7cf1967e3eeb1bfa6`. The backend JAR is unchanged because this integration touched no committed backend source; its recorded SHA-256 remains `95d7c03998700a9d9ae494de017442269d0b1123c7e4ec904f05bb16d9fff33c`.

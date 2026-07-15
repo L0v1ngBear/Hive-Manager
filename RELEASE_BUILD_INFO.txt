@@ -2,8 +2,8 @@ ReleaseName=Hive Unified Backend
 ReleaseSource=git-archive
 SourceGitCommit=0077f10e6587f80b95860387c6a662b780eb0618
 SourceBranch=codex/unify-hive-backend
-ReleasePackageGitCommit=ca9fccf6c7e745484ce5fdbdbf31abbf0d1caa7e
-BuildTimeUtc=2026-07-15T03:54:40Z
+ReleasePackageGitCommit=c1d37331b16346d6c0afc8427f39a4b3791b851f
+BuildTimeUtc=2026-07-15T04:13:16Z
 
 BackendArtifact=backend/hive-backend.jar
 BackendArtifactCount=1
@@ -15,9 +15,11 @@ BackendContainerName=hive-backend
 ApiPrefix=/api
 
 ManagementUiArtifact=management-ui/dist
-ManagementUiSha256=f7794088fd9c19fe38330d104274c04078e4b3d2ace194f542da593851e3236d
-ManagementUiIndexSha256=d479b3dfcb7ea2377db74cdae349c88986d92f68fbcea4efd26729bf1e99f9d8
-ManagementUiFileCount=73
+ManagementUiSourceGitCommit=c1d37331b16346d6c0afc8427f39a4b3791b851f
+ManagementUiSha256=86e74733e4743e48cafbbe2516133e1b995a2723228b9ed7cf1967e3eeb1bfa6
+ManagementUiHashAlgorithm=sha256(sorted lowercase-file-sha256 + two-spaces + relative-path + LF)
+ManagementUiIndexSha256=6e9adcb2f7ffa32a21c9de247cf32965f0bcfc673b10e9a35a62d4f77e7f5d10
+ManagementUiFileCount=98
 
 MigrationManifest=db-migrations/migration_manifest.txt
 MigrationManifestSha256=efd93e9af087e52521831279f3d7211215940d43000d12406416d458633ba261
@@ -28,6 +30,7 @@ JavaVersion=21.0.5
 MavenVersion=3.9.14
 NodeVersion=25.1.0
 BackendTests=186
+ManagementUiTests=177
 ManagementUiBuild=PASS
 UnifiedRouteSmoke=PASS
 DockerComposeValidation=PENDING_RELEASE_HOST

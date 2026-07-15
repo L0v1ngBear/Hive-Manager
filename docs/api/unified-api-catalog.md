@@ -185,3 +185,7 @@ All rows below are served by the same `/api` process. Notification read/close op
 | GET | `/api/attendance/export-excel` | `attendance:export` | `AttendanceService.exportExcel` |
 | POST | `/api/attendance/punch` | `attendance:punch` | `AttendanceService.punch` |
 | GET | `/api/attendance/records/me` | `attendance:record:list` | `AttendanceService.recordsForCurrentUser` |
+
+## Management UI integration verification
+
+The Element Plus management UI merged at `c1d3733` continues to call only this catalog's `/api` routes. Its 177 source-contract tests verify the unified prefix, canonical auth/order/approval/quality/installation families, exact V3 permission leaves, information-channel order contract, and single deployment topology. No `/web` client fallback or legacy permission alias was added by the UI merge.

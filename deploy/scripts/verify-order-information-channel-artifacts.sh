@@ -13,7 +13,7 @@ fail_blocked() {
   exit 1
 }
 
-for command_name in unzip strings find grep mktemp; do
+for command_name in unzip find grep mktemp; do
   command -v "${command_name}" >/dev/null 2>&1 || {
     echo "FAIL: required artifact inspection command is missing: ${command_name}" >&2
     fail_blocked
@@ -40,14 +40,23 @@ scan_artifact() {
   fi
 
   if [ -d "${artifact_path}" ]; then
-    if ! find "${artifact_path}" -type f -exec strings {} + > "${scan_file}" 2>/dev/null; then
-      issues+=("${artifact_name}: cannot scan directory ${artifact_path}")
-      return
+    if command -v strings >/dev/null 2>&1; then
+      find "${artifact_path}" -type f -exec strings {} + > "${scan_file}" 2>/dev/null || {
+        issues+=("${artifact_name}: cannot scan directory ${artifact_path}")
+        return
+      }
+    else
+      find "${artifact_path}" -type f -exec grep -aEoh 'deliveryDate|delivery_date|informationChannel|information_channel' {} + > "${scan_file}" 2>/dev/null || true
     fi
   else
-    if ! unzip -p "${artifact_path}" 2>/dev/null | strings > "${scan_file}"; then
+    unzip -tqq "${artifact_path}" >/dev/null 2>&1 || {
       issues+=("${artifact_name}: cannot inspect archive ${artifact_path}")
       return
+    }
+    if command -v strings >/dev/null 2>&1; then
+      unzip -p "${artifact_path}" 2>/dev/null | strings > "${scan_file}"
+    else
+      unzip -p "${artifact_path}" 2>/dev/null | grep -aEo 'deliveryDate|delivery_date|informationChannel|information_channel' > "${scan_file}" || true
     fi
   fi
 

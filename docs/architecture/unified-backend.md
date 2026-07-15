@@ -94,3 +94,7 @@ Existing MySQL/Redis/nginx container identities, persistent data directories, up
 Permission Catalog V3 now lives only at `my.hive.shared.permission.PermissionCatalogV3`. Runtime checks validate an exact assignable catalog leaf before consulting the request grants. `EffectivePermissionService` resolves the canonical management employee/role persistence query and discards all non-catalog values. The single authenticated-route initializer is `TenantContextFilter`, backed by the shared authenticated session and tenant context contracts.
 
 Authentication now has three HTTP adapters (`AdminAuthController`, `MiniAuthController`, and `SessionController`) and one stateful domain implementation, `AuthenticationService`. Both credential channels use the canonical employee status, tenant, effective-permission, versioned-token, and response-key pipeline. Logout increments `auth_version`, invalidating previously issued tokens.
+
+## Latest-main integration
+
+Commit `c1d3733` merges the latest `origin/main` Element Plus management UI into the unified-backend line without reintroducing a second backend. The merged client still has one `/api` base, canonical order/approval/quality/installation routes, one V3 employee permission-profile tree, and exact action permissions. Retired UI permissions from the incoming branch were converted to V3 leaves, including customer create, quality process, document list, equipment create/update/disable/export, inventory record list, and print label/receipt actions.
