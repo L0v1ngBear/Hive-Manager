@@ -9,7 +9,7 @@
 - 后端：`management/src/main/java/my/management/controller/RoleController.java`、`module/sys/service/RoleService.java`。
 - 权限目录：`management/src/main/java/my/management/module/sys/model/enums/PermissionCodeEnum.java`。
 - 路由：`/function/role`；入口权限 `role:list`；feature 为 `module.role`。
-- 迁移批次：Batch 1；当前状态为 Audit baseline。
+- 迁移批次：Batch 1；当前状态为 Element Plus migrated。
 
 ## 功能
 
@@ -49,24 +49,24 @@
 
 ## 空错态
 
-- 列表提供加载遮罩和“暂无角色数据”行。
-- 新建抽屉区分权限树加载中、403 文案和一般加载失败。
-- 配置抽屉区分整页加载、加载错误和 `ElEmpty` 空权限树。
-- 列表请求只有 `finally`，错误提示依赖全局 request；失败时现有角色数组不会主动清空。
+- 列表使用 `v-loading`、loading 空占位、持久 `ElAlert` 和 `ElEmpty` 区分加载、请求失败与真实空态；失败时清空旧列表并提供重试。
+- 新建抽屉使用互斥状态区分权限树加载中、真实空树、401/403 权限不足和网络/5xx 加载失败；一般失败可重试。
+- 配置抽屉按 request 的 HTTP `response.status` 或业务 `code`，将 401/403 权限不足与网络/5xx 加载失败显示为不同持久状态；请求失败状态可重试。
+- 配置抽屉继续使用 `ElEmpty` 表示成功请求后的空权限树，不把错误降级为空态。
+- 新建和配置抽屉的权限加载均使用递增 request id；配置抽屉同时校验角色 ID，旧请求不能覆盖新角色的数据、错误或 loading。
 - 保存失败保持抽屉，按钮由提交状态禁用；取消应视为正常关闭。
 
 ## 控件现状
 
-- 角色列表使用原生 `table`、原生按钮和手写加载遮罩。
-- 新建和配置均已使用 `ElDrawer`。
-- 权限选择已使用 `ElTreeSelect`；配置空态已使用 `ElEmpty`。
-- 表单输入、底部命令按钮仍是原生控件。
+- 角色列表使用 `ElTable`、`ElTableColumn`、`ElPagination`、`ElButton`、`ElTag`、`ElAlert` 和 `ElEmpty`。
+- 新建抽屉使用 `ElDrawer`、`ElForm`、`ElInput` 和 `ElButton`；权限抽屉使用 `ElDrawer` 和 `ElButton`。
+- 权限选择使用 `ElTreeSelect`；配置错误态使用 `ElAlert`，空态使用 `ElEmpty`。
 - 消息反馈使用 `ElMessage`。
 - 列设置使用共享 `TableColumnSettings` 和 `useLocalTableColumns`。
 
 ## Element Plus 对照/保留项
 
-- 列表迁移为 `ElTable`，加载用 `v-loading`，空态用 `ElEmpty`。
+- 列表已迁移为 `ElTable`、`ElPagination`，加载用 `v-loading`，错误用 `ElAlert`，空态用 `ElEmpty`。
 - 角色名称使用 `ElInput`；命令使用 `ElButton`。
 - 系统/自定义类型使用 `ElTag`，保持既有语义和文案。
 - 继续使用 `ElDrawer`、`ElTreeSelect`、`ElMessage`，不重复封装类似组件。
@@ -79,7 +79,7 @@
 - 明确的权限依赖不一致：具有 `role:create` 或 `role:update` 但没有 `role:permission:list` 的用户会看到可用按钮，打开后却无法加载权限树。
 - 反向情况下，只有 `role:permission:list` 不能进入页面，因为路由仍要求 `role:list`。
 - 页面把后端树响应兼容性地拆多层 `data`；统一 request 返回形态后，这段兼容代码可能掩盖契约漂移。
-- 列表固定取 100 条且没有分页控件，角色数超过 100 时页面不完整。
+- 列表分页控件当前只呈现固定 `page=1,size=100` 查询结果；角色数超过 100 时页面仍不完整。
 - 系统角色和自定义角色都显示“配置权限”；迁移不得自行改变后端对内置角色的保护规则。
 - 权限更新是整集合覆盖，两个管理员并发编辑时存在后提交覆盖先提交的风险。
 - 权限 ID 类型若被 `ElSelect` 字符串化，会造成回显或保存差异。

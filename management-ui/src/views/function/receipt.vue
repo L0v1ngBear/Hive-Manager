@@ -13,51 +13,27 @@
           </p>
         </div>
 
-        <nav class="receipt-tabs" aria-label="出库单功能切换">
-          <button :class="{ active: activeMode === 'print' }" @click="activeMode = 'print'">
-            <span class="material-symbols-outlined">print</span>
-            出库单打印
-          </button>
-          <button :class="{ active: activeMode === 'template' }" @click="activeMode = 'template'">
-            <span class="material-symbols-outlined">dashboard_customize</span>
-            模板设置
-          </button>
-        </nav>
+        <el-tabs v-model="activeMode" class="receipt-tabs" aria-label="出库单功能切换" @tab-change="handleModeChange">
+          <el-tab-pane label="出库单打印" name="print" />
+          <el-tab-pane label="模板设置" name="template" />
+        </el-tabs>
       </header>
 
-      <section v-if="activeMode === 'print'" class="receipt-print-profile-panel">
+      <el-form v-if="activeMode === 'print'" class="receipt-print-profile-panel" label-position="top">
         <div class="profile-intro">
           <strong>浏览器打印适配</strong>
           <span>用于适配 241-1 连续纸、A4、热敏纸和不同打印驱动的边距偏移。</span>
         </div>
-        <label>
-          <span>纸宽(mm)</span>
-          <input v-model.number="receiptPrintProfile.paperWidthMm" type="number" min="20" max="500" step="0.1" @change="persistReceiptPrintProfile" />
-        </label>
-        <label>
-          <span>纸高(mm)</span>
-          <input v-model.number="receiptPrintProfile.paperHeightMm" type="number" min="10" max="500" step="0.1" @change="persistReceiptPrintProfile" />
-        </label>
-        <label>
-          <span>边距(mm)</span>
-          <input v-model.number="receiptPrintProfile.pageMarginMm" type="number" min="0" max="30" step="0.1" @change="persistReceiptPrintProfile" />
-        </label>
-        <label>
-          <span>左右偏移(mm)</span>
-          <input v-model.number="receiptPrintProfile.offsetXmm" type="number" min="-50" max="50" step="0.1" @change="persistReceiptPrintProfile" />
-        </label>
-        <label>
-          <span>上下偏移(mm)</span>
-          <input v-model.number="receiptPrintProfile.offsetYmm" type="number" min="-50" max="50" step="0.1" @change="persistReceiptPrintProfile" />
-        </label>
-        <label>
-          <span>缩放</span>
-          <input v-model.number="receiptPrintProfile.scale" type="number" min="0.5" max="1.5" step="0.01" @change="persistReceiptPrintProfile" />
-        </label>
-        <button class="btn btn-template" @click="syncReceiptProfileWithTemplate">使用模板尺寸</button>
-        <button class="btn btn-template" @click="printReceiptCalibrationPage">校准页</button>
-        <button class="btn btn-cancel" @click="resetReceiptPrintProfile">恢复默认</button>
-      </section>
+        <el-form-item label="纸宽(mm)"><el-input-number v-model="receiptPrintProfile.paperWidthMm" :min="20" :max="500" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
+        <el-form-item label="纸高(mm)"><el-input-number v-model="receiptPrintProfile.paperHeightMm" :min="10" :max="500" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
+        <el-form-item label="边距(mm)"><el-input-number v-model="receiptPrintProfile.pageMarginMm" :min="0" :max="30" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
+        <el-form-item label="左右偏移(mm)"><el-input-number v-model="receiptPrintProfile.offsetXmm" :min="-50" :max="50" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
+        <el-form-item label="上下偏移(mm)"><el-input-number v-model="receiptPrintProfile.offsetYmm" :min="-50" :max="50" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
+        <el-form-item label="缩放"><el-input-number v-model="receiptPrintProfile.scale" :min="0.5" :max="1.5" :step="0.01" @change="persistReceiptPrintProfile" /></el-form-item>
+        <el-button @click="syncReceiptProfileWithTemplate">使用模板尺寸</el-button>
+        <el-button @click="printReceiptCalibrationPage">校准页</el-button>
+        <el-button @click="resetReceiptPrintProfile">恢复默认</el-button>
+      </el-form>
 
   <div v-if="activeMode === 'print'" class="receipt-workspace">
     <section class="queue-panel">
@@ -66,22 +42,20 @@
           <h2>待打印出库单</h2>
           <p>选择单据后预览，浏览器打印按 241-1 连续纸尺寸分页。</p>
         </div>
-        <button class="icon-btn" :disabled="isFetchingList" @click="fetchPendingList">
+        <el-button circle :loading="isFetchingList" aria-label="刷新待打印出库单" @click="fetchPendingList">
           <span class="material-symbols-outlined">refresh</span>
-        </button>
+        </el-button>
       </header>
 
-      <div class="queue-list">
-        <div v-if="pendingOrders.length === 0 && !isFetchingList" class="empty-state">
-          <span class="material-symbols-outlined">inventory_2</span>
-          <p>当前暂无待打印出库单</p>
-        </div>
+      <div v-loading="isFetchingList" class="queue-list">
+        <el-result v-if="listLoadError" icon="error" title="待打印出库单加载失败" :sub-title="listLoadError"><template #extra><el-button type="primary" @click="retryPendingList">重试</el-button></template></el-result>
+        <el-empty v-else-if="pendingOrders.length === 0 && !isFetchingList" description="当前暂无待打印出库单" />
 
-        <button
-          v-for="item in pendingOrders"
-          :key="item.orderNo"
+        <el-tooltip v-for="item in pendingOrders" :key="item.orderNo" :disabled="canViewDetail" content="暂无 print:receipt:detail 权限"><span><el-button
+          v-if="!listLoadError"
           class="queue-card"
           :class="{ active: selectedOrder?.orderNo === item.orderNo }"
+          :disabled="!canViewDetail"
           @click="selectOrder(item)"
         >
           <div class="queue-row">
@@ -90,7 +64,7 @@
           </div>
           <p>客户：{{ item.customerName || '--' }}</p>
           <small>共 {{ item.itemCount || 0 }} 条，合计 {{ formatNumber(item.totalMeters) }} 米</small>
-        </button>
+        </el-button></span></el-tooltip>
       </div>
     </section>
 
@@ -103,38 +77,27 @@
         </div>
 
         <div class="receipt-actions">
-          <select v-if="selectedOrder" v-model="selectedTemplateId" class="template-select" @change="handleTemplateChange">
-            <option v-for="template in receiptTemplates" :key="template.id" :value="template.id">
-              {{ template.name }}{{ template.isDefault === 1 ? '（默认）' : '' }}
-            </option>
-          </select>
-          <button v-if="selectedOrder" class="btn btn-print" :disabled="isPrinting" @click="openBrowserPrint">
+          <el-select v-if="selectedOrder" v-model="selectedTemplateId" class="template-select" @change="handleTemplateChange"><el-option v-for="template in receiptTemplates" :key="template.id" :value="template.id" :label="`${template.name}${template.isDefault === 1 ? '（默认）' : ''}`" /></el-select>
+          <el-tooltip v-if="selectedOrder" :disabled="canExecute" content="暂无 print:receipt:execute 权限"><span><el-button type="primary" :disabled="!canExecute || isPrinting" :loading="isPrinting" @click="openBrowserPrint">
             <span class="material-symbols-outlined">print</span>
             浏览器打印
-          </button>
-          <button v-if="selectedOrder" class="btn btn-cancel" :disabled="isSubmitting" @click="handleCancelPrint">
+          </el-button></span></el-tooltip>
+          <el-tooltip v-if="selectedOrder" :disabled="canCancel" content="暂无 print:receipt:cancel 权限"><span><el-button type="danger" plain :disabled="!canCancel || isSubmitting" @click="handleCancelPrint">
             <span class="material-symbols-outlined">block</span>
             作废/跳过
-          </button>
-          <button class="btn btn-success" :disabled="!selectedOrder || isSubmitting" @click="confirmPrinted">
+          </el-button></span></el-tooltip>
+          <el-tooltip :disabled="canExecute" content="暂无 print:receipt:execute 权限"><span><el-button type="success" :disabled="!canExecute || !selectedOrder || isSubmitting" @click="confirmPrinted">
             <span class="material-symbols-outlined">task_alt</span>
             确认已打印
-          </button>
+          </el-button></span></el-tooltip>
         </div>
       </header>
 
-      <div class="preview-scroll">
-        <div v-if="isLoadingDetail" class="loading-mask">
-          <span class="material-symbols-outlined animate-spin">progress_activity</span>
-          <p>正在生成打印预览...</p>
-        </div>
+      <div v-loading="isLoadingDetail" class="preview-scroll" element-loading-text="正在生成打印预览...">
+        <el-result v-if="detailLoadError" icon="error" title="出库单详情加载失败" :sub-title="detailLoadError"><template #extra><el-button type="primary" @click="retrySelectedOrder">重试</el-button></template></el-result>
+        <el-empty v-else-if="!selectedOrder && !isLoadingDetail" description="请在左侧选择一张出库单" />
 
-        <div v-if="!selectedOrder" class="preview-empty">
-          <span class="material-symbols-outlined">ads_click</span>
-          <p>请在左侧选择一张出库单</p>
-        </div>
-
-        <div v-if="selectedOrder" class="receipt-preview-layout">
+        <div v-else-if="selectedOrder && !isLoadingDetail" class="receipt-preview-layout">
           <div class="paper-preview-viewport">
             <div id="print-paper-area" class="paper-stack">
               <article v-for="page in printPages" :key="page.pageNo" class="receipt-page" :style="paperStyle">
@@ -218,17 +181,17 @@
                 <span>保存后会回写出库单，并记录修改前后快照</span>
               </div>
               <div class="print-editor-actions">
-                <button
+                <el-tooltip :disabled="canUpdatePrint" content="暂无 print:receipt:update 权限"><span><el-button
                   v-if="timeCorrectionMode"
                   type="button"
                   class="editor-save-btn"
-                  :disabled="isSubmitting"
+                  :disabled="!canUpdatePrint || isSubmitting"
                   @click="savePrintRevision({ timeCorrectionOnly: true })"
                 >
                   保存时间
-                </button>
-                <button type="button" class="editor-save-btn" :disabled="isSubmitting" @click="savePrintRevision()">保存修正</button>
-                <button type="button" class="editor-reset-btn" @click="resetPrintDraft">恢复系统内容</button>
+                </el-button></span></el-tooltip>
+                <el-tooltip :disabled="canUpdatePrint" content="暂无 print:receipt:update 权限"><span><el-button type="primary" :disabled="!canUpdatePrint || isSubmitting" @click="savePrintRevision()">保存修正</el-button></span></el-tooltip>
+                <el-button @click="resetPrintDraft">恢复系统内容</el-button>
               </div>
             </div>
 
@@ -245,38 +208,38 @@
             <div class="print-editor-grid">
               <label>
                 <span>客户名称</span>
-                <input v-model.trim="printDraft.customerName" maxlength="80" placeholder="客户名称" />
+                <el-input v-model.trim="printDraft.customerName" maxlength="80" placeholder="客户名称" />
               </label>
               <label>
                 <span>打印单号</span>
-                <input v-model.trim="printDraft.orderNo" maxlength="60" placeholder="打印显示单号" />
+                <el-input v-model.trim="printDraft.orderNo" maxlength="60" placeholder="打印显示单号" />
               </label>
               <label>
                 <span>项目名称</span>
-                <input v-model.trim="printDraft.projectName" maxlength="80" placeholder="项目名称，可留空" />
+                <el-input v-model.trim="printDraft.projectName" maxlength="80" placeholder="项目名称，可留空" />
               </label>
               <label>
                 <span>制单人</span>
-                <input v-model.trim="printDraft.operator" maxlength="30" placeholder="制单人" />
+                <el-input v-model.trim="printDraft.operator" maxlength="30" placeholder="制单人" />
               </label>
               <label>
                 <span>收货仓库</span>
-                <input v-model.trim="templateConfig.warehouse" maxlength="20" placeholder="收货仓库" />
+                <el-input v-model.trim="templateConfig.warehouse" maxlength="20" placeholder="收货仓库" />
               </label>
               <label>
                 <span>物流公司</span>
-                <input v-model.trim="printDraft.logisticsCompany" maxlength="40" placeholder="物流公司，可留空" />
+                <el-input v-model.trim="printDraft.logisticsCompany" maxlength="40" placeholder="物流公司，可留空" />
               </label>
               <label>
                 <span>物流单号</span>
-                <input v-model.trim="printDraft.logisticsNo" maxlength="60" placeholder="物流单号，可留空" />
+                <el-input v-model.trim="printDraft.logisticsNo" maxlength="60" placeholder="物流单号，可留空" />
               </label>
             </div>
 
             <div class="print-editor-table-wrap">
               <div class="print-editor-table-head">
                 <strong>明细行修正</strong>
-                <button type="button" class="editor-add-btn" @click="addPrintRow">新增打印行</button>
+                <el-tooltip :disabled="canUpdatePrint" content="暂无 print:receipt:update 权限"><span><el-button :disabled="!canUpdatePrint" @click="addPrintRow">新增打印行</el-button></span></el-tooltip>
               </div>
               <div class="print-editor-table">
                 <div class="print-editor-row print-editor-row-head">
@@ -289,46 +252,46 @@
                   <span>操作</span>
                 </div>
                 <div v-for="(row, index) in printableRows" :key="getRowKey(row)" class="print-editor-row">
-                  <input
+                  <el-input
                     :value="row.modelCode || row.barcode || ''"
                     maxlength="80"
                     placeholder="货物名称"
-                    @input="updatePrintRow(index, 'modelCode', $event.target.value)"
+                    @input="updatePrintRow(index, 'modelCode', $event)"
                   />
-                  <input
+                  <el-input
                     :value="row.spec || ''"
                     maxlength="30"
                     placeholder="规格"
-                    @input="updatePrintRow(index, 'spec', $event.target.value)"
+                    @input="updatePrintRow(index, 'spec', $event)"
                   />
-                  <input
+                  <el-input
                     :value="row.meters ?? ''"
                     inputmode="decimal"
                     maxlength="12"
                     placeholder="米数"
-                    @input="updatePrintRow(index, 'meters', $event.target.value)"
+                    @input="updatePrintRow(index, 'meters', $event)"
                   />
-                  <input
+                  <el-input
                     :value="row.price ?? ''"
                     inputmode="decimal"
                     maxlength="12"
                     placeholder="单价"
-                    @input="updatePrintRow(index, 'price', $event.target.value)"
+                    @input="updatePrintRow(index, 'price', $event)"
                   />
-                  <input
+                  <el-input
                     :value="row.totalAmount ?? ''"
                     inputmode="decimal"
                     maxlength="14"
                     placeholder="金额"
-                    @input="updatePrintRow(index, 'totalAmount', $event.target.value)"
+                    @input="updatePrintRow(index, 'totalAmount', $event)"
                   />
-                  <input
+                  <el-input
                     :value="row.remark || ''"
                     maxlength="30"
                     placeholder="备注"
-                    @input="updatePrintRow(index, 'remark', $event.target.value)"
+                    @input="updatePrintRow(index, 'remark', $event)"
                   />
-                  <button type="button" class="editor-remove-btn" @click="removePrintRow(index)">移除</button>
+                  <el-tooltip :disabled="canUpdatePrint" content="暂无 print:receipt:update 权限"><span><el-button type="danger" link :disabled="!canUpdatePrint" @click="removePrintRow(index)">移除</el-button></span></el-tooltip>
                 </div>
               </div>
             </div>
@@ -349,58 +312,55 @@
             <p>这里维护打印模板；打印页面只负责选择模板和执行打印。</p>
           </div>
           <div class="template-actions">
-            <select v-model="selectedTemplateId" class="template-select" @change="handleTemplateChange">
-              <option v-for="template in receiptTemplates" :key="template.id" :value="template.id">
-                {{ template.name }}{{ template.isDefault === 1 ? '（默认）' : '' }}
-              </option>
-            </select>
-            <button class="btn btn-template" @click="createNewReceiptTemplate">
+            <el-select v-model="selectedTemplateId" class="template-select" @change="handleTemplateChange"><el-option v-for="template in receiptTemplates" :key="template.id" :value="template.id" :label="`${template.name}${template.isDefault === 1 ? '（默认）' : ''}`" /></el-select>
+            <el-button @click="createNewReceiptTemplate">
               <span class="material-symbols-outlined">add</span>
               新建模板
-            </button>
-            <button class="btn btn-print" :disabled="isTemplateSaving" @click="saveCurrentReceiptTemplate">
+            </el-button>
+            <el-tooltip :disabled="canUpdatePrint" content="暂无 print:receipt:update 权限"><span><el-button type="primary" :disabled="!canUpdatePrint || isTemplateSaving" :loading="isTemplateSaving" @click="saveCurrentReceiptTemplate">
               <span class="material-symbols-outlined">save</span>
               保存为默认
-            </button>
+            </el-button></span></el-tooltip>
           </div>
         </header>
 
         <div class="template-designer-body">
           <div class="template-editor standalone">
-            <div class="template-grid">
+            <el-form class="template-grid" label-position="top">
               <label>
                 <span>模板名称</span>
-                <input v-model.trim="templateDraftName" maxlength="30" placeholder="请输入模板名称" />
+                <el-input v-model.trim="templateDraftName" maxlength="30" placeholder="请输入模板名称" />
               </label>
               <label>
                 <span>主标题</span>
-                <input v-model.trim="templateConfig.title" maxlength="20" />
+                <el-input v-model.trim="templateConfig.title" maxlength="20" />
               </label>
               <label>
                 <span>副标题</span>
-                <input v-model.trim="templateConfig.subtitle" maxlength="20" />
+                <el-input v-model.trim="templateConfig.subtitle" maxlength="20" />
               </label>
               <label>
                 <span>每页行数</span>
-                <input v-model.number="templateConfig.rowsPerPage" type="number" min="4" max="10" />
+                <el-input-number v-model="templateConfig.rowsPerPage" :min="4" :max="10" />
               </label>
               <label>
                 <span>收货仓库</span>
-                <input v-model.trim="templateConfig.warehouse" maxlength="20" />
+                <el-input v-model.trim="templateConfig.warehouse" maxlength="20" />
               </label>
               <label class="template-check">
-                <input v-model="templateConfig.showLogistics" type="checkbox" />
+                <el-checkbox v-model="templateConfig.showLogistics" />
                 <span>显示物流信息</span>
               </label>
               <label class="template-check">
-                <input v-model="templateConfig.showSignature" type="checkbox" />
+                <el-checkbox v-model="templateConfig.showSignature" />
                 <span>显示签字区</span>
               </label>
               <label class="template-wide">
                 <span>底部提示语</span>
-                <input v-model.trim="templateConfig.notice" maxlength="80" />
+                <el-input v-model.trim="templateConfig.notice" maxlength="80" />
               </label>
-            </div>
+              <el-form-item label="标准控件说明" class="sr-only"><span>模板字段保持原有类型</span></el-form-item>
+            </el-form>
 
             <div v-if="receiptVariables.length" class="variable-strip">
               <span v-for="item in receiptVariables" :key="item.field">{{ item.label }}</span>
@@ -414,24 +374,23 @@
               <div class="column-editor-list">
                 <div v-for="(column, index) in templateConfig.columns" :key="column.key" class="column-editor-row">
                   <label class="column-visible">
-                    <input v-model="column.visible" type="checkbox" />
+                    <el-checkbox v-model="column.visible" />
                   </label>
                   <span class="column-field">{{ getColumnFieldName(column.key) }}</span>
-                  <input v-model.trim="column.label" maxlength="12" />
+                  <el-input v-model.trim="column.label" maxlength="12" />
                   <label class="column-width-input">
                     <span>列宽mm</span>
-                    <input
-                      v-model.number="column.widthMm"
-                      type="number"
-                      min="10"
-                      max="80"
-                      step="1"
+                    <el-input-number
+                      v-model="column.widthMm"
+                      :min="10"
+                      :max="80"
+                      :step="1"
                       @change="normalizeColumnWidth(column)"
                     />
                   </label>
                   <div class="column-move-actions">
-                    <button :disabled="index === 0" @click="moveColumn(index, -1)">上移</button>
-                    <button :disabled="index === templateConfig.columns.length - 1" @click="moveColumn(index, 1)">下移</button>
+                    <el-button :disabled="index === 0" @click="moveColumn(index, -1)">上移</el-button>
+                    <el-button :disabled="index === templateConfig.columns.length - 1" @click="moveColumn(index, 1)">下移</el-button>
                   </div>
                 </div>
               </div>
@@ -526,7 +485,24 @@
 
 <script setup>
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ElButton,
+  ElCheckbox,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElMessageBox,
+  ElOption,
+  ElResult,
+  ElSelect,
+  ElTabPane,
+  ElTabs,
+  ElTooltip
+} from 'element-plus'
+import { useUserStore } from '@/stores/user'
 import BusinessTimeCorrectionPanel from '@/components/BusinessTimeCorrectionPanel.vue'
 import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
 import {
@@ -549,17 +525,37 @@ import {
   setDefaultReceiptTemplate,
   updatePrintDetail
 } from './receipt/api/receipt.js'
+import { createReceiptDetailRequestController } from './receipt/receiptDetailRequest.js'
 
 const isFetchingList = ref(false)
 const isLoadingDetail = ref(false)
 const isPrinting = ref(false)
 const isSubmitting = ref(false)
 const isTemplateSaving = ref(false)
+const listLoadError = ref('')
+const detailLoadError = ref('')
+let listRequestId = 0
+const lastSelectedOrder = ref(null)
+const userStore = useUserStore()
+const canViewDetail = computed(() => userStore.hasPermission('print:receipt:detail'))
+const canExecute = computed(() => userStore.hasPermission('print:receipt:execute'))
+const canUpdatePrint = computed(() => userStore.hasPermission('print:receipt:update'))
+const canCancel = computed(() => userStore.hasPermission('print:receipt:cancel'))
 const activeMode = ref('print')
 const pendingOrders = ref([])
 const selectedOrder = ref(null)
 const tableData = ref([])
 const printDraft = ref(createEmptyPrintDraft())
+const receiptDetailRequestController = createReceiptDetailRequestController({
+  setLoading: (value) => { isLoadingDetail.value = value },
+  clearDetail: () => {
+    detailLoadError.value = ''
+    selectedOrder.value = null
+    tableData.value = []
+    printDraft.value = createEmptyPrintDraft()
+    closeTimeCorrectionMode()
+  }
+})
 const receiptTemplates = ref([])
 const receiptVariables = ref([])
 const selectedTemplateId = ref(null)
@@ -586,30 +582,59 @@ onMounted(async () => {
 })
 
 async function fetchPendingList() {
+  const requestId = ++listRequestId
+  receiptDetailRequestController.invalidate()
   isFetchingList.value = true
-  selectedOrder.value = null
-  tableData.value = []
-  printDraft.value = createEmptyPrintDraft()
-  closeTimeCorrectionMode()
+  listLoadError.value = ''
+  pendingOrders.value = []
   try {
-    pendingOrders.value = await getPendingPrintOrders()
+    const rows = await getPendingPrintOrders()
+    if (requestId !== listRequestId) return
+    pendingOrders.value = Array.isArray(rows) ? rows : []
+  } catch (error) {
+    if (requestId !== listRequestId) return
+    listLoadError.value = resolveLoadError(error, '待打印出库单')
   } finally {
-    isFetchingList.value = false
+    if (requestId === listRequestId) isFetchingList.value = false
   }
 }
 
+function retryPendingList() { return fetchPendingList() }
+
 async function selectOrder(order) {
+  if (!canViewDetail.value) return
   if (selectedOrder.value?.orderNo === order.orderNo) return
-  closeTimeCorrectionMode()
-  isLoadingDetail.value = true
+  const requestId = receiptDetailRequestController.begin()
+  lastSelectedOrder.value = order
   try {
     const detail = await getPrintDetail({ orderNo: order.orderNo })
+    if (!receiptDetailRequestController.isCurrent(requestId)) return
     selectedOrder.value = detail
     tableData.value = normalizeEditableRows(detail.items || [])
     printDraft.value = createPrintDraft(detail)
+  } catch (error) {
+    if (!receiptDetailRequestController.isCurrent(requestId)) return
+    detailLoadError.value = resolveLoadError(error, '出库单详情')
   } finally {
-    isLoadingDetail.value = false
+    receiptDetailRequestController.finish(requestId)
   }
+}
+
+function handleModeChange(mode) {
+  if (mode === 'print') return
+  lastSelectedOrder.value = null
+  receiptDetailRequestController.invalidate()
+}
+
+function retrySelectedOrder() { if (lastSelectedOrder.value) return selectOrder(lastSelectedOrder.value) }
+
+function resolveLoadError(error, label) {
+  const status = Number(error?.response?.status || error?.status || error?.code || 0)
+  if (status === 401) return `登录状态已失效，无法加载${label}。`
+  if (status === 403) return `当前账号没有加载${label}的权限。`
+  if (!status && !error?.response) return `网络连接失败，无法加载${label}。`
+  if (status >= 500) return `服务暂时不可用，无法加载${label}。`
+  return error?.msg || error?.message || `${label}加载失败，请重试。`
 }
 
 async function fetchReceiptTemplates() {
@@ -643,6 +668,7 @@ function applyReceiptTemplate(template) {
 }
 
 async function saveCurrentReceiptTemplate() {
+  if (!canUpdatePrint.value) return
   const name = templateDraftName.value || currentTemplateName()
   if (!name || !name.trim()) {
     ElMessage.warning('模板名称不能为空')
@@ -680,6 +706,7 @@ function createNewReceiptTemplate() {
 }
 
 async function savePrintRevision(options = {}) {
+  if (!canUpdatePrint.value) return null
   if (!selectedOrder.value) return null
   const payload = buildPrintRevisionPayload()
   payload.timeCorrectionOnly = options.timeCorrectionOnly === true
@@ -896,6 +923,7 @@ function printReceiptCalibrationPage() {
 }
 
 async function openBrowserPrint() {
+  if (!canExecute.value) return
   if (!selectedOrder.value) return
   isPrinting.value = true
   try {
@@ -926,6 +954,7 @@ async function openBrowserPrint() {
 }
 
 async function confirmPrinted() {
+  if (!canExecute.value) return
   if (!selectedOrder.value) return
   await ElMessageBox.confirm('确认这张出库单已经打印成功吗？确认后该单据会移出待打印队列。', '打印确认', {
     confirmButtonText: '确认已打印',
@@ -944,6 +973,7 @@ async function confirmPrinted() {
 }
 
 async function handleCancelPrint() {
+  if (!canCancel.value) return
   if (!selectedOrder.value) return
   await ElMessageBox.confirm(`确认作废/跳过单据 ${selectedOrder.value.orderNo} 吗？`, '操作确认', {
     confirmButtonText: '确认作废',
@@ -1769,19 +1799,13 @@ function buildReceiptTemplateContent(config) {
   font-weight: 900;
 }
 
-.print-editor input {
+.print-editor :deep(.el-input) {
   width: 100%;
-  height: 2.25rem;
-  border: 1px solid #dbe3ef;
-  border-radius: .65rem;
-  padding: 0 .65rem;
-  color: #1f2937;
-  outline: none;
 }
 
-.print-editor input:focus {
-  border-color: #1f3f5f;
-  box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
+.print-editor :deep(.el-input__wrapper) {
+  min-height: 2.25rem;
+  border-radius: .65rem;
 }
 
 .print-editor-table-wrap {
@@ -1870,20 +1894,14 @@ function buildReceiptTemplateContent(config) {
   font-weight: 900;
 }
 
-.template-grid input[type="text"],
-.template-grid input[type="number"],
-.template-grid label:not(.template-check) input {
-  height: 2.3rem;
-  border: 1px solid #dbe3ef;
-  border-radius: .7rem;
-  padding: 0 .75rem;
-  color: #1f2937;
-  outline: none;
+.template-grid :deep(.el-input),
+.template-grid :deep(.el-input-number) {
+  width: 100%;
 }
 
-.template-grid input:focus {
-  border-color: #1f3f5f;
-  box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
+.template-grid :deep(.el-input__wrapper) {
+  min-height: 2.3rem;
+  border-radius: .7rem;
 }
 
 .template-wide {
@@ -1976,18 +1994,8 @@ function buildReceiptTemplateContent(config) {
   font-weight: 900;
 }
 
-.column-editor-row > input {
-  height: 2rem;
-  border: 1px solid #dbe3ef;
-  border-radius: .6rem;
-  padding: 0 .65rem;
-  color: #1f2937;
-  outline: none;
-}
-
-.column-editor-row > input:focus {
-  border-color: #1f3f5f;
-  box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
+.column-editor-row > :deep(.el-input) {
+  width: 100%;
 }
 
 .column-width-input {
@@ -1999,19 +2007,8 @@ function buildReceiptTemplateContent(config) {
   font-weight: 800;
 }
 
-.column-width-input input {
-  width: 56px;
-  height: 2rem;
-  border: 1px solid #dbe3ef;
-  border-radius: .6rem;
-  padding: 0 .4rem;
-  color: #1f2937;
-  outline: none;
-}
-
-.column-width-input input:focus {
-  border-color: #1f3f5f;
-  box-shadow: 0 0 0 3px rgb(69 95 136 / 12%);
+.column-width-input :deep(.el-input-number) {
+  width: 96px;
 }
 
 .column-move-actions {

@@ -12,7 +12,7 @@
     <div class="h-1 bg-primary w-full sticky top-0 z-10"></div>
 
     <div class="flex flex-col h-full bg-surface-container-lowest relative">
-      <div v-if="isLoadingData" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
+      <div v-if="permissionLoader.state.loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
         <span class="material-symbols-outlined text-primary text-4xl animate-spin">progress_activity</span>
         <span class="text-sm font-bold text-primary mt-2">正在同步权限矩阵...</span>
       </div>
@@ -22,9 +22,9 @@
           <div class="p-3 bg-primary-container text-white rounded-xl shadow-lg shadow-primary/10">
             <span class="material-symbols-outlined text-3xl">security</span>
           </div>
-          <button @click="close" class="p-2 hover:bg-surface-container-high rounded-full transition-colors group">
+          <el-button circle text class="p-2 hover:bg-surface-container-high rounded-full transition-colors group" @click="close">
             <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary">close</span>
-          </button>
+          </el-button>
         </div>
         <h2 class="text-2xl font-black text-primary tracking-tight">分配权限</h2>
         <div class="flex items-center gap-2 mt-2">
@@ -34,11 +34,30 @@
       </div>
 
       <div class="flex-1 overflow-y-auto p-8 space-y-3 no-scrollbar">
-        <div v-if="permissionLoadError" class="rounded-lg bg-error-container text-error px-4 py-3 text-sm">
-          {{ permissionLoadError }}
+        <el-alert
+            v-if="permissionLoader.state.loadState === 'forbidden'"
+            title="无权查看角色权限"
+            description="当前账号缺少角色权限查看能力，请联系管理员分配 role:permission:list 权限。"
+            type="warning"
+            :closable="false"
+            show-icon
+        />
+
+        <div v-else-if="permissionLoader.state.loadState === 'failed'" class="space-y-4">
+          <el-alert
+              title="权限数据加载失败"
+              description="无法连接权限服务，请检查网络或稍后重试。"
+              type="error"
+              :closable="false"
+              show-icon
+          />
+          <el-button type="primary" plain @click="loadPermissionData">
+            <span class="material-symbols-outlined text-[18px]">refresh</span>
+            重新加载
+          </el-button>
         </div>
 
-        <template v-else-if="treeData.length > 0">
+        <template v-else-if="permissionLoader.state.treeData.length > 0">
           <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant flex justify-between mb-2">
             权限结构树
             <span class="text-[10px] font-normal lowercase opacity-60">支持搜索与折叠</span>
@@ -47,7 +66,7 @@
           <div class="atelier-tree-select-wrapper">
             <el-tree-select
                 v-model="checkedPermissionIds"
-                :data="treeData"
+                :data="permissionLoader.state.treeData"
                 node-key="id"
                 value-key="id"
                 multiple
@@ -75,19 +94,19 @@
           </div>
         </template>
 
-        <el-empty v-else-if="!isLoadingData" description="暂无权限数据结构" />
+        <el-empty v-else-if="permissionLoader.state.loadState === 'empty'" description="暂无权限数据结构" />
       </div>
 
       <div class="p-8 bg-surface-container-low border-t border-surface-variant/30 grid grid-cols-2 gap-4 flex-shrink-0">
-        <button @click="close" class="py-3 px-6 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-all">取消返回</button>
-        <button
+        <el-button @click="close">取消返回</el-button>
+        <el-button
+            type="primary"
+            :loading="isSubmitting"
+            :disabled="permissionLoader.state.treeData.length === 0 || permissionLoader.state.loadState !== 'ready'"
             @click="save"
-            :disabled="isSubmitting || treeData.length === 0 || !!permissionLoadError"
-            class="py-3 px-6 rounded-lg text-sm font-bold text-white bg-primary shadow-lg shadow-primary/30 active:scale-95 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          <span v-if="isSubmitting" class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
           {{ isSubmitting ? '保存中...' : '确认分配' }}
-        </button>
+        </el-button>
       </div>
     </div>
   </el-drawer>
@@ -95,57 +114,35 @@
 
 <script setup>
 import { ref, nextTick } from 'vue'
-import { ElMessage, ElDrawer, ElTreeSelect } from 'element-plus'
+import { ElAlert, ElButton, ElDrawer, ElEmpty, ElMessage, ElTreeSelect } from 'element-plus'
 import {getAllPermissions, getRolePermissionIds, updateRolePermissions} from './api/role.js'
+import { createRolePermissionLoader, syncCommittedPermissionIds } from './permissionLoaders.js'
 
 const visible = ref(false)
 const currentRole = ref(null)
 const emit = defineEmits(['updated', 'closed'])
 
-const isLoadingData = ref(false)
 const isSubmitting = ref(false)
-const treeData = ref([])
 const checkedPermissionIds = ref([])
-const permissionLoadError = ref('')
+const permissionLoader = createRolePermissionLoader({
+  getAllPermissions,
+  getRolePermissionIds,
+  afterTreeReady: nextTick
+})
 
 async function open(role) {
   if (!role) return
   currentRole.value = role
-
-  treeData.value = []
-  checkedPermissionIds.value = []
-  permissionLoadError.value = ''
   visible.value = true
-  isLoadingData.value = true
+  await loadPermissionData()
+}
 
-  try {
-    const [permissionsRes, ownedIdsRes] = await Promise.all([
-      getAllPermissions(),
-      getRolePermissionIds(role.id)
-    ])
+async function loadPermissionData() {
+  if (!currentRole.value) return
 
-    // 剥离包裹层，拿到后端返回的原始树形数据
-    const rawList = permissionsRes?.data?.data || permissionsRes?.data || permissionsRes || []
-    const ownedIds = ownedIdsRes?.data?.data || ownedIdsRes?.data || ownedIdsRes || []
-
-    // 🌟 核心修改：直接把后端返回的自带 children 的数组扔给组件，不需要再 buildTree 了！
-    treeData.value = Array.isArray(rawList) ? rawList : []
-
-    // 等待 DOM 树渲染完成，再赋选中值，确保能正确回显文字而不是 ID
-    await nextTick()
-
-    if (Array.isArray(ownedIds)) {
-      checkedPermissionIds.value = ownedIds.map(id => Number(id))
-    } else {
-      checkedPermissionIds.value = []
-    }
-
-  } catch (error) {
-    console.error('[Hive Auth] 权限初始化失败:', error)
-    permissionLoadError.value = '无法连接到权限服务或无权查看，请稍后再试。'
-  } finally {
-    isLoadingData.value = false
-  }
+  checkedPermissionIds.value = []
+  const result = await permissionLoader.load(currentRole.value.id)
+  checkedPermissionIds.value = syncCommittedPermissionIds(checkedPermissionIds.value, result)
 }
 
 function close() {

@@ -7,33 +7,39 @@
           <div class="p-3 bg-primary-container text-white rounded-xl shadow-lg shadow-primary/10">
             <span class="material-symbols-outlined text-3xl">person_add</span>
           </div>
-          <button @click="close" class="p-2 hover:bg-surface-container-high rounded-full transition-colors group">
+          <el-button circle text class="p-2 hover:bg-surface-container-high rounded-full transition-colors group" @click="close">
             <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary">close</span>
-          </button>
+          </el-button>
         </div>
         <h2 class="text-2xl font-black text-primary tracking-tight">新建角色</h2>
         <p class="text-sm text-on-surface-variant mt-1">定义职能岗位并关联对应的系统操作权限</p>
       </div>
 
-      <div class="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">
-        <div class="space-y-2">
-          <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant">角色名称</label>
-          <input v-model="form.roleName" type="text" placeholder="例如：高级裁剪师" class="w-full px-4 py-3.5 rounded bg-surface-container-low border-none focus:ring-2 focus:ring-primary/20 text-on-surface transition-all placeholder:text-on-surface-variant/40" />
-        </div>
+      <el-form :model="form" class="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar" @submit.prevent="submit">
+        <el-form-item label="角色名称" class="space-y-2">
+          <el-input v-model="form.roleName" placeholder="例如：高级裁剪师" />
+        </el-form-item>
 
-        <div class="space-y-2 relative">
-          <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant flex justify-between">
-            分配权限
-            <span class="text-[10px] font-normal lowercase opacity-60">勾选下方列表授予功能访问权</span>
-          </label>
+        <el-form-item label="分配权限" class="space-y-2 relative">
+          <p class="text-[10px] font-normal lowercase text-on-surface-variant opacity-60">勾选下方列表授予功能访问权</p>
 
-          <div v-if="permissionLoadError" class="rounded-lg bg-amber-50 text-amber-700 px-4 py-3 text-sm">
-            {{ permissionLoadError }}
+          <el-alert
+            v-if="permissionLoader.state.loadState === 'forbidden'"
+            title="无权查看权限树"
+            description="当前账号缺少角色权限查看能力，请联系管理员分配 role:permission:list 权限。"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
+          <div v-else-if="permissionLoader.state.loadState === 'failed'" class="space-y-3">
+            <el-alert title="权限树加载失败" description="无法连接权限服务，请检查网络或稍后重试。" type="error" :closable="false" show-icon />
+            <el-button type="primary" plain @click="fetchPermissions">重新加载</el-button>
           </div>
-          <div v-else class="atelier-tree-select-wrapper">
+          <el-empty v-else-if="permissionLoader.state.loadState === 'empty'" description="暂无可分配权限" />
+          <div v-else-if="permissionLoader.state.loadState === 'ready' || permissionLoader.state.loading" class="atelier-tree-select-wrapper">
             <el-tree-select
               v-model="form.permissionIds"
-              :data="allPermissions"
+              :data="permissionLoader.state.treeData"
               node-key="id"
               value-key="id"
               multiple
@@ -43,10 +49,10 @@
               check-on-click-node
               :render-after-expand="false"
               :props="{ value: 'id', label: 'permName', children: 'children' }"
-              :placeholder="isLoadingPerms ? '正在加载权限列表...' : '点击选择系统权限'"
+              :placeholder="permissionLoader.state.loading ? '正在加载权限列表...' : '点击选择系统权限'"
               class="atelier-tree-select w-full"
               filterable
-              :loading="isLoadingPerms"
+              :loading="permissionLoader.state.loading"
             >
               <template #default="scope">
                 <div v-if="scope?.data" class="flex items-center gap-2">
@@ -58,15 +64,14 @@
               </template>
             </el-tree-select>
           </div>
-        </div>
-      </div>
+        </el-form-item>
+      </el-form>
 
       <div class="p-8 bg-surface-container-low border-t border-surface-variant/30 grid grid-cols-2 gap-4">
-        <button @click="close" class="py-3 px-6 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-high transition-all">取消返回</button>
-        <button @click="submit" :disabled="isSubmitting" class="py-3 px-6 rounded-lg text-sm font-bold text-white bg-primary shadow-lg shadow-primary/30 active:scale-95 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-          <span v-if="isSubmitting" class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+        <el-button @click="close">取消返回</el-button>
+        <el-button type="primary" :loading="isSubmitting" :disabled="!permissionTreeCanSubmit(permissionLoader.state.loadState)" @click="submit">
           {{ isSubmitting ? '提交中...' : '确认创建' }}
-        </button>
+        </el-button>
       </div>
     </div>
   </el-drawer>
@@ -74,32 +79,18 @@
 
 <script setup>
 import { ref } from 'vue'
-import { ElMessage, ElDrawer } from 'element-plus'
+import { ElAlert, ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElMessage, ElTreeSelect } from 'element-plus'
 import { createRole, getAllPermissions } from './api/role.js'
+import { createPermissionTreeLoader, permissionTreeCanSubmit } from './permissionLoaders.js'
 
 const emit = defineEmits(['success', 'closed'])
 const visible = ref(false)
 const isSubmitting = ref(false)
-const isLoadingPerms = ref(false)
-const permissionLoadError = ref('')
 const form = ref({ roleName: '', permissionIds: [] })
-const allPermissions = ref([])
+const permissionLoader = createPermissionTreeLoader({ getAllPermissions })
 
 async function fetchPermissions() {
-  isLoadingPerms.value = true
-  permissionLoadError.value = ''
-  try {
-    const rawData = await getAllPermissions()
-    allPermissions.value = Array.isArray(rawData) ? rawData : []
-  } catch (error) {
-    console.error('获取权限异常:', error)
-    allPermissions.value = []
-    permissionLoadError.value = error?.response?.status === 403
-      ? '您暂无权限查看权限树，请联系企业负责人确认角色权限配置。'
-      : '权限树加载失败，请稍后重试。'
-  } finally {
-    isLoadingPerms.value = false
-  }
+  await permissionLoader.load()
 }
 
 async function open() {
@@ -118,8 +109,8 @@ async function submit() {
     ElMessage.warning('角色名称是必填项')
     return
   }
-  if (permissionLoadError.value) {
-    ElMessage.warning(permissionLoadError.value)
+  if (!permissionTreeCanSubmit(permissionLoader.state.loadState)) {
+    ElMessage.warning('权限树尚未准备完成')
     return
   }
   isSubmitting.value = true

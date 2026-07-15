@@ -1,11 +1,8 @@
-import fs from 'node:fs'
-import path from 'node:path'
+import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 
-const uiRoot = path.resolve('D:/HiveManager/management-ui')
-
 function read(relativePath) {
-  return fs.readFileSync(path.join(uiRoot, relativePath), 'utf8')
+  return readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8')
 }
 
 const userStore = read('src/stores/user.js')

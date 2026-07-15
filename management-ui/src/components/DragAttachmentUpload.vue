@@ -1,9 +1,11 @@
 <template>
   <div
     class="drag-attachment-upload"
-    :class="{ 'is-dragging': dragging, 'is-uploading': uploading }"
+    :class="{ 'is-disabled': disabled, 'is-dragging': dragging, 'is-uploading': uploading }"
     role="button"
-    tabindex="0"
+    :tabindex="disabled || uploading ? -1 : 0"
+    :aria-disabled="disabled || uploading"
+    :title="disabled ? disabledReason : undefined"
     @click="openPicker"
     @keydown.enter.prevent="openPicker"
     @keydown.space.prevent="openPicker"
@@ -17,7 +19,7 @@
       class="hidden"
       type="file"
       :accept="accept"
-      :disabled="uploading"
+      :disabled="disabled || uploading"
       @change="onFileChange"
     >
 
@@ -37,18 +39,19 @@
     </div>
 
     <div v-if="fileUrl" class="drag-upload-actions" @click.stop>
-      <button v-if="downloadable" type="button" class="drag-upload-action text-primary" @click="$emit('download')">
+      <el-button v-if="downloadable" size="small" type="primary" plain :disabled="downloadDisabled" :title="downloadDisabled ? disabledReason : ''" @click="$emit('download')">
         查看附件
-      </button>
-      <button type="button" class="drag-upload-action text-rose-600" @click="$emit('remove')">
+      </el-button>
+      <el-button size="small" type="danger" plain :disabled="removeDisabled" :title="removeDisabled ? disabledReason : ''" @click="$emit('remove')">
         移除
-      </button>
+      </el-button>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
+import { ElButton, ElMessage } from 'element-plus'
 
 const props = defineProps({
   title: {
@@ -86,7 +89,17 @@ const props = defineProps({
   downloadable: {
     type: Boolean,
     default: true
-  }
+  },
+  disabled: {
+    type: Boolean,
+    default: false
+  },
+  disabledReason: {
+    type: String,
+    default: ''
+  },
+  downloadDisabled: { type: Boolean, default: false },
+  removeDisabled: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['select', 'download', 'remove'])
@@ -107,24 +120,24 @@ const formattedSize = computed(() => {
 })
 
 function openPicker() {
-  if (props.uploading) return
+  if (props.uploading || props.disabled) return
   inputRef.value?.click()
 }
 
 function onFileChange(event) {
   const file = event.target.files?.[0]
-  emitFile(file)
+  if (!props.disabled && !props.uploading) emitFile(file)
   event.target.value = ''
 }
 
 function onDragEnter() {
-  if (!props.uploading) {
+  if (!props.disabled && !props.uploading) {
     dragging.value = true
   }
 }
 
 function onDragOver() {
-  if (!props.uploading) {
+  if (!props.disabled && !props.uploading) {
     dragging.value = true
   }
 }
@@ -138,13 +151,40 @@ function onDragLeave(event) {
 
 function onDrop(event) {
   dragging.value = false
-  if (props.uploading) return
+  if (props.disabled || props.uploading) return
   emitFile(event.dataTransfer?.files?.[0])
 }
 
 function emitFile(file) {
   if (!file) return
+  if (!fileMatchesAccept(file)) {
+    ElMessage.warning('所选文件类型不受支持')
+    return
+  }
   emit('select', file)
+}
+
+function fileMatchesAccept(file) {
+  const acceptedTypes = props.accept
+    .split(',')
+    .map((type) => type.trim().toLowerCase())
+    .filter(Boolean)
+
+  if (acceptedTypes.length === 0 || acceptedTypes.includes('*/*')) {
+    return true
+  }
+
+  const fileName = String(file.name || '').toLowerCase()
+  const mimeType = String(file.type || '').toLowerCase()
+  return acceptedTypes.some((acceptedType) => {
+    if (acceptedType.startsWith('.')) {
+      return fileName.endsWith(acceptedType)
+    }
+    if (acceptedType.endsWith('/*')) {
+      return mimeType.startsWith(acceptedType.slice(0, -1))
+    }
+    return mimeType === acceptedType
+  })
 }
 </script>
 
@@ -169,6 +209,20 @@ function emitFile(file) {
 .drag-attachment-upload.is-uploading {
   cursor: wait;
   opacity: 0.78;
+}
+
+.drag-attachment-upload.is-disabled {
+  cursor: not-allowed;
+  border-color: rgba(107, 122, 144, 0.28);
+  background: rgba(245, 247, 250, 0.9);
+  opacity: 0.7;
+}
+
+.drag-attachment-upload.is-disabled:hover {
+  border-color: rgba(107, 122, 144, 0.28);
+  background: rgba(245, 247, 250, 0.9);
+  box-shadow: none;
+  transform: none;
 }
 
 .drag-upload-main {
@@ -206,12 +260,4 @@ function emitFile(file) {
   gap: 8px;
 }
 
-.drag-upload-action {
-  border: 0;
-  background: rgba(255, 255, 255, 0.72);
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 900;
-}
 </style>

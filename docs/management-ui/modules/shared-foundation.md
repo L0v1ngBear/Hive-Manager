@@ -1,6 +1,6 @@
 # 共享基础维护档案
 
-> 状态：Audit baseline；迁移批次：Batch 1；范围：`management-ui` 应用级依赖、根入口、全局样式、请求状态与公共组件。
+> 状态：Foundation migrated；迁移批次：Batch 1；范围：`management-ui` 应用级依赖、根入口、全局样式、请求状态与公共组件。
 
 ## 功能与边界
 
@@ -14,7 +14,7 @@
 | 文件                                         | 当前职责                                                           |
 | -------------------------------------------- | ------------------------------------------------------------------ |
 | `management-ui/package.json`                 | 前端依赖与 Vite、lint、format、build 脚本                          |
-| `management-ui/src/main.js`                  | 创建应用，安装 Pinia/Router，注册 `permission` 指令，导入样式      |
+| `management-ui/src/main.js`                  | 创建应用，安装 Pinia/Router，注册 `permission` 与 Element Plus `loading` 指令，导入样式 |
 | `management-ui/src/App.vue`                  | 根 `ElConfigProvider`、路由出口、合规页脚、全局请求遮罩            |
 | `management-ui/src/style.css`                | Tailwind 主题、品牌兼容层、Element Plus 变量、响应式表格和全局样式 |
 | `management-ui/src/utils/request.js`         | Axios 请求、鉴权响应处理和全局请求状态接入                         |
@@ -25,12 +25,16 @@
 
 ## Element Plus 接入现状
 
+- Foundation 已迁移：注册 `loading` 指令（`ElLoadingDirective`）。
+- 稳定语义 token：`--ys-control-height`、`--ys-control-radius`、`--ys-focus-ring`。
+- Element Plus 映射：`--el-component-size`、`--el-border-radius-base`。
+
 - `package.json` 声明 `element-plus: ^2.13.0`，当前基线按 Element Plus 2.13 维护。
-- `main.js` 只导入 `element-plus/dist/index.css`；没有 `app.use(ElementPlus)`。
+- `main.js` 导入 `element-plus/dist/index.css`，并调用 `installElementPlusFoundation(app)`；没有 `app.use(ElementPlus)`。
 - 组件与服务由各文件显式从 `element-plus` 导入，当前不是全量 JS 插件安装模式。
 - `App.vue` 显式导入 `ElConfigProvider`，并以 `zhCn` 设置中文 locale。
-- `main.js` 只注册了自定义 `permission` 指令，没有注册 Element Plus Loading 指令。
-- `UserManual.vue` 已使用 `v-loading`，因此当前存在“模板使用而应用入口未注册”的缺口。
+- `main.js` 通过 `installElementPlusFoundation(app)` 注册 `loading`，由 `ElLoadingDirective` 提供实现。
+- `UserManual.vue` 已使用 `v-loading`；此前“模板使用而应用入口未注册”的缺口已解决。
 
 ## Token 与样式现状
 
@@ -74,7 +78,7 @@
 
 ## Element Plus 接入/替换建议
 
-- 保持显式导入策略，仅注册实际使用的 Loading 指令；不要为此改为全量 `app.use(ElementPlus)`。
+- 保持显式导入策略，继续通过 `installElementPlusFoundation(app)` 注册实际使用的 Loading 指令；不要为此改为全量 `app.use(ElementPlus)`。
 - 将三套业务 token 收敛到一个语义源，再分别映射 Tailwind、RGB 兼容变量和 `--el-*`。
 - `DateFilterInput` 可在确认 API 日期格式后迁移到 `ElDatePicker`，必须显式设置 `value-format`。
 - `TableColumnSettings` 的弹出层可迁移为 `ElPopover`，按钮可迁移为 `ElButton`；导出逻辑保持不变。
@@ -83,7 +87,7 @@
 
 ## 风险
 
-- `v-loading` 未注册会导致该指令不能按预期工作，并产生运行期指令解析警告。
+- 历史风险（已解决）：`v-loading` 未注册曾可能导致指令不能按预期工作并产生运行期指令解析警告；当前已由 `ElLoadingDirective` 注册覆盖。
 - 三套 token、`--el-*` 和硬编码颜色并存，修改品牌色时容易出现局部漂移。
 - 全局 `!important` 和旧色类重映射可能改变新组件的状态色语义。
 - 权限指令是前端体验层，不能替代后端 `@RequirePermission`。

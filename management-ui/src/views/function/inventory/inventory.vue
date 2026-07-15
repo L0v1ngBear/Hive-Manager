@@ -13,50 +13,50 @@
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-          <button
-            v-permission="'inventory:warning:setting'"
+          <el-tooltip :disabled="canConfigureWarning" content="暂无 inventory:warning:setting 权限"><span><el-button
+            :disabled="!canConfigureWarning"
             @click="openWarningSetting"
             class="inventory-secondary-btn"
           >
             <span class="material-symbols-outlined text-[20px]">tune</span>
             预警设置
-          </button>
-          <button
-            v-permission="'inventory:cloth:in'"
+          </el-button></span></el-tooltip>
+          <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button
+            :disabled="!canInInventory"
             @click="handleTemplateDownload"
             class="inventory-secondary-btn"
           >
             <span class="material-symbols-outlined text-[20px]">description</span>
             导入说明
-          </button>
-          <button
-            v-permission="'inventory:cloth:in'"
+          </el-button></span></el-tooltip>
+          <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button
+            :disabled="!canInInventory"
             @click="triggerImport"
             class="inventory-secondary-btn"
           >
             <span class="material-symbols-outlined text-[20px]">file_upload</span>
             导入外部库存
-          </button>
-          <button
-            v-permission="'inventory:cloth:in'"
+          </el-button></span></el-tooltip>
+          <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button
+            :disabled="!canInInventory"
             @click="triggerImageRecognition"
             class="inventory-secondary-btn"
           >
             <span class="material-symbols-outlined text-[20px]">photo_camera</span>
             图片识别入库
-          </button>
-          <button v-permission="'inventory:cloth:in'" @click="openInDrawer" class="function-action-primary">
+          </el-button></span></el-tooltip>
+          <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button :disabled="!canInInventory" @click="openInDrawer" class="function-action-primary">
             <span class="material-symbols-outlined text-[20px]">add_circle</span>
             新增入库
-          </button>
-          <button v-permission="'inventory:cloth:out'" @click="openOutDrawer()" class="function-action-dark">
+          </el-button></span></el-tooltip>
+          <el-tooltip :disabled="canOutInventory" content="暂无 inventory:cloth:out 权限"><span><el-button :disabled="!canOutInventory" @click="openOutDrawer()" class="function-action-dark">
             <span class="material-symbols-outlined text-[20px]">outbox</span>
             扫码出库
-          </button>
+          </el-button></span></el-tooltip>
         </div>
       </header>
 
-      <section class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <section v-if="canReadInventory" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
         <div class="inventory-stat-card">
           <span class="material-symbols-outlined inventory-stat-bg text-blue-50">all_inbox</span>
           <p class="inventory-stat-label">可用总库存</p>
@@ -119,34 +119,31 @@
             <div class="flex flex-wrap items-center gap-3">
               <div class="relative">
                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-slate-400">search</span>
-                <input
+                <el-input
                   v-model.trim="query.keyword"
                   @keyup.enter="handleFilter"
-                  class="w-64 max-w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10"
+                  class="w-64 max-w-full"
                   placeholder="搜索条码、型号或规格"
                 />
               </div>
               <div class="relative">
-                <select v-model="query.status" class="min-w-[120px] cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-4 pr-10 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10">
-                  <option value="">全部状态</option>
-                  <option value="0">在库</option>
-                  <option value="2">部分出库</option>
-                  <option value="1">已出库</option>
-                </select>
+                <el-select v-model="query.status" class="min-w-[120px]">
+                  <el-option label="全部状态" value="" />
+                  <el-option label="在库" value="0" />
+                  <el-option label="部分出库" value="2" />
+                  <el-option label="已出库" value="1" />
+                </el-select>
                 <span class="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">expand_more</span>
               </div>
-              <select v-model="query.timeOrder" @change="handleFilter" class="min-w-[132px] cursor-pointer rounded-xl border border-slate-200 bg-white py-2.5 px-4 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10">
-                <option value="fifo">先进先出</option>
-                <option value="lifo">先进后出</option>
-              </select>
-              <input v-model.trim="query.specMin" type="number" min="0" step="0.01" class="w-28 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" placeholder="规格下限" />
-              <input v-model.trim="query.specMax" type="number" min="0" step="0.01" class="w-28 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" placeholder="规格上限" />
-              <input v-model.trim="query.remainingMin" type="number" min="0" step="0.01" class="w-32 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" placeholder="剩余米数下限" />
-              <input v-model.trim="query.remainingMax" type="number" min="0" step="0.01" class="w-32 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" placeholder="剩余米数上限" />
+              <el-select v-model="query.timeOrder" @change="handleFilter" class="min-w-[132px]"><el-option label="先进先出" value="fifo" /><el-option label="先进后出" value="lifo" /></el-select>
+              <el-input-number v-model="query.specMin" :min="0" :step="0.01" :precision="2" placeholder="规格下限" class="w-28" />
+              <el-input-number v-model="query.specMax" :min="0" :step="0.01" :precision="2" placeholder="规格上限" class="w-28" />
+              <el-input-number v-model="query.remainingMin" :min="0" :step="0.01" :precision="2" placeholder="剩余米数下限" class="w-32" />
+              <el-input-number v-model="query.remainingMax" :min="0" :step="0.01" :precision="2" placeholder="剩余米数上限" class="w-32" />
               <DateFilterInput v-model="query.updatedStart" placeholder="更新开始" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" />
               <DateFilterInput v-model="query.updatedEnd" placeholder="更新结束" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" />
-              <button @click="handleFilter" class="rounded-xl bg-blue-50 px-5 py-2.5 text-sm font-bold text-blue-600 transition-colors hover:bg-blue-100">查询</button>
-              <button @click="resetFilter" class="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50">重置</button>
+              <el-button type="primary" @click="handleFilter">查询</el-button>
+              <el-button @click="resetFilter">重置</el-button>
               <TableColumnSettings
                 :columns="inventoryTableColumns"
                 export-module="inventory"
@@ -159,12 +156,11 @@
             </span>
           </div>
 
-          <div class="responsive-table-wrap relative flex-1">
-            <div v-if="loading" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-[2px]">
-              <span class="material-symbols-outlined animate-spin text-4xl text-blue-600">progress_activity</span>
-              <span class="text-sm font-medium text-blue-600">正在加载库存数据...</span>
-            </div>
-            <table class="responsive-data-table w-full border-collapse text-left">
+          <div v-if="!canReadInventory" class="flex min-h-[360px] flex-1 items-center justify-center p-8"><el-empty description="暂无 inventory:warning:list 权限，无法查看库存内容" /></div>
+          <div v-else-if="listLoadError" class="flex min-h-[360px] flex-1 items-center justify-center p-8"><el-empty :description="listLoadError.message"><el-button type="primary" @click="fetchData">重试</el-button></el-empty></div>
+          <div v-else-if="loading" v-loading="loading" class="min-h-[360px] flex-1" element-loading-text="正在加载库存数据" />
+          <div v-else class="responsive-table-wrap relative flex-1">
+            <table v-if="rows.length" class="responsive-data-table w-full border-collapse text-left">
               <thead class="sticky top-0 z-0 bg-slate-50/80">
                 <tr>
                   <th
@@ -192,39 +188,29 @@
                     <template v-else-if="column.key === 'totalMeters'">{{ meter(item.totalMeters) }}</template>
                     <template v-else-if="column.key === 'remainingMeters'">{{ meter(item.remainingMeters) }}</template>
                     <template v-else-if="column.key === 'status'">
-                      <span :class="statusClass(item.status)" class="inline-flex rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wider">
+                      <el-tag :type="statusTagType(item.status)" size="small">
                         {{ item.statusName || statusLabel(item.status) }}
-                      </span>
+                      </el-tag>
                     </template>
                     <template v-else-if="column.key === 'updateTime'">{{ formatDateTime(item.latestTime || item.updateTime) }}</template>
                   </td>
                   <td class="space-x-2 whitespace-nowrap px-6 py-4 text-right" data-label="操作">
-                    <button @click.stop="openDetail(item)" class="rounded-lg px-3 py-1.5 text-xs font-bold text-blue-600 transition-colors hover:bg-blue-100/50">详情</button>
-                  </td>
-                </tr>
-                <tr v-if="!loading && rows.length === 0">
-                  <td :colspan="inventoryTableColumnCount" class="px-6 py-16 text-center">
-                    <div class="flex flex-col items-center justify-center text-slate-400">
-                      <span class="material-symbols-outlined mb-2 text-5xl opacity-50">search_off</span>
-                      <p class="text-sm">暂无符合条件的库存记录</p>
-                    </div>
+                    <el-button link type="primary" @click.stop="openDetail(item)">详情</el-button>
                   </td>
                 </tr>
               </tbody>
             </table>
+            <el-empty v-else-if="listLoaded" description="暂无符合条件的库存记录" />
           </div>
 
           <div class="flex items-center justify-between border-t border-slate-100 bg-slate-50 p-4 text-sm text-slate-500">
             <span>第 <b class="text-slate-800">{{ query.pageNum }}</b> / {{ totalPages }} 页</span>
-            <div class="flex gap-2">
-              <button @click="changePage(query.pageNum - 1)" :disabled="query.pageNum <= 1" class="inventory-page-btn">上一页</button>
-              <button @click="changePage(query.pageNum + 1)" :disabled="query.pageNum >= totalPages" class="inventory-page-btn">下一页</button>
-            </div>
+            <el-pagination v-model:current-page="query.pageNum" v-model:page-size="query.pageSize" :total="pagination.total" layout="prev, pager, next" @current-change="changePage" />
           </div>
         </div>
 
         <aside class="space-y-6">
-          <section class="inventory-side-card">
+          <section v-if="canReadTrend" class="inventory-side-card">
             <div class="mb-5 flex items-center justify-between">
               <h2 class="flex items-center gap-2 text-base font-black text-slate-800">
                 <span class="material-symbols-outlined text-[20px] text-blue-600">monitoring</span>
@@ -252,7 +238,7 @@
             </div>
           </section>
 
-          <section class="inventory-side-card">
+          <section v-if="canReadInventory" class="inventory-side-card">
             <h2 class="mb-5 flex items-center gap-2 text-base font-black text-slate-800">
               <span class="material-symbols-outlined text-[20px] text-amber-500">error</span>
               低库存预警
@@ -274,7 +260,7 @@
             </div>
           </section>
 
-          <section class="inventory-side-card">
+          <section v-if="canReadRecords" class="inventory-side-card">
             <h2 class="mb-5 flex items-center gap-2 text-base font-black text-slate-800">
               <span class="material-symbols-outlined text-[20px] text-slate-400">history</span>
               最近操作记录
@@ -317,9 +303,22 @@
       <div v-if="detailVisible || inVisible || outVisible || imageRecognitionVisible" class="fixed inset-0 z-[90] bg-slate-900/40 backdrop-blur-sm transition-opacity" @click="closePanels"></div>
     </transition>
 
+    <el-drawer v-model="warningSettingVisible" title="库存预警设置" size="min(92vw, 420px)" destroy-on-close>
+      <el-form :model="warningSettingForm" label-position="top">
+        <el-form-item label="低库存预警阈值（米）" required>
+          <el-input-number v-model="warningSettingForm.threshold" :min="0" :max="999999999.99" :step="0.01" :precision="2" class="w-full" />
+        </el-form-item>
+        <p class="text-sm text-slate-500">库存型号总米数小于等于该值时触发预警。</p>
+        <div class="mt-6 flex justify-end gap-3">
+          <el-button @click="warningSettingVisible = false">取消</el-button>
+          <el-button type="primary" :disabled="!canConfigureWarning" @click="saveWarningSetting">保存</el-button>
+        </div>
+      </el-form>
+    </el-drawer>
+
     <input ref="importInputRef" type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="handleImportChange" />
 
-    <aside class="inventory-drawer" :class="detailVisible ? 'translate-x-0' : 'translate-x-full'">
+    <el-drawer v-model="detailVisible" title="库存型号详情" size="min(92vw, 520px)" destroy-on-close>
       <div class="h-1.5 w-full bg-blue-600"></div>
       <div class="flex items-start justify-between gap-3 border-b border-slate-100 bg-slate-50/50 p-6">
         <div>
@@ -328,9 +327,9 @@
             {{ detailRecord?.modelCode || '--' }} / {{ meter(detailRecord?.spec) }}
           </p>
         </div>
-        <button @click="detailVisible = false" class="inventory-close-btn">
+        <el-button circle @click="detailVisible = false" class="inventory-close-btn">
           <span class="material-symbols-outlined">close</span>
-        </button>
+        </el-button>
       </div>
       <div v-if="detailRecord" class="flex-1 space-y-6 overflow-y-auto p-6">
         <div class="grid grid-cols-2 gap-4">
@@ -377,18 +376,19 @@
               </p>
             </div>
           </div>
-          <button
+          <el-button
             @click="openModelClothPage"
             class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition-colors hover:bg-blue-700"
           >
             查看单匹布明细
             <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
-          </button>
+          </el-button>
         </div>
       </div>
-    </aside>
+    </el-drawer>
 
-    <aside class="inventory-drawer" :class="inVisible ? 'translate-x-0' : 'translate-x-full'">
+    <el-drawer v-model="inVisible" title="新增入库" size="min(92vw, 520px)" destroy-on-close @closed="closeInDrawer">
+      <el-form :model="inForm" label-position="top">
       <div class="h-1.5 w-full bg-emerald-500"></div>
       <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
         <div>
@@ -399,9 +399,9 @@
           <p class="mt-1.5 text-xs text-slate-500">条码不填时系统会自动生成唯一标识号，标签打印请到现场打印页完成。</p>
         </div>
         <div class="inventory-drawer-actions">
-          <button @click="closeInDrawer" class="inventory-close-btn">
+          <el-button circle @click="closeInDrawer" class="inventory-close-btn">
             <span class="material-symbols-outlined">close</span>
-          </button>
+          </el-button>
         </div>
       </div>
       <div class="flex-1 space-y-6 overflow-y-auto p-6">
@@ -413,13 +413,13 @@
           label="业务时间"
           description="用于修正当前布匹的业务入库时间。"
         />
-        <label class="block">
+        <el-form-item :label="fieldLabel('barCode', '条码')">
           <span class="inventory-field-label">
             <span class="material-symbols-outlined text-[16px] text-slate-400">qr_code</span>
             {{ fieldLabel('barCode', '条码') }}
           </span>
-          <input v-model.trim="inForm.barcode" class="inventory-input" placeholder="留空则自动生成" />
-        </label>
+          <el-input v-model.trim="inForm.barcode" placeholder="留空则自动生成" />
+        </el-form-item>
 
         <label class="block">
           <span class="inventory-field-label">
@@ -427,11 +427,11 @@
             {{ fieldLabel('modelCode', '型号') }}
             <span v-if="fieldRequired('modelCode')" class="text-rose-500">*</span>
           </span>
-          <input v-model.trim="inForm.modelCode" data-field="inventory.modelCode" @input="loadModelOptions" class="inventory-input" placeholder="搜索或输入型号" />
+          <el-input v-model.trim="inForm.modelCode" data-field="inventory.modelCode" @input="loadModelOptions" placeholder="搜索或输入型号" />
           <div v-if="modelOptions.length" class="mt-3 flex flex-wrap gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <button v-for="item in modelOptions" :key="`${item.modelCode}-${item.spec}`" @click="pickModel(item)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-700">
+            <el-button v-for="item in modelOptions" :key="`${item.modelCode}-${item.spec}`" @click="pickModel(item)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-emerald-400 hover:text-emerald-700">
               {{ item.modelCode }} <span class="mx-1 text-slate-300">|</span> {{ meter(item.spec) }}
-            </button>
+            </el-button>
           </div>
         </label>
 
@@ -442,7 +442,7 @@
               {{ fieldLabel('spec', '规格') }}
               <span v-if="fieldRequired('spec')" class="text-rose-500">*</span>
             </span>
-            <input v-model.trim="inForm.spec" data-field="inventory.spec" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
+            <el-input-number v-model="inForm.spec" data-field="inventory.spec" :min="0" :step="0.01" :precision="2" controls-position="right" class="w-full" placeholder="0.00" />
           </label>
           <label class="block">
             <span class="inventory-field-label">
@@ -450,7 +450,7 @@
               {{ fieldLabel('totalMeters', '入库米数') }}
               <span v-if="fieldRequired('totalMeters')" class="text-rose-500">*</span>
             </span>
-            <input v-model.trim="inForm.meters" data-field="inventory.meters" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
+            <el-input-number v-model="inForm.meters" data-field="inventory.meters" :min="0" :step="0.01" :precision="2" controls-position="right" class="w-full" placeholder="0.00" />
           </label>
         </div>
 
@@ -464,23 +464,24 @@
               {{ field.label }}
               <span v-if="field.required" class="text-rose-500">*</span>
             </span>
-            <input
+            <el-input
               v-model.trim="inForm.customFields[field.key]"
               :data-field="`inventory.custom.${field.key}`"
               :type="customFieldInputType(field)"
-              class="inventory-input bg-white"
               :placeholder="`请输入${field.label}`"
             />
           </label>
         </div>
       </div>
       <div class="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
-        <button @click="closeInDrawer" class="inventory-cancel-btn">取消</button>
-        <button @click="submitIn" class="inventory-confirm-btn bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600">确认入库</button>
+        <el-button @click="closeInDrawer">取消</el-button>
+        <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button type="primary" :disabled="!canInInventory" @click="submitIn">确认入库</el-button></span></el-tooltip>
       </div>
-    </aside>
+      </el-form>
+    </el-drawer>
 
-    <aside class="inventory-drawer" :class="imageRecognitionVisible ? 'translate-x-0' : 'translate-x-full'">
+    <el-drawer v-model="imageRecognitionVisible" title="图片识别入库" size="min(96vw, 620px)" destroy-on-close>
+      <el-form label-position="top">
       <div class="h-1.5 w-full bg-blue-500"></div>
       <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
         <div>
@@ -490,9 +491,9 @@
           </h3>
           <p class="mt-1.5 text-xs text-slate-500">先上传图片，系统带出候选信息；确认前请人工核对，避免错入库。</p>
         </div>
-        <button @click="imageRecognitionVisible = false" class="inventory-close-btn">
+        <el-button circle @click="imageRecognitionVisible = false" class="inventory-close-btn">
           <span class="material-symbols-outlined">close</span>
-        </button>
+        </el-button>
       </div>
       <div class="flex-1 space-y-5 overflow-y-auto p-6">
         <DragAttachmentUpload
@@ -529,18 +530,18 @@
         <div v-for="(candidate, index) in imageRecognitionCandidates" :key="candidate.localId" class="space-y-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
           <div class="flex items-center justify-between">
             <h4 class="text-sm font-black text-slate-900">候选布匹 {{ index + 1 }}</h4>
-            <button
+            <el-button
               v-if="imageRecognitionCandidates.length > 1"
               @click="removeRecognitionCandidate(index)"
               class="rounded-lg px-2 py-1 text-xs font-bold text-rose-500 hover:bg-rose-50"
             >
               删除
-            </button>
+            </el-button>
           </div>
 
           <label class="block">
             <span class="inventory-field-label">{{ fieldLabel('barCode', '条码') }}</span>
-            <input v-model.trim="candidate.barcode" class="inventory-input" placeholder="留空则自动生成" />
+            <el-input v-model.trim="candidate.barcode" placeholder="留空则自动生成" />
           </label>
 
           <label class="block">
@@ -548,7 +549,7 @@
               {{ fieldLabel('modelCode', '型号') }}
               <span class="text-rose-500">*</span>
             </span>
-            <input v-model.trim="candidate.modelCode" class="inventory-input" placeholder="请输入或核对型号" />
+            <el-input v-model.trim="candidate.modelCode" placeholder="请输入或核对型号" />
           </label>
 
           <div class="grid grid-cols-2 gap-4">
@@ -557,14 +558,14 @@
                 {{ fieldLabel('spec', '规格') }}
                 <span class="text-rose-500">*</span>
               </span>
-              <input v-model.trim="candidate.spec" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
+              <el-input-number v-model="candidate.spec" :min="0" :step="0.01" :precision="2" controls-position="right" class="w-full" placeholder="0.00" />
             </label>
             <label class="block">
               <span class="inventory-field-label">
                 {{ fieldLabel('totalMeters', '入库米数') }}
                 <span class="text-rose-500">*</span>
               </span>
-              <input v-model.trim="candidate.meters" type="number" min="0" step="0.01" class="inventory-input" placeholder="0.00" />
+              <el-input-number v-model="candidate.meters" :min="0" :step="0.01" :precision="2" controls-position="right" class="w-full" placeholder="0.00" />
             </label>
           </div>
 
@@ -575,17 +576,16 @@
                 {{ field.label }}
                 <span v-if="field.required" class="text-rose-500">*</span>
               </span>
-              <input
+              <el-input
                 v-model.trim="candidate.customFields[field.key]"
                 :type="customFieldInputType(field)"
-                class="inventory-input bg-white"
                 :placeholder="`请输入${field.label}`"
               />
             </label>
           </div>
 
           <label class="flex cursor-pointer items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50/80 p-3 text-xs text-blue-900">
-            <input v-model="candidate.manualVerified" type="checkbox" class="mt-1 h-4 w-4 rounded border-blue-300 text-blue-600" />
+            <el-checkbox v-model="candidate.manualVerified" class="mt-0" />
             <span>
               <b class="block text-sm text-blue-950">已人工核对该候选布匹</b>
               <span class="text-blue-900/70">确认型号、规格、米数和条码无误后再入库。</span>
@@ -593,18 +593,20 @@
           </label>
         </div>
 
-        <button @click="addRecognitionCandidate" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-200 bg-blue-50/60 px-4 py-3 text-sm font-black text-blue-600 hover:bg-blue-50">
+        <el-button @click="addRecognitionCandidate" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-200 bg-blue-50/60 px-4 py-3 text-sm font-black text-blue-600 hover:bg-blue-50">
           <span class="material-symbols-outlined text-[18px]">add</span>
           继续添加一匹布
-        </button>
+        </el-button>
       </div>
       <div class="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
-        <button @click="imageRecognitionVisible = false" class="inventory-cancel-btn">取消</button>
-        <button @click="submitRecognizedInventory" class="inventory-confirm-btn bg-blue-600 text-white shadow-blue-600/20 hover:bg-blue-700">确认入库</button>
+        <el-button @click="imageRecognitionVisible = false">取消</el-button>
+        <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button type="primary" :disabled="!canInInventory" @click="submitRecognizedInventory">确认入库</el-button></span></el-tooltip>
       </div>
-    </aside>
+      </el-form>
+    </el-drawer>
 
-    <aside class="inventory-drawer" :class="outVisible ? 'translate-x-0' : 'translate-x-full'">
+    <el-drawer v-model="outVisible" title="扫码出库" size="min(92vw, 480px)" destroy-on-close>
+      <el-form :model="outForm" label-position="top">
       <div class="h-1.5 w-full bg-slate-800"></div>
       <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
         <div>
@@ -614,9 +616,9 @@
           </h3>
           <p class="mt-1.5 text-xs text-slate-500">请扫描或输入布匹条码，系统会校验剩余可出库米数。</p>
         </div>
-        <button @click="outVisible = false" class="inventory-close-btn">
+        <el-button circle @click="closeOutDrawer" class="inventory-close-btn">
           <span class="material-symbols-outlined">close</span>
-        </button>
+        </el-button>
       </div>
       <div class="flex-1 space-y-6 overflow-y-auto p-6">
         <label class="block">
@@ -625,12 +627,12 @@
             布匹条码 <span class="text-rose-500">*</span>
           </span>
           <div class="relative">
-            <input v-model.trim="outForm.barcode" data-field="inventory.outBarcode" @change="lookupBarcode" class="inventory-input pr-12 font-mono" placeholder="请将光标放在此处扫码" autofocus />
+            <el-input v-model.trim="outForm.barcode" data-field="inventory.outBarcode" @change="lookupBarcode" class="font-mono" placeholder="请将光标放在此处扫码" autofocus />
             <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-300">qr_code_scanner</span>
           </div>
         </label>
 
-        <div v-if="outPreview" class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div v-if="outPreviewMatchesBarcode" class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-4">
           <div class="absolute right-0 top-0 h-full w-1 bg-blue-500"></div>
           <div class="flex flex-col gap-2">
             <p class="flex justify-between text-sm">
@@ -650,21 +652,23 @@
             {{ fieldLabel('remainingMeters', '出库米数') }}
             <span class="text-rose-500">*</span>
           </span>
-          <input v-model.trim="outForm.meters" data-field="inventory.outMeters" type="number" min="0" step="0.01" class="inventory-input" placeholder="请输入本次出库米数" />
+          <el-input-number v-model="outForm.meters" data-field="inventory.outMeters" :min="0" :step="0.01" :precision="2" class="w-full" />
         </label>
       </div>
       <div class="flex gap-3 border-t border-slate-100 bg-slate-50 p-6">
-        <button @click="outVisible = false" class="inventory-cancel-btn">取消</button>
-        <button @click="submitOut" class="inventory-confirm-btn bg-slate-800 text-white shadow-slate-800/20 hover:bg-slate-900">确认出库</button>
+        <el-button @click="closeOutDrawer">取消</el-button>
+        <el-tooltip :disabled="canOutInventory" content="暂无 inventory:cloth:out 权限"><span><el-button type="primary" :disabled="!canOutInventory || !outPreviewMatchesBarcode" @click="submitOut">确认出库</el-button></span></el-tooltip>
       </div>
-    </aside>
+      </el-form>
+    </el-drawer>
   </div>
 </template>
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElButton, ElCheckbox, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElPagination, ElSelect, ElTag, ElTooltip } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 import { warnAndFocusField } from '@/utils/formFocus'
 import { getCurrentTenantFieldConfig } from '@/api/tenantFieldConfig'
 import { customTenantFields, defaultTenantFieldConfig, mergeTenantFieldConfig } from '@/utils/tenantFieldConfig'
@@ -693,12 +697,16 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 const rows = ref([])
 const warningRows = ref([])
 const recordRows = ref([])
 const trendRows = ref([])
 const modelOptions = ref([])
 const loading = ref(false)
+const listLoadError = ref(null)
+const listLoaded = ref(false)
+let listRequestId = 0
 const summary = reactive({ totalMeters: 0, clothCount: 0, warningCount: 0, warningThresholdMeters: 100, todayInMeters: 0, todayOutMeters: 0 })
 const pagination = reactive({ total: 0, pages: 0 })
 const query = reactive({
@@ -718,11 +726,15 @@ const detailVisible = ref(false)
 const inVisible = ref(false)
 const outVisible = ref(false)
 const imageRecognitionVisible = ref(false)
+const warningSettingVisible = ref(false)
+const warningSettingForm = reactive({ threshold: 100 })
 const detailRecord = ref(null)
 const outPreview = ref(null)
+const outPreviewBarcode = ref('')
+let outPreviewRequestId = 0
 const importInputRef = ref(null)
 const imageRecognitionUploading = ref(false)
-const inForm = reactive({ barcode: '', modelCode: '', spec: '', meters: '', inTime: '', customFields: {} })
+const inForm = reactive({ barcode: '', modelCode: '', spec: null, meters: null, inTime: '', customFields: {} })
 const outForm = reactive({ barcode: '', meters: '' })
 const {
   timeCorrectionMode: inTimeCorrectionMode,
@@ -733,6 +745,17 @@ const {
 const imageRecognitionResult = reactive({ fileName: '', fileUrl: '', fileSize: 0, confidence: 0, message: '' })
 const imageRecognitionCandidates = ref([])
 const inventoryFieldConfig = ref(defaultInventoryFieldConfig())
+const canReadInventory = computed(() => userStore.hasPermission('inventory:warning:list'))
+const canReadRecords = computed(() => userStore.hasPermission('inventory:record:list'))
+const canReadTrend = computed(() => userStore.hasPermission('inventory:trend'))
+const canConfigureWarning = computed(() => userStore.hasPermission('inventory:warning:setting'))
+const canInInventory = computed(() => userStore.hasPermission('inventory:cloth:in'))
+const canOutInventory = computed(() => userStore.hasPermission('inventory:cloth:out'))
+const outPreviewMatchesBarcode = computed(() => Boolean(outPreview.value && outPreviewBarcode.value && outPreviewBarcode.value === outForm.barcode))
+
+watch(() => outForm.barcode, (barcode) => {
+  if (barcode !== outPreviewBarcode.value) outPreview.value = null
+})
 
 const totalPages = computed(() => Math.max(Number(pagination.pages || 1), 1))
 const maxTrendValue = computed(() => Math.max(1, ...trendRows.value.flatMap((item) => [Number(item.inMeters || 0), Number(item.outMeters || 0)])))
@@ -812,7 +835,11 @@ function resetCustomFields() {
 }
 
 async function refreshAll() {
-  await Promise.all([fetchFieldConfig(), fetchData(), fetchSummary(), fetchWarnings(), fetchRecords(), fetchTrend()])
+  const requests = [fetchFieldConfig()]
+  if (canReadInventory.value) requests.push(fetchData(), fetchSummary(), fetchWarnings())
+  if (canReadRecords.value) requests.push(fetchRecords())
+  if (canReadTrend.value) requests.push(fetchTrend())
+  await Promise.all(requests)
 }
 
 async function fetchFieldConfig() {
@@ -825,6 +852,15 @@ async function fetchFieldConfig() {
 }
 
 async function fetchData() {
+  if (!canReadInventory.value) {
+    rows.value = []
+    listLoaded.value = false
+    return
+  }
+  const requestId = ++listRequestId
+  rows.value = []
+  listLoadError.value = null
+  listLoaded.value = false
   loading.value = true
   try {
     const data = await getInventoryModelPage({
@@ -839,11 +875,16 @@ async function fetchData() {
       updatedEnd: query.updatedEnd || undefined,
       timeOrder: query.timeOrder || 'fifo'
     })
+    if (requestId !== listRequestId) return
     rows.value = data.data || []
     pagination.total = Number(data.total || 0)
     pagination.pages = Number(data.pages || 0)
+    listLoaded.value = true
+  } catch (error) {
+    if (requestId !== listRequestId) return
+    listLoadError.value = resolveLoadFailure(error, '库存列表')
   } finally {
-    loading.value = false
+    if (requestId === listRequestId) loading.value = false
   }
 }
 
@@ -892,20 +933,14 @@ function resetFilter() {
 }
 
 async function openWarningSetting() {
-  let promptResult
-  try {
-    promptResult = await ElMessageBox.prompt('请输入低库存预警阈值（米），库存型号总米数小于等于该值时触发预警。', '库存预警设置', {
-      confirmButtonText: '保存',
-      cancelButtonText: '取消',
-      inputValue: String(summary.warningThresholdMeters ?? 100),
-      inputPattern: /^(0|[1-9]\d{0,8})(\.\d{1,2})?$/,
-      inputErrorMessage: '请输入 0 到 999999999.99 之间的数字，最多保留2位小数'
-    })
-  } catch (error) {
-    return
-  }
-  const { value } = promptResult
-  const threshold = Number(value)
+  if (!requireUiPermission('inventory:warning:setting')) return
+  warningSettingForm.threshold = Number(summary.warningThresholdMeters ?? 100)
+  warningSettingVisible.value = true
+}
+
+async function saveWarningSetting() {
+  if (!requireUiPermission('inventory:warning:setting')) return
+  const threshold = Number(warningSettingForm.threshold)
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 999999999.99) {
     ElMessage.warning('库存预警阈值不合法')
     return
@@ -914,6 +949,7 @@ async function openWarningSetting() {
     warningThresholdMeters: Number(threshold.toFixed(2))
   })
   summary.warningThresholdMeters = result?.warningThresholdMeters ?? threshold
+  warningSettingVisible.value = false
   await Promise.all([fetchSummary(), fetchWarnings()])
   ElMessage.success('库存预警阈值已更新')
 }
@@ -949,7 +985,8 @@ function openModelClothPage() {
 }
 
 function openInDrawer() {
-  Object.assign(inForm, { barcode: '', modelCode: '', spec: '', meters: '', inTime: '' })
+  if (!requireUiPermission('inventory:cloth:in')) return
+  Object.assign(inForm, { barcode: '', modelCode: '', spec: null, meters: null, inTime: '' })
   resetCustomFields()
   modelOptions.value = []
   inVisible.value = true
@@ -961,15 +998,24 @@ function closeInDrawer() {
 }
 
 function openOutDrawer(record) {
+  if (!requireUiPermission('inventory:cloth:out')) return
   Object.assign(outForm, { barcode: record?.barcode || '', meters: record?.remainingMeters ? String(record.remainingMeters) : '' })
   outPreview.value = record || null
+  outPreviewBarcode.value = record?.barcode || ''
   outVisible.value = true
+}
+
+function closeOutDrawer() {
+  outPreviewRequestId += 1
+  outVisible.value = false
+  outPreview.value = null
+  outPreviewBarcode.value = ''
 }
 
 function closePanels() {
   detailVisible.value = false
   closeInDrawer()
-  outVisible.value = false
+  closeOutDrawer()
   imageRecognitionVisible.value = false
 }
 
@@ -983,19 +1029,33 @@ async function loadModelOptions() {
 
 function pickModel(item) {
   inForm.modelCode = item.modelCode
-  inForm.spec = item.spec == null ? '' : String(item.spec)
+  inForm.spec = item.spec == null ? null : Number(item.spec)
   modelOptions.value = []
 }
 
 async function lookupBarcode() {
-  if (!outForm.barcode) {
-    outPreview.value = null
+  const barcode = outForm.barcode
+  const requestId = ++outPreviewRequestId
+  outPreview.value = null
+  outPreviewBarcode.value = ''
+  if (!barcode) {
     return
   }
-  outPreview.value = await searchInventoryBarcode({ barCode: outForm.barcode })
+  try {
+    const preview = await searchInventoryBarcode({ barCode: barcode })
+    if (requestId !== outPreviewRequestId) return
+    outPreview.value = preview || null
+    outPreviewBarcode.value = barcode
+  } catch (error) {
+    if (requestId !== outPreviewRequestId) return
+    outPreview.value = null
+    outPreviewBarcode.value = ''
+    throw error
+  }
 }
 
 function triggerImageRecognition() {
+  if (!requireUiPermission('inventory:cloth:in')) return
   imageRecognitionVisible.value = true
 }
 
@@ -1054,8 +1114,8 @@ function normalizeRecognitionCandidate(candidate = {}) {
     localId: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     barcode: candidate.barcode || '',
     modelCode: candidate.modelCode || '',
-    spec: candidate.spec == null ? '' : String(candidate.spec),
-    meters: candidate.meters == null ? '' : String(candidate.meters),
+    spec: candidate.spec == null || candidate.spec === '' ? null : Number(candidate.spec),
+    meters: candidate.meters == null || candidate.meters === '' ? null : Number(candidate.meters),
     manualVerified: false,
     customFields: createEmptyCustomFields()
   }
@@ -1139,6 +1199,7 @@ function validateInTimeInput(value) {
 }
 
 async function submitIn() {
+  if (!requireUiPermission('inventory:cloth:in')) return
   const customFields = validateInboundPayload(inForm, { focusPrefix: 'inventory' })
   if (customFields == null) return
   if (!validateInTimeInput(inForm.inTime)) return
@@ -1158,6 +1219,7 @@ async function submitIn() {
 }
 
 async function submitRecognizedInventory() {
+  if (!requireUiPermission('inventory:cloth:in')) return
   if (!imageRecognitionCandidates.value.length) {
     ElMessage.warning('请至少保留一条识别候选')
     return
@@ -1193,21 +1255,48 @@ async function submitRecognizedInventory() {
 }
 
 async function submitOut() {
+  if (!requireUiPermission('inventory:cloth:out')) return
   if (!outForm.barcode) return warnAndFocusField('请填写或扫描布匹条码。', 'inventory.outBarcode')
   if (Number(outForm.meters) <= 0) return warnAndFocusField('请填写有效出库米数。', 'inventory.outMeters')
+  if (!outPreviewMatchesBarcode.value || outPreviewBarcode.value !== outForm.barcode) {
+    ElMessage.warning('条码已变化，请重新查询并核对目标布匹')
+    return
+  }
   await outCloth({ barcode: outForm.barcode, meters: Number(outForm.meters) })
   ElMessage.success('出库成功')
-  outVisible.value = false
+  closeOutDrawer()
   await refreshAll()
 }
 
 async function handleTemplateDownload() {
+  if (!requireUiPermission('inventory:cloth:in')) return
   const blob = await downloadInventoryImportTemplate()
   await downloadBlob(blob, '外部库存导入说明.xlsx')
 }
 
 function triggerImport() {
+  if (!requireUiPermission('inventory:cloth:in')) return
   importInputRef.value?.click()
+}
+
+function requireUiPermission(permission) {
+  if (userStore.hasPermission(permission)) return true
+  ElMessage.warning('当前账号暂无权限')
+  return false
+}
+
+function resolveLoadFailure(error, label) {
+  const statusCode = Number(error?.response?.status || error?.status || 0)
+  if (statusCode === 401) return { kind: 'authentication', message: `${label}加载失败：登录状态已失效，请重新登录。` }
+  if (statusCode === 403) return { kind: 'permission', message: `${label}加载失败：当前账号暂无权限。` }
+  if (statusCode >= 500) return { kind: 'server', message: `${label}加载失败：服务暂时不可用，请稍后重试。` }
+  return { kind: 'network', message: `${label}加载失败：网络异常，请检查连接后重试。` }
+}
+
+function statusTagType(value) {
+  if (Number(value) === 0) return 'success'
+  if (Number(value) === 2) return 'warning'
+  return 'info'
 }
 
 async function handleImportChange(event) {

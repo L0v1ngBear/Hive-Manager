@@ -6,7 +6,7 @@
 - API：`management-ui/src/views/function/badProduct/api/badProduct.js`
 - 共享依赖：`BusinessTimeCorrectionPanel.vue`、`DragAttachmentUpload.vue`、`TableColumnSettings.vue`。
 - 路由：`/function/bad-product`，路由名 `BadProduct`，功能开关 `module.badProduct`。
-- 迁移批次：Batch 2；状态为 `Audit baseline`。
+- 迁移批次：Batch 2；状态为 `Element Plus migrated`。
 
 ## 用户功能
 
@@ -30,8 +30,8 @@
 
 ## 权限
 
-- 路由入口接受 `badproduct:list`、`badproduct:save`、`badproduct:process` 任一权限，并受 `module.badProduct` 控制。
-- 登记/编辑命令使用 `badproduct:save`；处理命令使用 `badproduct:process`；列表/详情读取使用 `badproduct:list`。
+- 路由入口接受 `quality:list`、`quality:create`、`quality:update`、`quality:process` 任一权限，并受 `module.badProduct` 控制。
+- 登记、编辑、处理分别使用 `quality:create`、`quality:update`、`quality:process`；列表和详情分别使用 `quality:list`、`quality:detail`，附件上传/下载使用独立精确权限。
 - 权限硬化测试要求保存和处理动作继续使用统一 `v-permission` 禁用语义。
 - 风险：仅保存或处理权限可进入路由，但初始化列表读取仍可能因缺少 `badproduct:list` 失败。
 
@@ -48,12 +48,12 @@
 
 - 列表有加载标志和空列表提示；详情/表单/处理层分别维护可见状态。
 - 附件上传组件有上传中、文件名/地址/大小和移除状态；单文件前端上限 10MB，接口失败由消息提示。
-- 页面没有持久错误面板；列表或详情失败时需避免继续显示上一筛选或上一记录数据。
+- 列表互斥显示 loading、真实空态、401/403 和网络/5xx 错误态；请求开始清空旧行，并用最新请求代次阻止过期响应覆盖。
 - 保存和处理属于高影响提交，迁移后需要独立按钮 loading 与失败后表单保留。
 
 ## UI 控件现状
 
-- 原生输入、选择、文本域、表格、分页和手写弹层/抽屉；状态使用自定义徽标。
+- 输入、选择、文本域、表格、分页和抽屉使用显式导入的 Element Plus 组件；状态使用 `ElTag`。
 - 已使用 `ElMessage`；业务时间和拖拽附件为项目自定义组件。
 - 表格动态列与导出依赖现有 DOM/列配置契约。
 
@@ -64,12 +64,18 @@
 - 替换：标准上传外围可用 `ElUpload`，但只有在完全兼容单附件返回值、移除、Blob 下载和预览行为时进行。
 - 保留：`BusinessTimeCorrectionPanel`、`DragAttachmentUpload`、附件元数据结构、动态列/导出、业务状态与权限指令。
 
+## Element Plus 迁移结果
+
+- 列表使用显式导入的 `ElTable`、`ElPagination`、`ElTag`、`ElEmpty` 和 `v-loading`。
+- 筛选、登记与处理使用 `ElForm`、`ElInput`、`ElSelect`，详情与命令使用 `ElDrawer`、`ElButton`。
+- 类型与范围值、损失档位、附件字段顺序、`BusinessTimeCorrectionPanel`、`DragAttachmentUpload` 和权限指令均保持不变。
+
 ## 风险
 
 - 质量附件不是装饰字段：当前每条记录只有 `attachmentName/attachmentUrl/attachmentSize` 一组元数据；迁移不得误改为多附件或虚构处理附件。
 - 编辑已有记录时，移除本地展示项是否代表删除服务端附件必须严格遵循当前提交契约；不能擅自增加删除语义。
 - 上传成功而质量记录保存失败会产生已上传但未关联的文件；页面必须保留附件引用和失败表单，避免用户重复上传。
-- 处理提交与审批中心的 `badproduct:process` 权限相连；状态流不能在前端直接标记完成来绕过后端处理。
+- 处理提交与审批中心的 `quality:process` 权限相连；状态流不能在前端直接标记完成来绕过后端处理。
 - 损失金额 UI 是档位选择，实际提交代表值 `25/100/350/1250/3500/5001`；不能把档位标签误当精确损失金额，也不能替换为任意金额输入而改变合同。
 - 业务时间是本地日期时间字符串；替换日期控件时不得引入 UTC 转换或改变补秒格式。
 - 导出依赖当前表格 DOM；切换 `ElTable` 后需重新验证动态列与附件/长文本的导出表现。

@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.4 seconds
+Output:
 <template>
   <div class="function-page-shell h-full min-h-0 font-body">
     <div class="function-page-container space-y-6">
@@ -8,97 +11,87 @@
             {{ scopeMeta.eyebrow }}
           </div>
           <h1 class="function-page-title">{{ scopeMeta.title }}</h1>
-          <p class="function-page-desc">
-            {{ scopeMeta.desc }}
-          </p>
+          <p class="function-page-desc">{{ scopeMeta.desc }}</p>
         </div>
-        <div class="flex items-center gap-3">
-          <button
-            v-permission="'quality:create'"
-            @click="openCreate"
-            class="function-action-primary"
-          >
-            <span class="material-symbols-outlined text-lg align-middle mr-1">add_circle</span>{{ scopeMeta.createText }}
-          </button>
-        </div>
+        <el-button v-permission="'quality:create'" type="primary" @click="openCreate">
+          {{ scopeMeta.createText }}
+        </el-button>
       </header>
 
-      <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button
+      <section class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <el-button
           v-for="scope in scopeOptions"
           :key="scope.value"
-          type="button"
-          class="text-left rounded-2xl border px-5 py-4 transition-all"
-          :class="activeScope === scope.value ? 'border-primary bg-primary/10 shadow-sm' : 'border-outline-variant/30 bg-white hover:border-primary/50'"
+          class="quality-scope-button"
+          :type="activeScope === scope.value ? 'primary' : 'default'"
+          :plain="activeScope !== scope.value"
           @click="handleScopeChange(scope.value)"
         >
-          <div class="flex items-center justify-between gap-3">
-            <div>
-              <p class="text-base font-black text-primary">{{ scope.tabTitle }}</p>
-              <p class="mt-1 text-xs text-on-surface-variant leading-5">{{ scope.tabDesc }}</p>
-            </div>
-            <span class="material-symbols-outlined text-primary">{{ scope.icon }}</span>
-          </div>
-        </button>
+          <span class="material-symbols-outlined">{{ scope.icon }}</span>
+          <span>
+            <strong>{{ scope.tabTitle }}</strong>
+            <small>{{ scope.tabDesc }}</small>
+          </span>
+        </el-button>
       </section>
 
-      <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-primary">
-          <p class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">总记录数</p>
-          <h3 class="text-4xl font-black text-primary mt-2">{{ pagination.total }}</h3>
+      <section class="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div class="bg-surface-container-lowest p-6 shadow-sm">
+          <p class="text-xs font-bold text-on-surface-variant">总记录数</p>
+          <h3 class="mt-2 text-4xl font-black text-primary">{{ pagination.total }}</h3>
         </div>
-        <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm">
-          <p class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">当前页待处理</p>
-          <h3 class="text-4xl font-black text-amber-600 mt-2">{{ stats.pending }}</h3>
+        <div class="bg-surface-container-lowest p-6 shadow-sm">
+          <p class="text-xs font-bold text-on-surface-variant">当前页待处理</p>
+          <h3 class="mt-2 text-4xl font-black text-amber-600">{{ stats.pending }}</h3>
         </div>
-        <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm">
-          <p class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">当前页已处理</p>
-          <h3 class="text-4xl font-black text-emerald-600 mt-2">{{ stats.processed }}</h3>
+        <div class="bg-surface-container-lowest p-6 shadow-sm">
+          <p class="text-xs font-bold text-on-surface-variant">当前页已处理</p>
+          <h3 class="mt-2 text-4xl font-black text-emerald-600">{{ stats.processed }}</h3>
         </div>
-        <div class="bg-[#1a365d] text-white p-6 rounded-xl shadow-md">
-          <p class="text-xs font-bold uppercase tracking-widest opacity-80">当前页损失金额</p>
-          <h3 class="text-4xl font-black mt-2">¥{{ money(stats.lossAmount) }}</h3>
+        <div class="bg-[#1a365d] p-6 text-white shadow-md">
+          <p class="text-xs font-bold">当前页损失金额</p>
+          <h3 class="mt-2 text-4xl font-black">¥{{ money(stats.lossAmount) }}</h3>
         </div>
       </section>
 
-      <section class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden ring-1 ring-outline-variant/20">
-        <div class="px-6 py-4 border-b border-surface-variant/50 flex flex-wrap items-center justify-between gap-4">
-          <div class="flex flex-wrap items-center gap-3">
-            <input
+      <section class="bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20">
+        <el-form :model="query" class="quality-filter-form" @submit.prevent="handleFilter">
+          <el-form-item label="综合搜索">
+            <el-input
               v-model.trim="query.keyword"
-              @keyup.enter="handleFilter"
-              class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none"
               placeholder="搜索编号、订单、描述或负责人"
+              @keyup.enter="handleFilter"
             />
-            <select v-model="query.status" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none">
-              <option value="">全部状态</option>
-              <option value="pending">待处理</option>
-              <option value="pending_audit">审核中</option>
-              <option value="processed">已处理</option>
-            </select>
-            <select v-model="query.type" class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none">
-              <option value="">全部类型</option>
-              <option v-for="item in typeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-            </select>
-            <DateFilterInput
-              v-model="query.date"
-              placeholder="发生日期"
-              class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none"
-            />
-            <DateFilterInput
-              v-model="query.startDate"
-              placeholder="开始日期"
-              class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none"
-            />
-            <DateFilterInput
-              v-model="query.endDate"
-              placeholder="结束日期"
-              class="px-3 py-2 bg-white rounded-lg ring-1 ring-outline-variant/30 text-sm outline-none"
-            />
-            <button @click="handleFilter" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold">查询</button>
-            <button @click="resetFilter" class="px-4 py-2 bg-surface-container-highest text-on-surface rounded-lg text-sm font-bold">
-              重置
-            </button>
+          </el-form-item>
+          <el-form-item label="状态">
+            <el-select v-model="query.status" clearable placeholder="全部状态">
+              <el-option label="待处理" value="pending" />
+              <el-option label="审核中" value="pending_audit" />
+              <el-option label="已处理" value="processed" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="类型">
+            <el-select v-model="query.type" clearable placeholder="全部类型">
+              <el-option
+                v-for="item in typeOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="发生日期">
+            <DateFilterInput v-model="query.date" placeholder="发生日期" />
+          </el-form-item>
+          <el-form-item label="开始日期">
+            <DateFilterInput v-model="query.startDate" placeholder="开始日期" />
+          </el-form-item>
+          <el-form-item label="结束日期">
+            <DateFilterInput v-model="query.endDate" placeholder="结束日期" />
+          </el-form-item>
+          <div class="quality-filter-actions">
+            <el-button type="primary" @click="handleFilter">查询</el-button>
+            <el-button @click="resetFilter">重置</el-button>
             <TableColumnSettings
               :columns="badProductTableColumns"
               export-module="badproduct"
@@ -106,197 +99,164 @@
               @reset="resetBadProductTableColumns"
             />
           </div>
-          <span class="text-xs text-on-surface-variant">共 {{ pagination.total }} {{ scopeMeta.countText }}</span>
-        </div>
+        </el-form>
 
-        <div class="responsive-table-wrap relative min-h-[260px]">
-          <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
-            <span class="material-symbols-outlined text-primary text-3xl animate-spin">progress_activity</span>
-          </div>
-          <table class="responsive-data-table w-full text-left border-collapse">
-            <thead class="bg-surface-container-low/50">
-              <tr>
-                <th
-                  v-for="column in badProductTableColumns"
-                  :key="column.key"
-                  class="px-6 py-4 text-xs font-black text-on-surface-variant uppercase tracking-wider"
-                  :class="column.align === 'right' ? 'text-right' : ''"
-                >
-                  {{ column.label }}
-                </th>
-                <th class="px-6 py-4 text-right text-xs font-black text-on-surface-variant uppercase tracking-wider">操作</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-surface-variant/30">
-              <tr
-                v-for="item in rows"
-                :key="item.defectiveId"
-                class="cursor-pointer hover:bg-surface-container-high/40 transition-colors"
-                @click="openDetail(item)"
+        <div
+          v-if="requestState === 'loading'"
+          v-loading="true"
+          class="min-h-[300px]"
+          aria-label="质量记录加载中"
+        />
+        <div v-else-if="requestState === 'permission'" class="min-h-[300px]">
+          <el-empty :description="requestErrorMessage">
+            <el-button type="primary" @click="fetchData">重新加载</el-button>
+          </el-empty>
+        </div>
+        <div v-else-if="requestState === 'error'" class="min-h-[300px]">
+          <el-empty :description="requestErrorMessage">
+            <el-button type="primary" @click="fetchData">重新加载</el-button>
+          </el-empty>
+        </div>
+        <template v-else>
+        <el-table
+          v-loading="false"
+          :data="rows"
+          row-key="defectiveId"
+          class="quality-table"
+          @row-click="openDetail"
+        >
+          <el-table-column
+            v-for="column in badProductTableColumns"
+            :key="column.key"
+            :label="column.label"
+            :min-width="column.key === 'defectiveId' ? 190 : 130"
+            :align="column.align || 'left'"
+          >
+            <template #default="{ row: item }">
+              <template v-if="column.key === 'defectiveId'">
+                <p class="text-sm font-bold text-primary">{{ item.defectiveId }}</p>
+                <p class="line-clamp-1 text-[10px] text-on-surface-variant">
+                  {{ item.description || '未填写问题描述' }}
+                </p>
+              </template>
+              <template v-else-if="column.key === 'orderId'">{{ item.orderId || '未关联' }}</template>
+              <template v-else-if="column.key === 'type'">{{ typeLabel(item.type) }}</template>
+              <template v-else-if="column.key === 'quantity'">{{ money(item.quantity) }}</template>
+              <template v-else-if="column.key === 'lossAmount'">
+                {{ lossAmountLabel(item.lossAmount) }}
+              </template>
+              <template v-else-if="column.key === 'creator'">{{ item.creator || '--' }}</template>
+              <el-tag
+                v-else-if="column.key === 'status'"
+                :type="
+                  item.status === 'processed'
+                    ? 'success'
+                    : item.status === 'pending_audit'
+                      ? 'warning'
+                      : 'info'
+                "
               >
-                <td
-                  v-for="column in badProductTableColumns"
-                  :key="column.key"
-                  :data-label="column.label"
-                  class="px-6 py-4"
-                  :class="badProductCellClass(column.key)"
-                >
-                  <template v-if="column.key === 'defectiveId'">
-                    <p class="text-sm font-bold text-primary">{{ item.defectiveId }}</p>
-                    <p class="text-[10px] text-on-surface-variant line-clamp-1">{{ item.description || '未填写问题描述' }}</p>
-                  </template>
-                  <template v-else-if="column.key === 'orderId'">{{ item.orderId || '未关联' }}</template>
-                  <template v-else-if="column.key === 'type'">{{ typeLabel(item.type) }}</template>
-                  <template v-else-if="column.key === 'quantity'">{{ money(item.quantity) }}</template>
-                  <template v-else-if="column.key === 'lossAmount'">{{ lossAmountLabel(item.lossAmount) }}</template>
-                  <template v-else-if="column.key === 'creator'">{{ item.creator || '--' }}</template>
-                  <template v-else-if="column.key === 'status'">
-                    <span :class="statusClass(item.status)" class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold">
-                      {{ statusLabel(item.status) }}
-                    </span>
-                  </template>
-                  <template v-else-if="column.key === 'createTime'">{{ formatDateTime(item.createTime) }}</template>
-                </td>
-                <td class="px-6 py-4 text-right space-x-2" data-label="操作">
-                  <button v-permission="'quality:detail'" @click.stop="openDetail(item)" class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg text-xs font-bold">
-                    详情
-                  </button>
-                  <button v-permission="'quality:update'" @click.stop="openEdit(item)" class="text-secondary hover:bg-surface-container-high px-3 py-1.5 rounded-lg text-xs font-bold">
-                    编辑
-                  </button>
-                  <button
-                    v-if="item.status === 'pending'"
-                    v-permission="'quality:process'"
-                    @click.stop="openProcess(item)"
-                    class="text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 rounded-lg text-xs font-bold"
-                  >
-                    处理
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="!loading && rows.length === 0">
-                <td :colspan="badProductTableColumnCount" class="px-6 py-12 text-center text-sm text-on-surface-variant">{{ scopeMeta.emptyText }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                {{ statusLabel(item.status) }}
+              </el-tag>
+              <template v-else-if="column.key === 'createTime'">
+                {{ formatDateTime(item.createTime) }}
+              </template>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="190" align="right">
+            <template #default="{ row: item }">
+              <el-button link type="primary" @click.stop="openDetail(item)">详情</el-button>
+              <el-button v-permission="'quality:update'" link @click.stop="openEdit(item)">
+                编辑
+              </el-button>
+              <el-button
+                v-if="item.status === 'pending'"
+                v-permission="'quality:process'"
+                link
+                type="success"
+                @click.stop="openProcess(item)"
+              >
+                处理
+              </el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <el-empty :description="scopeMeta.emptyText" />
+          </template>
+        </el-table>
 
-        <div class="p-4 bg-surface-container/20 flex items-center justify-between text-sm text-on-surface-variant border-t border-surface-variant/50">
-          <span>第 {{ query.pageNum }} / {{ totalPages }} 页</span>
-          <div class="flex gap-2">
-            <button @click="changePage(query.pageNum - 1)" :disabled="query.pageNum <= 1" class="px-3 py-1.5 rounded bg-white border disabled:opacity-50">
-              上一页
-            </button>
-            <button
-              @click="changePage(query.pageNum + 1)"
-              :disabled="query.pageNum >= totalPages"
-              class="px-3 py-1.5 rounded bg-white border disabled:opacity-50"
-            >
-              下一页
-            </button>
-          </div>
+        <div class="quality-pagination">
+          <span>共 {{ pagination.total }} {{ scopeMeta.countText }}</span>
+          <el-pagination
+            background
+            layout="prev, pager, next"
+            :current-page="query.pageNum"
+            :page-size="query.pageSize"
+            :total="pagination.total"
+            @current-change="changePage"
+          />
         </div>
+        </template>
       </section>
     </div>
 
-    <transition name="fade">
-      <div v-if="detailVisible || formVisible || processVisible" class="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40" @click="closePanels"></div>
-    </transition>
-
-    <aside
-      class="fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white/95 backdrop-blur-2xl border-l border-outline-variant/30 shadow-2xl z-50 flex flex-col transition-transform duration-300"
-      :class="detailVisible ? 'translate-x-0' : 'translate-x-full'"
-    >
-      <div class="h-1 bg-primary"></div>
-      <div class="p-6 border-b flex justify-between items-start">
-        <div>
-          <h3 class="font-black text-primary text-lg">{{ scopeMeta.detailTitle }}</h3>
-          <p class="text-xs text-on-surface-variant mt-1">{{ detailRecord?.defectiveId || '--' }}</p>
-        </div>
-        <button @click="detailVisible = false" class="p-1 hover:bg-surface-container-high rounded-full">
-          <span class="material-symbols-outlined">close</span>
-        </button>
-      </div>
-      <div class="flex-1 p-6 space-y-6 overflow-y-auto" v-if="detailRecord">
+    <el-drawer v-model="detailVisible" :title="scopeMeta.detailTitle" size="460px" append-to-body>
+      <template v-if="detailRecord">
         <div class="grid grid-cols-2 gap-4">
-          <div class="bg-surface-container-low p-4 rounded-xl">
-            <span class="text-[10px] text-on-surface-variant font-bold">异常数量</span>
+          <div class="bg-surface-container-low p-4">
+            <small>异常数量</small>
             <p class="text-xl font-black text-primary">{{ money(detailRecord.quantity) }}</p>
           </div>
-          <div class="bg-surface-container-low p-4 rounded-xl">
-            <span class="text-[10px] text-on-surface-variant font-bold">损失金额</span>
+          <div class="bg-surface-container-low p-4">
+            <small>损失金额</small>
             <p class="text-xl font-black text-primary">{{ lossAmountLabel(detailRecord.lossAmount) }}</p>
           </div>
         </div>
 
-        <section class="space-y-3">
-          <div class="rounded-xl bg-surface-container-low p-4">
-            <p class="text-[10px] text-on-surface-variant font-bold mb-2">闭环信息</p>
-            <div class="space-y-2 text-sm">
-              <p><span class="text-on-surface-variant">负责人员：</span>{{ detailRecord.responsiblePerson || '未填写' }}</p>
-              <p><span class="text-on-surface-variant">处理措施：</span>{{ detailRecord.processMeasure || '未填写' }}</p>
-              <p><span class="text-on-surface-variant">改进方案：</span>{{ detailRecord.improvementPlan || '未填写' }}</p>
-            </div>
-          </div>
-
-          <div class="rounded-xl bg-surface-container-low p-4">
-            <p class="text-[10px] text-on-surface-variant font-bold mb-2">基础信息</p>
-            <div class="space-y-2 text-sm">
-              <p><span class="text-on-surface-variant">关联订单：</span>{{ detailRecord.orderId || '未关联' }}</p>
-              <p><span class="text-on-surface-variant">质量类型：</span>{{ typeLabel(detailRecord.type) }}</p>
-              <p><span class="text-on-surface-variant">登记人：</span>{{ detailRecord.creator || '--' }}</p>
-              <p><span class="text-on-surface-variant">状态：</span>{{ statusLabel(detailRecord.status) }}</p>
-              <p><span class="text-on-surface-variant">登记时间：</span>{{ formatDateTime(detailRecord.createTime) }}</p>
-            </div>
-          </div>
-
-          <div class="rounded-xl bg-surface-container-low p-4">
-            <p class="text-[10px] text-on-surface-variant font-bold mb-2">问题描述</p>
-            <p class="text-sm leading-6">{{ detailRecord.description || '未填写问题描述。' }}</p>
-          </div>
-
-          <div class="rounded-xl bg-surface-container-low p-4">
-            <p class="text-[10px] text-on-surface-variant font-bold mb-2">附件凭证</p>
-            <button
+        <el-form label-position="top" class="mt-5">
+          <el-form-item label="关联订单">{{ detailRecord.orderId || '未关联' }}</el-form-item>
+          <el-form-item label="质量类型">{{ typeLabel(detailRecord.type) }}</el-form-item>
+          <el-form-item label="登记人">{{ detailRecord.creator || '--' }}</el-form-item>
+          <el-form-item label="状态">
+            <el-tag :type="detailRecord.status === 'processed' ? 'success' : 'info'">
+              {{ statusLabel(detailRecord.status) }}
+            </el-tag>
+          </el-form-item>
+          <el-form-item label="登记时间">{{ formatDateTime(detailRecord.createTime) }}</el-form-item>
+          <el-form-item label="问题描述">
+            {{ detailRecord.description || '未填写问题描述。' }}
+          </el-form-item>
+          <el-form-item label="附件凭证">
+            <el-button
               v-if="detailRecord.attachmentUrl"
-              type="button"
-              class="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-bold text-primary ring-1 ring-outline-variant/30 hover:bg-primary/5"
+              link
+              type="primary"
               @click="openAttachment(detailRecord.attachmentUrl, detailRecord.attachmentName)"
             >
-              <span class="material-symbols-outlined text-[18px]">attach_file</span>
               {{ detailRecord.attachmentName || '下载附件' }}
-            </button>
-            <p v-else class="text-sm text-on-surface-variant">暂无附件凭证</p>
-          </div>
+            </el-button>
+            <span v-else>暂无附件凭证</span>
+          </el-form-item>
+          <el-form-item label="负责人">{{ detailRecord.responsiblePerson || '未填写' }}</el-form-item>
+          <el-form-item label="处理方式">{{ detailRecord.processMethod || '未处理' }}</el-form-item>
+          <el-form-item label="处理措施">{{ detailRecord.processMeasure || '未填写' }}</el-form-item>
+          <el-form-item label="改进方案">{{ detailRecord.improvementPlan || '未填写' }}</el-form-item>
+          <el-form-item label="处理备注">
+            {{ detailRecord.processRemark || '未填写处理备注。' }}
+          </el-form-item>
+        </el-form>
+      </template>
+      <el-empty v-else description="暂无详情" />
+    </el-drawer>
 
-          <div class="rounded-xl bg-surface-container-low p-4">
-            <p class="text-[10px] text-on-surface-variant font-bold mb-2">处理信息</p>
-            <div class="space-y-2 text-sm">
-              <p><span class="text-on-surface-variant">处理方式：</span>{{ detailRecord.processMethod || '未处理' }}</p>
-              <p><span class="text-on-surface-variant">处理备注：</span>{{ detailRecord.processRemark || '未填写处理备注。' }}</p>
-            </div>
-          </div>
-        </section>
-      </div>
-    </aside>
-
-    <aside
-      class="fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white/95 backdrop-blur-2xl border-l border-outline-variant/30 shadow-2xl z-50 flex flex-col transition-transform duration-300"
-      :class="formVisible ? 'translate-x-0' : 'translate-x-full'"
+    <el-drawer
+      v-model="formVisible"
+      :title="editingRecord ? scopeMeta.editTitle : scopeMeta.createTitle"
+      size="520px"
+      append-to-body
+      :before-close="beforeCloseForm"
     >
-      <div class="h-1 bg-primary"></div>
-      <div class="p-6 border-b flex justify-between items-start gap-3">
-        <div>
-          <h3 class="font-black text-primary text-lg">{{ editingRecord ? scopeMeta.editTitle : scopeMeta.createTitle }}</h3>
-          <p class="text-xs text-on-surface-variant mt-1">{{ scopeMeta.formSubtitle }}</p>
-        </div>
-        <div class="drawer-head-actions">
-          <button @click="closeForm" class="p-1 hover:bg-surface-container-high rounded-full">
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-      </div>
-      <div class="flex-1 p-6 space-y-5 overflow-y-auto">
+      <el-form :model="form" label-position="top">
         <BusinessTimeCorrectionPanel
           v-model="form.createTime"
           :active="timeCorrectionMode"
@@ -305,44 +265,53 @@
           label="业务时间"
           description="用于修正当前记录的业务时间。"
         />
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">关联订单</span>
-          <input v-model.trim="form.orderId" class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary" placeholder="请输入订单号" />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">质量类型</span>
-          <select v-model="form.type" class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary">
-            <option v-for="item in typeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-          </select>
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">异常数量</span>
-          <input v-model.trim="form.quantity" data-field="badProduct.quantity" type="number" min="0" step="0.01" class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary" placeholder="请输入异常数量" />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">损失金额</span>
-          <select
+        <el-form-item label="关联订单">
+          <el-input v-model.trim="form.orderId" placeholder="请输入订单号" />
+        </el-form-item>
+        <el-form-item label="质量类型">
+          <el-select v-model="form.type">
+            <el-option
+              v-for="item in typeOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="异常数量">
+          <el-input
+            v-model.trim="form.quantity"
+            data-field="badProduct.quantity"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="请输入异常数量"
+          />
+        </el-form-item>
+        <el-form-item label="损失金额">
+          <el-select
             v-model="form.lossAmount"
             data-field="badProduct.lossAmount"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary"
+            placeholder="请选择损失金额档位"
           >
-            <option value="">请选择损失金额档位</option>
-            <option v-for="item in lossAmountOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-          </select>
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">问题描述</span>
-          <textarea
+            <el-option
+              v-for="item in lossAmountOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="问题描述">
+          <el-input
             v-model.trim="form.description"
-            rows="5"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
+            type="textarea"
+            :rows="5"
             placeholder="请输入质量问题说明"
           />
-        </label>
-        <div>
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">附件凭证</span>
+        </el-form-item>
+        <el-form-item label="附件凭证">
           <DragAttachmentUpload
-            class="mt-2"
             title="上传图片、PDF、Word、Excel、文本或压缩包"
             helper-text="支持拖拽上传，单个文件不超过 10MB"
             :uploading="attachmentUploading"
@@ -353,92 +322,107 @@
             @download="openAttachment(form.attachmentUrl, form.attachmentName)"
             @remove="removeAttachment"
           />
-        </div>
-      </div>
-      <div class="p-6 border-t border-outline-variant/30 flex gap-3">
-        <button @click="closeForm" class="flex-1 px-4 py-3 rounded-xl bg-surface-container-high text-on-surface font-bold text-sm">取消</button>
-        <button v-permission="editingRecord ? 'quality:update' : 'quality:create'" @click="submitForm" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-md">保存</button>
-      </div>
-    </aside>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button :disabled="saving || attachmentUploading" @click="closeForm">取消</el-button>
+        <el-button
+          v-permission="editingRecord ? 'quality:update' : 'quality:create'"
+          type="primary"
+          :loading="saving"
+          :disabled="attachmentUploading"
+          @click="submitForm"
+        >
+          保存
+        </el-button>
+      </template>
+    </el-drawer>
 
-    <aside
-      class="fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white/95 backdrop-blur-2xl border-l border-outline-variant/30 shadow-2xl z-50 flex flex-col transition-transform duration-300"
-      :class="processVisible ? 'translate-x-0' : 'translate-x-full'"
+    <el-drawer
+      v-model="processVisible"
+      :title="scopeMeta.processTitle"
+      size="520px"
+      append-to-body
+      :before-close="beforeCloseProcess"
     >
-      <div class="h-1 bg-primary"></div>
-      <div class="p-6 border-b flex justify-between items-start">
-        <div>
-          <h3 class="font-black text-primary text-lg">{{ scopeMeta.processTitle }}</h3>
-          <p class="text-xs text-on-surface-variant mt-1">{{ processingRecord?.defectiveId || '--' }}</p>
-        </div>
-        <button @click="closeProcess" class="p-1 hover:bg-surface-container-high rounded-full">
-          <span class="material-symbols-outlined">close</span>
-        </button>
+      <div v-if="processingRecord" class="mb-5 bg-surface-container-low p-4 text-sm">
+        <p>关联订单：{{ processingRecord.orderId || '未关联' }}</p>
+        <p>当前状态：{{ statusLabel(processingRecord.status) }}</p>
       </div>
-      <div class="flex-1 p-6 space-y-5 overflow-y-auto">
-        <div class="rounded-xl bg-surface-container-low p-4 text-sm space-y-2" v-if="processingRecord">
-          <p><span class="text-on-surface-variant">关联订单：</span>{{ processingRecord.orderId || '未关联' }}</p>
-          <p><span class="text-on-surface-variant">当前状态：</span>{{ statusLabel(processingRecord.status) }}</p>
-        </div>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">负责人员</span>
-          <input
+      <el-form :model="processForm" label-position="top">
+        <el-form-item label="负责人">
+          <el-input
             v-model.trim="processForm.responsiblePerson"
             data-field="badProduct.responsiblePerson"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary"
-            placeholder="请输入负责人员"
+            placeholder="请输入负责人"
           />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">处理方式</span>
-          <input
+        </el-form-item>
+        <el-form-item label="处理方式">
+          <el-input
             v-model.trim="processForm.method"
             data-field="badProduct.processMethod"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary"
             placeholder="例如报废、返工、让步接收"
           />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">处理措施</span>
-          <textarea
+        </el-form-item>
+        <el-form-item label="处理措施">
+          <el-input
             v-model.trim="processForm.processMeasure"
             data-field="badProduct.processMeasure"
-            rows="3"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
+            type="textarea"
+            :rows="3"
             placeholder="请输入处理措施"
           />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">改进方案</span>
-          <textarea
+        </el-form-item>
+        <el-form-item label="改进方案">
+          <el-input
             v-model.trim="processForm.improvementPlan"
             data-field="badProduct.improvementPlan"
-            rows="3"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
+            type="textarea"
+            :rows="3"
             placeholder="请输入改进方案"
           />
-        </label>
-        <label class="block">
-          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">处理备注</span>
-          <textarea
+        </el-form-item>
+        <el-form-item label="处理备注">
+          <el-input
             v-model.trim="processForm.remark"
-            rows="5"
-            class="mt-2 w-full rounded-xl border border-outline-variant/40 px-4 py-3 text-sm outline-none focus:border-primary resize-none"
+            type="textarea"
+            :rows="5"
             placeholder="请输入处理说明"
           />
-        </label>
-      </div>
-      <div class="p-6 border-t border-outline-variant/30 flex gap-3">
-        <button @click="closeProcess" class="flex-1 px-4 py-3 rounded-xl bg-surface-container-high text-on-surface font-bold text-sm">取消</button>
-        <button v-permission="'quality:process'" @click="submitProcess" class="flex-1 px-4 py-3 rounded-xl bg-primary text-white font-bold text-sm shadow-md">提交审核</button>
-      </div>
-    </aside>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button :disabled="processing" @click="closeProcess">取消</el-button>
+        <el-button
+          v-permission="'quality:process'"
+          type="primary"
+          :loading="processing"
+          @click="submitProcess"
+        >
+          提交审核
+        </el-button>
+      </template>
+    </el-drawer>
   </div>
 </template>
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import {
+  ElButton,
+  ElDrawer,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElInput,
+  ElMessage,
+  ElOption,
+  ElPagination,
+  ElSelect,
+  ElTable,
+  ElTableColumn,
+  ElTag
+} from 'element-plus'
 import {
   downloadBadProductAttachment,
   getBadProductPage,
@@ -451,6 +435,7 @@ import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import DateFilterInput from '@/components/DateFilterInput.vue'
 import BusinessTimeCorrectionPanel from '@/components/BusinessTimeCorrectionPanel.vue'
 import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
+import { createLatestRequest } from '@/utils/task7LatestRequest'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
 import { useUserStore } from '@/stores/user'
@@ -539,7 +524,10 @@ const {
 const badProductTableColumnCount = computed(() => badProductTableColumns.value.length + 1)
 
 const rows = ref([])
-const loading = ref(false)
+const requestState = ref('loading')
+const listRequest = createLatestRequest()
+const requestErrorMessage = ref('')
+const loading = computed(() => requestState.value === 'loading')
 const pagination = reactive({ total: 0, pages: 0 })
 const query = reactive({ pageNum: 1, pageSize: 10, status: '', type: '', date: '', keyword: '', startDate: '', endDate: '' })
 const activeScope = ref('quality')
@@ -550,6 +538,8 @@ const editingRecord = ref(null)
 const processVisible = ref(false)
 const processingRecord = ref(null)
 const attachmentUploading = ref(false)
+const saving = ref(false)
+const processing = ref(false)
 const form = reactive(createEmptyForm())
 const processForm = reactive({
   responsiblePerson: '',
@@ -597,7 +587,12 @@ function handleScopeChange(scope) {
 }
 
 async function fetchData() {
-  loading.value = true
+  const request = listRequest.begin()
+  requestState.value = 'loading'
+  requestErrorMessage.value = ''
+  rows.value = []
+  pagination.total = 0
+  pagination.pages = 0
   try {
     const data = await getBadProductPage({
       ...query,
@@ -609,12 +604,39 @@ async function fetchData() {
       startDate: query.startDate || undefined,
       endDate: query.endDate || undefined
     })
-    rows.value = data.data || []
-    pagination.total = Number(data.total || 0)
-    pagination.pages = Number(data.pages || 0)
-  } finally {
-    loading.value = false
+    request.commit(() => {
+      rows.value = data.data || []
+      pagination.total = Number(data.total || 0)
+      pagination.pages = Number(data.pages || 0)
+      requestState.value = 'ready'
+    })
+  } catch (error) {
+    const failure = resolveRequestFailure(error)
+    request.commit(() => {
+      rows.value = []
+      pagination.total = 0
+      pagination.pages = 0
+      requestState.value = failure.state
+      requestErrorMessage.value = failure.message
+    })
   }
+}
+
+function resolveRequestFailure(error) {
+  const status = Number(error?.response?.status || 0)
+  if (status === 401) {
+    return { state: 'permission', message: '登录状态已失效，请重新登录后重试。' }
+  }
+  if (status === 403) {
+    return { state: 'permission', message: '当前账号暂无质量记录查看权限，请联系管理员。' }
+  }
+  if (!error?.response) {
+    return { state: 'error', message: '网络连接异常，请检查网络后重新加载。' }
+  }
+  if (status >= 500) {
+    return { state: 'error', message: '服务暂时不可用，请稍后重新加载。' }
+  }
+  return { state: 'error', message: '质量记录加载失败，请重新加载。' }
 }
 
 function handleFilter() {
@@ -642,9 +664,7 @@ function changePage(pageNum) {
 }
 
 function openDetail(record) {
-  if (!ensurePermission('quality:detail')) {
-    return
-  }
+  if (!ensurePermission('quality:detail')) return
   detailRecord.value = record
   detailVisible.value = true
 }
@@ -684,11 +704,26 @@ function openEdit(record) {
   formVisible.value = true
 }
 
-function closeForm() {
+function canCloseForm() {
+  return !saving.value && !attachmentUploading.value
+}
+
+function finishCloseForm() {
   formVisible.value = false
   closeTimeCorrectionMode()
   editingRecord.value = null
   resetForm()
+}
+
+function closeForm() {
+  if (!canCloseForm()) return
+  finishCloseForm()
+}
+
+function beforeCloseForm(done) {
+  if (!canCloseForm()) return
+  finishCloseForm()
+  if (typeof done === 'function') done()
 }
 
 function openProcess(record) {
@@ -700,10 +735,25 @@ function openProcess(record) {
   processVisible.value = true
 }
 
-function closeProcess() {
+function canCloseProcess() {
+  return !processing.value
+}
+
+function finishCloseProcess() {
   processVisible.value = false
   processingRecord.value = null
   resetProcessForm()
+}
+
+function closeProcess() {
+  if (!canCloseProcess()) return
+  finishCloseProcess()
+}
+
+function beforeCloseProcess(done) {
+  if (!canCloseProcess()) return
+  finishCloseProcess()
+  if (typeof done === 'function') done()
 }
 
 function closePanels() {
@@ -745,9 +795,7 @@ function removeAttachment() {
 }
 
 async function openAttachment(url, name) {
-  if (!ensurePermission('quality:attachment:download')) {
-    return
-  }
+  if (!ensurePermission('quality:attachment:download')) return
   if (!url) {
     return
   }
@@ -767,6 +815,9 @@ async function submitForm() {
   if (!ensurePermission(permission)) {
     return
   }
+  if (saving.value) {
+    return
+  }
   if (!form.quantity || Number(form.quantity) <= 0) {
     return warnAndFocusField('请填写有效的异常数量', 'badProduct.quantity')
   }
@@ -777,25 +828,33 @@ async function submitForm() {
     return
   }
 
-  await saveBadProduct({
-    defectiveId: form.defectiveId || undefined,
-    orderId: form.orderId || undefined,
-    type: form.type,
-    quantity: Number(form.quantity),
-    lossAmount: Number(form.lossAmount),
-    description: form.description || undefined,
-    attachmentName: form.attachmentName || undefined,
-    attachmentUrl: form.attachmentUrl || undefined,
-    attachmentSize: form.attachmentSize || undefined,
-    createTime: formatCreateTimePayload(form.createTime) || undefined
-  })
-  ElMessage.success(editingRecord.value ? '质量记录已更新' : '质量记录已新增')
+  saving.value = true
+  try {
+    await saveBadProduct({
+      defectiveId: form.defectiveId || undefined,
+      orderId: form.orderId || undefined,
+      type: form.type,
+      quantity: Number(form.quantity),
+      lossAmount: Number(form.lossAmount),
+      description: form.description || undefined,
+      attachmentName: form.attachmentName || undefined,
+      attachmentUrl: form.attachmentUrl || undefined,
+      attachmentSize: form.attachmentSize || undefined,
+      createTime: formatCreateTimePayload(form.createTime) || undefined
+    })
+    ElMessage.success(editingRecord.value ? '质量记录已更新' : '质量记录已新增')
+  } finally {
+    saving.value = false
+  }
   closeForm()
   await fetchData()
 }
 
 async function submitProcess() {
   if (!ensurePermission('quality:process')) {
+    return
+  }
+  if (processing.value) {
     return
   }
   if (!processForm.responsiblePerson) {
@@ -811,15 +870,20 @@ async function submitProcess() {
     return warnAndFocusField('请填写改进方案', 'badProduct.improvementPlan')
   }
 
-  await processBadProduct({
-    defectiveId: processingRecord.value?.defectiveId,
-    method: processForm.method,
-    responsiblePerson: processForm.responsiblePerson,
-    processMeasure: processForm.processMeasure,
-    improvementPlan: processForm.improvementPlan,
-    remark: processForm.remark || undefined
-  })
-  ElMessage.success('质量处理已提交审核')
+  processing.value = true
+  try {
+    await processBadProduct({
+      defectiveId: processingRecord.value?.defectiveId,
+      method: processForm.method,
+      responsiblePerson: processForm.responsiblePerson,
+      processMeasure: processForm.processMeasure,
+      improvementPlan: processForm.improvementPlan,
+      remark: processForm.remark || undefined
+    })
+    ElMessage.success('质量处理已提交审核')
+  } finally {
+    processing.value = false
+  }
   closeProcess()
   await fetchData()
 }

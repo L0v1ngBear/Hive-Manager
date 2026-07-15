@@ -2,10 +2,10 @@
   <section class="manual-page">
     <div class="manual-hero">
       <div class="manual-hero__copy">
-        <button type="button" class="manual-edit-btn manual-hero__edit" @click="openHeroEditor">
+        <el-tooltip :disabled="canEditManual" :content="manualEditDisabledReason"><span><el-button class="manual-edit-btn manual-hero__edit" :disabled="!canEditManual" @click="openHeroEditor">
           <span class="material-symbols-outlined">edit</span>
           编辑
-        </button>
+        </el-button></span></el-tooltip>
         <span class="manual-kicker">{{ manualConfig.hero.kicker }}</span>
         <h1>{{ manualConfig.hero.title }}</h1>
         <p>{{ manualConfig.hero.intro }}</p>
@@ -22,10 +22,10 @@
 
     <div class="manual-grid">
       <article v-for="(item, index) in quickGuides" :key="item.title" class="manual-card">
-        <button type="button" class="manual-edit-btn manual-card__edit" @click.stop="openQuickGuideEditor(index)">
+        <el-tooltip :disabled="canEditManual" :content="manualEditDisabledReason"><span><el-button class="manual-edit-btn manual-card__edit" :disabled="!canEditManual" @click.stop="openQuickGuideEditor(index)">
           <span class="material-symbols-outlined">edit</span>
           编辑
-        </button>
+        </el-button></span></el-tooltip>
         <div class="manual-card__icon">
           <span class="material-symbols-outlined">{{ item.icon }}</span>
         </div>
@@ -38,7 +38,7 @@
 
     <div class="manual-layout">
       <aside class="manual-toc">
-        <button
+        <el-button
           v-for="section in sections"
           :key="section.id"
           class="manual-toc__item"
@@ -46,11 +46,11 @@
         >
           <span class="material-symbols-outlined">{{ section.icon }}</span>
           {{ section.title }}
-        </button>
-        <button class="manual-toc__item" @click="scrollToSection('custom-manual')">
+        </el-button>
+        <el-button class="manual-toc__item" @click="scrollToSection('custom-manual')">
           <span class="material-symbols-outlined">edit_note</span>
           {{ manualConfig.customManual.title }}
-        </button>
+        </el-button>
       </aside>
 
       <div class="manual-content">
@@ -61,10 +61,10 @@
               <h2>{{ section.title }}</h2>
               <p>{{ section.summary }}</p>
             </div>
-            <button type="button" class="manual-edit-btn manual-section__edit" @click="openSectionEditor(sectionIndex)">
+            <el-tooltip :disabled="canEditManual" :content="manualEditDisabledReason"><span><el-button class="manual-edit-btn manual-section__edit" :disabled="!canEditManual" @click="openSectionEditor(sectionIndex)">
               <span class="material-symbols-outlined">edit</span>
               编辑
-            </button>
+            </el-button></span></el-tooltip>
           </div>
 
           <div class="manual-steps">
@@ -82,10 +82,10 @@
           </div>
 
           <div v-if="section.route" class="manual-action">
-            <button type="button" @click="goRoute(section.route)">
+            <el-button @click="goRoute(section.route)">
               进入{{ section.title }}
               <span class="material-symbols-outlined">arrow_forward</span>
-            </button>
+            </el-button>
           </div>
         </section>
 
@@ -96,10 +96,10 @@
               <h2>{{ manualConfig.customManual.title }}</h2>
               <p>{{ manualConfig.customManual.summary }}</p>
             </div>
-            <button type="button" class="manual-edit-btn manual-section__edit" @click="openCustomManualWindowEditor">
+            <el-tooltip :disabled="canEditManual" :content="manualEditDisabledReason"><span><el-button class="manual-edit-btn manual-section__edit" :disabled="!canEditManual" @click="openCustomManualWindowEditor">
               <span class="material-symbols-outlined">edit</span>
               编辑
-            </button>
+            </el-button></span></el-tooltip>
           </div>
 
           <div v-loading="customManualLoading" class="manual-custom-editor">
@@ -110,19 +110,22 @@
               </div>
               <span v-if="customManualSavedAt" class="manual-custom-saved">上次保存：{{ customManualSavedAt }}</span>
             </div>
-            <textarea
+            <el-input
               v-model="customManualDraft"
+              :disabled="!canEditManual"
+              type="textarea"
               rows="12"
               maxlength="120000"
+              show-word-limit
               placeholder="示例：&#10;1. 新订单由销售负责人录入，提交前确认客户、项目、交期。&#10;2. 仓库入库后当天完成标签打印并贴标。&#10;3. 质量异常必须上传现场图片并填写处理结果。"
-            ></textarea>
+            />
             <div class="manual-custom-actions">
-              <button type="button" class="manual-secondary-btn" :disabled="customManualSaving" @click="resetCustomManualTemplate">填入推荐模板</button>
-              <button type="button" class="manual-secondary-btn" :disabled="customManualSaving" @click="exportCustomManual">导出手册</button>
-              <button type="button" class="manual-danger-btn" :disabled="customManualSaving" @click="clearCustomManual">清空</button>
-              <button type="button" class="manual-primary-btn" :disabled="customManualSaving" @click="saveCustomManual">
+              <el-tooltip :disabled="canEditManual" :content="manualEditDisabledReason"><span><el-button class="manual-secondary-btn" :disabled="customManualSaving || !canEditManual" @click="resetCustomManualTemplate">填入推荐模板</el-button></span></el-tooltip>
+              <el-button class="manual-secondary-btn" :disabled="customManualSaving" @click="exportCustomManual">导出手册</el-button>
+              <el-tooltip :disabled="canEditManual" :content="manualEditDisabledReason"><span><el-button type="danger" plain class="manual-danger-btn" :disabled="customManualSaving || !canEditManual" @click="clearCustomManual">清空</el-button></span></el-tooltip>
+              <el-tooltip :disabled="canEditManual" :content="manualEditDisabledReason"><span><el-button type="primary" class="manual-primary-btn" :loading="customManualSaving" :disabled="customManualSaving || !canEditManual" @click="saveCustomManual">
                 {{ customManualSaving ? '保存中...' : '保存' }}
-              </button>
+              </el-button></span></el-tooltip>
             </div>
           </div>
         </section>
@@ -135,73 +138,70 @@
               <p>{{ manualConfig.faqWindow.summary }}</p>
             </div>
             <div class="manual-section__actions">
-              <button type="button" class="manual-edit-btn" @click="openFaqWindowEditor">
+              <el-tooltip :disabled="canEditManual" :content="manualEditDisabledReason"><span><el-button class="manual-edit-btn" :disabled="!canEditManual" @click="openFaqWindowEditor">
                 <span class="material-symbols-outlined">edit</span>
                 编辑
-              </button>
-              <button type="button" class="manual-edit-btn" @click="openNewFaqEditor">
+              </el-button></span></el-tooltip>
+              <el-tooltip :disabled="canEditManual" :content="manualEditDisabledReason"><span><el-button class="manual-edit-btn" :disabled="!canEditManual" @click="openNewFaqEditor">
                 <span class="material-symbols-outlined">add</span>
                 新增
-              </button>
+              </el-button></span></el-tooltip>
             </div>
           </div>
 
           <div class="faq-list">
+            <el-empty v-if="faqs.length === 0" description="暂无常见问题" />
             <details v-for="(faq, faqIndex) in faqs" :key="faq.question">
               <summary>{{ faq.question }}</summary>
               <p>{{ faq.answer }}</p>
-              <button type="button" class="manual-inline-edit" @click="openFaqEditor(faqIndex)">
+              <el-tooltip :disabled="canEditManual" :content="manualEditDisabledReason"><span><el-button class="manual-inline-edit" :disabled="!canEditManual" @click="openFaqEditor(faqIndex)">
                 <span class="material-symbols-outlined">edit</span>
                 编辑
-              </button>
+              </el-button></span></el-tooltip>
             </details>
           </div>
         </section>
       </div>
     </div>
 
-    <div v-if="manualEditor.open" class="manual-editor-mask" @click.self="closeManualEditor">
-      <div class="manual-editor-dialog">
-        <div class="manual-editor-head">
-          <h3>{{ manualEditor.title }}</h3>
-          <button type="button" @click="closeManualEditor">
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-
+    <el-dialog v-model="manualEditor.open" :title="manualEditor.title" width="min(42rem, calc(100vw - 2rem))" class="manual-editor-dialog" @closed="closeManualEditor">
         <div class="manual-editor-fields">
           <label v-for="field in manualEditor.fields" :key="field.key" class="manual-editor-field">
             <span>{{ field.label }}</span>
-            <textarea
+            <el-input
               v-if="field.type === 'textarea'"
               v-model="manualEditor.form[field.key]"
+              type="textarea"
               :rows="field.rows || 4"
-            ></textarea>
-            <input v-else v-model="manualEditor.form[field.key]" type="text" />
+            />
+            <el-input v-else v-model="manualEditor.form[field.key]" />
             <small v-if="field.hint">{{ field.hint }}</small>
           </label>
         </div>
 
         <div class="manual-editor-actions">
-          <button type="button" class="manual-secondary-btn" :disabled="customManualSaving" @click="closeManualEditor">取消</button>
-          <button type="button" class="manual-primary-btn" :disabled="customManualSaving" @click="saveManualEditor">
+          <el-button class="manual-secondary-btn" :disabled="customManualSaving" @click="closeManualEditor">取消</el-button>
+          <el-tooltip :disabled="canEditManual" :content="manualEditDisabledReason"><span><el-button type="primary" class="manual-primary-btn" :loading="customManualSaving" :disabled="customManualSaving || !canEditManual" @click="saveManualEditor">
             {{ customManualSaving ? '保存中...' : '保存' }}
-          </button>
+          </el-button></span></el-tooltip>
         </div>
-      </div>
-    </div>
+    </el-dialog>
   </section>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElDialog, ElEmpty, ElInput, ElMessage, ElMessageBox, ElTooltip } from 'element-plus'
+import { useUserStore } from '@/stores/user'
 import { getCustomManual, saveCustomManualContent } from './api/manual'
 
 defineOptions({ name: 'UserManual' })
 
 const router = useRouter()
+const userStore = useUserStore()
+const canEditManual = computed(() => userStore.hasPermission('document:rename'))
+const manualEditDisabledReason = computed(() => canEditManual.value ? '' : '缺少 document:rename 权限，无法编辑企业使用手册')
 
 const customManualDraft = ref('')
 const customManualSavedAt = ref('')
@@ -1020,6 +1020,7 @@ function splitTextLines(value) {
 }
 
 function openManualEditor(options) {
+  if (!canEditManual.value) return
   manualEditor.value = {
     open: true,
     type: options.type,
@@ -1185,6 +1186,7 @@ function formatDetailsForEditor(steps) {
 }
 
 async function saveManualEditor() {
+  if (!canEditManual.value) return
   const editor = manualEditor.value
   if (!editor.open || customManualSaving.value) {
     return
@@ -1332,7 +1334,7 @@ function createManualPayload() {
 }
 
 async function saveManualConfig(successMessage = '使用手册已保存') {
-  if (customManualSaving.value) {
+  if (!canEditManual.value || customManualSaving.value) {
     return false
   }
   customManualSaving.value = true
@@ -1432,9 +1434,18 @@ async function saveCustomManual() {
   await saveManualConfig('企业自定义手册已保存')
 }
 
-function resetCustomManualTemplate() {
-  if (customManualDraft.value.trim() && !window.confirm('当前内容会被推荐模板覆盖，确认继续吗？')) {
-    return
+async function resetCustomManualTemplate() {
+  if (!canEditManual.value) return
+  if (customManualDraft.value.trim()) {
+    try {
+      await ElMessageBox.confirm('当前内容会被推荐模板覆盖，确认继续吗？', '覆盖确认', {
+        confirmButtonText: '继续覆盖',
+        cancelButtonText: '取消',
+        type: 'warning'
+      })
+    } catch {
+      return
+    }
   }
   customManualDraft.value = recommendedCustomManual
   ElMessage.success('已填入推荐模板，可继续编辑后保存')
@@ -1458,11 +1469,18 @@ function exportCustomManual() {
   ElMessage.success('使用手册已导出')
 }
 
-function clearCustomManual() {
+async function clearCustomManual() {
+  if (!canEditManual.value) return
   if (!customManualDraft.value.trim()) {
     return
   }
-  if (!window.confirm('确认清空当前企业自定义手册吗？')) {
+  try {
+    await ElMessageBox.confirm('确认清空当前企业自定义手册吗？', '清空确认', {
+      confirmButtonText: '确认清空',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch {
     return
   }
   customManualDraft.value = ''

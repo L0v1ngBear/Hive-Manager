@@ -14,10 +14,13 @@
     ></div>
   </transition>
 
-  <div
-      :class="visible ? 'translate-x-0' : 'translate-x-full'"
-      class="fixed top-0 right-0 z-50 flex h-full w-full max-w-xl flex-col border-l border-outline-variant/30 bg-surface-container-lowest/95 shadow-2xl backdrop-blur-3xl transition-transform duration-300 ease-in-out"
+  <el-drawer
+      :model-value="visible"
+      :with-header="false"
+      size="560px"
+      @update:model-value="(value) => !value && emit('close')"
   >
+    <el-form :model="form" class="flex h-full flex-col" @submit.prevent="submit">
     <div class="border-t-[4px] border-primary p-8">
       <div class="flex items-start justify-between">
         <div>
@@ -28,12 +31,14 @@
             {{ isEditMode ? '更新员工信息并重新分配角色。' : '创建员工档案并分配初始组织信息。' }}
           </p>
         </div>
-        <button
+        <el-button
+            text
+            circle
             class="rounded-full p-2 transition-colors hover:bg-surface-container-high"
             @click="emit('close')"
         >
           <span class="material-symbols-outlined text-on-surface-variant">close</span>
-        </button>
+        </el-button>
       </div>
     </div>
 
@@ -48,7 +53,7 @@
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
               {{ fieldLabel('name', '姓名') }} <span v-if="fieldRequired('name')" class="text-error">*</span>
             </label>
-            <input
+            <el-input
                 v-model.trim="form.name"
                 data-field="employee.name"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
@@ -58,7 +63,7 @@
           </div>
           <div v-if="fieldVisible('empNo')">
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">{{ fieldLabel('empNo', '工号') }}</label>
-            <input
+            <el-input
                 class="w-full cursor-not-allowed rounded-sm border-b-2 border-transparent bg-surface-container-highest/50 px-3 py-2.5 text-sm italic text-on-surface-variant"
                 readonly
                 type="text"
@@ -69,7 +74,7 @@
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
               {{ fieldLabel('phone', '电话') }} <span v-if="fieldRequired('phone')" class="text-error">*</span>
             </label>
-            <input
+            <el-input
                 v-model.trim="form.phone"
                 data-field="employee.phone"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
@@ -79,7 +84,7 @@
           </div>
           <div v-if="fieldVisible('email')" class="col-span-2">
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">{{ fieldLabel('email', '邮箱') }}</label>
-            <input
+            <el-input
                 v-model.trim="form.email"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
                 placeholder="例如：zhangsan@company.com"
@@ -99,57 +104,60 @@
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
               {{ fieldLabel('departmentName', '部门') }} <span v-if="fieldRequired('departmentName')" class="text-error">*</span>
             </label>
-            <select
+            <el-select
                 v-model="form.departmentId"
                 data-field="employee.departmentId"
                 class="w-full appearance-none rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
+                placeholder="请选择部门"
             >
-              <option value="">请选择部门</option>
-              <option
+              <el-option label="请选择部门" value="" />
+              <el-option
                   v-for="department in departments"
                   :key="department.id"
+                  :label="department.name"
                   :value="department.id"
-              >
-                {{ department.name }}
-              </option>
-            </select>
+              />
+            </el-select>
           </div>
           <div>
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
               {{ fieldLabel('entryDate', '入职日期') }} <span v-if="fieldRequired('entryDate')" class="text-error">*</span>
             </label>
-            <input
+            <el-date-picker
                 v-model="form.entryDate"
                 data-field="employee.entryDate"
                 class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
                 type="date"
+                value-format="YYYY-MM-DD"
             />
           </div>
           <div class="col-span-2">
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">
               {{ fieldLabel('positionName', '职位') }} <span v-if="fieldRequired('positionName')" class="text-error">*</span>
             </label>
-            <select
+            <el-select
                 v-model="form.positionId"
                 data-field="employee.positionId"
                 class="w-full appearance-none rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
+                placeholder="请选择职位"
             >
-              <option value="">请选择职位</option>
-              <option
+              <el-option label="请选择职位" value="" />
+              <el-option
                   v-for="position in filteredPositions"
                   :key="position.id"
+                  :label="position.name"
                   :value="position.id"
-              >
-                {{ position.name }}
-              </option>
-            </select>
+              />
+            </el-select>
           </div>
 
           <div class="col-span-2">
             <label class="ml-1 mb-2 block text-xs font-semibold text-on-surface-variant">考勤要求</label>
-            <div class="grid grid-cols-2 gap-3">
-              <label class="cursor-pointer">
-                <input v-model.number="form.attendanceRequired" :value="1" class="peer hidden" name="attendanceRequired" type="radio" />
+            <el-radio-group v-model="form.attendanceRequired" class="grid grid-cols-2 gap-3">
+              <el-radio
+                  :value="1"
+                  class="!m-0 !h-auto [&_.el-radio__input]:hidden [&_.el-radio__label]:w-full [&_.el-radio__label]:p-0"
+              >
                 <div
                     class="rounded-xl border p-4 transition-all"
                     :class="Number(form.attendanceRequired ?? 1) === 1
@@ -159,9 +167,11 @@
                   <div class="text-sm font-black">需要打卡</div>
                   <div class="mt-1 text-xs opacity-70">参与打卡、缺勤和异常统计。</div>
                 </div>
-              </label>
-              <label class="cursor-pointer">
-                <input v-model.number="form.attendanceRequired" :value="0" class="peer hidden" name="attendanceRequired" type="radio" />
+              </el-radio>
+              <el-radio
+                  :value="0"
+                  class="!m-0 !h-auto [&_.el-radio__input]:hidden [&_.el-radio__label]:w-full [&_.el-radio__label]:p-0"
+              >
                 <div
                     class="rounded-xl border p-4 transition-all"
                     :class="Number(form.attendanceRequired ?? 1) === 0
@@ -171,8 +181,8 @@
                   <div class="text-sm font-black">免打卡</div>
                   <div class="mt-1 text-xs opacity-70">不参与缺卡、缺勤和考勤日报补录。</div>
                 </div>
-              </label>
-            </div>
+              </el-radio>
+            </el-radio-group>
           </div>
 
           <div v-if="Number(form.attendanceRequired ?? 1) === 1" class="col-span-2">
@@ -185,7 +195,7 @@
                 暂无可选打卡点，请先到考勤规则中维护打卡地点。
               </div>
               <div v-else class="flex flex-wrap gap-2">
-                <button
+                <el-button
                     v-for="location in attendanceLocations"
                     :key="location.value"
                     class="rounded-lg border px-3 py-1.5 text-xs font-bold transition-all"
@@ -195,7 +205,7 @@
                     @click.prevent="toggleAttendanceLocation(location.value)"
                 >
                   {{ location.label }}
-                </button>
+                </el-button>
               </div>
             </div>
           </div>
@@ -216,7 +226,7 @@
                 系统暂无可用角色
               </div>
               <div v-else class="flex flex-wrap gap-2">
-                <button
+                <el-button
                     v-for="role in roles"
                     :key="role.id"
                     class="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-bold transition-all"
@@ -232,7 +242,7 @@
                     check
                   </span>
                   {{ role.name }}
-                </button>
+                </el-button>
               </div>
             </div>
           </div>
@@ -243,11 +253,10 @@
               <span class="material-symbols-outlined absolute top-2.5 left-3 text-lg text-on-surface-variant">
                 person_search
               </span>
-              <input
+              <el-input
                   v-model.trim="leaderKeyword"
                   class="w-full rounded-sm border-b-2 border-transparent bg-surface-container-low py-2.5 pr-3 pl-10 text-sm outline-none transition-all focus:border-primary"
                   placeholder="请输入姓名或工号搜索直属领导"
-                  type="text"
                   @input="handleLeaderSearch"
               />
             </div>
@@ -255,9 +264,10 @@
                 v-if="leaderOptions.length > 0"
                 class="absolute z-10 mt-2 w-full overflow-hidden rounded-lg border border-outline-variant/20 bg-white shadow-lg"
             >
-              <button
+              <el-button
                   v-for="leader in leaderOptions"
                   :key="leader.id"
+                  text
                   class="w-full px-3 py-2 text-left transition-colors hover:bg-surface-container-low"
                   @click="selectLeader(leader)"
               >
@@ -266,7 +276,7 @@
                   {{ leader.empNo || '无工号' }} / {{ leader.departmentName || '未分配部门' }} /
                   {{ leader.positionName || '未分配职位' }}
                 </div>
-              </button>
+              </el-button>
             </div>
             <p v-if="selectedLeaderLabel" class="mt-2 text-xs text-on-surface-variant">
               当前已选：{{ selectedLeaderLabel }}
@@ -275,12 +285,13 @@
 
           <div v-if="fieldVisible('remark')" class="col-span-2">
             <label class="ml-1 mb-1 block text-xs font-semibold text-on-surface-variant">{{ fieldLabel('remark', '补充备注') }}</label>
-            <textarea
+            <el-input
                 v-model.trim="form.remark"
+                type="textarea"
                 class="w-full resize-none rounded-sm border-b-2 border-transparent bg-surface-container-low px-3 py-2.5 text-sm outline-none transition-all focus:border-primary"
                 placeholder="请输入任何需要补充的备注信息（选填）"
-                rows="3"
-            ></textarea>
+                :rows="3"
+            />
           </div>
         </div>
       </section>
@@ -292,19 +303,13 @@
             {{ fieldLabel('status', '雇佣状态') }} <span v-if="fieldRequired('status')" class="text-error">*</span>
           </h3>
         </div>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <label
+        <el-radio-group v-model="form.status" class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <el-radio
               v-for="status in employmentStatuses"
               :key="status.value"
-              class="cursor-pointer"
+              :value="Number(status.value)"
+              class="!m-0 !h-auto [&_.el-radio__input]:hidden [&_.el-radio__label]:w-full [&_.el-radio__label]:p-0"
           >
-            <input
-                v-model="form.status"
-                :value="Number(status.value)"
-                class="peer hidden"
-                name="status"
-                type="radio"
-            />
             <div
                 class="h-full rounded-xl border p-4 shadow-sm transition-all"
                 :class="Number(form.status) === Number(status.value)
@@ -323,35 +328,38 @@
               </div>
               <p class="text-[10px] text-current opacity-70">保存后将同步至系统主数据。</p>
             </div>
-          </label>
-        </div>
+          </el-radio>
+        </el-radio-group>
       </section>
     </div>
 
     <div class="flex items-center justify-between border-t border-outline-variant/15 bg-surface-container-lowest p-8">
-      <button
+      <el-button
           class="px-6 py-2.5 text-sm font-bold text-on-surface-variant transition-colors hover:text-primary"
           @click="emit('close')"
       >
         取消
-      </button>
-      <button
+      </el-button>
+      <el-button
+          type="primary"
+          native-type="submit"
+          :loading="submitting"
           :disabled="submitting"
           class="flex items-center gap-2 rounded bg-primary px-10 py-3 font-bold text-white shadow-xl shadow-primary/20 transition-all active:scale-95 hover:bg-primary-container disabled:opacity-60"
-          @click="submit"
       >
         <span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">
           save
         </span>
         {{ submitting ? '正在保存...' : isEditMode ? '确认更新' : '确认添加' }}
-      </button>
+      </el-button>
     </div>
-  </div>
+    </el-form>
+  </el-drawer>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElDatePicker, ElDrawer, ElForm, ElInput, ElMessage, ElOption, ElRadio, ElRadioGroup, ElSelect } from 'element-plus'
 import { useTenantFieldConfig } from '@/composables/useTenantFieldConfig'
 import { warnAndFocusField } from '@/utils/formFocus'
 import {

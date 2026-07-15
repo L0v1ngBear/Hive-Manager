@@ -1,6 +1,6 @@
 # 订单管理维护档案
 
-> 当前状态：Audit baseline。本文记录当前行为；Element Plus 第 3 批改造尚未完成。
+> 当前状态：Element Plus migrated with protected custom surface；Batch 3。动态响应式表格、联想选项及订单状态流是受保护业务面。
 
 ## 源码 / 路由 / 改造批次
 
@@ -78,18 +78,21 @@
 
 ## 加载 / 空态 / 错误态
 
-- orderState.loading 控制分页禁用和空态判定；请求同时触发全局请求浮层。
-- 列表没有独立的行内加载文案或骨架；非加载且 rows 为空时显示“暂无订单数据”。
+- orderState.loading 通过 v-loading 控制表格加载并禁用分页；非加载且请求成功、rows 为空时才显示“暂无订单数据”。
+- 列表将真实空态与 401/403、网络异常、5xx/其他失败互斥展示，错误态提供“重新加载”；request-id 防止旧筛选响应覆盖新结果。
 - detailLoading、submitting、附件上传、预警刷新和日志保存均有独立状态。
-- 详情失败会关闭详情抽屉并显示 ElMessage；通用请求错误由 request 拦截器提示。
+- 详情打开前清空旧数据；加载、成功内容和错误态互斥显示，错误态留在抽屉内并可重试，request-id 防止跨订单旧响应。
+- 编辑抽屉同样在打开前重置表单，通过独立 loading、错误态、重试和 request-id 隔离跨订单响应；加载失败或请求进行中禁止保存，关闭抽屉会使在途请求失效。
 - 统计与预警统计失败只记录 console.warn，页面没有持久错误块或重试块。
 
-## 当前原生 / 自定义控件
+## Element Plus 改造结果与保护面
 
-- 原生：button、input、select、textarea、table、手写分页、Teleport 抽屉与遮罩。
-- 已用 Element Plus：ElMessage、ElMessageBox（确认框、提示输入和预警设置容器）。
+- 已迁移：筛选与编辑表单使用 ElInput、ElSelect/ElOption、ElDatePicker、ElInputNumber；分页、抽屉、预警表单、状态、进度、空态和加载分别使用 ElPagination、ElDrawer、ElDialog/ElForm、ElTag、ElProgress、ElEmpty 和 v-loading。
+- 预警设置由页面拥有的 ElDialog 表单承载，不再拼接 HTML 提示内容。
+- 显式保留原生动态响应式订单表格：它承载动态列顺序、移动端 data-label、整行点击与操作按钮 stop，并继续为当前页导出提供当前列 DOM；不得改造成破坏这些契约的固定列结构。
+- 普通页面命令已迁移为 ElButton，并保留原有 `.stop`、CSS 和阶段权限语义；原生 button 只保留在统计/状态卡片和业务联想选项等定制交互面。
 - 自定义：TableColumnSettings、DateFilterInput、BusinessTimeCorrectionPanel、DragAttachmentUpload。
-- 订单进度条、工序步骤、状态标签、客户/项目联想面板均为业务自定义实现。
+- 工序步骤和客户/项目联想面板仍为业务自定义实现。
 
 ## Element Plus 对照与明确保留项
 
@@ -103,11 +106,9 @@
 
 ## 已发现风险
 
-- 页面初始化无条件读取预警设置；无 order:warning:setting 的 order:list 用户会收到后端 403，且预警摘要同批失败。
-- 详情按钮对所有已进入页面的用户可见，但详情接口单独要求 order:detail。
-- TableColumnSettings 与导出函数未检查 table:export，和内置角色中选择性授予该权限的模型不一致。
-- 列表失败没有页面级错误状态；旧 rows 不会在请求开始时清空，失败后可能继续显示旧筛选结果。
-- openEdit 的详情请求没有局部 loading/catch；失败时自定义抽屉可保持打开。
+- 页面初始化仍需复核无 order:warning:setting 时是否读取预警设置；该权限组合纳入视觉 QA。
+- 详情、编辑入口会按 `order:detail` 与阶段权限保持可见禁用并给出原因；handler 同时阻止无权限请求。
+- TableColumnSettings 当前页和全部导出按 `table:export` 保持可见禁用并给出原因，全部导出 handler 仍执行二次守卫。
 - order API 中 update、warning/refresh、health 三个封装当前未被页面使用，改造时不得误当死接口删除。
 
 ## 验证清单

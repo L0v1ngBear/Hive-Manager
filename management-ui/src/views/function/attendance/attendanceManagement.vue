@@ -13,31 +13,38 @@
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-          <button
+          <el-button
               v-permission="'attendance:rule:update'"
               class="function-action-dark"
               @click="openRuleDrawer"
           >
             <span class="material-symbols-outlined text-[20px]">rule</span>规则配置
-          </button>
+          </el-button>
 
-          <button
+          <el-button
               class="function-action-primary"
               @click="refreshAll"
           >
             <span class="material-symbols-outlined text-[20px]">refresh</span>刷新数据
-          </button>
-          <button
+          </el-button>
+          <el-button
               v-permission="'attendance:export'"
               class="function-action-secondary"
               @click="exportExcel"
           >
             <span class="material-symbols-outlined text-[20px]">download</span>导出当前页
-          </button>
+          </el-button>
         </div>
       </header>
 
-      <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+      <section v-if="summaryLoading" v-loading="true" class="min-h-32 rounded-2xl bg-white" />
+      <section v-else-if="summaryError" class="flex min-h-32 flex-col items-center justify-center gap-2 rounded-2xl bg-white text-center">
+        <p class="font-bold text-slate-800">{{ summaryError.title }}</p>
+        <p class="text-sm text-slate-500">{{ summaryError.message }}</p>
+        <el-button type="primary" @click="fetchSummary(currentQuerySnapshot())">重新加载统计</el-button>
+      </section>
+      <section v-else-if="summaryEmpty" class="flex min-h-32 items-center justify-center rounded-2xl bg-white text-sm text-slate-500">暂无考勤统计</section>
+      <section v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
         <div
             v-for="stat in stats"
             :key="stat.label"
@@ -63,9 +70,10 @@
           <div class="flex flex-wrap items-end gap-3">
             <label class="block">
               <span class="block text-xs text-slate-500 font-bold mb-1.5">日期</span>
-              <input
+              <el-date-picker
                   v-model="query.date"
                   type="date"
+                  value-format="YYYY-MM-DD"
                   class="w-44 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500 bg-white"
                   @change="handleFilter"
               />
@@ -74,7 +82,7 @@
               <span class="block text-xs text-slate-500 font-bold mb-1.5">员工搜索</span>
               <div class="relative">
                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
-                <input
+                <el-input
                     v-model.trim="query.keyword"
                     class="w-full pl-10 pr-4 py-2.5 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500"
                     placeholder="姓名、手机号或工号"
@@ -84,33 +92,33 @@
             </label>
             <label class="block">
               <span class="block text-xs text-slate-500 font-bold mb-1.5">部门</span>
-              <select
+              <el-select
                   v-model="query.departmentName"
                   class="w-44 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500 bg-white"
                   @change="handleFilter"
               >
-                <option value="">全部部门</option>
-                <option v-for="item in departments" :key="item.name" :value="item.name">{{ item.name }}</option>
-              </select>
+                <el-option label="全部部门" value="" />
+                <el-option v-for="item in departments" :key="item.name" :label="item.name" :value="item.name" />
+              </el-select>
             </label>
             <label class="block">
               <span class="block text-xs text-slate-500 font-bold mb-1.5">状态</span>
-              <select
+              <el-select
                   v-model="query.status"
                   class="w-36 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500 bg-white"
                   @change="handleFilter"
               >
-                <option value="">全部状态</option>
-                <option value="normal">正常</option>
-                <option value="late">迟到</option>
-                <option value="early">早退</option>
-                <option value="missing">缺勤/缺卡</option>
-                <option value="leave">请假</option>
-                <option value="overtime">加班</option>
-              </select>
+                <el-option label="全部状态" value="" />
+                <el-option label="正常" value="normal" />
+                <el-option label="迟到" value="late" />
+                <el-option label="早退" value="early" />
+                <el-option label="缺勤/缺卡" value="missing" />
+                <el-option label="请假" value="leave" />
+                <el-option label="加班" value="overtime" />
+              </el-select>
             </label>
-            <button class="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors" @click="handleFilter">查询</button>
-            <button class="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors" @click="resetFilter">重置</button>
+            <el-button class="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors" @click="handleFilter">查询</el-button>
+            <el-button class="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors" @click="resetFilter">重置</el-button>
             <TableColumnSettings
                 :columns="attendanceTableColumns"
                 :exportable="false"
@@ -121,65 +129,45 @@
         </div>
 
         <div class="responsive-table-wrap relative min-h-[420px]">
-          <div v-if="loading" class="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-3">
-            <span class="material-symbols-outlined text-blue-600 text-4xl animate-spin">progress_activity</span>
-            <span class="text-sm font-medium text-blue-600">加载考勤数据中...</span>
+          <div v-if="listError" class="flex min-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center">
+            <span class="material-symbols-outlined text-4xl text-slate-400">
+              {{ listError.type === 'permission' ? 'lock' : 'cloud_off' }}
+            </span>
+            <h3 class="text-base font-black text-slate-800">{{ listError.title }}</h3>
+            <p class="max-w-lg text-sm text-slate-500">{{ listError.message }}</p>
+            <el-button type="primary" @click="fetchData">重新加载</el-button>
           </div>
-          <table class="responsive-data-table w-full text-left border-collapse">
-            <thead class="bg-slate-50/80 sticky top-0 z-0">
-            <tr>
-              <th
-                  v-for="column in attendanceTableColumns"
-                  :key="column.key"
-                  class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider"
-              >
-                {{ column.label }}
-              </th>
-            </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-            <tr v-for="row in rows" :key="row.id" class="hover:bg-blue-50/40 transition-colors">
-              <td
-                  v-for="column in attendanceTableColumns"
-                  :key="column.key"
-                  :data-label="column.label"
-                  class="px-6 py-4"
-                  :class="attendanceCellClass(column.key)"
-              >
-                <template v-if="column.key === 'employee'">
-                  <div class="font-bold text-slate-800">{{ row.employeeName || '未命名员工' }}</div>
-                  <div class="text-xs text-slate-400 mt-0.5">{{ row.phone || '--' }}</div>
-                </template>
-                <template v-else-if="column.key === 'empNo'">{{ row.empNo || `UID-${row.userId}` }}</template>
-                <template v-else-if="column.key === 'department'">{{ row.departmentName || '未分配部门' }}</template>
-                <template v-else-if="column.key === 'signIn'">{{ formatTime(row.signInTime) }}</template>
-                <template v-else-if="column.key === 'signOut'">{{ formatTime(row.signOutTime) }}</template>
-                <template v-else-if="column.key === 'status'">
-                  <span :class="statusClass(row.status)" class="inline-flex px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wider">
-                    {{ row.statusText || '正常' }}
-                  </span>
-                </template>
-                <template v-else-if="column.key === 'updateTime'">{{ formatDateTime(row.updateTime || row.createTime) }}</template>
-              </td>
-            </tr>
-            <tr v-if="!loading && rows.length === 0">
-              <td :colspan="attendanceTableColumns.length" class="px-6 py-16 text-center">
-                <div class="flex flex-col items-center justify-center text-slate-400">
-                  <span class="material-symbols-outlined text-5xl mb-2 opacity-50">event_busy</span>
-                  <p class="text-sm">当前筛选条件下暂无考勤记录</p>
-                </div>
-              </td>
-            </tr>
-            </tbody>
-          </table>
+          <el-table v-else v-loading="loading" :data="rows" class="w-full">
+            <el-table-column
+                v-for="column in attendanceTableColumns"
+                :key="column.key"
+                :label="column.label"
+                min-width="120"
+            >
+              <template #default="{ row }">
+                <span v-if="column.key === 'employee'">{{ row.employeeName || '未命名员工' }}</span>
+                <span v-else-if="column.key === 'empNo'">{{ row.empNo || `UID-${row.userId}` }}</span>
+                <span v-else-if="column.key === 'department'">{{ row.departmentName || '未分配部门' }}</span>
+                <span v-else-if="column.key === 'signIn'">{{ formatTime(row.signInTime) }}</span>
+                <span v-else-if="column.key === 'signOut'">{{ formatTime(row.signOutTime) }}</span>
+                <span v-else-if="column.key === 'status'" :class="statusClass(row.status)">{{ row.statusText || '正常' }}</span>
+                <span v-else>{{ formatDateTime(row.updateTime || row.createTime) }}</span>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty v-if="!loading" description="暂无考勤记录" />
+            </template>
+          </el-table>
         </div>
 
-        <div class="p-4 bg-slate-50 flex items-center justify-between text-sm text-slate-500 border-t border-slate-100">
-          <span>共 <b class="text-slate-800">{{ pagination.total }}</b> 条，第 <b class="text-slate-800">{{ query.pageNum }}</b> / {{ totalPages }} 页</span>
-          <div class="flex gap-2">
-            <button @click="changePage(query.pageNum - 1)" :disabled="query.pageNum <= 1" class="px-4 py-2 rounded-xl bg-white border border-slate-200 disabled:opacity-50 hover:bg-slate-50 transition-colors font-medium text-slate-700">上一页</button>
-            <button @click="changePage(query.pageNum + 1)" :disabled="query.pageNum >= totalPages" class="px-4 py-2 rounded-xl bg-white border border-slate-200 disabled:opacity-50 hover:bg-slate-50 transition-colors font-medium text-slate-700">下一页</button>
-          </div>
+        <div class="p-4 bg-slate-50 flex items-center justify-end border-t border-slate-100">
+          <el-pagination
+              v-model:current-page="query.pageNum"
+              :page-size="query.pageSize"
+              :total="pagination.total"
+              layout="total, prev, pager, next"
+              @current-change="changePage"
+          />
         </div>
       </section>
     </div>
@@ -196,12 +184,23 @@
           <div>
             <h2 class="text-xl font-bold text-slate-800 tracking-tight">考勤规则配置</h2>
           </div>
-          <button @click="ruleDrawerVisible = false" class="text-slate-400 hover:text-slate-800 transition-colors">
+          <el-button @click="ruleDrawerVisible = false" class="text-slate-400 hover:text-slate-800 transition-colors">
             <span class="material-symbols-outlined text-[24px]">close</span>
-          </button>
+          </el-button>
         </div>
 
         <div class="flex-1 overflow-y-auto p-8 space-y-10 bg-gradient-to-b from-white to-slate-50/50">
+          <div v-if="ruleLoading" v-loading="true" class="min-h-[320px]" />
+          <div v-else-if="ruleError" class="flex min-h-[320px] flex-col items-center justify-center gap-3 text-center">
+            <p class="font-bold text-slate-800">{{ ruleError.title }}</p>
+            <p class="text-sm text-slate-500">{{ ruleError.message }}</p>
+            <el-button type="primary" @click="loadRule">重新加载</el-button>
+          </div>
+          <div v-else-if="ruleEmpty" class="flex min-h-[320px] flex-col items-center justify-center gap-3 text-center">
+            <el-empty description="暂无考勤规则" />
+            <el-button type="primary" @click="initializeDefaultRule">使用默认规则创建</el-button>
+          </div>
+          <template v-else>
 
           <section class="space-y-4">
             <div class="flex items-center gap-2 pb-2 border-b border-slate-200/50">
@@ -211,22 +210,23 @@
             <div class="grid grid-cols-2 gap-6">
               <div class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">上班开始时间</label>
-                <input v-model="ruleForm.workStartTime" type="time" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors outline-none"/>
+                <el-time-picker v-model="ruleForm.workStartTime" value-format="HH:mm" format="HH:mm" class="w-full" />
               </div>
               <div class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">上班结束时间</label>
-                <input v-model="ruleForm.workEndTime" type="time" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors outline-none"/>
+                <el-time-picker v-model="ruleForm.workEndTime" value-format="HH:mm" format="HH:mm" class="w-full" />
               </div>
               <div class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">下班开始时间</label>
-                <input v-model="ruleForm.offWorkStartTime" type="time" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors outline-none"/>
+                <el-time-picker v-model="ruleForm.offWorkStartTime" value-format="HH:mm" format="HH:mm" class="w-full" />
               </div>
               <div class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">下班结束时间</label>
-                <input v-model="ruleForm.offWorkEndTime" type="time" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors outline-none"/>
+                <el-time-picker v-model="ruleForm.offWorkEndTime" value-format="HH:mm" format="HH:mm" class="w-full" />
               </div>
             </div>
           </section>
+          </template>
 
           <section class="space-y-4">
             <div class="flex items-center gap-2 pb-2 border-b border-slate-200/50">
@@ -236,11 +236,11 @@
             <div class="grid grid-cols-2 gap-6">
               <div class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">加班开始时间</label>
-                <input v-model="ruleForm.overTimeStartTime" type="time" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors outline-none"/>
+                <el-time-picker v-model="ruleForm.overTimeStartTime" value-format="HH:mm" format="HH:mm" class="w-full" />
               </div>
               <div class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">加班结束时间</label>
-                <input v-model="ruleForm.overTimeEndTime" type="time" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors outline-none"/>
+                <el-time-picker v-model="ruleForm.overTimeEndTime" value-format="HH:mm" format="HH:mm" class="w-full" />
               </div>
             </div>
           </section>
@@ -254,14 +254,14 @@
               <div class="space-y-1 relative">
                 <label class="block text-xs font-bold text-slate-500">迟到容差</label>
                 <div class="relative">
-                  <input v-model.number="ruleForm.lateToleranceMinutes" type="number" min="0" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors pr-10 outline-none"/>
+                  <el-input-number v-model="ruleForm.lateToleranceMinutes" :min="0" class="w-full" />
                   <span class="absolute right-3 top-2 text-xs text-slate-400">分钟</span>
                 </div>
               </div>
               <div class="space-y-1 relative">
                 <label class="block text-xs font-bold text-slate-500">早退容差</label>
                 <div class="relative">
-                  <input v-model.number="ruleForm.earlyToleranceMinutes" type="number" min="0" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 focus:ring-0 text-sm text-slate-800 px-3 py-2 rounded-t transition-colors pr-10 outline-none"/>
+                  <el-input-number v-model="ruleForm.earlyToleranceMinutes" :min="0" class="w-full" />
                   <span class="absolute right-3 top-2 text-xs text-slate-400">分钟</span>
                 </div>
               </div>
@@ -273,14 +273,23 @@
               <span class="material-symbols-outlined text-blue-600 text-[18px]">calendar_month</span>
               <h3 class="text-sm font-bold text-slate-800">工作日设置</h3>
             </div>
-            <div class="flex flex-wrap gap-2">
-              <label v-for="day in weekDays" :key="day.value" class="cursor-pointer">
-                <input v-model="ruleForm.workDays" type="checkbox" :value="day.value" class="peer sr-only"/>
-                <div class="px-4 py-2 text-xs font-bold rounded-lg bg-slate-100 border border-slate-200/50 text-slate-500 peer-checked:bg-blue-100 peer-checked:text-blue-700 peer-checked:border-blue-300 transition-all select-none">
+            <el-checkbox-group v-model="ruleForm.workDays" class="flex flex-wrap gap-2">
+              <el-checkbox
+                  v-for="day in weekDays"
+                  :key="day.value"
+                  :value="day.value"
+                  class="!m-0 !h-auto [&_.el-checkbox__input]:hidden [&_.el-checkbox__label]:p-0"
+              >
+                <div
+                    class="px-4 py-2 text-xs font-bold rounded-lg border transition-all select-none"
+                    :class="ruleForm.workDays.includes(day.value)
+                      ? 'border-blue-300 bg-blue-100 text-blue-700'
+                      : 'border-slate-200/50 bg-slate-100 text-slate-500'"
+                >
                   {{ day.label }}
                 </div>
-              </label>
-            </div>
+              </el-checkbox>
+            </el-checkbox-group>
           </section>
 
           <section class="space-y-4">
@@ -294,10 +303,7 @@
                   <div class="text-sm font-bold text-slate-800">GPS 地理围栏</div>
                   <div class="text-xs text-slate-500 mt-0.5">要求在工厂规定的地理范围内打卡</div>
                 </div>
-                <div class="relative inline-flex items-center cursor-pointer">
-                  <input v-model="ruleForm.enableGps" type="checkbox" class="sr-only peer" />
-                  <div class="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </div>
+                <el-checkbox v-model="ruleForm.enableGps">启用</el-checkbox>
               </label>
               <div v-if="ruleForm.enableGps" class="space-y-3">
                 <div
@@ -307,42 +313,42 @@
                 >
                   <div class="flex items-center justify-between gap-3">
                     <div class="text-sm font-black text-slate-800">打卡点 {{ index + 1 }}</div>
-                    <button
+                    <el-button
                         class="text-xs font-bold text-rose-500 hover:text-rose-600"
                         @click.prevent="removeAttendanceLocation(index)"
                     >
                       删除
-                    </button>
+                    </el-button>
                   </div>
                   <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-1">
                       <label class="block text-xs font-bold text-slate-500">地点名称</label>
-                      <input v-model.trim="location.locationName" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="例如：工厂南门"/>
+                      <el-input v-model.trim="location.locationName" placeholder="例如：工厂南门" />
                     </div>
                     <div class="space-y-1">
                       <label class="block text-xs font-bold text-slate-500">允许半径（米）</label>
-                      <input v-model.number="location.radius" type="number" min="1" max="5000" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="300"/>
+                      <el-input-number v-model="location.radius" :min="1" :max="5000" :step="1" class="w-full" />
                     </div>
                     <div class="space-y-1">
                       <label class="block text-xs font-bold text-slate-500">纬度</label>
-                      <input v-model.number="location.latitude" type="number" step="0.000001" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="例如 30.27415"/>
+                      <el-input-number v-model="location.latitude" :step="0.000001" :precision="6" :controls="false" class="w-full" />
                     </div>
                     <div class="space-y-1">
                       <label class="block text-xs font-bold text-slate-500">经度</label>
-                      <input v-model.number="location.longitude" type="number" step="0.000001" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="例如 120.15515"/>
+                      <el-input-number v-model="location.longitude" :step="0.000001" :precision="6" :controls="false" class="w-full" />
                     </div>
                     <div class="space-y-1 col-span-2">
                       <label class="block text-xs font-bold text-slate-500">地址备注</label>
-                      <input v-model.trim="location.address" class="w-full bg-white border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="可填写园区、楼栋或门岗位置"/>
+                      <el-input v-model.trim="location.address" placeholder="可填写园区、楼栋或门岗位置" />
                     </div>
                   </div>
                 </div>
-                <button
+                <el-button
                     class="w-full rounded-xl border border-dashed border-blue-300 bg-white py-3 text-sm font-black text-blue-700 hover:bg-blue-50"
                     @click.prevent="addAttendanceLocation"
                 >
                   + 新增打卡地点
-                </button>
+                </el-button>
               </div>
 
               <label class="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors shadow-sm">
@@ -350,14 +356,11 @@
                   <div class="text-sm font-bold text-slate-800">Wi-Fi 验证</div>
                   <div class="text-xs text-slate-500 mt-0.5">必须连接到公司指定的内网 Wi-Fi</div>
                 </div>
-                <div class="relative inline-flex items-center cursor-pointer">
-                  <input v-model="ruleForm.enableWifi" type="checkbox" class="sr-only peer" />
-                  <div class="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </div>
+                <el-checkbox v-model="ruleForm.enableWifi">启用</el-checkbox>
               </label>
               <div v-if="ruleForm.enableWifi" class="space-y-1">
                 <label class="block text-xs font-bold text-slate-500">Wi-Fi 名称</label>
-                <input v-model.trim="ruleForm.wifiSsid" class="w-full bg-slate-50 border-0 border-b border-slate-300 focus:border-blue-600 text-sm text-slate-800 px-3 py-2 rounded-t outline-none" placeholder="请输入 Wi-Fi 名称（可选）"/>
+                <el-input v-model.trim="ruleForm.wifiSsid" placeholder="请输入 Wi-Fi 名称（可选）" />
               </div>
             </div>
           </section>
@@ -365,8 +368,8 @@
         </div>
 
         <div class="px-8 py-4 border-t border-slate-200/50 bg-white flex justify-end gap-3 shrink-0">
-          <button @click="ruleDrawerVisible = false" class="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
-          <button @click="submitRule" class="px-5 py-2 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20 active:scale-95">保存配置</button>
+          <el-button @click="ruleDrawerVisible = false" class="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">取消</el-button>
+          <el-button :disabled="ruleLoading || !!ruleError || ruleEmpty || ruleSubmitting" :loading="ruleSubmitting" @click="submitRule" class="px-5 py-2 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20 active:scale-95">保存配置</el-button>
         </div>
 
       </div>
@@ -376,8 +379,25 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { ElMessage, ElDrawer } from 'element-plus'
+import {
+  ElButton,
+  ElCheckbox,
+  ElCheckboxGroup,
+  ElDatePicker,
+  ElDrawer,
+  ElEmpty,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElOption,
+  ElPagination,
+  ElSelect,
+  ElTable,
+  ElTableColumn,
+  ElTimePicker
+} from 'element-plus'
 import { useRoute } from 'vue-router'
+import { createLatestRequest, createSubmitGuard } from '@/utils/latestRequest'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import {
@@ -390,6 +410,9 @@ import {
 } from './api/attendance.js'
 
 const route = useRoute()
+const attendanceRequest = createLatestRequest()
+const ruleRequest = createLatestRequest()
+const ruleSubmitGuard = createSubmitGuard()
 const defaultAttendanceTableColumns = [
   { key: 'employee', label: '员工' },
   { key: 'empNo', label: '工号' },
@@ -439,6 +462,14 @@ const today = new Date().toISOString().slice(0, 10)
 const rows = ref([])
 const departments = ref([])
 const loading = ref(false)
+const listError = ref(null)
+const summaryLoading = ref(false)
+const summaryError = ref(null)
+const summaryEmpty = ref(false)
+const ruleLoading = ref(false)
+const ruleError = ref(null)
+const ruleEmpty = ref(false)
+const ruleSubmitting = ref(false)
 const summary = reactive({ totalEmployeeCount: 0, actualCount: 0, lateCount: 0, earlyCount: 0, missingCount: 0, attendanceRate: 0 })
 const pagination = reactive({ total: 0, pages: 0 })
 const query = reactive({ pageNum: 1, pageSize: 10, keyword: '', departmentName: '', status: '', date: today })
@@ -451,13 +482,6 @@ const stats = computed(() => [
   { label: '早退', value: summary.earlyCount, unit: '人', desc: '下班打卡早于规则时间', icon: 'logout', iconClass: 'text-amber-50', valueClass: 'text-amber-600' },
   { label: '缺勤/缺卡', value: summary.missingCount, unit: '人', desc: '缺勤或缺少打卡记录', icon: 'error', iconClass: 'text-rose-50', valueClass: 'text-rose-600' }
 ])
-
-function attendanceCellClass(key) {
-  if (key === 'empNo' || key === 'signIn' || key === 'signOut') return 'text-sm font-mono text-slate-700'
-  if (key === 'department') return 'text-sm text-slate-600'
-  if (key === 'updateTime') return 'text-xs text-slate-500'
-  return ''
-}
 
 applyRouteKeyword()
 refreshAll()
@@ -479,29 +503,80 @@ function applyRouteKeyword() {
 }
 
 async function refreshAll() {
-  await Promise.all([fetchSummary(), fetchData(), fetchDepartments()])
+  const snapshot = currentQuerySnapshot()
+  const request = attendanceRequest.begin()
+  await Promise.all([fetchSummary(snapshot, request), fetchData(snapshot, request), fetchDepartments()])
 }
 
-async function fetchSummary() {
-  Object.assign(summary, await getAttendanceSummary({ date: query.date }))
+function currentQuerySnapshot() {
+  return {
+    pageNum: query.pageNum,
+    pageSize: query.pageSize,
+    keyword: query.keyword || undefined,
+    departmentName: query.departmentName || undefined,
+    status: query.status || undefined,
+    date: query.date || undefined
+  }
 }
 
-async function fetchData() {
-  loading.value = true
+async function fetchSummary(snapshot = currentQuerySnapshot(), request = attendanceRequest.begin()) {
+  summaryLoading.value = true
+  summaryError.value = null
+  summaryEmpty.value = false
   try {
-    const data = await getAttendancePage({
-      pageNum: query.pageNum,
-      pageSize: query.pageSize,
-      keyword: query.keyword || undefined,
-      departmentName: query.departmentName || undefined,
-      status: query.status || undefined,
-      date: query.date || undefined
+    const data = await getAttendanceSummary({ date: snapshot.date })
+    request.commit(() => {
+      Object.assign(summary, data || {})
+      summaryEmpty.value = !data || Object.keys(data).length === 0
     })
-    rows.value = data.data || []
-    pagination.total = Number(data.total || 0)
-    pagination.pages = Number(data.pages || 0)
+  } catch (error) {
+    request.commit(() => {
+      Object.assign(summary, { totalEmployeeCount: 0, actualCount: 0, lateCount: 0, earlyCount: 0, missingCount: 0, attendanceRate: 0 })
+      summaryError.value = resolveListError(error)
+    })
   } finally {
-    loading.value = false
+    request.commit(() => { summaryLoading.value = false })
+  }
+}
+
+function resolveListError(error) {
+  const status = Number(error?.response?.status ?? error?.status ?? error?.code ?? 0)
+  if (status === 401 || status === 403) {
+    return {
+      type: 'permission',
+      title: status === 401 ? '登录状态已失效' : '暂无考勤记录权限',
+      message: status === 401 ? '请重新登录后查看考勤记录。' : '请联系管理员分配考勤记录权限后重试。'
+    }
+  }
+  return {
+    type: 'request',
+    title: status >= 500 ? '考勤服务暂时不可用' : '网络连接异常',
+    message: status >= 500 ? '服务处理失败，请稍后重新加载。' : '请检查网络连接后重新加载考勤记录。'
+  }
+}
+
+async function fetchData(snapshot = currentQuerySnapshot(), request = attendanceRequest.begin()) {
+  loading.value = true
+  listError.value = null
+  rows.value = []
+  pagination.total = 0
+  pagination.pages = 0
+  try {
+    const data = await getAttendancePage(snapshot)
+    request.commit(() => {
+      rows.value = data.data || []
+      pagination.total = Number(data.total || 0)
+      pagination.pages = Number(data.pages || 0)
+    })
+  } catch (error) {
+    request.commit(() => {
+      rows.value = []
+      pagination.total = 0
+      pagination.pages = 0
+      listError.value = resolveListError(error)
+    })
+  } finally {
+    request.commit(() => { loading.value = false })
   }
 }
 
@@ -563,7 +638,21 @@ function normalizeLocationPayload() {
 }
 
 async function openRuleDrawer() {
+  ruleDrawerVisible.value = true
+  await loadRule()
+}
+
+async function loadRule() {
+  const request = ruleRequest.begin()
+  ruleLoading.value = true
+  ruleError.value = null
+  ruleEmpty.value = false
+  try {
   const data = await getAttendanceRule()
+  if (!data || Object.keys(data).length === 0) {
+    request.commit(() => { ruleEmpty.value = true })
+    return
+  }
   const locations = normalizeRuleLocations(data)
   const firstLocation = locations[0] || createDefaultLocation()
   Object.assign(ruleForm, {
@@ -577,10 +666,20 @@ async function openRuleDrawer() {
     address: firstLocation.address || firstLocation.locationName || '',
     locations
   })
-  ruleDrawerVisible.value = true
+  } catch (error) {
+    request.commit(() => { ruleError.value = resolveListError(error) })
+  } finally {
+    request.commit(() => { ruleLoading.value = false })
+  }
+}
+
+function initializeDefaultRule() {
+  Object.assign(ruleForm, { locations: [createDefaultLocation()] })
+  ruleEmpty.value = false
 }
 
 async function submitRule() {
+  if (ruleSubmitGuard.pending) return
   if (!ruleForm.workDays.length) {
     ElMessage.warning('请至少选择一个工作日')
     return
@@ -595,6 +694,8 @@ async function submitRule() {
     return
   }
   const firstLocation = locations[0] || {}
+  ruleSubmitting.value = true
+  await ruleSubmitGuard.run(async () => {
   await saveAttendanceRule({
     ...ruleForm,
     lateToleranceMinutes: Number(ruleForm.lateToleranceMinutes || 0),
@@ -607,6 +708,7 @@ async function submitRule() {
   })
   ElMessage.success('考勤规则已保存，小程序打卡规则已同步')
   ruleDrawerVisible.value = false
+  }).finally(() => { ruleSubmitting.value = false })
 }
 
 function handleFilter() {
@@ -624,7 +726,7 @@ function changePage(pageNum) {
     return
   }
   query.pageNum = pageNum
-  fetchData()
+  refreshAll()
 }
 
 async function exportExcel() {

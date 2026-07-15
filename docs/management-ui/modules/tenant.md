@@ -1,5 +1,11 @@
 # 租户管理
 
+## Element Plus 迁移
+
+- 列表使用 `ElTable`，空态和加载状态由 `ElEmpty` 与 `v-loading` 呈现。
+- 企业资料、授权和负责人账号统一使用 `ElDrawer` 与 `ElForm`；容量、日期、功能 JSON、考勤开关和 Logo 上传分别使用对应 Element Plus 控件。
+- 平台专用 API、`super` 平台边界、Logo 独立 multipart 事务和容量数值载荷保持不变。
+
 ## 源码/路由/批次
 
 - 页面：`management-ui/src/views/function/tenant/tenant.vue`。
@@ -9,7 +15,7 @@
 - 平台边界：`management/src/main/java/my/management/common/interceptor/PlatformScopeInterceptor.java`。
 - 租户可用性：`management/src/main/java/my/management/common/interceptor/AuthTokenInterceptor.java`。
 - 路由：`/function/tenant`；`developerOnly: true`；无普通 permission/feature。
-- 迁移批次：Batch 2；当前状态为 Audit baseline。
+- 迁移批次：Batch 2；当前状态为 `Element Plus migrated`。
 
 ## 功能
 
@@ -54,17 +60,17 @@
 ## 空错态
 
 - 列表有刷新 loading 和“暂无租户数据”。
-- feature 目录加载失败会被静默转换为空数组，功能名回退显示 code，无法区分真实空目录与请求失败。
+- feature 目录具有独立 loading、真实空态、错误与重试；列表和功能目录均采用 latest-request-wins，旧响应与旧 finally 不覆盖新状态。
 - 列表及各保存请求主要依赖全局 request 错误反馈。
-- 企业资料、授权和负责人使用三个手写抽屉，没有未保存关闭保护。
+- 企业资料、授权和负责人使用三个 Element Plus 抽屉。
 - Logo 有上传中状态和前端类型/2MB 校验。
-- 授权保存和负责人保存有 loading；状态切换没有行级 pending 锁。
+- 授权保存和负责人保存有 loading；状态切换使用行级 pending 锁，Logo 上传通过目标租户快照与请求序号隔离旧响应。
 
 ## 控件现状
 
-- 租户使用自定义卡片网格和状态/feature pill。
-- 三个抽屉通过 `Teleport` 和手写遮罩实现。
-- 表单为原生输入、数字输入、日期时间、选择、复选框和 textarea。
+- 租户使用 `ElTable`，状态和 feature 使用 `ElTag`。
+- 三个编辑面板已迁移为 `ElDrawer`，不再使用手写 `Teleport` 遮罩。
+- 表单使用 Element Plus 文本、数字、日期时间、选择、复选框、开关和 textarea。
 - Logo 上传为隐藏 file input 加点击/拖拽区域。
 - 状态切换与负责人转移使用 `ElMessageBox`；反馈使用 `ElMessage`。
 - 授权 feature flags 当前直接编辑 JSON 字符串。
@@ -87,7 +93,7 @@
 - 平台接口只有 `super` 路径边界，没有每项操作权限；平台租户账号泄露时暴露全部租户控制面。
 - feature flags 是原始 JSON；错误关闭功能会隐藏前端入口并触发后端 feature 拒绝。
 - 授权、状态和负责人请求没有版本字段，两个平台操作员并发修改时为最后写入覆盖。
-- 状态按钮在请求中未锁定，快速重复点击可基于同一旧状态发送相同目标值。
+- 状态按钮使用 `statusPending` 行级 guard；请求中禁用状态命令，handler 同时拒绝重复调用。
 - 当前确认只覆盖启停和负责人转移；授权降级、额度归零、到期时间修改同样高危。
 
 ## 验证

@@ -8,7 +8,7 @@
 - 服务：`management/src/main/java/my/hive/domain/attendance/service/AttendanceService.java`。
 - 路由：`/function/attendance`。
 - 路由权限：`attendance:record:list` 或 `attendance:*`；feature 为 `module.attendance`。
-- 迁移批次：Batch 2；当前状态为 Audit baseline。
+- 迁移批次：Batch 2；当前状态为 Element Plus migrated（已完成 Element Plus 迁移）。
 
 ## 功能
 
@@ -53,19 +53,25 @@
 ## 空错态
 
 - 列表有覆盖式 loading 和“暂无考勤记录”行。
-- 汇总、列表、部门初始加载没有独立错误区域，主要依赖全局 request。
-- `refreshAll` 并行请求汇总和列表；任一失败时需要避免另一项成功结果被误判为整体成功。
-- 列表失败不会主动清空旧 rows，筛选变化后存在陈旧数据显示风险。
-- 规则抽屉没有独立加载骨架、加载失败重试面或保存中禁用。
+- 汇总与列表分别互斥展示加载、真实空态、401/403 和网络/5xx 失败状态。
+- `refreshAll` 使用同一查询快照和请求代次并行加载汇总与列表，旧响应不会覆盖新条件。
+- 列表请求开始即清空旧 rows，失败状态提供重试。
+- 规则抽屉打开即展示加载状态，并区分空态和失败重试；保存有 loading 与防重复提交。
 - 导出失败没有页面内状态，依赖全局错误提示。
 
 ## 控件现状
 
-- 顶部命令、筛选、统计、表格和分页主要为原生元素与 Tailwind。
+- 顶部命令、筛选、统计、表格和分页使用显式导入的 Element Plus 组件。
 - 日期筛选使用共享 `DateFilterInput`，列设置使用 `TableColumnSettings`。
-- 规则为手写侧滑层，使用原生时间、数字、文本和地点列表控件。
+- 规则使用 `ElDrawer`，时间、数字、文本、布尔开关和地点列表分别使用 `ElTimePicker`、`ElInputNumber`、`ElInput`、`ElCheckbox` 和 `ElButton`。
 - 状态显示为自定义 class pill。
 - 文件下载由脚本创建链接完成；消息反馈使用 Element Plus 服务。
+
+## Element Plus 迁移
+
+- 考勤筛选、结果表格、加载/空错态和分页均显式导入 Element Plus 组件。
+- 规则抽屉保持原查询与保存契约，日期、时间、数值和工作日控件使用 `ElDatePicker`、`ElTimePicker`、`ElInputNumber` 和 `ElCheckboxGroup`。
+- `attendance:record:list` 与 `attendance:*` 权限边界、Blob 导出、跨夜规则值及查询参数格式保持不变。
 
 ## Element Plus 对照/保留项
 
@@ -80,12 +86,11 @@
 
 ## 风险
 
-- 规则保存按钮没有 loading/防双击，重复点击可能发送并发覆盖请求。
+- 规则保存已使用 loading 与提交守卫防止同一页面重复提交；跨管理员并发仍为最后保存覆盖。
 - 规则更新没有版本字段；两个管理员同时编辑时为最后保存覆盖。
 - 日期格式必须与 Spring `LocalDate` 解析一致，组件默认 Date 对象或时区转换会改变查询日期。
-- 原生数字输入迁移时若把空值强制为 0，可能改变后端默认规则。
-- 筛选失败保留旧 rows 会把上一条件的记录显示在新条件下。
-- 汇总和列表是两个请求，切换日期时需要同一请求代次，否则可能组合出不同日期的数据。
+- 数值控件保持显式边界、步长和经纬度六位精度，提交时继续按原载荷转换数值。
+- 列表失败会清空旧 rows；汇总和列表共享查询快照与请求代次。
 - `attendance:*` 是保存规则的现有权限，不能替换为新造的 `attendance:rule:update`。
 - 导出权限与列表权限相同；迁移不得额外放宽到仅有页面入口即可导出。
 

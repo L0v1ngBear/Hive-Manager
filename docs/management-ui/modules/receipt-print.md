@@ -1,6 +1,6 @@
 # 出库单打印维护档案
 
-> 当前状态：Audit baseline；Batch 3。打印 DOM、毫米尺寸与打印 CSS 是受保护输出面。
+> 当前状态：Element Plus migrated with protected custom surface；Batch 3。打印 DOM、毫米尺寸与打印 CSS 是受保护输出面。
 
 ## 源码 / 路由 / 改造批次
 
@@ -9,7 +9,7 @@
 - 打印适配：management-ui/src/utils/printProfile.js。
 - 直接依赖：BusinessTimeCorrectionPanel、useTimeCorrectionMode。
 - 路由：/function/receipt，名称 Receipt，标题“出库单打印”。
-- 路由门槛：permissions = [receipt:print:list]，features = [module.receipt]。
+- 路由门槛：permissions = [`print:receipt:list`]，features = [`module.receipt`]。
 - 后端入口：ReceiptPrintController，类级 feature 为 CODE_RECEIPT。
 - 改造批次：Batch 3，protected print DOM。
 - 迁移只覆盖管理壳层标准控件；打印 DOM/CSS 不改。
@@ -44,13 +44,13 @@
 
 ## 权限与 feature
 
-- 页面和侧栏入口仅检查 module.receipt 与 receipt:print:list。
-- 队列、模板列表和模板变量后端要求 receipt:print:list。
-- 详情与 raw-command 后端要求 receipt:print:detail。
-- 修订、确认打印、保存模板和设置默认模板后端要求 receipt:print:mark。
-- 作废/跳过后端要求 receipt:print:cancel。
-- 当前页面未使用 useUserStore 或 v-permission；上述命令在前端没有按细粒度权限隐藏或禁用。
-- 权限迁移必须补齐显示/禁用逻辑，但不能放宽后端权限或改变取消、确认语义。
+- 页面和侧栏入口检查 `module.receipt` 与 `print:receipt:list`。
+- 队列、模板列表和模板变量后端要求 `print:receipt:list`。
+- 详情要求 `print:receipt:detail`；生成打印指令和确认已打印要求 `print:receipt:execute`。
+- 修订打印内容、保存模板和设置默认模板要求 `print:receipt:update`。
+- 作废/跳过要求 `print:receipt:cancel`。
+- 页面使用 `useUserStore` 对细粒度命令授权，读、执行、修订、取消四类动作不互相替代。
+- 无权命令保持可见、禁用并通过 tooltip 说明原因；无详情权限时不请求或展示单据内容。后端权限与取消、确认语义保持不变。
 
 ## 关键状态 / 数据流
 
@@ -71,22 +71,21 @@
 - isFetchingList 控制队列刷新；队列为空且非加载时显示明确空态。
 - isLoadingDetail 显示预览区 loading-mask；未选择单据时显示预览空态。
 - isPrinting、isSubmitting、isTemplateSaving 分别禁用打印、状态提交和模板保存。
-- 请求错误由全局 request 拦截器以 ElMessage 提示；页面没有持久错误面板。
-- 选择新单据时未先清空旧 selectedOrder；详情失败后旧预览仍可能保留。
+- 队列和详情分别维护 loading、成功空态与持久失败面板；401、403、网络和 5xx 文案可区分并可重试。
+- 队列和详情均使用 request-id 实现 last-request-wins；选择新单据前清空旧详情、明细和草稿。刷新队列或切离打印页会同步使详情请求失效、释放 loading 并清空受保护详情状态，旧响应与旧 finally 不覆盖新状态。
 - 打印 DOM 缺失或弹窗被拦截时有页面级错误提示。
 
 ## 当前原生 / 自定义控件
 
-- 原生：button、input、select、checkbox、table，以及手写队列卡、编辑器和模板设计区。
-- 已用 Element Plus：ElMessage、ElMessageBox。
+- 管理外围不再保留原生 input；打印修正区的文本与明细行字段使用 `ElInput`，模板列宽使用 `ElInputNumber` 并保持数值类型、10–80 mm 范围、1 mm 步长与原 change 归一化事件。
 - 自定义：BusinessTimeCorrectionPanel、打印 profile 控件、模板列编辑器、实时纸张预览。
-- 输出面：#print-paper-area、.paper-stack、.receipt-page、.receipt-print-table。
+- 明确保留的原生输出面：#print-paper-area、.paper-stack、.receipt-page、.receipt-print-table；这些打印 DOM/CSS 未迁移。
 
 ## Element Plus 对照与明确保留项
 
-- 管理壳按钮/输入/选择/数字/复选框可迁移 ElButton、ElInput、ElSelect、ElInputNumber、ElCheckbox。
-- 队列加载/空态可迁移 v-loading、ElEmpty；确认动作保留 ElMessageBox。
-- 模板管理表单可使用标准控件，但必须维持数值范围和 Boolean 类型。
+- 管理壳 tabs、按钮、输入、选择、数字和复选框已迁移为显式导入的 `ElTabs`、`ElButton`、`ElInput`、`ElSelect`、`ElInputNumber`、`ElCheckbox`。
+- 队列和详情加载/空态/失败态使用 `v-loading`、`ElEmpty`、`ElResult`；确认动作继续使用 `ElMessageBox`。
+- 模板管理表单使用标准控件，并维持原数值范围、步长和 Boolean 类型。
 - 明确保留且不得改：#print-paper-area 及其子节点层级和 class。
 - 明确保留且不得改：buildPrintHtml、printCss、@page、mm 尺寸、page-break/break-after。
 - 明确保留且不得改：纸张 transform、字体/边框/行高、空行补页和分页计算。
@@ -95,13 +94,10 @@
 
 ## 已发现风险
 
-- 入口只要求 receipt:print:list，但选择单据立即调用 receipt:print:detail；仅列表权限用户会看到可点击队列后收到 403。
-- 修订、浏览器打印前保存、确认打印、模板保存按钮未按 receipt:print:mark 禁用。
-- 作废按钮未按 receipt:print:cancel 禁用；权限不足只会在提交后由后端拒绝。
-- 选择另一单据加载失败时旧 selectedOrder 未清空，可能把旧预览与当前点击上下文混淆。
-- 模板、变量或队列任一初始请求失败会使 Promise.all 拒绝，页面没有分区错误态。
+- 路由入口只要求 `print:receipt:list`，因此仅列表权限用户仍可进入页面；详情、修订、打印执行、模板保存和作废命令会在页面内按各自精确权限禁用并说明原因。
 - getRawPrintCommand 存在但浏览器打印流未使用，不能在样式迁移中擅自切换打印通道。
 - 页面 scoped 预览 CSS 与 printCss 各维护一套关键尺寸，后续改动存在预览/实打漂移风险。
+- 浏览器弹窗策略、打印驱动、纸张 DPI、缩放和物理边距仍可能造成预览与实打差异，必须通过目标打印机校准页和实体纸张验证。
 
 ## 验证清单
 

@@ -1,12 +1,18 @@
 # 价格管理
 
+## Element Plus 迁移
+
+- 列表筛选、数据表格、分页、详情抽屉和导入命令统一使用 Element Plus 控件；价格编辑器使用 `ElDrawer` 与 `ElForm`。
+- 金额输入仍以数字载荷提交，模型和客户选择仍保留原始值类型与端点。
+- 生效日期控件显式使用 `value-format="YYYY-MM-DD"`；新建默认值按本地日期格式化，避免 UTC 跨日偏移。
+
 ## 源码 / 路由 / 批次
 
 - 列表页：`management-ui/src/views/function/price/price.vue`
 - 编辑页组件：`management-ui/src/views/function/price/priceCreate.vue`
 - API：`management-ui/src/views/function/price/api/price.js`
 - 路由：`/function/price`，路由名 `Price`，功能开关 `module.price`；编辑页由列表页内部切换，不是独立路由。
-- 迁移批次：Batch 2；状态为 `Audit baseline`。
+- 迁移批次：Batch 2；状态为 `Element Plus migrated`。
 
 ## 用户功能
 
@@ -36,7 +42,7 @@
 
 - 路由入口要求 `price:list`，并受 `module.price` 控制。
 - 后端列表、统计、客户/型号选项、导出和模板下载要求 `price:list`；详情要求 `price:detail`；发布与导入要求 `price:publish`；删除要求 `price:delete`。
-- 当前列表页和编辑页没有价格命令级 `v-permission`，新增、编辑、删除、导入等入口对列表用户可见，最终依赖后端拒绝。
+- 详情校验 `price:detail`；新增与导入校验 `price:publish`；调整同时要求 `price:publish` 与 `price:detail`；删除校验 `price:delete`。无权限命令保留可见并置灰，通过 tooltip 解释原因，handler 同时拒绝调用。
 - 风险：路由只声明 `price:list`，打开详情本身还需要 `price:detail`，不能把可进入列表等同于可查看/编辑详情。
 
 ## 状态流
@@ -50,13 +56,14 @@
 ## 加载空错态
 
 - 列表和编辑详情有加载状态；无 SKU 时显示空列表，等级价/客户特价为空时显示对应空内容。
-- 请求错误主要依赖全局请求拦截和消息提示，没有持久页内错误区。
-- 编辑详情请求失败时需避免保留上一条 SKU 草稿；保存/发布需防止重复提交。
+- 列表、统计、详情和编辑候选/详情区分 loading、真实空态、401、403、网络及 5xx，并提供页内重试；统计失败不伪装为零。
+- 详情调整日志严格读取后端 `logs`，展示 `createTime`、`remark`、`oldPrice`、`newPrice`。
+- 编辑与详情打开前清理旧数据并通过请求序号拒绝过期响应；发布、删除、导入、导出和模板下载均有 pending 防重复提交。
 
 ## UI 控件现状
 
-- 列表以原生筛选、按钮、表格、状态徽标和手写分页为主。
-- 编辑页使用原生输入、数字/日期控件和可增删的等级价、客户特价行。
+- 列表使用 Element Plus 筛选、按钮、动态列表格、状态标签和分页，并保留本地列顺序设置。
+- 编辑页使用 Element Plus 表单、数字/日期控件和可增删的等级价、客户特价行。
 - 已使用 Element Plus 消息/确认服务；页面切换和表单校验由组件内状态管理。
 
 ## Element Plus 替换与保留项
@@ -70,11 +77,12 @@
 
 - JavaScript `Number` 是二进制浮点；金额输入、比较和展示不得通过浮点运算产生额外小数，提交精度必须与后端 `BigDecimal` 契约一致。
 - 不得用 `||` 给金额设默认值，否则合法的 `0` 会被覆盖；组件值类型需明确是数字、字符串还是 `null`。
-- 新建默认生效日期使用 `new Date().toISOString().slice(0, 10)`，它按 UTC 取日期；UTC 与本地跨日窗口可能默认成前一天或后一天。
+- 新建默认生效日期已由 `formatLocalDate` 按浏览器本地年月日生成本地 `YYYY-MM-DD`，不再经过 UTC `toISOString()` 跨日转换。
 - 日期组件迁移必须显式设置 `value-format="YYYY-MM-DD"`，不能提交 ISO `Z` 时间或毫秒时间戳替代当前日期字符串。
 - 页面按钮文案“发布价格”对应唯一写接口，不存在单独 `/price/save` 草稿接口；迁移不得虚构保存/发布双状态。
-- 当前前端无命令级价格权限保护，后端 403 前用户仍可填写完整表单。
+- 命令权限已在界面禁用与 handler 两层保护，后端仍作为最终授权边界。
 - 动态价格行索引变化时，校验错误必须跟随业务行而非旧数组下标。
+- 剩余风险：浏览器或操作系统本地时区配置错误仍会影响“当天”含义，发布前仍需由用户核对生效日期。
 
 ## 验证清单
 

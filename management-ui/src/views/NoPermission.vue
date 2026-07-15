@@ -6,18 +6,20 @@
       <p class="mt-3 text-sm leading-6 text-on-surface-variant">
         当前账号未分配该入口权限，页面内容已隐藏。请联系企业负责人在角色管理或员工单独权限中开通。
       </p>
-      <button
-        class="mt-7 rounded-lg bg-primary px-6 py-3 text-sm font-bold text-white shadow-sm shadow-primary/20"
+      <el-button
+        class="mt-7"
+        type="primary"
         @click="goBack"
       >
         返回上一页
-      </button>
+      </el-button>
     </section>
   </main>
 </template>
 
 <script setup>
 import { useRouter } from 'vue-router'
+import { ElButton } from 'element-plus'
 
 defineOptions({ name: 'NoPermission' })
 

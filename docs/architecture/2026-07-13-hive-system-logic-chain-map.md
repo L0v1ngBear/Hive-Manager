@@ -356,14 +356,14 @@ stateDiagram-v2
 | 类型 | 页面/API/权限 | Controller/Service/表 | 全部通过回写 | 任一拒绝/通知/失败 |
 | --- | --- | --- | --- | --- |
 | 订单 | `/approval/order/list\|{type}/{id}\|audit`；list/detail + `approval:order:audit` | `ApprovalController` -> `ApprovalService`/小程序 `ApprovalCenterService` -> 订单表、日志、候选表 | `pending_confirm -> pending_pay`；`pending_pay -> pending_material`；`pending_cancel -> cancelled`；或执行已申请回退；同步生产/安装/打印。 | 普通推进拒绝被限制为去订单管理处理；取消拒绝恢复前态；回退拒绝关闭候选不改源状态。小程序订单变更 afterCommit 发订阅消息，管理端直审未找到等价外部通知，标 **缺失**。 |
-| 质量 | `/approval/quality/*`；`badproduct:process` | Approval -> `BadProductService` -> `bad_product_record`、候选 | `pending_audit -> processed`。 | 拒绝调用 `rejectProcessApproval` 回到可处理状态；小程序通知相关人，管理端无外部通知证据。 |
+| 质量 | `/approval/quality/*`；`quality:process` | Approval -> `BadProductService` -> `bad_product_record`、候选 | `pending_audit -> processed`。 | 拒绝调用 `rejectProcessApproval` 回到可处理状态；小程序通知相关人，管理端无外部通知证据。 |
 | 财务 | `/approval/finance/submit\|list\|detail\|audit\|attachment/*`；submit/detail/audit | `FinanceApprovalService` 或管理 `ApprovalService` -> `finance_approval`、候选、文件 | status `1 pending -> 2 approved`。 | 任一拒绝 `-> 3 rejected`；小程序通知申请人/待审人，发送失败被安全捕获，不回滚已提交审批。附件失败不提交表单。 |
 | 请假 | `/approval/leave/submit\|list\|detail\|audit`；submit/detail/audit | `LeaveService` 或管理 `ApprovalService` -> `user_leave`、候选、`attendance_record`、考勤规则 | `1 -> 2`，并按日期/班次覆盖空或异常打卡状态为 leave；正常真实打卡不覆盖。 | `1 -> 3`；时间重叠重复申请失败；跨度/时间不完整导致考勤同步异常时整个审批事务回滚。小程序发订阅通知。 |
 | 离职 | `/approval/resignation/submit\|list\|detail\|audit`；submit/detail/audit | `ResignationApprovalService` 或管理 `ApprovalService` -> `employee_resignation_approval`、`user`、`sys_user_role`、候选 | `1 -> 2`，调用 `markResignedByApproval` 停用员工、逻辑删除活动角色并清权限缓存。 | `1 -> 3`；已有 pending 不能重复提交。待办候选不会自动改派，属 **缺失**。小程序发送结果通知。 |
 
 ### 6.3 审核人选择与默认人
 
-候选 API `/approval/auditors?type=...` 只应返回活动员工且具有对应权限：请假 `approval:leave:audit`、财务 `approval:finance:audit`、离职 `approval:resignation:audit`、订单 `approval:order:audit`、质量 `badproduct:process`。默认配置 API `/approval/default-auditors` 在管理端保存时强校验这些权限且排除申请人；源业务提交可传显式审核人，严格模式下无权限立即失败。若显式人为空则使用默认人，再回退到第一个有权限且非申请人的活动员工；全都找不到则不创建业务单/不进入审核门。
+候选 API `/approval/auditors?type=...` 只应返回活动员工且具有对应权限：请假 `approval:leave:audit`、财务 `approval:finance:audit`、离职 `approval:resignation:audit`、订单 `approval:order:audit`、质量 `quality:process`。默认配置 API `/approval/default-auditors` 在管理端保存时强校验这些权限且排除申请人；源业务提交可传显式审核人，严格模式下无权限立即失败。若显式人为空则使用默认人，再回退到第一个有权限且非申请人的活动员工；全都找不到则不创建业务单/不进入审核门。
 
 审核列表除方法权限外还按当前用户是否为 active+pending candidate 过滤；历史 `auditor_id/auditor_ids` 是兼容路径。员工离职、角色或个人 DENY 在候选创建之后发生时，现有 candidate 行并不会自动失效；审核接口还会检查当前方法权限，因此用户可能看不到/无法处理旧待办，但系统也不会自动改派。这是明确的闭环缺口。
 

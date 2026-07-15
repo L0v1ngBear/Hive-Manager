@@ -1,11 +1,8 @@
-import fs from 'node:fs'
-import path from 'node:path'
+import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 
-const root = path.resolve('D:/HiveManager/management-ui')
-
 function read(relativePath) {
-  return fs.readFileSync(path.join(root, relativePath), 'utf8')
+  return readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8')
 }
 
 function assertContains(file, expected, message) {

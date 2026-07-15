@@ -1,11 +1,27 @@
 <template>
   <div class="table-column-settings" ref="rootRef">
-    <button v-if="exportable" type="button" class="column-settings-trigger column-export-trigger" @click="handleExportTable">
+    <button
+      v-if="exportable"
+      type="button"
+      class="column-settings-trigger column-export-trigger"
+      :class="{ 'is-permission-disabled': exportDisabled }"
+      :disabled="exportDisabled"
+      :title="exportDisabledReason && exportDisabled ? exportDisabledReason : '导出当前页'"
+      @click="handleExportTable"
+    >
       <span class="material-symbols-outlined text-[18px]">file_download</span>
       导出当前页
     </button>
 
-    <button v-if="exportAllable" type="button" class="column-settings-trigger column-export-trigger" @click="handleExportAll">
+    <button
+      v-if="exportAllable"
+      type="button"
+      class="column-settings-trigger column-export-trigger"
+      :class="{ 'is-permission-disabled': exportDisabled }"
+      :disabled="exportDisabled"
+      :title="exportDisabledReason && exportDisabled ? exportDisabledReason : '导出全部页'"
+      @click="handleExportAll"
+    >
       <span class="material-symbols-outlined text-[18px]">download_for_offline</span>
       导出全部页
     </button>
@@ -45,7 +61,10 @@
 <script setup>
 import { ElMessage } from 'element-plus'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { exportTableElementToExcel } from '@/utils/tableExport'
+import { exportRowsToExcel, exportTableElementToExcel } from '@/utils/tableExport'
+import { buildStructuredExportData } from '@/utils/structuredTableExport'
+
+const MAX_CURRENT_PAGE_ROWS = 2000
 
 const props = defineProps({
   columns: {
@@ -65,6 +84,22 @@ const props = defineProps({
     default: ''
   },
   exportModule: {
+    type: String,
+    default: ''
+  },
+  exportRows: {
+    type: Array,
+    default: null
+  },
+  exportCell: {
+    type: Function,
+    default: null
+  },
+  exportDisabled: {
+    type: Boolean,
+    default: false
+  },
+  exportDisabledReason: {
     type: String,
     default: ''
   },
@@ -103,7 +138,24 @@ function findExportTable() {
 }
 
 async function handleExportTable() {
+  if (props.exportDisabled) return
   try {
+    if (hasStructuredExport()) {
+      if (props.exportRows.length > MAX_CURRENT_PAGE_ROWS) {
+        throw new Error(`当前页可导出数据不能超过 ${MAX_CURRENT_PAGE_ROWS} 行，请缩小筛选范围或使用全量导出`)
+      }
+      const exportData = buildStructuredExportData(props.columns, props.exportRows, props.exportCell)
+      await exportRowsToExcel({
+        title: props.exportFileName || props.exportSheetName || '列表数据',
+        fileName: props.exportFileName,
+        sheetName: props.exportSheetName,
+        sourceModule: props.exportModule,
+        headers: exportData.headers,
+        rows: exportData.rows
+      })
+      ElMessage.success('Excel 已导出')
+      return
+    }
     await exportTableElementToExcel(findExportTable(), {
       fileName: props.exportFileName,
       sheetName: props.exportSheetName,
@@ -117,7 +169,12 @@ async function handleExportTable() {
   }
 }
 
+function hasStructuredExport() {
+  return Array.isArray(props.exportRows) && typeof props.exportCell === 'function'
+}
+
 function handleExportAll() {
+  if (props.exportDisabled) return
   emit('export-all')
 }
 
@@ -177,6 +234,16 @@ onBeforeUnmount(() => {
   background: #ecfdf5;
   border-color: rgba(22, 101, 52, .34);
   color: #14532d;
+}
+
+.column-settings-trigger.is-permission-disabled,
+.column-settings-trigger.is-permission-disabled:hover {
+  cursor: not-allowed;
+  opacity: 0.5;
+  filter: grayscale(1);
+  background: #f1f5f9;
+  color: #64748b;
+  box-shadow: none;
 }
 
 .column-settings-panel {

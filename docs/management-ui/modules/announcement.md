@@ -9,7 +9,7 @@
 - 服务：`management/src/main/java/my/hive/domain/notification/service/EnterpriseAnnouncementService.java`。
 - 路由：`/function/announcement`、`/function/announcement/publish`。
 - 前端 feature：两条路由均为 `module.dashboard`。
-- 迁移批次：Batch 1；当前状态为 Audit baseline。
+- 迁移批次：Batch 1；当前状态为 Element Plus migrated。
 
 ## 功能
 
@@ -52,28 +52,27 @@
 
 ## 空错态
 
-- 列表明确区分“正在加载公告”和“暂无公告”。
-- 加载失败使用 `ElMessage.error`，但页面没有持久错误块或重试说明。
-- 切换等级前不会清空旧公告；请求失败后，新标签可能继续显示上一等级的数据。
+- 列表按 loading、请求失败、真实空数据和公告数据四态互斥渲染。
+- 请求失败时清空旧公告，使用持久 `ElAlert` 显示错误，并提供重新加载命令。
 - 发布按钮有 `publishing` 禁用和文案变化。
 - 发布失败保留表单内容并提示；没有离开页面时的未保存确认。
 - 接收人为空时显示“当前暂无可统计人员”。
 
 ## 控件现状
 
-- 页面布局、等级 tabs、公告卡、接收人列表和按钮均为原生元素。
-- 发布页使用原生 `select`、`input`、`textarea` 和按钮。
-- 反馈使用 `ElMessage`；当前没有 Element Plus 表单、标签、空态或加载组件。
+- 页面布局、公告卡和接收人列表保留领域布局；命令与等级切换使用 `ElButton`。
+- 发布页使用 `ElForm`、`ElSelect`、`ElOption`、`ElInput` 和 `ElButton`。
+- 列表使用 `ElSkeleton`、`ElAlert`、`ElEmpty` 和 `ElTag`；命令反馈继续使用 `ElMessage`。
 - 公告列表是双列卡片，不是传统表格。
 - 已读人员区域使用限定高度的自定义滚动列表。
 
 ## Element Plus 对照/保留项
 
-- 等级筛选可使用 `ElSegmented` 或 `ElRadioGroup`，值仍为 `all/normal/urgent/important`。
+- 等级筛选使用 `ElButton`，值仍为 `all/normal/urgent/important`。
 - 等级和阅读状态使用 `ElTag`，保持现有紧急/重要/普通语义颜色。
 - 发布表单使用 `ElForm`、`ElSelect`、`ElInput` 和 textarea 模式。
 - 命令使用 `ElButton`，发布按钮保留真实 loading 和权限禁用原因。
-- 加载、空态、错误分别使用 `v-loading`、`ElEmpty`、`ElAlert`，不得互相替代。
+- 加载、空态、错误分别使用 `ElSkeleton`、`ElEmpty`、`ElAlert`，不得互相替代。
 - 保留公告卡与接收人阅读明细的领域布局，不强行改造成 `ElTable`。
 - 保留正文换行、长文本滚动、接收人字段和 `limit/levels` 查询契约。
 
@@ -81,7 +80,7 @@
 
 - 路由允许集合比后端公告权限宽，是已确认的权限不一致。
 - 前端 feature 与后端 feature 保护不一致；直接 API 调用不依赖 `module.dashboard`。
-- 等级切换失败会把上一筛选结果显示在新选中等级下。
+- 等级筛选使用递增 request id 隔离状态写入；旧请求仍会完成网络调用，但不能覆盖当前筛选的公告、错误或 loading。
 - 公告阅读明细包含员工姓名、部门、岗位和阅读状态，`list` 权限具有组织行为可见性。
 - 发布页虽有长度限制，迁移到 `ElInput` 时仍须保留 trim、maxlength 和换行载荷。
 - 发布成功立即跳转；重复请求保护仅依赖单页 `publishing`，刷新/多标签页没有幂等键。

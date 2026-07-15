@@ -1,6 +1,6 @@
 # 客户管理维护档案
 
-> 当前状态：Audit baseline；Element Plus 改造归 Batch 1。
+> 当前状态：Element Plus 已迁移（Task 3）；改造批次：Batch 1。
 
 ## 源码 / 路由 / 改造批次
 
@@ -8,7 +8,7 @@
 - 新建/编辑抽屉：management-ui/src/views/function/customer/customerCreate.vue。
 - 前端 API：management-ui/src/views/function/customer/api/customer.js。
 - 动态字段：useTenantFieldConfig、tenantFieldConfig 工具及共享租户字段配置 API。
-- 直接依赖：TableColumnSettings、DateFilterInput、useLocalTableColumns。
+- 直接依赖：TableColumnSettings、useLocalTableColumns、Element Plus 表格/分页/弹窗/抽屉组件。
 - 路由：/function/customer，名称 Customer，标题“客户管理”。
 - 路由门槛：permissions = [customer:page]，features = [module.customer]。
 - 后端入口：CustomerController，类级 feature 为 CODE_CUSTOMER。
@@ -44,11 +44,11 @@
 - 页面和侧栏入口检查 module.customer 与 customer:page。
 - 分页与客户选项后端要求 customer:page。
 - 详情后端要求 customer:detail。
-- 新建后端要求 customer:add。
+- 新建后端要求 `customer:create`。
 - 更新后端要求 customer:update。
-- 当前列表页和 CustomerCreateDrawer 未使用 useUserStore 或 v-permission。
-- 新建、详情和编辑入口因此不会按上述细粒度权限预先隐藏或禁用。
-- 控件迁移必须保留后端权限边界，并为每个命令补齐一致的禁用/说明状态。
+- 列表页和 CustomerCreateDrawer 使用 useUserStore 检查上述细粒度权限。
+- 新建、详情、编辑和当前页导出命令保持可见；权限不足时置灰、禁用鼠标并通过 title 说明原因。
+- TableColumnSettings 的导出按钮检查 table:export；后端权限仍是最终边界。
 
 ## 关键状态 / 数据流
 
@@ -58,45 +58,43 @@
 - customerFieldConfig 决定字段标签、显示与必填规则。
 - 列表只为 customerName、customerType、contactName、contactPhone、projectName、projectOwner、projectCount、constructionArea 提供渲染器。
 - useLocalTableColumns 将动态默认列与浏览器保存顺序合并。
-- 打开详情后通过 getCustomerDetail 写入 detailData。
+- 打开详情后通过带请求序号的 latest-request runner 调用 getCustomerDetail，仅提交当前客户的响应；关闭弹窗会使在途请求失效。
 - 新建成功关闭/复位抽屉并刷新列表；编辑成功同样刷新。
 - 编辑抽屉 watch visible/customerId，按模式重置表单或加载详情。
 - 提交 payload 保持 contacts 与 projects 数组结构；更新模式携带客户 id。
 
 ## 加载 / 空态 / 错误态
 
-- loading 控制列表加载层、分页禁用和空态判定。
+- loading 控制 ElTable 的 v-loading、分页禁用和空态判定。
 - 非加载且 customerList 为空时显示表格空态。
-- detailLoading、loadingDetail 与 submitting 分别覆盖详情、编辑回填和提交过程。
-- 通用请求错误由 request 拦截器显示 ElMessage；页面没有持久错误/重试面板。
-- 详情、字段配置和列表分别维护自己的异步流程，迁移时不得合并成会互相覆盖的单一 loading。
+- detailLoading、detailError、detailEmpty、loadingDetail 与 submitting 分别覆盖详情加载、错误、真实空响应、编辑回填和提交过程。
+- 列表请求开始即清空旧数据；401/403、网络错误和 5xx 分别形成持久错误面板，并提供重试。
+- 权限/请求失败、加载、真实空列表和筛选无结果按互斥分支展示。
+- 列表和详情分别使用独立请求序号，旧筛选或旧客户响应不会覆盖最新状态；详情关闭后旧响应也不会重新写入。
+- 详情对 HTTP/业务 401、403、网络错误和 5xx 显示互斥持久错误面板并提供重试；空响应显示独立真实空态。
 
-## 当前原生 / 自定义控件
+## 当前 Element Plus / 自定义控件
 
-- 原生：button、input、select、table、手写上一页/下一页。
-- 自定义：列表加载层、详情弹层、CustomerCreateDrawer、联系人/项目重复表单。
-- 共享自定义：TableColumnSettings、DateFilterInput。
-- 已用 Element Plus：ElMessage；表单和弹层主体仍为原生/手写。
+- Element Plus：ElInput、ElSelect/ElOption、ElDatePicker、ElButton、ElTable/ElTableColumn、ElPagination、ElEmpty、ElDialog 和 ElMessage。
+- CustomerCreateDrawer 内使用 ElDrawer、ElForm/ElFormItem、ElInput、ElSelect/ElOption 和 ElButton。
+- 自定义：CustomerCreateDrawer 内的联系人/项目重复表单。
+- 共享自定义：TableColumnSettings；日期筛选直接使用 ElDatePicker。
 
-## Element Plus 对照与明确保留项
+## Element Plus 实现与明确保留项
 
-- 搜索与文本字段 → ElInput；客户类型 → ElSelect/ElOption。
-- 日期范围 → ElDatePicker，并显式保持现有 createStart/createEnd 字符串格式。
-- 列表/分页/空态/加载 → ElTable、ElPagination、ElEmpty、v-loading。
-- 详情弹层 → ElDialog；新建/编辑 → ElDrawer。
-- 命令按钮 → ElButton；提交 loading 和 disabled 规则保持。
+- 搜索与文本字段使用 ElInput；客户类型使用 ElSelect/ElOption。
+- 日期范围使用 ElDatePicker，并通过 value-format 保持 createStart/createEnd 的 YYYY-MM-DD 字符串格式。
+- 列表、分页、空态和加载使用 ElTable、ElPagination、ElEmpty 与 v-loading。
+- 详情使用 ElDialog；新建/编辑使用 ElDrawer。
+- 命令使用 ElButton；提交 loading 和 disabled 规则保持。
 - 明确保留：租户字段配置驱动的 visible、label、required。
-- 明确保留：动态列本地顺序、TableColumnSettings 与导出绑定。
+- 明确保留：动态列本地顺序、TableColumnSettings，以及按当前动态列映射 customerList 的结构化当前页导出。
 - 明确保留：contacts/projects 数组、编辑回填和成功刷新时序。
 - 明确保留：路由 keyword/q 驱动的筛选行为。
 
 ## 已发现风险
 
-- 路由只要求 customer:page，但详情、新建、编辑按钮没有 customer:detail/add/update 的前端权限门槛。
-- 仅有 customer:page 的用户可看到命令，实际请求会由后端 403 拒绝。
-- TableColumnSettings 未检查 table:export；客户页导出能力可能与角色中的 table:export 授权不一致。
 - 租户字段配置若增加不在 customerColumnRenderers 集合中的字段，该字段不会出现在列表列中。
-- 列表请求失败没有持久错误态；若旧 customerList 未清空，可能继续展示旧筛选结果。
 - 动态字段配置、列表与编辑抽屉分别加载配置，改造时存在标签/必填规则短暂不一致的风险。
 
 ## 验证清单

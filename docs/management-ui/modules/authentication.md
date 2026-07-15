@@ -1,6 +1,6 @@
 # 认证与入口维护档案
 
-> 状态：Audit baseline；迁移批次：Batch 2；范围：登录、加入组织、强制改密、法律页、拒绝页、会话 store 与路由守卫。
+> 状态：Task 8 Element Plus migrated；迁移批次：Batch 2；范围：登录、加入组织、强制改密、法律页、拒绝页、会话 store 与路由守卫。
 
 ## 功能
 
@@ -81,21 +81,14 @@
 - 强制改密与加入组织各自维护表单反馈；统一请求层负责通用网络/会话错误。
 - 法律页不依赖业务接口，内容类型由当前路由决定。
 
-## 控件和样式现状
+## Element Plus 控件与保留项
 
-- 入口页主要使用原生 form/input/button、Tailwind 类和 scoped CSS。
-- Login 包含本地 SVG/动效视觉、Material Symbols 和手写 loading 状态。
-- NoPermission 使用简单页面动作，不是 Element Plus Result。
-- LegalPage 使用共享站点配置和 RouterLink，隐私/条款复用同一布局。
-- 认证页没有通过全量 Element Plus 插件获得组件，消息服务按需导入。
-
-## Element Plus 接入/替换建议
-
-- 登录、加入组织和改密表单可迁移 `ElForm`、`ElInput`、`ElButton`，保留现有 payload 与提交锁。
-- 密码字段迁移时保留浏览器 autocomplete 语义、可见性切换和键盘提交。
-- NoPermission 可使用 `ElResult`，但来源返回和平台租户规则不能改变。
-- 表单错误优先落到字段级，再保留统一网络错误消息。
-- 入口页视觉属于品牌表面，标准控件迁移不应移除现有首屏身份识别和响应式布局。
+- 登录、重置密码、加入组织和强制改密使用显式导入的 `ElForm`、`ElFormItem`、`ElInput`、`ElButton`。
+- 记住账号使用 `ElCheckbox`，重置密码使用 `ElDialog`，按钮 loading 继续绑定原提交锁。
+- 密码字段保留浏览器 `autocomplete`、键盘提交和现有前端校验；NoPermission 的返回事件仅替换为 `ElButton`。
+- 登录 payload、响应解包/加密链、`saveLoginMemory`、扫码会话轮询、加入组织和初始密码 API 均未改变。
+- 登录 redirect 继续通过 `normalizeLoginRedirect` 归一化，会话仍只写 `sessionStorage`。
+- 登录品牌视觉、本地 SVG 动效、Material Symbols 和响应式布局保留。
 
 ## 风险
 

@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.5 seconds
+Output:
 <template>
   <div class="function-page-shell h-full min-h-0 relative">
     <div class="function-page-container space-y-6">
@@ -11,47 +14,47 @@
           <p class="function-page-desc">管理员工记录、入职及人事状态，联动组织架构和角色权限。</p>
         </div>
         <div class="flex gap-3">
-          <button
+          <el-button
               @click="openOrganizationDrawer"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">account_tree</span>组织架构
-          </button>
-          <button
+          </el-button>
+          <el-button
               v-permission="'employee:create'"
               @click="handleCreateJoinCode"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">vpn_key</span>组织码
-          </button>
-          <button
+          </el-button>
+          <el-button
               v-permission="'employee:export'"
               @click="handleTemplateDownload"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">description</span>导入模板
-          </button>
-          <button
+          </el-button>
+          <el-button
               v-permission="'employee:create'"
               @click="triggerImport"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">file_upload</span>导入员工
-          </button>
-          <button
+          </el-button>
+          <el-button
               v-permission="'employee:export'"
               @click="handleExport"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
             <span class="material-symbols-outlined text-[20px]">download</span>导出 Excel
-          </button>
-          <button
+          </el-button>
+          <el-button
               v-permission="'employee:create'"
               @click="openCreateDrawer"
               class="px-5 py-2 bg-primary text-white font-bold rounded-lg flex items-center gap-2 shadow-md hover:bg-primary/90 transition-all text-sm active:scale-95"
           >
             <span class="material-symbols-outlined text-[20px]">person_add</span>添加员工
-          </button>
+          </el-button>
         </div>
       </div>
 
@@ -98,69 +101,71 @@
         <div class="p-4 bg-surface-container-low flex flex-wrap items-center gap-4 border-b border-surface-variant/50">
           <div class="flex-1 min-w-[300px] relative">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-            <input
+            <el-input
                 v-model.trim="query.keyword"
                 @keyup.enter="fetchEmployees"
-                type="text"
                 class="w-full pl-10 pr-4 py-2 bg-white border-none ring-1 ring-outline-variant/30 focus:ring-2 focus:ring-primary rounded-lg text-sm transition-all"
                 placeholder="按姓名、电话或工号搜索"
             />
           </div>
           <div class="flex items-center gap-3 flex-wrap">
-            <select
+            <el-select
                 v-model="query.departmentId"
                 @change="handleFilterChange"
                 class="pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary min-w-[160px] font-medium appearance-none"
+                placeholder="所有部门"
             >
-              <option value="">所有部门</option>
-              <option v-for="department in departments" :key="department.id" :value="department.id">
-                {{ department.name }}
-              </option>
-            </select>
-            <select
+              <el-option label="所有部门" value="" />
+              <el-option v-for="department in departments" :key="department.id" :label="department.name" :value="department.id" />
+            </el-select>
+            <el-select
                 v-model="query.status"
                 @change="handleFilterChange"
                 class="pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary min-w-[160px] font-medium appearance-none"
+                placeholder="所有状态"
             >
-              <option value="">所有状态</option>
-              <option v-for="status in statusOptions" :key="status.value" :value="status.value">
-                {{ status.label }}
-              </option>
-            </select>
-            <select
+              <el-option label="所有状态" value="" />
+              <el-option v-for="status in statusOptions" :key="status.value" :label="status.label" :value="status.value" />
+            </el-select>
+            <el-select
                 v-model="query.employeeType"
                 @change="handleFilterChange"
                 class="pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary min-w-[150px] font-medium appearance-none"
+                placeholder="所有用工类型"
             >
-              <option value="">所有用工类型</option>
-              <option value="FULL_TIME">全职</option>
-              <option value="PROBATION">试用期</option>
-              <option value="CONTRACT">合同工</option>
-            </select>
-            <DateFilterInput
+              <el-option label="所有用工类型" value="" />
+              <el-option label="全职" value="FULL_TIME" />
+              <el-option label="试用期" value="PROBATION" />
+              <el-option label="合同工" value="CONTRACT" />
+            </el-select>
+            <el-date-picker
                 v-model="query.entryDateStart"
                 placeholder="入职开始"
+                type="date"
+                value-format="YYYY-MM-DD"
                 class="px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
                 @change="handleFilterChange"
             />
-            <DateFilterInput
+            <el-date-picker
                 v-model="query.entryDateEnd"
                 placeholder="入职结束"
+                type="date"
+                value-format="YYYY-MM-DD"
                 class="px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
                 @change="handleFilterChange"
             />
-            <button
+            <el-button
                 @click="fetchEmployees"
                 class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors"
             >
               查询
-            </button>
-            <button
+            </el-button>
+            <el-button
                 @click="resetFilter"
                 class="px-4 py-2 bg-surface-container-highest text-on-surface rounded-lg text-sm font-bold"
             >
               重置
-            </button>
+            </el-button>
             <TableColumnSettings
                 :columns="visibleEmployeeColumns"
                 :exportable="false"
@@ -171,119 +176,66 @@
         </div>
 
         <div class="employee-table-wrap responsive-table-wrap relative min-h-[240px]">
-          <div v-if="loading" class="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
-            <span class="material-symbols-outlined text-3xl text-primary animate-spin">progress_activity</span>
+          <div v-if="listError" class="flex min-h-[240px] flex-col items-center justify-center gap-3 px-6 text-center">
+            <span class="material-symbols-outlined text-4xl text-on-surface-variant">
+              {{ listError.type === 'permission' ? 'lock' : 'cloud_off' }}
+            </span>
+            <h3 class="text-base font-black text-primary">{{ listError.title }}</h3>
+            <p class="max-w-lg text-sm text-on-surface-variant">{{ listError.message }}</p>
+            <el-button type="primary" @click="fetchEmployees">重新加载</el-button>
           </div>
-
-          <table class="employee-table responsive-data-table w-full text-left border-collapse">
-            <colgroup>
-              <col v-for="field in visibleEmployeeColumns" :key="field.key" :style="employeeColumnStyle(field.key)" />
-              <col style="width: 124px" />
-            </colgroup>
-            <thead>
-            <tr class="bg-surface-container/30 text-on-surface-variant border-b border-surface-variant/50">
-              <th
-                  v-for="field in visibleEmployeeColumns"
-                  :key="field.key"
-                  class="px-3 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap"
-              >
-                {{ field.label }}
-              </th>
-              <th class="px-3 py-3 text-xs font-bold uppercase tracking-wider text-center whitespace-nowrap">操作</th>
-            </tr>
-            </thead>
-            <tbody class="divide-y divide-surface-variant/50">
-            <tr v-for="emp in employees" :key="emp.id" class="cursor-pointer hover:bg-surface-container-high/50 transition-colors group" @click="showEmployeeDetail(emp.id)">
-              <td
-                  v-for="field in visibleEmployeeColumns"
-                  :key="field.key"
-                  :data-label="field.label"
-                  :class="employeeCellClass(field.key)"
-              >
-                <template v-if="field.key === 'name'">
-                <div>
-                  <p class="font-bold text-primary leading-none whitespace-nowrap">{{ emp.name }}</p>
-                  <p v-if="isEmployeeFieldVisible('employeeType')" class="text-[10px] text-on-surface-variant uppercase mt-1">{{ formatEmployeeType(emp.employeeType) }}</p>
-                </div>
-                </template>
-                <template v-else-if="field.key === 'departmentName'">
-                  <span :class="`inline-block max-w-full truncate px-2 py-0.5 rounded text-[11px] font-bold border ${departmentBadge(emp.departmentName)}`">
-                    {{ emp.departmentName || '--' }}
-                  </span>
-                </template>
-                <template v-else-if="field.key === 'attendanceRequired'">
-                  <span
-                      class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-black"
-                      :class="Number(emp.attendanceRequired ?? 1) === 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+          <el-table
+              v-else
+              v-loading="loading"
+              :data="employees"
+              class="w-full"
+              @row-click="handleEmployeeRowClick"
+          >
+            <el-table-column
+                v-for="field in visibleEmployeeColumns"
+                :key="field.key"
+                :label="field.label"
+                :min-width="employeeColumnWidths[field.key] || '104'"
+            >
+              <template #default="{ row: employee }">
+                <span v-if="field.key === 'status'">{{ statusMeta(employee.status).label }}</span>
+                <span v-else-if="field.key === 'departmentName'">{{ employee.departmentName || '--' }}</span>
+                <div v-else-if="field.key === 'name'">
+                  <p class="font-bold text-primary leading-none whitespace-nowrap">{{ employee.name }}</p>
+                  <p
+                      v-if="isEmployeeFieldVisible('employeeType')"
+                      class="text-[10px] text-on-surface-variant uppercase mt-1"
                   >
-                    {{ Number(emp.attendanceRequired ?? 1) === 1 ? '需要打卡' : '免打卡' }}
-                  </span>
-                </template>
-                <template v-else-if="field.key === 'attendanceLocationNames'">
-                  <span class="employee-cell-text">
-                    {{ Array.isArray(emp.attendanceLocationNames) && emp.attendanceLocationNames.length ? emp.attendanceLocationNames.join('、') : '全部地点' }}
-                  </span>
-                </template>
-                <template v-else-if="field.key === 'status'">
-                  <div :class="`flex items-center gap-1.5 font-bold text-xs ${statusMeta(emp.status).text}`">
-                    <span :class="`w-1.5 h-1.5 rounded-full ${statusMeta(emp.status).dot}`"></span>
-                    {{ statusMeta(emp.status).label }}
-                  </div>
-                </template>
-                <template v-else>
-                  <span class="employee-cell-text">{{ employeeColumnText(emp, field.key) }}</span>
-                </template>
-              </td>
-              <td class="px-3 py-3 text-center" data-label="操作">
-                <div class="flex justify-center gap-1 opacity-100">
-                  <button @click.stop="showEmployeeDetail(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="查看">
-                    <span class="material-symbols-outlined text-[18px]">visibility</span>
-                  </button>
-                  <button v-permission="'employee:update'" @click.stop="openEditDrawer(emp.id)" class="p-1.5 hover:bg-white rounded-md text-primary" title="编辑">
-                    <span class="material-symbols-outlined text-[18px]">edit</span>
-                  </button>
-                  <button v-permission="'employee:permission:manage'" @click.stop="openPermissionDrawer(emp)" class="p-1.5 hover:bg-white rounded-md text-primary" title="单独权限">
-                    <span class="material-symbols-outlined text-[18px]">admin_panel_settings</span>
-                  </button>
+                    {{ formatEmployeeType(employee.employeeType) }}
+                  </p>
                 </div>
-              </td>
-            </tr>
-            <tr v-if="!loading && employees.length === 0">
-              <td :colspan="employeeTableColumnCount" class="px-6 py-12 text-center text-sm text-on-surface-variant">未找到员工记录。</td>
-            </tr>
-            </tbody>
-          </table>
+                <span v-else>{{ employeeColumnText(employee, field.key) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="124" align="center" fixed="right">
+              <template #default="{ row: employee }">
+                <el-button :disabled="!canViewEmployeeDetail" :title="detailPermissionTitle" text type="primary" @click.stop="showEmployeeDetail(employee.id)">查看</el-button>
+                <el-button :disabled="!canEditEmployee" :title="editPermissionTitle" text type="primary" @click.stop="openEditDrawer(employee.id)">编辑</el-button>
+                <el-button :disabled="!canManageEmployeePermissions" :title="permissionManagementTitle" text type="primary" @click.stop="openPermissionDrawer(employee)">权限</el-button>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty v-if="!loading" description="暂无员工记录" />
+            </template>
+          </el-table>
+
         </div>
 
         <div class="p-4 bg-surface-container/20 flex flex-wrap items-center justify-between gap-4 text-sm text-on-surface-variant border-t border-surface-variant/50">
-          <div class="flex items-center gap-2">
-            <span>每页行数</span>
-            <select v-model="query.size" @change="handlePageSizeChange" class="bg-white border border-surface-variant/50 rounded-md py-1 px-2 text-xs focus:outline-none">
-              <option :value="10">10</option>
-              <option :value="25">25</option>
-              <option :value="50">50</option>
-            </select>
-          </div>
-          <div class="flex items-center gap-4">
-            <p class="hidden sm:block">显示第 {{ pageStart }}-{{ pageEnd }} 条，共 {{ pagination.total }} 条</p>
-            <div class="flex gap-1">
-              <button
-                  @click="changePage(query.page - 1)"
-                  :disabled="query.page <= 1"
-                  class="w-8 h-8 flex items-center justify-center rounded bg-white border border-surface-variant/50 disabled:opacity-50 hover:bg-slate-50 transition-colors"
-              >
-                <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-              </button>
-              <button class="min-w-8 h-8 px-2 flex items-center justify-center rounded bg-primary text-white font-bold">{{ query.page }}</button>
-              <button
-                  @click="changePage(query.page + 1)"
-                  :disabled="query.page >= totalPages"
-                  class="w-8 h-8 flex items-center justify-center rounded bg-white border border-surface-variant/50 disabled:opacity-50 hover:bg-slate-50 transition-colors"
-              >
-                <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-              </button>
-            </div>
-          </div>
+          <el-pagination
+              v-model:current-page="query.page"
+              v-model:page-size="query.size"
+              :page-sizes="[10, 25, 50]"
+              :total="pagination.total"
+              layout="total, sizes, prev, pager, next"
+              @current-change="changePage"
+              @size-change="handlePageSizeChange"
+          />
         </div>
       </div>
     </div>
@@ -309,9 +261,9 @@
             <h3 class="text-xl font-black text-primary">组织架构</h3>
             <p class="mt-1 text-sm text-on-surface-variant">根据员工展示上下级汇报关系，仅用于查看。</p>
           </div>
-          <button class="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high hover:text-primary" @click="closeOrganizationDrawer">
+          <el-button text circle class="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high hover:text-primary" @click="closeOrganizationDrawer">
             <span class="material-symbols-outlined">close</span>
-          </button>
+          </el-button>
         </div>
         <div class="flex-1 overflow-y-auto bg-surface p-6">
           <div class="mb-5 grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -336,6 +288,12 @@
           <div class="org-tree-panel">
             <div v-if="organizationLoading" class="flex min-h-[360px] items-center justify-center text-primary">
               <span class="material-symbols-outlined animate-spin text-4xl">progress_activity</span>
+            </div>
+            <div v-else-if="organizationError" class="flex min-h-[360px] flex-col items-center justify-center gap-3 text-center">
+              <span class="material-symbols-outlined text-5xl text-primary">{{ organizationError.type === 'permission' ? 'lock' : 'cloud_off' }}</span>
+              <p class="text-sm font-bold text-on-surface">{{ organizationError.title }}</p>
+              <p class="text-xs text-on-surface-variant">{{ organizationError.message }}</p>
+              <el-button type="primary" @click="fetchOrganizationTree">重新加载</el-button>
             </div>
             <div v-else-if="employeeHierarchy.length" class="org-chart-wrap">
               <Vue3TreeOrg
@@ -383,8 +341,22 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ElButton,
+  ElDatePicker,
+  ElEmpty,
+  ElInput,
+  ElMessage,
+  ElMessageBox,
+  ElOption,
+  ElPagination,
+  ElSelect,
+  ElTable,
+  ElTableColumn
+} from 'element-plus'
 import { useRoute } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { createLatestRequest } from '@/utils/latestRequest'
 import { Vue3TreeOrg } from 'vue3-tree-org'
 import 'vue3-tree-org/lib/vue3-tree-org.css'
 import { getCurrentTenantFieldConfig } from '@/api/tenantFieldConfig'
@@ -396,11 +368,10 @@ import {
   visibleTenantFields
 } from '@/utils/tenantFieldConfig'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
-import DateFilterInput from '@/components/DateFilterInput.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import EmployeeCreate from './employeeCreate.vue'
 import EmployeePermissionDrawer from './EmployeePermissionDrawer.vue'
-import { buildEmployeeHierarchy, buildOrganizationChart } from './employeeOrganization.js'
+import { buildEmployeeHierarchy, buildOrganizationChart as buildEmployeeOrganizationChart } from './employeeOrganization.js'
 import {
   downloadEmployeeImportTemplate,
   createOrganizationJoinCode,
@@ -415,14 +386,19 @@ import {
 defineOptions({ name: 'EmployeeManagement' })
 
 const route = useRoute()
+const userStore = useUserStore()
+const employeeListRequest = createLatestRequest()
+const organizationRequest = createLatestRequest()
 // --- 状态定义 ---
 const isDrawerOpen = ref(false)
 const editingEmployeeId = ref(null)
 const permissionDrawerRef = ref(null)
 const importInputRef = ref(null)
 const loading = ref(false)
+const listError = ref(null)
 const isOrganizationDrawerOpen = ref(false)
 const organizationLoading = ref(false)
+const organizationError = ref(null)
 const organizationEmployees = ref([])
 const employees = ref([])
 const departments = ref([])
@@ -438,6 +414,12 @@ const pagination = reactive({
   total: 0,
   pages: 0
 })
+const canViewEmployeeDetail = computed(() => userStore.hasPermission('employee:detail'))
+const canEditEmployee = computed(() => userStore.hasPermission('employee:update') && canViewEmployeeDetail.value)
+const canManageEmployeePermissions = computed(() => userStore.hasPermission('employee:permission:manage'))
+const detailPermissionTitle = computed(() => canViewEmployeeDetail.value ? '查看员工详情' : '需要员工详情权限')
+const editPermissionTitle = computed(() => canEditEmployee.value ? '编辑员工' : '需要员工编辑和详情权限')
+const permissionManagementTitle = computed(() => canManageEmployeePermissions.value ? '配置员工单独权限' : '需要员工编辑和角色权限查看权限')
 const query = reactive({
   page: 1,
   size: 10,
@@ -451,16 +433,13 @@ const query = reactive({
 
 // --- 计算属性 ---
 const totalPages = computed(() => Math.max(pagination.pages || 1, 1))
-const pageStart = computed(() => (pagination.total === 0 ? 0 : (query.page - 1) * query.size + 1))
-const pageEnd = computed(() => Math.min(query.page * query.size, pagination.total || 0))
-const employeeColumnRenderers = new Set(['name', 'empNo', 'departmentName', 'positionName', 'phone', 'email', 'leaderName', 'entryDate', 'attendanceRequired', 'attendanceLocationNames', 'status'])
+const employeeColumnRenderers = new Set(['name', 'empNo', 'departmentName', 'positionName', 'phone', 'email', 'leaderName', 'entryDate', 'employeeType', 'attendanceRequired', 'attendanceLocationNames', 'status'])
 const defaultEmployeeColumns = computed(() => visibleTenantFields(employeeFieldConfig.value, 'name').filter((field) => employeeColumnRenderers.has(field.key)))
 const {
   orderedColumns: visibleEmployeeColumns,
   moveColumn: moveEmployeeTableColumn,
   resetColumns: resetEmployeeTableColumns
 } = useLocalTableColumns('employee.list', defaultEmployeeColumns)
-const employeeTableColumnCount = computed(() => visibleEmployeeColumns.value.length + 1)
 const employeeColumnWidths = {
   name: '140px',
   empNo: '92px',
@@ -470,6 +449,7 @@ const employeeColumnWidths = {
   email: '150px',
   leaderName: '112px',
   entryDate: '106px',
+  employeeType: '96px',
   attendanceRequired: '96px',
   attendanceLocationNames: '140px',
   status: '82px'
@@ -478,7 +458,7 @@ const employeeColumnWidths = {
 // 核心逻辑：构建层级结构
 const employeeHierarchy = computed(() => buildEmployeeHierarchy(organizationEmployees.value))
 
-const organizationChart = computed(() => buildOrganizationChart(employeeHierarchy.value))
+const organizationChart = computed(() => buildEmployeeOrganizationChart(employeeHierarchy.value))
 const orgChartData = computed(() => organizationChart.value.data)
 const organizationTopLevelCount = computed(() => organizationChart.value.topLevelCount)
 const unassignedEmployeeCount = computed(() => organizationChart.value.unassignedCount)
@@ -497,15 +477,45 @@ const fetchEmployeeFieldConfig = async () => {
   }
 }
 
+const resolveListError = (error) => {
+  const status = Number(error?.response?.status ?? error?.status ?? error?.code ?? 0)
+  if (status === 401 || status === 403) {
+    return {
+      type: 'permission',
+      title: status === 401 ? '登录状态已失效' : '暂无员工列表权限',
+      message: status === 401 ? '请重新登录后查看员工列表。' : '请联系管理员分配员工列表权限后重试。'
+    }
+  }
+  return {
+    type: 'request',
+    title: status >= 500 ? '员工服务暂时不可用' : '网络连接异常',
+    message: status >= 500 ? '服务处理失败，请稍后重新加载。' : '请检查网络连接后重新加载员工列表。'
+  }
+}
+
 const fetchEmployees = async () => {
+  const request = employeeListRequest.begin()
   loading.value = true
+  listError.value = null
+  employees.value = []
+  pagination.total = 0
+  pagination.pages = 0
   try {
     const data = await getEmployeePage(normalizeQuery())
-    employees.value = data.data || []
-    pagination.total = Number(data.total || 0)
-    pagination.pages = Number(data.pages || 0)
+    request.commit(() => {
+      employees.value = data.data || []
+      pagination.total = Number(data.total || 0)
+      pagination.pages = Number(data.pages || 0)
+    })
+  } catch (error) {
+    request.commit(() => {
+      employees.value = []
+      pagination.total = 0
+      pagination.pages = 0
+      listError.value = resolveListError(error)
+    })
   } finally {
-    loading.value = false
+    request.commit(() => { loading.value = false })
   }
 }
 
@@ -572,23 +582,12 @@ const employeeColumnText = (emp, key) => {
   return emp[key] || '--'
 }
 
-const employeeCellClass = (key) => {
-  const base = 'px-3 py-3 text-sm whitespace-nowrap overflow-hidden text-ellipsis'
-  if (key === 'empNo') return `${base} font-mono text-sm text-secondary`
-  if (key === 'positionName') return `${base} text-sm font-bold text-primary`
-  if (key === 'entryDate') return `${base} text-sm text-on-surface-variant font-medium`
-  return base
-}
-
-const employeeColumnStyle = (key) => ({
-  width: employeeColumnWidths[key] || '104px'
-})
-
 const employeeDetailLines = (detail) => visibleEmployeeColumns.value
     .filter((field) => field.key !== 'name')
     .map((field) => `${field.label}: ${field.key === 'status' ? statusMeta(detail.status).label : employeeColumnText(detail, field.key)}`)
 
 const showEmployeeDetail = async (id) => {
+  if (!canViewEmployeeDetail.value) return
   const detail = await getEmployeeDetail(id)
   const detailLines = employeeDetailLines(detail)
   ElMessageBox.alert(
@@ -598,17 +597,23 @@ const showEmployeeDetail = async (id) => {
   )
 }
 
+const handleEmployeeRowClick = (employee) => {
+  if (canViewEmployeeDetail.value) showEmployeeDetail(employee.id)
+}
+
 const openCreateDrawer = () => {
   editingEmployeeId.value = null
   isDrawerOpen.value = true
 }
 
 const openEditDrawer = (id) => {
+  if (!canEditEmployee.value) return
   editingEmployeeId.value = id
   isDrawerOpen.value = true
 }
 
 const openPermissionDrawer = (employee) => {
+  if (!canManageEmployeePermissions.value) return
   permissionDrawerRef.value?.open(employee)
 }
 
@@ -627,13 +632,18 @@ const closeOrganizationDrawer = async () => {
 }
 
 const fetchOrganizationTree = async () => {
+  const request = organizationRequest.begin()
   organizationLoading.value = true
+  organizationError.value = null
+  organizationEmployees.value = []
   try {
     // 获取全部员工用于构建树
     const data = await getEmployeePage({ page: 1, size: 2000 })
-    organizationEmployees.value = data.data || []
+    request.commit(() => { organizationEmployees.value = data.data || [] })
+  } catch (error) {
+    request.commit(() => { organizationError.value = resolveListError(error) })
   } finally {
-    organizationLoading.value = false
+    request.commit(() => { organizationLoading.value = false })
   }
 }
 
@@ -712,17 +722,6 @@ const normalizeQuery = () => ({
 
 const formatPercent = (value) => `${Number(value || 0).toFixed(2)}%`
 const formatEmployeeType = (value) => ({ FULL_TIME: '全职', CONTRACT: '合同工', PROBATION: '试用期' }[value] || value || '--')
-
-const departmentBadge = (name) => {
-  const palettes = [
-    'bg-blue-50 text-blue-700 border-blue-200',
-    'bg-amber-50 text-amber-700 border-amber-200',
-    'bg-emerald-50 text-emerald-700 border-emerald-200',
-    'bg-slate-100 text-slate-700 border-slate-200'
-  ]
-  const index = Math.abs((name || '').split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0)) % palettes.length
-  return palettes[index]
-}
 
 const statusMeta = (status) => {
   const s = Number(status)

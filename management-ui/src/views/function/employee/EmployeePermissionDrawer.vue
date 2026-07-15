@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.4 seconds
+Output:
 <template>
   <transition
       enter-active-class="transition-opacity duration-300"
@@ -26,28 +29,37 @@
             {{ currentEmployee?.name || '--' }} 的个人权限仅影响本人，不修改所属角色。
           </p>
         </div>
-        <button
+        <el-button
             type="button"
             class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary"
             title="关闭"
             @click="close"
         >
           <span class="material-symbols-outlined">close</span>
-        </button>
+        </el-button>
       </div>
     </header>
 
     <div class="flex-1 overflow-y-auto border-t border-outline-variant/20">
-      <div v-if="loading" class="flex min-h-[360px] items-center justify-center text-primary">
+      <div v-if="permissionState.kind === 'loading'" class="flex min-h-[360px] items-center justify-center text-primary">
         <span class="material-symbols-outlined animate-spin text-4xl">progress_activity</span>
       </div>
+      <div v-else-if="permissionState.kind === 'forbidden'" class="flex min-h-[360px] flex-col items-center justify-center gap-3 text-center">
+        <span class="material-symbols-outlined text-5xl text-primary">lock</span>
+        <p class="font-bold text-on-surface">{{ permissionState.title }}</p>
+        <p class="text-sm text-on-surface-variant">{{ permissionState.message }}</p>
+      </div>
+      <div v-else-if="permissionState.kind === 'failed'" class="flex min-h-[360px] flex-col items-center justify-center gap-3 text-center">
+        <span class="material-symbols-outlined text-5xl text-primary">cloud_off</span>
+        <p class="font-bold text-on-surface">{{ permissionState.title }}</p>
+        <p class="text-sm text-on-surface-variant">{{ permissionState.message }}</p>
+        <el-button type="primary" @click="retry">重新加载</el-button>
+      </div>
+      <div v-else-if="permissionState.kind === 'empty'" class="flex min-h-[360px] items-center justify-center">
+        <el-empty description="暂无可配置权限" />
+      </div>
 
-      <div v-else>
-        <div v-if="loadError" class="m-6 rounded-md bg-error-container px-4 py-3 text-sm font-bold text-error">
-          {{ loadError }}
-        </div>
-
-        <template v-else>
+        <template v-else-if="permissionState.kind === 'ready'">
           <section class="border-b border-outline-variant/20 px-7 py-4">
             <div class="flex flex-wrap items-center gap-2">
               <span class="text-xs font-bold text-on-surface-variant">所属角色</span>
@@ -76,12 +88,12 @@
                   <span class="material-symbols-outlined text-[18px]">search</span>
                 </template>
               </el-input>
-              <button type="button" class="permission-tool" title="全部展开" @click="setExpanded(true)">
+              <el-button type="button" class="permission-tool" title="全部展开" @click="setExpanded(true)">
                 <span class="material-symbols-outlined">unfold_more</span>
-              </button>
-              <button type="button" class="permission-tool" title="全部收起" @click="setExpanded(false)">
+              </el-button>
+              <el-button type="button" class="permission-tool" title="全部收起" @click="setExpanded(false)">
                 <span class="material-symbols-outlined">unfold_less</span>
-              </button>
+              </el-button>
               <div class="ml-auto hidden items-center gap-4 text-xs font-bold text-on-surface-variant sm:flex">
                 <span>个人允许 {{ grantCount }}</span>
                 <span>个人禁用 {{ denyCount }}</span>
@@ -135,18 +147,17 @@
             </el-tree>
           </section>
         </template>
-      </div>
     </div>
 
     <footer class="grid grid-cols-2 gap-4 border-t border-outline-variant/20 bg-white px-7 py-5">
-      <button
+      <el-button
           type="button"
           class="rounded-md px-6 py-3 text-sm font-bold text-on-surface-variant transition-colors hover:bg-surface-container-high"
           @click="close"
       >
         取消
-      </button>
-      <button
+      </el-button>
+      <el-button
           type="button"
           :disabled="submitting || loading || !!loadError"
           class="flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
@@ -154,14 +165,15 @@
       >
         <span v-if="submitting" class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
         保存个人权限
-      </button>
+      </el-button>
     </footer>
   </aside>
 </template>
 
 <script setup>
 import { computed, nextTick, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElEmpty, ElMessage } from 'element-plus'
+import { createLatestRequest } from '@/utils/latestRequest'
 import {
   getEmployeePermissionProfile,
   updateEmployeePermissionOverrides
@@ -172,6 +184,8 @@ const visible = ref(false)
 const loading = ref(false)
 const submitting = ref(false)
 const loadError = ref('')
+const permissionState = ref({ kind: 'loading', title: '', message: '' })
+const permissionRequest = createLatestRequest()
 const currentEmployee = ref(null)
 const permissionVersion = ref(0)
 const roles = ref([])
@@ -200,12 +214,15 @@ async function open(employee) {
 }
 
 async function loadProfile() {
+  const request = permissionRequest.begin()
   loading.value = true
   loadError.value = ''
+  permissionState.value = { kind: 'loading', title: '', message: '' }
   keyword.value = ''
   clearOverrides()
   try {
     const response = await getEmployeePermissionProfile(currentEmployee.value.id)
+    if (!request.isLatest()) return
     const profile = response?.data?.data || response?.data || response || {}
     permissionVersion.value = Number(profile.permissionVersion || 0)
     roles.value = Array.isArray(profile.roles) ? profile.roles : []
@@ -217,13 +234,29 @@ async function loadProfile() {
         : 'INHERIT'
     }
     await nextTick()
+    if (!request.isLatest()) return
     permissionTreeRef.value?.filter('')
+    request.commit(() => {
+      permissionState.value = treeData.value.length
+        ? { kind: 'ready', title: '', message: '' }
+        : { kind: 'empty', title: '暂无可配置权限', message: '' }
+    })
   } catch (error) {
     console.error('[Hive Auth] load employee permission profile failed:', error)
-    loadError.value = '权限档案加载失败，请稍后重试。'
+    request.commit(() => {
+      const forbidden = Number(error?.response?.status || error?.statusCode) === 403
+      loadError.value = forbidden ? '无权查看员工权限档案。' : '权限档案加载失败，请稍后重试。'
+      permissionState.value = forbidden
+        ? { kind: 'forbidden', title: '无权查看', message: loadError.value }
+        : { kind: 'failed', title: '加载失败', message: loadError.value }
+    })
   } finally {
-    loading.value = false
+    request.commit(() => { loading.value = false })
   }
+}
+
+async function retry() {
+  await loadProfile()
 }
 
 function close() {

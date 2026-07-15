@@ -1,6 +1,6 @@
 # 文档管理维护档案
 
-> 状态：Audit baseline；迁移批次：Batch 1；路由：`/function/document`；feature：`module.document`。
+> 状态：Element Plus 已迁移（Task 3）；迁移批次：Batch 1；路由：`/function/document`；feature：`module.document`。
 
 ## 功能
 
@@ -28,7 +28,7 @@
 | 方法 | 接口                                | 当前页面用途                      | 后端权限                 |
 | ---- | ----------------------------------- | --------------------------------- | ------------------------ |
 | GET  | `/document/list/{parentId}`         | 当前目录列表                      | `document:list`          |
-| GET  | `/document/breadcrumbs?documentId=` | 当前目录面包屑                    | `document:breadcrumbs`   |
+| GET  | `/document/breadcrumbs?documentId=` | 当前目录面包屑                    | `document:list`          |
 | POST | `/document/folder/create`           | 新建文件夹                        | `document:folder:create` |
 | POST | `/document/file/upload`             | multipart 上传 `file`、`parentId` | `document:file:upload`   |
 | PUT  | `/document/rename`                  | 后端已提供，页面未接入            | `document:rename`        |
@@ -43,15 +43,15 @@
 ## 权限现状
 
 - 路由入口要求 `document:list` 和 `module.document`。
-- 页面上的“新建文件夹”和上传区域没有 `v-permission` 或权限计算。
-- 面包屑需要独立 `document:breadcrumbs`，但路由只检查 list。
-- 列设置默认显示当前页导出按钮；页面没有基于 `table:export` 控制可见/禁用状态。
-- 后端权限仍是最终边界，前端控件可见不代表请求可执行。
+- “新建文件夹”和上传区域分别检查 `document:folder:create` 与 `document:file:upload`。
+- 面包屑与目录列表统一使用 V3 的 `document:list`；两个根目录入口、上级、面包屑和双击文件夹入口检查同一个精确权限。
+- 当前页导出检查 `table:export`；目录导航检查 `document:list`。命令保持可见，权限不足时置灰、禁用鼠标并通过 title 说明原因。
+- 后端权限仍是最终边界，前端禁用状态用于在发请求前提供一致反馈。
 
 ## 状态流
 
 1. setup 末尾直接调用 `fetchDocuments(0)` 加载根目录。
-2. `fetchDocuments(parentId)` 先更新 `currentParentId`，再取列表，非根目录随后取面包屑。
+2. `fetchDocuments(parentId)` 开始时清空旧列表与面包屑；列表和新面包屑均成功后才一起提交结果。
 3. 本地 `filters` 只过滤已加载的当前目录数组，不发搜索请求。
 4. 双击文件夹复用 `fetchDocuments(id)`；双击文件校验协议后 `window.open`。
 5. 创建文件夹成功后刷新当前目录。
@@ -62,40 +62,38 @@
 
 ## 空态、错态与加载态
 
-- 列表加载时在表格容器内显示手写半透明遮罩。
-- 非 loading 且本地筛选结果为空时统一显示“当前目录为空”。
-- 因此“目录真实为空”和“筛选无匹配”使用同一文案。
-- `fetchDocuments` 没有局部 catch，失败反馈依赖统一请求层。
-- 列表失败时 `currentParentId` 已先改变；旧列表可能仍保留。
-- 面包屑失败发生在列表成功之后，新列表与旧面包屑可能短暂不一致。
-- 创建弹窗 catch 同时接收用户取消和请求失败，局部代码不区分二者。
+- 列表加载时由 ElTable 的 v-loading 显示加载态。
+- 真实空目录显示“当前目录为空”；已加载目录的本地筛选无匹配显示“没有符合筛选条件的文档”。
+- 401/403、网络错误和 5xx 分别形成持久错误面板，并提供当前目录重试。
+- 请求序号阻止较早目录请求覆盖较新的目录状态，不会出现新目录 ID 配旧列表。
+- 面包屑失败时不提交已暂存的新列表，错误、权限、空态和筛选无匹配互斥。
+- 新建文件夹使用受控 ElDialog；请求失败由统一请求层反馈，弹窗保持可重试状态。
 
 ## 控件和样式现状
 
 - 页面为固定左栏加主内容区，移动端在 768px 以下改为纵向。
-- 工具栏使用原生按钮、文本输入、select 和 Material Symbols。
-- 列表使用原生响应式 table；文件名列根据扩展名显示手写色块。
-- 新建文件夹使用 `ElMessageBox.prompt`，通知使用 `ElMessage`。
+- 工具栏使用 ElButton、ElInput、ElSelect/ElOption 和 Material Symbols。
+- 列表使用 ElTable/ElTableColumn 与 ElEmpty；文件名列继续根据扩展名显示色块。
+- 新建文件夹使用受控 ElDialog、ElForm 和 ElInput，通知使用 ElMessage。
 - 上传使用自定义 `DragAttachmentUpload`，列设置使用自定义 `TableColumnSettings`。
-- 页面没有使用 `ElInput`、`ElSelect`、`ElTable`、`ElEmpty` 或 `ElUpload`。
+- DragAttachmentUpload 保留原生隐藏 file input，并使用 ElButton 提供附件命令；页面未改用 ElUpload，以保持现有 select/download/remove 事件。
 
-## Element Plus 接入/替换建议
+## Element Plus 实现与保留项
 
-- 关键词改为 `ElInput`、类型改为 `ElSelect`，保留当前纯前端过滤语义。
-- 工具栏命令改为 `ElButton`，按对应权限显示 disabled 原因。
-- 表格可迁移 `ElTable`，但先覆盖双击、列顺序、当前页导出和移动端展示。
-- 空结果区分目录为空、筛选无结果和请求失败后再使用 `ElEmpty`/错误 Result。
-- 上传可评估 `ElUpload drag`，继续保留 20MB 前端限制、parentId 和成功刷新。
-- 面包屑可迁移 `ElBreadcrumb`，目录 id 和导航顺序不变。
+- 关键词使用 ElInput、类型使用 ElSelect，保留当前纯前端过滤语义。
+- 工具栏命令使用 ElButton，并按 folder:create、file:upload、table:export 显示禁用原因。
+- 列表使用 ElTable，并保留双击、动态列顺序和移动端布局。
+- 当前页导出显式使用 filteredDocumentList 与动态列映射，不依赖 ElTable 分离的 header/body DOM。
+- 上传继续使用 DragAttachmentUpload，保留 20MB 限制、parentId、multipart API 和成功刷新。
+- 面包屑仍使用轻量按钮结构，目录 id 和导航顺序不变。
 
 ## 风险
 
-- list-only 用户能看到创建和上传控件，点击后才收到后端拒绝。
-- 缺少 breadcrumbs 权限时进入文件夹可能出现列表已切换、面包屑未切换。
-- 上传提示称支持 PPT，但共享上传组件默认 accept 不包含 `.ppt/.pptx`；拖放路径又不校验扩展名。
-- 前端只检查 20MB 和协议，不校验 MIME、扩展名或下载域名；安全校验依赖服务端存储链路。
+- 缺少 breadcrumbs 权限时，两个根目录入口、上级、面包屑与文件夹导航保持可见但置灰并显示原因，事件边界不会调用目录 API。
+- 页面 accept 已包含 `.ppt/.pptx`，选择和拖放统一按 accept 校验；文件内容安全仍依赖服务端存储链路。
+- 前端检查 accept 扩展名、20MB 大小和打开链接协议，不校验文件内容或下载域名。
 - 后端 rename/move 已存在但页面无入口，不能在视觉迁移中误标为现有功能。
-- 当前页导出依赖原生 table DOM，直接换 `ElTable` 会破坏采集逻辑。
+- 结构化导出映射必须与动态列渲染保持同步，否则页面显示值和导出值可能不一致。
 
 ## 验证清单
 

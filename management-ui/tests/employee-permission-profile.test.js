@@ -41,7 +41,7 @@ test('employee permission API exposes only the new profile contract', () => {
 })
 
 test('employee permission entry requires the dedicated V3 permission', () => {
-  const button = employeePage.match(/<button[^>]+openPermissionDrawer[\s\S]*?<\/button>/)?.[0] || ''
-  assert.match(button, /employee:permission:manage/)
-  assert.doesNotMatch(button, /employee:update/)
+  const permissionGuard = employeePage.match(/const canManageEmployeePermissions[^\n]+/)?.[0] || ''
+  assert.match(permissionGuard, /employee:permission:manage/)
+  assert.doesNotMatch(permissionGuard, /employee:update|role:permission:list/)
 })

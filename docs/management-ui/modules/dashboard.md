@@ -1,6 +1,6 @@
 # 总览大盘维护档案
 
-> 状态：Audit baseline；迁移批次：Batch 2；路由：`/dashboard`；feature：`module.dashboard`。
+> 状态：Task 8 Element Plus migrated；迁移批次：Batch 2；路由：`/dashboard`；feature：`module.dashboard`。
 
 ## 功能
 
@@ -50,7 +50,7 @@
 1. 组件挂载调用 `fetchOverview()`，先设置全页 `loading=true`。
 2. overview 成功后分别替换 summary、visibility、业务提醒、考勤和快捷动作。
 3. 随后调用 `fetchAnnouncements()`；该调用未被 `await`，独立维护公告 loading。
-4. 两个公告请求以 `Promise.all` 并行执行，任一个失败都会清空两组公告。
+4. 两个公告请求以 `Promise.allSettled` 并行执行，普通/紧急公告与重要公告分别落地成功数据或持久错误。
 5. 快捷动作直接使用后端返回的 `action.route` 调用 `router.push`。
 
 - 服务端 overview 结果按租户、用户和权限签名构造 Redis key，TTL 为 90 秒。
@@ -60,35 +60,36 @@
 ## 空态、错态与加载态
 
 - overview 加载时显示手写 fixed 全屏遮罩和旋转 Material 图标。
-- overview 失败时使用 `ElMessage.error`，页面保留初始零值和空数组。
-- 公告加载中且列表为空时展示独立同步提示。
-- 公告真实为空时展示“暂无企业通知公告/暂无重要公告”。
-- 公告请求失败被 catch 后清空数组，不显示错误提示，因此与真实空数据视觉相同。
+- overview 请求前清空汇总与图表数据；失败时呈现可重试的独立错误面板，不保留旧数据，成功返回的零值仍按真实业务数据展示。
+- 公告加载使用独立 `v-loading`，不会阻塞 overview 主数据。
+- 公告真实为空只在对应请求成功且返回空数组时使用 `ElEmpty` 展示。
+- 401、403、网络错误和 5xx 分别记录为认证、权限、网络和服务错误；区域错误持续显示并提供重试。
+- 两组公告独立处理结果，其中一组失败不会清空或伪装另一组的成功结果。
 - 业务提醒为空显示“暂无提醒”。
 - 无考勤权限显示“暂无查看权限”；有权限但无数据使用后端 statusText。
 
-## 控件和样式现状
+## Element Plus 控件和样式现状
 
-- 页面由原生 `button`、article、列表和 Tailwind 工具类组成。
-- 摘要、公告、提醒和考勤使用手写卡片布局，没有 `ElCard`、`ElStatistic` 或 `ElEmpty`。
-- 加载图标和业务图标使用 Material Symbols。
-- 仅消息反馈使用 `ElMessage`。
+- overview 请求前清空 summary、visibility、提醒、考勤与快捷动作；独立错误面板区分 401/403、网络/5xx 并可重试，真实零值仍作为成功数据展示。
+- overview 使用 request-id 维持 last-request-wins，旧成功、旧失败和旧 finally 不覆盖新状态。
+
+- 快捷动作、发布公告和查看全部使用显式导入的 `ElButton`，后端下发 route 与点击方法保持不变。
+- 公告加载和空态使用 `v-loading`、`ElEmpty`；区域错误使用持久状态与 `ElButton` 重试，全局请求消息保持不变。
+- 摘要、公告、提醒和考勤保留原有非嵌套卡片布局，没有为迁移额外套入 `ElCard`。
+- 业务图标继续使用 Material Symbols。
 - 卡片在 1/2/3 列断点间响应，主体最大宽度为 `max-w-7xl`。
 - 公告和提醒列表使用隐藏滚动条的局部滚动容器。
 
-## Element Plus 接入/替换建议
+## 保留项
 
-- overview 局部加载可改为已正确注册的 `v-loading`；公告保持独立 loading，避免互相阻塞。
-- 真实空数据可使用 `ElEmpty`，请求错误应保留单独错误块与重试按钮。
-- 快捷动作保持后端驱动，按钮可迁移 `ElButton`，不能改写 route 或权限来源。
-- 摘要卡可使用 `ElStatistic`，但当前信息密度和三列响应式布局应保持。
-- 公告级别可使用 `ElTag`，保留 normal/urgent/important/critical/warning 的现有文本映射。
-- 不建议为标准化而把每个板块套入嵌套 `ElCard`。
+- overview 数据映射、快捷动作 route、公告 API 参数和发布权限未改变。
+- 摘要卡保持当前信息密度和三列响应式布局。
+- 公告 normal/urgent/important/critical/warning 文本和颜色映射保持原实现。
 
 ## 风险
 
-- 只有 dashboard feature、没有公告列表权限的用户仍会发起公告请求；失败后被显示成空公告。
-- 两个公告请求由 `Promise.all` 绑定，一个分组失败会清空另一个本可成功的分组。
+- 只有 dashboard feature、没有公告列表权限的用户仍会发起公告请求，但 403 会显示独立权限状态而不再伪装为空公告。
+- 公告重试会同时刷新两组数据；当前没有单组重试入口。
 - 快捷动作的后端 route 未在前端再次校验；最终安全性依赖路由守卫和后端接口。
 - overview 的缓存包含权限签名，但页面不会主动刷新，权限变化需重新进入或刷新。
 - 页面定义的 summary 字段多于实际渲染字段，维护时容易误以为六项都已展示。

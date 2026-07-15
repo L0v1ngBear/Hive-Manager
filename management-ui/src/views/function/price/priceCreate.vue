@@ -1,283 +1,50 @@
 <template>
-  <Teleport defer to="body">
-    <transition name="fade">
-      <div
-        v-if="isVisible"
-        class="fixed inset-0 z-[60] bg-primary/20 backdrop-blur-sm"
-        @click="close"
-      ></div>
-    </transition>
-
-    <transition name="slide">
-      <aside
-        v-if="isVisible"
-        class="fixed top-0 right-0 z-[70] flex h-full w-full flex-col border-l-4 border-primary bg-white/95 shadow-[-20px_0_40px_rgba(0,32,69,0.1)] backdrop-blur-2xl sm:w-[640px]"
-      >
-        <div class="flex items-center justify-between border-b border-outline-variant/20 bg-white/80 p-6">
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-primary">account_tree</span>
-              <h2 class="text-xl font-bold tracking-tight text-primary">{{ form.id ? '调整价格矩阵' : '新增价格矩阵' }}</h2>
-            </div>
-            <p class="mt-1 text-xs text-on-surface-variant">维护基准价、客户等级价和指定客户特价。</p>
-          </div>
-          <button
-            class="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high"
-            @click="close"
-          >
-            <span class="material-symbols-outlined text-[20px]">close</span>
-          </button>
-        </div>
-
-        <div class="flex-1 space-y-8 overflow-y-auto p-6">
-          <section class="space-y-4">
-            <h3 class="flex items-center gap-2 text-sm font-bold text-primary">
-              <span class="h-4 w-1 rounded-full bg-primary"></span>基础信息
-            </h3>
-            <div class="grid grid-cols-2 gap-4 rounded-xl border border-outline-variant/20 bg-white p-4 shadow-sm">
-              <div class="col-span-2">
-                <label class="mb-1.5 block text-xs font-bold text-on-surface-variant">
-                  面料型号 <span class="text-error">*</span>
-                </label>
-                <input
-                  v-model.trim="form.modelCode"
-                  data-field="price.modelCode"
-                  list="model-options"
-                  class="w-full rounded-lg bg-surface-container-low px-3 py-2.5 text-sm font-bold text-primary focus:ring-2 focus:ring-primary"
-                  placeholder="例如 NV-2024-OXFORD"
-                />
-                <datalist id="model-options">
-                  <option
-                    v-for="item in modelOptions"
-                    :key="item.modelCode"
-                    :value="item.modelCode"
-                  >
-                    {{ item.spec }}
-                  </option>
-                </datalist>
-              </div>
-              <div>
-                <label class="mb-1.5 block text-xs font-bold text-on-surface-variant">批号</label>
-                <input
-                  v-model.trim="form.batchNo"
-                  class="w-full rounded-lg bg-surface-container-low px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary"
-                  placeholder="例如 #88219"
-                />
-              </div>
-              <div class="col-span-2">
-                <label class="mb-1.5 block text-xs font-bold text-on-surface-variant">规格说明</label>
-                <input
-                  v-model.trim="form.spec"
-                  class="w-full rounded-lg bg-surface-container-low px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary"
-                  placeholder="例如 100% 优质纯棉"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section class="space-y-4">
-            <h3 class="flex items-center gap-2 text-sm font-bold text-primary">
-              <span class="h-4 w-1 rounded-full bg-primary"></span>全局基准价
-            </h3>
-            <div class="grid grid-cols-2 gap-4 rounded-xl border border-outline-variant/20 bg-white p-4 shadow-sm">
-              <div>
-                <label class="mb-1.5 block text-xs font-bold text-on-surface-variant">
-                  基准价 <span class="text-error">*</span>
-                </label>
-                <div class="relative">
-                  <span class="absolute top-1/2 left-3 -translate-y-1/2 font-bold text-primary">楼</span>
-                  <input
-                    v-model="form.basePrice"
-                    data-field="price.basePrice"
-                    type="number"
-                    step="0.01"
-                    class="w-full rounded-lg bg-surface-container-low py-2.5 pr-3 pl-7 text-sm font-black text-primary focus:ring-2 focus:ring-primary"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              <div>
-                <label class="mb-1.5 block text-xs font-bold text-on-surface-variant">
-                  生效日期 <span class="text-error">*</span>
-                </label>
-                <input
-                  v-model="form.effectiveDate"
-                  data-field="price.effectiveDate"
-                  type="date"
-                  class="w-full rounded-lg bg-surface-container-low px-3 py-2.5 text-sm font-bold text-primary focus:ring-2 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label class="mb-1.5 block text-xs font-bold text-on-surface-variant">币种</label>
-                <select
-                  v-model="form.currency"
-                  class="w-full rounded-lg bg-surface-container-low px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary"
-                >
-                  <option value="CNY">CNY 人民币</option>
-                  <option value="USD">USD 美元</option>
-                </select>
-              </div>
-            </div>
-          </section>
-
-          <section class="space-y-4">
-            <div class="flex items-end justify-between">
-              <h3 class="flex items-center gap-2 text-sm font-bold text-primary">
-                <span class="h-4 w-1 rounded-full bg-primary"></span>客户等级价
-              </h3>
-              <span class="rounded bg-surface-container-high px-2 py-0.5 text-[10px] font-bold text-on-surface-variant">
-                不填一口价时按折扣自动计算
-              </span>
-            </div>
-            <div class="overflow-hidden rounded-xl border border-outline-variant/20 bg-white shadow-sm">
-              <table class="w-full text-left text-xs">
-                <thead class="bg-surface-container-low/50">
-                  <tr class="text-on-surface-variant">
-                    <th class="px-4 py-3 font-bold">客户等级</th>
-                    <th class="px-4 py-3 font-bold">一口价</th>
-                    <th class="px-4 py-3 font-bold">折扣率</th>
-                    <th class="px-4 py-3 font-bold">预计售价</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-outline-variant/10">
-                  <tr v-for="tier in form.tierPrices" :key="tier.tierCode">
-                    <td class="px-4 py-3 font-bold text-primary">{{ tier.tierName }}</td>
-                    <td class="px-4 py-2">
-                      <input
-                        v-model="tier.fixedPrice"
-                        type="number"
-                        step="0.01"
-                        class="w-full rounded border border-outline-variant/20 bg-surface-container-lowest px-2 py-1.5"
-                        placeholder="自动"
-                      />
-                    </td>
-                    <td class="px-4 py-2">
-                      <input
-                        v-model="tier.discountRate"
-                        type="number"
-                        step="0.01"
-                        class="w-20 rounded border border-outline-variant/20 bg-surface-container-lowest px-2 py-1.5"
-                      />
-                      %
-                    </td>
-                    <td class="px-4 py-2 font-black text-primary">楼{{ calculatedTierPrice(tier) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section class="space-y-4">
-            <div class="flex items-end justify-between">
-              <h3 class="flex items-center gap-2 text-sm font-bold text-tertiary">
-                <span class="h-4 w-1 rounded-full bg-tertiary"></span>指定客户特价
-              </h3>
-              <button
-                class="rounded-md bg-tertiary-fixed px-2 py-1 text-xs font-bold text-tertiary active:scale-95"
-                @click="addOverride"
-              >
-                <span class="material-symbols-outlined align-middle text-[16px]">add</span>添加特价
-              </button>
-            </div>
-            <div class="space-y-3">
-              <div
-                v-for="(override, index) in form.overrides"
-                :key="index"
-                class="flex items-center gap-3 rounded-lg border border-tertiary/20 bg-tertiary-fixed/10 p-3"
-              >
-                <select
-                  v-model="override.customerId"
-                  class="flex-1 rounded border border-outline-variant/20 bg-white px-2 py-2 text-xs font-bold text-primary"
-                  @change="syncCustomerName(override)"
-                >
-                  <option value="">请选择客户</option>
-                  <option v-for="customer in customers" :key="customer.id" :value="customer.id">
-                    {{ customer.customerName }}
-                  </option>
-                </select>
-                <div class="relative w-32">
-                  <span class="absolute top-1/2 left-2 -translate-y-1/2 text-xs font-bold text-tertiary">楼</span>
-                  <input
-                    v-model="override.price"
-                    type="number"
-                    step="0.01"
-                    class="w-full rounded border border-outline-variant/20 bg-white py-2 pr-2 pl-6 text-xs font-black text-tertiary"
-                    placeholder="0.00"
-                  />
-                </div>
-                <button
-                  class="p-1.5 text-on-surface-variant hover:text-error"
-                  @click="removeOverride(index)"
-                >
-                  <span class="material-symbols-outlined text-[18px]">close</span>
-                </button>
-              </div>
-              <div
-                v-if="form.overrides.length === 0"
-                class="rounded-xl border border-dashed border-outline-variant/30 bg-surface-container-lowest/50 py-6 text-center text-xs text-on-surface-variant/60"
-              >
-                暂无客户特价，将按基准价和等级价执行。
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <label class="mb-1.5 block text-xs font-bold text-on-surface-variant">备注</label>
-            <textarea
-              v-model.trim="form.remark"
-              rows="3"
-              class="w-full resize-none rounded-lg bg-surface-container-low px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary"
-              placeholder="记录本次调价原因"
-            ></textarea>
-          </section>
-        </div>
-
-        <div class="flex shrink-0 items-center justify-between border-t border-outline-variant/20 bg-surface-container-lowest p-6">
-          <div class="text-xs text-on-surface-variant">保存后会同步给出库金额计算使用。</div>
-          <div class="flex gap-3">
-            <button
-              class="rounded-lg px-5 py-2.5 text-sm font-bold text-secondary hover:bg-surface-container-high"
-              @click="close"
-            >
-              取消
-            </button>
-            <button
-              :disabled="submitting"
-              class="flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-on-primary shadow-md disabled:opacity-50"
-              @click="submit"
-            >
-              <span v-if="submitting" class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
-              {{ submitting ? '保存中...' : '发布价格' }}
-            </button>
-          </div>
-        </div>
-      </aside>
-    </transition>
-  </Teleport>
+  <el-drawer :model-value="isVisible" :title="form.id ? '调整价格矩阵' : '新增价格矩阵'" size="640px" @update:model-value="(visible) => !visible && close()">
+    <el-result v-if="requestError" :icon="requestError.icon" :title="requestError.title" :sub-title="requestError.message"><template #extra><el-button @click="retry">重试</el-button></template></el-result>
+    <el-form v-else v-loading="loading" :model="form" label-position="top">
+      <el-row :gutter="16"><el-col :span="12"><el-form-item label="面料型号"><el-select v-model="form.modelCode" filterable allow-create default-first-option><el-option v-for="item in modelOptions" :key="item.modelCode" :label="`${item.modelCode} ${item.spec || ''}`" :value="item.modelCode" /></el-select></el-form-item></el-col><el-col :span="12"><el-form-item label="批号"><el-input v-model.trim="form.batchNo" /></el-form-item></el-col></el-row>
+      <el-form-item label="规格说明"><el-input v-model.trim="form.spec" /></el-form-item>
+      <el-row :gutter="16"><el-col :span="8"><el-form-item label="基准价"><el-input-number v-model="form.basePrice" :min="0" :precision="2" :step="0.01" /></el-form-item></el-col><el-col :span="8"><el-form-item label="生效日期"><el-date-picker v-model="form.effectiveDate" type="date" value-format="YYYY-MM-DD" /></el-form-item></el-col><el-col :span="8"><el-form-item label="币种"><el-select v-model="form.currency"><el-option value="CNY" label="CNY 人民币" /><el-option value="USD" label="USD 美元" /></el-select></el-form-item></el-col></el-row>
+      <el-divider content-position="left">客户等级价</el-divider><el-table :data="form.tierPrices" size="small"><el-table-column prop="tierName" label="客户等级" /><el-table-column label="一口价"><template #default="{ row }"><el-input-number v-model="row.fixedPrice" :min="0" :precision="2" :step="0.01" /></template></el-table-column><el-table-column label="折扣率"><template #default="{ row }"><el-input-number v-model="row.discountRate" :min="0" :max="100" :precision="2" :step="0.01" /></template></el-table-column><el-table-column label="预计售价"><template #default="{ row }">¥{{ calculatedTierPrice(row) }}</template></el-table-column></el-table>
+      <el-divider content-position="left">指定客户特价</el-divider><el-button @click="addOverride">添加特价</el-button><el-row v-for="(override, index) in form.overrides" :key="index" :gutter="12" class="mt-3"><el-col :span="12"><el-select v-model="override.customerId" placeholder="请选择客户" @change="syncCustomerName(override)"><el-option v-for="customer in customers" :key="customer.id" :value="customer.id" :label="customer.customerName" /></el-select></el-col><el-col :span="8"><el-input-number v-model="override.price" :min="0" :precision="2" :step="0.01" /></el-col><el-col :span="4"><el-button type="danger" link @click="removeOverride(index)">删除</el-button></el-col></el-row>
+      <el-form-item label="备注" class="mt-5"><el-input v-model.trim="form.remark" type="textarea" :rows="3" /></el-form-item>
+    </el-form>
+    <template #footer><el-button @click="close">取消</el-button><el-tooltip :disabled="canPublish" content="缺少价格发布权限"><span><el-button type="primary" :loading="submitting" :disabled="!canPublish || loading" @click="submit">发布价格</el-button></span></el-tooltip></template>
+  </el-drawer>
 </template>
 
 <script setup>
 import { reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElCol, ElDatePicker, ElDivider, ElDrawer, ElForm, ElFormItem, ElInput, ElInputNumber, ElOption, ElResult, ElRow, ElSelect, ElTable, ElTableColumn, ElTooltip } from 'element-plus'
 import { getPriceCustomers, getPriceDetail, getPriceModels, publishPrice } from './api/price.js'
 import { warnAndFocusField } from '@/utils/formFocus'
+import { presentPriceOverrides } from './priceBehavior.js'
 
 const props = defineProps({
   isVisible: { type: Boolean, default: false },
-  skuData: { type: Object, default: () => null }
+  skuData: { type: Object, default: () => null },
+  canPublish: { type: Boolean, default: false }
 })
 const emit = defineEmits(['close', 'success'])
 const submitting = ref(false)
+const loading = ref(false)
+const requestError = ref(null)
+let detailRequestId = 0
 const customers = ref([])
 const modelOptions = ref([])
 const form = reactive(defaultForm())
 
 watch(() => props.isVisible, async (visible) => {
-  if (!visible) return
+  if (!visible) { detailRequestId += 1; return }
   resetForm()
-  await Promise.all([loadCustomers(), loadModels()])
-  if (props.skuData?.id) {
+  requestError.value = null
+  loading.value = true
+  const requestId = ++detailRequestId
+  try {
+    await Promise.all([loadCustomers(), loadModels()])
+    if (!props.skuData?.id) return
     const detail = await getPriceDetail(props.skuData.id)
+    if (requestId !== detailRequestId) return
     Object.assign(form, {
       id: detail.id,
       modelCode: detail.modelCode,
@@ -294,6 +61,10 @@ watch(() => props.isVisible, async (visible) => {
         price: item.price
       }))
     })
+  } catch (error) {
+    if (requestId === detailRequestId) requestError.value = errorState(error)
+  } finally {
+    if (requestId === detailRequestId) loading.value = false
   }
 })
 
@@ -320,11 +91,18 @@ function defaultForm() {
     spec: '',
     basePrice: null,
     currency: 'CNY',
-    effectiveDate: new Date().toISOString().slice(0, 10),
+    effectiveDate: formatLocalDate(),
     remark: '',
     tierPrices: normalizeTiers(),
     overrides: []
   }
+}
+
+function formatLocalDate(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function normalizeTiers(rows = []) {
@@ -344,8 +122,36 @@ function resetForm() {
 }
 
 function close() {
+  detailRequestId += 1
   emit('close')
   resetForm()
+}
+
+function retry() {
+  const visible = props.isVisible
+  if (!visible) return
+  requestError.value = null
+  loadEditor()
+}
+
+async function loadEditor() {
+  loading.value = true
+  const requestId = ++detailRequestId
+  try {
+    await Promise.all([loadCustomers(), loadModels()])
+    if (props.skuData?.id) {
+      const detail = await getPriceDetail(props.skuData.id)
+      if (requestId === detailRequestId) Object.assign(form, { ...detail, tierPrices: normalizeTiers(detail.tierPrices), overrides: (detail.overrides || []).map((item) => ({ ...item })) })
+    }
+  } catch (error) { if (requestId === detailRequestId) requestError.value = errorState(error) } finally { if (requestId === detailRequestId) loading.value = false }
+}
+
+function errorState(error) {
+  const status = Number(error?.response?.status)
+  if (status === 401) return { icon: 'warning', title: '登录已失效', message: '请重新登录后重试。' }
+  if (status === 403) return { icon: 'warning', title: '无权访问', message: '当前账号缺少价格详情权限。' }
+  if (status >= 500) return { icon: 'error', title: '服务暂时不可用', message: '服务器处理失败，请稍后重试。' }
+  return { icon: 'error', title: '加载失败', message: '网络异常，请检查连接后重试。' }
 }
 
 function calculatedTierPrice(tier) {
@@ -368,6 +174,7 @@ function syncCustomerName(override) {
 }
 
 async function submit() {
+  if (!props.canPublish || submitting.value) return
   if (!form.modelCode) {
     return warnAndFocusField('请填写面料型号。', 'price.modelCode')
   }
@@ -387,9 +194,7 @@ async function submit() {
         fixedPrice: item.fixedPrice === '' || item.fixedPrice == null ? null : Number(item.fixedPrice),
         discountRate: item.discountRate === '' || item.discountRate == null ? null : Number(item.discountRate)
       })),
-      overrides: form.overrides
-        .filter((item) => item.customerId && item.price)
-        .map((item) => ({ ...item, customerId: Number(item.customerId), price: Number(item.price) }))
+      overrides: presentPriceOverrides(form.overrides)
     })
     emit('success')
   } finally {

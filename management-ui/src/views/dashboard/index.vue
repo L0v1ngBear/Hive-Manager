@@ -1,5 +1,7 @@
 <template>
-  <div class="min-h-fit max-w-7xl mx-auto space-y-6">
+  <div v-loading="loading" class="min-h-fit max-w-7xl mx-auto space-y-6">
+    <el-result v-if="overviewLoadError" :icon="overviewLoadError.kind === 'permission' ? 'warning' : 'error'" :title="overviewLoadError.title" :sub-title="overviewLoadError.message"><template #extra><el-button type="primary" @click="fetchOverview">重试</el-button></template></el-result>
+    <template v-else>
     <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="text-sm font-bold tracking-[0.2em] text-primary/70 uppercase">经营总览</p>
@@ -13,11 +15,12 @@
       </div>
 
       <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 w-full lg:w-auto lg:min-w-[500px]">
-        <button
+        <el-button
             v-for="action in quickActions"
             :key="action.route"
             @click="openQuickAction(action)"
-            class="text-left rounded-xl bg-surface-container-lowest px-4 py-3.5 shadow-sm ring-1 ring-outline-variant/20 hover:shadow-md hover:-translate-y-0.5 transition-all group"
+            plain
+            class="h-auto justify-start px-4 py-3.5 text-left"
         >
           <div class="flex items-center gap-3">
             <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary transition-colors">
@@ -30,7 +33,7 @@
               <p class="text-xs text-on-surface-variant truncate mt-1">{{ action.description }}</p>
             </div>
           </div>
-        </button>
+        </el-button>
       </div>
     </section>
 
@@ -82,53 +85,51 @@
           </div>
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary">{{ announcements.length }} 条</span>
-            <button
+            <el-button
                 v-permission="'notification:announcement:publish'"
                 @click="openAnnouncementPublish"
-                class="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary/90"
+                type="primary"
+                size="small"
             >
               发布公告
-            </button>
+            </el-button>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div
-              v-if="announcementLoading && !announcements.length"
-              class="lg:col-span-2 rounded-2xl border border-dashed border-primary/25 bg-primary/5 px-4 py-6 text-sm font-bold text-primary flex items-center justify-center gap-2"
-          >
-            <span class="material-symbols-outlined animate-spin text-[22px]">progress_activity</span>
-            正在同步企业通知公告
+        <div class="grid min-h-32 grid-cols-1 gap-4 lg:grid-cols-2">
+          <div v-if="announcementLoading" v-loading="true" class="min-h-32 lg:col-span-2" element-loading-text="正在同步企业通知公告"></div>
+          <div v-else-if="announcementLoadError" class="flex min-h-32 flex-col items-center justify-center px-4 text-center lg:col-span-2">
+            <span class="material-symbols-outlined text-4xl text-error/70">{{ announcementLoadError.kind === 'permission' ? 'lock' : 'cloud_off' }}</span>
+            <p class="mt-2 text-sm font-black text-on-surface">{{ announcementLoadError.title }}</p>
+            <p class="mt-1 text-xs leading-5 text-on-surface-variant">{{ announcementLoadError.message }}</p>
+            <el-button class="mt-3" size="small" type="primary" plain @click="fetchAnnouncements">重试</el-button>
           </div>
-          <div
-              v-else-if="!announcements.length"
-              class="lg:col-span-2 rounded-2xl border border-dashed border-outline-variant/40 bg-surface-container-low px-4 py-6 text-sm font-bold text-on-surface-variant text-center"
-          >
-            暂无企业通知公告
-          </div>
-          <div
+          <el-empty v-else-if="announcementsLoaded && !announcements.length" class="lg:col-span-2" description="暂无企业通知公告" />
+          <template v-else>
+            <div
               v-for="item in announcements"
               :key="item.id || `${item.title}-${item.updateTime}`"
               class="rounded-2xl p-4 border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
               :class="announcementCardClass(item.level)"
               @click="openAnnouncementCenter"
-          >
-            <div class="flex items-start gap-3">
-              <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" :class="announcementIconClass(item.level)">
-                <span class="material-symbols-outlined text-[26px] leading-none">
-                  campaign
-                </span>
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center justify-between gap-2">
-                  <p class="text-sm font-black truncate">{{ item.title }}</p>
-                  <span class="text-[10px] font-bold uppercase tracking-widest opacity-70 shrink-0">{{ announcementLevelText(item.level) }}</span>
+            >
+              <div class="flex items-start gap-3">
+                <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" :class="announcementIconClass(item.level)">
+                  <span class="material-symbols-outlined text-[26px] leading-none">
+                    campaign
+                  </span>
                 </div>
-                <p class="mt-2 text-sm leading-6 opacity-90 line-clamp-2">{{ item.content }}</p>
-                <p class="mt-3 text-xs leading-6 font-medium opacity-70">{{ formatAnnouncementTime(item.updateTime) }}</p>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-sm font-black truncate">{{ item.title }}</p>
+                    <span class="text-[10px] font-bold uppercase tracking-widest opacity-70 shrink-0">{{ announcementLevelText(item.level) }}</span>
+                  </div>
+                  <p class="mt-2 text-sm leading-6 opacity-90 line-clamp-2">{{ item.content }}</p>
+                  <p class="mt-3 text-xs leading-6 font-medium opacity-70">{{ formatAnnouncementTime(item.updateTime) }}</p>
+                </div>
               </div>
             </div>
-          </div>
+          </template>
         </div>
       </article>
 
@@ -138,24 +139,19 @@
             <h2 class="text-lg font-black text-on-surface leading-tight">重要公告</h2>
             <p class="text-xs text-on-surface-variant mt-1">集中展示更多需要重点关注的公告。</p>
           </div>
-          <button class="rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-black text-primary" @click="openAnnouncementCenter">
+          <el-button link type="primary" @click="openAnnouncementCenter">
             查看全部
-          </button>
+          </el-button>
         </div>
 
-        <div
-            v-if="announcementLoading && !importantAnnouncements.length"
-            class="flex-1 rounded-xl border border-dashed border-primary/25 bg-primary/5 px-4 py-6 text-sm font-bold text-primary flex items-center justify-center gap-2 min-h-[180px]"
-        >
-          <span class="material-symbols-outlined animate-spin text-[22px]">progress_activity</span>
-          正在同步重要公告
+        <div v-if="announcementLoading" v-loading="true" class="min-h-44" element-loading-text="正在同步重要公告"></div>
+        <div v-else-if="importantAnnouncementLoadError" class="flex min-h-44 flex-col items-center justify-center px-4 text-center">
+          <span class="material-symbols-outlined text-4xl text-error/70">{{ importantAnnouncementLoadError.kind === 'permission' ? 'lock' : 'cloud_off' }}</span>
+          <p class="mt-2 text-sm font-black text-on-surface">{{ importantAnnouncementLoadError.title }}</p>
+          <p class="mt-1 text-xs leading-5 text-on-surface-variant">{{ importantAnnouncementLoadError.message }}</p>
+          <el-button class="mt-3" size="small" type="primary" plain @click="fetchAnnouncements">重试</el-button>
         </div>
-        <div
-            v-else-if="!importantAnnouncements.length"
-            class="flex-1 rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low px-4 py-6 text-sm font-bold text-on-surface-variant text-center flex items-center justify-center min-h-[180px]"
-        >
-          暂无重要公告
-        </div>
+        <el-empty v-else-if="importantAnnouncementsLoaded && !importantAnnouncements.length" class="min-h-44" description="暂无重要公告" />
         <div v-else class="space-y-3 flex-1 overflow-y-auto pr-1 no-scrollbar max-h-[260px]">
           <div
               v-for="item in importantAnnouncements"
@@ -256,12 +252,13 @@
         <span class="text-base font-bold">同步数据中...</span>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElEmpty, ElResult } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getDashboardOverview } from './api/dashboard.js'
@@ -273,7 +270,14 @@ const router = useRouter()
 const userStore = useUserStore()
 
 const loading = ref(false)
+const overviewLoadError = ref(null)
+let overviewRequestId = 0
 const announcementLoading = ref(false)
+const announcementLoadError = ref(null)
+const importantAnnouncementLoadError = ref(null)
+const announcementsLoaded = ref(false)
+const importantAnnouncementsLoaded = ref(false)
+let announcementRequestId = 0
 const summary = ref({
   monthOrderCount: 0,
   totalInventoryMeters: 0,
@@ -337,10 +341,30 @@ const attendanceBadgeClass = computed(() => {
   return 'bg-slate-100 text-slate-500'
 })
 
+function resetOverviewState() {
+  summary.value = { monthOrderCount: 0, totalInventoryMeters: 0, pendingApprovalCount: 0, pendingPrintCount: 0, inventoryWarningCount: 0, orderWarningCount: 0 }
+  visibility.value = { orderVisible: false, inventoryVisible: false, approvalVisible: false, receiptVisible: false, attendanceVisible: false }
+  businessAlerts.value = []
+  attendanceAlerts.value = []
+  attendanceSummary.value = { totalEmployeeCount: 0, actualCount: 0, abnormalCount: 0, statusText: '暂无考勤数据', statusType: 'empty' }
+  quickActions.value = []
+}
+
+function resolveOverviewFailure(error) {
+  const failure = resolveLoadFailure(error, '经营总览')
+  if (failure.kind === 'authentication') return { ...failure, message: '请重新登录后再查看经营总览。' }
+  if (failure.kind === 'permission') return { ...failure, title: '暂无经营总览查看权限', message: '当前账号无权加载经营总览，请联系管理员确认权限。' }
+  return failure
+}
+
 const fetchOverview = async () => {
+  const requestId = ++overviewRequestId
   loading.value = true
+  resetOverviewState()
+  overviewLoadError.value = null
   try {
     const data = await getDashboardOverview()
+    if (requestId !== overviewRequestId) return
     summary.value = data?.summary || summary.value
     visibility.value = data?.visibility || visibility.value
     businessAlerts.value = Array.isArray(data?.businessAlerts) ? data.businessAlerts : []
@@ -349,9 +373,48 @@ const fetchOverview = async () => {
     quickActions.value = Array.isArray(data?.quickActions) ? data.quickActions : []
     fetchAnnouncements()
   } catch (error) {
-    ElMessage.error(error?.msg || '总览数据加载失败，请稍后重试')
+    if (requestId !== overviewRequestId) return
+    overviewLoadError.value = resolveOverviewFailure(error)
   } finally {
-    loading.value = false
+    if (requestId === overviewRequestId) loading.value = false
+  }
+}
+
+function resolveLoadFailure(error, resourceLabel) {
+  const status = Number(error?.response?.status || error?.status || error?.code || 0)
+  const serverMessage = error?.response?.data?.msg || error?.response?.data?.message || error?.msg || error?.message
+  if (status === 401) {
+    return {
+      kind: 'authentication',
+      title: '登录状态已失效',
+      message: '请重新登录后再查看公告。'
+    }
+  }
+  if (status === 403) {
+    return {
+      kind: 'permission',
+      title: '暂无公告查看权限',
+      message: serverMessage || `当前账号无权加载${resourceLabel}，请联系管理员确认权限。`
+    }
+  }
+  if (status >= 500) {
+    return {
+      kind: 'server',
+      title: '公告服务暂不可用',
+      message: serverMessage || `${resourceLabel}加载失败，请稍后重试。`
+    }
+  }
+  if (!status && !error?.response) {
+    return {
+      kind: 'network',
+      title: '网络连接异常',
+      message: '无法连接公告服务，请检查网络后重试。'
+    }
+  }
+  return {
+    kind: 'server',
+    title: '公告加载失败',
+    message: serverMessage || `${resourceLabel}加载失败，请稍后重试。`
   }
 }
 
@@ -359,19 +422,38 @@ async function fetchAnnouncements() {
   if (announcementLoading.value) {
     return
   }
+  const requestId = ++announcementRequestId
   announcementLoading.value = true
+  announcements.value = []
+  importantAnnouncements.value = []
+  announcementLoadError.value = null
+  importantAnnouncementLoadError.value = null
+  announcementsLoaded.value = false
+  importantAnnouncementsLoaded.value = false
   try {
-    const [dailyData, importantData] = await Promise.all([
+    const [dailyResult, importantResult] = await Promise.allSettled([
       getAnnouncements({ limit: 4, levels: 'normal,urgent' }),
       getAnnouncements({ limit: 8, levels: 'important' })
     ])
-    announcements.value = Array.isArray(dailyData) ? dailyData : []
-    importantAnnouncements.value = Array.isArray(importantData) ? importantData : []
-  } catch (error) {
-    announcements.value = []
-    importantAnnouncements.value = []
+    if (requestId !== announcementRequestId) {
+      return
+    }
+    if (dailyResult.status === 'fulfilled') {
+      announcements.value = Array.isArray(dailyResult.value) ? dailyResult.value : []
+      announcementsLoaded.value = true
+    } else {
+      announcementLoadError.value = resolveLoadFailure(dailyResult.reason, '企业通知公告')
+    }
+    if (importantResult.status === 'fulfilled') {
+      importantAnnouncements.value = Array.isArray(importantResult.value) ? importantResult.value : []
+      importantAnnouncementsLoaded.value = true
+    } else {
+      importantAnnouncementLoadError.value = resolveLoadFailure(importantResult.reason, '重要公告')
+    }
   } finally {
-    announcementLoading.value = false
+    if (requestId === announcementRequestId) {
+      announcementLoading.value = false
+    }
   }
 }
 

@@ -100,8 +100,8 @@ test('web order flow QR uses only canonical values and shows invalid-data feedba
 })
 
 test('installation task table labels information channel and logistics consistently', () => {
-  assert.match(installationSource, /<th class="th-cell">信息渠道与物流<\/th>/)
-  assert.match(installationSource, /data-label="信息渠道与物流"/)
+  assert.match(installationSource, /<el-table-column label="信息渠道与物流"/)
+  assert.match(installationSource, /row\.informationChannel/)
 })
 
 test('filter overview collapses through an accessible click button and retains the active summary', () => {

@@ -1,80 +1,42 @@
-# 库存单匹布明细
+# 库存单匹布详情
 
-## 源码 / 路由 / 批次
+## 源码、路由与迁移状态
 
-- 页面：`management-ui/src/views/function/inventory/InventoryModelDetail.vue`
-- API：`management-ui/src/views/function/inventory/api/inventory.js`
-- 后端入口：`management/src/main/java/my/management/controller/InventoryController.java`
+- 页面：`management-ui/src/views/function/inventory/InventoryModelDetail.vue`。
+- API：`management-ui/src/views/function/inventory/api/inventory.js`。
 - 路由：`/function/inventory/model-detail`，路由名 `InventoryModelDetail`，功能开关 `module.inventory`。
-- 查询参数：`modelCode`、`spec`、可选 `status`、`timeOrder`。
-- 迁移批次：Batch 3；状态为 `Audit baseline`。
+- 查询参数：`modelCode`、`spec`、可选 `status`、`timeOrder`；原字符串与数字转换规则保持不变。
+- 迁移批次：Batch 3；状态为“Element Plus 已迁移，动态响应式表格为受保护自定义界面”。
 
-## 用户功能
+## 功能与接口
 
-- 按型号、规格和状态查看单匹布列表，并切换先进先出/先进后出排序。
-- 查看布匹数和当前列表剩余米数汇总。
-- 查看条码、总米数、剩余米数、状态、入库/更新时间及租户自定义字段。
-- 打开单匹详情，查看入库方式、出库时间和该匹布的出入库流水。
-- 从选中行发起单匹布出库，默认带入条码和全部剩余米数。
-- 返回库存聚合页、手动刷新、调整本地表格列顺序。
-
-## API
-
-| 函数                          | 方法 | 路径                      | 用途                                  |
-| ----------------------------- | ---- | ------------------------- | ------------------------------------- |
-| `getInventoryModelDetail`     | GET  | `/inventory/model/detail` | 按型号/规格/状态/排序取单匹列表       |
-| `getInventoryClothDetail`     | GET  | `/inventory/cloth/detail` | 按 `id` 或 `barcode` 取单匹详情与流水 |
-| `outCloth`                    | POST | `/inventory/cloth/out`    | 按条码和米数执行出库                  |
-| `getCurrentTenantFieldConfig` | GET  | `/tenant/field-config`    | 读取库存字段配置                      |
+- 按型号、规格、状态和 FIFO/LIFO 查询单匹布列表，展示布匹数与剩余米数汇总。
+- `getInventoryModelDetail` 继续使用 `modelCode/spec/status/timeOrder`；`status` 仅在路由参数存在且非空时转数字。
+- `getInventoryClothDetail` 继续按 `id` 与 `barcode` 读取单匹布及流水。
+- `outCloth` 继续提交 `{ barcode, meters: Number(meters) }`；租户动态字段继续由 `getCurrentTenantFieldConfig` 提供。
 
 ## 权限
 
-- 路由入口接受 `inventory:warning:list`、`inventory:record:recent`、`inventory:cloth:out` 任一权限，并受 `module.inventory` 控制。
-- 列表、单匹详情后端均要求 `inventory:warning:list`；行内出库按钮要求 `inventory:cloth:out`，出库接口同权。
-- 风险：只有出库权限的用户可通过路由守卫，但列表接口仍会拒绝；只有读取权限的用户可看列表，出库按钮按指令置为无权状态。
+- 列表和单匹详情读取依赖 `inventory:warning:list`，出库依赖 `inventory:cloth:out`。
+- 无读取权限时内容不可见；无出库权限时命令保持可见但禁用并显示原因 tooltip，打开与提交处理函数均再次校验权限。
+- 页头“刷新明细”同样按 `inventory:warning:list` 保持可见、禁用并说明原因，处理函数继续执行读取权限防线。
+- 仅有出库权限的账号可能通过路由但不能读取列表，这是现有权限模型风险。
 
-## 状态流
+## 状态与条码一致性
 
-- 从路由解析型号、规格、状态与排序；缺少型号时提示并停止请求。
-- 加载型号明细 → 计算当前返回行数与剩余米数 → 行点击加载单匹详情和流水。
-- 排序切换或刷新重新读取整个明细列表，没有前端分页。
-- 出库：选择一行 → 预填该行条码和剩余米数 → 用户可编辑 → 提交出库 → 关闭抽屉并刷新列表。
-- 状态：`0` 在库、`2` 部分出库、`1` 已出库；剩余米数小于等于 0 时禁用行内出库。
+- 列表请求前清空旧行，loading、本地无权限、401/403/网络/5xx 持久错误、成功真空或数据互斥展示，并支持重试与 latest-request 提交。
+- 每次打开单匹详情先清空旧详情和旧错误，再显示 loading；401、403、网络与服务失败使用持久错误面板，成功空响应显示真实空态。
+- 单匹详情使用递增 request-id；跨布匹的旧响应和旧 `finally` 都不能覆盖当前详情。
+- 从行打开出库抽屉时记录预览对应条码。用户修改条码会立即清除旧预览；只有预览条码与实际提交条码完全一致时才允许提交，后端仍负责剩余量和状态最终校验。
 
-## 加载空错态
+## Element Plus 与受保护界面
 
-- 列表与单匹详情分别有遮罩/居中加载态；列表为空显示“暂无单匹布明细”，流水为空显示独立空态。
-- 字段配置失败回退默认字段。
-- 列表和详情请求只用 `finally` 结束加载，没有页内错误说明、重试态或失败时清空旧详情的处理。
-- 单匹详情打开后立即显示抽屉；若请求失败，旧 `clothDetail` 可能继续被计算属性读取。
+- 排序选择、命令、抽屉、表单、文字/数字输入、状态标签、tooltip、loading 和 empty 使用显式导入的 Element Plus 组件。
+- 单匹布列表保留原生 `table`，保护租户动态列、`TableColumnSettings` 顺序持久化、移动端 `data-label`、行点击和按钮事件隔离。
+- 流水时间线保留定制 DOM，不强制改造成普通表格。
 
-## UI 控件现状
+## 风险与验证
 
-- 原生选择器、按钮、表格、手写抽屉和遮罩；`ElMessage` 负责提示。
-- `TableColumnSettings` 与 `useLocalTableColumns` 提供动态列；响应式表格依赖现有 class/data-label 契约。
-- 行点击看详情，详情/出库按钮使用 `.stop`；抽屉覆盖层点击直接关闭。
-
-## Element Plus 替换与保留项
-
-- 替换：排序选择→`ElSelect`，刷新/返回/操作→`ElButton`，表格→验证动态列后的 `ElTable`，抽屉→`ElDrawer`。
-- 替换：米数→`ElInputNumber`，状态→`ElTag`，加载与空态→`v-loading`/`ElEmpty`。
-- 保留：路由查询参数类型、FIFO/LIFO 值、动态租户字段、列顺序持久化、行点击与按钮事件隔离。
-- 保留：单匹详情中的流水时间线可继续定制，不必为 Element Plus 统一而改成普通表格。
-
-## 风险
-
-- 单匹出库抽屉允许编辑预填条码，但编辑后不会重新查询或更新 `outPreview`；界面可能展示原布匹信息、实际提交另一条码。
-- 提交只检查条码非空和米数大于 0；剩余量、状态和条码对应关系依赖后端最终校验，前端预览不是授权或一致性保证。
-- 行按钮文案为“扫码出库”，但从行发起时实际是预填条码；组件迁移不得误加自动提交或绕过确认。
-- 无分页意味着单个型号匹数较大时表格和自定义字段渲染成本会线性增长。
-- `spec` 从路由原样发送，`status` 转数字；新控件/路由同步不得把空状态变成 `0`。
-
-## 验证清单
-
-- [ ] 缺少型号、有效型号、不同规格和状态查询均正确。
-- [ ] FIFO/LIFO 顺序与后端结果一致，刷新不丢查询上下文。
-- [ ] 动态字段增删、列排序和窄屏响应式标签正常。
-- [ ] 行点击与两个操作按钮互不串事件。
-- [ ] 单匹详情与流水加载、空态、错误后旧数据处理可辨识。
-- [ ] 改写出库条码时必须重新核对目标，部分/全量/超量出库均验证。
-- [ ] 无 `inventory:warning:list` 或无 `inventory:cloth:out` 的访问行为符合权限契约。
+- 单个型号布匹数很大时没有分页，动态字段渲染成本随行数线性增长。
+- 预览不是授权或库存锁；并发出库、超量出库与状态变化仍以服务端校验为准。
+- 验证缺少型号、所有路由参数组合、FIFO/LIFO、动态列、窄屏、详情快速切换、失败重试、条码改写、权限禁用以及部分/全部出库。
