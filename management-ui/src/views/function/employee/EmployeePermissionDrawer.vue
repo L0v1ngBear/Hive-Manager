@@ -344,7 +344,7 @@ defineExpose({ open })
   justify-content: center;
   border: 1px solid rgba(148, 163, 184, .35);
   border-radius: 6px;
-  color: #1f3f5f;
+  color: var(--ys-primary);
   background: white;
 }
 

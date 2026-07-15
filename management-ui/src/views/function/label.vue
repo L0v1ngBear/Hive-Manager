@@ -1311,7 +1311,7 @@ function formatDate(value) {
   gap: 20px;
   padding: clamp(18px, 2vw, 32px);
   background:
-    radial-gradient(circle at 12% -6%, rgba(31, 63, 95, 0.14), transparent 34%),
+    radial-gradient(circle at 12% -6%, rgb(var(--ys-primary-rgb) / 0.14), transparent 34%),
     linear-gradient(180deg, #f7f9fc 0%, #ffffff 100%);
 }
 
@@ -1331,7 +1331,7 @@ function formatDate(value) {
 
 .primary-action,
 .secondary-action {
-  border: 1px solid rgba(31, 63, 95, 0.16);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.16);
   border-radius: 18px;
   min-height: 48px;
   display: inline-flex;
@@ -1345,12 +1345,12 @@ function formatDate(value) {
 
 .primary-action {
   color: #fff;
-  background: linear-gradient(135deg, #0b1f33 0%, #1f3f5f 100%);
+  background: linear-gradient(135deg, var(--ys-primary-dark), var(--ys-primary));
   box-shadow: 0 18px 36px rgba(15, 31, 51, 0.18);
 }
 
 .secondary-action {
-  color: #1f3f5f;
+  color: var(--ys-primary);
   background: rgba(255, 255, 255, 0.86);
 }
 
@@ -1365,7 +1365,7 @@ function formatDate(value) {
   gap: 12px;
   align-items: end;
   padding: 16px;
-  border: 1px solid rgba(31, 63, 95, 0.14);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.14);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
@@ -1375,7 +1375,7 @@ function formatDate(value) {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  color: #0b1f33;
+  color: var(--ys-primary-dark);
 }
 
 .profile-intro strong {
@@ -1411,7 +1411,7 @@ function formatDate(value) {
   display: grid;
   gap: 16px;
   padding: 18px;
-  border: 1px solid rgba(31, 63, 95, 0.14);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.14);
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 16px 42px rgba(15, 23, 42, 0.07);
@@ -1426,7 +1426,7 @@ function formatDate(value) {
 
 .template-editor-head strong {
   display: block;
-  color: #0b1f33;
+  color: var(--ys-primary-dark);
   font-size: 16px;
   font-weight: 1000;
 }
@@ -1465,15 +1465,15 @@ function formatDate(value) {
 }
 
 .template-check-pill {
-  border: 1px solid rgba(31, 63, 95, 0.14);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.14);
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-height: 42px;
   padding: 0 14px;
-  color: #1f3f5f;
-  background: #f8fbff;
+  color: var(--ys-primary);
+  background: var(--ys-primary-container);
   font-weight: 900;
 }
 
@@ -1542,18 +1542,18 @@ function formatDate(value) {
   border-radius: 999px;
   display: grid;
   place-items: center;
-  color: #1f3f5f;
-  background: #e8eef6;
+  color: var(--ys-primary);
+  background: var(--ys-primary-container);
 }
 
 .print-tab.active {
   color: #fff;
   border-color: transparent;
-  background: linear-gradient(135deg, #0b1f33 0%, #1f3f5f 100%);
+  background: linear-gradient(135deg, var(--ys-primary-dark), var(--ys-primary));
 }
 
 .print-tab.active strong {
-  color: #0b1f33;
+  color: var(--ys-primary-dark);
   background: #fff;
 }
 
@@ -1592,7 +1592,7 @@ function formatDate(value) {
 
 .panel-title-row h2,
 .preview-head h2 {
-  color: #0b1f33;
+  color: var(--ys-primary-dark);
   font-size: 18px;
   font-weight: 1000;
 }
@@ -1657,13 +1657,13 @@ function formatDate(value) {
 }
 
 .task-card.active {
-  border-color: rgba(31, 63, 95, 0.42);
-  background: #edf4fb;
-  box-shadow: inset 4px 0 0 #1f3f5f;
+  border-color: rgb(var(--ys-primary-rgb) / 0.42);
+  background: var(--ys-primary-container);
+  box-shadow: inset 4px 0 0 var(--ys-primary);
 }
 
 .task-name {
-  color: #0b1f33;
+  color: var(--ys-primary-dark);
   font-size: 15px;
   font-weight: 1000;
   word-break: break-all;

@@ -17,7 +17,48 @@ const sharedThemeFiles = [
   'components/GlobalRequestOverlay.vue',
   'components/TableColumnSettings.vue'
 ]
+const businessThemeFiles = [
+  'views/manual/UserManual.vue',
+  'views/function/badProduct/badProduct.vue',
+  'views/function/installationTask/installationTask.vue',
+  'views/function/order/order.vue',
+  'views/function/role/permissionDrawer.vue',
+  'views/function/employee/employee.vue',
+  'views/function/employee/EmployeePermissionDrawer.vue',
+  'views/function/receipt.vue',
+  'views/function/label.vue'
+]
+const printThemeFiles = new Set([
+  'views/function/receipt.vue',
+  'views/function/label.vue'
+])
 const oldThemePattern = /#1f3f5f|#0b1f33|rgba\(31,\s*63,\s*95|rgba\(30,\s*64,\s*104/i
+
+function stripPrintMediaBlocks(source) {
+  let result = ''
+  let cursor = 0
+
+  while (cursor < source.length) {
+    const mediaStart = source.indexOf('@media print', cursor)
+    if (mediaStart === -1) return result + source.slice(cursor)
+
+    result += source.slice(cursor, mediaStart)
+    const blockStart = source.indexOf('{', mediaStart)
+    assert.notEqual(blockStart, -1, 'print media block must have an opening brace')
+
+    let depth = 1
+    let blockEnd = blockStart + 1
+    while (blockEnd < source.length && depth > 0) {
+      if (source[blockEnd] === '{') depth += 1
+      if (source[blockEnd] === '}') depth -= 1
+      blockEnd += 1
+    }
+    assert.equal(depth, 0, 'print media block must have balanced braces')
+    cursor = blockEnd
+  }
+
+  return result
+}
 
 test('global theme exposes the approved teal semantic tokens', () => {
   assert.match(compact, /--color-primary:\s*#0f766e/)
@@ -55,5 +96,15 @@ test('shared management surfaces do not hardcode the retired blue theme', () => 
   for (const relativePath of sharedThemeFiles) {
     const source = readFileSync(new URL(`../src/${relativePath}`, import.meta.url), 'utf8')
     assert.doesNotMatch(source, oldThemePattern, relativePath)
+  }
+})
+
+test('business management surfaces do not hardcode the retired blue theme', () => {
+  for (const relativePath of businessThemeFiles) {
+    const source = readFileSync(new URL(`../src/${relativePath}`, import.meta.url), 'utf8')
+    const interactiveSource = printThemeFiles.has(relativePath)
+      ? stripPrintMediaBlocks(source)
+      : source
+    assert.doesNotMatch(interactiveSource, oldThemePattern, relativePath)
   }
 })

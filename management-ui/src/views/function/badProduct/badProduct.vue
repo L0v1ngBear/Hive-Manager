@@ -1039,12 +1039,12 @@ function normalizeTypeForScope(value) {
   align-items: center;
   gap: 6px;
   border-radius: 999px;
-  border: 1px solid rgba(31, 63, 95, 0.24);
-  background: rgba(238, 244, 251, 0.86);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.24);
+  background: var(--ys-primary-container);
   padding: 8px 12px;
   font-size: 12px;
   font-weight: 900;
-  color: #1f3f5f;
+  color: var(--ys-primary);
   transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
@@ -1055,8 +1055,8 @@ function normalizeTypeForScope(value) {
 }
 
 .time-correction-toggle.active {
-  border-color: rgba(31, 63, 95, 0.86);
-  background: #1f3f5f;
+  border-color: rgb(var(--ys-primary-rgb) / 0.86);
+  background: var(--ys-primary);
   color: #fff;
 }
 

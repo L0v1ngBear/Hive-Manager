@@ -798,8 +798,8 @@ watch(
 }
 
 .org-stat-card.warning {
-  border-color: rgba(31, 63, 95, .20);
-  background: rgba(238, 244, 251, .9);
+  border-color: rgb(var(--ys-primary-rgb) / .20);
+  background: var(--ys-primary-container);
 }
 
 .org-tree-panel {

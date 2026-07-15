@@ -2416,7 +2416,7 @@ function fulfillmentProcessText(row = {}) {
 }
 
 .box-input:focus {
-  box-shadow: 0 0 0 2px rgba(0, 82, 204, .2)
+  box-shadow: 0 0 0 2px rgb(var(--ys-primary-rgb) / .2)
 }
 
 .combo-arrow {
@@ -2639,7 +2639,7 @@ function fulfillmentProcessText(row = {}) {
 
 .fulfillment-process-detail {
   border-radius: 1rem;
-  border: 1px solid rgba(31, 63, 95, .16);
+  border: 1px solid rgb(var(--ys-primary-rgb) / .16);
   background: linear-gradient(135deg, rgba(248, 251, 255, .96), rgba(255, 255, 255, .98));
   padding: 1rem;
 }
@@ -2671,8 +2671,8 @@ function fulfillmentProcessText(row = {}) {
 
 .order-flow-code-card {
   border-radius: 1rem;
-  border: 1px solid rgba(31, 63, 95, .18);
-  background: linear-gradient(135deg, rgba(238, 244, 251, .92), rgba(255, 255, 255, .98));
+  border: 1px solid rgb(var(--ys-primary-rgb) / .18);
+  background: linear-gradient(135deg, var(--ys-primary-container), rgba(255, 255, 255, .98));
   padding: 1rem;
   box-shadow: 0 12px 28px rgba(15, 23, 42, .06);
 }
@@ -2693,7 +2693,7 @@ function fulfillmentProcessText(row = {}) {
   background: rgb(var(--primary));
   color: rgb(var(--on-primary));
   font-weight: 1000;
-  box-shadow: 0 10px 24px rgba(31, 63, 95, .18);
+  box-shadow: 0 10px 24px rgb(var(--ys-primary-rgb) / .18);
 }
 
 .flow-code-title {
@@ -2719,7 +2719,7 @@ function fulfillmentProcessText(row = {}) {
 
 .flow-code-meta span {
   border-radius: 999px;
-  background: rgba(31, 63, 95, .09);
+  background: rgb(var(--ys-primary-rgb) / .09);
   padding: .28rem .6rem;
   font-size: .72rem;
   font-weight: 900;
@@ -2883,8 +2883,8 @@ function fulfillmentProcessText(row = {}) {
   justify-content: space-between;
   gap: 16px;
   padding: .65rem 0;
-  border-top: 1px solid rgba(31, 63, 95, .12);
-  border-bottom: 1px solid rgba(31, 63, 95, .12);
+  border-top: 1px solid rgb(var(--ys-primary-rgb) / .12);
+  border-bottom: 1px solid rgb(var(--ys-primary-rgb) / .12);
 }
 
 .order-filter-overview-copy {
@@ -2932,7 +2932,7 @@ function fulfillmentProcessText(row = {}) {
   align-items: center;
   justify-content: center;
   gap: .35rem;
-  border: 1px solid rgba(31, 63, 95, .24);
+  border: 1px solid rgb(var(--ys-primary-rgb) / .24);
   border-radius: .5rem;
   background: #fff;
   padding: .5rem .75rem;
@@ -2942,8 +2942,8 @@ function fulfillmentProcessText(row = {}) {
 }
 
 .order-filter-overview-toggle:hover {
-  border-color: rgba(31, 63, 95, .5);
-  background: rgba(31, 63, 95, .06);
+  border-color: rgb(var(--ys-primary-rgb) / .5);
+  background: rgb(var(--ys-primary-rgb) / .06);
 }
 
 .order-filter-overview-toggle:focus-visible {
@@ -3011,7 +3011,7 @@ function fulfillmentProcessText(row = {}) {
 
 .category-stat-card {
   border-radius: 1rem;
-  border: 1px solid rgba(31, 63, 95, .14);
+  border: 1px solid rgb(var(--ys-primary-rgb) / .14);
   background: rgba(255, 255, 255, .9);
   padding: .78rem .95rem;
   text-align: left;
@@ -3045,9 +3045,9 @@ function fulfillmentProcessText(row = {}) {
 .category-stat-card:hover,
 .category-stat-card-active {
   transform: translateY(-1px);
-  border-color: rgba(31, 63, 95, .42);
-  background: linear-gradient(135deg, rgba(31, 63, 95, .10), rgba(255, 255, 255, .96));
-  box-shadow: 0 16px 34px rgba(31, 63, 95, .12);
+  border-color: rgb(var(--ys-primary-rgb) / .42);
+  background: linear-gradient(135deg, rgb(var(--ys-primary-rgb) / .10), rgba(255, 255, 255, .96));
+  box-shadow: 0 16px 34px rgb(var(--ys-primary-rgb) / .12);
 }
 
 @media (max-width: 1280px) {
@@ -3130,7 +3130,7 @@ function fulfillmentProcessText(row = {}) {
   justify-content: center;
   gap: .5rem;
   border-radius: 1rem;
-  border: 1px solid rgba(31, 63, 95, .24);
+  border: 1px solid rgb(var(--ys-primary-rgb) / .24);
   background: rgba(255, 255, 255, .88);
   padding: .85rem 1.1rem;
   font-size: .875rem;
@@ -3148,7 +3148,7 @@ function fulfillmentProcessText(row = {}) {
 .order-warning-setting-btn:hover,
 .order-warning-refresh-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: rgba(31, 63, 95, .58);
+  border-color: rgb(var(--ys-primary-rgb) / .58);
   box-shadow: 0 16px 36px rgba(15, 23, 42, .12);
 }
 
@@ -3175,7 +3175,7 @@ function fulfillmentProcessText(row = {}) {
   grid-template-columns: 5rem minmax(0, 1fr) 7rem;
   align-items: center;
   gap: .75rem;
-  border: 1px solid rgba(31, 63, 95, .12);
+  border: 1px solid rgb(var(--ys-primary-rgb) / .12);
   border-radius: .9rem;
   background: rgba(248, 250, 252, .92);
   padding: .75rem .85rem;
@@ -3187,7 +3187,7 @@ function fulfillmentProcessText(row = {}) {
 
 :global(.order-warning-dialog__row input) {
   width: 100%;
-  border: 1px solid rgba(31, 63, 95, .2);
+  border: 1px solid rgb(var(--ys-primary-rgb) / .2);
   border-radius: .7rem;
   background: #fff;
   padding: .6rem .75rem;
@@ -3203,7 +3203,7 @@ function fulfillmentProcessText(row = {}) {
 
 .stat-card {
   --order-card-color: rgb(var(--primary));
-  --order-card-soft: rgba(31, 63, 95, .10);
+  --order-card-soft: rgb(var(--ys-primary-rgb) / .10);
   min-width: 0;
   border-radius: 1rem;
   border: 1px solid rgba(0, 82, 204, .1);
@@ -3398,7 +3398,7 @@ function fulfillmentProcessText(row = {}) {
 
 .status-chip {
   --status-chip-color: rgb(var(--primary));
-  --status-chip-soft: rgba(31, 63, 95, .10);
+  --status-chip-soft: rgb(var(--ys-primary-rgb) / .10);
   display: inline-flex;
   align-items: center;
   gap: .45rem;
@@ -3793,8 +3793,8 @@ function fulfillmentProcessText(row = {}) {
   align-items: center;
   gap: .35rem;
   border-radius: 999px;
-  border: 1px solid rgba(31, 63, 95, .24);
-  background: rgba(238, 244, 251, .86);
+  border: 1px solid rgb(var(--ys-primary-rgb) / .24);
+  background: var(--ys-primary-container);
   padding: .5rem .75rem;
   color: rgb(var(--primary));
   font-size: .75rem;
@@ -3811,12 +3811,12 @@ function fulfillmentProcessText(row = {}) {
 
 .time-correction-toggle:hover {
   transform: translateY(-1px);
-  border-color: rgba(31, 63, 95, .58);
+  border-color: rgb(var(--ys-primary-rgb) / .58);
   box-shadow: 0 10px 24px rgba(15, 23, 42, .10)
 }
 
 .time-correction-toggle.active {
-  background: linear-gradient(135deg, rgb(var(--primary)), #4b7395);
+  background: linear-gradient(135deg, var(--ys-primary-dark), var(--ys-primary));
   color: rgb(var(--on-primary));
   box-shadow: 0 14px 30px rgba(15, 23, 42, .16)
 }
@@ -3951,7 +3951,7 @@ function fulfillmentProcessText(row = {}) {
   gap: .5rem;
   align-items: center;
   border-radius: .75rem;
-  border: 1px solid rgba(31, 63, 95, .16);
+  border: 1px solid rgb(var(--ys-primary-rgb) / .16);
   background: rgba(241, 245, 249, .86);
   padding: .55rem;
 }
@@ -3970,13 +3970,13 @@ function fulfillmentProcessText(row = {}) {
 }
 
 .status-log-time-editor input:focus {
-  border-color: rgba(31, 63, 95, .62);
-  box-shadow: 0 0 0 3px rgba(31, 63, 95, .1);
+  border-color: rgb(var(--ys-primary-rgb) / .62);
+  box-shadow: 0 0 0 3px rgb(var(--ys-primary-rgb) / .1);
 }
 
 .status-log-time-editor button {
   border-radius: .65rem;
-  border: 1px solid rgba(31, 63, 95, .16);
+  border: 1px solid rgb(var(--ys-primary-rgb) / .16);
   background: rgb(var(--primary));
   padding: .55rem .85rem;
   font-size: .78rem;

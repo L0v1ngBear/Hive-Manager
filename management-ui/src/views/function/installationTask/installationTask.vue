@@ -652,7 +652,7 @@ function formatDateTime(value) {
 
 .installation-panel {
   overflow: hidden;
-  border: 1px solid rgba(31, 63, 95, 0.12);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.12);
   border-radius: 14px;
   background: #fff;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
@@ -663,7 +663,7 @@ function formatDateTime(value) {
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 14px;
   padding: 18px;
-  border-bottom: 1px solid rgba(31, 63, 95, 0.1);
+  border-bottom: 1px solid rgb(var(--ys-primary-rgb) / 0.1);
   background: rgba(248, 250, 252, 0.72);
 }
 
@@ -695,15 +695,15 @@ function formatDateTime(value) {
 .installation-primary-btn {
   min-height: 40px;
   padding: 0 18px;
-  background: #1f3f5f;
+  background: var(--ys-primary);
   color: #fff;
-  box-shadow: 0 12px 24px rgba(31, 63, 95, 0.18);
+  box-shadow: 0 12px 24px rgb(var(--ys-primary-rgb) / 0.18);
 }
 
 .installation-secondary-btn {
   min-height: 38px;
   padding: 0 14px;
-  border: 1px solid rgba(31, 63, 95, 0.16);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.16);
   background: #fff;
   color: #1f2937;
 }
@@ -711,15 +711,15 @@ function formatDateTime(value) {
 .installation-row-btn {
   min-height: 34px;
   padding: 0 14px;
-  background: rgba(31, 63, 95, 0.08);
-  color: #1f3f5f;
+  background: rgb(var(--ys-primary-rgb) / 0.08);
+  color: var(--ys-primary);
 }
 
 .installation-icon-btn {
   width: 38px;
   height: 38px;
-  background: rgba(31, 63, 95, 0.08);
-  color: #1f3f5f;
+  background: rgb(var(--ys-primary-rgb) / 0.08);
+  color: var(--ys-primary);
 }
 
 .installation-primary-btn:disabled,
@@ -734,7 +734,7 @@ function formatDateTime(value) {
 }
 
 .installation-row:hover {
-  background: rgba(31, 63, 95, 0.035);
+  background: rgb(var(--ys-primary-rgb) / 0.035);
 }
 
 .installation-status-pill {
@@ -768,8 +768,8 @@ function formatDateTime(value) {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 18px;
-  border-top: 1px solid rgba(31, 63, 95, 0.1);
-  color: rgba(31, 63, 95, 0.72);
+  border-top: 1px solid rgb(var(--ys-primary-rgb) / 0.1);
+  color: rgb(var(--ys-primary-rgb) / 0.72);
   font-size: 13px;
   font-weight: 800;
 }
@@ -800,7 +800,7 @@ function formatDateTime(value) {
   justify-content: space-between;
   gap: 16px;
   padding: 22px 24px 18px;
-  border-bottom: 1px solid rgba(31, 63, 95, 0.1);
+  border-bottom: 1px solid rgb(var(--ys-primary-rgb) / 0.1);
 }
 
 .installation-modal-head h2 {
@@ -824,7 +824,7 @@ function formatDateTime(value) {
   gap: 8px;
   font-size: 13px;
   font-weight: 900;
-  color: rgba(31, 63, 95, 0.72);
+  color: rgb(var(--ys-primary-rgb) / 0.72);
 }
 
 .installation-field-full {
@@ -841,7 +841,7 @@ function formatDateTime(value) {
   justify-content: flex-end;
   gap: 12px;
   padding: 18px 24px 24px;
-  border-top: 1px solid rgba(31, 63, 95, 0.1);
+  border-top: 1px solid rgb(var(--ys-primary-rgb) / 0.1);
 }
 
 @media (max-width: 980px) {
@@ -874,9 +874,9 @@ function formatDateTime(value) {
 .installation-header {
   align-items: flex-end;
   border-radius: 18px;
-  border: 1px solid rgba(31, 63, 95, 0.1);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.1);
   background:
-    linear-gradient(135deg, rgba(31, 63, 95, 0.08), rgba(255, 255, 255, 0.96) 48%),
+    linear-gradient(135deg, rgb(var(--ys-primary-rgb) / 0.08), rgba(255, 255, 255, 0.96) 48%),
     #fff;
   padding: 22px 24px;
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.06);
@@ -898,8 +898,8 @@ function formatDateTime(value) {
 }
 
 .installation-summary-card {
-  --summary-color: #1f3f5f;
-  --summary-bg: rgba(31, 63, 95, 0.08);
+  --summary-color: var(--ys-primary);
+  --summary-bg: rgb(var(--ys-primary-rgb) / 0.08);
   display: flex;
   min-height: 132px;
   align-items: flex-start;
@@ -961,8 +961,8 @@ function formatDateTime(value) {
 }
 
 .installation-summary-all {
-  --summary-color: #1f3f5f;
-  --summary-bg: rgba(31, 63, 95, 0.08);
+  --summary-color: var(--ys-primary);
+  --summary-bg: rgb(var(--ys-primary-rgb) / 0.08);
 }
 
 .installation-summary-production {
@@ -1002,7 +1002,7 @@ function formatDateTime(value) {
   grid-column: span 2;
   flex-direction: column;
   gap: 7px;
-  color: rgba(31, 63, 95, 0.78);
+  color: rgb(var(--ys-primary-rgb) / 0.78);
   font-size: 12px;
   font-weight: 950;
 }
@@ -1024,13 +1024,13 @@ function formatDateTime(value) {
 }
 
 .installation-table .th-cell {
-  color: rgba(31, 63, 95, 0.7);
+  color: rgb(var(--ys-primary-rgb) / 0.7);
   font-size: 12px;
   letter-spacing: 0;
 }
 
 .installation-row {
-  --row-accent: #1f3f5f;
+  --row-accent: var(--ys-primary);
   background: linear-gradient(90deg, color-mix(in srgb, var(--row-accent) 5%, white), #fff 18%);
   transition: background 0.18s ease, box-shadow 0.18s ease;
 }
@@ -1080,9 +1080,9 @@ function formatDateTime(value) {
 .installation-quantity-chip {
   flex: 0 0 auto;
   border-radius: 999px;
-  background: rgba(31, 63, 95, 0.08);
+  background: rgb(var(--ys-primary-rgb) / 0.08);
   padding: 3px 8px;
-  color: rgba(31, 63, 95, 0.76);
+  color: rgb(var(--ys-primary-rgb) / 0.76);
   font-size: 11px;
   font-weight: 950;
 }
@@ -1120,7 +1120,7 @@ function formatDateTime(value) {
 .installation-meta-line .material-symbols-outlined,
 .installation-logistics .material-symbols-outlined {
   flex: 0 0 auto;
-  color: rgba(31, 63, 95, 0.5);
+  color: rgb(var(--ys-primary-rgb) / 0.5);
   font-size: 15px;
 }
 
@@ -1178,7 +1178,7 @@ function formatDateTime(value) {
 }
 
 .installation-attachment-link {
-  background: rgba(31, 63, 95, 0.08);
+  background: rgb(var(--ys-primary-rgb) / 0.08);
   color: rgb(var(--primary));
 }
 
@@ -1193,7 +1193,7 @@ function formatDateTime(value) {
 
 .installation-row-btn {
   min-width: 82px;
-  background: rgba(31, 63, 95, 0.1);
+  background: rgb(var(--ys-primary-rgb) / 0.1);
 }
 
 .installation-row-btn:hover,
@@ -1208,7 +1208,7 @@ function formatDateTime(value) {
 }
 
 .installation-modal-head {
-  background: linear-gradient(135deg, rgba(31, 63, 95, 0.08), rgba(255, 255, 255, 0.98));
+  background: linear-gradient(135deg, rgb(var(--ys-primary-rgb) / 0.08), rgba(255, 255, 255, 0.98));
 }
 
 .installation-modal-subtitle {
@@ -1220,9 +1220,9 @@ function formatDateTime(value) {
 
 .installation-modal-subtitle span {
   border-radius: 999px;
-  background: rgba(31, 63, 95, 0.08);
+  background: rgb(var(--ys-primary-rgb) / 0.08);
   padding: 4px 9px;
-  color: rgba(31, 63, 95, 0.72);
+  color: rgb(var(--ys-primary-rgb) / 0.72);
   font-size: 12px;
   font-weight: 900;
 }
@@ -1236,7 +1236,7 @@ function formatDateTime(value) {
 
 .installation-editor-summary > div {
   border-radius: 14px;
-  border: 1px solid rgba(31, 63, 95, 0.1);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.1);
   background: rgba(248, 250, 252, 0.84);
   padding: 14px;
 }

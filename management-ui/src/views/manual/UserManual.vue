@@ -1514,8 +1514,8 @@ function formatFileDate(date) {
   border: 1px solid rgba(200, 211, 223, 0.58);
   border-radius: 2rem;
   background:
-    radial-gradient(circle at 78% 18%, rgba(31, 63, 95, 0.18), transparent 28%),
-    linear-gradient(135deg, rgba(251, 252, 254, 0.98), rgba(238, 244, 251, 0.92));
+    radial-gradient(circle at 78% 18%, rgb(var(--ys-primary-rgb) / 0.18), transparent 28%),
+    linear-gradient(135deg, rgba(251, 252, 254, 0.98), var(--ys-primary-container));
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.10);
 }
 
@@ -1531,10 +1531,10 @@ function formatFileDate(date) {
   align-items: center;
   justify-content: center;
   gap: 0.28rem;
-  border: 1px solid rgba(31, 63, 95, 0.14);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.14);
   border-radius: 999px;
   padding: 0.36rem 0.62rem;
-  color: #1f3f5f;
+  color: var(--ys-primary);
   background: rgba(255, 255, 255, 0.88);
   font-size: 0.76rem;
   font-weight: 950;
@@ -1549,7 +1549,7 @@ function formatFileDate(date) {
 .manual-edit-btn:hover,
 .manual-inline-edit:hover {
   transform: translateY(-1px);
-  border-color: rgba(31, 63, 95, 0.28);
+  border-color: rgb(var(--ys-primary-rgb) / 0.28);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
 }
 
@@ -1565,8 +1565,8 @@ function formatFileDate(date) {
   margin-bottom: 1rem;
   padding: 0.35rem 0.8rem;
   border-radius: 999px;
-  background: rgba(31, 63, 95, 0.10);
-  color: #1f3f5f;
+  background: rgb(var(--ys-primary-rgb) / 0.10);
+  color: var(--ys-primary);
   font-size: 0.75rem;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -1601,10 +1601,10 @@ function formatFileDate(date) {
 .manual-hero__badges span,
 .manual-tip-list span {
   border-radius: 999px;
-  border: 1px solid rgba(31, 63, 95, 0.16);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.16);
   background: rgba(255, 255, 255, 0.72);
   padding: 0.34rem 0.72rem;
-  color: #1f3f5f;
+  color: var(--ys-primary);
   font-size: 0.76rem;
   font-weight: 900;
 }
@@ -1622,7 +1622,7 @@ function formatFileDate(date) {
 }
 
 .manual-hero__card .material-symbols-outlined {
-  color: #1f3f5f;
+  color: var(--ys-primary);
   font-size: 3rem;
 }
 
@@ -1664,7 +1664,7 @@ function formatFileDate(date) {
   justify-content: center;
   border-radius: 1rem;
   color: #ffffff;
-  background: linear-gradient(135deg, #0b1f33, #1f3f5f 58%, #4b7395);
+  background: linear-gradient(135deg, var(--ys-primary-dark), var(--ys-primary));
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
 }
 
@@ -1722,7 +1722,7 @@ function formatFileDate(date) {
 
 .manual-toc__item:hover {
   color: #0f172a;
-  background: #e8eef6;
+  background: var(--ys-primary-container);
 }
 
 .manual-content {
@@ -1805,7 +1805,7 @@ function formatFileDate(date) {
   width: 0.35rem;
   height: 0.35rem;
   border-radius: 999px;
-  background: #1f3f5f;
+  background: var(--ys-primary);
   content: '';
 }
 
@@ -1828,7 +1828,7 @@ function formatFileDate(date) {
 
 .manual-action button:hover {
   transform: translateY(-1px);
-  background: #1f3f5f;
+  background: var(--ys-primary);
 }
 
 .faq-list {
@@ -1855,7 +1855,7 @@ function formatFileDate(date) {
 
 .manual-custom-section {
   background:
-    radial-gradient(circle at 90% 10%, rgba(31, 63, 95, 0.10), transparent 30%),
+    radial-gradient(circle at 90% 10%, rgb(var(--ys-primary-rgb) / 0.10), transparent 30%),
     rgba(251, 252, 254, 0.96);
 }
 
@@ -1889,8 +1889,8 @@ function formatFileDate(date) {
   flex-shrink: 0;
   border-radius: 999px;
   padding: 0.36rem 0.72rem;
-  background: rgba(31, 63, 95, 0.10);
-  color: #1f3f5f;
+  background: rgb(var(--ys-primary-rgb) / 0.10);
+  color: var(--ys-primary);
   font-size: 0.76rem;
   font-weight: 900;
 }
@@ -1912,8 +1912,8 @@ function formatFileDate(date) {
 }
 
 .manual-custom-editor textarea:focus {
-  border-color: rgba(31, 63, 95, 0.55);
-  box-shadow: 0 0 0 4px rgba(31, 63, 95, 0.08);
+  border-color: rgb(var(--ys-primary-rgb) / 0.55);
+  box-shadow: 0 0 0 4px rgb(var(--ys-primary-rgb) / 0.08);
 }
 
 .manual-custom-actions {
@@ -1942,8 +1942,8 @@ function formatFileDate(date) {
 }
 
 .manual-secondary-btn {
-  border: 1px solid rgba(31, 63, 95, 0.16);
-  color: #1f3f5f;
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.16);
+  color: var(--ys-primary);
   background: #ffffff;
 }
 
@@ -2047,8 +2047,8 @@ function formatFileDate(date) {
 
 .manual-editor-field input:focus,
 .manual-editor-field textarea:focus {
-  border-color: rgba(31, 63, 95, 0.48);
-  box-shadow: 0 0 0 4px rgba(31, 63, 95, 0.08);
+  border-color: rgb(var(--ys-primary-rgb) / 0.48);
+  box-shadow: 0 0 0 4px rgb(var(--ys-primary-rgb) / 0.08);
 }
 
 .manual-editor-field small {
