@@ -51,7 +51,7 @@ defineOptions({ name: 'ComplianceFooter' })
 }
 
 .compliance-footer a:hover {
-  color: #1f3f5f;
+  color: var(--ys-primary);
 }
 
 @media (max-width: 768px) {

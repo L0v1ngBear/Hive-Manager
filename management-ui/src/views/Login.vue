@@ -1,7 +1,7 @@
 <template>
   <main class="login-stage min-h-full bg-slate-50 text-slate-800 overflow-hidden font-sans relative">
     <section class="absolute inset-0 z-0 overflow-hidden bg-[#fbfcfe]">
-      <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_12%,rgba(31,63,95,0.16),transparent_34%),linear-gradient(180deg,#ffffff_0%,#f5f7fb_100%)] pointer-events-none"></div>
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_12%,rgba(15,118,110,0.16),transparent_34%),linear-gradient(180deg,#ffffff_0%,#f5f7fb_100%)] pointer-events-none"></div>
 
       <div class="absolute top-12 left-12 z-10 pointer-events-none">
         <span class="text-primary/5 text-[12rem] font-black tracking-widest select-none leading-none">HIVE</span>
@@ -9,7 +9,7 @@
 
       <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-16 z-20 pointer-events-none opacity-40 mix-blend-color-burn">
         <svg ref="char1Ref" :class="['pixel-char w-40 h-40 drop-shadow-xl', { 'error-shake': isError }]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect fill="#1f3f5f" height="80" width="80" x="10" y="10" rx="4"></rect>
+          <rect fill="#0f766e" height="80" width="80" x="10" y="10" rx="4"></rect>
           <rect fill="#101418" height="10" width="80" x="10" y="80" rx="2"></rect>
           <g class="eye-container">
             <rect class="eye-white" fill="white" height="15" width="15" x="25" y="30" rx="2"></rect>
@@ -21,8 +21,8 @@
         </svg>
 
         <svg ref="char2Ref" :class="['pixel-char w-32 h-32 mt-16 drop-shadow-xl', { 'error-shake': isError }]" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect fill="#4b7395" height="80" width="80" x="10" y="10" rx="4"></rect>
-          <rect fill="#1f3f5f" height="10" width="80" x="10" y="80" rx="2"></rect>
+          <rect fill="#115e59" height="80" width="80" x="10" y="10" rx="4"></rect>
+          <rect fill="#0f766e" height="10" width="80" x="10" y="80" rx="2"></rect>
           <g class="eye-container">
             <rect class="eye-white" fill="white" height="12" width="12" x="30" y="35" rx="2"></rect>
             <rect class="eye-pupil" fill="#101418" height="6" width="6" x="33" y="38" rx="1" :transform="pupil2Transform"></rect>

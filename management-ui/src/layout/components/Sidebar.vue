@@ -332,7 +332,7 @@ const linkClass = (item) => {
 .ys-sidebar {
   background:
       linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(255, 255, 255, 0.94)),
-      radial-gradient(circle at 20% -4%, rgba(31, 63, 95, 0.14), transparent 38%);
+      radial-gradient(circle at 20% -4%, rgb(var(--ys-primary-rgb) / 0.14), transparent 38%);
   box-shadow: 18px 0 42px rgba(15, 23, 42, 0.07);
 }
 
@@ -360,14 +360,14 @@ const linkClass = (item) => {
   overflow: hidden;
   border-radius: 1.1rem;
   background: #ffffff;
-  box-shadow: 0 14px 28px rgba(15, 31, 51, 0.14), inset 0 0 0 1px rgba(31, 63, 95, 0.08);
+  box-shadow: 0 14px 28px rgba(15, 31, 51, 0.14), inset 0 0 0 1px rgb(var(--ys-primary-rgb) / 0.08);
 }
 
 .sidebar-brand-logo--tenant {
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 1.25rem;
-  box-shadow: 0 18px 34px rgba(31, 63, 95, 0.18), inset 0 0 0 1px rgba(37, 99, 235, 0.14);
+  box-shadow: 0 18px 34px rgb(var(--ys-primary-rgb) / 0.18), inset 0 0 0 1px rgb(var(--ys-primary-rgb) / 0.14);
 }
 
 .sidebar-brand-logo img {
@@ -394,7 +394,7 @@ const linkClass = (item) => {
   font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.16em;
-  color: rgba(31, 63, 95, 0.62);
+  color: rgb(var(--ys-primary-rgb) / 0.62);
 }
 
 .sidebar-tenant-card {
@@ -403,11 +403,11 @@ const linkClass = (item) => {
   align-items: center;
   gap: 0.75rem;
   margin: 0 1rem 0.6rem;
-  border: 1px solid rgba(31, 63, 95, 0.12);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.12);
   border-radius: 1.25rem;
   background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(232, 238, 246, 0.82)),
-      radial-gradient(circle at 10% 10%, rgba(37, 99, 235, 0.12), transparent 42%);
+      linear-gradient(135deg, rgba(255, 255, 255, 0.92), var(--ys-primary-container)),
+      radial-gradient(circle at 10% 10%, rgb(var(--ys-primary-rgb) / 0.12), transparent 42%);
   padding: 0.75rem;
   box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
 }
@@ -419,7 +419,7 @@ const linkClass = (item) => {
   flex: 0 0 auto;
   border-radius: 0.9rem;
   background: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(31, 63, 95, 0.08);
+  box-shadow: inset 0 0 0 1px rgb(var(--ys-primary-rgb) / 0.08);
 }
 
 .sidebar-tenant-card__logo {
@@ -431,7 +431,7 @@ const linkClass = (item) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #1f3f5f;
+  color: var(--ys-primary);
   font-size: 1.25rem;
 }
 
@@ -439,7 +439,7 @@ const linkClass = (item) => {
   font-size: 0.62rem;
   font-weight: 950;
   letter-spacing: 0.22em;
-  color: rgba(31, 63, 95, 0.58);
+  color: rgb(var(--ys-primary-rgb) / 0.58);
 }
 
 .sidebar-tenant-card__name {

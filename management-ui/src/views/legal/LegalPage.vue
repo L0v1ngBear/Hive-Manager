@@ -1,26 +1,26 @@
 <template>
   <main class="min-h-full bg-[#fbfcfe] px-4 py-10 text-[#0f172a]">
-    <section class="mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-[#c8d3df]/70 bg-white/95 shadow-xl shadow-slate-500/10">
-      <header class="border-b border-[#c8d3df]/60 bg-gradient-to-br from-[#eef4fb] via-white to-[#f8fbff] px-6 py-8 md:px-10">
+    <section class="mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-[#e2e8f0]/70 bg-white/95 shadow-xl shadow-slate-500/10">
+      <header class="border-b border-[#e2e8f0]/60 bg-gradient-to-br from-[#ccfbf1] via-white to-[#ffffff] px-6 py-8 md:px-10">
         <div class="flex flex-wrap items-center justify-between gap-5">
           <div class="flex items-center gap-4">
             <img src="../../../images/logo.png" alt="蜂巢 Hive logo" class="h-14 w-14 object-contain drop-shadow-sm">
             <div>
-              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#1f3f5f]">{{ siteConfig.productName }}</p>
+              <p class="text-xs font-black uppercase tracking-[0.24em] text-[#0f766e]">{{ siteConfig.productName }}</p>
               <h1 class="mt-2 text-3xl font-black tracking-tight md:text-4xl">{{ pageTitle }}</h1>
             </div>
           </div>
-          <div class="rounded-2xl border border-[#d8e7ff] bg-white/80 px-4 py-3 text-xs font-bold text-[#335380]">
+          <div class="rounded-2xl border border-[#ccfbf1] bg-white/80 px-4 py-3 text-xs font-bold text-[#134e4a]">
             生效日期：{{ effectiveDate }}
           </div>
         </div>
-        <p class="mt-5 max-w-4xl text-sm leading-7 text-[#5f5a4e]">
+        <p class="mt-5 max-w-4xl text-sm leading-7 text-[#475569]">
           本页面说明 {{ siteConfig.companyName }} 在提供蜂巢 Hive 数字化工厂管理系统服务时，如何处理账号、业务、设备权限、日志与安全相关信息。我们坚持最小必要、组织内权限可控和安全审计原则。
         </p>
       </header>
 
       <article class="space-y-8 px-6 py-8 md:px-10">
-        <section class="rounded-3xl border border-[#c8d3df]/70 bg-[#eef4fb] p-5 text-sm leading-7 text-[#475569]">
+        <section class="rounded-3xl border border-[#e2e8f0]/70 bg-[#ccfbf1] p-5 text-sm leading-7 text-[#475569]">
           <p>
             <strong class="text-[#101418]">适用范围：</strong>
             本{{ pageTitle }}适用于蜂巢 Hive 及配套服务。若企业基于自身业务另行制定内部制度，员工仍应同时遵守企业内部管理要求。
@@ -45,12 +45,12 @@
           </section>
         </template>
 
-        <section class="grid gap-4 rounded-3xl bg-[#f7fafc] p-5 text-sm leading-7 text-[#5f5a4e] md:grid-cols-2">
+        <section class="grid gap-4 rounded-3xl bg-[#f7fafc] p-5 text-sm leading-7 text-[#475569] md:grid-cols-2">
           <p><strong class="text-[#101418]">公司主体：</strong>{{ siteConfig.companyName }}</p>
           <p><strong class="text-[#101418]">联系邮箱：</strong>{{ siteConfig.supportEmail }}</p>
           <p>
             <strong class="text-[#101418]">ICP备案：</strong>
-            <a :href="siteConfig.icpUrl" target="_blank" rel="noopener noreferrer" class="font-bold text-[#1f3f5f]">
+            <a :href="siteConfig.icpUrl" target="_blank" rel="noopener noreferrer" class="font-bold text-[#0f766e]">
               {{ siteConfig.icpNumber }}
             </a>
           </p>
@@ -58,10 +58,10 @@
         </section>
 
         <div class="flex flex-wrap gap-3">
-          <router-link to="/login" class="rounded-2xl bg-[#101418] px-5 py-3 text-sm font-black text-white transition hover:bg-black">
+          <router-link to="/login" class="rounded-2xl bg-[#0f766e] px-5 py-3 text-sm font-black text-white transition hover:bg-[#115e59]">
             返回登录页
           </router-link>
-          <router-link :to="type === 'privacy' ? '/terms' : '/privacy'" class="rounded-2xl border border-[#c8d3df] bg-white px-5 py-3 text-sm font-black text-[#0f172a] transition hover:bg-[#eef4fb]">
+          <router-link :to="type === 'privacy' ? '/terms' : '/privacy'" class="rounded-2xl border border-[#e2e8f0] bg-white px-5 py-3 text-sm font-black text-[#0f172a] transition hover:bg-[#ccfbf1]">
             查看{{ type === 'privacy' ? '服务条款' : '隐私政策' }}
           </router-link>
         </div>
@@ -182,7 +182,7 @@ const termsSections = [
 <style scoped>
 .legal-section h2 {
   margin-bottom: 0.75rem;
-  color: #101418;
+  color: #0f172a;
   font-size: 1.125rem;
   font-weight: 900;
 }
@@ -195,7 +195,7 @@ const termsSections = [
 }
 
 .legal-section li {
-  color: #5f5a4e;
+  color: #475569;
   font-size: 0.925rem;
   line-height: 1.85;
 }

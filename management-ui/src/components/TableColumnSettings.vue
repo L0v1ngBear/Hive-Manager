@@ -209,9 +209,9 @@ onBeforeUnmount(() => {
   min-width: 104px;
   padding: 0 14px;
   border-radius: 12px;
-  border: 1px solid rgba(31, 63, 95, .18);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.18);
   background: rgba(255, 255, 255, .92);
-  color: #1f3f5f;
+  color: var(--ys-primary);
   font-size: 13px;
   font-weight: 800;
   line-height: 1;
@@ -220,9 +220,9 @@ onBeforeUnmount(() => {
 }
 
 .column-settings-trigger:hover {
-  background: #eef4fb;
-  border-color: rgba(31, 63, 95, .34);
-  color: #0b1f33;
+  background: var(--ys-primary-container);
+  border-color: rgb(var(--ys-primary-rgb) / 0.34);
+  color: var(--ys-on-primary-container);
 }
 
 .column-export-trigger {
@@ -266,7 +266,7 @@ onBeforeUnmount(() => {
   gap: 12px;
   padding: 16px;
   border-bottom: 1px solid rgba(200, 211, 223, .58);
-  background: linear-gradient(135deg, rgba(238, 244, 251, .94), rgba(255, 255, 255, .96));
+  background: linear-gradient(135deg, var(--ys-primary-container), rgba(255, 255, 255, .96));
 }
 
 .column-settings-title {
@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
 
 .column-settings-reset {
   flex-shrink: 0;
-  color: #1f3f5f;
+  color: var(--ys-primary);
   font-size: 12px;
   font-weight: 900;
 }

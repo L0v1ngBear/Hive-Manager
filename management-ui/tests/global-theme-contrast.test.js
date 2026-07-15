@@ -4,6 +4,20 @@ import test from 'node:test'
 
 const styleSource = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8')
 const compact = styleSource.replace(/\s+/g, ' ').toLowerCase()
+const sharedThemeFiles = [
+  'layout/index.vue',
+  'layout/components/Sidebar.vue',
+  'layout/components/Navbar.vue',
+  'views/Login.vue',
+  'views/JoinOrganization.vue',
+  'views/ForcePasswordChange.vue',
+  'views/legal/LegalPage.vue',
+  'components/BusinessTimeCorrectionPanel.vue',
+  'components/ComplianceFooter.vue',
+  'components/GlobalRequestOverlay.vue',
+  'components/TableColumnSettings.vue'
+]
+const oldThemePattern = /#1f3f5f|#0b1f33|rgba\(31,\s*63,\s*95|rgba\(30,\s*64,\s*104/i
 
 test('global theme exposes the approved teal semantic tokens', () => {
   assert.match(compact, /--color-primary:\s*#0f766e/)
@@ -35,4 +49,11 @@ test('global compatibility and secondary text rules use semantic theme colors', 
   assert.match(compact, /\.function-page-desc\s*\{[^}]*color:\s*var\(--el-text-color-regular\)/)
   assert.doesNotMatch(compact, /\.function-page-shell\s+\.responsive-data-table\s+td::before\s*\{[^}]*#64748b/)
   assert.match(compact, /\.function-page-shell\s+\.responsive-data-table\s+td::before\s*\{[^}]*color:\s*var\(--el-text-color-regular\)/)
+})
+
+test('shared management surfaces do not hardcode the retired blue theme', () => {
+  for (const relativePath of sharedThemeFiles) {
+    const source = readFileSync(new URL(`../src/${relativePath}`, import.meta.url), 'utf8')
+    assert.doesNotMatch(source, oldThemePattern, relativePath)
+  }
 })

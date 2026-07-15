@@ -65,9 +65,9 @@ defineEmits(['update:modelValue'])
   display: grid;
   gap: 16px;
   padding: 18px;
-  border: 1px solid rgba(31, 63, 95, 0.22);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.22);
   border-radius: 20px;
-  background: linear-gradient(135deg, rgba(238, 244, 251, 0.95), rgba(255, 255, 255, 0.92));
+  background: linear-gradient(135deg, var(--ys-primary-container), rgba(255, 255, 255, 0.92));
   box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
 }
 
@@ -77,7 +77,7 @@ defineEmits(['update:modelValue'])
   gap: 8px;
   font-size: 14px;
   font-weight: 900;
-  color: #1f3f5f;
+  color: var(--ys-primary);
 }
 
 .business-time-correction-panel p {
@@ -112,7 +112,7 @@ defineEmits(['update:modelValue'])
 }
 
 .business-time-correction-input:focus {
-  border-color: rgba(31, 63, 95, 0.72);
-  box-shadow: 0 0 0 4px rgba(31, 63, 95, 0.12);
+  border-color: rgb(var(--ys-primary-rgb) / 0.72);
+  box-shadow: 0 0 0 4px rgb(var(--ys-primary-rgb) / 0.12);
 }
 </style>

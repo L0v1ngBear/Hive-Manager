@@ -97,7 +97,7 @@ onBeforeUnmount(() => {
   --ys-app-page-padding: clamp(0.75rem, 1.8vw, 2rem);
   --ys-app-content-gap: clamp(0.75rem, 1.4vw, 1.5rem);
   background:
-      radial-gradient(circle at 10% -8%, rgba(31, 63, 95, 0.14), transparent 34%),
+      radial-gradient(circle at 10% -8%, rgb(var(--ys-primary-rgb) / 0.14), transparent 34%),
       radial-gradient(circle at 88% 4%, rgba(143, 110, 61, 0.08), transparent 30%),
       linear-gradient(180deg, #fbfcfe 0%, #ffffff 100%);
 }

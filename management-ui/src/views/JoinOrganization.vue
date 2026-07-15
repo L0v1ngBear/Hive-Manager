@@ -1,11 +1,11 @@
 <template>
   <main class="min-h-full bg-[#f7f9fc] text-slate-900">
     <section class="relative min-h-full overflow-hidden px-4 py-10 sm:px-6 lg:px-8">
-      <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_8%,rgba(31,63,95,0.16),transparent_32%),linear-gradient(180deg,#ffffff_0%,#f2f6fb_100%)]"></div>
+      <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_8%,rgba(15,118,110,0.16),transparent_32%),linear-gradient(180deg,#ffffff_0%,#f2f6fb_100%)]"></div>
 
       <div class="relative mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center">
         <div class="grid w-full gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-          <aside class="rounded-[2rem] border border-white/70 bg-white/70 p-8 shadow-[0_28px_80px_rgba(31,63,95,0.12)] backdrop-blur-xl lg:p-10">
+          <aside class="rounded-[2rem] border border-white/70 bg-white/70 p-8 shadow-[0_28px_80px_rgba(15,118,110,0.12)] backdrop-blur-xl lg:p-10">
             <el-button
               class="mb-10"
               round
@@ -43,7 +43,7 @@
             </div>
           </aside>
 
-          <section class="rounded-[2rem] border border-white bg-white p-8 shadow-[0_28px_80px_rgba(31,63,95,0.12)] lg:p-10">
+          <section class="rounded-[2rem] border border-white bg-white p-8 shadow-[0_28px_80px_rgba(15,118,110,0.12)] lg:p-10">
             <div class="mb-8">
               <p class="text-sm font-black uppercase tracking-[0.24em] text-primary">Join Organization</p>
               <h2 class="mt-2 text-3xl font-black text-slate-950">创建并加入账号</h2>

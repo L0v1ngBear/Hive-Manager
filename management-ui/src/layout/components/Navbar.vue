@@ -596,7 +596,7 @@ onBeforeUnmount(() => {
 }
 
 .navbar-menu-item:hover {
-  background: #e8eef6;
+  background: var(--ys-primary-container);
 }
 
 .navbar-menu-item--disabled {
@@ -617,7 +617,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.75rem;
-  background: linear-gradient(135deg, #0b1f33 0%, #1f3f5f 58%, #4b7395 100%);
+  background: linear-gradient(135deg, var(--ys-primary-dark) 0%, var(--ys-primary) 100%);
   color: #ffffff;
   font-size: 1rem;
   font-weight: 900;
@@ -630,14 +630,14 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.68rem;
   overflow: hidden;
-  border: 1px solid rgba(31, 63, 95, 0.16);
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.16);
   border-radius: 999px;
   background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(232, 238, 246, 0.82)),
-      radial-gradient(circle at 12% 18%, rgba(37, 99, 235, 0.12), transparent 38%);
+      linear-gradient(135deg, rgba(255, 255, 255, 0.94), var(--ys-primary-container)),
+      radial-gradient(circle at 12% 18%, rgb(var(--ys-primary-rgb) / 0.12), transparent 38%);
   padding: 0.42rem 0.9rem 0.42rem 0.48rem;
-  color: #0f2f6f;
-  box-shadow: 0 14px 30px rgba(31, 63, 95, 0.1);
+  color: var(--ys-on-primary-container);
+  box-shadow: 0 14px 30px rgb(var(--ys-primary-rgb) / 0.1);
 }
 
 .tenant-chip--branded {
@@ -654,12 +654,12 @@ onBeforeUnmount(() => {
   justify-content: center;
   border-radius: 0.9rem;
   background: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(15, 47, 111, 0.08), 0 8px 18px rgba(31, 63, 95, 0.1);
+  box-shadow: inset 0 0 0 1px rgb(var(--ys-primary-rgb) / 0.08), 0 8px 18px rgb(var(--ys-primary-rgb) / 0.1);
 }
 
 .tenant-chip__fallback-icon {
   font-size: 1.05rem;
-  color: #2563eb;
+  color: var(--ys-primary);
 }
 
 .tenant-chip__logo {
@@ -679,7 +679,7 @@ onBeforeUnmount(() => {
   font-size: 0.62rem;
   font-weight: 950;
   letter-spacing: 0.12em;
-  color: rgba(15, 47, 111, 0.55);
+  color: rgb(var(--ys-primary-rgb) / 0.55);
 }
 
 .tenant-chip__name {
@@ -705,7 +705,7 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   border-radius: 0.9rem;
   background: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(15, 47, 111, 0.08), 0 10px 20px rgba(31, 63, 95, 0.1);
+  box-shadow: inset 0 0 0 1px rgb(var(--ys-primary-rgb) / 0.08), 0 10px 20px rgb(var(--ys-primary-rgb) / 0.1);
 }
 
 .user-menu-brand__logo {
@@ -717,7 +717,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #1f3f5f;
+  color: var(--ys-primary);
   font-size: 1.25rem;
 }
 
