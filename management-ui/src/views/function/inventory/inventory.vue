@@ -1512,10 +1512,6 @@ function getUnit(value, defaultUnit = '米') {
   background: rgb(248 250 252);
 }
 
-.inventory-page-btn:disabled {
-  opacity: 0.5;
-}
-
 .inventory-side-card {
   border-radius: 1rem;
   border: 1px solid rgb(241 245 249);

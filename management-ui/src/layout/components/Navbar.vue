@@ -133,7 +133,7 @@
               </div>
             </div>
             <div v-if="!pendingNotifications.length" class="px-4 py-8 text-center">
-              <span class="material-symbols-outlined text-4xl text-primary/40">task_alt</span>
+              <span class="material-symbols-outlined text-4xl text-primary">task_alt</span>
               <p class="mt-2 text-sm font-bold text-on-surface">待办已清空</p>
               <p class="text-xs text-on-surface-variant">审批和业务提醒会展示在这里。</p>
             </div>

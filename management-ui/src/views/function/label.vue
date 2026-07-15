@@ -1512,7 +1512,6 @@ function formatDate(value) {
 .primary-action:disabled,
 .secondary-action:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
 }
 
 .print-tabs {

@@ -345,7 +345,7 @@
           native-type="submit"
           :loading="submitting"
           :disabled="submitting"
-          class="flex items-center gap-2 rounded bg-primary px-10 py-3 font-bold text-white shadow-xl shadow-primary/20 transition-all active:scale-95 hover:bg-primary-container disabled:opacity-60"
+          class="flex items-center gap-2 rounded bg-primary px-10 py-3 font-bold text-white shadow-xl shadow-primary/20 transition-all active:scale-95 hover:bg-primary-container"
       >
         <span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">
           save

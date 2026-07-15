@@ -351,6 +351,5 @@ onBeforeUnmount(() => {
 
 .column-settings-actions button:disabled {
   cursor: not-allowed;
-  opacity: .35;
 }
 </style>

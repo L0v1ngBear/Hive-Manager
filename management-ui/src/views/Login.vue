@@ -111,7 +111,7 @@
               <template #label>
               <div class="flex justify-between items-center">
                 <span>密码</span>
-                <a href="#" class="text-sm font-semibold text-primary hover:text-primary/80 transition-colors" @click.prevent="openResetPasswordDialog">忘记密码?</a>
+                <a href="#" class="text-sm font-semibold text-primary hover:text-on-primary-container transition-colors" @click.prevent="openResetPasswordDialog">忘记密码?</a>
               </div>
               </template>
                 <el-input

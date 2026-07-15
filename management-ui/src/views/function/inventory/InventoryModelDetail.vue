@@ -133,7 +133,7 @@
                   <span><el-button
                     @click.stop="openOutDrawer(cloth)"
                     :disabled="!canOutInventory || Number(cloth.remainingMeters || 0) <= 0"
-                    class="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    class="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed"
                   >
                     扫码出库
                   </el-button></span></el-tooltip>

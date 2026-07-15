@@ -35,19 +35,21 @@ RGB compatibility, and Element Plus theme variables.
   `.function-action-primary`) set their foreground to `--ys-on-primary`; the
   descendant rule runs after global text utilities so nested text and Material
   Symbols stay white.
-- Non-disabled Element Plus and shared function primary controls use
+- Non-disabled `.bg-primary`, Element Plus, and shared function primary controls use
   `--ys-primary-hover` on hover and `--ys-primary-dark` while active, with
   `--ys-on-primary` foregrounds in both states.
-- Disabled primary controls take precedence across `.bg-primary`,
-  `.el-button--primary`, and `.function-action-primary`, including native and
-  `aria-disabled="true"` states. They use neutral `--ys-disabled-text` and
-  `--ys-disabled-bg`, keep nested text and icons neutral, remove primary shadows,
-  and do not rely on reduced opacity.
+- All native disabled buttons and `aria-disabled="true"` button-like controls,
+  including primary, warning, and success variants, use neutral
+  `--ys-disabled-text` and `--ys-disabled-bg`, keep nested text and icons neutral,
+  remove colored shadows, and hold opacity at `1`. Local enabled status colors
+  must not outrank this shared disabled cascade.
 - Error red, warning amber/yellow/orange, success green, order-stage colors,
   chart palettes, and black/white print-only rules are semantic exceptions and
   are not recolored by the teal migration. Warning surfaces, borders, rings, and
   gradients retain Tailwind semantics; the compatibility layer only darkens
   warning-family foreground utilities where normal text needs readable contrast.
+  Semantic text and meaningful icons may not use alpha-primary foregrounds;
+  decorative watermarks require an explicit source-test allowlist and rationale.
   Receipt and label print output remain outside the interactive retired-color scan.
 
 > 状态：Foundation migrated；迁移批次：Batch 1；范围：`management-ui` 应用级依赖、根入口、全局样式、请求状态与公共组件。

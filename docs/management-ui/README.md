@@ -62,7 +62,7 @@ The migration design is documented in
 
 ## Verification Status
 
-- Global teal theme CLI verification (2026-07-15): `npm test` passed **197/197** Node tests with zero failures, and `npm run build` completed successfully with Vite 8.1.3 after transforming 1,858 modules.
+- Global teal theme CLI verification (2026-07-15): `npm test` passed **207/207** Node tests with zero failures, and `npm run build` completed successfully with Vite 8.1.3 after transforming 1,858 modules.
 - The retired interactive-blue scan found **0** matches for `#1f3f5f`, `#0b1f33`, `rgba(31, 63, 95, ...)`, or `rgba(30, 64, 104, ...)` in `management-ui/src`. The required placeholder scan also found **0** matches.
 - Controller browser QA verified the local Vite app at `http://127.0.0.1:5173/`:
   - Login at 1440x900 (`/login?redirect=/dashboard`) had no horizontal overflow or overlap. Computed `--color-primary` and `--ys-primary` were `#0f766e`, `--ys-on-primary` was `#ffffff`, and `--ys-disabled-text` was `#94a3b8`; the primary login button used a `rgb(17, 94, 89)` to `rgb(15, 118, 110)` gradient with `rgb(255, 255, 255)` text.

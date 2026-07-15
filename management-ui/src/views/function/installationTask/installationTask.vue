@@ -725,7 +725,6 @@ function formatDateTime(value) {
 .installation-primary-btn:disabled,
 .installation-secondary-btn:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
   box-shadow: none;
 }
 
@@ -769,7 +768,7 @@ function formatDateTime(value) {
   gap: 12px;
   padding: 16px 18px;
   border-top: 1px solid rgb(var(--ys-primary-rgb) / 0.1);
-  color: rgb(var(--ys-primary-rgb) / 0.72);
+  color: var(--ys-on-surface-variant);
   font-size: 13px;
   font-weight: 800;
 }
@@ -1024,7 +1023,7 @@ function formatDateTime(value) {
 }
 
 .installation-table .th-cell {
-  color: rgb(var(--ys-primary-rgb) / 0.7);
+  color: var(--ys-on-surface-variant);
   font-size: 12px;
   letter-spacing: 0;
 }
@@ -1082,7 +1081,7 @@ function formatDateTime(value) {
   border-radius: 999px;
   background: rgb(var(--ys-primary-rgb) / 0.08);
   padding: 3px 8px;
-  color: rgb(var(--ys-primary-rgb) / 0.76);
+  color: var(--ys-on-primary-container);
   font-size: 11px;
   font-weight: 950;
 }
@@ -1120,7 +1119,7 @@ function formatDateTime(value) {
 .installation-meta-line .material-symbols-outlined,
 .installation-logistics .material-symbols-outlined {
   flex: 0 0 auto;
-  color: rgb(var(--ys-primary-rgb) / 0.5);
+  color: var(--ys-on-surface-variant);
   font-size: 15px;
 }
 
@@ -1222,7 +1221,7 @@ function formatDateTime(value) {
   border-radius: 999px;
   background: rgb(var(--ys-primary-rgb) / 0.08);
   padding: 4px 9px;
-  color: rgb(var(--ys-primary-rgb) / 0.72);
+  color: var(--ys-on-primary-container);
   font-size: 12px;
   font-weight: 900;
 }

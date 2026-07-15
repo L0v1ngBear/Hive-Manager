@@ -394,7 +394,7 @@ const linkClass = (item) => {
   font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.16em;
-  color: rgb(var(--ys-primary-rgb) / 0.62);
+  color: var(--ys-on-surface-variant);
 }
 
 .sidebar-tenant-card {
@@ -439,7 +439,7 @@ const linkClass = (item) => {
   font-size: 0.62rem;
   font-weight: 950;
   letter-spacing: 0.22em;
-  color: rgb(var(--ys-primary-rgb) / 0.58);
+  color: var(--ys-on-primary-container);
 }
 
 .sidebar-tenant-card__name {

@@ -4,7 +4,7 @@
     <template v-else>
     <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <p class="text-sm font-bold tracking-[0.2em] text-primary/70 uppercase">经营总览</p>
+        <p class="text-sm font-bold tracking-[0.2em] text-primary uppercase">经营总览</p>
         <h1 class="mt-2 text-3xl md:text-4xl font-black tracking-tight text-on-surface">
           {{ greetingText }}，{{ userName }}
         </h1>

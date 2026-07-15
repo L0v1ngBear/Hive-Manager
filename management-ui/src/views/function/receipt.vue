@@ -1593,7 +1593,6 @@ function buildReceiptTemplateContent(config) {
 }
 
 .btn:disabled {
-  opacity: .5;
   cursor: not-allowed;
 }
 
@@ -1766,8 +1765,12 @@ function buildReceiptTemplateContent(config) {
 }
 
 .editor-save-btn:disabled {
-  opacity: .55;
   cursor: not-allowed;
+  color: var(--ys-disabled-text);
+  border-color: var(--ys-disabled-bg);
+  background: var(--ys-disabled-bg);
+  box-shadow: none;
+  opacity: 1;
 }
 
 .editor-reset-btn,
@@ -2028,7 +2031,6 @@ function buildReceiptTemplateContent(config) {
 }
 
 .column-move-actions button:disabled {
-  opacity: .4;
   cursor: not-allowed;
 }
 

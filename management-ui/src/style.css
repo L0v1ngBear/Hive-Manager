@@ -137,12 +137,14 @@ body {
   background: linear-gradient(135deg, var(--ys-primary-dark), var(--ys-primary)) !important;
 }
 
+.bg-primary:not(:disabled):not([aria-disabled="true"]):hover,
 .el-button--primary:not(.is-disabled):not(:disabled):not([aria-disabled="true"]):hover,
 .function-action-primary:not(:disabled):not([aria-disabled="true"]):hover {
   color: var(--ys-on-primary) !important;
   background: var(--ys-primary-hover) !important;
 }
 
+.bg-primary:not(:disabled):not([aria-disabled="true"]):active,
 .el-button--primary:not(.is-disabled):not(:disabled):not([aria-disabled="true"]):active,
 .function-action-primary:not(:disabled):not([aria-disabled="true"]):active {
   color: var(--ys-on-primary) !important;
@@ -170,6 +172,23 @@ body {
 
 :is(.bg-primary:disabled, .bg-primary[aria-disabled="true"], .el-button--primary.is-disabled, .el-button--primary:disabled, .el-button--primary[aria-disabled="true"], .function-action-primary:disabled, .function-action-primary[aria-disabled="true"])
   :is(.text-primary, .text-on-surface, .text-on-surface-variant, .material-symbols-outlined) {
+  color: var(--ys-disabled-text) !important;
+}
+
+button:disabled,
+button[aria-disabled="true"],
+[role="button"][aria-disabled="true"],
+.el-button.is-disabled,
+.el-button[aria-disabled="true"] {
+  color: var(--ys-disabled-text) !important;
+  border-color: var(--ys-disabled-bg) !important;
+  background: var(--ys-disabled-bg) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+:is(button:disabled, button[aria-disabled="true"], [role="button"][aria-disabled="true"], .el-button.is-disabled, .el-button[aria-disabled="true"])
+  :is(.material-symbols-outlined, svg) {
   color: var(--ys-disabled-text) !important;
 }
 

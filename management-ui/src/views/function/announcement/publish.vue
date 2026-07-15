@@ -57,7 +57,7 @@
         </el-button>
         <el-button
             type="primary"
-            class="rounded-2xl bg-primary px-7 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+            class="rounded-2xl bg-primary px-7 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:cursor-not-allowed"
             :loading="publishing"
             @click="handlePublish"
         >

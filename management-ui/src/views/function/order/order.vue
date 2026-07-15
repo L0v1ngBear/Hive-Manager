@@ -794,7 +794,7 @@
                     @click="closeForm">取消
             </el-button>
             <el-button type="primary" :disabled="submitting || editLoading || !canSubmitCurrentForm"
-                    class="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-on-primary disabled:opacity-50"
+                    class="rounded-lg bg-primary px-6 py-2.5 text-sm font-bold text-on-primary"
                     :title="canSubmitCurrentForm ? '' : '当前账号没有该阶段订单维护权限'"
                     @click="submitForm">
               {{ formMode === 'create' ? '提交创建' : (advanceIntent ? '保存并推进' : '保存修改') }}
@@ -3154,7 +3154,11 @@ function fulfillmentProcessText(row = {}) {
 
 .order-warning-refresh-btn:disabled {
   cursor: wait;
-  opacity: .72;
+  color: var(--ys-disabled-text);
+  border-color: var(--ys-disabled-bg);
+  background: var(--ys-disabled-bg);
+  box-shadow: none;
+  opacity: 1;
 }
 
 :global(.order-warning-dialog) {
@@ -3282,9 +3286,17 @@ function fulfillmentProcessText(row = {}) {
   background: rgba(254, 242, 242, .98);
 }
 
-.order-stale-refresh-btn:disabled {
+.order-table-row .order-stale-refresh-btn:disabled {
   cursor: wait;
-  opacity: .62;
+  color: var(--ys-disabled-text) !important;
+  border-color: var(--ys-disabled-bg) !important;
+  background: var(--ys-disabled-bg) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.order-table-row .order-stale-refresh-btn:disabled .material-symbols-outlined {
+  color: var(--ys-disabled-text) !important;
 }
 
 .order-stale-refresh-btn.is-refreshing .material-symbols-outlined {
@@ -3742,10 +3754,6 @@ function fulfillmentProcessText(row = {}) {
   border-radius: .375rem;
   border: 1px solid rgba(148, 163, 184, .35);
   padding: .375rem .75rem
-}
-
-.page-btn:disabled {
-  opacity: .5
 }
 
 .drawer-large, .drawer-small {
