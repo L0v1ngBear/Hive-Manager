@@ -7,7 +7,7 @@ BuildTimeUtc=2026-07-15T04:13:16Z
 
 BackendArtifact=backend/hive-backend.jar
 BackendArtifactCount=1
-BackendJarSha256=95d7c03998700a9d9ae494de017442269d0b1123c7e4ec904f05bb16d9fff33c
+BackendJarSha256=4390daa1d2339e9fe6ea9db1e83a9ad9cffa1b877981235f8dc932c3e520c62f
 BackendJarBytes=103237252
 SpringBootApplicationCount=1
 BackendBusinessContainerCount=1
