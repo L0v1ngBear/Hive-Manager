@@ -5,7 +5,7 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.redis.HiveRedisKeyBuilder;
-import my.management.module.attendance.model.enums.AttendancePunchStatusEnum;
+import my.hive.domain.attendance.model.enums.AttendancePunchStatusEnum;
 import my.management.module.dashboard.mapper.DashboardMapper;
 import my.management.module.dashboard.model.vo.DashboardAttendanceAlertRowVO;
 import my.management.module.dashboard.model.vo.DashboardOverviewVO;

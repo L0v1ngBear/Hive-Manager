@@ -23,8 +23,8 @@ Task 4 requires no schema change. Both clients use the existing user `auth_versi
 | equipment | COMPLETE |
 | label | COMPLETE |
 | print | COMPLETE |
-| notification | PLANNED |
-| attendance | PLANNED |
+| notification | COMPLETE |
+| attendance | COMPLETE |
 | migration | PLANNED |
 | deployment | PLANNED |
 
@@ -35,6 +35,10 @@ Inventory, quality, and installation convergence is a Java package and API adapt
 ## Task 7 migration note
 
 Customer, document, equipment, label-template, receipt-print, and print-task convergence is a Java package/API consolidation. It does not modify historical SQL and does not require a new migration; the existing customer, document, equipment, label template, outbound receipt, and `print_task` table contracts remain canonical.
+
+## Task 8 migration note
+
+Task 8 does not modify an executed historical SQL file. The unified implementation consumes the existing `notification_record`, `enterprise_announcement`, `attendance_record`, `tenant_attendance_rule`, `tenant_attendance_location`, `employee_attendance_location`, `attendance_statics`, `inventory_statics`, and `wechat_subscribe_user` contracts already present in the approved deployment baseline/version history. Task 10 will import that history unchanged into the repository and verify its manifest checksums; any subsequently discovered schema delta must be introduced as a new version file.
 ## Task 3 persistence decision
 
 No schema migration is required. Existing management `employee`, `sys_role`, `sys_permission`, `sys_user_role`, `sys_role_permission`, and `sys_user_permission` tables and mappers are the canonical persistence model for both clients.

@@ -4,8 +4,8 @@
 
 - 页面：`management-ui/src/views/function/attendance/attendanceManagement.vue`。
 - 前端 API：`management-ui/src/views/function/attendance/api/attendance.js`。
-- 后端：`management/src/main/java/my/management/controller/AttendanceManageController.java`。
-- 服务：`management/src/main/java/my/management/module/attendance/service/AttendanceManageService.java`。
+- 后端：`management/src/main/java/my/hive/api/attendance/AttendanceController.java`。
+- 服务：`management/src/main/java/my/hive/domain/attendance/service/AttendanceService.java`。
 - 路由：`/function/attendance`。
 - 路由权限：`attendance:record:list` 或 `attendance:*`；feature 为 `module.attendance`。
 - 迁移批次：Batch 2；当前状态为 Audit baseline。

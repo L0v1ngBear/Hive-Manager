@@ -47,7 +47,7 @@ import my.management.module.employee.model.entity.EmployeeExt;
 import my.management.module.employee.model.entity.Position;
 import my.management.module.employee.model.enums.EmployeeStatusEnum;
 import my.management.module.employee.model.enums.EmployeeTypeEnum;
-import my.management.module.notification.sms.SmsVerificationService;
+import my.hive.infrastructure.sms.SmsVerificationService;
 import my.management.module.sys.mapper.SysUserRoleMapper;
 import my.management.module.sys.model.entity.SysRole;
 import my.management.module.sys.model.entity.SysUserRole;

@@ -25,8 +25,8 @@ WeChat login resolves phone matches only inside the bounded tenant set. A phone 
 | equipment | COMPLETE |
 | label | COMPLETE |
 | print | COMPLETE |
-| notification | PLANNED |
-| attendance | PLANNED |
+| notification | COMPLETE |
+| attendance | COMPLETE |
 | migration | PLANNED |
 | deployment | PLANNED |
 ## Authorization contract
@@ -131,3 +131,28 @@ The retained routes are rooted at `/api/customer/**`, `/api/document/**`, `/api/
 | label | admin `/label-template` | `/api/label-template` | `my.hive.domain.label.service.LabelTemplateService` |
 | receipt print | admin `/receipt` | `/api/receipt` | `my.hive.domain.print.receipt.service.ReceiptPrintService` |
 | print task | common `/print-task` | `/api/print-task` | `my.hive.domain.print.PrintTaskService` |
+
+## Notification, WeChat subscription, and attendance convergence matrix
+
+All rows below are served by the same `/api` process. Notification read/close operations and personal attendance records always derive tenant and user identity from the shared authenticated context.
+
+| Method | Route | Permission | Canonical service method |
+| --- | --- | --- | --- |
+| GET | `/api/notifications/page` | authenticated | `NotificationService.page` |
+| GET | `/api/notifications/unread` | authenticated | `NotificationService.unread` |
+| GET | `/api/notifications/unread-count` | authenticated | `NotificationService.unreadCount` |
+| GET | `/api/notifications/announcements` | `notification:announcement:list` | `EnterpriseAnnouncementService.announcements` |
+| POST | `/api/notifications/announcements` | `notification:announcement:publish` | `EnterpriseAnnouncementService.publishAnnouncement` |
+| POST | `/api/notifications/{id}/read` | authenticated, current user only | `NotificationService.markRead` |
+| POST | `/api/notifications/{id}/close` | authenticated, current user only | `NotificationService.closeTask` |
+| POST | `/api/notifications/sync` | `notification:announcement:publish` | `NotificationService.syncAllNotificationsForCurrentTenant` |
+| GET | `/api/wechat/subscriptions/config` | authenticated | `WechatSubscribeService.config` |
+| POST | `/api/wechat/subscriptions/register` | authenticated | `WechatSubscribeService.register` |
+| GET | `/api/attendance/summary` | `attendance:record:list` | `AttendanceService.summary` |
+| GET | `/api/attendance/page` | `attendance:record:list` | `AttendanceService.page` |
+| GET | `/api/attendance/departments` | `attendance:record:list` | `AttendanceService.departments` |
+| GET | `/api/attendance/rule` | `attendance:rule:list` | `AttendanceService.getRule` |
+| POST | `/api/attendance/rule/save` | `attendance:rule:update` | `AttendanceService.saveRule` |
+| GET | `/api/attendance/export-excel` | `attendance:export` | `AttendanceService.exportExcel` |
+| POST | `/api/attendance/punch` | `attendance:punch` | `AttendanceService.punch` |
+| GET | `/api/attendance/records/me` | `attendance:record:list` | `AttendanceService.recordsForCurrentUser` |

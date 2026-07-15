@@ -12,7 +12,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * keeps current endpoints available while retaining one authoritative context.</p>
  */
 @SpringBootApplication(scanBasePackages = "my")
-@MapperScan({"my.management.module.**.mapper", "my.hive.domain.**.mapper"})
+@MapperScan({"my.management.module.**.mapper", "my.hive.domain.**.mapper", "my.hive.infrastructure.**.mapper"})
 public class HiveApplication {
 
     public static void main(String[] args) {

@@ -34,8 +34,8 @@ Task 2 establishes `my.hive.HiveApplication` as the only executable entry point.
 | equipment | COMPLETE |
 | label | COMPLETE |
 | print | COMPLETE |
-| notification | PLANNED |
-| attendance | PLANNED |
+| notification | COMPLETE |
+| attendance | COMPLETE |
 | migration | PLANNED |
 | deployment | PLANNED |
 
@@ -46,6 +46,12 @@ Inventory, quality, and installation now use canonical implementations under `my
 ## Task 7 domain convergence
 
 Customer, document, equipment, label-template, receipt-print, and generic print-task code now live under canonical `my.hive.domain.customer`, `my.hive.domain.document`, `my.hive.domain.equipment`, `my.hive.domain.label`, and `my.hive.domain.print` packages. HTTP adapters were moved to `my.hive.api.customer`, `my.hive.api.document`, `my.hive.api.equipment`, `my.hive.api.label`, and `my.hive.api.print`. The previous `my.management.module.customer`, `document`, `equipment`, `label`, and `receipt` runtime packages were retired for these domains; `PrintTaskController` exists only once under the canonical print API.
+
+## Task 8 notification, attendance, and scheduled-work convergence
+
+Notifications and announcements now use the sole domain implementation under `my.hive.domain.notification`; SMS implementations are transport adapters under `my.hive.infrastructure.sms`. Management attendance and mini-program punch behavior share `my.hive.domain.attendance.service.AttendanceService` and one `my.hive.api.attendance.AttendanceController`. The mini-specific duplicate notification and attendance services are retired reference code, not runtime dependencies.
+
+WeChat login and subscription delivery share `my.hive.infrastructure.wechat.WechatMiniProgramClient`. Subscription registration is stored by the authenticated tenant/user and successful one-time delivery changes the subscription state to `used`. Scheduled work is registered only under `my.hive.infrastructure.scheduler`: one XXL-JOB executor configuration, six unique handlers, and one RabbitMQ operation-log listener declaration. `UniqueScheduledWorkTest` prevents duplicate handler names or queue consumers.
 ## Permission, employee, role, and tenant convergence
 
 Permission Catalog V3 now lives only at `my.hive.shared.permission.PermissionCatalogV3`. Runtime checks validate an exact assignable catalog leaf before consulting the request grants. `EffectivePermissionService` resolves the canonical management employee/role persistence query and discards all non-catalog values. The single authenticated-route initializer is `TenantContextFilter`, backed by the shared authenticated session and tenant context contracts.

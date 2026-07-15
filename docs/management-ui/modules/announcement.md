@@ -5,8 +5,8 @@
 - 列表：`management-ui/src/views/function/announcement/announcement.vue`。
 - 发布：`management-ui/src/views/function/announcement/publish.vue`。
 - 共享 API：`management-ui/src/api/notification.js`。
-- 后端：`management/src/main/java/my/management/controller/NotificationController.java`。
-- 服务：`management/src/main/java/my/management/module/notification/service/EnterpriseAnnouncementService.java`。
+- 后端：`management/src/main/java/my/hive/api/notification/NotificationController.java`。
+- 服务：`management/src/main/java/my/hive/domain/notification/service/EnterpriseAnnouncementService.java`。
 - 路由：`/function/announcement`、`/function/announcement/publish`。
 - 前端 feature：两条路由均为 `module.dashboard`。
 - 迁移批次：Batch 1；当前状态为 Audit baseline。

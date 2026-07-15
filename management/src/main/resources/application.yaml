@@ -73,6 +73,18 @@ notification:
     sign-name: ${NOTIFICATION_SMS_SIGN_NAME:}
     template-code: ${NOTIFICATION_SMS_TEMPLATE_CODE:}
 
+wechat:
+  mini-program:
+    enabled: ${WECHAT_MINI_PROGRAM_ENABLED:false}
+    app-id: ${WECHAT_MINI_PROGRAM_APP_ID:}
+    app-secret: ${WECHAT_MINI_PROGRAM_APP_SECRET:}
+    subscribe:
+      enabled: ${WECHAT_SUBSCRIBE_ENABLED:false}
+      todo-template-id: ${WECHAT_SUBSCRIBE_TODO_TEMPLATE_ID:}
+      todo-title-key: ${WECHAT_SUBSCRIBE_TODO_TITLE_KEY:thing1}
+      todo-content-key: ${WECHAT_SUBSCRIBE_TODO_CONTENT_KEY:thing2}
+      todo-time-key: ${WECHAT_SUBSCRIBE_TODO_TIME_KEY:time3}
+
 xxl:
   job:
     enabled: ${XXL_JOB_ENABLED:true}

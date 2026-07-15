@@ -14,6 +14,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Component
@@ -37,6 +38,31 @@ public class WechatMiniProgramClient {
         if (blank(phone)&&info!=null) phone=info.getString("phoneNumber");
         if (blank(phone)) throw failure("phone authorization");
         return phone;
+    }
+
+    public String exchangeOpenId(String code) {
+        requireConfigured();
+        JSONObject result = get("https://api.weixin.qq.com/sns/jscode2session?appid=" + encode(appId)
+                + "&secret=" + encode(appSecret) + "&js_code=" + encode(code)
+                + "&grant_type=authorization_code");
+        String openId = result.getString("openid");
+        if (result.getIntValue("errcode") != 0 || blank(openId)) {
+            throw failure("code exchange");
+        }
+        return openId;
+    }
+
+    public boolean sendSubscribeMessage(String openId,
+                                        String templateId,
+                                        String page,
+                                        Map<String, String> fields) {
+        requireConfigured();
+        Map<String, Object> data = new LinkedHashMap<>();
+        fields.forEach((key, value) -> data.put(key, Map.of("value", value)));
+        JSONObject result = post("https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=" + accessToken(),
+                Map.of("touser", openId, "template_id", templateId,
+                        "page", blank(page) ? "pages/index/index" : page, "data", data));
+        return result.getIntValue("errcode") == 0;
     }
 
     private String accessToken() {

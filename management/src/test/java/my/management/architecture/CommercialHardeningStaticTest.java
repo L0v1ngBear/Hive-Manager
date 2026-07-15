@@ -178,7 +178,7 @@ class CommercialHardeningStaticTest {
         assertFalse(dashboardContent.contains("countMonthProductionOrders"),
                 "Dashboard month order count must not add fulfillment row count");
 
-        Path notification = MAIN_SOURCE.resolve("my/management/module/notification/service/NotificationService.java");
+        Path notification = MAIN_SOURCE.resolve("my/hive/domain/notification/service/NotificationService.java");
         String notificationContent = Files.readString(notification, StandardCharsets.UTF_8);
         assertFalse(notificationContent.contains("其中销售订单"),
                 "Order warning notifications must use the unified order concept");
@@ -219,7 +219,7 @@ class CommercialHardeningStaticTest {
 
     @Test
     void notificationAnnouncementAndSyncEndpointsShouldRequireExplicitPermission() throws IOException {
-        Path file = MAIN_SOURCE.resolve("my/management/controller/NotificationController.java");
+        Path file = MAIN_SOURCE.resolve("my/hive/api/notification/NotificationController.java");
 
         String announcementsBlock = annotationBlockForMapping(file, "@GetMapping(\"/announcements\")");
         assertTrue(announcementsBlock.contains("@RequirePermission(value = PermissionCatalogV3.CODE_NOTIFICATION_ANNOUNCEMENT_LIST"),
@@ -233,8 +233,8 @@ class CommercialHardeningStaticTest {
     @Test
     void smsSenderLogsShouldNotExposeRawPhoneOrMessageContent() throws IOException {
         List<Path> smsSenders = List.of(
-                MAIN_SOURCE.resolve("my/management/module/notification/sms/ConsoleSmsSender.java"),
-                MAIN_SOURCE.resolve("my/management/module/notification/sms/AliyunSmsSender.java")
+                MAIN_SOURCE.resolve("my/hive/infrastructure/sms/ConsoleSmsSender.java"),
+                MAIN_SOURCE.resolve("my/hive/infrastructure/sms/AliyunSmsSender.java")
         );
         for (Path file : smsSenders) {
             String content = Files.readString(file, StandardCharsets.UTF_8);
@@ -512,16 +512,16 @@ class CommercialHardeningStaticTest {
                 List.of("MAX_PAGE_SIZE = 100", "safePageSize(request.getPageSize())", "Math.min(pageSize, MAX_PAGE_SIZE)"));
         assertSourceContains("my/management/module/equipment/service/EquipmentService.java",
                 List.of("MAX_PAGE_SIZE = 200", "safePageSize(safeRequest.getPageSize())", "Math.min(pageSize, MAX_PAGE_SIZE)"));
-        assertSourceContains("my/management/module/attendance/service/AttendanceManageService.java",
+        assertSourceContains("my/hive/domain/attendance/service/AttendanceService.java",
                 List.of("MAX_PAGE_SIZE = 200L", "normalizeRequest(request, MAX_PAGE_SIZE)", "Math.min(request.getPageSize(), maxPageSize)"));
         assertSourceContains("my/management/module/installation/service/InstallationTaskService.java",
                 List.of("Math.min(safeRequest.getSize(), 100L)"));
         assertSourceContains("my/management/module/approval/service/ApprovalService.java",
                 List.of("MAX_APPROVAL_LIST_LIMIT = 500", "safeApprovalListLimit(limit)", "Math.min(limit, MAX_APPROVAL_LIST_LIMIT)",
                         "MAX_AUDITOR_OPTION_LIMIT = 50", "safeAuditorOptionLimit(limit)", "Math.min(limit, MAX_AUDITOR_OPTION_LIMIT)"));
-        assertSourceContains("my/management/module/notification/service/NotificationService.java",
+        assertSourceContains("my/hive/domain/notification/service/NotificationService.java",
                 List.of("Math.min(Math.max(request.getPageSize() == null ? 20 : request.getPageSize(), 1), 100)"));
-        assertSourceContains("my/management/module/notification/service/EnterpriseAnnouncementService.java",
+        assertSourceContains("my/hive/domain/notification/service/EnterpriseAnnouncementService.java",
                 List.of("Math.min(Math.max(limit == null ? 5 : limit, 1), 50)"));
     }
 

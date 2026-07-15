@@ -98,7 +98,7 @@ class PermissionV3SessionContractTest {
 
     @Test
     void attendanceEndpointsUseTheirExactPermissions() throws IOException {
-        String source = readJava("my/management/controller/AttendanceManageController.java");
+        String source = readJava("my/hive/api/attendance/AttendanceController.java");
 
         assertTrue(source.contains("CODE_ATTENDANCE_RULE_LIST"));
         assertTrue(source.contains("CODE_ATTENDANCE_RULE_UPDATE"));
