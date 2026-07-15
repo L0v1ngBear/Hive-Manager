@@ -98,3 +98,9 @@ Authentication now has three HTTP adapters (`AdminAuthController`, `MiniAuthCont
 ## Latest-main integration
 
 Commit `c1d3733` merges the latest `origin/main` Element Plus management UI into the unified-backend line without reintroducing a second backend. The merged client still has one `/api` base, canonical order/approval/quality/installation routes, one V3 employee permission-profile tree, and exact action permissions. Retired UI permissions from the incoming branch were converted to V3 leaves, including customer create, quality process, document list, equipment create/update/disable/export, inventory record list, and print label/receipt actions.
+
+## Installation task installer details
+
+Installation tasks use a normalized `installation_task_installer` child table instead of single-person columns. `InstallationTaskService` remains the only installation domain service: it validates and fully replaces tenant-scoped installer rows in the same transaction as the task update. Non-empty pages use one task page query plus one tenant-scoped installer query, avoiding both N+1 reads and one-to-many JOIN pagination errors.
+
+The public contract remains exclusively under `/api/installation-tasks/**`. Requests use `installers: [{name, phone}]`; responses add `id` and `sortOrder`. No employee relation, employee ID, `/web/**` route, legacy field adapter, or second installation service is introduced.

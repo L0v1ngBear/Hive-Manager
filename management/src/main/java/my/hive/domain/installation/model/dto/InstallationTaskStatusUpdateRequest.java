@@ -4,6 +4,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 public class InstallationTaskStatusUpdateRequest {
 
@@ -17,9 +20,7 @@ public class InstallationTaskStatusUpdateRequest {
 
     private String expressNo;
 
-    private String constructionPersonnel;
-
-    private String constructionPhone;
+    private List<InstallationTaskInstallerRequest> installers = new ArrayList<>();
 
     private String constructionRemark;
 

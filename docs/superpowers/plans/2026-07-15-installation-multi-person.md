@@ -13,7 +13,7 @@
 - Work only in the independent clone and branch `codex/installation-multi-person`; never use git worktree.
 - Preserve the latest `origin/dev` history and never overwrite or revert unrelated work.
 - All public endpoints remain under the configured `/api/**` context; add no `/web/**` or compatibility endpoint.
-- Never edit an executed historical migration; only add `V20260715_001_installation_task_installer.sql`.
+- Never edit an executed historical migration; only add `V20260715_002_installation_task_installer.sql`, preserving the independently delivered `_001` order migration.
 - Remove `constructionPersonnel`, `constructionPhone`, `construction_personnel`, and `construction_phone` from active business contracts; historical SQL may still contain them.
 - Installer names are trimmed, required when a row exists, and limited to 50 characters.
 - Installer phones are trimmed, required when a row exists, and limited to 40 characters; no mobile-only format validation.
@@ -161,7 +161,7 @@ Expected: PASS with no Mockito interaction errors.
 ### Task 3: Add the forward-only migration and immutable-history gate
 
 **Files:**
-- Create: `db-migrations/migrations/V20260715_001_installation_task_installer.sql`
+- Create: `db-migrations/migrations/V20260715_002_installation_task_installer.sql`
 - Modify: `db-migrations/migration_manifest.txt`
 - Modify: `db-migrations/migration_checksums.sha256`
 - Create: `management-ui/tests/installation-task-installer-migration.test.js`
@@ -182,13 +182,13 @@ Expected: FAIL because the new migration is absent.
 
 - [ ] **Step 3: Add the idempotent MySQL migration**
 
-Create the table with `utf8mb4`, `idx_installation_task_installer_task (tenant_code, installation_task_id)`, and `uk_installation_task_installer_sort (tenant_code, installation_task_id, sort_order)`. Use `information_schema.columns` plus prepared statements to conditionally drop the two old columns so partially converged environments are safe.
+Create the table with `utf8mb4`, `idx_installation_task_installer_task (tenant_code, installation_task_id)`, and `uk_installation_task_installer_sort (tenant_code, installation_task_id, sort_order)`. Use `information_schema.columns` plus prepared statements to conditionally drop the two old columns so partially converged environments are safe. The `_002` version avoids the parallel `_001` deployment migration.
 
 - [ ] **Step 4: Append manifest and calculate only the new checksum**
 
-Run: `Get-FileHash -Algorithm SHA256 db-migrations/migrations/V20260715_001_installation_task_installer.sql`
+Run: `Get-FileHash -Algorithm SHA256 db-migrations/migrations/V20260715_002_installation_task_installer.sql`
 
-Append `migrations/V20260715_001_installation_task_installer.sql` and its lowercase hash; do not recalculate or rewrite historical lines.
+Append `migrations/V20260715_002_installation_task_installer.sql` and its lowercase hash; do not recalculate or rewrite historical lines.
 
 - [ ] **Step 5: Run migration tests and verify GREEN**
 

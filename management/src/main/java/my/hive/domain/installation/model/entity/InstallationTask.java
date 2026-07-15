@@ -73,12 +73,6 @@ public class InstallationTask {
     @TableField("order_attachment_size")
     private Long orderAttachmentSize;
 
-    @TableField("construction_personnel")
-    private String constructionPersonnel;
-
-    @TableField("construction_phone")
-    private String constructionPhone;
-
     @TableField("construction_remark")
     private String constructionRemark;
 

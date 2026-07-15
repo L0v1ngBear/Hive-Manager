@@ -20,7 +20,7 @@
 
 添加 `(tenant_code, installation_task_id)` 查询索引，以及 `(tenant_code, installation_task_id, sort_order)` 唯一约束。业务层额外阻止同一任务内 trim 后完全相同的“姓名 + 电话”组合；不同姓名可以共用同一电话。
 
-只新增更高版本的迁移文件。该迁移创建明细表，并从 `installation_task` 删除 `construction_personnel` 和 `construction_phone`。不得修改任何历史迁移。新版本必须追加到 `db-migrations/migration_manifest.txt` 和完整 SHA-256 快照，并同步到部署包。
+只新增更高版本的 `V20260715_002_installation_task_installer.sql`。该迁移创建明细表，并从 `installation_task` 删除 `construction_personnel` 和 `construction_phone`。不得修改任何历史迁移。新版本必须追加到 `db-migrations/migration_manifest.txt` 和完整 SHA-256 快照，并同步到部署包；部署目录中并行交付的 `_001` 订单迁移必须保留。
 
 ## 后端契约与模型
 
