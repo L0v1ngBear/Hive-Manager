@@ -213,14 +213,16 @@ function fileMatchesAccept(file) {
 
 .drag-attachment-upload.is-disabled {
   cursor: not-allowed;
-  border-color: rgba(107, 122, 144, 0.28);
-  background: rgba(245, 247, 250, 0.9);
-  opacity: 0.7;
+  border-color: var(--ys-disabled-bg);
+  background: var(--ys-disabled-bg);
+  color: var(--ys-disabled-text);
+  box-shadow: none;
+  opacity: 1;
 }
 
 .drag-attachment-upload.is-disabled:hover {
-  border-color: rgba(107, 122, 144, 0.28);
-  background: rgba(245, 247, 250, 0.9);
+  border-color: var(--ys-disabled-bg);
+  background: var(--ys-disabled-bg);
   box-shadow: none;
   transform: none;
 }

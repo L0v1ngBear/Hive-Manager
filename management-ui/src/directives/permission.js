@@ -20,9 +20,8 @@ function applyPermission(el, binding) {
       disabled: el.disabled,
       ariaDisabled: el.getAttribute('aria-disabled'),
       title: el.getAttribute('title'),
-      opacity: el.style.opacity,
       cursor: el.style.cursor,
-      filter: el.style.filter
+      permissionDisabledClass: el.classList.contains('is-permission-disabled')
     }
   }
 
@@ -37,9 +36,8 @@ function applyPermission(el, binding) {
 function disablePermission(el) {
   el.setAttribute('aria-disabled', 'true')
   el.setAttribute('title', '当前账号暂无权限')
-  el.style.opacity = '0.45'
+  el.classList.add('is-permission-disabled')
   el.style.cursor = 'not-allowed'
-  el.style.filter = 'grayscale(1)'
   if ('disabled' in el) {
     el.disabled = true
   }
@@ -68,9 +66,10 @@ function restorePermission(el) {
   } else {
     el.setAttribute('title', state.title)
   }
-  el.style.opacity = state.opacity || ''
+  if (!state.permissionDisabledClass) {
+    el.classList.remove('is-permission-disabled')
+  }
   el.style.cursor = state.cursor || ''
-  el.style.filter = state.filter || ''
   if (el.__permissionBlocker) {
     el.removeEventListener('click', el.__permissionBlocker, true)
     el.__permissionBlocker = null

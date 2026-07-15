@@ -898,13 +898,18 @@ watch(
 }
 
 .org-chart-status.disabled {
-  background: rgba(100, 116, 139, .12);
-  color: rgb(71, 85, 105);
+  background: var(--ys-disabled-bg);
+  color: var(--ys-disabled-text);
 }
 
 .org-chart-card.root .org-chart-status {
   background: rgba(255, 255, 255, .16);
   color: white;
+}
+
+.org-chart-card.root .org-chart-status.disabled {
+  background: var(--ys-disabled-bg);
+  color: var(--ys-disabled-text);
 }
 
 :deep(.zm-tree-org) {

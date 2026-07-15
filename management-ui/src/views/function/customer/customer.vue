@@ -496,7 +496,7 @@ function resolveCustomerListError(error) {
 }
 
 function permissionDisabledClass(disabled) {
-  return disabled ? 'cursor-not-allowed opacity-50 grayscale' : ''
+  return disabled ? 'cursor-not-allowed grayscale' : ''
 }
 
 onMounted(async () => {

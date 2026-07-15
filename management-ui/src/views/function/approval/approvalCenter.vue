@@ -723,7 +723,7 @@ const canAuditApproval = (item) => {
   return parseAuditorIds(item?.auditorIds).includes(userId)
 }
 
-const auditButtonDisabledClass = (disabled) => disabled ? 'cursor-not-allowed opacity-50 grayscale' : ''
+const auditButtonDisabledClass = (disabled) => disabled ? 'cursor-not-allowed grayscale' : ''
 
 const groupAuditorOptions = (options = []) => {
   const groups = new Map()

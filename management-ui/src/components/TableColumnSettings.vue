@@ -239,11 +239,11 @@ onBeforeUnmount(() => {
 .column-settings-trigger.is-permission-disabled,
 .column-settings-trigger.is-permission-disabled:hover {
   cursor: not-allowed;
-  opacity: 0.5;
-  filter: grayscale(1);
-  background: #f1f5f9;
-  color: #64748b;
+  border-color: var(--ys-disabled-bg);
+  background: var(--ys-disabled-bg);
+  color: var(--ys-disabled-text);
   box-shadow: none;
+  opacity: 1;
 }
 
 .column-settings-panel {

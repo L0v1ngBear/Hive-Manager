@@ -138,8 +138,8 @@
                       {{ (doc.fileExt || 'FILE').toUpperCase() }}
                     </div>
                     <span
-                      class="truncate font-bold text-primary"
-                      :class="{ 'cursor-not-allowed opacity-50 grayscale': isFolder(doc) && !canBrowseDocuments }"
+                      class="truncate font-bold"
+                      :class="isFolder(doc) && !canBrowseDocuments ? 'cursor-not-allowed text-[var(--ys-disabled-text)] grayscale' : 'text-primary'"
                       :title="isFolder(doc) && !canBrowseDocuments ? breadcrumbPermissionReason : doc.name"
                     >{{ doc.name }}</span>
                   </div>
@@ -425,7 +425,7 @@ function resolveDocumentLoadError(error) {
 }
 
 function permissionDisabledClass(disabled) {
-  return disabled ? 'cursor-not-allowed opacity-50 grayscale' : ''
+  return disabled ? 'cursor-not-allowed grayscale' : ''
 }
 
 const getFileIconColor = (ext) => {

@@ -9,6 +9,7 @@ const compact = styleSource.replace(/\s+/g, ' ').toLowerCase()
 const sourceRoot = fileURLToPath(new URL('../src/', import.meta.url))
 const readSource = (relativePath) => readFileSync(new URL(`../src/${relativePath}`, import.meta.url), 'utf8')
 const navbarSource = readSource('layout/components/Navbar.vue')
+const permissionDirectiveSource = readSource('directives/permission.js')
 const forcePasswordSource = readSource('views/ForcePasswordChange.vue')
 const installationTaskSource = readSource('views/function/installationTask/installationTask.vue')
 const badProductSource = readSource('views/function/badProduct/badProduct.vue')
@@ -76,6 +77,45 @@ function sourceRelativePath(filePath) {
   return relative(sourceRoot, filePath).replaceAll('\\', '/')
 }
 
+function findNextOpeningBrace(source, start = 0) {
+  let cursor = start
+  let quote = null
+  let escaped = false
+  let inComment = false
+
+  while (cursor < source.length) {
+    const current = source[cursor]
+    const next = source[cursor + 1]
+
+    if (inComment) {
+      if (current === '*' && next === '/') {
+        inComment = false
+        cursor += 2
+        continue
+      }
+    } else if (quote) {
+      if (escaped) {
+        escaped = false
+      } else if (current === '\\') {
+        escaped = true
+      } else if (current === quote) {
+        quote = null
+      }
+    } else if (current === '/' && next === '*') {
+      inComment = true
+      cursor += 2
+      continue
+    } else if (current === '"' || current === "'") {
+      quote = current
+    } else if (current === '{') {
+      return cursor
+    }
+    cursor += 1
+  }
+
+  return -1
+}
+
 function findMatchingBrace(source, blockStart) {
   let depth = 1
   let cursor = blockStart + 1
@@ -128,7 +168,7 @@ function cssRules(source) {
   let cursor = 0
 
   while (cursor < source.length) {
-    const blockStart = source.indexOf('{', cursor)
+    const blockStart = findNextOpeningBrace(source, cursor)
     if (blockStart === -1) break
 
     const blockEnd = findMatchingBrace(source, blockStart)
@@ -189,13 +229,13 @@ function isAlphaPrimaryForeground(value) {
   const referencesPrimary = (
     /--ys-primary(?:-rgb)?|var\(--primary\)|#0f766e/.test(normalized)
     || /15\s*(?:,|\s)\s*118\s*(?:,|\s)\s*110/.test(normalized)
-    || /^text-primary\//.test(normalized)
+    || /^(?:text|fill|stroke)-primary\//.test(normalized)
   )
   const usesAlpha = (
     /\/\s*(?:0?\.\d+|\d+%)/.test(normalized)
     || /rgba\([^)]*,\s*(?:0?\.\d+|\d+%)\s*\)/.test(normalized)
     || /color-mix\([^)]*transparent/.test(normalized)
-    || /^text-primary\//.test(normalized)
+    || /^(?:text|fill|stroke)-primary\//.test(normalized)
   )
   return referencesPrimary && usesAlpha
 }
@@ -203,16 +243,22 @@ function isAlphaPrimaryForeground(value) {
 function alphaPrimaryForegrounds(relativePath, source) {
   const findings = []
   const lineNumber = (index) => source.slice(0, index).split(/\r?\n/).length
-  const cssForegroundPattern = /^\s*color\s*:\s*([^;\r\n]+);?/gmi
-  const textUtilityPattern = /text-(?:primary\/[^\s"'`<>]+|\[[^\]\r\n]+\])/gi
+  const cssForegroundPattern = /(?<![-\w])(color|fill|stroke)\s*:\s*([^;\r\n}]+)/gmi
+  const utilityPattern = /(?:text|fill|stroke)-(?:primary\/[^\s"'`<>]+|\[[^\]\r\n]+\])/gi
+  const attributePattern = /\b(fill|stroke)\s*=\s*["']([^"']+)["']/gi
 
   for (const match of source.matchAll(cssForegroundPattern)) {
-    if (isAlphaPrimaryForeground(match[1])) {
+    if (isAlphaPrimaryForeground(match[2])) {
       findings.push({ relativePath, line: lineNumber(match.index), token: match[0].trim() })
     }
   }
-  for (const match of source.matchAll(textUtilityPattern)) {
+  for (const match of source.matchAll(utilityPattern)) {
     if (isAlphaPrimaryForeground(match[0])) {
+      findings.push({ relativePath, line: lineNumber(match.index), token: match[0] })
+    }
+  }
+  for (const match of source.matchAll(attributePattern)) {
+    if (isAlphaPrimaryForeground(match[2])) {
       findings.push({ relativePath, line: lineNumber(match.index), token: match[0] })
     }
   }
@@ -229,9 +275,8 @@ function disabledRuleViolations(relativePath, source) {
   for (const styleBlock of styleBlocks) {
     for (const rule of cssRules(styleBlock)) {
       const selector = rule.selector
-        .replace(/:not\(\s*:disabled\s*\)/g, '')
-        .replace(/:not\(\s*\[aria-disabled=["']?true["']?\]\s*\)/g, '')
-      if (!/:disabled|\[aria-disabled=["']?true/.test(selector)) continue
+        .replace(/:not\([^)]*disabled[^)]*\)/gi, '')
+      if (!/disabled/i.test(selector)) continue
 
       for (const opacity of rule.declarations.matchAll(/(?:^|;)\s*opacity:\s*([.\d]+)/g)) {
         if (Number(opacity[1]) < 1) {
@@ -239,12 +284,21 @@ function disabledRuleViolations(relativePath, source) {
         }
       }
 
-      for (const property of ['color', 'background', 'background-color', 'border-color']) {
-        const declaration = new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+)`).exec(rule.declarations)
-        if (!declaration) continue
-        const expectedToken = property === 'color' ? '--ys-disabled-text' : '--ys-disabled-bg'
-        if (!declaration[1].includes(expectedToken)) {
-          violations.push(`${relativePath}: ${rule.selector} sets non-neutral ${property}`)
+      for (const property of ['color', 'fill', 'stroke', 'background', 'background-color', 'border', 'border-color']) {
+        const declarationPattern = new RegExp(`(?:^|;)\\s*${property}:\\s*([^;]+)`, 'g')
+        for (const declaration of rule.declarations.matchAll(declarationPattern)) {
+          const expectedToken = ['color', 'fill', 'stroke'].includes(property)
+            ? '--ys-disabled-text'
+            : '--ys-disabled-bg'
+          if (!declaration[1].includes(expectedToken)) {
+            violations.push(`${relativePath}: ${rule.selector} sets non-neutral ${property}`)
+          }
+        }
+      }
+
+      for (const shadow of rule.declarations.matchAll(/(?:^|;)\s*box-shadow:\s*([^;]+)/g)) {
+        if (!/^none(?:\s*!important)?$/.test(shadow[1].trim())) {
+          violations.push(`${relativePath}: ${rule.selector} keeps a disabled shadow`)
         }
       }
     }
@@ -252,6 +306,33 @@ function disabledRuleViolations(relativePath, source) {
 
   for (const match of source.matchAll(/disabled:opacity-[^\s"'`<>]+/g)) {
     violations.push(`${relativePath}: ${match[0]} bypasses the shared opacity contract`)
+  }
+
+  return violations
+}
+
+function disabledRepresentationViolations(relativePath, source) {
+  const violations = []
+  const lineNumber = (index) => source.slice(0, index).split(/\r?\n/).length
+
+  for (const match of source.matchAll(/(['"`])([^'"`\r\n]*cursor-not-allowed[^'"`\r\n]*)\1/g)) {
+    const classValue = match[2]
+    if (/\bopacity-(?!100\b)\d+\b/.test(classValue)) {
+      violations.push(`${relativePath}:${lineNumber(match.index)} disabled class uses reduced opacity`)
+    }
+    if (/\b(?:text|fill|stroke)-[^\s]+\/(?:\d+|\[[^\]]+\])/.test(classValue)) {
+      violations.push(`${relativePath}:${lineNumber(match.index)} disabled class uses an alpha foreground`)
+    }
+  }
+
+  for (const match of source.matchAll(/[^\r\n]*disabled[^\r\n]*(?:text|fill|stroke)-[^\s'"`<>]+\/(?:\d+|\[[^\]]+\])[^\r\n]*/gi)) {
+    violations.push(`${relativePath}:${lineNumber(match.index)} disabled branch uses an alpha foreground`)
+  }
+
+  if (relativePath === 'directives/permission.js') {
+    for (const match of source.matchAll(/el\.style\.(opacity|filter)\s*=/g)) {
+      violations.push(`${relativePath}:${lineNumber(match.index)} permission directive writes inline ${match[1]}`)
+    }
   }
 
   return violations
@@ -289,7 +370,7 @@ function stripPrintMediaBlocks(source) {
     if (mediaStart === -1) return result + source.slice(cursor)
 
     result += source.slice(cursor, mediaStart)
-    const blockStart = source.indexOf('{', mediaStart)
+    const blockStart = findNextOpeningBrace(source, mediaStart)
     assert.notEqual(blockStart, -1, 'print media block must have an opening brace')
 
     const blockEnd = findMatchingBrace(source, blockStart)
@@ -313,6 +394,44 @@ for (const [name, declaration] of [
     assert.match(after.declarations, /color:\s*#475569/)
   })
 }
+
+for (const [name, prefix] of [
+  ['a top-level comment brace', '/* top-level { ignored */'],
+  ['a top-level quoted brace', '@custom "{";']
+]) {
+  test(`CSS rule scanner ignores ${name} before a rule`, () => {
+    const fixture = `${prefix}\n.probe { color: #0f172a; } .after { color: #475569; }`
+    assert.match(cssRule(fixture, '.probe').declarations, /color:\s*#0f172a/)
+    assert.match(cssRule(fixture, '.after').declarations, /color:\s*#475569/)
+  })
+}
+
+test('alpha-primary foreground scanner covers fill, stroke, utilities, and attributes', () => {
+  const fixtures = [
+    ['fixture.css', '.icon { fill: rgb(var(--ys-primary-rgb) / 0.4); }'],
+    ['fixture.css', '.icon { stroke: rgba(15, 118, 110, 0.45); }'],
+    ['fixture.vue', '<svg class="fill-primary/40 stroke-primary/50"></svg>'],
+    ['fixture.vue', '<path fill="rgba(15, 118, 110, 0.4)" stroke="rgb(var(--ys-primary-rgb) / 45%)" />']
+  ]
+
+  for (const [relativePath, source] of fixtures) {
+    assert.ok(alphaPrimaryForegrounds(relativePath, source).length > 0, source)
+  }
+})
+
+test('disabled selector audit recognizes named state classes', () => {
+  const fixture = `
+    .permission-action-disabled {
+      color: rgba(100, 116, 139, 0.5);
+      background: rgba(226, 232, 240, 0.45);
+      opacity: 0.55;
+    }
+  `
+  const violations = disabledRuleViolations('fixture.css', fixture)
+  assert.ok(violations.some((item) => item.includes('opacity 0.55')))
+  assert.ok(violations.some((item) => item.includes('non-neutral color')))
+  assert.ok(violations.some((item) => item.includes('non-neutral background')))
+})
 
 test('global theme exposes the approved teal semantic tokens', () => {
   assert.match(compact, /--color-primary:\s*#0f766e/)
@@ -495,12 +614,16 @@ test('all native and aria-disabled button-like controls use the shared neutral c
     button:disabled,
     button[aria-disabled="true"],
     [role="button"][aria-disabled="true"],
+    [role="menuitem"][aria-disabled="true"],
+    .permission-action-disabled[aria-disabled="true"],
+    .is-permission-disabled[aria-disabled="true"],
+    .order-detail-disabled[aria-disabled="true"],
     .el-button.is-disabled,
     .el-button[aria-disabled="true"]
   `)
   const genericDisabledDescendantRule = cssRule(styleSource, `
-    :is(button:disabled, button[aria-disabled="true"], [role="button"][aria-disabled="true"], .el-button.is-disabled, .el-button[aria-disabled="true"])
-      :is(.material-symbols-outlined, svg)
+    :is(button:disabled, button[aria-disabled="true"], [role="button"][aria-disabled="true"], [role="menuitem"][aria-disabled="true"], .permission-action-disabled[aria-disabled="true"], .is-permission-disabled[aria-disabled="true"], .order-detail-disabled[aria-disabled="true"], .el-button.is-disabled, .el-button[aria-disabled="true"])
+      *
   `)
 
   assert.match(genericDisabledRule.declarations, /color:\s*var\(--ys-disabled-text\)\s*!important/)
@@ -548,12 +671,54 @@ test('all native and aria-disabled button-like controls use the shared neutral c
   )
 })
 
+test('permission-disabled representations expose semantics and neutral local precedence', () => {
+  const rowClassIndex = orderSource.indexOf('permissionDisabledClass(!canViewOrderDetail(row))')
+  const rowStart = orderSource.lastIndexOf('<tr', rowClassIndex)
+  const rowEnd = orderSource.indexOf('>', rowClassIndex)
+  const rowTag = orderSource.slice(rowStart, rowEnd + 1)
+
+  assert.match(rowTag, /role="button"/)
+  assert.match(rowTag, /:tabindex="canViewOrderDetail\(row\) \? 0 : -1"/)
+  assert.match(rowTag, /:aria-disabled="!canViewOrderDetail\(row\)"/)
+  assert.match(rowTag, /@keydown\.enter\.self\.prevent=/)
+  assert.match(rowTag, /@keydown\.space\.self\.prevent=/)
+
+  const localDisabledRule = cssRule(vueStyle(orderSource), `
+    .permission-action-disabled,
+    .permission-action-disabled:hover,
+    .order-table-row.permission-action-disabled,
+    .order-table-row.permission-action-disabled:hover,
+    .order-table-row.order-detail-disabled,
+    .order-table-row.order-detail-disabled:hover
+  `)
+  const localDescendantRule = cssRule(
+    vueStyle(orderSource),
+    ':is(.permission-action-disabled, .order-detail-disabled) *'
+  )
+  for (const declaration of [
+    /color:\s*var\(--ys-disabled-text\)\s*!important/,
+    /border-color:\s*var\(--ys-disabled-bg\)\s*!important/,
+    /background:\s*var\(--ys-disabled-bg\)\s*!important/,
+    /box-shadow:\s*none\s*!important/,
+    /opacity:\s*1\s*!important/,
+    /transform:\s*none\s*!important/
+  ]) {
+    assert.match(localDisabledRule.declarations, declaration)
+  }
+  assert.match(localDescendantRule.declarations, /color:\s*var\(--ys-disabled-text\)\s*!important/)
+
+  assert.match(permissionDirectiveSource, /classList\.add\('is-permission-disabled'\)/)
+  assert.doesNotMatch(permissionDirectiveSource, /el\.style\.(?:opacity|filter)\s*=/)
+})
+
 test('source-local disabled rules never restore status colors or reduced opacity', () => {
   const violations = []
   for (const filePath of listSourceFiles()) {
     const relativePath = sourceRelativePath(filePath)
     try {
-      violations.push(...disabledRuleViolations(relativePath, readFileSync(filePath, 'utf8')))
+      const source = readFileSync(filePath, 'utf8')
+      violations.push(...disabledRuleViolations(relativePath, source))
+      violations.push(...disabledRepresentationViolations(relativePath, source))
     } catch (error) {
       assert.fail(`${relativePath}: ${error.message}`)
     }
@@ -590,8 +755,22 @@ test('primary controls expose non-disabled hover and active feedback before disa
     button:disabled,
     button[aria-disabled="true"],
     [role="button"][aria-disabled="true"],
+    [role="menuitem"][aria-disabled="true"],
+    .permission-action-disabled[aria-disabled="true"],
+    .is-permission-disabled[aria-disabled="true"],
+    .order-detail-disabled[aria-disabled="true"],
     .el-button.is-disabled,
     .el-button[aria-disabled="true"]
+  `)
+  const hoverTransformRule = cssRule(styleSource, `
+    .function-action-primary:not(:disabled):not([aria-disabled="true"]):hover,
+    .function-action-secondary:not(:disabled):not([aria-disabled="true"]):hover,
+    .function-action-dark:not(:disabled):not([aria-disabled="true"]):hover
+  `)
+  const activeTransformRule = cssRule(styleSource, `
+    .function-action-primary:not(:disabled):not([aria-disabled="true"]):active,
+    .function-action-secondary:not(:disabled):not([aria-disabled="true"]):active,
+    .function-action-dark:not(:disabled):not([aria-disabled="true"]):active
   `)
 
   assert.match(hoverRule.declarations, /color:\s*var\(--ys-on-primary\)\s*!important/)
@@ -600,6 +779,10 @@ test('primary controls expose non-disabled hover and active feedback before disa
   assert.match(activeRule.declarations, /background:\s*var\(--ys-primary-dark\)\s*!important/)
   assertNormalTextContrast('#ffffff', '#0f766e', 'primary hover copy')
   assertNormalTextContrast('#ffffff', '#115e59', 'primary active copy')
+  assert.match(hoverTransformRule.declarations, /transform:\s*translatey\(-1px\)/)
+  assert.match(activeTransformRule.declarations, /transform:\s*scale\(0\.97\)/)
+  assert.doesNotMatch(styleSource, /\.function-action-primary:hover\s*,/)
+  assert.doesNotMatch(styleSource, /\.function-action-primary:active\s*,/)
   assert.ok(baseRule.start < hoverRule.start)
   assert.ok(hoverRule.start < activeRule.start)
   assert.ok(activeRule.start < disabledRule.start)

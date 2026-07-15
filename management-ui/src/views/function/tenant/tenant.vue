@@ -495,7 +495,15 @@ function numericOrZero(value) {
 }
 
 .tenant-card--disabled {
-  opacity: 0.72;
+  border-color: var(--ys-disabled-bg);
+  background: var(--ys-disabled-bg);
+  color: var(--ys-disabled-text);
+  box-shadow: none;
+  opacity: 1;
+}
+
+.tenant-card--disabled * {
+  color: var(--ys-disabled-text);
 }
 
 .tenant-card__top {

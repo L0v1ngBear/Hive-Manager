@@ -36,10 +36,10 @@
             :title="item.disabled ? item.disabledReason : item.desc"
             @click="handleSearchItemClick(item)"
           >
-            <span class="material-symbols-outlined text-[20px]" :class="item.disabled ? 'text-on-surface-variant/40' : 'text-primary'">{{ item.icon }}</span>
+            <span class="material-symbols-outlined text-[20px]" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-primary'">{{ item.icon }}</span>
             <span class="min-w-0 flex-1">
-              <strong class="block truncate" :class="item.disabled ? 'text-on-surface-variant/45' : 'text-on-surface'">{{ item.label || item.name }}</strong>
-              <small class="block truncate" :class="item.disabled ? 'text-on-surface-variant/35' : 'text-on-surface-variant'">{{ item.disabled ? item.disabledReason : item.desc }}</small>
+              <strong class="block truncate" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-on-surface'">{{ item.label || item.name }}</strong>
+              <small class="block truncate" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-on-surface-variant'">{{ item.disabled ? item.disabledReason : item.desc }}</small>
             </span>
             <span class="material-symbols-outlined text-on-surface-variant text-[18px]">arrow_forward</span>
           </el-button>
@@ -201,10 +201,10 @@
             :title="item.disabled ? item.disabledReason : item.desc"
             @click="handleSearchItemClick(item)"
           >
-            <span class="material-symbols-outlined text-[20px]" :class="item.disabled ? 'text-on-surface-variant/40' : 'text-primary'">{{ item.icon }}</span>
+            <span class="material-symbols-outlined text-[20px]" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-primary'">{{ item.icon }}</span>
             <span class="min-w-0 flex-1">
-              <strong class="block truncate" :class="item.disabled ? 'text-on-surface-variant/45' : 'text-on-surface'">{{ item.label || item.name }}</strong>
-              <small class="block truncate" :class="item.disabled ? 'text-on-surface-variant/35' : 'text-on-surface-variant'">{{ item.disabled ? item.disabledReason : item.desc }}</small>
+              <strong class="block truncate" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-on-surface'">{{ item.label || item.name }}</strong>
+              <small class="block truncate" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-on-surface-variant'">{{ item.disabled ? item.disabledReason : item.desc }}</small>
             </span>
             <span class="material-symbols-outlined text-on-surface-variant text-[18px]">arrow_forward</span>
           </el-button>
@@ -425,7 +425,7 @@ function isSearchTargetDisabled(path) {
 
 function searchItemClass(item) {
   return item.disabled
-    ? 'cursor-not-allowed bg-surface-container-highest/40 opacity-60 grayscale'
+    ? 'cursor-not-allowed grayscale'
     : 'hover:bg-primary-container'
 }
 
@@ -601,13 +601,16 @@ onBeforeUnmount(() => {
 
 .navbar-menu-item--disabled {
   cursor: not-allowed;
-  color: rgba(100, 116, 139, 0.45);
-  filter: grayscale(1);
-  opacity: 0.6;
+  border-color: var(--ys-disabled-bg);
+  background: var(--ys-disabled-bg);
+  color: var(--ys-disabled-text);
+  box-shadow: none;
+  opacity: 1;
 }
 
 .navbar-menu-item--disabled:hover {
-  background: transparent;
+  background: var(--ys-disabled-bg);
+  transform: none;
 }
 
 .local-avatar {

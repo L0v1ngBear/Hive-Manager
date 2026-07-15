@@ -387,8 +387,8 @@ defineExpose({ open })
 }
 
 .permission-result.is-disabled {
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--ys-disabled-bg);
+  color: var(--ys-disabled-text);
 }
 
 :deep(.permission-profile-tree) {

@@ -42,7 +42,9 @@ RGB compatibility, and Element Plus theme variables.
   including primary, warning, and success variants, use neutral
   `--ys-disabled-text` and `--ys-disabled-bg`, keep nested text and icons neutral,
   remove colored shadows, and hold opacity at `1`. Local enabled status colors
-  must not outrank this shared disabled cascade.
+  must not outrank this shared disabled cascade. Permission directives and named
+  permission-disabled state classes use the same contract, and disabled function
+  actions do not apply hover or active transforms.
 - Error red, warning amber/yellow/orange, success green, order-stage colors,
   chart palettes, and black/white print-only rules are semantic exceptions and
   are not recolored by the teal migration. Warning surfaces, borders, rings, and

@@ -233,11 +233,16 @@
               :class="[
                 orderRowClass(row.status),
                 row.staleWarning ? 'order-row-stale-warning' : '',
-                permissionDisabledClass(!canViewOrderDetail(row))
+                permissionDisabledClass(!canViewOrderDetail(row)),
+                !canViewOrderDetail(row) ? 'order-detail-disabled' : ''
               ]"
+              role="button"
+              :tabindex="canViewOrderDetail(row) ? 0 : -1"
               :aria-disabled="!canViewOrderDetail(row)"
               :title="canViewOrderDetail(row) ? '查看订单详情' : '当前账号暂无查看该订单详情权限'"
               @click="openDetail(row.orderId, row)"
+              @keydown.enter.self.prevent="openDetail(row.orderId, row)"
+              @keydown.space.self.prevent="openDetail(row.orderId, row)"
           >
             <td
                 v-for="column in orderTableColumns"
@@ -3731,23 +3736,21 @@ function fulfillmentProcessText(row = {}) {
 
 .permission-action-disabled,
 .permission-action-disabled:hover,
-.order-table-row .permission-action-disabled,
-.order-table-row .permission-action-disabled .material-symbols-outlined {
-  color: rgba(100, 116, 139, .5) !important;
+.order-table-row.permission-action-disabled,
+.order-table-row.permission-action-disabled:hover,
+.order-table-row.order-detail-disabled,
+.order-table-row.order-detail-disabled:hover {
+  color: var(--ys-disabled-text) !important;
+  border-color: var(--ys-disabled-bg) !important;
+  background: var(--ys-disabled-bg) !important;
   cursor: not-allowed !important;
-  filter: grayscale(1);
-  opacity: .55;
+  opacity: 1 !important;
   transform: none !important;
   box-shadow: none !important;
 }
 
-.permission-action-disabled:hover,
-.order-row-actions .permission-action-disabled:hover {
-  background: rgba(226, 232, 240, .45);
-}
-
-.order-table-row.order-detail-disabled {
-  cursor: not-allowed;
+:is(.permission-action-disabled, .order-detail-disabled) * {
+  color: var(--ys-disabled-text) !important;
 }
 
 .page-btn {

@@ -16,7 +16,7 @@
       <el-button
           type="primary"
           class="rounded-2xl bg-primary px-6 py-4 text-sm font-black text-white shadow-lg shadow-primary/20 transition"
-          :class="canPublishAnnouncement ? 'hover:bg-primary/90' : 'cursor-not-allowed opacity-50 grayscale'"
+          :class="canPublishAnnouncement ? 'hover:bg-primary/90' : 'cursor-not-allowed grayscale'"
           :disabled="!canPublishAnnouncement"
           :title="canPublishAnnouncement ? '发布公告' : '当前账号暂无发布公告权限'"
           @click="goPublish"

@@ -306,7 +306,7 @@ const linkClass = (item) => {
   const active = route.path.startsWith(item.path)
   if (item.disabled) {
     return [
-      'cursor-not-allowed bg-surface-container-highest/40 text-on-surface-variant/35 grayscale opacity-60',
+      'cursor-not-allowed grayscale',
       isCollapsed.value ? 'flex-col items-center justify-center py-3 gap-1' : 'flex-row items-center gap-3 px-4 py-3',
     ]
   }
