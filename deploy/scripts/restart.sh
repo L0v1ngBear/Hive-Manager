@@ -31,7 +31,7 @@ trap restore_on_failure EXIT
 bash scripts/migrate-db.sh
 docker compose up -d --force-recreate --remove-orphans mysql redis backend nginx
 wait_for_healthy_container hive-backend
-wait_for_healthy_container hive-nginx
+wait_for_healthy_container nginx
 bash scripts/verify-release-integrity.sh
 bash scripts/smoke-test.sh
 

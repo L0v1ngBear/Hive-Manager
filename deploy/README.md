@@ -9,7 +9,7 @@ The following files are intentionally excluded from Git:
 - `.env`, created from `.env.example` with production secrets;
 - `backend/hive-backend.jar`, produced by the release build;
 - `management-ui/dist`, produced by Vite;
-- `nginx/certs/fullchain.pem` and `nginx/certs/privkey.pem`;
+- `nginx/certs/hellohive.top.pem` and `nginx/certs/hellohive.top.key`;
 - database, Redis, RabbitMQ, upload, log, report, and snapshot data.
 
 ## Commands
@@ -21,6 +21,7 @@ bash scripts/start.sh
 bash scripts/restart.sh
 bash scripts/smoke-test.sh
 bash scripts/smoke-unified-backend.sh
+bash scripts/reset-fresh-business-data.sh
 bash scripts/rollback-release.sh
 ```
 

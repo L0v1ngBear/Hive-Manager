@@ -25,14 +25,14 @@ assertContains(vueFile, 'expressNo: editorForm.expressNo', 'save payload should 
 
 const dtoFile = path.join(
   managementRoot,
-  'src/main/java/my/management/module/installation/model/dto/InstallationTaskStatusUpdateRequest.java'
+  'src/main/java/my/hive/domain/installation/model/dto/InstallationTaskStatusUpdateRequest.java'
 )
 assertContains(dtoFile, 'private String expressCompany;', 'status update request should include expressCompany')
 assertContains(dtoFile, 'private String expressNo;', 'status update request should include expressNo')
 
 const serviceFile = path.join(
   managementRoot,
-  'src/main/java/my/management/module/installation/service/InstallationTaskService.java'
+  'src/main/java/my/hive/domain/installation/service/InstallationTaskService.java'
 )
 assertContains(serviceFile, 'setExpressCompany', 'service should persist expressCompany')
 assertContains(serviceFile, 'setExpressNo', 'service should persist expressNo')

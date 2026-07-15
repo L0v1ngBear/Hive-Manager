@@ -5,8 +5,7 @@ import assert from 'node:assert/strict'
 const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
 const checkedRoots = [
   'README.md',
-  'SMOKE_TEST.md',
-  'RELEASE_NOTES.md',
+  'RELEASE_BUILD_INFO.txt',
   'docs',
   'scripts',
   'db-migrations/README.md',
@@ -54,6 +53,18 @@ const forbiddenDirectories = new Set([
   'data'
 ])
 const forbiddenFilePattern = /\.(zip|7z|rar|bak|tmp|log|map)$/i
+const forbiddenTopLevelEntries = new Set([
+  'mini-program',
+  'MINI_ORDER_FIX_REPORT_20260714.md',
+  'ORDER_PAGE_FIX_REPORT_20260714.md'
+])
+
+for (const entry of fs.readdirSync(deployRoot)) {
+  assert.ok(
+    !forbiddenTopLevelEntries.has(entry),
+    `server deploy package must not include local-only or temporary artifact: ${entry}`
+  )
+}
 
 function walkReleaseTree(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {

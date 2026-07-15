@@ -62,6 +62,12 @@ The assembled deployment package exposes `scripts/migrate-db.sh` as its only mig
 
 Build identity headers and the public health route are runtime metadata only. The Task 13 verification process did not run migrations or mutate business data; it exercised health, validation failures, and unauthenticated route guards against local infrastructure. No version file was added and all 74 protected migration checksums remain unchanged.
 
+## Task 14 fresh-release data procedure
+
+The release package keeps all 74 historical files byte-identical and ships `migration_checksums.sha256`. `scripts/check-deploy-health.sh` validates the full snapshot before an online migration. No reverse or edited historical SQL is introduced.
+
+`scripts/reset-fresh-business-data.sh` is an explicit, non-automatic cutover tool. Without `CONFIRM_FRESH_BUSINESS_RESET=YES` it only prints the planned effects. Confirmed mode stops application writes, runs the approved online backup and backup verifier, executes the existing manual TENANT_001 business reset and TENANT_002 removal SQL, flushes the dedicated Redis database, and clears uploads after a resolved-path boundary check. The single versioned migration entry is run afterward. Rollback restores the verified pre-release database backup; hand-written down migrations are forbidden.
+
 ## Task 3 persistence decision
 
 No schema migration is required. Existing management `employee`, `sys_role`, `sys_permission`, `sys_user_role`, `sys_role_permission`, and `sys_user_permission` tables and mappers are the canonical persistence model for both clients.

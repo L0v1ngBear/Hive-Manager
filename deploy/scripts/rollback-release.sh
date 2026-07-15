@@ -12,6 +12,6 @@ tar -xzf "${snapshot}" -C .
 configure_profiles
 docker compose up -d --build --force-recreate --remove-orphans backend nginx
 wait_for_healthy_container hive-backend
-wait_for_healthy_container hive-nginx
+wait_for_healthy_container nginx
 bash scripts/smoke-test.sh
 echo "Rollback completed from ${snapshot}. Database rollback is intentionally separate and requires a verified backup."

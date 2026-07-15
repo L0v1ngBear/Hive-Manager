@@ -20,9 +20,9 @@ assertContains(vueFile, 'editorForm.specialExceptionNote', 'edit dialog should b
 assertContains(vueFile, 'specialExceptionNote: editorForm.specialExceptionNote', 'save payload should include specialExceptionNote')
 
 const javaFiles = [
-  'src/main/java/my/management/module/installation/model/entity/InstallationTask.java',
-  'src/main/java/my/management/module/installation/model/dto/InstallationTaskStatusUpdateRequest.java',
-  'src/main/java/my/management/module/installation/model/vo/InstallationTaskVO.java'
+  'src/main/java/my/hive/domain/installation/model/entity/InstallationTask.java',
+  'src/main/java/my/hive/domain/installation/model/dto/InstallationTaskStatusUpdateRequest.java',
+  'src/main/java/my/hive/domain/installation/model/vo/InstallationTaskVO.java'
 ].map((file) => path.join(managementRoot, file))
 
 for (const file of javaFiles) {
@@ -31,7 +31,7 @@ for (const file of javaFiles) {
 
 const serviceFile = path.join(
   managementRoot,
-  'src/main/java/my/management/module/installation/service/InstallationTaskService.java'
+  'src/main/java/my/hive/domain/installation/service/InstallationTaskService.java'
 )
 assertContains(serviceFile, 'setSpecialExceptionNote', 'service should persist and return specialExceptionNote')
 

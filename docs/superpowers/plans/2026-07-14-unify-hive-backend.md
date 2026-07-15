@@ -733,19 +733,21 @@ git commit -m "test: verify the unified backend artifact and routes"
 **Interfaces:**
 - Produces the final deployable package with one JAR and reproducible release metadata.
 
-- [ ] **Step 1: Generate release metadata**
+- [x] **Step 1: Generate release metadata**
 
 Record Git commit, branch, UTC build time, JAR SHA-256, UI SHA-256, migration-manifest SHA-256, Java version, Maven version, and `BackendArtifactCount=1`.
 
-- [ ] **Step 2: Create a release snapshot before replacing deployment files**
+- [x] **Step 2: Create a release snapshot before replacing deployment files**
 
 Archive the existing dual-backend Compose, both old JARs, nginx configuration, `.env.example`, scripts, migration manifest, and current `RELEASE_BUILD_INFO.txt`. Do not archive secret `.env` into the repository.
 
-- [ ] **Step 3: Synchronize the approved deployment source**
+- [x] **Step 3: Synchronize the approved deployment source**
 
 Copy the unique JAR, UI `dist`, Compose, Dockerfile, nginx, migration tree, scripts, docs, and release metadata to the deployment directory. Remove the obsolete `backend`/`management-backend` dual layout only after the snapshot exists and paths are verified to remain within the deployment directory.
 
 - [ ] **Step 4: Execute package integrity checks**
+
+Workstation note (2026-07-15): artifact integrity, static deploy health, strict YAML topology parsing, migration checksum/baseline, and retired-reference checks pass. Docker CLI is unavailable, so Compose expansion and container checks remain a release-host gate.
 
 Run:
 
@@ -757,11 +759,11 @@ bash scripts/verify-release-integrity.sh
 
 Expected: all checks pass; exactly one Hive business container and one backend JAR are reported.
 
-- [ ] **Step 5: Document release steps**
+- [x] **Step 5: Document release steps**
 
 The deployment document must specify: backup, stop dual backends, clear business data/Redis namespace as approved, run the single migration entry, start the single backend, verify admin login, mini login, orders, approvals, inventory, notification, printing, scheduler registration, and logs.
 
-- [ ] **Step 6: Document rollback steps**
+- [x] **Step 6: Document rollback steps**
 
 Rollback must stop the unified backend, restore the deployment snapshot, restore the pre-release database backup when a new migration ran, clear the relevant Redis namespace, start the two old services, and execute the old smoke suite. No hand-written down migration is permitted.
 

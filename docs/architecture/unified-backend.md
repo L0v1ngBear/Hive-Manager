@@ -37,7 +37,7 @@ The management application is the convergence shell for one Spring Boot applicat
 | notification | COMPLETE |
 | attendance | COMPLETE |
 | migration | COMPLETE |
-| deployment | IN PROGRESS (ARTIFACT AND ROUTES VERIFIED) |
+| deployment | PACKAGE SYNCED (RELEASE-HOST DOCKER GATE OPEN) |
 
 ## Task 6 domain convergence
 
@@ -82,6 +82,12 @@ Nginx has one `/api/**` upstream at `backend:8080` and no compatibility location
 The Maven build generates `META-INF/build-info.properties`. `BuildIdentityFilter` adds `X-Hive-Build` (application, version, build time) and a process-lifetime `X-Hive-Instance` UUID to every response, including validation and authentication failures. `/api/health` is the public application liveness route; the identity headers are also exposed through CORS.
 
 `UnifiedEndpointSmokeTest` resolves health, admin/mini authentication, current-user, employee, order, approval, inventory, notification, and print mappings and verifies the same build/instance values across both authentication adapters. The packaged JAR was also started as a Java 21 process and the release smoke script confirmed all ten representative requests reached one build and one process.
+
+## Task 14 release-package convergence
+
+The desktop deployment directory is synchronized from the committed unified source and now contains one `backend/hive-backend.jar`, one backend Dockerfile, one Compose business service, one `/api` nginx upstream, the clean management UI build, the 74-version migration tree, unified operational scripts, four living documents, and release metadata. The retired application directory, old gateway file, old dual-runtime scripts, and obsolete deployment notes were removed only after external snapshots were verified.
+
+Existing MySQL/Redis/nginx container identities, persistent data directories, uploads, certificates, and ACME material were preserved to minimize infrastructure churn. Only the application runtime converges to `hive-backend`. A fresh-data reset is explicit, backup-gated, and never invoked automatically.
 
 ## Permission, employee, role, and tenant convergence
 

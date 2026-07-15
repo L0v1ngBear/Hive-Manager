@@ -2,8 +2,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 
-const repositoryRoot = path.resolve(process.cwd(), '..')
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const deployRoot = path.join(repositoryRoot, 'deploy')
 const read = (relativePath) => fs.readFileSync(path.join(deployRoot, relativePath), 'utf8')
 

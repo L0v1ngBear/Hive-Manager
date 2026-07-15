@@ -9,7 +9,7 @@ x-logging: &default-logging
 services:
   mysql:
     image: mysql:8.0
-    container_name: hive-mysql
+    container_name: mysql
     restart: unless-stopped
     command:
       - --performance-schema=OFF
@@ -38,7 +38,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: hive-redis
+    container_name: redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "96mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
@@ -262,7 +262,7 @@ services:
 
   nginx:
     image: nginx:1.30.3-alpine
-    container_name: hive-nginx
+    container_name: nginx
     restart: unless-stopped
     depends_on:
       backend:
