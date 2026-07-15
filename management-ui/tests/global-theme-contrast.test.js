@@ -20,7 +20,7 @@ test('global theme exposes the approved teal semantic tokens', () => {
 })
 
 test('deep primary surfaces keep text and icons white', () => {
-  assert.match(compact, /\.bg-primary[\s\S]*,[\s\S]*\.el-button--primary[\s\S]*,[\s\S]*\.function-action-primary\{[^}]*color:\s*var\(--ys-on-primary\)\s*!important/)
+  assert.match(compact, /\.bg-primary[\s\S]*,[\s\S]*\.el-button--primary[\s\S]*,[\s\S]*\.function-action-primary[\s\S]*\{[^}]*color:\s*var\(--ys-on-primary\)\s*!important/)
   assert.match(compact, /:is\(\.bg-primary,\s*\.el-button--primary,\s*\.function-action-primary\)[^{]*:is\(\.text-primary,\s*\.text-on-surface,\s*\.text-on-surface-variant,\s*\.material-symbols-outlined\)[^{]*\{[^}]*color:\s*var\(--ys-on-primary\)\s*!important/)
 })
 
