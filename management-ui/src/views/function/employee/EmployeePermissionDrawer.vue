@@ -157,7 +157,7 @@
       <el-button
           type="button"
           :disabled="submitting || loading || !!loadError"
-          class="flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          class="flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 disabled:cursor-not-allowed"
           @click="save"
       >
         <span v-if="submitting" class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>

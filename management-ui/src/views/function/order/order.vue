@@ -3817,12 +3817,12 @@ function fulfillmentProcessText(row = {}) {
 
 .time-correction-toggle.active {
   background: linear-gradient(135deg, var(--ys-primary-dark), var(--ys-primary));
-  color: rgb(var(--on-primary));
+  color: var(--ys-on-primary);
   box-shadow: 0 14px 30px rgba(15, 23, 42, .16)
 }
 
 .time-correction-toggle.active small {
-  color: rgba(255, 255, 255, .82)
+  color: var(--ys-on-primary)
 }
 
 .close-btn {
@@ -3986,7 +3986,11 @@ function fulfillmentProcessText(row = {}) {
 
 .status-log-time-editor button:disabled {
   cursor: not-allowed;
-  opacity: .55;
+  color: var(--ys-disabled-text);
+  border-color: var(--ys-disabled-bg);
+  background: var(--ys-disabled-bg);
+  box-shadow: none;
+  opacity: 1;
 }
 
 .status-log-remark {

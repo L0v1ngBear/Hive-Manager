@@ -1057,10 +1057,10 @@ function normalizeTypeForScope(value) {
 .time-correction-toggle.active {
   border-color: rgb(var(--ys-primary-rgb) / 0.86);
   background: var(--ys-primary);
-  color: #fff;
+  color: var(--ys-on-primary);
 }
 
 .time-correction-toggle.active small {
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--ys-on-primary);
 }
 </style>

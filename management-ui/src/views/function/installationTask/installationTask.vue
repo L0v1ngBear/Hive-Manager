@@ -824,7 +824,7 @@ function formatDateTime(value) {
   gap: 8px;
   font-size: 13px;
   font-weight: 900;
-  color: rgb(var(--ys-primary-rgb) / 0.72);
+  color: var(--ys-on-surface-variant);
 }
 
 .installation-field-full {
@@ -1002,7 +1002,7 @@ function formatDateTime(value) {
   grid-column: span 2;
   flex-direction: column;
   gap: 7px;
-  color: rgb(var(--ys-primary-rgb) / 0.78);
+  color: var(--ys-on-surface-variant);
   font-size: 12px;
   font-weight: 950;
 }

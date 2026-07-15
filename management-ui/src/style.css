@@ -66,6 +66,7 @@ body {
   --ys-primary-container: #ccfbf1;
   --ys-on-primary-container: #134e4a;
   --ys-on-primary: #ffffff;
+  --ys-on-surface-variant: #475569;
   --ys-primary-rgb: 15 118 110;
   --ys-disabled-text: #94a3b8;
   --ys-disabled-bg: #e2e8f0;
@@ -136,21 +137,38 @@ body {
   background: linear-gradient(135deg, var(--ys-primary-dark), var(--ys-primary)) !important;
 }
 
+.el-button--primary:not(.is-disabled):not(:disabled):not([aria-disabled="true"]):hover,
+.function-action-primary:not(:disabled):not([aria-disabled="true"]):hover {
+  color: var(--ys-on-primary) !important;
+  background: var(--ys-primary-hover) !important;
+}
+
+.el-button--primary:not(.is-disabled):not(:disabled):not([aria-disabled="true"]):active,
+.function-action-primary:not(:disabled):not([aria-disabled="true"]):active {
+  color: var(--ys-on-primary) !important;
+  background: var(--ys-primary-dark) !important;
+}
+
 :is(.bg-primary, .el-button--primary, .function-action-primary)
   :is(.text-primary, .text-on-surface, .text-on-surface-variant, .material-symbols-outlined) {
   color: var(--ys-on-primary) !important;
 }
 
+.bg-primary:disabled,
+.bg-primary[aria-disabled="true"],
 .el-button--primary.is-disabled,
 .el-button--primary:disabled,
-.function-action-primary:disabled {
+.el-button--primary[aria-disabled="true"],
+.function-action-primary:disabled,
+.function-action-primary[aria-disabled="true"] {
   color: var(--ys-disabled-text) !important;
   border-color: var(--ys-disabled-bg) !important;
   background: var(--ys-disabled-bg) !important;
   box-shadow: none !important;
+  opacity: 1 !important;
 }
 
-:is(.el-button--primary.is-disabled, .el-button--primary:disabled, .function-action-primary:disabled)
+:is(.bg-primary:disabled, .bg-primary[aria-disabled="true"], .el-button--primary.is-disabled, .el-button--primary:disabled, .el-button--primary[aria-disabled="true"], .function-action-primary:disabled, .function-action-primary[aria-disabled="true"])
   :is(.text-primary, .text-on-surface, .text-on-surface-variant, .material-symbols-outlined) {
   color: var(--ys-disabled-text) !important;
 }
@@ -339,31 +357,11 @@ body {
 }
 
 /* ==========================================
-   商用主题兼容层：把旧页面里的高饱和黄橙色统一收敛为蓝灰体系
+   Theme compatibility: preserve status semantics and primary containers
    ========================================== */
-.bg-amber-50,
-.bg-amber-50\/50,
-.bg-amber-50\/60,
-.bg-amber-50\/70,
-.bg-amber-50\/80,
-.bg-yellow-50,
-.bg-orange-50 {
-  background-color: #eef4fb !important;
-}
-
-.bg-amber-100,
-.bg-yellow-100,
-.bg-orange-100,
 .bg-primary-container,
-.hover\:bg-primary-container:hover,
-.hover\:bg-surface-container-highest:hover {
-  background-color: #e0e9f3 !important;
-}
-
-.bg-amber-200,
-.bg-yellow-200,
-.bg-orange-200 {
-  background-color: #c8d7e7 !important;
+.hover\:bg-primary-container:hover {
+  background-color: var(--ys-primary-container) !important;
 }
 
 .text-amber-400,
@@ -372,40 +370,19 @@ body {
 .text-amber-700,
 .text-amber-800,
 .text-amber-900,
-.text-amber-950,
+.text-amber-950 {
+  color: #92400e !important;
+}
+
 .text-yellow-500,
-.text-yellow-600,
+.text-yellow-600 {
+  color: #854d0e !important;
+}
+
 .text-orange-500,
 .text-orange-600,
 .text-orange-700 {
-  color: var(--ys-primary) !important;
-}
-
-.text-amber-50,
-.text-yellow-50,
-.text-orange-50 {
-  color: #f8fafc !important;
-}
-
-.border-amber-100,
-.border-amber-100\/80,
-.border-amber-200,
-.border-amber-300,
-.border-yellow-100,
-.border-yellow-200,
-.border-orange-100,
-.border-orange-200 {
-  border-color: #c8d3df !important;
-}
-
-.ring-amber-100,
-.ring-amber-200,
-.ring-amber-200\/60,
-.ring-yellow-100,
-.ring-yellow-200,
-.ring-orange-100,
-.ring-orange-200 {
-  --tw-ring-color: rgb(var(--ys-primary-rgb) / 0.2) !important;
+  color: #9a3412 !important;
 }
 
 .shadow-primary\/5,
@@ -413,30 +390,6 @@ body {
 .shadow-primary\/20,
 .shadow-primary\/40 {
   --tw-shadow-color: rgba(15, 23, 42, 0.12) !important;
-}
-
-.from-amber-50,
-.from-yellow-50,
-.from-orange-50 {
-  --tw-gradient-from: #eef4fb var(--tw-gradient-from-position) !important;
-}
-
-.to-amber-50,
-.to-yellow-50,
-.to-orange-50 {
-  --tw-gradient-to: #f8fafc var(--tw-gradient-to-position) !important;
-}
-
-.from-amber-100,
-.from-yellow-100,
-.from-orange-100 {
-  --tw-gradient-from: #e0e9f3 var(--tw-gradient-from-position) !important;
-}
-
-.to-amber-100,
-.to-yellow-100,
-.to-orange-100 {
-  --tw-gradient-to: #e0e9f3 var(--tw-gradient-to-position) !important;
 }
 
 .el-card,

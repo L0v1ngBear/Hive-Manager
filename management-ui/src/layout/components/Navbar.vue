@@ -679,7 +679,7 @@ onBeforeUnmount(() => {
   font-size: 0.62rem;
   font-weight: 950;
   letter-spacing: 0.12em;
-  color: rgb(var(--ys-primary-rgb) / 0.55);
+  color: var(--ys-on-primary-container);
 }
 
 .tenant-chip__name {

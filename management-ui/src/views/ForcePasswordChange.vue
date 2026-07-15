@@ -10,7 +10,7 @@
           <aside class="flex flex-col justify-between bg-slate-950 p-8 text-white">
             <div>
               <div class="mb-8 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-2xl font-black text-white">H</div>
-              <p class="text-sm font-bold uppercase tracking-[0.32em] text-primary">Security Check</p>
+              <p class="text-sm font-bold uppercase tracking-[0.32em] text-primary-container">Security Check</p>
               <h1 class="mt-4 text-3xl font-black leading-tight">首次登录需要修改密码</h1>
               <p class="mt-4 text-sm leading-7 text-slate-300">
                 为了避免默认密码长期使用，请先设置一个只有你知道的新密码。修改完成后会自动进入系统。

@@ -35,12 +35,20 @@ RGB compatibility, and Element Plus theme variables.
   `.function-action-primary`) set their foreground to `--ys-on-primary`; the
   descendant rule runs after global text utilities so nested text and Material
   Symbols stay white.
-- Disabled primary controls take precedence with neutral `--ys-disabled-text` and
-  `--ys-disabled-bg`, including nested text and icons.
-- Error red, warning orange, success green, order-stage colors, chart palettes,
-  and black/white print-only rules are semantic exceptions and are not recolored
-  by the teal migration. Receipt and label print output remain outside the
-  interactive retired-color scan.
+- Non-disabled Element Plus and shared function primary controls use
+  `--ys-primary-hover` on hover and `--ys-primary-dark` while active, with
+  `--ys-on-primary` foregrounds in both states.
+- Disabled primary controls take precedence across `.bg-primary`,
+  `.el-button--primary`, and `.function-action-primary`, including native and
+  `aria-disabled="true"` states. They use neutral `--ys-disabled-text` and
+  `--ys-disabled-bg`, keep nested text and icons neutral, remove primary shadows,
+  and do not rely on reduced opacity.
+- Error red, warning amber/yellow/orange, success green, order-stage colors,
+  chart palettes, and black/white print-only rules are semantic exceptions and
+  are not recolored by the teal migration. Warning surfaces, borders, rings, and
+  gradients retain Tailwind semantics; the compatibility layer only darkens
+  warning-family foreground utilities where normal text needs readable contrast.
+  Receipt and label print output remain outside the interactive retired-color scan.
 
 > 状态：Foundation migrated；迁移批次：Batch 1；范围：`management-ui` 应用级依赖、根入口、全局样式、请求状态与公共组件。
 
@@ -88,7 +96,7 @@ RGB compatibility, and Element Plus theme variables.
 
 - 同一文件另以 `--el-*` 覆盖 Element Plus 主色、文本、边框、填充和圆角，这是组件库适配层。
 - 页面和公共组件仍大量使用 Tailwind 色类、十六进制色、`rgb/rgba` 和局部 scoped CSS。
-- 全局样式重映射部分旧 amber/yellow/orange 工具类，并对 Element Plus 输入、表格、弹层和消息做覆盖。
+- 全局样式仅为 amber/yellow/orange 前景工具类补充可读色；警告背景、边框、ring 与渐变保留 Tailwind 语义，并继续对 Element Plus 输入、表格、弹层和消息做覆盖。
 - 响应式表格在 900px 以下改为块级卡片，并依赖 `data-label` 展示表头。
 
 ## 公共组件职责
