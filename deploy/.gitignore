@@ -1,0 +1,9 @@
+.env
+backend/*.jar
+management-ui/dist/
+logs/
+uploads/
+release-snapshots/
+smoke-reports/
+nginx/certs/*
+!nginx/certs/.gitkeep

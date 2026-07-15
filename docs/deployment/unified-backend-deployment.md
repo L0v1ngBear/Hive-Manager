@@ -26,7 +26,7 @@ Configure `wechat.mini-program.enabled`, `wechat.mini-program.app-id`, and `wech
 | notification | COMPLETE |
 | attendance | COMPLETE |
 | migration | COMPLETE |
-| deployment | PLANNED |
+| deployment | IN PROGRESS (SINGLE-SERVICE SOURCE COMPLETE) |
 
 ## Task 6 deployment note
 
@@ -59,6 +59,23 @@ The current manifest contains 74 ordered migrations and has a matching full chec
 The management production build now targets `/api`, matching the mini-program public prefix and the single Spring Boot context path. Local Vite proxying uses `http://localhost:8080`; production nginx must therefore expose only `/api/**` to the one `hive-backend` process. No `/web` compatibility location should be retained during Task 12.
 
 The client route gate and all management UI Node tests pass, and the Vite production bundle builds successfully. This verifies the client contract but is not yet a deployable release package; Compose, nginx, health checks, restart/smoke scripts, and deployment-directory synchronization remain Tasks 12-14.
+
+## Task 12 single-service deployment source
+
+`deploy/docker-compose.yml` defines the one business service `backend` (`container_name: hive-backend`). It builds `deploy/backend/Dockerfile`, runs the release JAR as `/app/app.jar`, exposes only container port 8080, mounts `logs/backend` and `uploads`, and has one health check. Optional RabbitMQ and XXL-JOB admin use Compose profiles; the application always has one operation-log queue selection and one executor name (`hive-backend`).
+
+`deploy/nginx/conf.d/hive.conf` routes `/api/**` only to `backend:8080`. TLS certificate files, `.env`, JARs, UI output, data volumes, logs, uploads, reports, and snapshots are runtime inputs excluded by `deploy/.gitignore`. `.env.example` uses the new `WECHAT_MINI_PROGRAM_*` and `WECHAT_SUBSCRIBE_*` property names and maps all environment references in `application.yaml` and `application-prod.yaml` into the single service.
+
+Operational entry points are:
+
+- `scripts/start.sh` and `scripts/restart.sh` for migration-aware startup/cutover;
+- `scripts/check-deploy-health.sh`, `scripts/smoke-test.sh`, and `scripts/verify-low-cost-mode.sh` for validation;
+- `scripts/inspect-backend-artifact.sh` and `scripts/verify-release-integrity.sh` for one-JAR enforcement;
+- `scripts/create-release-snapshot.sh` and `scripts/rollback-release.sh` for file-level release rollback;
+- `scripts/stop.sh` and `scripts/logs.sh` for operations;
+- `scripts/migrate-db.sh` as the sole database migration entry in an assembled package.
+
+The topology contract, YAML duplicate-key/structure validation, complete application-variable mapping, retired-reference scan, and Bash syntax checks pass. Docker CLI is not installed on the current workstation, so `docker compose --env-file .env.example config -q` remains a mandatory release-host gate before start or restart. Task 13 still needs to build and exercise the unique JAR; Task 14 still needs to assemble and synchronize the final deployment directory.
 
 ## Permission runtime
 

@@ -37,7 +37,7 @@ The management application is the convergence shell for one Spring Boot applicat
 | notification | COMPLETE |
 | attendance | COMPLETE |
 | migration | COMPLETE |
-| deployment | PLANNED |
+| deployment | IN PROGRESS (SINGLE-SERVICE SOURCE COMPLETE) |
 
 ## Task 6 domain convergence
 
@@ -70,6 +70,12 @@ The former `management/src/main/resources/sql` tree was unreferenced and duplica
 The management UI now uses `/api` as its only backend base path in all Vite environments, the Axios fallback, and the development proxy. Administrator authentication is explicitly namespaced below `/api/auth/admin/**`; it remains a distinct authentication adapter while sharing the backend token, tenant, permission, and employee-state pipeline with mini-program authentication.
 
 Management order, approval, quality, and installation clients now call the canonical resource routes (`/api/orders/**`, `/api/approval/**`, `/api/quality/**`, and `/api/installation-tasks/**`). The retired singular and action-suffixed request paths are not client fallbacks. A source contract test prevents `/web` or those retired API roots from returning.
+
+## Task 12 deployment topology convergence
+
+The version-controlled deployment source now lives under `deploy`. Compose contains exactly one Hive business service named `backend` and one container identity `hive-backend`; MySQL, Redis, optional RabbitMQ, optional XXL-JOB admin, and nginx are infrastructure services rather than alternate application runtimes. The backend exposes only port 8080 to the Compose network and owns one log/upload mount, one health check, one executor configuration, and the union of admin and mini-program channel variables.
+
+Nginx has one `/api/**` upstream at `backend:8080` and no compatibility location. Operational start, restart, health, smoke, low-cost, artifact inspection, release-integrity, snapshot, rollback, stop, and log scripts all address the same service. Runtime secrets, certificates, persistent data, generated UI assets, release JARs, reports, and snapshots are excluded from the repository template.
 
 ## Permission, employee, role, and tenant convergence
 

@@ -643,25 +643,27 @@ git commit -m "refactor: switch management UI to unified API routes"
 - Produces one service named `backend` with container name `hive-backend`.
 - Produces nginx routing `/api/**` to `backend:8080`.
 
-- [ ] **Step 1: Write a failing Compose topology test**
+- [x] **Step 1: Write a failing Compose topology test**
 
 Parse Compose YAML and assert exactly one service builds a Hive business JAR, no service or container name contains `mini-backend` or `management-backend`, and all scripts reference `hive-backend` only.
 
-- [ ] **Step 2: Run the test**
+- [x] **Step 2: Run the test**
 
 Run: `node --test tests/unified-deployment-topology.test.js`
 
 Expected: FAIL against the imported dual-backend topology.
 
-- [ ] **Step 3: Create the one-backend Compose service**
+- [x] **Step 3: Create the one-backend Compose service**
 
 The service builds `deploy/backend`, mounts `./logs/backend:/app/logs` and `./uploads:/app/uploads`, exposes only internal port 8080, uses one health check, one XXL-JOB executor configuration, and the union of required channel/maintenance variables without duplicates.
 
-- [ ] **Step 4: Rewrite nginx and operational scripts**
+- [x] **Step 4: Rewrite nginx and operational scripts**
 
 Update start, restart, health, smoke, low-cost verification, release-integrity, artifact inspection, snapshot, and rollback scripts. Remove all expectations for two JARs, two log directories, and two business containers.
 
 - [ ] **Step 5: Validate configuration**
+
+Local note (2026-07-15): topology tests, strict YAML parsing with duplicate-key rejection, complete application-variable mapping, retired-reference scans, and Bash syntax checks pass. Docker CLI is unavailable on this workstation, so the real `docker compose ... config` command remains open for the release host.
 
 Run:
 
@@ -672,7 +674,7 @@ node --test management-ui/tests/unified-deployment-topology.test.js
 
 Expected: valid Compose and passing topology tests.
 
-- [ ] **Step 6: Update documents and commit**
+- [x] **Step 6: Update documents and commit**
 
 ```powershell
 git add deploy management-ui/tests docs

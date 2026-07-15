@@ -54,6 +54,10 @@ The migration runner refuses a previously successful version whose checksum has 
 
 Changing the management client from `/web` and retired action routes to the unified `/api` contract is an HTTP-client configuration change only. It adds no table, column, seed, or data conversion, so Task 11 creates no migration and changes none of the 74 protected historical files.
 
+## Task 12 migration note
+
+The assembled deployment package exposes `scripts/migrate-db.sh` as its only migration command and carries the same immutable `db-migrations` manifest imported in Task 10. Start and restart stop/start only the one business service around that command. Compose consolidation changes no schema and adds no migration; database rollback remains a separate, explicit restore from a verified backup rather than an automatic reverse-SQL operation.
+
 ## Task 3 persistence decision
 
 No schema migration is required. Existing management `employee`, `sys_role`, `sys_permission`, `sys_user_role`, `sys_role_permission`, and `sys_user_permission` tables and mappers are the canonical persistence model for both clients.

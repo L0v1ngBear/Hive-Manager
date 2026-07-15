@@ -1,0 +1,288 @@
+name: hive
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: hive-mysql
+    restart: unless-stopped
+    command:
+      - --performance-schema=OFF
+      - --innodb-buffer-pool-size=128M
+      - --max-connections=80
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: hive
+      MYSQL_USER: ${DB_APP_USERNAME}
+      MYSQL_PASSWORD: ${DB_APP_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./mysql/data:/var/lib/mysql
+    ports:
+      - "${MYSQL_BIND_ADDRESS:-127.0.0.1}:3306:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    networks: [hive-net]
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    container_name: hive-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "96mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - ./redis/data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+    networks: [hive-net]
+    logging: *default-logging
+
+  rabbitmq:
+    profiles: ["rabbitmq"]
+    image: rabbitmq:3.13-alpine
+    container_name: hive-rabbitmq
+    hostname: hive-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: /
+      RABBITMQ_NODENAME: rabbit@hive-rabbitmq
+      TZ: Asia/Shanghai
+    volumes:
+      - ./rabbitmq/data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 20s
+      retries: 20
+      start_period: 90s
+    networks: [hive-net]
+    logging: *default-logging
+
+  xxl-job-admin:
+    profiles: ["scheduler"]
+    image: xuxueli/xxl-job-admin:2.4.1
+    container_name: hive-xxl-job-admin
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PARAMS: >-
+        --server.port=8080
+        --server.servlet.context-path=/xxl-job-admin
+        --spring.datasource.url=jdbc:mysql://mysql:3306/xxl_job?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+        --spring.datasource.username=root
+        --spring.datasource.password=${MYSQL_ROOT_PASSWORD}
+        --xxl.job.accessToken=${XXL_JOB_ACCESS_TOKEN}
+      JAVA_OPTS: -Xms64m -Xmx192m -XX:+UseSerialGC
+      TZ: Asia/Shanghai
+    ports:
+      - "${XXL_JOB_ADMIN_BIND_ADDRESS:-127.0.0.1}:8088:8080"
+    networks: [hive-net]
+    logging: *default-logging
+
+  backend:
+    build: ./backend
+    container_name: hive-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/hive?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${DB_APP_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_APP_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_DATABASE: 0
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://hellohive.top}
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET}
+      AUTH_TOKEN_EXPIRE_HOURS: ${AUTH_TOKEN_EXPIRE_HOURS:-24}
+      AUTH_TOKEN_RENEW_ENABLED: ${AUTH_TOKEN_RENEW_ENABLED:-true}
+      AUTH_TOKEN_RENEW_BEFORE_MINUTES: ${AUTH_TOKEN_RENEW_BEFORE_MINUTES:-120}
+      AUTH_LOGIN_MAX_FAIL_COUNT: ${AUTH_LOGIN_MAX_FAIL_COUNT:-5}
+      AUTH_LOGIN_MAX_IP_FAIL_COUNT: ${AUTH_LOGIN_MAX_IP_FAIL_COUNT:-20}
+      AUTH_LOGIN_LOCK_MINUTES: ${AUTH_LOGIN_LOCK_MINUTES:-15}
+      RESPONSE_ENCRYPT_KEY: ${RESPONSE_ENCRYPT_KEY}
+      PRIVACY_HASH_SECRET: ${PRIVACY_HASH_SECRET}
+      EMPLOYEE_DEFAULT_PASSWORD: ${EMPLOYEE_DEFAULT_PASSWORD}
+      TENANT_OWNER_DEFAULT_PASSWORD: ${TENANT_OWNER_DEFAULT_PASSWORD}
+      HIVE_REDIS_NAMESPACE: ${HIVE_REDIS_NAMESPACE:-hive}
+      HIVE_REDIS_ENV: ${HIVE_REDIS_ENV:-prod}
+      HIVE_TENANT_MODE: ${HIVE_TENANT_MODE:-BOUNDED}
+      HIVE_DEFAULT_TENANT_CODE: ${HIVE_DEFAULT_TENANT_CODE}
+      HIVE_ALLOWED_TENANT_CODES: ${HIVE_ALLOWED_TENANT_CODES}
+      HIVE_TENANT_MAX_COUNT: ${HIVE_TENANT_MAX_COUNT:-1}
+      HIVE_SINGLE_TENANT_ENABLED: ${HIVE_SINGLE_TENANT_ENABLED:-true}
+      HIVE_SINGLE_TENANT_CODE: ${HIVE_SINGLE_TENANT_CODE:-TENANT_001}
+      HIVE_SINGLE_TENANT_NAME: ${HIVE_SINGLE_TENANT_NAME:-当前组织}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_CONNECTION_TIMEOUT: ${RABBITMQ_CONNECTION_TIMEOUT:-5s}
+      OPERATION_LOG_ENABLED: ${OPERATION_LOG_ENABLED:-true}
+      OPERATION_LOG_COLLECT_TO_DB: ${OPERATION_LOG_COLLECT_TO_DB:-true}
+      OPERATION_LOG_COLLECT_TO_SLF4J: ${OPERATION_LOG_COLLECT_TO_SLF4J:-true}
+      OPERATION_LOG_QUEUE_TYPE: ${OPERATION_LOG_QUEUE_TYPE:-memory}
+      OPERATION_LOG_CLEANUP_ENABLED: ${OPERATION_LOG_CLEANUP_ENABLED:-false}
+      OPERATION_LOG_RETENTION_DAYS: ${OPERATION_LOG_RETENTION_DAYS:-90}
+      OPERATION_LOG_CLEANUP_BATCH_SIZE: ${OPERATION_LOG_CLEANUP_BATCH_SIZE:-5000}
+      OPERATION_LOG_CLEANUP_CRON: "${OPERATION_LOG_CLEANUP_CRON:-0 20 3 * * ?}"
+      OPERATION_LOG_EXCHANGE: ${OPERATION_LOG_EXCHANGE:-hive.operation.log.exchange}
+      OPERATION_LOG_ROUTING_KEY: ${OPERATION_LOG_ROUTING_KEY:-hive.operation.log}
+      OPERATION_LOG_QUEUE: ${OPERATION_LOG_QUEUE:-hive.operation.log.queue}
+      XXL_JOB_ENABLED: ${XXL_JOB_ENABLED:-false}
+      XXL_JOB_ADMIN_ADDRESSES: ${XXL_JOB_ADMIN_ADDRESSES:-http://xxl-job-admin:8080/xxl-job-admin}
+      XXL_JOB_ACCESS_TOKEN: ${XXL_JOB_ACCESS_TOKEN}
+      XXL_JOB_EXECUTOR_APP_NAME: ${XXL_JOB_EXECUTOR_APP_NAME:-hive-backend}
+      XXL_JOB_EXECUTOR_PORT: ${XXL_JOB_EXECUTOR_PORT:-9999}
+      XXL_JOB_EXECUTOR_ADDRESS: ${XXL_JOB_EXECUTOR_ADDRESS:-}
+      XXL_JOB_EXECUTOR_IP: ${XXL_JOB_EXECUTOR_IP:-}
+      XXL_JOB_EXECUTOR_LOG_PATH: ${XXL_JOB_EXECUTOR_LOG_PATH:-/app/logs/xxl-job}
+      XXL_JOB_EXECUTOR_LOG_RETENTION_DAYS: ${XXL_JOB_EXECUTOR_LOG_RETENTION_DAYS:-7}
+      WECHAT_MINI_PROGRAM_ENABLED: ${WECHAT_MINI_PROGRAM_ENABLED:-false}
+      WECHAT_MINI_PROGRAM_APP_ID: ${WECHAT_MINI_PROGRAM_APP_ID:-}
+      WECHAT_MINI_PROGRAM_APP_SECRET: ${WECHAT_MINI_PROGRAM_APP_SECRET:-}
+      WECHAT_SUBSCRIBE_ENABLED: ${WECHAT_SUBSCRIBE_ENABLED:-false}
+      WECHAT_SUBSCRIBE_TODO_TEMPLATE_ID: ${WECHAT_SUBSCRIBE_TODO_TEMPLATE_ID:-}
+      WECHAT_SUBSCRIBE_TODO_TITLE_KEY: ${WECHAT_SUBSCRIBE_TODO_TITLE_KEY:-thing1}
+      WECHAT_SUBSCRIBE_TODO_CONTENT_KEY: ${WECHAT_SUBSCRIBE_TODO_CONTENT_KEY:-thing2}
+      WECHAT_SUBSCRIBE_TODO_TIME_KEY: ${WECHAT_SUBSCRIBE_TODO_TIME_KEY:-time3}
+      NOTIFICATION_SMS_ENABLED: ${NOTIFICATION_SMS_ENABLED:-false}
+      NOTIFICATION_SMS_PROVIDER: ${NOTIFICATION_SMS_PROVIDER:-noop}
+      NOTIFICATION_SMS_ENDPOINT: ${NOTIFICATION_SMS_ENDPOINT:-dysmsapi.aliyuncs.com}
+      NOTIFICATION_SMS_ACCESS_KEY: ${NOTIFICATION_SMS_ACCESS_KEY:-}
+      NOTIFICATION_SMS_ACCESS_SECRET: ${NOTIFICATION_SMS_ACCESS_SECRET:-}
+      NOTIFICATION_SMS_SIGN_NAME: ${NOTIFICATION_SMS_SIGN_NAME:-}
+      NOTIFICATION_SMS_TEMPLATE_CODE: ${NOTIFICATION_SMS_TEMPLATE_CODE:-}
+      EXTERNAL_API_SMS_MAX_CALLS_PER_PHONE_WINDOW: ${EXTERNAL_API_SMS_MAX_CALLS_PER_PHONE_WINDOW:-5}
+      EXTERNAL_API_SMS_WINDOW_SECONDS: ${EXTERNAL_API_SMS_WINDOW_SECONDS:-3600}
+      EXTERNAL_API_OSS_MAX_UPLOADS_PER_TENANT_WINDOW: ${EXTERNAL_API_OSS_MAX_UPLOADS_PER_TENANT_WINDOW:-120}
+      EXTERNAL_API_OSS_UPLOAD_WINDOW_SECONDS: ${EXTERNAL_API_OSS_UPLOAD_WINDOW_SECONDS:-3600}
+      ALIYUN_OSS_ENABLED: ${ALIYUN_OSS_ENABLED:-false}
+      ALIYUN_OSS_ENDPOINT: ${ALIYUN_OSS_ENDPOINT:-}
+      ALIYUN_OSS_BUCKET: ${ALIYUN_OSS_BUCKET:-}
+      ALIYUN_OSS_ACCESS_KEY_ID: ${ALIYUN_OSS_ACCESS_KEY_ID:-}
+      ALIYUN_OSS_ACCESS_KEY_SECRET: ${ALIYUN_OSS_ACCESS_KEY_SECRET:-}
+      ALIYUN_OSS_PUBLIC_BASE_URL: ${ALIYUN_OSS_PUBLIC_BASE_URL:-}
+      ALIYUN_OSS_PATH_PREFIX: ${ALIYUN_OSS_PATH_PREFIX:-hive}
+      ALIYUN_OSS_MAX_FILE_SIZE_MB: ${ALIYUN_OSS_MAX_FILE_SIZE_MB:-20}
+      ALIYUN_OSS_ALLOWED_EXTENSIONS: ${ALIYUN_OSS_ALLOWED_EXTENSIONS:-jpg,jpeg,png,pdf,doc,docx,xls,xlsx}
+      ALIYUN_OSS_ALLOWED_CONTENT_TYPES: ${ALIYUN_OSS_ALLOWED_CONTENT_TYPES:-image/jpeg,image/png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet}
+      DB_MAINTENANCE_ENABLED: ${DB_MAINTENANCE_ENABLED:-true}
+      DB_MAINTENANCE_CLEANUP_ENABLED: ${DB_MAINTENANCE_CLEANUP_ENABLED:-true}
+      DB_CLEANUP_BATCH_SIZE: ${DB_CLEANUP_BATCH_SIZE:-5000}
+      DB_CAPACITY_WARN_MB: ${DB_CAPACITY_WARN_MB:-32768}
+      DB_CAPACITY_DISK_TOTAL_MB: ${DB_CAPACITY_DISK_TOTAL_MB:-40960}
+      DB_CAPACITY_DISK_PATH: ${DB_CAPACITY_DISK_PATH:-/app}
+      DB_CAPACITY_PLATFORM_RESERVE_MB: ${DB_CAPACITY_PLATFORM_RESERVE_MB:-12288}
+      DB_CAPACITY_PROJECTION_WARN_PERCENT: ${DB_CAPACITY_PROJECTION_WARN_PERCENT:-70}
+      DB_CAPACITY_PROJECTION_FAIL_PERCENT: ${DB_CAPACITY_PROJECTION_FAIL_PERCENT:-85}
+      DB_CAPACITY_ESTIMATE_TENANTS: ${DB_CAPACITY_ESTIMATE_TENANTS:-1}
+      DB_CAPACITY_ESTIMATE_DAILY_ORDERS: ${DB_CAPACITY_ESTIMATE_DAILY_ORDERS:-300}
+      DB_CAPACITY_ESTIMATE_ORDER_ITEMS_PER_ORDER: ${DB_CAPACITY_ESTIMATE_ORDER_ITEMS_PER_ORDER:-4}
+      DB_CAPACITY_ESTIMATE_DAILY_CLOTH_IN: ${DB_CAPACITY_ESTIMATE_DAILY_CLOTH_IN:-800}
+      DB_CAPACITY_ESTIMATE_DAILY_CLOTH_OUT: ${DB_CAPACITY_ESTIMATE_DAILY_CLOTH_OUT:-600}
+      DB_CAPACITY_ESTIMATE_ACTIVE_EMPLOYEES: ${DB_CAPACITY_ESTIMATE_ACTIVE_EMPLOYEES:-150}
+      DB_CAPACITY_ESTIMATE_DAILY_OPERATION_LOGS: ${DB_CAPACITY_ESTIMATE_DAILY_OPERATION_LOGS:-8000}
+      DB_CAPACITY_ESTIMATE_DAILY_NOTIFICATIONS: ${DB_CAPACITY_ESTIMATE_DAILY_NOTIFICATIONS:-2000}
+      DB_CAPACITY_ESTIMATE_DAILY_PRINT_TASKS: ${DB_CAPACITY_ESTIMATE_DAILY_PRINT_TASKS:-800}
+      DB_CAPACITY_ESTIMATE_DAILY_ATTACHMENTS: ${DB_CAPACITY_ESTIMATE_DAILY_ATTACHMENTS:-40}
+      DB_CAPACITY_ESTIMATE_AVG_ATTACHMENT_MB: ${DB_CAPACITY_ESTIMATE_AVG_ATTACHMENT_MB:-1.5}
+      DB_CAPACITY_ESTIMATE_LOCAL_ATTACHMENT_RATIO: ${DB_CAPACITY_ESTIMATE_LOCAL_ATTACHMENT_RATIO:-1.0}
+      DB_CAPACITY_ESTIMATE_SAFETY_FACTOR: ${DB_CAPACITY_ESTIMATE_SAFETY_FACTOR:-1.45}
+      DB_CAPACITY_ESTIMATE_BACKUP_KEEP: ${DB_CAPACITY_ESTIMATE_BACKUP_KEEP:-3}
+      RUNTIME_AUDIT_ENABLED: ${RUNTIME_AUDIT_ENABLED:-true}
+      RUNTIME_AUDIT_RECENT_MINUTES: ${RUNTIME_AUDIT_RECENT_MINUTES:-30}
+      RUNTIME_AUDIT_DB_LATENCY_WARN_MS: ${RUNTIME_AUDIT_DB_LATENCY_WARN_MS:-500}
+      RUNTIME_AUDIT_ERROR_WARN_COUNT: ${RUNTIME_AUDIT_ERROR_WARN_COUNT:-20}
+      RUNTIME_AUDIT_ERROR_FAIL_COUNT: ${RUNTIME_AUDIT_ERROR_FAIL_COUNT:-100}
+      RUNTIME_AUDIT_SLOW_WARN_COUNT: ${RUNTIME_AUDIT_SLOW_WARN_COUNT:-50}
+      RUNTIME_AUDIT_SLOW_FAIL_COUNT: ${RUNTIME_AUDIT_SLOW_FAIL_COUNT:-200}
+      RUNTIME_AUDIT_SYSTEM_ERROR_WARN_COUNT: ${RUNTIME_AUDIT_SYSTEM_ERROR_WARN_COUNT:-10}
+      RUNTIME_AUDIT_SYSTEM_ERROR_FAIL_COUNT: ${RUNTIME_AUDIT_SYSTEM_ERROR_FAIL_COUNT:-50}
+      RUNTIME_AUDIT_NOTIFICATION_BACKLOG_WARN_COUNT: ${RUNTIME_AUDIT_NOTIFICATION_BACKLOG_WARN_COUNT:-200}
+      RUNTIME_AUDIT_NOTIFICATION_BACKLOG_FAIL_COUNT: ${RUNTIME_AUDIT_NOTIFICATION_BACKLOG_FAIL_COUNT:-1000}
+      NOTIFICATION_RETENTION_DAYS: ${NOTIFICATION_RETENTION_DAYS:-180}
+      PRINT_TASK_RETENTION_DAYS: ${PRINT_TASK_RETENTION_DAYS:-180}
+      ORDER_STATUS_LOG_RETENTION_DAYS: ${ORDER_STATUS_LOG_RETENTION_DAYS:-730}
+      SYSTEM_EVENT_RETENTION_DAYS: ${SYSTEM_EVENT_RETENTION_DAYS:-180}
+      SYSTEM_EVENT_ENABLED: ${SYSTEM_EVENT_ENABLED:-true}
+      SYSTEM_EVENT_SOURCE_APP: ${SYSTEM_EVENT_SOURCE_APP:-hive-backend}
+      SYSTEM_EVENT_MAX_TITLE_LENGTH: ${SYSTEM_EVENT_MAX_TITLE_LENGTH:-180}
+      SYSTEM_EVENT_MAX_CONTENT_LENGTH: ${SYSTEM_EVENT_MAX_CONTENT_LENGTH:-1000}
+      SYSTEM_EVENT_MAX_JSON_LENGTH: ${SYSTEM_EVENT_MAX_JSON_LENGTH:-4000}
+      LOGGING_FILE_NAME: /app/logs/backend.log
+      LOGGING_FILE_MAX_SIZE: ${LOGGING_FILE_MAX_SIZE:-10MB}
+      LOGGING_FILE_MAX_HISTORY: ${LOGGING_FILE_MAX_HISTORY:-7}
+      LOGGING_FILE_TOTAL_SIZE_CAP: ${LOGGING_FILE_TOTAL_SIZE_CAP:-128MB}
+      LOGGING_LEVEL_ROOT: ${LOGGING_LEVEL_ROOT:-INFO}
+      LOGGING_LEVEL_MY_HIVE: ${LOGGING_LEVEL_MY_HIVE:-INFO}
+      LOGGING_LEVEL_MY_HIVE_SHARED: ${LOGGING_LEVEL_MY_HIVE_SHARED:-INFO}
+      LOGGING_LEVEL_XXL_JOB: ${LOGGING_LEVEL_XXL_JOB:-INFO}
+      LOGGING_LEVEL_SPRING: ${LOGGING_LEVEL_SPRING:-WARN}
+      LOGGING_LEVEL_MYBATIS_PLUS: ${LOGGING_LEVEL_MYBATIS_PLUS:-WARN}
+      LOGGING_LEVEL_MYBATIS: ${LOGGING_LEVEL_MYBATIS:-WARN}
+      LOGGING_LEVEL_SQL: ${LOGGING_LEVEL_SQL:-WARN}
+      JAVA_OPTS: ${JAVA_OPTS:--Xms128m -Xmx384m -XX:MaxMetaspaceSize=192m -XX:+UseSerialGC}
+      TZ: Asia/Shanghai
+    expose:
+      - "8080"
+    volumes:
+      - ./logs/backend:/app/logs
+      - ./uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "test -r /proc/1/cmdline && tr '\\0' ' ' < /proc/1/cmdline | grep -q app.jar"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    networks: [hive-net]
+    logging: *default-logging
+
+  nginx:
+    image: nginx:1.30.3-alpine
+    container_name: hive-nginx
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d/hive.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./management-ui/dist:/usr/share/nginx/html:ro
+      - ./certbot/www:/var/www/certbot:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [hive-net]
+    logging: *default-logging
+
+networks:
+  hive-net:
+    name: hive-net

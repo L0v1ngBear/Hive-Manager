@@ -44,6 +44,10 @@ The management UI is migrated to this catalog. Its environment base URL, Axios d
 
 `management-ui/tests/unified-api-routes.test.js` is the client-side contract gate. It covers the shared prefix, namespaced admin authentication, canonical resource roots, removed health probe, and retired route patterns.
 
+## Task 12 gateway contract
+
+The deployment nginx configuration exposes one application upstream: every `/api/**` request is forwarded without path rewriting to `backend:8080`. There is no client-specific upstream and no compatibility location. `/health` is an nginx liveness endpoint; application identity and representative admin/mini business probes are completed in Task 13.
+
 ## Authorization contract
 
 Protected endpoints accept only exact assignable Permission Catalog V3 codes. Wildcards, aliases, prefixes, legacy enum names, and dot-form codes are invalid. Both authentication channels resolve employee state and effective permissions through the same tenant-scoped pipeline.
