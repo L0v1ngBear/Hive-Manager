@@ -767,7 +767,7 @@ The deployment document must specify: backup, stop dual backends, clear business
 
 Rollback must stop the unified backend, restore the deployment snapshot, restore the pre-release database backup when a new migration ran, clear the relevant Redis namespace, start the two old services, and execute the old smoke suite. No hand-written down migration is permitted.
 
-- [ ] **Step 7: Final verification and commit**
+- [x] **Step 7: Final verification and commit**
 
 Run backend tests, UI tests/build, unique JAR build, Compose config, migration verification, deployment health, and unified smoke tests once more from clean outputs.
 

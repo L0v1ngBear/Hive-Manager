@@ -89,6 +89,8 @@ Container startup remains untested on this workstation because Docker CLI is abs
 
 The deployment directory `C:\Users\HUAWEI\Desktop\hive部署_全新配置` has been synchronized from the unified repository source. It contains one JAR (`backend/hive-backend.jar`, SHA-256 `95d7c03998700a9d9ae494de017442269d0b1123c7e4ec904f05bb16d9fff33c`), 73 clean UI files, 74 migrations, one backend service, and no retired application directory or runtime reference. The real `.env`, database/cache/message data, uploads, certificates, and ACME state were preserved; obsolete code/configuration was deleted after snapshots.
 
+The release-package source commit is `ca9fccf6c7e745484ce5fdbdbf31abbf0d1caa7e`; the application/UI source artifact was built from `0077f10e6587f80b95860387c6a662b780eb0618`. The metadata-only follow-up records this non-circular commit relationship.
+
 Verified rollback assets are outside the deployment package:
 
 - application snapshot: `C:\Users\HUAWEI\Desktop\hive部署_发布快照\pre-unify-dual-backend-20260715_115134.zip` (`971d11af...ccb4c1`);
