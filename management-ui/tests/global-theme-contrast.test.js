@@ -27,3 +27,12 @@ test('deep primary surfaces keep text and icons white', () => {
 test('disabled primary controls use neutral foreground and background colors', () => {
   assert.match(compact, /\.el-button--primary\.is-disabled[^{]*\{[^}]*color:\s*var\(--ys-disabled-text\)\s*!important[^}]*background:\s*var\(--ys-disabled-bg\)\s*!important/)
 })
+
+test('global compatibility and secondary text rules use semantic theme colors', () => {
+  assert.doesNotMatch(compact, /\.text-amber-400[\s\S]*\.text-orange-700\s*\{[^}]*#1f3f5f/)
+  assert.match(compact, /\.text-amber-400[\s\S]*\.text-orange-700\s*\{[^}]*color:\s*var\(--ys-primary\)\s*!important/)
+  assert.doesNotMatch(compact, /\.function-page-desc\s*\{[^}]*#64748b/)
+  assert.match(compact, /\.function-page-desc\s*\{[^}]*color:\s*var\(--el-text-color-regular\)/)
+  assert.doesNotMatch(compact, /\.function-page-shell\s+\.responsive-data-table\s+td::before\s*\{[^}]*#64748b/)
+  assert.match(compact, /\.function-page-shell\s+\.responsive-data-table\s+td::before\s*\{[^}]*color:\s*var\(--el-text-color-regular\)/)
+})
