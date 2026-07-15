@@ -76,6 +76,9 @@ export function createPermissionDirectiveLifecycle({ isAllowed, onBlocked } = {}
   }
 
   return {
+    beforeUpdate(element) {
+      permissionDenial.cleanup(element)
+    },
     mounted: applyPermission,
     updated: applyPermission,
     unmounted(element) {

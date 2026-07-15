@@ -10,6 +10,7 @@ const sourceRoot = fileURLToPath(new URL('../src/', import.meta.url))
 const readSource = (relativePath) => readFileSync(new URL(`../src/${relativePath}`, import.meta.url), 'utf8')
 const navbarSource = readSource('layout/components/Navbar.vue')
 const permissionDirectiveSource = readSource('directives/permission.js')
+const permissionStateSource = readSource('directives/permissionState.js')
 const forcePasswordSource = readSource('views/ForcePasswordChange.vue')
 const installationTaskSource = readSource('views/function/installationTask/installationTask.vue')
 const badProductSource = readSource('views/function/badProduct/badProduct.vue')
@@ -108,6 +109,9 @@ function findNextOpeningBrace(source, start = 0) {
       continue
     } else if (current === '"' || current === "'") {
       quote = current
+    } else if (current === '\\') {
+      cursor += 2
+      continue
     } else if (current === '{') {
       return cursor
     }
@@ -148,6 +152,9 @@ function findMatchingBrace(source, blockStart) {
       continue
     } else if (current === '"' || current === "'") {
       quote = current
+    } else if (current === '\\') {
+      cursor += 2
+      continue
     } else if (current === '{') {
       depth += 1
     } else if (current === '}') {
@@ -424,6 +431,22 @@ for (const [name, prefix] of [
     assert.match(cssRule(fixture, '.after').declarations, /color:\s*#475569/)
   })
 }
+
+test('CSS rule scanner ignores escaped braces while finding an opening brace', () => {
+  const fixture = String.raw`.class\{name { color: #0f172a; } .after { color: #475569; }`
+  assert.match(cssRule(fixture, String.raw`.class\{name`).declarations, /color:\s*#0f172a/)
+  assert.match(cssRule(fixture, '.after').declarations, /color:\s*#475569/)
+})
+
+test('CSS rule scanner ignores escaped braces while matching a rule block', () => {
+  for (const fixture of [
+    String.raw`.probe { --escaped-open: \{; color: #0f172a; } .after { color: #475569; }`,
+    String.raw`.probe { --escaped-close: \}; color: #0f172a; } .after { color: #475569; }`
+  ]) {
+    assert.match(cssRule(fixture, '.probe').declarations, /color:\s*#0f172a/)
+    assert.match(cssRule(fixture, '.after').declarations, /color:\s*#475569/)
+  }
+})
 
 test('alpha-primary foreground scanner covers fill, stroke, utilities, and attributes', () => {
   const fixtures = [
@@ -770,10 +793,26 @@ test('order rows preserve table semantics while permission-disabled controls sta
     assert.match(localDisabledRule.declarations, declaration)
   }
   assert.match(localDescendantRule.declarations, /color:\s*var\(--ys-disabled-text\)\s*!important/)
+})
 
+test('permission directive implementation preserves native disabled and avoids inline appearance', () => {
   assert.match(permissionDirectiveSource, /createPermissionDirectiveLifecycle/)
-  assert.doesNotMatch(permissionDirectiveSource, /el\.disabled\s*=/)
-  assert.doesNotMatch(permissionDirectiveSource, /el\.style\.(?:opacity|filter)\s*=/)
+  assert.match(permissionStateSource, /beforeUpdate/)
+  for (const [relativePath, source] of [
+    ['directives/permission.js', permissionDirectiveSource],
+    ['directives/permissionState.js', permissionStateSource]
+  ]) {
+    assert.doesNotMatch(
+      source,
+      /\b(?:el|element)\s*(?:\.disabled|\[\s*['"]disabled['"]\s*\])\s*=|\b(?:el|element)\.(?:set|remove|toggle)Attribute\(\s*['"]disabled['"]/,
+      `${relativePath} must not mutate native disabled state`
+    )
+    assert.doesNotMatch(
+      source,
+      /\b(?:el|element)\.style\.(?:opacity|filter)\s*=/,
+      `${relativePath} must not write inline disabled appearance`
+    )
+  }
 })
 
 test('source-local disabled rules never restore status colors or reduced opacity', () => {

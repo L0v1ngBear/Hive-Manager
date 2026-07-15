@@ -105,6 +105,7 @@ test('allowed mount and updates leave business state untouched', () => {
   const before = elementState(element)
 
   directive.mounted(element, { value: true })
+  directive.beforeUpdate(element, { value: true })
   directive.updated(element, { value: true })
 
   assert.deepEqual(elementState(element), before)
@@ -123,6 +124,7 @@ test('allowed to denied to allowed restores the immediate pre-denial state', () 
   element.style.cursor = 'wait'
   const beforeDenial = elementState(element)
 
+  directive.beforeUpdate(element, { value: false })
   directive.updated(element, { value: false })
   assert.equal(element.disabled, true, 'permission denial must not mutate native disabled')
   assert.equal(element.getAttribute('aria-disabled'), 'true')
@@ -130,6 +132,7 @@ test('allowed to denied to allowed restores the immediate pre-denial state', () 
   assert.equal(element.style.cursor, 'not-allowed')
   assert.equal(element.classList.contains('is-permission-disabled'), true)
 
+  directive.beforeUpdate(element, { value: true })
   directive.updated(element, { value: true })
   assert.deepEqual(elementState(element), beforeDenial)
 })
@@ -143,6 +146,9 @@ test('repeated denied updates keep one pair of capture blockers active', () => {
   const element = new FakeElement()
 
   directive.mounted(element, { value: false })
+  directive.beforeUpdate(element, { value: false })
+  assert.equal(element.listenerCount('click'), 0)
+  assert.equal(element.listenerCount('keydown'), 0)
   directive.updated(element, { value: false })
 
   assert.equal(element.listenerCount('click'), 1)
@@ -169,6 +175,7 @@ test('pre-existing business disabled state and permission class survive denial',
   })
 
   directive.mounted(element, { value: false })
+  directive.beforeUpdate(element, { value: true })
   directive.updated(element, { value: true })
 
   assert.equal(element.disabled, true)
@@ -181,6 +188,7 @@ test('business-owned attribute changes during denial are not overwritten on rele
   const element = new FakeElement({ attributes: { title: 'Before' }, cursor: 'help' })
   directive.mounted(element, { value: false })
 
+  directive.beforeUpdate(element, { value: true })
   element.disabled = true
   element.setAttribute('aria-disabled', 'mixed')
   element.setAttribute('title', 'Changed while denied')
@@ -202,6 +210,7 @@ test('release and unmount detach blockers and restore permission-owned state', (
   })
   const released = new FakeElement({ attributes: { title: 'Released' }, cursor: 'pointer' })
   directive.mounted(released, { value: false })
+  directive.beforeUpdate(released, { value: true })
   directive.updated(released, { value: true })
   assert.equal(released.listenerCount('click'), 0)
   assert.equal(released.listenerCount('keydown'), 0)
@@ -216,4 +225,91 @@ test('release and unmount detach blockers and restore permission-owned state', (
   assert.equal(unmounted.listenerCount('keydown'), 0)
   unmounted.dispatch('keydown', { key: 'Enter' })
   assert.equal(blockedCount, 0)
+})
+
+test('denied to allowed preserves imposed-equivalent business values patched after beforeUpdate', () => {
+  const directive = createPermissionDirectiveLifecycle({ isAllowed: Boolean })
+  const element = new FakeElement({
+    attributes: { 'aria-disabled': 'false', title: 'Initial business title' },
+    cursor: 'pointer'
+  })
+  directive.mounted(element, { value: false })
+
+  directive.beforeUpdate(element, { value: true })
+  assert.equal(element.listenerCount('click'), 0)
+  assert.equal(element.listenerCount('keydown'), 0)
+  element.disabled = true
+  element.setAttribute('aria-disabled', 'true')
+  element.setAttribute('title', '当前账号暂无权限')
+  element.style.cursor = 'not-allowed'
+  directive.updated(element, { value: true })
+
+  assert.deepEqual(elementState(element), {
+    ariaDisabled: 'true',
+    classes: [],
+    cursor: 'not-allowed',
+    disabled: true,
+    title: '当前账号暂无权限'
+  })
+  assert.equal(element.listenerCount('click'), 0)
+  assert.equal(element.listenerCount('keydown'), 0)
+})
+
+test('denied to denied snapshots imposed-equivalent business values for the next transition', () => {
+  let blockedCount = 0
+  const directive = createPermissionDirectiveLifecycle({
+    isAllowed: Boolean,
+    onBlocked: () => { blockedCount += 1 }
+  })
+  const element = new FakeElement({
+    attributes: { 'aria-disabled': 'false', title: 'Initial business title' },
+    cursor: 'pointer'
+  })
+  directive.mounted(element, { value: false })
+
+  directive.beforeUpdate(element, { value: false })
+  element.disabled = true
+  element.setAttribute('aria-disabled', 'true')
+  element.setAttribute('title', '当前账号暂无权限')
+  element.style.cursor = 'not-allowed'
+  directive.updated(element, { value: false })
+
+  assert.equal(element.listenerCount('click'), 1)
+  assert.equal(element.listenerCount('keydown'), 1)
+  assert.equal(element.classList.contains('is-permission-disabled'), true)
+  assert.equal(element.dispatch('click').defaultPrevented, true)
+  assert.equal(blockedCount, 1)
+
+  directive.beforeUpdate(element, { value: true })
+  assert.deepEqual(elementState(element), {
+    ariaDisabled: 'true',
+    classes: [],
+    cursor: 'not-allowed',
+    disabled: true,
+    title: '当前账号暂无权限'
+  })
+  directive.updated(element, { value: true })
+  assert.equal(element.listenerCount('click'), 0)
+  assert.equal(element.listenerCount('keydown'), 0)
+})
+
+test('denied to denied restores and resnapshots unchanged business values', () => {
+  const directive = createPermissionDirectiveLifecycle({ isAllowed: Boolean })
+  const element = new FakeElement({
+    attributes: { 'aria-disabled': 'false', title: 'Stable business title' },
+    cursor: 'help'
+  })
+  const businessState = elementState(element)
+  directive.mounted(element, { value: false })
+
+  directive.beforeUpdate(element, { value: false })
+  assert.deepEqual(elementState(element), businessState)
+  directive.updated(element, { value: false })
+  assert.equal(element.listenerCount('click'), 1)
+  assert.equal(element.listenerCount('keydown'), 1)
+
+  directive.beforeUpdate(element, { value: true })
+  assert.deepEqual(elementState(element), businessState)
+  directive.updated(element, { value: true })
+  assert.deepEqual(elementState(element), businessState)
 })
