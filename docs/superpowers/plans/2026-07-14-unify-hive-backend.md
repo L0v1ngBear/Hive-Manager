@@ -543,19 +543,19 @@ git commit -m "refactor: remove legacy backend implementations"
 - Produces the only migration command: `bash scripts/migrate-db.sh`.
 - Produces an immutable manifest and historical checksum gate.
 
-- [ ] **Step 1: Copy the deployment migration tree without changing historical bytes**
+- [x] **Step 1: Copy the deployment migration tree without changing historical bytes**
 
 Use binary-safe copy from `C:\Users\HUAWEI\Desktop\hive部署_全新配置\db-migrations` and `scripts/migrate-db.sh` into the main repository.
 
-- [ ] **Step 2: Write migration integrity tests**
+- [x] **Step 2: Write migration integrity tests**
 
 The Node test compares every manifest entry with disk files, verifies protected SHA-256 values, rejects modified historical files, and ensures application resource SQL is not invoked as a migration runner.
 
-- [ ] **Step 3: Add only a new convergence migration when required**
+- [x] **Step 3: Add only a new convergence migration when required**
 
 The new file may update exact V3 permission bindings, unified scheduler executor metadata, or schema constraints discovered during domain convergence. It must not contain compatibility data transforms for retired tokens, caches, or interfaces.
 
-- [ ] **Step 4: Run migration verification against a shadow database**
+- [x] **Step 4: Run migration verification against a shadow database**
 
 Run:
 
@@ -566,7 +566,7 @@ bash db-migrations/scripts/verify-schema-only-baseline.sh
 
 Expected: both pass and the manifest exactly matches `migrations/V*.sql`.
 
-- [ ] **Step 5: Update documents and commit**
+- [x] **Step 5: Update documents and commit**
 
 ```powershell
 git add db-migrations scripts management-ui/tests docs

@@ -27,7 +27,7 @@ WeChat login resolves phone matches only inside the bounded tenant set. A phone 
 | print | COMPLETE |
 | notification | COMPLETE |
 | attendance | COMPLETE |
-| migration | PLANNED |
+| migration | COMPLETE |
 | deployment | PLANNED |
 
 ## Task 9 source closure
@@ -35,6 +35,8 @@ WeChat login resolves phone matches only inside the bounded tenant set. A phone 
 Every route in this catalog is implemented by a Controller under `my.hive.api` and a single canonical domain service under `my.hive.domain`. The runtime no longer scans or imports `my.management` or `my.hive_back`. Admin authentication writes and mini-program login writes use the shared operation-log aspect with request argument recording disabled so credentials, verification codes, and WeChat login payloads are not persisted in audit arguments.
 
 The generic print-task contract is served only by `my.hive.api.print.PrintTaskController`; the former external-common Controller location is not part of the executable application. All public route roots remain relative to the single `/api` context.
+
+Task 10 does not alter any HTTP contract. Database setup and upgrades are performed only through repository `scripts/migrate-db.sh` and the versioned `db-migrations/migration_manifest.txt`; application classpath SQL is no longer shipped as an alternate migration source.
 
 ## Authorization contract
 

@@ -25,7 +25,7 @@ Configure `wechat.mini-program.enabled`, `wechat.mini-program.app-id`, and `wech
 | print | COMPLETE |
 | notification | COMPLETE |
 | attendance | COMPLETE |
-| migration | PLANNED |
+| migration | COMPLETE |
 | deployment | PLANNED |
 
 ## Task 6 deployment note
@@ -47,6 +47,12 @@ Optional WeChat subscription delivery uses `WECHAT_SUBSCRIBE_ENABLED`, `WECHAT_S
 The executable source boundary is now exclusively `my.hive`, with one `HiveApplication`, one Controller registry, six unique XXL-JOB handler names, and one operation-log Rabbit listener. There is no legacy package scanning and no runtime dependency on either retired backend source tree. Authentication audit is registered in the same process for both admin and mini-program entry points and suppresses credential arguments.
 
 Task 9 changes no environment-variable name, container topology, migration command, or database schema. The deployable JAR and Docker/deployment-directory cutover are intentionally deferred to the remaining migration, client-route, and deployment tasks; do not publish the Task 9 intermediate artifact as the final release package.
+
+## Task 10 deployment note
+
+The repository migration source is imported byte-for-byte from the approved deployment package. Run `bash scripts/migrate-db.sh` from the deployment root; it owns preflight, backup verification, manifest execution, checksum drift rejection, and post-migration schema verification. Its required safety helpers are stored beside it, while internal baseline/shadow utilities remain below `db-migrations/scripts` and are not additional public migration entry points.
+
+The current manifest contains 74 ordered migrations and has a matching full checksum snapshot. Task 10 changes no schema and does not require an online migration run. The deployment topology and remaining operational scripts will be rewritten for the single backend in Task 12 before release synchronization.
 
 ## Permission runtime
 

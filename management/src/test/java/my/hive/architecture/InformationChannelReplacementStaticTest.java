@@ -43,13 +43,22 @@ class InformationChannelReplacementStaticTest {
         for (String relativePath : List.of(
                 "java/my/hive/domain/order/model/entity/SalesOrder.java",
                 "java/my/hive/domain/order/model/entity/ProductionOrder.java",
-                "java/my/hive/domain/installation/model/entity/InstallationTask.java",
-                "resources/sql/installation_task.sql",
-                "resources/sql/core_performance_indexes.sql")) {
+                "java/my/hive/domain/installation/model/entity/InstallationTask.java")) {
             String content = source(relativePath);
             assertTrue(content.contains("information_channel"), "Missing information_channel: " + relativePath);
             assertFalse(content.contains("delivery_date"), "Legacy delivery_date remains: " + relativePath);
         }
+
+        String migration = Files.readString(
+                Path.of("..", "db-migrations", "migrations",
+                        "V20260713_001_order_information_channel_and_cancel_reason.sql"),
+                StandardCharsets.UTF_8);
+        for (String table : List.of("sales_order", "production_order", "installation_task")) {
+            assertTrue(migration.contains("CALL hive_migrate_delivery_date_to_information_channel('" + table + "')"),
+                    "Versioned migration must converge information_channel for " + table);
+        }
+        assertTrue(migration.contains("'DROP COLUMN `delivery_date`'"),
+                "Versioned migration must retire delivery_date after convergence");
 
         assertTrue(source("java/my/hive/domain/order/model/entity/ProductionOrder.java").contains("private String informationChannel;"),
                 "Production information channel must be text");

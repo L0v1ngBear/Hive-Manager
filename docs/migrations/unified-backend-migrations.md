@@ -2,7 +2,7 @@
 
 ## Contract
 
-Historical versioned SQL is immutable. Any convergence schema change must be a new `V*.sql` migration and must update the migration manifest. Production cutover does not preserve retired business data, tokens, caches, or API compatibility behavior. The single migration command and verified baseline will be established in the migration task.
+Historical versioned SQL is immutable. Any convergence schema change must be a new `V*.sql` migration and must update the migration manifest and checksum snapshot. Production cutover does not preserve retired business data, tokens, caches, or API compatibility behavior. The single repository migration command is `bash scripts/migrate-db.sh`.
 
 ## Module status
 
@@ -25,7 +25,7 @@ Task 4 requires no schema change. Both clients use the existing user `auth_versi
 | print | COMPLETE |
 | notification | COMPLETE |
 | attendance | COMPLETE |
-| migration | PLANNED |
+| migration | COMPLETE |
 | deployment | PLANNED |
 
 ## Task 6 migration note
@@ -43,6 +43,12 @@ Task 8 does not modify an executed historical SQL file. The unified implementati
 ## Task 9 migration note
 
 Removing the Java legacy roots and narrowing component/mapper scanning does not change the database schema. Task 9 therefore adds no migration and modifies no historical SQL. The canonical employee, role, permission, order, approval, tenant, notification, attendance, print, and other domain mappers continue to use the existing tables; migration-history import and checksum enforcement remain Task 10 work.
+
+## Task 10 authoritative migration source
+
+`db-migrations/migration_manifest.txt` is the only ordered version list and currently matches all 74 files under `db-migrations/migrations`. `db-migrations/migration_checksums.sha256` records the SHA-256 of every manifest file. The Node gate also pins known executed migrations including the second-tenant seed, installation schema, Permission Catalog V3, and permission-relation convergence versions.
+
+The migration runner refuses a previously successful version whose checksum has changed. The schema-only baseline passed `db-migrations/scripts/verify-schema-only-baseline.sh`. Backend convergence required no schema change, so no `V20260715_*` file was created. The retired 28-file application resource SQL directory was deleted; runtime startup and tests succeed without it.
 
 ## Task 3 persistence decision
 

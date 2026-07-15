@@ -36,7 +36,7 @@ The management application is the convergence shell for one Spring Boot applicat
 | print | COMPLETE |
 | notification | COMPLETE |
 | attendance | COMPLETE |
-| migration | PLANNED |
+| migration | COMPLETE |
 | deployment | PLANNED |
 
 ## Task 6 domain convergence
@@ -58,6 +58,12 @@ WeChat login and subscription delivery share `my.hive.infrastructure.wechat.Wech
 All production and test Java sources now live below `my.hive`; the `my.management` and `my.hive_back` trees are absent. HTTP adapters are grouped under `my.hive.api`, domain services under `my.hive.domain`, shared request/runtime contracts under `my.hive.shared`, and external transports or schedulers under `my.hive.infrastructure`. No compatibility package, forwarding service, or duplicate controller was retained.
 
 `UnifiedBackendSourceGuardTest` enforces one Spring Boot application, no legacy package/import, no `/web` mapping, and no wildcard Permission Catalog V3 constant. Runtime tests additionally resolve the Spring bean and request-mapping registries. The Task 9 clean gate compiled 456 production sources and 45 test sources and passed all 184 tests without duplicate Bean, mapping, scheduled handler, or Rabbit listener failures.
+
+## Task 10 migration convergence
+
+The repository now owns the versioned migration tree at `db-migrations`, with `scripts/migrate-db.sh` as its only top-level migration entry. The imported manifest lists exactly 74 `migrations/V*.sql` files, and `migration_checksums.sha256` protects every imported byte plus explicit critical-history hashes. No schema delta was introduced by backend package convergence, so Task 10 adds no new version file and changes no historical SQL.
+
+The former `management/src/main/resources/sql` tree was unreferenced and duplicated versioned migration responsibilities; all 28 files were removed. Source-contract tests now read the authoritative versioned migration when schema evidence is required.
 
 ## Permission, employee, role, and tenant convergence
 
