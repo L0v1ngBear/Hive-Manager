@@ -45,6 +45,7 @@ import my.hive.domain.order.model.entity.SalesOrder;
 import my.hive.domain.order.model.entity.SalesOrderDetail;
 import my.hive.domain.order.model.entity.SalesOrderStatusLog;
 import my.hive.domain.order.model.enums.OrderCategoryEnum;
+import my.hive.domain.order.model.enums.OrderInvoiceStatusEnum;
 import my.hive.domain.order.model.enums.OrderLogOperateTypeEnum;
 import my.hive.domain.order.model.enums.OrderStatusEnum;
 import my.hive.domain.order.model.vo.ProductionOrderDetailVO;
@@ -361,6 +362,7 @@ public class OrderService {
             vo.setItems(details.stream().map(this::toSalesOrderPageItem).toList());
             applyFulfillmentView(vo, fulfillmentMap.getOrDefault(order.getOrderId(), Collections.emptyList()), order.getStatus());
             markSalesStaleWarning(vo, order, orderSettingService.staleWarningDays(tenantCode, order.getOrderCategory()));
+            markInvoiceWarning(vo, order);
             return vo;
         }).toList();
 
@@ -392,7 +394,15 @@ public class OrderService {
         long invoicePaidCount = safeCount(salesOrderMapper.selectCount(scopedSalesOrderWrapper(permittedStatuses)
                 .eq(SalesOrder::getIsInvoice, BinaryFlagEnum.YES.getCode())));
         long invoiceUnpaidCount = safeCount(salesOrderMapper.selectCount(scopedSalesOrderWrapper(permittedStatuses)
-                .eq(SalesOrder::getIsInvoice, BinaryFlagEnum.NO.getCode())));
+                .eq(SalesOrder::getIsInvoice, OrderInvoiceStatusEnum.UNISSUED.getCode())));
+        long invoiceOtherCount = safeCount(salesOrderMapper.selectCount(scopedSalesOrderWrapper(permittedStatuses)
+                .eq(SalesOrder::getIsInvoice, OrderInvoiceStatusEnum.OTHER.getCode())));
+        long invoiceWarningCount = safeCount(salesOrderMapper.selectCount(scopedSalesOrderWrapper(permittedStatuses)
+                .eq(SalesOrder::getIsInvoice, OrderInvoiceStatusEnum.UNISSUED.getCode())
+                .and(status -> status.isNull(SalesOrder::getStatus)
+                        .or()
+                        .notIn(SalesOrder::getStatus, STATUS_PENDING_CANCEL, OrderStatusEnum.CANCELLED.getCode()))
+                .le(SalesOrder::getCreateTime, LocalDateTime.now().minusDays(OrderInvoiceWarningPolicy.WARNING_DAYS))));
         result.put("category_sample_room", sampleRoomCount);
         result.put("category_replenishment", replenishmentCount);
         result.put("category_drawing_budget", drawingBudgetCount);
@@ -400,6 +410,8 @@ public class OrderService {
         result.put("category_bulk", bulkCount);
         result.put("invoice_paid", invoicePaidCount);
         result.put("invoice_unpaid", invoiceUnpaidCount);
+        result.put("invoice_other", invoiceOtherCount);
+        result.put("invoice_warning", invoiceWarningCount);
         return result;
     }
 
@@ -1229,7 +1241,7 @@ public class OrderService {
     }
 
     private Integer normalizeInvoiceFlag(Integer value) {
-        return BinaryFlagEnum.isYes(value) ? BinaryFlagEnum.YES.getCode() : BinaryFlagEnum.NO.getCode();
+        return OrderInvoiceStatusEnum.normalize(value);
     }
 
     private void replaceSalesOrderItems(String orderId, List<SalesOrderSaveRequest.ItemDTO> items, LocalDateTime businessCreateTime) {
@@ -2654,6 +2666,14 @@ public class OrderService {
         vo.setStaleDays(days);
         vo.setStaleWarning(salesOrderStaleCandidate(order.getStatus())
                 && isStale(order.getUpdateTime(), order.getCreateTime(), staleWarningDays));
+    }
+
+    private void markInvoiceWarning(SalesOrderPageVO vo, SalesOrder order) {
+        OrderInvoiceWarningPolicy.WarningResult result = OrderInvoiceWarningPolicy.evaluate(
+                order.getIsInvoice(), order.getStatus(), order.getCreateTime(), LocalDateTime.now());
+        vo.setInvoiceWarning(result.warning());
+        vo.setInvoiceAgeDays(result.ageDays());
+        vo.setInvoiceWarningDays(result.warningDays());
     }
 
     private void markProductionStaleWarning(ProductionOrderPageVO vo, ProductionOrder order, int staleWarningDays) {

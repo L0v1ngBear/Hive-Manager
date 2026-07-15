@@ -18,6 +18,7 @@
 
 - 查看订单总量、主要状态、开票状态、未更新预警及订单小项统计卡。
 - 按状态、小项、开票、关键字、客户、品牌、创建时间、交付时间和预警筛选。
+- 开票状态分为未开票、已开票、其他类型；未开票订单从创建时间起满 7 个完整自然日后标红预警，已开票和其他类型统一使用灰色已处理样式。
 - 查看分页订单表；点击行或“查看”图标打开订单详情。
 - 查看订单明细、附件、物流、开票、流转码和状态流转日志。
 - 新建订单；客户与项目可从客户选项联动，也允许录入新值。
@@ -67,6 +68,8 @@
 
 - 初次挂载并行加载列表、统计/预警和客户选项；路由 keyword 或 q 变化会重载列表。
 - 列表请求参数由 filters 与 page/size 组成；查询和卡片切换会回到第 1 页。
+- `isInvoice` 只接受 `0`（未开票）、`1`（已开票）、`2`（其他类型）。列表返回 `invoiceWarning`、`invoiceAgeDays`、`invoiceWarningDays`；固定 7 天开票预警仅适用于未开票且非取消审核中/已取消的订单，并与 `staleWarning` 独立计算。
+- 状态统计同时返回 `invoice_unpaid`、`invoice_paid`、`invoice_other` 和 `invoice_warning`，其中 `invoice_warning` 是满足固定 7 天规则的未开票订单数量。
 - 默认普通流程：pending_confirm → pending_pay → pending_material → producing → pending_ship → shipped → completed。
 - 图纸预算流程：budgeting → budget_completed。
 - 创建或保存 `pending_pay` 不创建审批。只有用户执行 `pending_pay -> pending_material` 推进时才创建备料审批候选；审批通过后进入备料中，拒绝后保持待收款。

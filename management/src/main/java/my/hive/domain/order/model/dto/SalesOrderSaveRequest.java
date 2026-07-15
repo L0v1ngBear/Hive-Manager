@@ -38,7 +38,7 @@ public class SalesOrderSaveRequest {
     private String expressNo;
 
     /**
-     * 是否开票：0-否，1-是。管理端新建时默认未开票。
+     * 开票类型：0-未开票，1-已开票，2-其他类型。管理端新建时默认未开票。
      */
     private Integer isInvoice;
 

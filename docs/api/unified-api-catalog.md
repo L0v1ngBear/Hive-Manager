@@ -90,6 +90,8 @@ The canonical collection is `/api/orders/**`. `PermissionCatalogV3` constants be
 
 `SalesOrderSaveRequest` and `SalesOrderDetailVO` use `notes[]` instead of the retired single `remark` field. Each note carries `id`, `content`, `version`, updater and update time; saved notes can be modified but cannot be deleted. Visibility and mutation use `order:note:view`, `order:note:create`, and `order:note:update` in addition to the order operation permission.
 
+Order invoice state uses the exact integer contract `0=unissued`, `1=issued`, and `2=other`; null input is normalized to `0`, while every other value is rejected. `SalesOrderPageVO` exposes `invoiceWarning`, `invoiceAgeDays`, and `invoiceWarningDays`. Only unissued orders that are not `pending_cancel` or `cancelled` enter the fixed seven-day warning calculation, measured in complete days from `createTime`; issued and other orders never warn. The status summary exposes `invoice_unpaid`, `invoice_paid`, `invoice_other`, and `invoice_warning`. This invoice warning is independent from the configurable stale-order warning.
+
 Creating or saving a `pending_pay` order is side-effect free for approval. Only `POST /api/orders/{orderId}/advance` from `pending_pay` creates a material-approval candidate, which requires `order:audit:material` when processed.
 
 ## Approval endpoint convergence matrix

@@ -174,6 +174,7 @@
         <el-select v-model="filters.invoiceStatus" class="box-input xl:col-span-2" placeholder="全部开票" clearable>
           <el-option label="已开票订单" value="1" />
           <el-option label="未开票订单" value="0" />
+          <el-option label="其他类型" value="2" />
         </el-select>
         <div class="order-filter-actions flex flex-wrap items-center gap-2 md:col-span-2 xl:col-span-12">
           <div class="order-query-actions">
@@ -315,6 +316,9 @@
                   >
                     {{ invoiceLabel(row.isInvoice) }}
                   </el-tag>
+                  <span v-if="row.invoiceWarning" class="order-invoice-warning">
+                    未开票 {{ row.invoiceAgeDays }} 天
+                  </span>
                 </div>
               </template>
               <template v-else-if="column.key === 'progress'">
@@ -699,6 +703,7 @@
                   <el-select v-model="orderForm.isInvoice" class="box-input">
                     <el-option label="未开票" :value="0" />
                     <el-option label="已开票" :value="1" />
+                    <el-option label="其他类型" :value="2" />
                   </el-select>
                 </div>
                 <div v-if="requiresShippingDetails">
@@ -1076,6 +1081,7 @@ const activeFilterSummary = computed(() => {
   if (filters.status) parts.push(orderStatusLabel(filters.status))
   if (filters.invoiceStatus === '1') parts.push('已开票')
   if (filters.invoiceStatus === '0') parts.push('未开票')
+  if (filters.invoiceStatus === '2') parts.push('其他类型')
   if (filters.keyword) parts.push(`关键词：${filters.keyword}`)
   if (filters.customerName) parts.push(`客户：${filters.customerName}`)
   if (filters.brandName) parts.push(`品牌：${filters.brandName}`)
@@ -1111,7 +1117,8 @@ const summaryCards = computed(() => {
     {key: 'order-ship', tab: 'order', label: '待发货订单', status: 'pending_ship', count: orderSummary.pending_ship || 0, hint: '待安排发货'},
     {key: 'order-shipped', tab: 'order', label: '已发货订单', status: 'shipped', count: orderSummary.shipped || 0, hint: '物流已录入'},
     {key: 'order-invoice-paid', tab: 'order', label: '已开票订单', invoiceStatus: '1', count: orderSummary.invoice_paid || 0, hint: '已完成开票'},
-    {key: 'order-invoice-unpaid', tab: 'order', label: '未开票订单', invoiceStatus: '0', count: orderSummary.invoice_unpaid || 0, hint: '待补充开票'},
+    {key: 'order-invoice-unpaid', tab: 'order', label: '未开票订单', invoiceStatus: '0', count: orderSummary.invoice_unpaid || 0, hint: `${orderSummary.invoice_warning || 0} 条已超 7 天`},
+    {key: 'order-invoice-other', tab: 'order', label: '其他类型', invoiceStatus: '2', count: orderSummary.invoice_other || 0, hint: '其他开票处理'},
     {key: 'order-stale', label: '未更新预警', staleOnly: true, count: orderWarningSummary.totalCount || 0, hint: orderWarningHint.value}
   ]
 })
@@ -2301,11 +2308,13 @@ function orderCategoryLabel(value) {
 }
 
 function invoiceLabel(value) {
-  return Number(value || 0) === 1 ? '已开票' : '未开票'
+  const normalized = Number(value ?? 0)
+  if (normalized === 2) return '其他类型'
+  return normalized === 1 ? '已开票' : '未开票'
 }
 
 function invoiceClass(value) {
-  return Number(value || 0) === 1 ? 'order-invoice-paid' : 'order-invoice-unpaid'
+  return Number(value ?? 0) === 0 ? 'order-invoice-unpaid' : 'order-invoice-settled'
 }
 
 function statusToken(status) {
@@ -2318,7 +2327,7 @@ function statusChipClass(status) {
 
 function summaryCardClass(card = {}) {
   if (card.staleOnly) return 'stat-card-warning'
-  if (card.invoiceStatus !== undefined) return Number(card.invoiceStatus) === 1 ? 'stat-card-invoice-paid' : 'stat-card-invoice-unpaid'
+  if (card.invoiceStatus !== undefined) return Number(card.invoiceStatus) === 0 ? 'stat-card-invoice-unpaid' : 'stat-card-invoice-settled'
   return card.status ? `stat-card-status-${statusToken(card.status)}` : 'stat-card-status-all'
 }
 
@@ -2755,8 +2764,17 @@ function fulfillmentProcessText(row = {}) {
   background: rgba(254, 226, 226, .94);
 }
 
-.order-table-row .order-invoice-paid {
-  color: var(--order-row-text) !important;
+.order-table-row .order-invoice-settled {
+  color: #64748b !important;
+  border-color: rgba(100, 116, 139, .24);
+  background: rgba(241, 245, 249, .94);
+}
+
+.order-invoice-warning {
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .order-table-row .order-stale-tag,
@@ -3345,9 +3363,9 @@ function fulfillmentProcessText(row = {}) {
   --order-card-soft: rgba(249, 115, 22, .13);
 }
 
-.stat-card-invoice-paid {
-  --order-card-color: #16a34a;
-  --order-card-soft: rgba(34, 197, 94, .13);
+.stat-card-invoice-settled {
+  --order-card-color: #64748b;
+  --order-card-soft: rgba(100, 116, 139, .12);
 }
 
 .stat-card-invoice-unpaid {

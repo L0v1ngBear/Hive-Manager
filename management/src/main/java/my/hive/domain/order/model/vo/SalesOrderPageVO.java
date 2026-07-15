@@ -38,6 +38,12 @@ public class SalesOrderPageVO {
 
     private Integer isInvoice;
 
+    private Boolean invoiceWarning = false;
+
+    private Long invoiceAgeDays = 0L;
+
+    private Integer invoiceWarningDays = 7;
+
     private String creator;
 
     private String attachmentName;

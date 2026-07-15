@@ -54,7 +54,7 @@ public class SalesOrder {
     private String expressNo;
 
     /**
-     * 是否开票：0-否，1-是。
+     * 开票类型：0-未开票，1-已开票，2-其他类型。
      */
     @TableField("is_invoice")
     private Integer isInvoice;
