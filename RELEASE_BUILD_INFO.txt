@@ -2,7 +2,7 @@ ReleaseName=Hive Unified Backend
 ReleaseSource=git-archive
 SourceGitCommit=0077f10e6587f80b95860387c6a662b780eb0618
 SourceBranch=codex/unify-hive-backend
-ReleasePackageGitCommit=c1d37331b16346d6c0afc8427f39a4b3791b851f
+ReleasePackageGitCommit=8900adfae390e6ef8db2aa93db31a6b550100331
 BuildTimeUtc=2026-07-15T04:13:16Z
 
 BackendArtifact=backend/hive-backend.jar
