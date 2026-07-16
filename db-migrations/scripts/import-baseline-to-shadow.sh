@@ -9,6 +9,7 @@ TARGET_DATABASE="${TARGET_DATABASE:-hive_shadow}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MIGRATION_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BASELINE_FILE="${BASELINE_FILE:-${MIGRATION_DIR}/baseline/hive_schema_baseline_v2.sql}"
+PERMISSION_SEED_FILE="${PERMISSION_SEED_FILE:-${MIGRATION_DIR}/seeds/system_permission_catalog_v3.sql}"
 MANIFEST_FILE="${MIGRATION_MANIFEST:-${MIGRATION_DIR}/migration_manifest.txt}"
 BASELINE_MIGRATION_VERSION="baseline/hive_schema_baseline_v2"
 BASELINE_LAST_MIGRATION="${BASELINE_LAST_MIGRATION:-migrations/V20260716_001_operation_log_table.sql}"
@@ -61,6 +62,7 @@ assert_schema_only_baseline() {
 cd "${DEPLOY_DIR}"
 test -f ".env" || fail "Missing ${DEPLOY_DIR}/.env"
 test -f "${BASELINE_FILE}" || test -f "${BASELINE_FILE}.gz" || fail "Missing baseline SQL: ${BASELINE_FILE} or ${BASELINE_FILE}.gz"
+test -f "${PERMISSION_SEED_FILE}" || fail "Missing permission catalog seed: ${PERMISSION_SEED_FILE}"
 test -f "${MANIFEST_FILE}" || fail "Missing migration manifest: ${MANIFEST_FILE}"
 
 set -a
@@ -195,11 +197,16 @@ DEPLOY_DIR="${DEPLOY_DIR}" DATABASE_NAME="${TARGET_DATABASE}" \
   MIGRATION_MANIFEST="${MANIFEST_FILE}" RUN_PREFLIGHT=NO \
   bash "${SCRIPT_DIR}/run-versioned-migrations.sh"
 
-echo "6/8 Verify imported schema..."
+echo "6/9 Import active permission catalog..."
+permission_row_count="$(mysql_root_db "${TARGET_DATABASE}" -N -B -e "SELECT COUNT(*) FROM sys_permission;")"
+[ "${permission_row_count}" = "0" ] || fail "Permission catalog target is not empty: ${permission_row_count} rows"
+mysql_root_db "${TARGET_DATABASE}" < "${PERMISSION_SEED_FILE}"
+
+echo "7/9 Verify imported schema..."
 DATABASE_NAME="${TARGET_DATABASE}" BASELINE_FILE="${BASELINE_FILE}" \
   bash "${SCRIPT_DIR}/verify-online-schema.sh"
 
-echo "7/8 Print import result..."
+echo "8/9 Print import result..."
 mysql_root_no_db -e "
 SELECT COUNT(*) AS table_count
 FROM information_schema.tables
@@ -212,4 +219,4 @@ FROM schema_migration_history
 WHERE status = 'SUCCESS';
 "
 
-echo "8/8 Baseline import finished. Represented migrations were registered and newer migrations were executed."
+echo "9/9 Baseline import finished. Represented migrations were registered, newer migrations were executed, and the active permission catalog was seeded."

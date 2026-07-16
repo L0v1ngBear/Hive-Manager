@@ -60,3 +60,15 @@ test('fresh initialization is explicit, stops writes, and verifies the result', 
   assert.match(importer, /baseline\/hive_schema_baseline_v2/)
   assert.match(importer, /V20260716_001_operation_log_table\.sql/)
 })
+
+test('baseline import seeds the active permission catalog before full verification', () => {
+  const importer = read('db-migrations/scripts/import-baseline-to-shadow.sh')
+  const initializer = read('db-migrations/scripts/initialize-fresh-database.sh')
+  const seedReference = 'system_permission_catalog_v3.sql'
+  const seedIndex = importer.indexOf(seedReference)
+  const verifyIndex = importer.indexOf('verify-online-schema.sh')
+
+  assert.ok(seedIndex >= 0, 'baseline importer must reference the active permission seed')
+  assert.ok(verifyIndex > seedIndex, 'permission seed must be imported before full schema verification')
+  assert.doesNotMatch(initializer, /mysql_root_db\s*<\s*"\$\{PERMISSION_SEED_FILE\}"/)
+})

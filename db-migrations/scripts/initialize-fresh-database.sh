@@ -8,7 +8,6 @@ CONFIRM_FRESH_DATABASE_INITIALIZATION="${CONFIRM_FRESH_DATABASE_INITIALIZATION:-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MIGRATION_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BASELINE_FILE="${MIGRATION_DIR}/baseline/hive_schema_baseline_v2.sql"
-PERMISSION_SEED_FILE="${MIGRATION_DIR}/seeds/system_permission_catalog_v3.sql"
 
 fail() {
   echo "FAIL: $1" >&2
@@ -35,7 +34,6 @@ mysql_root_db() {
 cd "${DEPLOY_DIR}"
 [ -f .env ] || fail "Missing ${DEPLOY_DIR}/.env"
 [ -f "${BASELINE_FILE}" ] || fail "Missing ${BASELINE_FILE}"
-[ -f "${PERMISSION_SEED_FILE}" ] || fail "Missing ${PERMISSION_SEED_FILE}"
 
 set -a
 source ./.env
@@ -56,17 +54,14 @@ DATABASE_NAME="${DATABASE_NAME}" ALLOW_FRESH_DATABASE=YES bash "${SCRIPT_DIR}/ch
 table_count="$(docker compose exec -T mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DATABASE_NAME}';")"
 [ "${table_count}" = "0" ] || fail "Fresh initialization only accepts an empty database; found ${table_count} tables"
 
-echo "1/5 Stop backend writes..."
+echo "1/4 Stop backend writes..."
 docker compose stop backend 2>/dev/null || true
 
-echo "2/5 Import immutable current baseline..."
+echo "2/4 Import immutable current baseline and active permission catalog..."
 TARGET_DATABASE="${DATABASE_NAME}" RESET_TARGET=YES CONFIRM_IMPORT_TO_HIVE=YES \
   BASELINE_FILE="${BASELINE_FILE}" bash "${SCRIPT_DIR}/import-baseline-to-shadow.sh"
 
-echo "3/5 Seed the current permission catalog..."
-mysql_root_db < "${PERMISSION_SEED_FILE}"
-
-echo "4/5 Create TENANT_001 owner and administrator role..."
+echo "3/4 Create TENANT_001 owner and administrator role..."
 tenant_name_sql="$(sql_escape "${tenant_name}")"
 owner_login_sql="$(sql_escape "${owner_login}")"
 owner_name_sql="$(sql_escape "${owner_name}")"
@@ -99,7 +94,7 @@ FROM sys_permission p
 WHERE p.assignable=1 AND p.status=1 AND p.is_deleted=0;
 EOSQL
 
-echo "5/5 Verify schema and bootstrap data..."
+echo "4/4 Verify schema and bootstrap data..."
 DATABASE_NAME="${DATABASE_NAME}" BASELINE_FILE="${BASELINE_FILE}" bash "${SCRIPT_DIR}/verify-online-schema.sh"
 bootstrap_state="$(mysql_root_db -N -B -e "
 SELECT CONCAT(
