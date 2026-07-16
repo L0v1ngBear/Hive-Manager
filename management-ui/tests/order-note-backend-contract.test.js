@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url'
 
 const uiRoot = fileURLToPath(new URL('..', import.meta.url))
 const repoRoot = path.resolve(uiRoot, '..')
-const deployRoot = 'C:/Users/HUAWEI/Desktop/hive部署_全新配置'
 
 function read(...segments) {
   return fs.readFileSync(path.join(...segments), 'utf8')
@@ -18,10 +17,10 @@ test('order notes and material approval are part of the authoritative permission
     'management/src/main/java/my/hive/shared/permission/PermissionCatalogV3.java'
   )
   const migration = read(
-    deployRoot,
+    repoRoot,
     'db-migrations/migrations/V20260715_001_order_notes_and_material_approval.sql'
   )
-  const manifest = read(deployRoot, 'db-migrations/migration_manifest.txt')
+  const manifest = read(repoRoot, 'db-migrations/migration_manifest.txt')
 
   for (const code of [
     'order:note:view',

@@ -2,11 +2,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
 
-const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
+const uiRoot = fileURLToPath(new URL('..', import.meta.url))
+const repoRoot = path.resolve(uiRoot, '..')
 
 function read(relativePath) {
-  return fs.readFileSync(path.join(deployRoot, relativePath), 'utf8')
+  return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
 }
 
 const historicalInstallationTaskMigration = read('db-migrations/migrations/V20260705_004_installation_task_schema.sql')
@@ -88,7 +90,7 @@ assert.ok(
   'order notes and material approval migration must be in migration_manifest.txt'
 )
 
-const deployHealth = read('scripts/check-deploy-health.sh')
+const deployHealth = read('deploy/scripts/check-deploy-health.sh')
 assert.ok(
   deployHealth.includes('V20260710_001_installation_task_unique_key_repair.sql'),
   'deploy health check must guard the installation_task unique-key repair migration'
