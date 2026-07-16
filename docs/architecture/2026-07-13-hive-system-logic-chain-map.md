@@ -1,5 +1,7 @@
 # Hive 系统逻辑链路总账
 
+> **历史归档：** 本文记录 2026-07-13 时的双后端与旧部署流程，不再是当前操作手册。当前功能边界见 `docs/architecture/2026-07-16-commercial-function-catalog.md`，当前部署见 `docs/deployment/unified-backend-deployment.md`。
+
 > 基线日期：2026-07-13。本文是源码与部署包的可检索总账，不代表尚未集成分支已经上线。
 
 ## 0. 使用说明与证据边界

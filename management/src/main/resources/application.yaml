@@ -95,7 +95,7 @@ wechat:
 
 xxl:
   job:
-    enabled: ${XXL_JOB_ENABLED:true}
+    enabled: ${XXL_JOB_ENABLED:false}
     admin-addresses: ${XXL_JOB_ADMIN_ADDRESSES:http://127.0.0.1:8088/xxl-job-admin}
     access-token: ${XXL_JOB_ACCESS_TOKEN:}
     executor:
@@ -117,7 +117,7 @@ maintenance:
     capacity-platform-reserve-mb: ${DB_CAPACITY_PLATFORM_RESERVE_MB:12288}
     capacity-projection-warn-percent: ${DB_CAPACITY_PROJECTION_WARN_PERCENT:70}
     capacity-projection-fail-percent: ${DB_CAPACITY_PROJECTION_FAIL_PERCENT:85}
-    capacity-estimate-tenants: ${DB_CAPACITY_ESTIMATE_TENANTS:2}
+    capacity-estimate-tenants: ${DB_CAPACITY_ESTIMATE_TENANTS:1}
     capacity-estimate-daily-orders: ${DB_CAPACITY_ESTIMATE_DAILY_ORDERS:300}
     capacity-estimate-order-items-per-order: ${DB_CAPACITY_ESTIMATE_ORDER_ITEMS_PER_ORDER:4}
     capacity-estimate-daily-cloth-in: ${DB_CAPACITY_ESTIMATE_DAILY_CLOTH_IN:800}

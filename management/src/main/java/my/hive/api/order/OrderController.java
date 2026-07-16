@@ -19,6 +19,7 @@ import my.hive.domain.order.model.vo.OrderFlowPrintTaskVO;
 import my.hive.domain.order.model.vo.OrderWarningSettingVO;
 import my.hive.domain.order.model.vo.OrderWarningSummaryVO;
 import my.hive.domain.order.model.vo.OrderLogisticsTrackingVO;
+import my.hive.domain.order.model.vo.OrderOperationLogVO;
 import my.hive.domain.order.model.vo.SalesOrderAttachmentVO;
 import my.hive.domain.order.model.vo.SalesOrderDetailVO;
 import my.hive.domain.order.model.vo.SalesOrderPageVO;
@@ -85,7 +86,7 @@ public class OrderController {
 
     @PostMapping
     @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_CREATE, message = "您没有权限创建订单")
-    @CollectLog(module = "order", action = "create_order", bizType = "order", description = "管理端创建订单")
+    @CollectLog(module = "order", action = "create_order", bizType = "order", resultBizNo = "#result.data", description = "管理端创建订单")
     public Result<String> create(@RequestBody @Valid SalesOrderSaveRequest request) {
         request.setCreateProductionOrder(1);
         return Result.success(orderService.createSalesOrder(request));
@@ -154,11 +155,13 @@ public class OrderController {
         return Result.success(null);
     }
 
-    @PostMapping("/status-log/{logId}/time")
+    @PostMapping("/{orderId}/status-log/{logId}/time")
     @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_UPDATE, message = "您没有权限修正订单流转时间")
-    public Result<Void> correctLogTime(@PathVariable Long logId,
+    @CollectLog(module = "order", action = "correct_order_status_log_time", bizType = "order", bizNo = "#orderId", description = "修正订单流转时间", recordArgs = false)
+    public Result<Void> correctLogTime(@PathVariable String orderId,
+                                       @PathVariable Long logId,
                                        @RequestBody @Valid OrderStatusLogTimeCorrectionRequest request) {
-        orderService.correctSalesLogTime(logId, request);
+        orderService.correctSalesLogTime(orderId, logId, request);
         return Result.success(null);
     }
 
@@ -169,12 +172,19 @@ public class OrderController {
         return Result.success(orderService.listSalesLogs(orderId));
     }
 
+    @GetMapping("/{orderId}/operation-logs")
+    @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_DETAIL, message = "您没有权限查看订单操作记录")
+    public Result<PageResult<OrderOperationLogVO>> operationLogs(@PathVariable String orderId,
+                                                                  @RequestParam(defaultValue = "1") long pageNum,
+                                                                  @RequestParam(defaultValue = "20") long pageSize) {
+        return Result.success(orderService.listOrderOperationLogs(orderId, pageNum, pageSize));
+    }
+
     @PostMapping("/flow/{flowCode}/advance")
     @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_UPDATE, message = "您没有权限推进订单")
-    @CollectLog(module = "order", action = "scan_advance_order", bizType = "order", description = "扫码推进订单", recordArgs = false)
-    public Result<Void> advanceByFlowCode(@PathVariable String flowCode) {
-        orderService.advanceSalesOrderByFlowCode(flowCode);
-        return Result.success(null);
+    @CollectLog(module = "order", action = "scan_advance_order", bizType = "order", resultBizNo = "#result.data", description = "扫码推进订单", recordArgs = false)
+    public Result<String> advanceByFlowCode(@PathVariable String flowCode) {
+        return Result.success(orderService.advanceSalesOrderByFlowCode(flowCode));
     }
 
     @PostMapping("/flow-print-task")

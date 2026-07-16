@@ -32,7 +32,7 @@ function checksumEntries() {
     }))
 }
 
-test('manifest exactly matches versioned migration files and protected checksums', () => {
+test('manifest exactly matches versioned migrations and checksums protect current bootstrap assets', () => {
   const manifest = manifestEntries()
   const disk = fs.readdirSync(path.join(migrationRoot, 'migrations'))
     .filter((name) => /^V\d{8}_\d{3}_.+\.sql$/.test(name))
@@ -42,12 +42,17 @@ test('manifest exactly matches versioned migration files and protected checksums
   assert.deepEqual(manifest, disk, 'manifest must list every versioned SQL exactly once and in order')
 
   const checksums = checksumEntries()
-  assert.deepEqual([...checksums.keys()].sort(), disk, 'checksum snapshot must cover the complete manifest')
-  for (const relativePath of manifest) {
+  const protectedAssets = [
+    ...disk,
+    'baseline/hive_schema_baseline_v2.sql',
+    'seeds/system_permission_catalog_v3.sql'
+  ].sort()
+  assert.deepEqual([...checksums.keys()].sort(), protectedAssets, 'checksum snapshot must cover migrations and current bootstrap assets')
+  for (const relativePath of protectedAssets) {
     assert.equal(
       sha256(path.join(migrationRoot, ...relativePath.split('/'))),
       checksums.get(relativePath),
-      `historical migration changed; add a new version instead: ${relativePath}`
+      `protected database asset changed without refreshing the checksum catalog: ${relativePath}`
     )
   }
 
@@ -74,12 +79,16 @@ test('repository exposes one migration entry and never executes application reso
   assert.match(entrypointSource, /db-migrations\/scripts\/run-versioned-migrations\.sh/)
   assert.match(entrypointSource, /db-migrations\/migration_manifest\.txt/)
   for (const helper of [
-    'verify-order-information-channel-artifacts.sh',
     'normalize-env.sh',
-    'verify-latest-backup.sh',
-    'diagnose-migration-drift.sh'
+    'verify-latest-backup.sh'
   ]) {
     assert.ok(fs.existsSync(path.join(repoRoot, 'scripts', helper)), `missing migration helper: ${helper}`)
+  }
+  for (const retiredHelper of [
+    'verify-order-information-channel-artifacts.sh',
+    'diagnose-migration-drift.sh'
+  ]) {
+    assert.equal(fs.existsSync(path.join(repoRoot, 'scripts', retiredHelper)), false)
   }
 
   const scriptFiles = []

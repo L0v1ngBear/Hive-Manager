@@ -36,6 +36,16 @@ require_command gzip
 require_command find
 require_command stat
 
+backup_contains() {
+  local pattern="$1"
+  local result
+  set +o pipefail
+  gzip -cd "${BACKUP_FILE}" 2>/dev/null | grep -Fq -- "${pattern}"
+  result=$?
+  set -o pipefail
+  return "${result}"
+}
+
 is_number "${MAX_BACKUP_AGE_HOURS}" || fail "MAX_BACKUP_AGE_HOURS must be a non-negative integer"
 is_number "${MIN_BACKUP_SIZE_KB}" || fail "MIN_BACKUP_SIZE_KB must be a non-negative integer"
 
@@ -82,6 +92,13 @@ if ! printf '%s' "${header}" | grep -Eq 'MySQL dump|MariaDB dump|CREATE TABLE|IN
   fail "backup content does not look like a MySQL dump"
 fi
 ok "backup content looks like a MySQL dump"
+
+for required_table in tenant user sys_permission schema_migration_history; do
+  if ! backup_contains "CREATE TABLE \`${required_table}\`"; then
+    fail "backup is incomplete: missing required table ${required_table}"
+  fi
+done
+ok "backup contains required Hive tables: tenant, user, sys_permission, schema_migration_history"
 
 if printf '%s' "${header}" | grep -Eq 'CREATE DATABASE `?'"${DATABASE_NAME}"'`?|USE `?'"${DATABASE_NAME}"'`?'; then
   ok "backup header references database ${DATABASE_NAME}"

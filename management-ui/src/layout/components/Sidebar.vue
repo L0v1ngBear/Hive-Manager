@@ -225,7 +225,7 @@ const secondaryMenus = computed(() => {
   {name: '考勤管理', path: '/function/attendance', icon: 'timer', permissions: ['attendance:record:list', 'attendance:rule:list', 'attendance:rule:update', 'attendance:export']},
   {name: '设备巡检', path: '/function/equipment', icon: 'qr_code_scanner', permissions: ['equipment:list', 'equipment:detail', 'equipment:inspection:list']},
   {name: '员工管理', path: '/function/employee', icon: 'people', permissions: ['employee:list']},
-  {name: '部门管理', path: '/function/organization', icon: 'account_tree', permissions: ['employee:list']},
+  {name: '组织管理', path: '/function/organization', icon: 'account_tree', permissions: ['organization:view']},
   {name: '角色管理', path: '/function/role', icon: 'settings_accessibility', permissions: ['role:list']},
   {name: '企业授权', path: '/function/tenant', icon: 'domain', developerOnly: true},
   {name: '标签模板', path: '/function/label', icon: 'sell', permissions: ['print:label:list']},

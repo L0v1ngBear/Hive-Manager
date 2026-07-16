@@ -12,6 +12,14 @@ export function getOrderDetail(orderId) {
   return request({ url: `/orders/${orderId}`, method: 'get' })
 }
 
+export function getOrderOperationLogs(orderId, params = {}) {
+  return request({
+    url: `/orders/${encodeURIComponent(orderId)}/operation-logs`,
+    method: 'get',
+    params
+  })
+}
+
 export function getOrderLogisticsTracking(orderId) {
   return request({
     url: `/orders/${encodeURIComponent(orderId)}/logistics-tracking`,
@@ -59,8 +67,12 @@ export function createOrderFlowPrintTask(data) {
   return request({ url: '/orders/flow-print-task', method: 'post', data })
 }
 
-export function correctOrderLogTime(logId, data) {
-  return request({ url: `/orders/status-log/${logId}/time`, method: 'post', data })
+export function correctOrderLogTime(orderId, logId, data) {
+  return request({
+    url: `/orders/${encodeURIComponent(orderId)}/status-log/${logId}/time`,
+    method: 'post',
+    data
+  })
 }
 
 export function getOrderWarningSetting() {

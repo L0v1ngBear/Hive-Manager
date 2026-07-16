@@ -53,16 +53,19 @@ import my.hive.domain.order.model.vo.ProductionOrderPageVO;
 import my.hive.domain.order.model.vo.ProductionProcessStepVO;
 import my.hive.domain.order.model.vo.ProductionOrderStatusLogVO;
 import my.hive.domain.order.model.vo.OrderFlowPrintTaskVO;
+import my.hive.domain.order.model.vo.OrderOperationLogVO;
 import my.hive.domain.order.model.vo.OrderWarningSettingVO;
 import my.hive.domain.order.model.vo.OrderWarningSummaryVO;
 import my.hive.domain.order.model.vo.SalesOrderAttachmentVO;
 import my.hive.domain.order.model.vo.SalesOrderDetailVO;
 import my.hive.domain.order.model.vo.SalesOrderPageVO;
 import my.hive.shared.permission.PermissionCatalogV3;
+import my.hive.shared.dto.PageResult;
 import my.hive.domain.order.model.vo.SalesOrderStatusLogVO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.BeanUtils;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -191,6 +194,9 @@ public class OrderService {
     @Resource
     private OrderNoteService orderNoteService;
 
+    @Resource
+    private JdbcTemplate jdbcTemplate;
+
     @Value("${app.upload.root:uploads}")
     private String uploadRoot;
 
@@ -314,6 +320,7 @@ public class OrderService {
 
         LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<SalesOrder>()
                 .orderByDesc(SalesOrder::getCreateTime);
+        applySalesOrderDataScopeFilter(wrapper);
 
         if (StringUtils.hasText(request.getStatus())) {
             wrapper.eq(SalesOrder::getStatus, request.getStatus().trim());
@@ -464,14 +471,79 @@ public class OrderService {
                 .toList();
     }
 
+    public PageResult<OrderOperationLogVO> listOrderOperationLogs(String orderId, long pageNum, long pageSize) {
+        SalesOrder order = findSalesOrder(orderId);
+        assertSalesOrderStagePermission(order, order.getStatus());
+
+        long current = safePage(pageNum);
+        long size = safeSize(pageSize);
+        long offset = (current - 1) * size;
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        Long total = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM operation_log
+                WHERE tenant_code = ?
+                  AND module = 'order'
+                  AND biz_no = ?
+                  AND biz_type IN ('order', 'order_approval')
+                """, Long.class, tenantCode, orderId);
+
+        List<OrderOperationLogVO> rows = jdbcTemplate.query("""
+                SELECT ol.id, ol.action, ol.description, ol.success, ol.error_type,
+                       ol.error_message, ol.create_time,
+                       COALESCE(NULLIF(u.name, ''),
+                                CASE WHEN ol.user_id IS NULL THEN '系统'
+                                     ELSE CONCAT('用户 #', ol.user_id) END) AS operator_name
+                FROM operation_log ol
+                LEFT JOIN user u
+                  ON u.id = ol.user_id
+                 AND BINARY u.tenant_code = BINARY ol.tenant_code
+                WHERE BINARY ol.tenant_code = BINARY ?
+                  AND ol.module = 'order'
+                  AND ol.biz_no = ?
+                  AND ol.biz_type IN ('order', 'order_approval')
+                ORDER BY ol.create_time DESC, ol.id DESC
+                LIMIT ? OFFSET ?
+                """, (rs, rowNum) -> {
+            OrderOperationLogVO vo = new OrderOperationLogVO();
+            vo.setId(rs.getLong("id"));
+            vo.setAction(rs.getString("action"));
+            vo.setDescription(rs.getString("description"));
+            vo.setOperatorName(rs.getString("operator_name"));
+            boolean success = rs.getInt("success") == 1;
+            vo.setSuccess(success);
+            vo.setErrorMessage(success ? null : safeOperationError(rs.getString("error_type"), rs.getString("error_message")));
+            vo.setCreateTime(rs.getTimestamp("create_time").toLocalDateTime());
+            return vo;
+        }, tenantCode, orderId, size, offset);
+
+        PageResult<OrderOperationLogVO> result = new PageResult<>();
+        long safeTotal = total == null ? 0L : total;
+        result.setCurrent(current);
+        result.setSize(size);
+        result.setTotal(safeTotal);
+        result.setPages(safeTotal == 0L ? 0L : (safeTotal + size - 1L) / size);
+        result.setData(rows);
+        return result;
+    }
+
+    private String safeOperationError(String errorType, String errorMessage) {
+        if (StringUtils.hasText(errorType) && errorType.endsWith("BusinessException") && StringUtils.hasText(errorMessage)) {
+            String normalized = errorMessage.trim();
+            return normalized.length() <= 200 ? normalized : normalized.substring(0, 200);
+        }
+        return "操作失败";
+    }
+
     @Transactional(rollbackFor = Exception.class)
-    public void correctSalesLogTime(Long logId, OrderStatusLogTimeCorrectionRequest request) {
+    public void correctSalesLogTime(String orderId, Long logId, OrderStatusLogTimeCorrectionRequest request) {
         if (logId == null) {
             throw new BusinessException("流转记录不存在");
         }
         String tenantCode = TenantPermissionContext.getTenantCode();
         SalesOrderStatusLog log = salesOrderStatusLogMapper.selectOne(new LambdaQueryWrapper<SalesOrderStatusLog>()
                 .eq(SalesOrderStatusLog::getId, logId)
+                .eq(SalesOrderStatusLog::getOrderId, orderId)
                 .eq(SalesOrderStatusLog::getTenantCode, tenantCode)
                 .last("LIMIT 1"));
         if (log == null) {
@@ -484,7 +556,6 @@ public class OrderService {
                 .eq(SalesOrderStatusLog::getTenantCode, tenantCode)
                 .set(SalesOrderStatusLog::getCreateTime, correctedTime));
         orderWarningCacheService.invalidate(tenantCode);
-        OperationLogSkipContext.skipCurrent();
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -1900,7 +1971,7 @@ public class OrderService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void advanceSalesOrderByFlowCode(String rawFlowCode) {
+    public String advanceSalesOrderByFlowCode(String rawFlowCode) {
         final OrderFlowCodeUtil.Parsed parsed;
         try {
             parsed = OrderFlowCodeUtil.parse(rawFlowCode);
@@ -1914,6 +1985,7 @@ public class OrderService {
             throw new BusinessException("订单流转码无效，请重新打印后再扫码");
         }
         advanceSalesOrderToNextStage(parsed.orderId(), new SalesOrderUpdateRequest());
+        return parsed.orderId();
     }
 
     private void assertOrderStatusTransitionPermission(String currentStatus, String targetStatus) {
@@ -1996,6 +2068,7 @@ public class OrderService {
         if (order == null) {
             throw new BusinessException("sales order not found");
         }
+        assertSalesOrderDataScope(order);
         return order;
     }
 
@@ -2005,6 +2078,7 @@ public class OrderService {
         if (order == null) {
             throw new BusinessException("sales order not found");
         }
+        assertSalesOrderDataScope(order);
         return order;
     }
 
@@ -2495,8 +2569,73 @@ public class OrderService {
 
     private LambdaQueryWrapper<SalesOrder> scopedSalesOrderWrapper(Set<String> permittedStatuses) {
         LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<>();
+        applySalesOrderDataScopeFilter(wrapper);
         applyOrderStatusPermissionFilter(wrapper, SalesOrder::getStatus, permittedStatuses);
         return wrapper;
+    }
+
+    private void applySalesOrderDataScopeFilter(LambdaQueryWrapper<SalesOrder> wrapper) {
+        if (TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_ORDER_SCOPE_TENANT)) {
+            return;
+        }
+        Long userId = TenantPermissionContext.getUserId();
+        if (userId != null && TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_ORDER_SCOPE_SALES_SELF)) {
+            wrapper.apply("creator = {0}", String.valueOf(userId));
+            return;
+        }
+        if (userId != null && TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_ORDER_SCOPE_SALES_DEPARTMENT)) {
+            wrapper.apply("creator IN ("
+                            + "SELECT CAST(scope_user.id AS CHAR) FROM `user` scope_user "
+                            + "WHERE scope_user.tenant_code = {0} "
+                            + "AND scope_user.department_name = ("
+                            + "SELECT current_user.department_name FROM `user` current_user "
+                            + "WHERE current_user.tenant_code = {0} AND current_user.id = {1} LIMIT 1))",
+                    TenantPermissionContext.getTenantCode(), userId);
+            return;
+        }
+        wrapper.apply("1 = 0");
+    }
+
+    private void assertSalesOrderDataScope(SalesOrder order) {
+        if (order == null) {
+            throw new BusinessException(404, "订单不存在");
+        }
+        if (TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_ORDER_SCOPE_TENANT)) {
+            return;
+        }
+        Long userId = TenantPermissionContext.getUserId();
+        if (userId != null
+                && TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_ORDER_SCOPE_SALES_SELF)
+                && Objects.equals(order.getCreator(), String.valueOf(userId))) {
+            return;
+        }
+        if (userId != null && TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_ORDER_SCOPE_SALES_DEPARTMENT)) {
+            Employee currentUser = employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
+                    .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
+                    .eq(Employee::getId, userId)
+                    .last("LIMIT 1"));
+            Long creatorUserId = parseUserId(order.getCreator());
+            Employee creator = creatorUserId == null ? null : employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
+                    .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
+                    .eq(Employee::getId, creatorUserId)
+                    .last("LIMIT 1"));
+            if (currentUser != null && creator != null && StringUtils.hasText(currentUser.getDepartmentName())
+                    && Objects.equals(currentUser.getDepartmentName(), creator.getDepartmentName())) {
+                return;
+            }
+        }
+        throw new BusinessException(403, "当前账号无权访问该订单");
+    }
+
+    private Long parseUserId(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            return Long.valueOf(value.trim());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private LambdaQueryWrapper<ProductionOrder> scopedProductionOrderWrapper(Set<String> permittedStatuses) {

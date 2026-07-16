@@ -299,7 +299,7 @@ const searchableMenus = computed(() => {
   { name: '审批中心', path: '/function/approval', icon: 'approval', desc: '请假、财务、离职和订单审批待办处理', permissions: ['approval:leave:list', 'approval:finance:list', 'approval:resignation:list', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'order:list', 'order:audit:shipment', 'order:audit:cancel', 'quality:audit'] },
   { name: '考勤管理', path: '/function/attendance', icon: 'fingerprint', desc: '移动打卡记录、规则配置和异常统计', permissions: ['attendance:record:list', 'attendance:rule:list', 'attendance:rule:update', 'attendance:export'] },
   { name: '员工管理', path: '/function/employee', icon: 'groups', desc: '员工名录、组织架构和人员状态', permissions: ['employee:list'] },
-  { name: '部门管理', path: '/function/organization', icon: 'account_tree', desc: '维护部门层级、负责人和部门成员归属', permissions: ['employee:list'] },
+  { name: '组织管理', path: '/function/organization', icon: 'account_tree', desc: '维护部门层级、职位体系和员工归属', permissions: ['organization:view'] },
   { name: '角色管理', path: '/function/role', icon: 'admin_panel_settings', desc: '角色权限配置和员工授权', permissions: ['role:list'] },
   { name: '企业授权', path: '/function/tenant', icon: 'domain', desc: '查看企业授权、启停状态和功能开关', developerOnly: true },
   { name: '标签模板', path: '/function/label', icon: 'sell', desc: '标签模板设计与现场打印联动', permissions: ['print:label:list'] },

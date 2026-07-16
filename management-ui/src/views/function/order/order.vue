@@ -628,6 +628,26 @@
                 </div>
                 <div v-else class="status-log-empty">暂无状态流转记录</div>
               </div>
+              <div class="mt-6">
+                <div class="section-title">操作记录</div>
+                <div v-if="orderOperationLogs.length" class="operation-log-list">
+                  <div v-for="log in orderOperationLogs" :key="log.id" class="operation-log-item">
+                    <div class="operation-log-main">
+                      <div class="operation-log-title">{{ log.description || orderOperationLabel(log.action) }}</div>
+                      <span class="operation-log-result" :class="log.success ? 'success' : 'failed'">
+                        {{ log.success ? '成功' : '失败' }}
+                      </span>
+                    </div>
+                    <div class="operation-log-meta">
+                      {{ log.operatorName || '系统' }} · {{ formatDateTime(log.createTime) }}
+                    </div>
+                    <div v-if="!log.success && log.errorMessage" class="operation-log-error">
+                      {{ log.errorMessage }}
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="status-log-empty">暂无操作记录</div>
+              </div>
             </template>
 
           </div>
@@ -917,6 +937,7 @@ import {
   downloadOrderAttachment,
   getOrderDetail,
   getOrderLogisticsTracking,
+  getOrderOperationLogs,
   getOrderPage,
   getOrderStatusSummary,
   getOrderWarningSetting,
@@ -1045,6 +1066,7 @@ const detailErrorMessage = ref('')
 const detailOrderId = ref('')
 let detailRequestId = 0
 const orderDetail = ref(null)
+const orderOperationLogs = ref([])
 const statusLogTimeEdits = reactive({})
 const statusLogSavingKey = ref('')
 const customerOptions = ref([])
@@ -1806,7 +1828,10 @@ async function openDetail(orderId, row = {}) {
   detailErrorMessage.value = ''
   clearStatusLogTimeEdits()
   try {
-    const detail = await getOrderDetail(orderId)
+    const [detail, operationLogPage] = await Promise.all([
+      getOrderDetail(orderId),
+      getOrderOperationLogs(orderId, { pageNum: 1, pageSize: 50 }).catch(() => ({ data: [] }))
+    ])
     if (requestId !== detailRequestId) return
     if (!canViewOrderDetail(detail)) {
       detailVisible.value = false
@@ -1814,6 +1839,7 @@ async function openDetail(orderId, row = {}) {
       return
     }
     orderDetail.value = detail
+    orderOperationLogs.value = operationLogPage?.data || []
     hydrateStatusLogTimeEdits('order', detail?.logs || [])
   } catch (error) {
     if (requestId !== detailRequestId) return
@@ -1837,6 +1863,7 @@ function closeDetail() {
   detailVisible.value = false
   detailLoading.value = false
   orderDetail.value = null
+  orderOperationLogs.value = []
   detailErrorMessage.value = ''
   clearStatusLogTimeEdits()
 }
@@ -2167,6 +2194,22 @@ function orderLogTitle(log) {
   return oldStatus ? `${oldStatus} → ${newStatus}` : newStatus
 }
 
+function orderOperationLabel(action) {
+  const labels = {
+    create_order: '创建订单',
+    save_order: '保存订单',
+    update_order_status: '更新订单状态',
+    update_order_process: '更新生产进度',
+    advance_order_status: '推进订单',
+    scan_advance_order: '扫码推进订单',
+    submit_order_rollback: '提交订单回退',
+    correct_order_status_log_time: '修正流转时间',
+    create_order_flow_print_task: '生成订单流转码',
+    refresh_single_order_warning: '刷新订单预警'
+  }
+  return labels[action] || action || '订单操作'
+}
+
 function fail(message, field) {
   warnAndFocusField(message, field)
   throw new Error(message)
@@ -2263,8 +2306,12 @@ async function saveStatusLogTime(type, log = {}) {
   statusLogSavingKey.value = key
   try {
     const payload = { createTime: formatCreateTimePayload(value) }
-    await correctOrderLogTime(log.id, payload)
     const orderId = orderDetail.value?.orderId
+    if (!orderId) {
+      ElMessage.warning('订单编号异常，无法修正时间')
+      return
+    }
+    await correctOrderLogTime(orderId, log.id, payload)
     if (orderId) {
       orderDetail.value = await getOrderDetail(orderId)
       clearStatusLogTimeEdits()
@@ -4326,6 +4373,57 @@ function fulfillmentProcessText(row = {}) {
   text-align: center;
   font-size: .875rem;
   color: rgb(var(--on-surface-variant))
+}
+
+.operation-log-list {
+  display: grid;
+  gap: .75rem;
+}
+
+.operation-log-item {
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: .75rem;
+  background: rgb(var(--surface-container-lowest));
+  padding: .9rem 1rem;
+}
+
+.operation-log-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.operation-log-title {
+  min-width: 0;
+  font-size: .9rem;
+  font-weight: 800;
+  color: rgb(var(--on-surface));
+}
+
+.operation-log-result {
+  flex: 0 0 auto;
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.operation-log-result.success {
+  color: #047857;
+}
+
+.operation-log-result.failed,
+.operation-log-error {
+  color: #b91c1c;
+}
+
+.operation-log-meta,
+.operation-log-error {
+  margin-top: .35rem;
+  font-size: .78rem;
+}
+
+.operation-log-meta {
+  color: rgb(var(--on-surface-variant));
 }
 
 .fade-enter-active, .fade-leave-active {

@@ -48,6 +48,28 @@ class OperationLogAspectScopeTest {
                 "order".equals(event.getModule()) && "save_order".equals(event.getAction())));
     }
 
+    @Test
+    void resolvesBusinessNumberFromSuccessfulResult() throws Throwable {
+        OperationLogProperties properties = new OperationLogProperties();
+        properties.setRecordedModules(Set.of("order"));
+        OperationLogCollector collector = mock(OperationLogCollector.class);
+        SensitiveDataSanitizer sanitizer = mock(SensitiveDataSanitizer.class);
+        OperationLogAspect aspect = new OperationLogAspect(properties, collector, sanitizer);
+
+        ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+        MethodSignature signature = mock(MethodSignature.class);
+        Method method = Fixture.class.getDeclaredMethod("createOrder");
+        when(joinPoint.getSignature()).thenReturn(signature);
+        when(joinPoint.getArgs()).thenReturn(new Object[0]);
+        when(joinPoint.proceed()).thenReturn("SO-1001");
+        when(signature.getMethod()).thenReturn(method);
+        when(signature.getDeclaringTypeName()).thenReturn(Fixture.class.getName());
+
+        assertThat(aspect.around(joinPoint, annotation("createOrder"))).isEqualTo("SO-1001");
+        verify(collector).collect(org.mockito.ArgumentMatchers.argThat(event ->
+                "SO-1001".equals(event.getBizNo())));
+    }
+
     private CollectLog annotation(String methodName) throws NoSuchMethodException {
         return Fixture.class.getDeclaredMethod(methodName).getAnnotation(CollectLog.class);
     }
@@ -59,6 +81,11 @@ class OperationLogAspectScopeTest {
 
         @CollectLog(module = "order", action = "save_order")
         void orderOperation() {
+        }
+
+        @CollectLog(module = "order", action = "create_order", resultBizNo = "#result")
+        String createOrder() {
+            return "SO-1001";
         }
     }
 }

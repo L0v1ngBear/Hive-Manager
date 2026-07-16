@@ -79,15 +79,19 @@ class BuiltInRoleCatalogTest {
 
         BuiltInRoleCatalog.RoleDefinition installationManager = catalog.require("INSTALLATION_MANAGER");
         assertTrue(installationManager.permissions().contains("installation:export"));
-        assertTrue(installationManager.permissions().contains("order:scope:installation:department"));
+        assertTrue(installationManager.permissions().contains("order:scope:tenant"));
+        assertTrue(catalog.require("HR_STAFF").permissions().contains("organization:view"));
+        assertTrue(catalog.require("HR_MANAGER").permissions().contains("organization:position:manage"));
     }
 
     @Test
-    void salesAndProductionRolesShouldUseSeparateResponsibilityScopes() {
+    void salesRolesUseOwnershipScopesAndWorkflowRolesUseStatusBoundTenantScope() {
         assertScope("SALES_STAFF", "order:scope:sales:self");
         assertScope("SALES_MANAGER", "order:scope:sales:department");
-        assertScope("PRODUCTION_STAFF", "order:scope:production:self");
-        assertScope("PRODUCTION_MANAGER", "order:scope:production:department");
+        assertScope("PRODUCTION_STAFF", "order:scope:tenant");
+        assertScope("PRODUCTION_MANAGER", "order:scope:tenant");
+        assertScope("INSTALLATION_STAFF", "order:scope:tenant");
+        assertScope("INSTALLATION_MANAGER", "order:scope:tenant");
 
         for (String code : Set.of("SALES_STAFF", "SALES_MANAGER")) {
             Set<String> permissions = catalog.require(code).permissions();
@@ -95,10 +99,10 @@ class BuiltInRoleCatalogTest {
             assertFalse(permissions.contains("order:scope:tenant"), code);
             assertTrue(permissions.contains("order:status:completed:view"), code + " should track its orders end-to-end");
         }
-        for (String code : Set.of("PRODUCTION_STAFF", "PRODUCTION_MANAGER")) {
+        for (String code : Set.of("PRODUCTION_STAFF", "PRODUCTION_MANAGER", "INSTALLATION_STAFF", "INSTALLATION_MANAGER")) {
             Set<String> permissions = catalog.require(code).permissions();
             assertTrue(permissions.stream().noneMatch(permission -> permission.startsWith("order:scope:sales:")), code);
-            assertFalse(permissions.contains("order:scope:tenant"), code);
+            assertTrue(permissions.contains("order:scope:tenant"), code);
         }
     }
 

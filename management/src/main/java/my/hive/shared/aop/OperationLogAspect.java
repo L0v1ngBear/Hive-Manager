@@ -55,6 +55,9 @@ public class OperationLogAspect {
         try {
             Object result = joinPoint.proceed();
             event.setSuccess(true);
+            if (!collectLog.resultBizNo().isBlank()) {
+                event.setBizNo(resolveBizNo(methodOf(joinPoint), joinPoint.getArgs(), collectLog.resultBizNo(), result));
+            }
             if (collectLog.recordResult()) {
                 event.setResultJson(sanitizer.toSafeJson(result));
             }
@@ -89,7 +92,7 @@ public class OperationLogAspect {
         event.setModule(collectLog.module());
         event.setAction(collectLog.action());
         event.setBizType(collectLog.bizType());
-        event.setBizNo(resolveBizNo(method, joinPoint.getArgs(), collectLog.bizNo()));
+        event.setBizNo(resolveBizNo(method, joinPoint.getArgs(), collectLog.bizNo(), null));
         event.setDescription(collectLog.description());
         event.setClassName(signature.getDeclaringTypeName());
         event.setMethodName(method.getName());
@@ -101,12 +104,17 @@ public class OperationLogAspect {
         return event;
     }
 
-    private String resolveBizNo(Method method, Object[] args, String expression) {
+    private Method methodOf(ProceedingJoinPoint joinPoint) {
+        return ((MethodSignature) joinPoint.getSignature()).getMethod();
+    }
+
+    private String resolveBizNo(Method method, Object[] args, String expression, Object result) {
         if (expression == null || expression.isBlank()) {
             return "";
         }
         try {
             StandardEvaluationContext context = new StandardEvaluationContext();
+            context.setVariable("result", result);
             String[] parameterNames = parameterNameDiscoverer.getParameterNames(method);
             for (int i = 0; i < args.length; i += 1) {
                 context.setVariable("p" + i, args[i]);

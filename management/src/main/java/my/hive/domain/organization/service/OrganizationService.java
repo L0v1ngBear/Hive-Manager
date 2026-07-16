@@ -11,13 +11,17 @@ import my.hive.shared.enums.DeleteFlagEnum;
 import my.hive.shared.utils.CodeGeneratorUtil;
 import my.hive.domain.employee.mapper.DepartmentMapper;
 import my.hive.domain.employee.mapper.EmployeeMapper;
+import my.hive.domain.employee.mapper.PositionMapper;
 import my.hive.domain.employee.model.entity.Department;
+import my.hive.domain.employee.model.entity.Position;
 import my.hive.domain.organization.mapper.OrganizationMapper;
 import my.hive.domain.organization.model.dto.OrganizationDepartmentSaveRequest;
+import my.hive.domain.organization.model.dto.OrganizationPositionSaveRequest;
 import my.hive.domain.organization.model.vo.OrganizationDepartmentVO;
 import my.hive.domain.organization.model.vo.OrganizationEmployeeVO;
 import my.hive.domain.organization.model.vo.OrganizationJoinCodeVO;
 import my.hive.domain.organization.model.vo.OrganizationOverviewVO;
+import my.hive.domain.organization.model.vo.OrganizationPositionVO;
 import my.hive.domain.organization.model.vo.OrganizationStatsVO;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.beans.BeanUtils;
@@ -50,6 +54,9 @@ public class OrganizationService {
 
     @Resource
     private EmployeeMapper employeeMapper;
+
+    @Resource
+    private PositionMapper positionMapper;
 
     @Resource
     private OrganizationMapper organizationMapper;
@@ -86,6 +93,11 @@ public class OrganizationService {
         List<OrganizationEmployeeVO> employees = organizationMapper.selectEmployeesByDepartment(TenantPermissionContext.getTenantCode(), department.getDeptName());
         employees.forEach(item -> item.setPhone(privacyProtectionUtil.maskPhone(item.getPhone())));
         return employees;
+    }
+
+    public List<OrganizationPositionVO> positions(Long departmentId) {
+        requireDepartment(departmentId);
+        return organizationMapper.selectPositions(TenantPermissionContext.getTenantCode(), departmentId);
     }
 
     public OrganizationJoinCodeVO createJoinCode() {
@@ -157,8 +169,69 @@ public class OrganizationService {
         if (employeeCount > 0) {
             throw new BusinessException("该部门下仍有员工，请先调整员工部门后再删除");
         }
+        Long positionCount = positionMapper.selectCount(new LambdaQueryWrapper<Position>()
+                .eq(Position::getDepartmentId, id)
+                .eq(Position::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
+        if (positionCount != null && positionCount > 0) {
+            throw new BusinessException("该部门下仍有职位，请先删除职位后再删除部门");
+        }
         department.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
         departmentMapper.updateById(department);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public Long savePosition(OrganizationPositionSaveRequest request) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        Department department = requireDepartment(request.getDepartmentId());
+        Position position;
+        String oldName = null;
+        Department oldDepartment = null;
+        if (request.getId() == null) {
+            position = new Position();
+            position.setTenantCode(tenantCode);
+            position.setPositionCode(resolvePositionCode(request.getPositionCode()));
+            position.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
+        } else {
+            position = requirePosition(request.getId());
+            oldName = position.getPositionName();
+            oldDepartment = requireDepartment(position.getDepartmentId());
+            if (!Objects.equals(position.getDepartmentId(), department.getId())
+                    && countEmployeesByPosition(oldDepartment, position) > 0) {
+                throw new BusinessException("该职位仍有员工，不能移动到其他部门");
+            }
+            if (StringUtils.hasText(request.getPositionCode())) {
+                position.setPositionCode(request.getPositionCode().trim());
+            }
+        }
+
+        position.setDepartmentId(department.getId());
+        position.setPositionName(request.getPositionName().trim());
+        position.setSortNo(request.getSortNo() == null ? 99 : request.getSortNo());
+        position.setStatus(request.getStatus() == null ? CommonStatusEnum.ENABLED.getCode() : request.getStatus());
+        ensurePositionNameUnique(position);
+
+        if (position.getId() == null) {
+            positionMapper.insert(position);
+        } else {
+            positionMapper.updateById(position);
+            if (oldDepartment != null && Objects.equals(oldDepartment.getId(), department.getId())
+                    && StringUtils.hasText(oldName) && !Objects.equals(oldName, position.getPositionName())) {
+                organizationMapper.updateEmployeePositionName(
+                        tenantCode, department.getDeptName(), oldName, position.getPositionName());
+            }
+        }
+        return position.getId();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void deletePosition(Long id) {
+        Position position = requirePosition(id);
+        Department department = requireDepartment(position.getDepartmentId());
+        if (countEmployeesByPosition(department, position) > 0) {
+            throw new BusinessException("该职位仍有员工，请先调整员工职位后再删除");
+        }
+        position.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
+        positionMapper.updateById(position);
     }
 
     private List<Department> listTenantDepartments() {
@@ -242,6 +315,37 @@ public class OrganizationService {
         return department;
     }
 
+    private Position requirePosition(Long id) {
+        Position position = positionMapper.selectOne(new LambdaQueryWrapper<Position>()
+                .eq(Position::getId, id)
+                .eq(Position::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
+                .last("LIMIT 1"));
+        if (position == null) {
+            throw new BusinessException("职位不存在");
+        }
+        return position;
+    }
+
+    private long countEmployeesByPosition(Department department, Position position) {
+        Long count = organizationMapper.countEmployeesByPosition(
+                TenantPermissionContext.getTenantCode(), department.getDeptName(), position.getPositionName());
+        return count == null ? 0L : count;
+    }
+
+    private void ensurePositionNameUnique(Position position) {
+        LambdaQueryWrapper<Position> wrapper = new LambdaQueryWrapper<Position>()
+                .eq(Position::getDepartmentId, position.getDepartmentId())
+                .eq(Position::getPositionName, position.getPositionName())
+                .eq(Position::getIsDeleted, DeleteFlagEnum.NORMAL.getCode());
+        if (position.getId() != null) {
+            wrapper.ne(Position::getId, position.getId());
+        }
+        Long count = positionMapper.selectCount(wrapper);
+        if (count != null && count > 0) {
+            throw new BusinessException("该部门下已存在同名职位");
+        }
+    }
+
     private void validateParent(Long parentId, Long currentId) {
         if (parentId == null) {
             return;
@@ -282,6 +386,13 @@ public class OrganizationService {
             return deptCode.trim();
         }
         return codeGeneratorUtil.generateCode("DPT", 4);
+    }
+
+    private String resolvePositionCode(String positionCode) {
+        if (StringUtils.hasText(positionCode)) {
+            return positionCode.trim();
+        }
+        return codeGeneratorUtil.generateCode("POS", 4);
     }
 
     private String blankToNull(String value) {

@@ -8,10 +8,10 @@ DATABASE_NAME="${DATABASE_NAME:-hive}"
 TARGET_DATABASE="${TARGET_DATABASE:-hive_shadow}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MIGRATION_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-BASELINE_FILE="${BASELINE_FILE:-${MIGRATION_DIR}/baseline/hive_schema_baseline.sql}"
+BASELINE_FILE="${BASELINE_FILE:-${MIGRATION_DIR}/baseline/hive_schema_baseline_v2.sql}"
 MANIFEST_FILE="${MIGRATION_MANIFEST:-${MIGRATION_DIR}/migration_manifest.txt}"
-BASELINE_MIGRATION_VERSION="baseline/hive_schema_baseline"
-BASELINE_LAST_MIGRATION="${BASELINE_LAST_MIGRATION:-migrations/V20260713_001_order_information_channel_and_cancel_reason.sql}"
+BASELINE_MIGRATION_VERSION="baseline/hive_schema_baseline_v2"
+BASELINE_LAST_MIGRATION="${BASELINE_LAST_MIGRATION:-migrations/V20260716_001_operation_log_table.sql}"
 RESET_TARGET="${RESET_TARGET:-NO}"
 CONFIRM_IMPORT_TO_HIVE="${CONFIRM_IMPORT_TO_HIVE:-NO}"
 ALLOW_DATA_BASELINE="${ALLOW_DATA_BASELINE:-NO}"
@@ -141,7 +141,7 @@ mysql_root_db "${TARGET_DATABASE}" -e "
 INSERT INTO schema_migration_history
   (version, file_name, checksum_sha256, status, error_message)
 VALUES
-  ('${BASELINE_MIGRATION_VERSION}', 'baseline/hive_schema_baseline.sql', '${baseline_checksum_sql}', 'SUCCESS', NULL)
+  ('${BASELINE_MIGRATION_VERSION}', 'baseline/hive_schema_baseline_v2.sql', '${baseline_checksum_sql}', 'SUCCESS', NULL)
 ON DUPLICATE KEY UPDATE
   file_name = VALUES(file_name),
   checksum_sha256 = VALUES(checksum_sha256),
@@ -195,7 +195,11 @@ DEPLOY_DIR="${DEPLOY_DIR}" DATABASE_NAME="${TARGET_DATABASE}" \
   MIGRATION_MANIFEST="${MANIFEST_FILE}" RUN_PREFLIGHT=NO \
   bash "${SCRIPT_DIR}/run-versioned-migrations.sh"
 
-echo "6/7 Print import result..."
+echo "6/8 Verify imported schema..."
+DATABASE_NAME="${TARGET_DATABASE}" BASELINE_FILE="${BASELINE_FILE}" \
+  bash "${SCRIPT_DIR}/verify-online-schema.sh"
+
+echo "7/8 Print import result..."
 mysql_root_no_db -e "
 SELECT COUNT(*) AS table_count
 FROM information_schema.tables
@@ -208,4 +212,4 @@ FROM schema_migration_history
 WHERE status = 'SUCCESS';
 "
 
-echo "7/7 Baseline import finished. Represented migrations were registered and newer migrations were executed."
+echo "8/8 Baseline import finished. Represented migrations were registered and newer migrations were executed."

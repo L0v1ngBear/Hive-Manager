@@ -1,83 +1,56 @@
-# Unified Backend Migrations
+# Unified backend migrations
 
-## Contract
+## Authoritative contract
 
-Historical versioned SQL is immutable. Any convergence schema change must be a new `V*.sql` migration and must update the migration manifest and checksum snapshot. Production cutover does not preserve retired business data, tokens, caches, or API compatibility behavior. The single repository migration command is `bash scripts/migrate-db.sh`.
+`db-migrations/migration_manifest.txt` is the only ordered historical migration list. Every listed `V*.sql` file is immutable after release and is protected by `db-migrations/migration_checksums.sha256`. A schema change always uses a new migration version.
 
-## Module status
+The repository exposes one routine migration command:
 
-| Module | Status |
-| --- | --- |
-| foundation | COMPLETE |
-| permission | COMPLETE |
-| auth | COMPLETE |
+```bash
+bash scripts/migrate-db.sh
+```
 
-Task 4 requires no schema change. Both clients use the existing user `auth_version` for versioned sessions and logout invalidation.
-| order | COMPLETE |
-| approval | COMPLETE |
-| inventory | COMPLETE |
-| quality | COMPLETE |
-| installation | COMPLETE |
-| customer | COMPLETE |
-| document | COMPLETE |
-| equipment | COMPLETE |
-| label | COMPLETE |
-| print | COMPLETE |
-| notification | COMPLETE |
-| attendance | COMPLETE |
-| migration | COMPLETE |
-| deployment | PLANNED |
+The command accepts only a managed database with a non-empty successful migration history and no failed records. It does not initialize an empty database, repair checksum drift or execute SQL from application resources.
 
-## Task 6 migration note
+## Fresh database
 
-Inventory, quality, and installation convergence is a Java package and API adapter consolidation. It does not require modifying historical SQL or adding a new versioned migration; the existing `cloth`, `inventory_record`, `inventory_setting`, `bad_product_record`, and `installation_task` table contracts remain canonical.
+`db-migrations/baseline/hive_schema_baseline_v2.sql` is the current schema-only baseline. `db-migrations/seeds/system_permission_catalog_v3.sql` is the current permission catalog seed. Both files are checksum-protected release assets and contain no business data or retired AI tables.
 
-## Task 7 migration note
+Initialize a fresh empty database explicitly:
 
-Customer, document, equipment, label-template, receipt-print, and print-task convergence is a Java package/API consolidation. It does not modify historical SQL and does not require a new migration; the existing customer, document, equipment, label template, outbound receipt, and `print_task` table contracts remain canonical.
+```bash
+CONFIRM_FRESH_DATABASE_INITIALIZATION=YES \
+  HIVE_BOOTSTRAP_OWNER_PASSWORD='replace-with-a-strong-password' \
+  bash db-migrations/scripts/initialize-fresh-database.sh
+```
 
-## Task 8 migration note
+The initializer imports the v2 baseline and permission seed, creates only `TENANT_001` and one owner account, and marks the bootstrap password for mandatory first-login replacement.
 
-Task 8 does not modify an executed historical SQL file. The unified implementation consumes the existing `notification_record`, `enterprise_announcement`, `attendance_record`, `tenant_attendance_rule`, `tenant_attendance_location`, `employee_attendance_location`, `attendance_statics`, `inventory_statics`, and `wechat_subscribe_user` contracts already present in the approved deployment baseline/version history. Task 10 will import that history unchanged into the repository and verify its manifest checksums; any subsequently discovered schema delta must be introduced as a new version file.
+## Existing database
 
-## Task 9 migration note
+Before migration:
 
-Removing the Java legacy roots and narrowing component/mapper scanning does not change the database schema. Task 9 therefore adds no migration and modifies no historical SQL. The canonical employee, role, permission, order, approval, tenant, notification, attendance, print, and other domain mappers continue to use the existing tables; migration-history import and checksum enforcement remain Task 10 work.
+1. Stop backend writes.
+2. Create and verify a full database backup.
+3. Verify migration checksums and database state.
+4. Execute the manifest in order.
+5. Verify required tables, columns and failed migration count.
 
-## Task 10 authoritative migration source
+Routine release scripts do not recreate MySQL or Redis. A failed migration leaves the backend stopped so old application code cannot continue writing against a partially migrated schema.
 
-`db-migrations/migration_manifest.txt` is the only ordered version list and currently matches all 74 files under `db-migrations/migrations`. `db-migrations/migration_checksums.sha256` records the SHA-256 of every manifest file. The Node gate also pins known executed migrations including the second-tenant seed, installation schema, Permission Catalog V3, and permission-relation convergence versions.
+## Restore
 
-The migration runner refuses a previously successful version whose checksum has changed. The schema-only baseline passed `db-migrations/scripts/verify-schema-only-baseline.sh`. Backend convergence required no schema change, so no `V20260715_*` file was created. The retired 28-file application resource SQL directory was deleted; runtime startup and tests succeed without it.
+Use `db-migrations/scripts/restore-verified-backup.sh`. It imports the selected backup into a shadow database and verifies core Hive tables before an explicitly confirmed online replacement.
 
-## Task 11 migration note
+Never:
 
-Changing the management client from `/web` and retired action routes to the unified `/api` contract is an HTTP-client configuration change only. It adds no table, column, seed, or data conversion, so Task 11 creates no migration and changes none of the 74 protected historical files.
+- modify a migration that was already executed;
+- substitute a historical migration with a file from another release;
+- mark migrations successful without executing them;
+- run partial tenant/business reset scripts during release;
+- use a file-only rollback after a forward database migration;
+- write reverse SQL as an emergency shortcut.
 
-## Task 12 migration note
+## Retired data
 
-The assembled deployment package exposes `scripts/migrate-db.sh` as its only migration command and carries the same immutable `db-migrations` manifest imported in Task 10. Start and restart stop/start only the one business service around that command. Compose consolidation changes no schema and adds no migration; database rollback remains a separate, explicit restore from a verified backup rather than an automatic reverse-SQL operation.
-
-## Task 13 migration note
-
-Build identity headers and the public health route are runtime metadata only. The Task 13 verification process did not run migrations or mutate business data; it exercised health, validation failures, and unauthenticated route guards against local infrastructure. No version file was added and all 74 protected migration checksums remain unchanged.
-
-## Task 14 fresh-release data procedure
-
-The release package keeps all 74 historical files byte-identical and ships `migration_checksums.sha256`. `scripts/check-deploy-health.sh` validates the full snapshot before an online migration. No reverse or edited historical SQL is introduced.
-
-`scripts/reset-fresh-business-data.sh` is an explicit, non-automatic cutover tool. Without `CONFIRM_FRESH_BUSINESS_RESET=YES` it only prints the planned effects. Confirmed mode stops application writes, runs the approved online backup and backup verifier, executes the existing manual TENANT_001 business reset and TENANT_002 removal SQL, flushes the dedicated Redis database, and clears uploads after a resolved-path boundary check. The single versioned migration entry is run afterward. Rollback restores the verified pre-release database backup; hand-written down migrations are forbidden.
-
-## Task 3 persistence decision
-
-No schema migration is required. Existing management `employee`, `sys_role`, `sys_permission`, `sys_user_role`, `sys_role_permission`, and `sys_user_permission` tables and mappers are the canonical persistence model for both clients.
-
-## Latest-main integration note
-
-The `c1d3733` integration changes management UI components, client-side request ownership, and exact permission checks only. It does not alter database schema or seed data. The authoritative manifest remains 74 immutable versions and no historical SQL was edited.
-
-## Installation task multi-person migration
-
-`V20260715_002_installation_task_installer.sql` is the only schema change for multi-person installation tasks. It creates `installation_task_installer` with tenant/task lookup indexing and `(tenant_code, installation_task_id, sort_order)` uniqueness, then conditionally drops the retired single-person columns from `installation_task`. Existing single-person values are intentionally not migrated. Version `_002` avoids collision with the independently delivered `_001` order-notes migration.
-
-The feature branch appends the version after all 74 migrations present in its `origin/dev` base, producing a 75-entry manifest and checksum snapshot. The synchronized deployment package already contains the independent `_001` order migration, so its merged manifest contains 76 entries ordered as `_001` then `_002`. The bytes and hashes of `V20260705_004`, `V20260707_001`, `V20260710_001`, and every other historical SQL remain unchanged. Deployment continues to use only `scripts/migrate-db.sh`; rollback requires restoring the verified database backup rather than editing history or adding down SQL.
+Formal launch uses a clean database, so retired AI advice, behavior-event and second-tenant bootstrap data are not carried forward. Historical migration files remain only as immutable evidence for databases that have already recorded those versions.

@@ -154,7 +154,7 @@ export const constantRoutes = [
         path: 'organization',
         name: 'Organization',
         component: () => import('@/views/function/organization/organization.vue'),
-        meta: { title: '部门管理', permissions: ['employee:list'], features: ['module.employee'] }
+        meta: { title: '组织管理', permissions: ['organization:view'], features: ['module.employee'] }
       },
       {
         path: 'attendance',

@@ -45,7 +45,8 @@ test('authentication, orders, approvals, quality and installation use canonical 
       '/orders/status-summary',
       '/orders/attachment',
       '/orders/flow-print-task',
-      '/orders/status-log/'
+      '/status-log/',
+      '/operation-logs'
     ]],
     ['src/views/function/approval/api/approval.js', [
       "url: '/approval/leave'",

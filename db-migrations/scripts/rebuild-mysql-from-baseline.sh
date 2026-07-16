@@ -22,9 +22,6 @@ service_exists() {
 }
 
 cd "${DEPLOY_DIR}"
-test -f "scripts/verify-order-information-channel-artifacts.sh" \
-  || fail "Missing scripts/verify-order-information-channel-artifacts.sh"
-bash scripts/verify-order-information-channel-artifacts.sh
 test -f ".env" || fail "缺少 ${DEPLOY_DIR}/.env。"
 test -f "${BASELINE_FILE}" || test -f "${BASELINE_FILE}.gz" || fail "缺少 baseline：${BASELINE_FILE} 或 ${BASELINE_FILE}.gz。"
 
@@ -39,7 +36,7 @@ set +a
 test -n "${MYSQL_ROOT_PASSWORD:-}" || fail ".env 缺少 MYSQL_ROOT_PASSWORD。"
 
 echo "1/8 停止业务服务，避免重建期间继续写库..."
-for service in nginx management-backend-1 management-backend-2 backend-1 backend-2 mysql-backup; do
+for service in nginx backend management-backend-1 management-backend-2 backend-1 backend-2 mysql-backup; do
   if service_exists "${service}"; then
     docker compose stop "${service}" || true
   fi

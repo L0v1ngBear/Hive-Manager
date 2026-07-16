@@ -5,12 +5,6 @@ set -euo pipefail
 # Flow: preflight -> backup -> versioned migrations -> schema verification.
 cd "$(dirname "$0")/.."
 
-test -f "scripts/verify-order-information-channel-artifacts.sh" || {
-  echo "FAIL: Missing scripts/verify-order-information-channel-artifacts.sh" >&2
-  exit 1
-}
-bash scripts/verify-order-information-channel-artifacts.sh
-
 if [ -f "scripts/normalize-env.sh" ]; then
   bash scripts/normalize-env.sh .env
 fi
@@ -31,11 +25,15 @@ require_executable() {
 test -f ".env" || fail "Missing .env"
 test -f "db-migrations/migration_manifest.txt" || fail "Missing db-migrations/migration_manifest.txt"
 require_executable "db-migrations/scripts/preflight-online.sh"
+require_executable "db-migrations/scripts/check-database-state.sh"
 require_executable "db-migrations/scripts/run-versioned-migrations.sh"
 require_executable "db-migrations/scripts/verify-online-schema.sh"
 
 echo "Database migration target: ${DATABASE_NAME}"
 echo "Migration manifest: db-migrations/migration_manifest.txt"
+
+echo "0/4 Verify managed database state..."
+ALLOW_FRESH_DATABASE=NO DATABASE_NAME="${DATABASE_NAME}" bash db-migrations/scripts/check-database-state.sh
 
 echo "1/4 Run database preflight..."
 DATABASE_NAME="${DATABASE_NAME}" bash db-migrations/scripts/preflight-online.sh
@@ -48,11 +46,6 @@ else
   DATABASE_NAME="${DATABASE_NAME}" bash db-migrations/scripts/backup-online.sh
   test -f "scripts/verify-latest-backup.sh" || fail "Missing scripts/verify-latest-backup.sh"
   DATABASE_NAME="${DATABASE_NAME}" MAX_BACKUP_AGE_HOURS="${BACKUP_VERIFY_MAX_AGE_HOURS:-2}" bash scripts/verify-latest-backup.sh
-fi
-
-if [ "${AUTO_RESTORE_MIGRATION_DRIFT:-YES}" = "YES" ] && [ -x "scripts/diagnose-migration-drift.sh" ]; then
-  echo "2.5/4 Check and restore known migration drift..."
-  ALLOW_NO_HISTORY=YES CONFIRM_RESTORE_MIGRATION=YES DATABASE_NAME="${DATABASE_NAME}" VERSION="migrations/V20260705_004_installation_task_schema" bash scripts/diagnose-migration-drift.sh
 fi
 
 echo "3/4 Run versioned migrations..."

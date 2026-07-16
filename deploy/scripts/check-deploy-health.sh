@@ -20,6 +20,8 @@ require_file nginx/certs/hellohive.top.pem
 require_file nginx/certs/hellohive.top.key
 require_file db-migrations/migration_manifest.txt
 require_file db-migrations/migration_checksums.sha256
+require_file db-migrations/baseline/hive_schema_baseline_v2.sql
+require_file db-migrations/seeds/system_permission_catalog_v3.sql
 require_file db-migrations/migrations/V20260710_001_installation_task_unique_key_repair.sql
 require_file db-migrations/migrations/V20260710_003_builtin_role_permission_matrix.sql
 require_file db-migrations/migrations/V20260710_004_order_role_status_scope.sql

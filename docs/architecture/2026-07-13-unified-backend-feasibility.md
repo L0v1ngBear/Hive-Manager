@@ -1,5 +1,7 @@
 # Hive 双后端合并可行性评估
 
+> **历史归档：** 本文是合并前的可行性评估。合并已完成，当前只支持单一 `hive-backend` 业务服务；请以 `docs/deployment/unified-backend-deployment.md` 和 `docs/architecture/2026-07-16-commercial-function-catalog.md` 为准。
+
 > 评估日期：2026-07-13。本文为静态源码、已有构建产物与部署包分析，不代表已完成合并、编译、容器演练或生产验证。
 
 ## 0. 执行结论

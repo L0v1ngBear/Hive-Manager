@@ -40,41 +40,6 @@ mysql_root_db() {
   docker compose exec -T mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" --default-character-set=utf8mb4 "$@" "${DATABASE_NAME}"
 }
 
-repair_xxl_job_official_schema_if_needed() {
-  mysql_root_no_db <<'EOSQL'
-SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
-SET @xxl_group_exists = (
-  SELECT COUNT(*)
-  FROM information_schema.tables
-  WHERE table_schema = 'xxl_job'
-    AND table_name = 'xxl_job_group'
-);
-SET @sql = IF(
-  @xxl_group_exists > 0,
-  'ALTER TABLE `xxl_job`.`xxl_job_group` MODIFY `title` varchar(64) NOT NULL COMMENT ''Executor title''',
-  'SELECT 1'
-);
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
-SET @xxl_info_exists = (
-  SELECT COUNT(*)
-  FROM information_schema.tables
-  WHERE table_schema = 'xxl_job'
-    AND table_name = 'xxl_job_info'
-);
-SET @sql = IF(
-  @xxl_info_exists > 0,
-  'ALTER TABLE `xxl_job`.`xxl_job_info` MODIFY `executor_param` text DEFAULT NULL',
-  'SELECT 1'
-);
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-EOSQL
-}
-
 cd "${DEPLOY_DIR}"
 test -f ".env" || fail "缺少 ${DEPLOY_DIR}/.env。"
 test -f "${MANIFEST_FILE}" || fail "缺少迁移清单：${MANIFEST_FILE}"
@@ -84,9 +49,6 @@ source ./.env
 set +a
 
 test -n "${MYSQL_ROOT_PASSWORD:-}" || fail ".env 缺少 MYSQL_ROOT_PASSWORD。"
-
-echo "0/5 兼容修复 XXL-JOB 官方表结构..."
-repair_xxl_job_official_schema_if_needed
 
 if [ "${RUN_PREFLIGHT}" = "YES" ]; then
   echo "0/5 执行迁移预检..."

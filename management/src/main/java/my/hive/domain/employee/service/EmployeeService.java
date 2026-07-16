@@ -215,6 +215,7 @@ public class EmployeeService {
         tenantLicenseService.ensureUserQuotaAvailable(TenantPermissionContext.getTenantCode());
         Department department = requireDepartment(request.getDepartmentId());
         Position position = requirePosition(request.getPositionId());
+        assertPositionBelongsToDepartment(position, department);
         String leaderName = normalizeLeaderName(request.getLeaderName());
 
         String employeeType = normalizeEmployeeType(request.getEmployeeType(), DEFAULT_EMPLOYEE_TYPE);
@@ -285,6 +286,7 @@ public class EmployeeService {
         EmployeeDetailVO before = detail(request.getId());
         Department department = requireDepartment(request.getDepartmentId());
         Position position = requirePosition(request.getPositionId());
+        assertPositionBelongsToDepartment(position, department);
         String leaderName = normalizeLeaderName(request.getLeaderName());
         EmployeeExt ext = getOrCreateExt(employee.getId());
         if (!StringUtils.hasText(ext.getEmpNo())) {
@@ -363,6 +365,12 @@ public class EmployeeService {
             Employee employee = requireEmployee(id);
             EmployeeDetailVO before = detail(id);
             Integer beforeStatus = employee.getStatus();
+            if (position != null) {
+                Department targetDepartment = department == null
+                        ? requireDepartmentByName(employee.getDepartmentName())
+                        : department;
+                assertPositionBelongsToDepartment(position, targetDepartment);
+            }
             if (department != null) {
                 employee.setDepartmentName(department.getDeptName());
             }
@@ -619,6 +627,24 @@ public class EmployeeService {
             throw new BusinessException("position is invalid");
         }
         return position;
+    }
+
+    private Department requireDepartmentByName(String departmentName) {
+        Department department = departmentMapper.selectOne(new LambdaQueryWrapper<Department>()
+                .eq(Department::getDeptName, departmentName)
+                .eq(Department::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
+                .eq(Department::getStatus, CommonStatusEnum.ENABLED.getCode())
+                .last("LIMIT 1"));
+        if (department == null) {
+            throw new BusinessException("employee department is invalid");
+        }
+        return department;
+    }
+
+    private void assertPositionBelongsToDepartment(Position position, Department department) {
+        if (!Objects.equals(position.getDepartmentId(), department.getId())) {
+            throw new BusinessException("position does not belong to department");
+        }
     }
 
     private String normalizeLeaderName(String leaderName) {

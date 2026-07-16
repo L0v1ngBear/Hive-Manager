@@ -1,49 +1,69 @@
-# Hive single-backend deployment source
+# Hive unified deployment
 
-This directory is the version-controlled deployment template. A release assembly copies exactly one executable JAR to `backend/hive-backend.jar`, the management UI build to `management-ui/dist`, the repository `db-migrations` tree to `db-migrations`, and the release metadata to `RELEASE_BUILD_INFO.txt`.
+This directory is the version-controlled release template for one Spring Boot backend, one management UI, MySQL, Redis and Nginx. RabbitMQ and XXL-JOB are optional and disabled by default.
 
-## Required local files
+## Release boundary
 
-The following files are intentionally excluded from Git:
+Release-owned files are synchronized with `scripts/sync-release-files.sh`. Runtime-owned paths are never uploaded or deleted:
 
-- `.env`, created from `.env.example` with production secrets;
-- `backend/hive-backend.jar`, produced by the release build;
-- `management-ui/dist`, produced by Vite;
-- `nginx/certs/hellohive.top.pem` and `nginx/certs/hellohive.top.key`;
-- database, Redis, RabbitMQ, upload, log, report, and snapshot data.
+- `.env`
+- `mysql/data`
+- `redis/data`
+- `nginx/certs`
+- `uploads`
+- `backups`
 
-## Commands
+The upload staging directory must contain no secrets, certificates or persistent data. Run `scripts/verify-upload-package.sh` before uploading.
+
+## First installation
+
+1. Synchronize the release into the server runtime directory.
+2. Create `.env` once, without overwriting a server-owned file, then set production secrets:
 
 ```bash
-# Run this against the secret-free staging directory before uploading.
-HIVE_RELEASE_ROOT=/absolute/path/to/upload-staging bash scripts/verify-upload-package.sh
-
-# Run these only inside the server-owned runtime directory.
 test -f .env || cp .env.example .env
-bash scripts/check-deploy-health.sh
-bash scripts/verify-release-integrity.sh
-bash scripts/start.sh
-bash scripts/restart.sh
-bash scripts/smoke-test.sh
-bash scripts/smoke-unified-backend.sh
-bash scripts/reset-fresh-business-data.sh
-bash scripts/rollback-release.sh
 ```
 
-`restart.sh` reuses local images by default. Set `PULL_IMAGES=1` only when the release intentionally needs newer registry images; set `NO_CACHE=1` only when the backend image must be rebuilt without Docker layer cache.
+3. Start MySQL and Redis: `docker compose up -d mysql redis`.
+4. Initialize the confirmed empty database:
 
-`verify-upload-package.sh` and `check-deploy-health.sh` intentionally enforce opposite secret boundaries. The upload gate rejects `.env`, TLS keys/certificates, persistent volumes, uploads, logs, reports, and snapshots. The runtime gate requires the server-owned `.env` and TLS files. Never bypass either gate by copying the whole runtime directory as an upload package.
+```bash
+CONFIRM_FRESH_DATABASE_INITIALIZATION=YES \
+  bash db-migrations/scripts/initialize-fresh-database.sh
+```
 
-`verify-release-integrity.sh` validates the backend JAR, the deterministic management UI tree hash and file count, the UI entry file, the migration manifest and checksums, retired frontend contracts, and resolvable Git commits when `SOURCE_REPOSITORY_ROOT` is supplied on the build host.
+5. Start and verify: `bash scripts/start.sh`.
 
-## Release host portability
+Fresh initialization creates only `TENANT_001`, one administrator that must change its temporary password, the active permission catalog, and the current schema. It does not create test data, `TENANT_002`, AI permissions or old dual-order permissions.
 
-- `SOURCE_REPOSITORY_ROOT` and `MINI_PROGRAM_SOURCE_REPOSITORY_ROOT` are optional build-host inputs. A package-only runtime host should not contain `.git`; metadata resolution warnings are informational and do not block startup.
-- Backend artifact inspection uses the first available command from `jar`, `unzip`, or `python3`. Installing a full JDK on the runtime host is not required when `unzip` or `python3` is present.
-- `start.sh` and `restart.sh` normalize `.env` before health checks. Deployment shell scripts and `docker-compose.yml` are committed with LF line endings so Windows uploads cannot hide the unified `backend` service from validation.
+## Normal release
 
-`scripts/migrate-db.sh` is the only migration command in an assembled deployment package. It executes the immutable manifest under `db-migrations` and rejects checksum drift.
+```bash
+HIVE_RELEASE_ROOT=/root/hive bash scripts/check-deploy-health.sh
+bash scripts/verify-release-integrity.sh
+bash scripts/restart.sh
+```
 
-The Compose topology contains one business service named `backend`, one container named `hive-backend`, and one `/api/**` nginx upstream. RabbitMQ and XXL-JOB admin are optional profiles; the application still owns only one operation-log listener registration and one executor configuration.
+`restart.sh` validates the release, builds the backend image, stops backend writes, backs up and migrates the managed database, then recreates only `backend` and `nginx`. It does not recreate MySQL or Redis. A failed migration leaves the backend stopped.
 
-Never commit real secrets, certificates, release JARs, generated UI assets, persistent volumes, reports, or snapshots from this directory.
+Set `PULL_IMAGES=1` only for an intentional image update. Set `NO_CACHE=1` only when Docker build cache must be bypassed.
+
+## Database recovery
+
+Verify a backup without changing online data:
+
+```bash
+BACKUP_FILE=/root/hive/backups/db/.../hive_....sql.gz \
+  bash scripts/verify-latest-backup.sh
+```
+
+Verify restore in a shadow database first:
+
+```bash
+BACKUP_FILE=/root/hive/backups/db/.../hive_....sql.gz \
+  bash db-migrations/scripts/restore-verified-backup.sh
+```
+
+Only after the shadow verification passes, repeat with `CONFIRM_DATABASE_RESTORE=YES`. The script stops backend writes and creates a new pre-restore backup before replacing the online database.
+
+There is no automatic migration-drift repair, partial business-data reset, or file-only rollback command. Historical migration files are immutable. Recovery uses an immutable release plus a verified database backup.

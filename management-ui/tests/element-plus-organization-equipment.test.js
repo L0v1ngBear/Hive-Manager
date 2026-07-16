@@ -27,6 +27,10 @@ test("organization keeps its domain tree and migrates standard editor controls",
     assert.match(source, new RegExp(`<${tag}\\b`));
   }
   assert.match(source, /const DepartmentNode\s*=\s*defineComponent/);
+  assert.match(source, /<el-tabs\b/);
+  assert.match(source, /<el-table\b/);
+  assert.match(source, /openPositionCreate/);
+  assert.match(source, /submitPosition/);
 });
 
 test("organization clears an Element Plus parent selector back to the root value", () => {
@@ -142,10 +146,10 @@ test("equipment detail and records reject stale responses and expose retryable s
 test("organization and equipment mutation commands stay visible but disabled with reasons", () => {
   const organization = read("../src/views/function/organization/organization.vue");
   const equipment = read("../src/views/function/equipment/equipment.vue");
-  assert.match(organization, /hasPermission\('employee:update'\)/);
-  assert.match(organization, /hasPermission\('employee:delete'\)/);
-  assert.match(organization, /暂无 employee:update 权限/);
-  assert.match(organization, /暂无 employee:delete 权限/);
+  for (const permission of ['organization:department:manage', 'organization:department:delete', 'organization:position:manage', 'organization:position:delete']) {
+    assert.match(organization, new RegExp(`hasPermission\\('${permission.replaceAll(':', '\\:')}'\\)`));
+    assert.match(organization, new RegExp(`暂无 ${permission.replaceAll(':', '\\:')} 权限`));
+  }
   for (const permission of ['equipment:create', 'equipment:update', 'equipment:disable', 'equipment:export']) {
     assert.match(equipment, new RegExp(`hasPermission\\('${permission.replaceAll(':', '\\:')}'\\)`));
     assert.match(equipment, new RegExp(`暂无 ${permission.replaceAll(':', '\\:')} 权限`));

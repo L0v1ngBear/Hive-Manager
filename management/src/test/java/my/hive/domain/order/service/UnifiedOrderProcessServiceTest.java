@@ -52,6 +52,7 @@ class UnifiedOrderProcessServiceTest {
     @BeforeEach
     void setUp() {
         TenantPermissionContext.init("tenant-a", 1L, Set.of(
+                "order:scope:tenant",
                 "order:status:producing:view",
                 "order:status:producing:advance"
         ));

@@ -10,8 +10,8 @@ BASELINE_DATABASE="${BASELINE_DATABASE:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MIGRATION_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 MANIFEST_FILE="${MIGRATION_MANIFEST:-${MIGRATION_DIR}/migration_manifest.txt}"
-BASELINE_FILE="${BASELINE_FILE:-${MIGRATION_DIR}/baseline/hive_schema_baseline.sql}"
-BASELINE_MIGRATION_VERSION="baseline/hive_schema_baseline"
+BASELINE_FILE="${BASELINE_FILE:-${MIGRATION_DIR}/baseline/hive_schema_baseline_v2.sql}"
+BASELINE_MIGRATION_VERSION="baseline/hive_schema_baseline_v2"
 
 fail() {
   echo "FAIL: $1" >&2
@@ -122,12 +122,13 @@ if [ "${permission_v3_migration_count}" != "1" ]; then
 fi
 
 echo "3/4 检查关键字段..."
-xxl_job_schema_count="$(mysql_root_no_db -N -B -e "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = 'xxl_job';")"
-if [ "${xxl_job_schema_count}" != "1" ]; then
-  fail "Missing required database: xxl_job"
-fi
+if [ "${XXL_JOB_ENABLED:-false}" = "true" ] || [ "${XXL_JOB_ENABLED:-false}" = "TRUE" ] || [ "${XXL_JOB_ENABLED:-false}" = "1" ]; then
+  xxl_job_schema_count="$(mysql_root_no_db -N -B -e "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = 'xxl_job';")"
+  if [ "${xxl_job_schema_count}" != "1" ]; then
+    fail "Missing required database: xxl_job"
+  fi
 
-xxl_job_table_count="$(mysql_root_no_db -N -B -e "
+  xxl_job_table_count="$(mysql_root_no_db -N -B -e "
 SELECT COUNT(*)
 FROM information_schema.tables
 WHERE table_schema = 'xxl_job'
@@ -142,8 +143,11 @@ WHERE table_schema = 'xxl_job'
     'xxl_job_user'
   );
 ")"
-if [ "${xxl_job_table_count}" != "8" ]; then
-  fail "Missing required XXL-JOB tables in xxl_job database"
+  if [ "${xxl_job_table_count}" != "8" ]; then
+    fail "Missing required XXL-JOB tables in xxl_job database"
+  fi
+else
+  echo "XXL-JOB is disabled; external scheduler schema verification skipped."
 fi
 
 operation_log_table_count="$(mysql_root_db "${DATABASE_NAME}" -N -B -e "
@@ -291,10 +295,10 @@ permission_v3_table_count="$(mysql_root_db "${DATABASE_NAME}" -N -B -e "
 SELECT COUNT(*)
 FROM information_schema.tables
 WHERE table_schema = DATABASE()
-  AND table_name IN ('sys_permission_catalog', 'order_responsibility');
+  AND table_name = 'sys_permission_catalog';
 ")"
-if [ "${permission_v3_table_count}" != "2" ]; then
-  fail "Missing permission V3 tables: sys_permission_catalog/order_responsibility"
+if [ "${permission_v3_table_count}" != "1" ]; then
+  fail "Missing permission V3 table: sys_permission_catalog"
 fi
 
 permission_v3_catalog_version="$(mysql_root_db "${DATABASE_NAME}" -N -B -e "SELECT catalog_version FROM sys_permission_catalog WHERE id = 1 LIMIT 1;")"

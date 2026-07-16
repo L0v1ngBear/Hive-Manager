@@ -34,6 +34,12 @@ public @interface CollectLog {
     String bizNo() default "";
 
     /**
+     * Business number expression evaluated after a successful invocation.
+     * Use {@code #result} when the created business number is returned by the method.
+     */
+    String resultBizNo() default "";
+
+    /**
      * 人可读描述，方便日志平台检索。
      */
     String description() default "";

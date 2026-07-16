@@ -77,6 +77,11 @@ public class PermissionCatalogV3 {
     public static final String CODE_EMPLOYEE_IMPORT = "employee:import";
     public static final String CODE_EMPLOYEE_EXPORT = "employee:export";
     public static final String CODE_EMPLOYEE_PERMISSION_MANAGE = "employee:permission:manage";
+    public static final String CODE_ORGANIZATION_VIEW = "organization:view";
+    public static final String CODE_ORGANIZATION_DEPARTMENT_MANAGE = "organization:department:manage";
+    public static final String CODE_ORGANIZATION_DEPARTMENT_DELETE = "organization:department:delete";
+    public static final String CODE_ORGANIZATION_POSITION_MANAGE = "organization:position:manage";
+    public static final String CODE_ORGANIZATION_POSITION_DELETE = "organization:position:delete";
     public static final String CODE_EQUIPMENT_LIST = "equipment:list";
     public static final String CODE_EQUIPMENT_DETAIL = "equipment:detail";
     public static final String CODE_EQUIPMENT_CREATE = "equipment:create";
@@ -124,6 +129,9 @@ public class PermissionCatalogV3 {
     public static final String CODE_ORDER_PRINT = "order:print";
     public static final String CODE_ORDER_WARNING_LIST = "order:warning:list";
     public static final String CODE_ORDER_WARNING_SETTING = "order:warning:setting";
+    public static final String CODE_ORDER_SCOPE_SALES_SELF = "order:scope:sales:self";
+    public static final String CODE_ORDER_SCOPE_SALES_DEPARTMENT = "order:scope:sales:department";
+    public static final String CODE_ORDER_SCOPE_TENANT = "order:scope:tenant";
     public static final String CODE_ORDER_STATUS_PREFIX = "order:status:";
     public static final String CODE_PRICE_LIST = "price:list";
     public static final String CODE_PRICE_DETAIL = "price:detail";
@@ -236,6 +244,12 @@ public class PermissionCatalogV3 {
                 action("status", 5, "调整员工状态"), action("delete", 6, "删除员工"),
                 action("import", 7, "导入员工"), action("export", 8, "导出员工"),
                 action("permission:manage", 9, "配置员工单独权限"));
+        addFlatModule(catalog, "organization", "组织管理", 810,
+                entry("view", 1, "查看部门、职位和成员"),
+                action("department:manage", 2, "新增和编辑部门"),
+                action("department:delete", 3, "删除空部门"),
+                action("position:manage", 4, "新增和编辑职位"),
+                action("position:delete", 5, "删除空职位"));
         addFlatModule(catalog, "role", "角色管理", 820,
                 entry("list", 1, "查看角色列表"), action("create", 2, "新增角色"),
                 action("update", 3, "编辑角色"), action("delete", 4, "删除角色"),
@@ -270,10 +284,6 @@ public class PermissionCatalogV3 {
                 .group("order:scope", "order", "order", 230, "订单数据范围")
                 .scope("order:scope:sales:self", "order:scope", "order", 231, "本人销售订单")
                 .scope("order:scope:sales:department", "order:scope", "order", 232, "本部门销售订单")
-                .scope("order:scope:production:self", "order:scope", "order", 233, "本人生产订单")
-                .scope("order:scope:production:department", "order:scope", "order", 234, "本部门生产订单")
-                .scope("order:scope:assigned", "order:scope", "order", 235, "分配给我的订单")
-                .scope("order:scope:installation:department", "order:scope", "order", 236, "本部门安装订单")
                 .scope("order:scope:tenant", "order:scope", "order", 237, "全部租户订单")
                 .group("order:status", "order", "order", 240, "订单状态权限");
 

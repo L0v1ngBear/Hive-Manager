@@ -20,7 +20,8 @@ class PermissionCatalogV3Test {
         assertEquals(3L, catalog.version());
         assertTrue(catalog.leaves().contains("employee:permission:manage"));
         assertTrue(catalog.leaves().contains("order:status:pending-confirm:advance"));
-        assertTrue(catalog.leaves().contains("order:scope:production:department"));
+        assertTrue(catalog.leaves().contains("order:scope:sales:department"));
+        assertFalse(catalog.leaves().contains("order:scope:production:department"));
         assertTrue(catalog.leaves().contains("approval:auditor:setting"));
 
         assertFalse(catalog.leaves().stream().anyMatch(code -> code.equals("*") || code.contains("*")));
@@ -31,7 +32,7 @@ class PermissionCatalogV3Test {
 
     @Test
     void definitionsAreUniqueAndEveryAssignableDefinitionIsALeaf() {
-        assertEquals(195, catalog.definitions().size());
+        assertEquals(197, catalog.definitions().size());
         assertEquals(catalog.definitions().size(),
                 new HashSet<>(catalog.definitions().stream()
                         .map(PermissionCatalogV3.PermissionDefinition::code)

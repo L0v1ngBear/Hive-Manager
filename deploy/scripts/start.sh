@@ -22,6 +22,7 @@ if [ "$(env_value OPERATION_LOG_QUEUE_TYPE)" = "rabbitmq" ]; then
 fi
 
 echo "3/6 Run the single migration entry"
+docker compose stop backend 2>/dev/null || true
 bash scripts/migrate-db.sh
 
 echo "4/6 Apply optional scheduler"

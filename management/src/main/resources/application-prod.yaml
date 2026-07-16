@@ -49,13 +49,13 @@ hive:
     recorded-modules: ${OPERATION_LOG_RECORDED_MODULES:order}
     collect-to-db: ${OPERATION_LOG_COLLECT_TO_DB:true}
     collect-to-slf4j: ${OPERATION_LOG_COLLECT_TO_SLF4J:true}
-    async-db: true
-    queue-type: ${OPERATION_LOG_QUEUE_TYPE:rabbitmq}
+    async-db: ${OPERATION_LOG_ASYNC_DB:false}
+    queue-type: ${OPERATION_LOG_QUEUE_TYPE:memory}
     rabbit-exchange: ${OPERATION_LOG_EXCHANGE:hive.operation.log.exchange}
     rabbit-routing-key: ${OPERATION_LOG_ROUTING_KEY:hive.operation.log}
     rabbit-queue: ${OPERATION_LOG_QUEUE:hive.operation.log.queue}
     cleanup-enabled: ${OPERATION_LOG_CLEANUP_ENABLED:false}
-    retention-days: ${OPERATION_LOG_RETENTION_DAYS:90}
+    retention-days: ${OPERATION_LOG_RETENTION_DAYS:730}
     cleanup-batch-size: ${OPERATION_LOG_CLEANUP_BATCH_SIZE:5000}
     cleanup-cron: "${OPERATION_LOG_CLEANUP_CRON:0 20 3 * * ?}"
   system-event:
