@@ -88,6 +88,22 @@ class InstallationTaskInstallerServiceTest {
     }
 
     @Test
+    void omittedInstallersPreservesExistingRows() {
+        stubTask(11L);
+        when(installerMapper.selectList(any(Wrapper.class)))
+                .thenReturn(List.of(detail(11L, "原施工员", "100", 0)));
+        InstallationTaskStatusUpdateRequest request = new InstallationTaskStatusUpdateRequest();
+        request.setId(11L);
+        request.setStatus("production_completed");
+
+        InstallationTaskVO result = service.updateStatus(request);
+
+        assertEquals(List.of("原施工员"), result.getInstallers().stream().map(item -> item.getName()).toList());
+        verify(installerMapper, never()).delete(any(Wrapper.class));
+        verify(installerMapper, never()).insert(any(InstallationTaskInstaller.class));
+    }
+
+    @Test
     void savesOneTrimmedInstallerWithTenantAndOrderAndEchoesIt() {
         stubTask(11L);
         AtomicLong ids = new AtomicLong(100L);

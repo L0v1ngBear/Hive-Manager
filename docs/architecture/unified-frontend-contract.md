@@ -70,6 +70,17 @@
 - 出库允许直接输入订单号；拥有 `order:list` 时才提供订单搜索候选。
 - 发货物流字段固定为顶层 `expressCompany` 和 `expressNo`。
 - 统一订单的生产工序与异常上报使用 `POST /orders/{orderId}/process`，不再把生产字段提交给普通状态接口。
+- 普通订单和图纸预算订单只允许推进到紧邻的下一状态，统一调用 `POST /orders/{orderId}/advance`；`/status` 不承担需要审批的正常推进。
+- 发票状态固定为 `0=未开票`、`1=已开票`、`2=其他`，筛选、列表显示和发货表单必须覆盖三种值。
+- 客户施工区域属于 `projects[].constructionArea`，不得作为客户顶层保存字段提交。
+- 库存出库请求只提交 `barcode`、`meters`、`orderNo`。
+- 本阶段小程序仅对齐已经存在的页面；安装任务仍是管理网页的独立入口，小程序不注册一个空壳页面。
+
+## 安装任务部分更新语义
+
+- `POST /installation-tasks/status` 省略 `installers` 表示保留现有施工人员。
+- 显式提交 `installers: []` 表示清空施工人员；`completed_accepted` 状态不允许最终人员列表为空。
+- 提交非空 `installers` 表示按请求顺序全量替换。
 
 ## 发布门禁
 

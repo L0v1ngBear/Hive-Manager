@@ -134,7 +134,18 @@ public class InstallationTaskService {
             throw new BusinessException("安装任务不存在");
         }
         InstallationTaskStatusEnum status = InstallationTaskStatusEnum.require(request.getStatus());
-        List<InstallationTaskInstallerRequest> installers = normalizeInstallers(request.getInstallers(), status);
+        boolean installersProvided = request.getInstallers() != null;
+        List<InstallationTaskInstallerRequest> installers = installersProvided
+                ? normalizeInstallers(request.getInstallers(), status)
+                : null;
+        List<InstallationTaskInstaller> existingInstallers = installersProvided
+                ? List.of()
+                : loadInstallers(tenantCode, List.of(task.getId())).getOrDefault(task.getId(), List.of());
+        if (!installersProvided
+                && InstallationTaskStatusEnum.COMPLETED_ACCEPTED.matches(status.getCode())
+                && existingInstallers.isEmpty()) {
+            throw new BusinessException("已完成已验收状态至少需要一名安装人员");
+        }
         task.setInstallationStatus(status.getCode());
         if (request.getExpressCompany() != null) {
             task.setExpressCompany(blankToNull(request.getExpressCompany()));
@@ -172,7 +183,9 @@ public class InstallationTaskService {
         if (installationTaskMapper.updateById(task) != 1) {
             throw new BusinessException("安装任务更新失败");
         }
-        List<InstallationTaskInstaller> savedInstallers = replaceInstallers(tenantCode, task.getId(), installers);
+        List<InstallationTaskInstaller> savedInstallers = installersProvided
+                ? replaceInstallers(tenantCode, task.getId(), installers)
+                : existingInstallers;
         return toVO(task, savedInstallers);
     }
 
