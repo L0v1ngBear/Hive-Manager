@@ -36,6 +36,7 @@ bash scripts/migrate-db.sh
 docker compose up -d --force-recreate --remove-orphans mysql redis backend nginx
 wait_for_healthy_container hive-backend
 wait_for_healthy_container nginx
+remove_retired_backend_containers
 bash scripts/verify-release-integrity.sh
 bash scripts/smoke-test.sh
 

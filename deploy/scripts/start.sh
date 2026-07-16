@@ -35,6 +35,7 @@ echo "5/6 Start the unified application and gateway"
 docker compose up -d --build --force-recreate --remove-orphans backend nginx
 wait_for_healthy_container hive-backend
 wait_for_healthy_container nginx
+remove_retired_backend_containers
 
 echo "6/6 Run smoke checks"
 bash scripts/smoke-test.sh

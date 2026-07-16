@@ -52,6 +52,16 @@ prepare_runtime_directories() {
   chmod -R u+rwX,g+rwX logs/backend uploads 2>/dev/null || true
 }
 
+remove_retired_backend_containers() {
+  local container
+  for container in hive-management-backend-1 hive-mini-backend-1; do
+    if docker container inspect "${container}" >/dev/null 2>&1; then
+      echo "Removing retired backend container: ${container}"
+      docker rm -f "${container}"
+    fi
+  done
+}
+
 file_sha256() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "$1" | awk '{print $1}'
