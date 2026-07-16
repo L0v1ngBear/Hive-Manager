@@ -1,8 +1,8 @@
 ReleaseName=Hive Unified Backend P0 Convergence
 ReleaseSource=git-branch
-SourceGitCommit=5d33a83f8053e94a25c3c6a9bab852811e38e98c
+SourceGitCommit=61ca72380f0782941c881025326e97f6f48797f0
 SourceBranch=codex/fix-p0-release-convergence
-ReleasePackageGitCommit=5d33a83f8053e94a25c3c6a9bab852811e38e98c
+ReleasePackageGitCommit=61ca72380f0782941c881025326e97f6f48797f0
 BuildTimeUtc=2026-07-16T03:50:18Z
 
 BackendArtifact=backend/hive-backend.jar
@@ -15,7 +15,7 @@ BackendContainerName=hive-backend
 ApiPrefix=/api
 
 ManagementUiArtifact=management-ui/dist
-ManagementUiSourceGitCommit=5d33a83f8053e94a25c3c6a9bab852811e38e98c
+ManagementUiSourceGitCommit=61ca72380f0782941c881025326e97f6f48797f0
 ManagementUiSha256=410c91940bfd8c1cc695ea0d2a813bddaeadc918f164e0857bc9da81336ccb11
 ManagementUiHashAlgorithm=sha256(sorted lowercase-file-sha256 + two-spaces + relative-path + LF)
 ManagementUiIndexSha256=237eed10e442c770b2100fdcb70237050d8be0e7f81cbbcec8ee83db933e2a53
@@ -23,6 +23,7 @@ ManagementUiFileCount=99
 
 MigrationManifest=db-migrations/migration_manifest.txt
 MigrationManifestSha256=6825ad311f7da96cdbd091e23370812d8417876f09d3a3341ed94018eaccb556
+MigrationChecksumsSha256=c238389647efe2a0c0757539a470148fe59431153bd1d6c4790bc075d5110752
 MigrationCount=76
 MigrationEntry=scripts/migrate-db.sh
 
