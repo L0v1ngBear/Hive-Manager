@@ -12,15 +12,15 @@
 - 后端入口：InstallationTaskController。
 - 后端类级 feature：CODE_ORDER。
 - 改造批次：Batch 2（运营管理模块）。
-- 改造边界：不改状态枚举、物流/验收校验、附件契约和请求字段。
+- 改造边界：不改状态枚举、物流校验和附件契约；安装人员改为多人明细契约。
 
 ## 用户可见功能
 
 - 查看安装任务总量、各状态和本页附件数量摘要。
 - 按状态卡片筛选；按关键字、客户和项目查询。
-- 分页查看订单、客户项目、交付物流、安装状态、施工信息和附件。
+- 分页查看订单、客户项目、交付物流、安装状态、安装人员和附件；默认显示前三人，超过时显示“另有 N 人”并可展开全部。
 - 刷新列表，查看当前更新时间和状态色。
-- 打开“处理”弹窗，维护安装状态、物流、施工人员、电话和备注。
+- 打开“处理”弹窗，动态新增或删除安装人员；每人单独维护姓名和联系电话，最多 20 人。
 - 维护“特殊及异常情况说明”。
 - 上传、下载或移除验收附件；单文件前端限制 10MB。
 - 保存任务后关闭弹窗并刷新当前列表。
@@ -29,10 +29,10 @@
 
 | 封装函数                           | HTTP | 路径                                   | 用途                           |
 | ---------------------------------- | ---- | -------------------------------------- | ------------------------------ |
-| getInstallationTaskPage            | GET  | /installation-task/page                | 分页筛选安装任务               |
-| updateInstallationTaskStatus       | POST | /installation-task/status              | 保存状态、物流、施工和附件字段 |
-| uploadInstallationTaskAttachment   | POST | /installation-task/attachment/upload   | 上传附件，30 秒超时            |
-| downloadInstallationTaskAttachment | GET  | /installation-task/attachment/download | 下载附件 Blob，30 秒超时       |
+| getInstallationTaskPage            | GET  | /installation-tasks/page                | 分页筛选任务并返回 installers[] |
+| updateInstallationTaskStatus       | POST | /installation-tasks/status              | 保存状态、物流、installers[] 和附件字段 |
+| uploadInstallationTaskAttachment   | POST | /installation-tasks/attachment/upload   | 上传附件，30 秒超时            |
+| downloadInstallationTaskAttachment | GET  | /installation-tasks/attachment/download | 下载附件 Blob，30 秒超时       |
 
 ## 权限与 feature
 
@@ -51,10 +51,11 @@
 - 挂载后调用 loadTasks；状态卡、重置和翻页都会更新 filters 后重新请求。
 - 服务端返回 data、total、pages，分别写入 rows 与 pagination。
 - 状态固定为 production_completed、shipped_pending_install、completed_accepted。
-- 编辑器直接从当前行回填，不另发详情请求。
+- 编辑器从当前行的 `installers` 深拷贝回填，不另发详情请求。
 - shipped_pending_install 保存前必须同时填写 expressCompany 与 expressNo。
-- completed_accepted 保存前必须填写 constructionPersonnel。
-- 保存 payload 同步包含状态、物流、施工、异常说明和附件元数据。
+- 每个人员行的姓名和联系电话都必填；姓名最多 50 字，电话最多 40 字，允许手机号、座机和分机，完全相同的姓名和电话组合不能重复。
+- completed_accepted 保存前至少需要一名完整安装人员；其他状态允许 `installers` 为空。
+- 保存 payload 只提交 `installers: [{ name, phone }]`，不提交废弃的单人字段；同时保留状态、物流、异常说明和附件元数据。
 - 上传成功只回填编辑器；最终关联任务依赖后续 status 保存。
 - 下载通过 Blob 和临时 object URL 触发浏览器保存。
 - 各状态摘要计数由当前 rows 计算；总数取服务端 pagination.total。

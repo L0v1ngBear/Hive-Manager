@@ -8,11 +8,15 @@ import my.hive.shared.exception.BusinessException;
 import my.hive.shared.security.InternalUploadUrlValidator;
 import my.hive.infrastructure.storage.BusinessAttachmentService;
 import my.hive.infrastructure.storage.BusinessAttachmentVO;
+import my.hive.domain.installation.mapper.InstallationTaskInstallerMapper;
 import my.hive.domain.installation.mapper.InstallationTaskMapper;
+import my.hive.domain.installation.model.dto.InstallationTaskInstallerRequest;
 import my.hive.domain.installation.model.dto.InstallationTaskPageRequest;
 import my.hive.domain.installation.model.dto.InstallationTaskStatusUpdateRequest;
 import my.hive.domain.installation.model.entity.InstallationTask;
+import my.hive.domain.installation.model.entity.InstallationTaskInstaller;
 import my.hive.domain.installation.model.enums.InstallationTaskStatusEnum;
+import my.hive.domain.installation.model.vo.InstallationTaskInstallerVO;
 import my.hive.domain.installation.model.vo.InstallationTaskVO;
 import my.hive.domain.order.model.entity.SalesOrder;
 import my.hive.domain.order.model.enums.OrderStatusEnum;
@@ -23,14 +27,26 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class InstallationTaskService {
 
     private static final String ATTACHMENT_MODULE = "installation-task";
+    private static final int MAX_INSTALLERS = 20;
+    private static final int MAX_INSTALLER_NAME_LENGTH = 50;
+    private static final int MAX_INSTALLER_PHONE_LENGTH = 40;
 
     @Resource
     private InstallationTaskMapper installationTaskMapper;
+
+    @Resource
+    private InstallationTaskInstallerMapper installationTaskInstallerMapper;
 
     @Resource
     private BusinessAttachmentService businessAttachmentService;
@@ -67,9 +83,15 @@ public class InstallationTaskService {
                     .or().like(InstallationTask::getExpressNo, keyword));
         }
         Page<InstallationTask> sourcePage = installationTaskMapper.selectPage(new Page<>(current, size), wrapper);
+        Map<Long, List<InstallationTaskInstaller>> installersByTask = loadInstallers(
+                tenantCode,
+                sourcePage.getRecords().stream().map(InstallationTask::getId).toList()
+        );
         Page<InstallationTaskVO> resultPage = new Page<>(sourcePage.getCurrent(), sourcePage.getSize(), sourcePage.getTotal());
         resultPage.setPages(sourcePage.getPages());
-        resultPage.setRecords(sourcePage.getRecords().stream().map(this::toVO).toList());
+        resultPage.setRecords(sourcePage.getRecords().stream()
+                .map(task -> toVO(task, installersByTask.getOrDefault(task.getId(), List.of())))
+                .toList());
         return resultPage;
     }
 
@@ -112,18 +134,13 @@ public class InstallationTaskService {
             throw new BusinessException("安装任务不存在");
         }
         InstallationTaskStatusEnum status = InstallationTaskStatusEnum.require(request.getStatus());
+        List<InstallationTaskInstallerRequest> installers = normalizeInstallers(request.getInstallers(), status);
         task.setInstallationStatus(status.getCode());
         if (request.getExpressCompany() != null) {
             task.setExpressCompany(blankToNull(request.getExpressCompany()));
         }
         if (request.getExpressNo() != null) {
             task.setExpressNo(blankToNull(request.getExpressNo()));
-        }
-        if (request.getConstructionPersonnel() != null) {
-            task.setConstructionPersonnel(blankToNull(request.getConstructionPersonnel()));
-        }
-        if (request.getConstructionPhone() != null) {
-            task.setConstructionPhone(blankToNull(request.getConstructionPhone()));
         }
         if (request.getConstructionRemark() != null) {
             task.setConstructionRemark(blankToNull(request.getConstructionRemark()));
@@ -145,9 +162,6 @@ public class InstallationTaskService {
             throw new BusinessException("已发货待安装状态需要填写物流信息");
         }
         if (InstallationTaskStatusEnum.COMPLETED_ACCEPTED.matches(status.getCode())) {
-            if (!StringUtils.hasText(task.getConstructionPersonnel())) {
-                throw new BusinessException("已完成已验收状态需要填写施工人员信息");
-            }
             if (task.getAcceptedTime() == null) {
                 task.setAcceptedTime(LocalDateTime.now());
             }
@@ -155,8 +169,11 @@ public class InstallationTaskService {
             task.setAcceptedTime(null);
         }
         task.setUpdateTime(LocalDateTime.now());
-        installationTaskMapper.updateById(task);
-        return toVO(task);
+        if (installationTaskMapper.updateById(task) != 1) {
+            throw new BusinessException("安装任务更新失败");
+        }
+        List<InstallationTaskInstaller> savedInstallers = replaceInstallers(tenantCode, task.getId(), installers);
+        return toVO(task, savedInstallers);
     }
 
     public BusinessAttachmentVO uploadAttachment(MultipartFile file) {
@@ -186,7 +203,7 @@ public class InstallationTaskService {
         task.setOrderAttachmentSize(order.getAttachmentSize());
     }
 
-    private InstallationTaskVO toVO(InstallationTask task) {
+    private InstallationTaskVO toVO(InstallationTask task, List<InstallationTaskInstaller> installers) {
         InstallationTaskVO vo = new InstallationTaskVO();
         vo.setId(task.getId());
         vo.setOrderId(task.getOrderId());
@@ -208,8 +225,6 @@ public class InstallationTaskService {
         vo.setOrderAttachmentName(task.getOrderAttachmentName());
         vo.setOrderAttachmentUrl(task.getOrderAttachmentUrl());
         vo.setOrderAttachmentSize(task.getOrderAttachmentSize());
-        vo.setConstructionPersonnel(task.getConstructionPersonnel());
-        vo.setConstructionPhone(task.getConstructionPhone());
         vo.setConstructionRemark(task.getConstructionRemark());
         vo.setSpecialExceptionNote(task.getSpecialExceptionNote());
         vo.setAttachmentName(task.getAttachmentName());
@@ -219,7 +234,108 @@ public class InstallationTaskService {
         vo.setAcceptedTime(task.getAcceptedTime());
         vo.setCreateTime(task.getCreateTime());
         vo.setUpdateTime(task.getUpdateTime());
+        vo.setInstallers(installers.stream().map(this::toInstallerVO).toList());
         return vo;
+    }
+
+    private Map<Long, List<InstallationTaskInstaller>> loadInstallers(String tenantCode, List<Long> taskIds) {
+        if (taskIds.isEmpty()) {
+            return Map.of();
+        }
+        List<InstallationTaskInstaller> installers = installationTaskInstallerMapper.selectList(
+                new LambdaQueryWrapper<InstallationTaskInstaller>()
+                        .eq(InstallationTaskInstaller::getTenantCode, tenantCode)
+                        .in(InstallationTaskInstaller::getInstallationTaskId, taskIds)
+                        .orderByAsc(InstallationTaskInstaller::getInstallationTaskId)
+                        .orderByAsc(InstallationTaskInstaller::getSortOrder)
+                        .orderByAsc(InstallationTaskInstaller::getId)
+        );
+        Map<Long, List<InstallationTaskInstaller>> grouped = new HashMap<>();
+        for (InstallationTaskInstaller installer : installers) {
+            grouped.computeIfAbsent(installer.getInstallationTaskId(), ignored -> new ArrayList<>()).add(installer);
+        }
+        return grouped;
+    }
+
+    private List<InstallationTaskInstallerRequest> normalizeInstallers(
+            List<InstallationTaskInstallerRequest> source,
+            InstallationTaskStatusEnum status) {
+        List<InstallationTaskInstallerRequest> installers = source == null ? List.of() : source;
+        if (installers.size() > MAX_INSTALLERS) {
+            throw new BusinessException("安装人员最多 20 名");
+        }
+        List<InstallationTaskInstallerRequest> normalized = new ArrayList<>(installers.size());
+        Set<List<String>> uniquePairs = new HashSet<>();
+        for (InstallationTaskInstallerRequest sourceInstaller : installers) {
+            if (sourceInstaller == null) {
+                throw new BusinessException("安装人员姓名和联系电话不能为空");
+            }
+            String name = trimToEmpty(sourceInstaller.getName());
+            String phone = trimToEmpty(sourceInstaller.getPhone());
+            if (name.isEmpty()) {
+                throw new BusinessException("安装人员姓名不能为空");
+            }
+            if (phone.isEmpty()) {
+                throw new BusinessException("安装人员联系电话不能为空");
+            }
+            if (name.codePointCount(0, name.length()) > MAX_INSTALLER_NAME_LENGTH) {
+                throw new BusinessException("安装人员姓名最多 50 字");
+            }
+            if (phone.codePointCount(0, phone.length()) > MAX_INSTALLER_PHONE_LENGTH) {
+                throw new BusinessException("安装人员联系电话最多 40 字");
+            }
+            if (!uniquePairs.add(List.of(name, phone))) {
+                throw new BusinessException("不能重复添加相同的安装人员和联系电话");
+            }
+            InstallationTaskInstallerRequest normalizedInstaller = new InstallationTaskInstallerRequest();
+            normalizedInstaller.setName(name);
+            normalizedInstaller.setPhone(phone);
+            normalized.add(normalizedInstaller);
+        }
+        if (InstallationTaskStatusEnum.COMPLETED_ACCEPTED.matches(status.getCode()) && normalized.isEmpty()) {
+            throw new BusinessException("已完成已验收状态至少需要一名安装人员");
+        }
+        return normalized;
+    }
+
+    private List<InstallationTaskInstaller> replaceInstallers(
+            String tenantCode,
+            Long installationTaskId,
+            List<InstallationTaskInstallerRequest> installers) {
+        installationTaskInstallerMapper.delete(new LambdaQueryWrapper<InstallationTaskInstaller>()
+                .eq(InstallationTaskInstaller::getTenantCode, tenantCode)
+                .eq(InstallationTaskInstaller::getInstallationTaskId, installationTaskId));
+        LocalDateTime now = LocalDateTime.now();
+        List<InstallationTaskInstaller> saved = new ArrayList<>(installers.size());
+        for (int index = 0; index < installers.size(); index++) {
+            InstallationTaskInstallerRequest source = installers.get(index);
+            InstallationTaskInstaller installer = new InstallationTaskInstaller();
+            installer.setTenantCode(tenantCode);
+            installer.setInstallationTaskId(installationTaskId);
+            installer.setInstallerName(source.getName());
+            installer.setInstallerPhone(source.getPhone());
+            installer.setSortOrder(index);
+            installer.setCreateTime(now);
+            installer.setUpdateTime(now);
+            if (installationTaskInstallerMapper.insert(installer) != 1) {
+                throw new BusinessException("安装人员保存失败");
+            }
+            saved.add(installer);
+        }
+        return saved;
+    }
+
+    private InstallationTaskInstallerVO toInstallerVO(InstallationTaskInstaller installer) {
+        InstallationTaskInstallerVO vo = new InstallationTaskInstallerVO();
+        vo.setId(installer.getId());
+        vo.setName(installer.getInstallerName());
+        vo.setPhone(installer.getInstallerPhone());
+        vo.setSortOrder(installer.getSortOrder());
+        return vo;
+    }
+
+    private String trimToEmpty(String value) {
+        return value == null ? "" : value.strip();
     }
 
     private String blankToNull(String value) {

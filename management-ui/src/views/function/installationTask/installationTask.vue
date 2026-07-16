@@ -1,6 +1,3 @@
-Exit code: 0
-Wall time: 0.3 seconds
-Output:
 <template>
   <div class="function-page-shell h-full min-h-0 font-body">
     <div class="function-page-container space-y-6">
@@ -138,10 +135,41 @@ Output:
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="施工信息" min-width="210">
+          <el-table-column label="安装人员" min-width="240">
             <template #default="{ row }">
-              <div class="installation-main-text">{{ row.constructionPersonnel || '未填写施工人员' }}</div>
-              <div class="installation-muted-line">{{ row.constructionPhone || '未填写联系电话' }}</div>
+              <div v-if="installerPreview(row.installers).visible.length" class="installation-installer-preview">
+                <div
+                  v-for="(installer, index) in installerPreview(row.installers).visible"
+                  :key="`${installer.name}-${installer.phone}-${index}`"
+                  class="installation-installer-line"
+                >
+                  <strong>{{ installer.name }}</strong>
+                  <span>{{ installer.phone }}</span>
+                </div>
+                <el-popover
+                  v-if="installerPreview(row.installers).remaining"
+                  placement="bottom-start"
+                  :width="320"
+                  trigger="click"
+                >
+                  <template #reference>
+                    <el-button link type="primary">
+                      另有 {{ installerPreview(row.installers).remaining }} 人
+                    </el-button>
+                  </template>
+                  <div class="installation-installer-all">
+                    <div
+                      v-for="(installer, index) in row.installers"
+                      :key="installer.id || `${installer.name}-${installer.phone}-${index}`"
+                      class="installation-installer-line"
+                    >
+                      <strong>{{ installer.name }}</strong>
+                      <span>{{ installer.phone }}</span>
+                    </div>
+                  </div>
+                </el-popover>
+              </div>
+              <div v-else class="installation-muted-line">未添加安装人员</div>
               <el-tooltip v-if="row.attachmentUrl" :disabled="canDownload" content="暂无 installation:attachment:download 权限"><span><el-button
                 link
                 type="primary"
@@ -198,8 +226,8 @@ Output:
           <strong>{{ statusLabel(editorForm.status) }}</strong>
         </div>
         <div>
-          <small>施工人员</small>
-          <strong>{{ editorForm.constructionPersonnel || '待填写' }}</strong>
+          <small>安装人员</small>
+          <strong>{{ editorForm.installers.length ? `${editorForm.installers.length} 人` : '待添加' }}</strong>
         </div>
         <div>
           <small>附件</small>
@@ -224,11 +252,39 @@ Output:
         <el-form-item label="物流单号">
           <el-input v-model.trim="editorForm.expressNo" placeholder="请输入物流单号" />
         </el-form-item>
-        <el-form-item label="施工人员">
-          <el-input v-model.trim="editorForm.constructionPersonnel" placeholder="请输入施工人员信息" />
-        </el-form-item>
-        <el-form-item label="联系电话">
-          <el-input v-model.trim="editorForm.constructionPhone" placeholder="请输入联系电话" />
+        <el-form-item label="安装人员" class="installation-field-full">
+          <div class="installation-installer-editor">
+            <div
+              v-for="(installer, index) in editorForm.installers"
+              :key="index"
+              class="installation-installer-row"
+            >
+              <el-input
+                v-model="installer.name"
+                maxlength="50"
+                show-word-limit
+                :placeholder="`第 ${index + 1} 名人员姓名`"
+              />
+              <el-input
+                v-model="installer.phone"
+                maxlength="40"
+                show-word-limit
+                placeholder="手机号、座机或分机"
+              />
+              <el-button type="danger" plain @click="removeInstallerRow(index)">删除</el-button>
+            </div>
+            <div class="installation-installer-actions">
+              <el-button
+                type="primary"
+                plain
+                :disabled="editorForm.installers.length >= MAX_INSTALLERS"
+                @click="addInstallerRow"
+              >
+                添加安装人员
+              </el-button>
+              <span>{{ editorForm.installers.length }} / {{ MAX_INSTALLERS }}</span>
+            </div>
+          </div>
         </el-form-item>
         <el-form-item label="施工备注" class="installation-field-full">
           <el-input
@@ -291,6 +347,7 @@ import {
   ElMessage,
   ElOption,
   ElPagination,
+  ElPopover,
   ElSelect,
   ElTable,
   ElTableColumn,
@@ -301,6 +358,15 @@ import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import { useUserStore } from '@/stores/user'
 import { createLatestRequest } from '@/utils/task7LatestRequest'
 import { resolveInstallationAccess } from './installationAccess.js'
+import {
+  MAX_INSTALLERS,
+  addInstaller,
+  buildInstallerPayload,
+  cloneInstallers,
+  installerPreview,
+  removeInstaller,
+  validateInstallers
+} from './installationTaskInstallers.js'
 import {
   downloadInstallationTaskAttachment,
   getInstallationTaskPage,
@@ -352,8 +418,7 @@ const editorForm = reactive({
   status: 'production_completed',
   expressCompany: '',
   expressNo: '',
-  constructionPersonnel: '',
-  constructionPhone: '',
+  installers: [],
   constructionRemark: '',
   specialExceptionNote: '',
   attachmentName: '',
@@ -511,8 +576,7 @@ function openEditor(row) {
   editorForm.status = row.installationStatus || 'production_completed'
   editorForm.expressCompany = row.expressCompany || ''
   editorForm.expressNo = row.expressNo || ''
-  editorForm.constructionPersonnel = row.constructionPersonnel || ''
-  editorForm.constructionPhone = row.constructionPhone || ''
+  editorForm.installers = cloneInstallers(row.installers)
   editorForm.constructionRemark = row.constructionRemark || ''
   editorForm.specialExceptionNote = row.specialExceptionNote || ''
   editorForm.attachmentName = row.attachmentName || ''
@@ -536,14 +600,25 @@ function beforeCloseEditor(done) {
   if (typeof done === 'function') done()
 }
 
+function addInstallerRow() {
+  const result = addInstaller(editorForm.installers)
+  editorForm.installers = result.installers
+  if (!result.added) ElMessage.warning(`安装人员最多添加 ${MAX_INSTALLERS} 名`)
+}
+
+function removeInstallerRow(index) {
+  editorForm.installers = removeInstaller(editorForm.installers, index)
+}
+
 async function submitEditor() {
   if (!canUpdate.value) return
   if (editorForm.status === 'shipped_pending_install' && (!editorForm.expressCompany.trim() || !editorForm.expressNo.trim())) {
     ElMessage.warning('已发货待安装状态需要填写物流信息')
     return
   }
-  if (editorForm.status === 'completed_accepted' && !editorForm.constructionPersonnel.trim()) {
-    ElMessage.warning('已完成已验收状态需要填写施工人员信息')
+  const installerValidation = validateInstallers(editorForm.installers, editorForm.status)
+  if (!installerValidation.valid) {
+    ElMessage.warning(installerValidation.message)
     return
   }
   saving.value = true
@@ -553,8 +628,7 @@ async function submitEditor() {
       status: editorForm.status,
       expressCompany: editorForm.expressCompany,
       expressNo: editorForm.expressNo,
-      constructionPersonnel: editorForm.constructionPersonnel,
-      constructionPhone: editorForm.constructionPhone,
+      installers: buildInstallerPayload(editorForm.installers),
       constructionRemark: editorForm.constructionRemark,
       specialExceptionNote: editorForm.specialExceptionNote,
       attachmentName: editorForm.attachmentName,
@@ -1097,6 +1171,56 @@ function formatDateTime(value) {
   white-space: nowrap;
 }
 
+.installation-installer-preview,
+.installation-installer-all,
+.installation-installer-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.installation-installer-line {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.installation-installer-line strong {
+  flex: 0 0 auto;
+  color: rgb(var(--primary));
+  font-weight: 950;
+}
+
+.installation-installer-line span {
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(71, 85, 105, 0.8);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.installation-installer-editor {
+  width: 100%;
+}
+
+.installation-installer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.installation-installer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: rgba(71, 85, 105, 0.76);
+  font-size: 12px;
+  font-weight: 850;
+}
+
 .installation-meta-line,
 .installation-logistics {
   display: flex;
@@ -1298,6 +1422,10 @@ function formatDateTime(value) {
   .installation-filter-actions .installation-primary-btn,
   .installation-filter-actions .installation-secondary-btn {
     flex: 1;
+  }
+
+  .installation-installer-row {
+    grid-template-columns: 1fr;
   }
 }
 </style>

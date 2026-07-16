@@ -154,6 +154,10 @@ The retained routes are rooted at `/api/inventory/**`, `/api/quality/**`, and `/
 | POST | admin `/installation-task/status` | `/api/installation-tasks/status` | `installation:update` | `InstallationTaskStatusUpdateRequest` | `InstallationTaskVO` | `updateStatus` | RENAMED |
 | POST/GET | admin `/installation-task/attachment/*` | `/api/installation-tasks/attachment/*` | `installation:attachment:upload/download` | multipart `file`, `url,name` | `BusinessAttachmentVO` / resource | `uploadAttachment`, `loadAttachment` | RENAMED |
 
+Installation status updates accept `installers: [{name, phone}]`. A row requires both trimmed values; names are limited to 50 characters, phones to 40 characters, at most 20 rows are accepted, and an identical trimmed name/phone pair cannot occur twice. Phone values are free text so mobile, landline, and extension formats are all supported. `completed_accepted` requires at least one installer; other states allow an empty or omitted list.
+
+`InstallationTaskVO.installers` returns ordered rows shaped `{id, name, phone, sortOrder}`. The service loads all installer rows for a non-empty task page in one tenant-scoped `IN` query and performs status update plus full detail replacement in one transaction. Every installer query, delete, and insert includes `tenant_code`. The retired single-person request/response fields are not accepted or returned, and no compatibility route was added.
+
 ## Customer, document, equipment, label, and print convergence matrix
 
 The retained routes are rooted at `/api/customer/**`, `/api/document/**`, `/api/equipment/**`, `/api/label-template/**`, `/api/receipt/**`, and `/api/print-task/**`. The old management package implementations under `my.management.module.customer`, `my.management.module.document`, `my.management.module.equipment`, `my.management.module.label`, and `my.management.module.receipt` were moved into canonical `my.hive.domain.*` packages. Generic print-task endpoints are served by exactly one `PrintTaskController` under `my.hive.api.print`.

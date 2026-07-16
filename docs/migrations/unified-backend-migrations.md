@@ -75,3 +75,9 @@ No schema migration is required. Existing management `employee`, `sys_role`, `sy
 ## Latest-main integration note
 
 The `c1d3733` integration changes management UI components, client-side request ownership, and exact permission checks only. It does not alter database schema or seed data. The authoritative manifest remains 74 immutable versions and no historical SQL was edited.
+
+## Installation task multi-person migration
+
+`V20260715_002_installation_task_installer.sql` is the only schema change for multi-person installation tasks. It creates `installation_task_installer` with tenant/task lookup indexing and `(tenant_code, installation_task_id, sort_order)` uniqueness, then conditionally drops the retired single-person columns from `installation_task`. Existing single-person values are intentionally not migrated. Version `_002` avoids collision with the independently delivered `_001` order-notes migration.
+
+The feature branch appends the version after all 74 migrations present in its `origin/dev` base, producing a 75-entry manifest and checksum snapshot. The synchronized deployment package already contains the independent `_001` order migration, so its merged manifest contains 76 entries ordered as `_001` then `_002`. The bytes and hashes of `V20260705_004`, `V20260707_001`, `V20260710_001`, and every other historical SQL remain unchanged. Deployment continues to use only `scripts/migrate-db.sh`; rollback requires restoring the verified database backup rather than editing history or adding down SQL.

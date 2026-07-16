@@ -121,6 +121,12 @@ Verified rollback assets are outside the deployment package:
 
 The workstation passed static deployment health, full artifact hash verification, migration checksum/baseline validation, topology parsing, and retired-reference scans. Docker CLI is unavailable here, so the Compose/nginx/container steps above remain blocking release-host checks rather than presumed successes.
 
+## Installation task multi-person release note
+
+This release adds migration `V20260715_002_installation_task_installer.sql`. Version `_002` preserves the independently delivered `_001` order-notes migration in the deployment directory. Before restarting the single backend, run the normal verified backup and the sole migration entry `bash scripts/migrate-db.sh`. The migration creates tenant-isolated installer details and deletes the two retired single-person columns without preserving their data.
+
+The deployment package must contain the updated manifest/checksum, migration SQL, this runbook, the rebuilt management UI, and exactly one rebuilt backend JAR. After migration, verify an unfinished task can save an empty installer list, a completed-and-accepted task rejects an empty list, multi-person order is preserved, and no `/web/**` or old installation compatibility endpoint is exposed. Rollback is database-backup restoration plus the prior application snapshot; do not write a down migration.
+
 ## Permission runtime
 
 The unified process has one Permission Catalog V3 bean and one authenticated-route tenant-context initializer. Deployments must not seed wildcard, alias, prefix, or legacy permission codes; only exact assignable V3 leaves are effective.

@@ -162,10 +162,16 @@ WITH expected_columns AS (
   SELECT 'installation_task', 'installation_status' UNION ALL
   SELECT 'installation_task', 'express_company' UNION ALL
   SELECT 'installation_task', 'express_no' UNION ALL
-  SELECT 'installation_task', 'construction_personnel' UNION ALL
   SELECT 'installation_task', 'special_exception_note' UNION ALL
   SELECT 'installation_task', 'attachment_url' UNION ALL
   SELECT 'installation_task', 'accepted_time' UNION ALL
+  SELECT 'installation_task_installer', 'tenant_code' UNION ALL
+  SELECT 'installation_task_installer', 'installation_task_id' UNION ALL
+  SELECT 'installation_task_installer', 'installer_name' UNION ALL
+  SELECT 'installation_task_installer', 'installer_phone' UNION ALL
+  SELECT 'installation_task_installer', 'sort_order' UNION ALL
+  SELECT 'installation_task_installer', 'create_time' UNION ALL
+  SELECT 'installation_task_installer', 'update_time' UNION ALL
   SELECT 'sales_order', 'information_channel' UNION ALL
   SELECT 'sales_order', 'cancel_reason' UNION ALL
   SELECT 'production_order', 'information_channel' UNION ALL
@@ -353,7 +359,9 @@ missing_order_indexes="$(mysql_root_db "${DATABASE_NAME}" -N -B <<'EOSQL'
 WITH expected_indexes (table_name, index_kind, column_names) AS (
   SELECT 'sales_order', 'PRIMARY', 'order_id' UNION ALL
   SELECT 'production_order', 'UNIQUE', 'order_id' UNION ALL
-  SELECT 'installation_task', 'UNIQUE', 'tenant_code,order_id'
+  SELECT 'installation_task', 'UNIQUE', 'tenant_code,order_id' UNION ALL
+  SELECT 'installation_task_installer', 'INDEX', 'tenant_code,installation_task_id' UNION ALL
+  SELECT 'installation_task_installer', 'UNIQUE', 'tenant_code,installation_task_id,sort_order'
 ), actual_indexes AS (
   SELECT table_name,
          CASE
@@ -364,7 +372,7 @@ WITH expected_indexes (table_name, index_kind, column_names) AS (
          GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',') AS column_names
   FROM information_schema.statistics
   WHERE table_schema = DATABASE()
-    AND table_name IN ('sales_order', 'production_order', 'installation_task')
+    AND table_name IN ('sales_order', 'production_order', 'installation_task', 'installation_task_installer')
   GROUP BY table_name, index_name, non_unique
 )
 SELECT e.table_name, e.index_kind, e.column_names
@@ -392,6 +400,8 @@ LEFT JOIN information_schema.columns dst
  AND dst.column_name = src.column_name
 WHERE src.table_schema = '${BASELINE_DATABASE}'
   AND dst.column_name IS NULL
+  AND NOT (src.table_name = 'installation_task'
+           AND src.column_name IN ('construction_personnel', 'construction_phone'))
 ORDER BY src.table_name, src.ordinal_position;
 ")"
   if [ -n "${missing_baseline_columns}" ]; then

@@ -36,6 +36,43 @@ assert.ok(
   'schema verifier must verify installation task logistics number column'
 )
 
+for (const column of [
+  'tenant_code',
+  'installation_task_id',
+  'installer_name',
+  'installer_phone',
+  'sort_order',
+  'create_time',
+  'update_time'
+]) {
+  assert.ok(
+    verifier.includes(`SELECT 'installation_task_installer', '${column}'`),
+    `schema verifier must require installation_task_installer.${column}`
+  )
+}
+
+assert.ok(
+  !verifier.includes("SELECT 'installation_task', 'construction_personnel'"),
+  'schema verifier must not require the retired construction_personnel column'
+)
+
+assert.ok(
+  !verifier.includes("SELECT 'installation_task', 'construction_phone'"),
+  'schema verifier must not require the retired construction_phone column'
+)
+
+assert.ok(
+  verifier.includes("SELECT 'installation_task_installer', 'INDEX', 'tenant_code,installation_task_id'") &&
+    verifier.includes("SELECT 'installation_task_installer', 'UNIQUE', 'tenant_code,installation_task_id,sort_order'"),
+  'schema verifier must require installer lookup and sort-order index contracts'
+)
+
+assert.match(
+  verifier,
+  /NOT \(src\.table_name = 'installation_task'\s+AND src\.column_name IN \('construction_personnel', 'construction_phone'\)\)/,
+  'baseline comparison must explicitly exclude the intentionally retired installation task columns'
+)
+
 assert.match(
   verifier,
   /if \[ -n "\$\{missing_columns\}" \]; then\s+echo "\$\{missing_columns\}"\s+fail "Missing required schema columns"/,

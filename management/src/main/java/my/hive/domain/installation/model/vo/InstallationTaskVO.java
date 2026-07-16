@@ -3,6 +3,8 @@ package my.hive.domain.installation.model.vo;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 public class InstallationTaskVO {
@@ -47,9 +49,7 @@ public class InstallationTaskVO {
 
     private Long orderAttachmentSize;
 
-    private String constructionPersonnel;
-
-    private String constructionPhone;
+    private List<InstallationTaskInstallerVO> installers = new ArrayList<>();
 
     private String constructionRemark;
 
