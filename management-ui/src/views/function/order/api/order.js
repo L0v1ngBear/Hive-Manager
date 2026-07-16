@@ -12,6 +12,14 @@ export function getOrderDetail(orderId) {
   return request({ url: `/orders/${orderId}`, method: 'get' })
 }
 
+export function getOrderLogisticsTracking(orderId) {
+  return request({
+    url: `/orders/${encodeURIComponent(orderId)}/logistics-tracking`,
+    method: 'get',
+    silent: true
+  })
+}
+
 export function createOrder(data) {
   return request({ url: '/orders', method: 'post', data })
 }

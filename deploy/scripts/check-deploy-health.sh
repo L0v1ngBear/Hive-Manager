@@ -55,11 +55,19 @@ if env_true NOTIFICATION_SMS_ENABLED; then
   done
 fi
 
+if env_true KUAIDI100_ENABLED; then
+  for key in KUAIDI100_KEY KUAIDI100_CUSTOMER; do
+    value="$(env_value "${key}")"
+    [ -n "${value}" ] || fail "Kuaidi100 is enabled but ${key} is empty"
+    case "${value}" in CHANGE_ME*) fail "Kuaidi100 is enabled but ${key} is a placeholder" ;; esac
+  done
+fi
+
 [ "$(find backend -maxdepth 1 -type f -name '*.jar' | wc -l | tr -d ' ')" = "1" ] || fail "backend directory must contain exactly one JAR"
 if [ "${docker_available}" = "YES" ]; then
   docker compose config -q
 fi
-grep -q '^  backend:$' docker-compose.yml || fail "Compose is missing the unified backend service"
+grep -Eq '^  backend:[[:space:]]*$' docker-compose.yml || fail "Compose is missing the unified backend service"
 grep -q 'container_name: hive-backend' docker-compose.yml || fail "Compose container identity is not hive-backend"
 grep -q 'proxy_pass http://backend:8080' nginx/conf.d/hive.conf || fail "nginx does not route /api to backend:8080"
 grep -q 'location /api/' nginx/conf.d/hive.conf || fail "nginx is missing /api routing"

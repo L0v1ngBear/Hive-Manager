@@ -50,6 +50,14 @@ external-api:
       max-uploads-per-tenant-window: ${EXTERNAL_API_OSS_MAX_UPLOADS_PER_TENANT_WINDOW:120}
       upload-window-seconds: ${EXTERNAL_API_OSS_UPLOAD_WINDOW_SECONDS:3600}
 
+logistics:
+  kuaidi100:
+    enabled: ${KUAIDI100_ENABLED:false}
+    key: ${KUAIDI100_KEY:}
+    customer: ${KUAIDI100_CUSTOMER:}
+    connect-timeout: ${KUAIDI100_CONNECT_TIMEOUT:5s}
+    request-timeout: ${KUAIDI100_REQUEST_TIMEOUT:10s}
+
 storage:
   oss:
     enabled: ${ALIYUN_OSS_ENABLED:false}

@@ -208,7 +208,7 @@ sequenceDiagram
 | WEB-20 | `/function/tenant` | `/platform/tenants/*` -> `TenantManageController/TenantManageService` | `tenant`、许可证/feature/状态缓存、内置角色初始化 | 仅 `super` 平台账号可达；Controller 缺少方法级细权限，依赖 `PlatformScopeInterceptor`，属高敏边界。 |
 | WEB-21 | `/function/customer` | `/customer/page\|detail/{id}\|add\|update\|options` -> `CustomerController/CustomerService` | `customer`、`customer_contact`、`customer_project` | feature `module.customer`；入口 `customer:page`，增改详情细分。客户名重复或子项失败时事务回滚。 |
 | WEB-22 | `/function/document` | `/document/list/{parentId}\|folder/create\|file/upload\|breadcrumbs` -> `DocumentController/DocumentService` | `document`；本地 uploads/OSS；租户容量统计 | feature `module.document`；重命名/移动后端已实现但管理页面无入口。配额超限、路径非法、存储失败不写完整记录。 |
-| WEB-23 | `/function/order` | `/order/page\|status-summary\|detail\|create\|save\|update\|next\|rollback\|log/*\|flow-print-task\|warning/*\|health` -> `OrderController/OrderService/OrderSettingService/OrderWarningCacheService` | 订单/明细/生产/日志、客户项目、候选审核、安装、打印、设置；order warning cache；通知间接影响 | feature `module.order`、入口 `order:list`，阶段权限决定行范围和动作；状态错误/候选缺失/物流缺失/并发更新失败时事务回滚。详见第 5 节。 |
+| WEB-23 | `/function/order` | `/orders`、`/orders/status-summary`、`/orders/{id}`、`/orders/{id}/logistics-tracking`、订单保存/流转/回退/日志/打印/预警 -> `OrderController/OrderService/OrderLogisticsTrackingService/OrderSettingService/OrderWarningCacheService` | 订单/明细/生产/日志、客户项目、候选审核、安装、打印、设置；订单预警缓存；快递100实时查询结果缓存30分钟；通知间接影响 | feature `module.order`、入口 `order:list`；物流轨迹复用 `order:detail` 和订单阶段范围，仅鼠标悬浮物流单号时查询。状态错误、候选缺失、物流字段缺失、快递100未配置或并发更新失败时返回明确错误。详见第 5 节。 |
 | WEB-24 | `/function/installation-task` | `/installation-task/page\|status\|attachment/upload\|download` -> `InstallationTaskController/InstallationTaskService` | `installation_task`、本地/OSS | 路由错误地只要求 `order:list`，后端要求 `installation:*` 细权限；会出现可进入但 API 403。任务须由已完成订单同步产生。 |
 | WEB-25 | `/function/bad-product` | `/bad-product/list\|save\|process\|attachment/*` -> `BadProductController/BadProductService/BusinessAttachmentService` | `bad_product_record`、`approval_auditor_candidate`、本地/OSS；小程序侧可发订阅消息 | feature `module.badProduct`；`pending -> pending_audit -> processed`，拒绝回可处理态；重复处理失败。 |
 | WEB-26 | `/function/approval` | `/approval/summary\|auditors\|default-auditors` 及五类 list/detail/submit/audit -> `ApprovalController/ApprovalService/ApprovalDefaultAuditorService` | 五类源表、默认/候选表、订单/质量/考勤/员工回写 | feature `module.approval`；路由为宽入口，各 tab 与动作再细鉴权。详见第 6 节。 |
@@ -407,6 +407,8 @@ stateDiagram-v2
 | `cache:inventory:warning-threshold:{tenant}` | 6 小时 | 设置保存删除阈值与 warning/dashboard。 |
 | `cache:order:warning:{tenant}:{version-thresholds-scopeHash}` | 2 分钟 | 订单创建/保存/状态变化、设置保存或手工 refresh 删除 pattern。 |
 | `cache:order:stale-warning-setting:{tenant}` | 6 小时 | `order_setting` 保存删除；兼容删除旧 `stale-warning-days` key。 |
+| `cache:external-api:kuaidi100:realtime-query:{fingerprint}` | 30 分钟，规范化物流轨迹 | 网页端只在悬浮物流单号时请求；后端按租户、快递100公司编码和物流单号生成指纹。同一实例内相同指纹并发请求合并为一次。 |
+| `cache:external-api:kuaidi100:realtime-query-error:{fingerprint}` | 30 秒，脱敏失败冷却 | 上游暂时失败后短暂复用业务错误，避免连续悬浮反复冲击快递100；缓存不保存上游原始响应、密钥或手机号。 |
 | `cache:auth:web-scan-login:{scene}` | 180 秒 | session 创建/确认/消费覆盖状态，过期即失败。 |
 | `cache:auth:password-reset:code:{phoneHash}`、组织加入 SMS | 5 分钟 | 验证成功删除；发送锁 60 秒，失败计数按锁窗过期。 |
 | `cache:auth:organization-join:{code}` | 15 分钟 | 管理组织生成，小程序/网页加入读取；过期无效。 |

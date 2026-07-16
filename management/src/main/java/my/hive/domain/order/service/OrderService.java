@@ -443,6 +443,12 @@ public class OrderService {
         return vo;
     }
 
+    SalesOrder getSalesOrderForLogisticsTracking(String orderId) {
+        SalesOrder order = findSalesOrder(orderId);
+        assertSalesOrderStagePermission(order, order.getStatus());
+        return order;
+    }
+
     public List<SalesOrderStatusLogVO> listSalesLogs(String orderId) {
         SalesOrder order = findSalesOrder(orderId);
         assertSalesOrderStagePermission(order, order.getStatus());

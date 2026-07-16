@@ -83,7 +83,7 @@ test('order list replaces remark with the form logistics tracking number', () =>
 
   assert.match(orderSource, /\{key: 'expressNo', label: '物流单号'\}/)
   assert.doesNotMatch(orderSource, /\{key: 'remark', label: '备注'\}/)
-  assert.match(orderSource, /column\.key === 'expressNo'[\s\S]*row\.expressNo \|\| '未填写物流单号'/)
+  assert.match(orderSource, /column\.key === 'expressNo'[\s\S]*v-if="row\.expressNo"[\s\S]*\{\{ row\.expressNo \}\}[\s\S]*v-else[^>]*>未填写物流单号/)
   assert.match(informationChannelCell, /row\.informationChannel \|\| '未填写信息渠道'/)
   assert.doesNotMatch(informationChannelCell, /row\.(?:expressCompany|expressNo)/)
   assert.match(exportSource, /if \(key === 'expressNo'\) return row\.expressNo \|\| ''/)
