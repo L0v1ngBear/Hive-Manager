@@ -999,7 +999,7 @@ const canManageWarningSetting = computed(() => userStore.hasPermission('order:wa
 const canViewOrderNotes = computed(() => userStore.hasPermission('order:note:view'))
 const canCreateOrderNote = computed(() => userStore.hasPermission('order:note:create'))
 const canUpdateOrderNote = computed(() => userStore.hasPermission('order:note:update'))
-const canExportTable = computed(() => userStore.hasPermission('table:export'))
+const canExportTable = computed(() => userStore.hasPermission('order:list'))
 const visibleOrderRows = computed(() => orderState.rows.filter((row) => canViewOrder(row)))
 const currentOrderBeforeEdit = computed(() => ({
   ...orderForm,
@@ -1625,7 +1625,7 @@ async function loadOrders() {
 }
 
 function resolveOrderListFailure(error) {
-  const status = Number(error?.response?.status || 0)
+  const status = Number(error?.code || error?.response?.data?.code || error?.response?.status || error?.status || 0)
   if (status === 401) return {state: 'permission', message: '登录状态已失效，请重新登录后重试。'}
   if (status === 403) return {state: 'permission', message: '当前账号暂无订单查看权限，请联系管理员。'}
   if (!error?.response) return {state: 'error', message: '网络连接异常，请检查网络后重新加载。'}
@@ -1707,7 +1707,7 @@ async function openDetail(orderId, row = {}) {
 }
 
 function resolveOrderDetailFailure(error) {
-  const status = Number(error?.response?.status || 0)
+  const status = Number(error?.code || error?.response?.data?.code || error?.response?.status || error?.status || 0)
   if (status === 401) return '登录状态已失效，请重新登录后重试。'
   if (status === 403) return '当前账号暂无订单详情查看权限，请联系管理员。'
   if (!error?.response) return '网络连接异常，请检查网络后重新加载。'

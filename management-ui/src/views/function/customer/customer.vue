@@ -288,7 +288,7 @@ const customerFieldConfig = ref(defaultTenantFieldConfig('customer'))
 const canCreateCustomer = computed(() => userStore.hasPermission('customer:create'))
 const canUpdateCustomer = computed(() => userStore.hasPermission('customer:update'))
 const canViewCustomerDetail = computed(() => userStore.hasPermission('customer:detail'))
-const canExportTable = computed(() => userStore.hasPermission('table:export'))
+const canExportTable = computed(() => userStore.hasPermission('customer:export'))
 const hasCustomerFilters = computed(() => Boolean(
   filters.keyword || filters.customerType || filters.createStart || filters.createEnd
 ))
@@ -478,7 +478,7 @@ function resolveCustomerListError(error) {
     return {
       icon: 'warning',
       title: '暂无客户列表权限',
-      message: '当前账号没有 customer:page 权限，请联系管理员。'
+      message: '当前账号没有 customer:list 权限，请联系管理员。'
     }
   }
   if (status >= 500) {

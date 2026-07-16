@@ -149,7 +149,7 @@ test('login keeps password, memory, scan, and redirect flows unchanged', () => {
 })
 
 test('approval detail commands enforce real detail permissions and latest request state', () => {
-  for (const permission of ['approval:leave:detail', 'approval:finance:detail', 'approval:resignation:detail', 'order:detail']) {
+  for (const permission of ['approval:leave:detail', 'approval:finance:detail', 'approval:resignation:detail', 'approval:list']) {
     assert.match(approval, new RegExp(permission.replace(':', '\\:')))
   }
   assert.match(approval, /:disabled="!canViewDetail\(item\)"/)
@@ -174,7 +174,7 @@ test('Task 8 module records describe the final detail and overview behavior', ()
   assert.doesNotMatch(approvalDoc, /详情按钮没有检查/)
   assert.doesNotMatch(approvalDoc, /下载动作没有独立前端权限门/)
   assert.doesNotMatch(approvalDoc, /详情加载没有独立 loading\/error 面/)
-  assert.match(approvalDoc, /详情命令按 `approval:leave:detail`、`approval:finance:detail`、`approval:resignation:detail` 或 `order:detail`/)
+  assert.match(approvalDoc, /详情命令按 `approval:leave:detail`、`approval:finance:detail`、`approval:resignation:detail` 或 `approval:list`/)
   assert.match(approvalDoc, /request-id/)
 
   assert.doesNotMatch(dashboardDoc, /overview 失败时使用 `ElMessage\.error`，页面保留初始零值和空数组/)

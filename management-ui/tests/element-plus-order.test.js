@@ -51,7 +51,7 @@ test('guards edit submission against concurrent and non-ready calls inside the h
 test('keeps detail and export commands visible but permission disabled and guarded', () => {
   assert.match(source, /function canViewOrderDetail\(row = \{\}\) \{\s*return hasOrderDetailPermission\(userStore\.permissions, row\)/)
   assert.match(permissionSource, /'order:detail'/)
-  assert.match(source, /const canExportTable = computed\(\(\) => userStore\.hasPermission\('table:export'\)\)/)
+  assert.match(source, /const canExportTable = computed\(\(\) => userStore\.hasPermission\('order:list'\)\)/)
   assert.match(source, /:export-disabled="!canExportTable"/)
   assert.match(source, /export-disabled-reason="当前账号暂无表格导出权限"/)
   assert.match(source, /if \(!canExportTable\.value\) return/)

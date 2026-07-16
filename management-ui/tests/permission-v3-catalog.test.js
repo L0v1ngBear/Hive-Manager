@@ -163,7 +163,8 @@ const permissionV3Leaves = new Set([
   'document:file:download',
   'document:rename',
   'document:move',
-  'document:delete'
+  'document:delete',
+  'document:export'
 ])
 
 const root = fileURLToPath(new URL('..', import.meta.url))
@@ -175,6 +176,28 @@ const permissionRoots = new Set([
   'production',
   'receipt',
   'sales'
+])
+
+const retiredPermissionCodes = new Set([
+  'table:export',
+  'customer:page',
+  'customer:add',
+  'inventory:record:recent',
+  'receipt:print:list',
+  'receipt:print:detail',
+  'receipt:print:mark',
+  'receipt:print:cancel',
+  'label:template:list',
+  'label:template:detail',
+  'label:template:save',
+  'label:template:upload',
+  'label:template:default',
+  'label:template:disable',
+  'badproduct:list',
+  'badproduct:save',
+  'badproduct:process',
+  'approval:order:audit',
+  'document:breadcrumbs'
 ])
 
 function sourceFiles(directory) {
@@ -191,6 +214,11 @@ test('all management UI permission codes are assignable V3 leaves', () => {
 
   for (const file of sourceFiles(sourceRoot)) {
     const source = fs.readFileSync(file, 'utf8')
+    for (const retiredCode of retiredPermissionCodes) {
+      if (source.includes(retiredCode)) {
+        invalid.push(`${path.relative(root, file)}: retired ${retiredCode}`)
+      }
+    }
     for (const match of source.matchAll(permissionLiteral)) {
       const code = match[1]
       if (!permissionRoots.has(code.split(':')[0])) continue

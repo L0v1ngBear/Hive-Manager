@@ -21,14 +21,14 @@
             <el-option label="先进先出" value="fifo" />
             <el-option label="先进后出" value="lifo" />
           </el-select>
-          <el-tooltip :disabled="canReadInventory" content="暂无 inventory:warning:list 权限"><span><el-button type="primary" :disabled="!canReadInventory" class="function-action-primary px-6 py-4" @click="fetchDetail">
+          <el-tooltip :disabled="canReadDetail" content="暂无 inventory:detail 权限"><span><el-button type="primary" :disabled="!canReadDetail" class="function-action-primary px-6 py-4" @click="fetchDetail">
             <span class="material-symbols-outlined text-[20px]">refresh</span>
             刷新明细
           </el-button></span></el-tooltip>
         </div>
       </header>
 
-      <section v-if="canReadInventory" class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section v-if="canReadDetail" class="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div class="inventory-detail-stat">
           <p class="inventory-detail-stat-label">规格</p>
           <h3 class="inventory-detail-stat-value">{{ meter(spec) }}</h3>
@@ -62,8 +62,8 @@
           </div>
         </div>
 
-        <div v-if="!canReadInventory" class="min-h-[360px] p-8">
-          <el-empty description="暂无 inventory:warning:list 权限，无法查看库存明细" />
+        <div v-if="!canReadDetail" class="min-h-[360px] p-8">
+          <el-empty description="暂无 inventory:detail 权限，无法查看库存明细" />
         </div>
         <div v-else-if="listLoadError" class="min-h-[360px] p-8 text-center">
           <el-empty :description="listLoadError.message"><el-button type="primary" @click="fetchDetail">重试</el-button></el-empty>
@@ -340,7 +340,7 @@ const statusFilterLabel = computed(() => status.value === undefined ? '全部状
 const timeOrderLabel = computed(() => timeOrder.value === 'lifo' ? '先进后出' : '先进先出')
 const currentCloth = computed(() => clothDetail.value?.cloth || {})
 const currentRecords = computed(() => Array.isArray(clothDetail.value?.records) ? clothDetail.value.records : [])
-const canReadInventory = computed(() => userStore.hasPermission('inventory:warning:list'))
+const canReadDetail = computed(() => userStore.hasPermission('inventory:detail'))
 const canOutInventory = computed(() => userStore.hasPermission('inventory:cloth:out'))
 const previewMatchesBarcode = computed(() => Boolean(outPreview.value && outPreviewBarcode.value && outPreviewBarcode.value === outForm.barcode))
 
@@ -365,7 +365,7 @@ async function fetchDetail() {
     ElMessage.warning('缺少型号参数')
     return
   }
-  if (!canReadInventory.value) {
+  if (!canReadDetail.value) {
     detailRows.value = []
     listLoaded.value = false
     return
@@ -402,7 +402,7 @@ function openOutDrawer(record) {
 }
 
 async function openClothDetail(record) {
-  if (!requireUiPermission('inventory:warning:list')) return
+  if (!requireUiPermission('inventory:detail')) return
   if (!record?.id && !record?.barcode) {
     ElMessage.warning('缺少单匹布标识，无法查看详情')
     return
@@ -461,7 +461,7 @@ function requireUiPermission(permission) {
 }
 
 function resolveLoadFailure(error, label) {
-  const statusCode = Number(error?.response?.status || error?.status || 0)
+  const statusCode = Number(error?.code || error?.response?.data?.code || error?.response?.status || error?.status || 0)
   if (statusCode === 401) return { kind: 'authentication', message: `${label}加载失败：登录状态已失效，请重新登录。` }
   if (statusCode === 403) return { kind: 'permission', message: `${label}加载失败：当前账号暂无权限。` }
   if (statusCode >= 500) return { kind: 'server', message: `${label}加载失败：服务暂时不可用，请稍后重试。` }

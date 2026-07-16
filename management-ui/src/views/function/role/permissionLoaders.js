@@ -1,12 +1,11 @@
 import { reactive } from 'vue'
 
 function unwrapArray(response) {
-  const value = response?.data?.data ?? response?.data ?? response ?? []
-  return Array.isArray(value) ? value : []
+  return Array.isArray(response) ? response : []
 }
 
 function isForbidden(error) {
-  const status = Number(error?.response?.status ?? error?.code)
+  const status = Number(error?.code ?? error?.response?.data?.code ?? error?.response?.status ?? error?.status)
   return status === 401 || status === 403
 }
 

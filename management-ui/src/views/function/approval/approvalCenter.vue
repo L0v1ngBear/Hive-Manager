@@ -559,11 +559,11 @@ import {
 const userStore = useUserStore()
 
 const tabs = [
-  { label: '订单审批', value: 'order', permissions: ['order:list', 'order:audit:shipment', 'order:audit:cancel'], listPermission: 'order:list' },
-  { label: '质量审核', value: 'quality', permissions: ['quality:audit'], listPermission: 'quality:audit', auditPermission: 'quality:audit' },
-  { label: '财务审批', value: 'finance', permissions: ['approval:finance:list', 'approval:finance:submit', 'approval:finance:audit'], listPermission: 'approval:finance:list', auditPermission: 'approval:finance:audit' },
-  { label: '请假审批', value: 'leave', permissions: ['approval:leave:list'], listPermission: 'approval:leave:list', auditPermission: 'approval:leave:audit' },
-  { label: '离职审批', value: 'resignation', permissions: ['approval:resignation:list', 'approval:resignation:submit', 'approval:resignation:audit'], listPermission: 'approval:resignation:list', auditPermission: 'approval:resignation:audit' }
+  { label: '订单审批', value: 'order', permissions: ['approval:list'] },
+  { label: '质量审核', value: 'quality', permissions: ['quality:audit'], auditPermission: 'quality:audit' },
+  { label: '财务审批', value: 'finance', permissions: ['approval:finance:submit', 'approval:finance:list', 'approval:finance:audit'], auditPermission: 'approval:finance:audit' },
+  { label: '请假审批', value: 'leave', permissions: ['approval:leave:submit', 'approval:leave:list', 'approval:leave:audit'], auditPermission: 'approval:leave:audit' },
+  { label: '离职审批', value: 'resignation', permissions: ['approval:resignation:submit', 'approval:resignation:list', 'approval:resignation:audit'], auditPermission: 'approval:resignation:audit' }
 ]
 const defaultApprovalTableColumns = [
   { key: 'code', label: '单号' },
@@ -645,10 +645,7 @@ const canAccessPermissionSet = (permissions = []) => !permissions?.length || use
 const canAccessTab = (tab) => canAccessPermissionSet(tab?.permissions || [])
 const accessibleTabs = computed(() => tabs.filter((tab) => canAccessTab(tab)))
 const activeTabMeta = computed(() => tabs.find((tab) => tab.value === activeTab.value) || accessibleTabs.value[0] || tabs[0])
-const activeTabCanViewList = computed(() => {
-  const permission = activeTabMeta.value?.listPermission
-  return !permission || userStore.hasPermission(permission)
-})
+const activeTabCanViewList = computed(() => canAccessPermissionSet(activeTabMeta.value?.permissions || []))
 
 function ensureActiveTabAccess() {
   if (canAccessTab(activeTabMeta.value)) {
@@ -680,14 +677,14 @@ function auditPermissionForItem(item) {
     return tabMetaByValue(item?.type)?.auditPermission || ''
   }
   const status = String(item?.orderStatus || item?.raw?.status || '').trim().toLowerCase()
-  const statusText = String(item?.statusText || item?.raw?.statusText || '')
-  if (status === 'pending_cancel' || status === 'pending-cancel' || statusText.includes('取消')) {
+  const orderType = String(item?.orderType || item?.raw?.orderType || '').trim().toLowerCase()
+  if (status === 'pending_cancel' || status === 'pending-cancel') {
     return 'order:audit:cancel'
   }
-  if (status === 'pending_ship' || status === 'pending-ship' || statusText.includes('发货')) {
-    return 'order:audit:shipment'
+  if (orderType === 'sales' && (status === 'pending_pay' || status === 'pending-pay')) {
+    return 'order:audit:material'
   }
-  return ''
+  return 'order:audit:shipment'
 }
 
 function canAuditAction(item) {
@@ -705,8 +702,8 @@ function detailPermissionForType(type) {
   if (type === 'leave') return 'approval:leave:detail'
   if (type === 'finance') return 'approval:finance:detail'
   if (type === 'resignation') return 'approval:resignation:detail'
-  if (type === 'order') return 'order:detail'
-  return 'quality:process'
+  if (type === 'order') return 'approval:list'
+  return 'quality:audit'
 }
 function canViewDetail(item) { return userStore.hasPermission(detailPermissionForType(item?.type)) }
 function detailDisabledReason(item) { return canViewDetail(item) ? '查看详情' : `暂无 ${detailPermissionForType(item?.type)} 权限` }

@@ -230,7 +230,7 @@ let documentRequestId = 0
 
 const canCreateFolder = computed(() => userStore.hasPermission('document:folder:create'))
 const canUploadDocument = computed(() => userStore.hasPermission('document:file:upload'))
-const canExportTable = computed(() => userStore.hasPermission('table:export'))
+const canExportTable = computed(() => userStore.hasPermission('document:export'))
 const canBrowseDocuments = computed(() => userStore.hasPermission('document:list'))
 const breadcrumbPermissionReason = '当前账号暂无文档目录导航权限'
 const currentFolderName = computed(() => breadcrumbs.value.at(-1)?.name || '根目录')

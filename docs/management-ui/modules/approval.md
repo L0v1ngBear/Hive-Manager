@@ -44,7 +44,7 @@
 | `auditResignationApproval`          | POST `/approval/resignation/audit`          | `approval:resignation:audit`  |
 | `list/get/auditQualityApproval`     | GET/POST `/approval/quality/*`              | `quality:process`             |
 | `listOrderApprovals`                | GET `/approval/order/list`                  | `order:list`                  |
-| `getOrderApprovalDetail`            | GET `/approval/order/{type}/{id}`           | `order:detail`                |
+| `getOrderApprovalDetail`            | GET `/approval/order/{type}/{id}`           | `approval:list`               |
 | `auditOrderApproval`                | POST `/approval/order/audit`                | 控制器 `approval:list`；服务按订单阶段校验精确审核权限 |
 
 ## 权限/feature
@@ -55,7 +55,7 @@
 - 列表加载另按各标签的 `listPermission` 判断；提交账号可进入财务/离职标签但不会请求无权列表。
 - 审批按钮同时检查类型审核权限和后端返回的 `canAudit`/审核人 ID。
 - 明确差异：路由未列出财务、请假、离职的 `:audit` 权限，只有审核权限的账号可能在路由层被拒绝。
-- 详情命令按 `approval:leave:detail`、`approval:finance:detail`、`approval:resignation:detail` 或 `order:detail` 校验；质量详情使用 `quality:process`。无权限命令保持可见但禁用，并说明原因，处理函数也不会发起请求。
+- 详情命令按 `approval:leave:detail`、`approval:finance:detail`、`approval:resignation:detail` 或 `approval:list` 校验；质量详情使用 `quality:process`。无权限命令保持可见但禁用，并说明原因，处理函数也不会发起请求。
 - 财务附件下载要求 `approval:finance:detail`，下载命令和处理函数均设置独立权限门。
 - 默认负责人统一借用 `approval:finance:audit`，不是五类独立配置权限。
 - summary 和 auditors 无方法级 `@RequirePermission`；不能把前端可见性当成后端授权。
@@ -86,7 +86,7 @@
 
 ## Element Plus 控件与保留项
 
-- 详情命令按 `approval:leave:detail`、`approval:finance:detail`、`approval:resignation:detail`、`order:detail`（质量使用 `quality:process`）保持可见但禁用并说明原因；财务附件下载按 `approval:finance:detail` 同步保护。
+- 详情命令按 `approval:leave:detail`、`approval:finance:detail`、`approval:resignation:detail`、`approval:list`（质量使用 `quality:process`）保持可见但禁用并说明原因；财务附件下载按 `approval:finance:detail` 同步保护。
 - 详情抽屉在请求前清空旧内容，独立呈现 loading、empty、401/403、网络/5xx 失败并可重试；request-id 防止跨审批旧响应和旧 finally 覆盖。
 
 - 五类标签使用 `ElTabs`、`ElTabPane` 和 `ElBadge`，禁用状态继续由原权限矩阵计算。

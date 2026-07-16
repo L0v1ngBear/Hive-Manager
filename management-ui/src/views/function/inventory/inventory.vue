@@ -21,16 +21,16 @@
             <span class="material-symbols-outlined text-[20px]">tune</span>
             预警设置
           </el-button></span></el-tooltip>
-          <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button
-            :disabled="!canInInventory"
+          <el-tooltip :disabled="canImportInventory" content="暂无 inventory:import 权限"><span><el-button
+            :disabled="!canImportInventory"
             @click="handleTemplateDownload"
             class="inventory-secondary-btn"
           >
             <span class="material-symbols-outlined text-[20px]">description</span>
             导入说明
           </el-button></span></el-tooltip>
-          <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button
-            :disabled="!canInInventory"
+          <el-tooltip :disabled="canImportInventory" content="暂无 inventory:import 权限"><span><el-button
+            :disabled="!canImportInventory"
             @click="triggerImport"
             class="inventory-secondary-btn"
           >
@@ -56,7 +56,7 @@
         </div>
       </header>
 
-      <section v-if="canReadInventory" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <section v-if="canListInventory" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
         <div class="inventory-stat-card">
           <span class="material-symbols-outlined inventory-stat-bg text-blue-50">all_inbox</span>
           <p class="inventory-stat-label">可用总库存</p>
@@ -156,7 +156,7 @@
             </span>
           </div>
 
-          <div v-if="!canReadInventory" class="flex min-h-[360px] flex-1 items-center justify-center p-8"><el-empty description="暂无 inventory:warning:list 权限，无法查看库存内容" /></div>
+          <div v-if="!canListInventory" class="flex min-h-[360px] flex-1 items-center justify-center p-8"><el-empty description="暂无 inventory:list 权限，无法查看库存内容" /></div>
           <div v-else-if="listLoadError" class="flex min-h-[360px] flex-1 items-center justify-center p-8"><el-empty :description="listLoadError.message"><el-button type="primary" @click="fetchData">重试</el-button></el-empty></div>
           <div v-else-if="loading" v-loading="loading" class="min-h-[360px] flex-1" element-loading-text="正在加载库存数据" />
           <div v-else class="responsive-table-wrap relative flex-1">
@@ -238,7 +238,7 @@
             </div>
           </section>
 
-          <section v-if="canReadInventory" class="inventory-side-card">
+          <section v-if="canReadWarnings" class="inventory-side-card">
             <h2 class="mb-5 flex items-center gap-2 text-base font-black text-slate-800">
               <span class="material-symbols-outlined text-[20px] text-amber-500">error</span>
               低库存预警
@@ -377,6 +377,8 @@
             </div>
           </div>
           <el-button
+            :disabled="!canReadDetail"
+            :title="canReadDetail ? '查看单匹布明细' : '暂无 inventory:detail 权限'"
             @click="openModelClothPage"
             class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition-colors hover:bg-blue-700"
           >
@@ -745,12 +747,15 @@ const {
 const imageRecognitionResult = reactive({ fileName: '', fileUrl: '', fileSize: 0, confidence: 0, message: '' })
 const imageRecognitionCandidates = ref([])
 const inventoryFieldConfig = ref(defaultInventoryFieldConfig())
-const canReadInventory = computed(() => userStore.hasPermission('inventory:warning:list'))
+const canListInventory = computed(() => userStore.hasPermission('inventory:list'))
+const canReadDetail = computed(() => userStore.hasPermission('inventory:detail'))
+const canReadWarnings = computed(() => userStore.hasPermission('inventory:warning:list'))
 const canReadRecords = computed(() => userStore.hasPermission('inventory:record:list'))
 const canReadTrend = computed(() => userStore.hasPermission('inventory:trend'))
 const canConfigureWarning = computed(() => userStore.hasPermission('inventory:warning:setting'))
 const canInInventory = computed(() => userStore.hasPermission('inventory:cloth:in'))
 const canOutInventory = computed(() => userStore.hasPermission('inventory:cloth:out'))
+const canImportInventory = computed(() => userStore.hasPermission('inventory:import'))
 const outPreviewMatchesBarcode = computed(() => Boolean(outPreview.value && outPreviewBarcode.value && outPreviewBarcode.value === outForm.barcode))
 
 watch(() => outForm.barcode, (barcode) => {
@@ -836,7 +841,8 @@ function resetCustomFields() {
 
 async function refreshAll() {
   const requests = [fetchFieldConfig()]
-  if (canReadInventory.value) requests.push(fetchData(), fetchSummary(), fetchWarnings())
+  if (canListInventory.value) requests.push(fetchData(), fetchSummary())
+  if (canReadWarnings.value) requests.push(fetchWarnings())
   if (canReadRecords.value) requests.push(fetchRecords())
   if (canReadTrend.value) requests.push(fetchTrend())
   await Promise.all(requests)
@@ -852,7 +858,7 @@ async function fetchFieldConfig() {
 }
 
 async function fetchData() {
-  if (!canReadInventory.value) {
+  if (!canListInventory.value) {
     rows.value = []
     listLoaded.value = false
     return
@@ -891,7 +897,7 @@ async function fetchData() {
 async function fetchSummary() {
   const data = await getInventorySummary()
   Object.assign(summary, data)
-  if (data?.warningThresholdMeters == null) {
+  if (data?.warningThresholdMeters == null && canReadWarnings.value) {
     try {
       const setting = await getInventoryWarningSetting()
       summary.warningThresholdMeters = setting?.warningThresholdMeters ?? summary.warningThresholdMeters
@@ -950,7 +956,10 @@ async function saveWarningSetting() {
   })
   summary.warningThresholdMeters = result?.warningThresholdMeters ?? threshold
   warningSettingVisible.value = false
-  await Promise.all([fetchSummary(), fetchWarnings()])
+  const requests = []
+  if (canListInventory.value) requests.push(fetchSummary())
+  if (canReadWarnings.value) requests.push(fetchWarnings())
+  await Promise.all(requests)
   ElMessage.success('库存预警阈值已更新')
 }
 
@@ -969,6 +978,7 @@ async function openDetail(record) {
 }
 
 function openModelClothPage() {
+  if (!requireUiPermission('inventory:detail')) return
   if (!detailRecord.value?.modelCode) {
     ElMessage.warning('请先选择库存型号')
     return
@@ -1269,13 +1279,13 @@ async function submitOut() {
 }
 
 async function handleTemplateDownload() {
-  if (!requireUiPermission('inventory:cloth:in')) return
+  if (!requireUiPermission('inventory:import')) return
   const blob = await downloadInventoryImportTemplate()
   await downloadBlob(blob, '外部库存导入说明.xlsx')
 }
 
 function triggerImport() {
-  if (!requireUiPermission('inventory:cloth:in')) return
+  if (!requireUiPermission('inventory:import')) return
   importInputRef.value?.click()
 }
 
@@ -1286,7 +1296,7 @@ function requireUiPermission(permission) {
 }
 
 function resolveLoadFailure(error, label) {
-  const statusCode = Number(error?.response?.status || error?.status || 0)
+  const statusCode = Number(error?.code || error?.response?.data?.code || error?.response?.status || error?.status || 0)
   if (statusCode === 401) return { kind: 'authentication', message: `${label}加载失败：登录状态已失效，请重新登录。` }
   if (statusCode === 403) return { kind: 'permission', message: `${label}加载失败：当前账号暂无权限。` }
   if (statusCode >= 500) return { kind: 'server', message: `${label}加载失败：服务暂时不可用，请稍后重试。` }

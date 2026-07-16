@@ -104,7 +104,7 @@ test("customer and document commands keep visible disabled permission tooltips",
   const settings = read("../src/components/TableColumnSettings.vue");
   const upload = read("../src/components/DragAttachmentUpload.vue");
 
-  for (const permission of ["customer:create", "customer:update", "customer:detail", "table:export"]) {
+  for (const permission of ["customer:create", "customer:update", "customer:detail", "customer:export"]) {
     assert.match(`${customer}\n${editor}`, new RegExp(permission));
   }
   assert.match(customer, /:disabled="!canCreateCustomer"/);
@@ -116,7 +116,7 @@ test("customer and document commands keep visible disabled permission tooltips",
   assert.match(customer, /当前账号暂无查看客户详情权限/);
   assert.match(customer, /当前账号暂无表格导出权限/);
 
-  for (const permission of ["document:folder:create", "document:file:upload", "table:export"]) {
+  for (const permission of ["document:folder:create", "document:file:upload", "document:export"]) {
     assert.match(document, new RegExp(permission));
   }
   assert.match(document, /:disabled="!canCreateFolder"/);

@@ -305,6 +305,7 @@ const attendanceSummary = ref({
 const quickActions = ref([])
 const announcements = ref([])
 const importantAnnouncements = ref([])
+const canReadAnnouncements = computed(() => userStore.hasPermission('notification:announcement:list'))
 
 const userName = computed(() => userStore.userInfo?.userName || '当前用户')
 
@@ -419,6 +420,17 @@ function resolveLoadFailure(error, resourceLabel) {
 }
 
 async function fetchAnnouncements() {
+  if (!canReadAnnouncements.value) {
+    announcementRequestId += 1
+    announcementLoading.value = false
+    announcements.value = []
+    importantAnnouncements.value = []
+    announcementsLoaded.value = false
+    importantAnnouncementsLoaded.value = false
+    announcementLoadError.value = resolveLoadFailure({ code: 403 }, '企业通知公告')
+    importantAnnouncementLoadError.value = resolveLoadFailure({ code: 403 }, '重要公告')
+    return
+  }
   if (announcementLoading.value) {
     return
   }

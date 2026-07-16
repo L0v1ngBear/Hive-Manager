@@ -39,7 +39,7 @@
             {{ item.label }}
           </el-button>
         </div>
-        <el-button class="rounded-xl bg-primary/10 px-4 py-2 text-xs font-black text-primary" @click="loadAnnouncements">
+        <el-button class="rounded-xl bg-primary/10 px-4 py-2 text-xs font-black text-primary" :disabled="!canReadAnnouncements" @click="loadAnnouncements">
           刷新
         </el-button>
       </div>
@@ -130,6 +130,7 @@ import { createLatestRequestGuard } from './latestRequestGuard.js'
 defineOptions({ name: 'AnnouncementCenter' })
 
 const ANNOUNCEMENT_PUBLISH_PERMISSION = 'notification:announcement:publish'
+const ANNOUNCEMENT_LIST_PERMISSION = 'notification:announcement:list'
 const router = useRouter()
 const userStore = useUserStore()
 const loading = ref(false)
@@ -138,6 +139,7 @@ const activeLevel = ref('all')
 const announcements = ref([])
 const announcementRequestGuard = createLatestRequestGuard()
 const canPublishAnnouncement = computed(() => userStore.hasPermission(ANNOUNCEMENT_PUBLISH_PERMISSION))
+const canReadAnnouncements = computed(() => userStore.hasPermission(ANNOUNCEMENT_LIST_PERMISSION))
 
 const levelTabs = [
   { value: 'all', label: '全部公告' },
@@ -148,6 +150,12 @@ const levelTabs = [
 
 async function loadAnnouncements() {
   const requestId = announcementRequestGuard.begin()
+  if (!canReadAnnouncements.value) {
+    loading.value = false
+    announcements.value = []
+    announcementLoadError.value = '当前账号暂无公告查看权限。'
+    return
+  }
   announcementRequestGuard.commit(requestId, () => {
     announcementLoadError.value = ''
     loading.value = true
@@ -164,7 +172,10 @@ async function loadAnnouncements() {
   } catch (error) {
     announcementRequestGuard.commit(requestId, () => {
       announcements.value = []
-      announcementLoadError.value = error?.msg || error?.message || '公告加载失败，请稍后重试。'
+      const code = Number(error?.code || error?.response?.data?.code || error?.response?.status || error?.status || 0)
+      announcementLoadError.value = code === 403
+        ? '当前账号暂无公告查看权限。'
+        : error?.msg || error?.message || '公告加载失败，请稍后重试。'
     })
   } finally {
     announcementRequestGuard.commit(requestId, () => {

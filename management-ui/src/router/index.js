@@ -6,8 +6,7 @@ import { buildLoginQuery, normalizeLoginRedirect } from '@/utils/redirect'
 import { routeAccessDenied } from '@/utils/access'
 
 const ANNOUNCEMENT_PERMISSIONS = [
-  'notification:announcement:list',
-  'notification:announcement:publish'
+  'notification:announcement:list'
 ]
 
 export const constantRoutes = [
@@ -113,7 +112,19 @@ export const constantRoutes = [
         component: () => import('@/views/function/inventory/inventory.vue'),
         meta: {
           title: '库存管理',
-          permissions: ['inventory:warning:list', 'inventory:record:list', 'inventory:cloth:in', 'inventory:cloth:out'],
+          permissions: [
+            'inventory:list',
+            'inventory:warning:list',
+            'inventory:warning:setting',
+            'inventory:record:list',
+            'inventory:trend',
+            'inventory:barcode:search',
+            'inventory:model:search',
+            'inventory:cloth:in',
+            'inventory:cloth:out',
+            'inventory:import',
+            'inventory:export'
+          ],
           features: ['module.inventory']
         }
       },
@@ -123,7 +134,7 @@ export const constantRoutes = [
         component: () => import('@/views/function/inventory/InventoryModelDetail.vue'),
         meta: {
           title: '单匹布明细',
-          permissions: ['inventory:warning:list', 'inventory:record:list', 'inventory:cloth:out'],
+          permissions: ['inventory:detail'],
           features: ['module.inventory']
         }
       },
@@ -213,7 +224,7 @@ export const constantRoutes = [
         component: () => import('@/views/function/approval/approvalCenter.vue'),
         meta: {
           title: '审批中心',
-          permissions: ['approval:leave:list', 'approval:finance:list', 'approval:resignation:list', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'order:list', 'order:audit:shipment', 'order:audit:cancel', 'quality:audit'],
+          permissions: ['approval:list', 'quality:audit', 'order:audit:material', 'order:audit:shipment', 'order:audit:cancel', 'approval:leave:submit', 'approval:leave:list', 'approval:leave:audit', 'approval:finance:submit', 'approval:finance:list', 'approval:finance:audit', 'approval:resignation:submit', 'approval:resignation:list', 'approval:resignation:audit'],
           features: ['module.approval']
         }
       }

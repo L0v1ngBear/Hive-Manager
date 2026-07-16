@@ -14,8 +14,10 @@
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <el-button
-              v-permission="'attendance:rule:update'"
+              v-permission="['attendance:rule:list', 'attendance:rule:update']"
               class="function-action-dark"
+              :disabled="!canReadRule"
+              :title="canReadRule ? '考勤规则配置' : '暂无 attendance:rule:list 权限'"
               @click="openRuleDrawer"
           >
             <span class="material-symbols-outlined text-[20px]">rule</span>规则配置
@@ -23,6 +25,7 @@
 
           <el-button
               class="function-action-primary"
+              :disabled="!canReadRecords"
               @click="refreshAll"
           >
             <span class="material-symbols-outlined text-[20px]">refresh</span>刷新数据
@@ -369,7 +372,7 @@
 
         <div class="px-8 py-4 border-t border-slate-200/50 bg-white flex justify-end gap-3 shrink-0">
           <el-button @click="ruleDrawerVisible = false" class="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">取消</el-button>
-          <el-button :disabled="ruleLoading || !!ruleError || ruleEmpty || ruleSubmitting" :loading="ruleSubmitting" @click="submitRule" class="px-5 py-2 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20 active:scale-95">保存配置</el-button>
+          <el-button :disabled="!canUpdateRule || ruleLoading || !!ruleError || ruleEmpty || ruleSubmitting" :loading="ruleSubmitting" @click="submitRule" class="px-5 py-2 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20 active:scale-95">保存配置</el-button>
         </div>
 
       </div>
@@ -397,6 +400,7 @@ import {
   ElTimePicker
 } from 'element-plus'
 import { useRoute } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 import { createLatestRequest, createSubmitGuard } from '@/utils/latestRequest'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
@@ -410,6 +414,7 @@ import {
 } from './api/attendance.js'
 
 const route = useRoute()
+const userStore = useUserStore()
 const attendanceRequest = createLatestRequest()
 const ruleRequest = createLatestRequest()
 const ruleSubmitGuard = createSubmitGuard()
@@ -473,6 +478,9 @@ const ruleSubmitting = ref(false)
 const summary = reactive({ totalEmployeeCount: 0, actualCount: 0, lateCount: 0, earlyCount: 0, missingCount: 0, attendanceRate: 0 })
 const pagination = reactive({ total: 0, pages: 0 })
 const query = reactive({ pageNum: 1, pageSize: 10, keyword: '', departmentName: '', status: '', date: today })
+const canReadRecords = computed(() => userStore.hasPermission('attendance:record:list'))
+const canReadRule = computed(() => userStore.hasPermission('attendance:rule:list'))
+const canUpdateRule = computed(() => userStore.hasPermission('attendance:rule:update'))
 
 const totalPages = computed(() => Math.max(Number(pagination.pages || 1), 1))
 const stats = computed(() => [
@@ -503,8 +511,20 @@ function applyRouteKeyword() {
 }
 
 async function refreshAll() {
-  const snapshot = currentQuerySnapshot()
   const request = attendanceRequest.begin()
+  if (!canReadRecords.value) {
+    const permissionError = attendanceRecordPermissionError()
+    rows.value = []
+    departments.value = []
+    pagination.total = 0
+    pagination.pages = 0
+    listError.value = permissionError
+    summaryError.value = permissionError
+    loading.value = false
+    summaryLoading.value = false
+    return
+  }
+  const snapshot = currentQuerySnapshot()
   await Promise.all([fetchSummary(snapshot, request), fetchData(snapshot, request), fetchDepartments()])
 }
 
@@ -520,6 +540,7 @@ function currentQuerySnapshot() {
 }
 
 async function fetchSummary(snapshot = currentQuerySnapshot(), request = attendanceRequest.begin()) {
+  if (!canReadRecords.value) return
   summaryLoading.value = true
   summaryError.value = null
   summaryEmpty.value = false
@@ -555,7 +576,16 @@ function resolveListError(error) {
   }
 }
 
+function attendanceRecordPermissionError() {
+  return {
+    type: 'permission',
+    title: '暂无考勤记录权限',
+    message: '请联系管理员分配 attendance:record:list 权限后重试。'
+  }
+}
+
 async function fetchData(snapshot = currentQuerySnapshot(), request = attendanceRequest.begin()) {
+  if (!canReadRecords.value) return
   loading.value = true
   listError.value = null
   rows.value = []
@@ -581,6 +611,7 @@ async function fetchData(snapshot = currentQuerySnapshot(), request = attendance
 }
 
 async function fetchDepartments() {
+  if (!canReadRecords.value) return
   departments.value = await getAttendanceDepartments()
 }
 
@@ -638,11 +669,16 @@ function normalizeLocationPayload() {
 }
 
 async function openRuleDrawer() {
+  if (!canReadRule.value) {
+    ElMessage.warning('当前账号暂无考勤规则查看权限')
+    return
+  }
   ruleDrawerVisible.value = true
   await loadRule()
 }
 
 async function loadRule() {
+  if (!canReadRule.value) return
   const request = ruleRequest.begin()
   ruleLoading.value = true
   ruleError.value = null
@@ -679,6 +715,10 @@ function initializeDefaultRule() {
 }
 
 async function submitRule() {
+  if (!canUpdateRule.value) {
+    ElMessage.warning('当前账号暂无考勤规则保存权限')
+    return
+  }
   if (ruleSubmitGuard.pending) return
   if (!ruleForm.workDays.length) {
     ElMessage.warning('请至少选择一个工作日')

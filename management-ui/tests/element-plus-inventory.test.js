@@ -37,7 +37,7 @@ test('inventory preserves payload types, recognition drafts, attachments and tim
 })
 
 test('inventory permission commands remain visible, disabled with reasons and handler guarded', () => {
-  for (const permission of ['inventory:warning:setting', 'inventory:cloth:in', 'inventory:cloth:out']) {
+  for (const permission of ['inventory:warning:setting', 'inventory:cloth:in', 'inventory:cloth:out', 'inventory:import']) {
     assert.match(inventory, new RegExp(permission.replaceAll(':', '\\:')))
     assert.match(inventory, new RegExp(`requireUiPermission\\(['\"]${permission}['\"]\\)`))
   }
@@ -56,7 +56,7 @@ test('inventory list exposes mutually exclusive loading empty permission and fai
   assert.match(inventory, /const listLoadError = ref\(null\)/)
   assert.match(inventory, /const listLoaded = ref\(false\)/)
   assert.match(inventory, /rows\.value = \[\]/)
-  assert.match(inventory, /v-if="!canReadInventory"/)
+  assert.match(inventory, /v-if="!canListInventory"/)
   assert.match(inventory, /v-else-if="listLoadError"/)
   assert.match(inventory, /v-else-if="loading"/)
   assert.match(inventory, /<el-empty v-else-if="listLoaded"/)
@@ -128,6 +128,6 @@ test('inventory main outbound preview owns the exact latest submitted barcode', 
 })
 
 test('inventory detail refresh is disabled with its read permission reason', () => {
-  assert.match(detail, /<el-tooltip[^>]*:disabled="canReadInventory"[^>]*content="暂无 inventory:warning:list 权限"/)
-  assert.match(detail, /<el-button[^>]*:disabled="!canReadInventory"[^>]*@click="fetchDetail"/)
+  assert.match(detail, /<el-tooltip[^>]*:disabled="canReadDetail"[^>]*content="暂无 inventory:detail 权限"/)
+  assert.match(detail, /<el-button[^>]*:disabled="!canReadDetail"[^>]*@click="fetchDetail"/)
 })

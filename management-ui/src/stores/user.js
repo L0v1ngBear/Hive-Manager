@@ -5,7 +5,6 @@ import { hasAnyPermission as matchAnyPermission, hasPermission as matchPermissio
 const authStorage = window.sessionStorage
 const persistentStorage = window.localStorage
 const AUTH_KEYS = ['token', 'userInfo', 'permissions', 'features', 'responseKey', 'expireAt', 'mustChangePassword']
-const ORDER_FEATURE_CODE = 'module.order'
 
 const clearPersistentAuthStorage = () => {
   AUTH_KEYS.forEach((key) => persistentStorage.removeItem(key))
@@ -133,13 +132,6 @@ export const useUserStore = defineStore('user', () => {
       return true
     }
     if (Array.isArray(features.value) && features.value.includes(normalizedFeatureCode)) {
-      return true
-    }
-    if (normalizedFeatureCode === ORDER_FEATURE_CODE && matchPermission(permissions.value, 'order:list')) {
-      return true
-    }
-    // Old sessions do not have feature data yet. Keep base modules usable, but never expose custom modules without an explicit grant.
-    if ((!features.value || features.value.length === 0) && normalizedFeatureCode.startsWith('module.')) {
       return true
     }
     return false

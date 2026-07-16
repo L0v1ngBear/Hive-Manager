@@ -218,9 +218,8 @@ async function loadProfile() {
   keyword.value = ''
   clearOverrides()
   try {
-    const response = await getEmployeePermissionProfile(currentEmployee.value.id)
+    const profile = await getEmployeePermissionProfile(currentEmployee.value.id)
     if (!request.isLatest()) return
-    const profile = response?.data?.data || response?.data || response || {}
     permissionVersion.value = Number(profile.permissionVersion || 0)
     roles.value = Array.isArray(profile.roles) ? profile.roles : []
     treeData.value = Array.isArray(profile.permissions) ? profile.permissions : []
@@ -241,7 +240,7 @@ async function loadProfile() {
   } catch (error) {
     console.error('[Hive Auth] load employee permission profile failed:', error)
     request.commit(() => {
-      const forbidden = Number(error?.response?.status || error?.statusCode) === 403
+      const forbidden = Number(error?.code || error?.response?.data?.code || error?.response?.status || error?.statusCode || error?.status) === 403
       loadError.value = forbidden ? '无权查看员工权限档案。' : '权限档案加载失败，请稍后重试。'
       permissionState.value = forbidden
         ? { kind: 'forbidden', title: '无权查看', message: loadError.value }
@@ -280,7 +279,7 @@ async function save() {
     emit('updated')
     close()
   } catch (error) {
-    if (Number(error?.code || error?.response?.data?.code || error?.statusCode) === 409) {
+    if (Number(error?.code || error?.response?.data?.code || error?.response?.status || error?.statusCode || error?.status) === 409) {
       ElMessage.warning('权限已被其他人修改，已为你刷新最新配置')
       await loadProfile()
       return
