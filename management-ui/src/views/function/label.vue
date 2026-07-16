@@ -523,7 +523,7 @@ async function switchTab(tabKey) {
     templateVariables.value = Array.isArray(nextVariables) ? nextVariables : []
     selectedTemplateId.value = String((templates.value.find((item) => Number(item.isDefault) === 1) || templates.value[0])?.id || '')
     if (tabKey === 'equipment_inspection') {
-      equipmentList.value = nextRows?.data || nextRows?.records || []
+      equipmentList.value = nextRows?.data || []
       equipmentTotal.value = Number(nextRows?.total || equipmentList.value.length || 0)
       selectedEquipmentKey.value = equipmentList.value[0] ? equipmentKey(equipmentList.value[0]) : ''
       updateTabCount('equipment_inspection', equipmentTotal.value)
@@ -622,7 +622,7 @@ async function loadEquipmentList() {
       keyword: equipmentKeyword.value || undefined
     })
     if (requestId !== loadRequestId) return
-    equipmentList.value = page?.data || page?.records || []
+    equipmentList.value = page?.data || []
     equipmentTotal.value = Number(page?.total || equipmentList.value.length || 0)
     selectedEquipmentKey.value = equipmentList.value[0] ? equipmentKey(equipmentList.value[0]) : ''
     updateTabCount('equipment_inspection', equipmentTotal.value)
