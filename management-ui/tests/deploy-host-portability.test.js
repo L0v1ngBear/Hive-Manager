@@ -36,3 +36,9 @@ test('start and restart normalize Windows env files before any health check read
     assert.ok(normalizeIndex < healthIndex)
   }
 })
+
+test('restart uses local images unless an explicit pull is requested', () => {
+  assert.match(restartSource, /if \[ "\$\{PULL_IMAGES:-0\}" = "1" \]; then/)
+  assert.match(restartSource, /docker compose pull nginx/)
+  assert.doesNotMatch(restartSource, /\nbash scripts\/create-release-snapshot\.sh\n\ndocker compose pull nginx\n/)
+})

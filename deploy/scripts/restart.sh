@@ -11,12 +11,15 @@ prepare_runtime_directories
 bash scripts/check-deploy-health.sh
 bash scripts/create-release-snapshot.sh
 
-docker compose pull nginx
-if [ "${NO_CACHE:-0}" = "1" ]; then
-  docker compose build --no-cache backend
-else
-  docker compose build backend
+build_args=()
+if [ "${PULL_IMAGES:-0}" = "1" ]; then
+  docker compose pull nginx
+  build_args+=(--pull)
 fi
+if [ "${NO_CACHE:-0}" = "1" ]; then
+  build_args+=(--no-cache)
+fi
+docker compose build "${build_args[@]}" backend
 docker compose stop backend || true
 
 restore_on_failure() {

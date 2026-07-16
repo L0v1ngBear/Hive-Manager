@@ -30,6 +30,8 @@ bash scripts/reset-fresh-business-data.sh
 bash scripts/rollback-release.sh
 ```
 
+`restart.sh` reuses local images by default. Set `PULL_IMAGES=1` only when the release intentionally needs newer registry images; set `NO_CACHE=1` only when the backend image must be rebuilt without Docker layer cache.
+
 `verify-upload-package.sh` and `check-deploy-health.sh` intentionally enforce opposite secret boundaries. The upload gate rejects `.env`, TLS keys/certificates, persistent volumes, uploads, logs, reports, and snapshots. The runtime gate requires the server-owned `.env` and TLS files. Never bypass either gate by copying the whole runtime directory as an upload package.
 
 `verify-release-integrity.sh` validates the backend JAR, the deterministic management UI tree hash and file count, the UI entry file, the migration manifest and checksums, retired frontend contracts, and resolvable Git commits when `SOURCE_REPOSITORY_ROOT` is supplied on the build host.
