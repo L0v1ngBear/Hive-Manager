@@ -20,6 +20,23 @@ public class OperationLogProperties {
     private boolean enabled = true;
 
     /**
+     * Business modules persisted to operation_log. The default is deliberately
+     * limited to order workflow mutations.
+     */
+    private Set<String> recordedModules = Set.of("order");
+
+    public boolean shouldRecordModule(String module) {
+        if (module == null || module.isBlank() || recordedModules == null) {
+            return false;
+        }
+        String normalized = module.trim().toLowerCase();
+        return recordedModules.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(value -> value.trim().toLowerCase())
+                .anyMatch(normalized::equals);
+    }
+
+    /**
      * 默认慢操作阈值。
      */
     private long slowThresholdMs = 1000L;

@@ -53,13 +53,15 @@ prepare_runtime_directories() {
 }
 
 remove_retired_backend_containers() {
-  local container
-  for container in hive-management-backend-1 hive-mini-backend-1; do
-    if docker container inspect "${container}" >/dev/null 2>&1; then
-      echo "Removing retired backend container: ${container}"
-      docker rm -f "${container}"
-    fi
-  done
+  local container_id service_name
+  while IFS=$'\t' read -r container_id service_name; do
+    [ -n "${container_id}" ] || continue
+    case "${service_name}" in
+      mysql|redis|rabbitmq|xxl-job-admin|backend|nginx) continue ;;
+    esac
+    echo "Removing container outside the unified Compose topology: ${service_name}"
+    docker rm -f "${container_id}"
+  done < <(docker compose ps -a --format '{{.ID}}\t{{.Service}}')
 }
 
 file_sha256() {

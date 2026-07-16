@@ -42,7 +42,7 @@ public class OperationLogAspect {
 
     @Around("@annotation(collectLog)")
     public Object around(ProceedingJoinPoint joinPoint, CollectLog collectLog) throws Throwable {
-        if (!properties.isEnabled()) {
+        if (!properties.isEnabled() || !properties.shouldRecordModule(collectLog.module())) {
             try {
                 return joinPoint.proceed();
             } finally {

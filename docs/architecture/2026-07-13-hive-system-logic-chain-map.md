@@ -386,7 +386,7 @@ stateDiagram-v2
 | 标签/打印 | `label_template`、`print_task` | 两端 LabelTemplateService；公共 PrintTaskService | `task_no` 唯一；订单/出库/设备创建任务，客户端上报结果。 |
 | 文档/手册 | `document`、`tenant_manual` | 两端 DocumentService；管理端 TenantManualService | 文件实体在本地/OSS；表保存元数据/URL。 |
 | 公告/通知 | `enterprise_announcement`、`enterprise_announcement_read`、`notification_record`、`wechat_subscribe_user` | 管理公告/通知；小程序已读/订阅 | `notification_record(tenant,dedupe_key)`、公告读表、订阅用户+模板均有唯一约束。 |
-| 运维 | `operation_log`、`system_event`、`schema_migration_history`、`xxl_job_*` | 公共日志、系统事件、迁移 runner、XXL Admin | RabbitMQ 只异步承接 operation log；失败可降级。 |
+| 运维 | `operation_log`、`system_event`、`schema_migration_history`、`xxl_job_*` | 订单关键操作、系统事件、迁移 runner、XXL Admin | `operation_log` 默认仅记录 `order` 模块的创建、修改、流转、回退、订单审批、预警刷新等变更操作；其他模块注解不落库。RabbitMQ 仅在启用时异步承接该范围日志。 |
 
 表结构权威基线在部署包 `db-migrations/baseline/hive_schema_baseline.sql`，增量权威在 `db-migrations/migration_manifest.txt` 指向的 migration。Java `@TableName`/Mapper 是运行访问证据，不替代表结构版本。
 

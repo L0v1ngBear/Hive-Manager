@@ -246,7 +246,7 @@ public class ApprovalController {
 
     @PostMapping("/order/audit")
     @RequirePermission(value = PermissionCatalogV3.CODE_APPROVAL_LIST, message = "您没有权限处理订单审批")
-    @CollectLog(module = "approval", action = "audit_order", bizType = "order_approval", bizNo = "#request.orderId", description = "管理端确认待审批订单")
+    @CollectLog(module = "order", action = "audit_order", bizType = "order_approval", bizNo = "#request.orderId", description = "管理端确认待审批订单")
     public Result<Void> auditOrder(@Valid @RequestBody OrderApprovalAuditRequest request) {
         approvalService.auditOrder(request);
         return Result.success(null);

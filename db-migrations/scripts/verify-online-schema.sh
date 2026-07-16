@@ -146,6 +146,16 @@ if [ "${xxl_job_table_count}" != "8" ]; then
   fail "Missing required XXL-JOB tables in xxl_job database"
 fi
 
+operation_log_table_count="$(mysql_root_db "${DATABASE_NAME}" -N -B -e "
+SELECT COUNT(*)
+FROM information_schema.tables
+WHERE table_schema = DATABASE()
+  AND table_name = 'operation_log';
+")"
+if [ "${operation_log_table_count}" != "1" ]; then
+  fail "Missing required table: operation_log"
+fi
+
 missing_columns="$(mysql_root_db "${DATABASE_NAME}" -N -B <<'EOSQL'
 WITH expected_columns AS (
   SELECT 'notification_record' AS table_name, 'task_status' AS column_name UNION ALL

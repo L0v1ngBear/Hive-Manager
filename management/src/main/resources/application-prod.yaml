@@ -46,6 +46,7 @@ hive:
     environment: ${HIVE_REDIS_ENV:${SPRING_PROFILES_ACTIVE:prod}}
   operation-log:
     enabled: ${OPERATION_LOG_ENABLED:true}
+    recorded-modules: ${OPERATION_LOG_RECORDED_MODULES:order}
     collect-to-db: ${OPERATION_LOG_COLLECT_TO_DB:true}
     collect-to-slf4j: ${OPERATION_LOG_COLLECT_TO_SLF4J:true}
     async-db: true

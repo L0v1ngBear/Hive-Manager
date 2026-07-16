@@ -44,10 +44,12 @@ test('restart uses local images unless an explicit pull is requested', () => {
   assert.doesNotMatch(restartSource, /\nbash scripts\/create-release-snapshot\.sh\n\ndocker compose pull nginx\n/)
 })
 
-test('start and restart remove only the retired dual-backend containers', () => {
+test('start and restart remove services outside the unified Compose topology', () => {
   assert.match(commonSource, /remove_retired_backend_containers\(\)/)
-  assert.match(commonSource, /hive-management-backend-1/)
-  assert.match(commonSource, /hive-mini-backend-1/)
+  assert.match(commonSource, /docker compose ps -a --format/)
+  assert.match(commonSource, /mysql\|redis\|rabbitmq\|xxl-job-admin\|backend\|nginx/)
+  assert.match(commonSource, /docker rm -f "\$\{container_id\}"/)
+  assert.doesNotMatch(commonSource, /mini-backend|management-backend|backend-1/)
   assert.doesNotMatch(commonSource, /docker (?:compose )?down/)
   for (const source of [startSource, restartSource]) {
     const healthyIndex = source.indexOf('wait_for_healthy_container hive-backend')

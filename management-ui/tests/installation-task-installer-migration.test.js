@@ -53,7 +53,8 @@ test('new migration is appended to the manifest and full checksum snapshot', () 
   const relative = `migrations/${version}`
   const manifest = fs.readFileSync(path.join(migrationRoot, 'migration_manifest.txt'), 'utf8')
     .split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
-  assert.equal(manifest.at(-1), relative)
+  assert.ok(manifest.includes(relative), 'manifest must contain the installer migration')
+  assert.ok(manifest.indexOf(relative) < manifest.indexOf('migrations/V20260716_001_operation_log_table.sql'))
 
   const checksumLines = fs.readFileSync(path.join(migrationRoot, 'migration_checksums.sha256'), 'utf8')
     .split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
