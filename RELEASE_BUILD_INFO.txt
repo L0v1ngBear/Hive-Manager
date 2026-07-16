@@ -1,24 +1,25 @@
 ReleaseName=Hive Unified Backend P0 Convergence
+ReleaseVersion=2.0.0
 ReleaseSource=git-branch
-SourceGitCommit=61ca72380f0782941c881025326e97f6f48797f0
-SourceBranch=codex/fix-p0-release-convergence
-ReleasePackageGitCommit=61ca72380f0782941c881025326e97f6f48797f0
-BuildTimeUtc=2026-07-16T03:50:18Z
+SourceGitCommit=afff81361a787a04619f8b3f3ce0a07c7a9f61c6
+SourceBranch=main
+ReleasePackageGitCommit=afff81361a787a04619f8b3f3ce0a07c7a9f61c6
+BuildTimeUtc=2026-07-16T05:13:43Z
 
 BackendArtifact=backend/hive-backend.jar
 BackendArtifactCount=1
-BackendJarSha256=564e87bad3c3d110fcd81fa5d550d7ef58e773732dc213351af04fb44fcd37a3
-BackendJarBytes=103265771
+BackendJarSha256=2f7b5bea26abf9d9969e0e6d82b1ca4cf1d9a3baf6da2c0cba925230d4e21f02
+BackendJarBytes=103265873
 SpringBootApplicationCount=1
 BackendBusinessContainerCount=1
 BackendContainerName=hive-backend
 ApiPrefix=/api
 
 ManagementUiArtifact=management-ui/dist
-ManagementUiSourceGitCommit=61ca72380f0782941c881025326e97f6f48797f0
-ManagementUiSha256=410c91940bfd8c1cc695ea0d2a813bddaeadc918f164e0857bc9da81336ccb11
+ManagementUiSourceGitCommit=afff81361a787a04619f8b3f3ce0a07c7a9f61c6
+ManagementUiSha256=21b7e11f7b7ed239a4a9aee535484915a16120e72aedd2d59816babfe3f2fd4c
 ManagementUiHashAlgorithm=sha256(sorted lowercase-file-sha256 + two-spaces + relative-path + LF)
-ManagementUiIndexSha256=237eed10e442c770b2100fdcb70237050d8be0e7f81cbbcec8ee83db933e2a53
+ManagementUiIndexSha256=e29c95ed64d87f24e0273cb6f1515ee15303f8efc6b9b54ea72fda03e952002a
 ManagementUiFileCount=99
 
 MigrationManifest=db-migrations/migration_manifest.txt
@@ -30,18 +31,21 @@ MigrationEntry=scripts/migrate-db.sh
 JavaVersion=21.0.5
 MavenVersion=3.9.14
 NodeVersion=25.1.0
-BackendTests=215
+BackendTests=216
 ManagementUiTests=247
 ManagementUiBuild=PASS
 UnifiedRouteSmoke=PASS
 DockerComposeValidation=PENDING_RELEASE_HOST
 
-MiniProgramSourceGitCommit=c26c6e86092da2f324b146d7ff477dffa22927ba
-MiniProgramSourceBranch=codex/fix-p0-mini-traceability
-MiniProgramFrontendVersion=1.6.2
+MiniProgramSourceGitCommit=e60e46f29f677b0a0db9e4998d95352e50c8bc2c
+MiniProgramSourceBranch=main
+MiniProgramFrontendVersion=2.0.0
 MiniProgramFrontendTests=24
-MiniProgramPackageFiles=115
-MiniProgramPackageBytes=1151477
+MiniProgramPackageFiles=114
+MiniProgramPackageBytes=1160494
+MiniProgramPackageSha256=e764173290ca2bcb3f8f71e7644b3b84d62a0d4e4bd7b9bca5d810b361ae91d9
+MiniProgramWechatPreviewBytes=828520
+MiniProgramWechatUploadBytes=858030
 MiniProgramFrontendContract=READY
 MiniProgramWechatDevtoolsVerification=UPLOADED
 
