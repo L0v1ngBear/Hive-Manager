@@ -11,6 +11,17 @@ function read(relativePath) {
 }
 
 const deployHealth = read('scripts/check-deploy-health.sh')
+const deployReadme = read('README.md')
+
+assert.ok(
+  deployReadme.includes('test -f .env || cp .env.example .env'),
+  'deployment instructions must never overwrite an existing server-owned .env'
+)
+assert.doesNotMatch(
+  deployReadme,
+  /^cp \.env\.example \.env$/m,
+  'deployment instructions must not contain an unconditional .env copy command'
+)
 
 assert.ok(
   deployHealth.includes('RESPONSE_ENCRYPT_KEY'),

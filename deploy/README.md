@@ -19,7 +19,7 @@ The following files are intentionally excluded from Git:
 HIVE_RELEASE_ROOT=/absolute/path/to/upload-staging bash scripts/verify-upload-package.sh
 
 # Run these only inside the server-owned runtime directory.
-cp .env.example .env
+test -f .env || cp .env.example .env
 bash scripts/check-deploy-health.sh
 bash scripts/verify-release-integrity.sh
 bash scripts/start.sh
