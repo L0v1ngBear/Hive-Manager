@@ -8,7 +8,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UnifiedOrderServiceTest {
 
@@ -26,8 +28,27 @@ class UnifiedOrderServiceTest {
                 my.hive.domain.order.model.dto.SalesOrderUpdateRequest.class);
         assertRollbackTransaction("submitSalesOrderRollbackApproval", String.class,
                 my.hive.domain.order.model.dto.SalesOrderUpdateRequest.class);
+        assertRollbackTransaction("updateSalesOrderProcess", String.class,
+                my.hive.domain.order.model.dto.ProductionOrderUpdateRequest.class);
         assertRollbackTransaction("approveSalesOrderTransition", String.class, String.class, String.class);
         assertRollbackTransaction("approveSalesOrderRollback", String.class, String.class);
+    }
+
+    @Test
+    void unifiedProcessEndpointCannotShipOrdersAndRequiresAdvancePermissionForProcessChanges() throws Exception {
+        Method allowedStatus = OrderService.class.getDeclaredMethod("isUnifiedProcessStatusAllowed", String.class);
+        allowedStatus.setAccessible(true);
+        assertTrue((Boolean) allowedStatus.invoke(null, "producing"));
+        assertTrue((Boolean) allowedStatus.invoke(null, "pending_ship"));
+        assertFalse((Boolean) allowedStatus.invoke(null, "shipped"));
+        assertFalse((Boolean) allowedStatus.invoke(null, "completed"));
+
+        Method requiresAdvance = OrderService.class.getDeclaredMethod(
+                "requiresProductionAdvancePermission",
+                String.class, String.class, Integer.class, Integer.class);
+        requiresAdvance.setAccessible(true);
+        assertTrue((Boolean) requiresAdvance.invoke(null, "producing", "producing", 1, 2));
+        assertFalse((Boolean) requiresAdvance.invoke(null, "producing", "producing", 1, 1));
     }
 
     private void assertRollbackTransaction(String name, Class<?>... parameterTypes) throws Exception {

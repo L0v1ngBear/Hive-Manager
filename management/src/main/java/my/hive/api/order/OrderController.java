@@ -11,6 +11,7 @@ import my.hive.shared.tenant.RequireTenantFeature;
 import my.hive.domain.order.model.dto.OrderFlowPrintTaskRequest;
 import my.hive.domain.order.model.dto.OrderStatusLogTimeCorrectionRequest;
 import my.hive.domain.order.model.dto.OrderWarningSettingUpdateRequest;
+import my.hive.domain.order.model.dto.ProductionOrderUpdateRequest;
 import my.hive.domain.order.model.dto.SalesOrderPageRequest;
 import my.hive.domain.order.model.dto.SalesOrderSaveRequest;
 import my.hive.domain.order.model.dto.SalesOrderUpdateRequest;
@@ -113,6 +114,14 @@ public class OrderController {
     @CollectLog(module = "order", action = "update_order_status", bizType = "order", bizNo = "#orderId", description = "管理端更新订单状态")
     public Result<Void> update(@PathVariable String orderId, @RequestBody SalesOrderUpdateRequest request) {
         orderService.updateSalesOrder(orderId, request);
+        return Result.success(null);
+    }
+
+    @PostMapping("/{orderId}/process")
+    @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_UPDATE, message = "您没有权限更新订单生产进度")
+    @CollectLog(module = "order", action = "update_order_process", bizType = "order", bizNo = "#orderId", description = "更新统一订单生产进度")
+    public Result<Void> updateProcess(@PathVariable String orderId, @RequestBody ProductionOrderUpdateRequest request) {
+        orderService.updateSalesOrderProcess(orderId, request);
         return Result.success(null);
     }
 

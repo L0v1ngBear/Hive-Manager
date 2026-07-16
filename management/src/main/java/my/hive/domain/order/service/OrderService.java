@@ -1066,6 +1066,65 @@ public class OrderService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public void updateSalesOrderProcess(String salesOrderId, ProductionOrderUpdateRequest request) {
+        if (request == null) {
+            throw new BusinessException("生产进度更新内容不能为空");
+        }
+        SalesOrder salesOrder = findSalesOrderForUpdate(salesOrderId);
+        List<ProductionOrder> productionOrders = productionOrderMapper.selectList(
+                new LambdaQueryWrapper<ProductionOrder>()
+                        .eq(ProductionOrder::getSalesOrderId, salesOrder.getOrderId())
+        );
+        if (productionOrders.isEmpty()) {
+            throw new BusinessException("订单暂无可更新的生产任务");
+        }
+        for (ProductionOrder productionOrder : productionOrders) {
+            String targetStatus = resolveProductionUpdateStatus(
+                    productionOrder.getStatus(), request == null ? null : request.getStatus());
+            if (!isUnifiedProcessStatusAllowed(targetStatus)) {
+                throw new BusinessException("生产进度接口不能执行发货、完成或取消等订单状态流转");
+            }
+            updateProductionOrderInternal(
+                    productionOrder.getOrderId(),
+                    normalizeUnifiedProcessRequest(productionOrder, targetStatus, request),
+                    false);
+        }
+    }
+
+    private static ProductionOrderUpdateRequest normalizeUnifiedProcessRequest(
+            ProductionOrder order, String targetStatus, ProductionOrderUpdateRequest request) {
+        ProductionOrderUpdateRequest normalized = new ProductionOrderUpdateRequest();
+        normalized.setStatus(request.getStatus());
+        normalized.setProcess(request.getProcess());
+        normalized.setOperateType(request.getOperateType());
+        normalized.setRemark(request.getRemark());
+        normalized.setAuditorIds(request.getAuditorIds());
+        if (Objects.equals(normalizeStaticStatus(order.getStatus()), normalizeStaticStatus(targetStatus))
+                && order.getProcess() != null
+                && normalized.getProcess() != null
+                && normalized.getProcess() < order.getProcess()) {
+            normalized.setProcess(order.getProcess());
+        }
+        return normalized;
+    }
+
+    private static boolean isUnifiedProcessStatusAllowed(String status) {
+        return STATUS_PENDING_MATERIAL.equals(status)
+                || STATUS_PRODUCING.equals(status)
+                || STATUS_PENDING_SHIP.equals(status);
+    }
+
+    private static boolean requiresProductionAdvancePermission(
+            String oldStatus, String targetStatus, Integer oldProcess, Integer targetProcess) {
+        return Objects.equals(normalizeStaticStatus(oldStatus), normalizeStaticStatus(targetStatus))
+                && !Objects.equals(oldProcess, targetProcess);
+    }
+
+    private static String normalizeStaticStatus(String status) {
+        return status == null ? "" : status.trim().toLowerCase();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public void approveProductionOrderTransition(String orderId, String targetStatus, String remark) {
         ProductionOrderUpdateRequest request = new ProductionOrderUpdateRequest();
         request.setStatus(targetStatus);
@@ -1088,6 +1147,10 @@ public class OrderService {
             assertProductionOrderStagePermission(order, targetStatus);
         }
         Integer targetProcess = resolveProductionUpdateProcess(order, targetStatus, request.getProcess());
+        if (!approvalBypass && requiresProductionAdvancePermission(
+                oldStatus, targetStatus, oldProcess, targetProcess)) {
+            assertOrderStatusActionPermission(oldStatus, "advance");
+        }
         boolean changed = false;
 
         if (!Objects.equals(order.getStatus(), targetStatus)) {

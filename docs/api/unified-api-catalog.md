@@ -77,6 +77,7 @@ The canonical collection is `/api/orders/**`. `PermissionCatalogV3` constants be
 | GET | admin `/order/attachment/download` | `/api/orders/attachment` | `order:detail` | query `url,name` | resource | `loadSalesAttachment` | RENAMED |
 | PUT | admin `/order/save/{orderId}`; mini detail save | `/api/orders/{orderId}` | `order:update` | `SalesOrderSaveRequest` | void | `saveSalesOrder` | MERGED; old save alias removed |
 | POST | admin `/order/update/{orderId}`; mini `/orders/{orderId}/status` | `/api/orders/{orderId}/status` | `order:update` | `SalesOrderUpdateRequest` | void | `updateSalesOrder` | MERGED |
+| POST | mini production progress and exception updates | `/api/orders/{orderId}/process` | `order:update` plus current status `advance` permission for process changes | `ProductionOrderUpdateRequest` | void | `updateSalesOrderProcess` | MERGED |
 | POST | admin `/order/next/{orderId}` | `/api/orders/{orderId}/advance` | `order:update` | `SalesOrderUpdateRequest` | void | `advanceSalesOrderToNextStage` | RENAMED |
 | POST | mini `/orders/{flowCode}/flow-advance` | `/api/orders/flow/{flowCode}/advance` | `order:update` | path `flowCode` | void | `advanceSalesOrderByFlowCode` | RENAMED |
 | POST | admin `/order/rollback/{orderId}`; mini `/orders/{orderId}/rollback` | `/api/orders/{orderId}/rollback` | `order:update` | `SalesOrderUpdateRequest` | void | `submitSalesOrderRollbackApproval` | MERGED |
@@ -93,6 +94,8 @@ The canonical collection is `/api/orders/**`. `PermissionCatalogV3` constants be
 Order invoice state uses the exact integer contract `0=unissued`, `1=issued`, and `2=other`; null input is normalized to `0`, while every other value is rejected. `SalesOrderPageVO` exposes `invoiceWarning`, `invoiceAgeDays`, and `invoiceWarningDays`. Only unissued orders that are not `pending_cancel` or `cancelled` enter the fixed seven-day warning calculation, measured in complete days from `createTime`; issued and other orders never warn. The status summary exposes `invoice_unpaid`, `invoice_paid`, `invoice_other`, and `invoice_warning`. This invoice warning is independent from the configurable stale-order warning.
 
 Creating or saving a `pending_pay` order is side-effect free for approval. Only `POST /api/orders/{orderId}/advance` from `pending_pay` creates a material-approval candidate, which requires `order:audit:material` when processed.
+
+The unified process endpoint applies one monotonic target across all production tasks linked to the sales order. Lagging tasks advance to the requested process, while tasks already at or beyond that process keep their current value; the endpoint never rolls a production task backward. Shipping, completion, and cancellation remain order-status transitions and are rejected by this endpoint.
 
 ## Approval endpoint convergence matrix
 

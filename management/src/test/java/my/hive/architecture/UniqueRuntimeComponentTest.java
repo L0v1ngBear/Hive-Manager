@@ -51,6 +51,7 @@ class UniqueRuntimeComponentTest {
         assertResolvedMapping(AdminAuthController.class, HttpMethod.POST, "/auth/admin/login");
         assertResolvedMapping(OrderController.class, HttpMethod.GET, "/orders");
         assertResolvedMapping(OrderController.class, HttpMethod.POST, "/orders");
+        assertResolvedMapping(OrderController.class, HttpMethod.POST, "/orders/{orderId}/process");
         assertNoResolvedMapping(OrderController.class, HttpMethod.GET, "/orders/health");
     }
 
