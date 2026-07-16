@@ -32,9 +32,15 @@ function parsePermissionCatalog() {
   const source = fs.readFileSync(sourceContractPath, 'utf8')
   const list = source.match(/const permissionV3Leaves = new Set\(\[([\s\S]*?)\]\)/u)?.[1] || ''
   const assignableCodes = new Set(Array.from(list.matchAll(/'([^']+)'/gu), (match) => match[1]))
-  const roots = new Set(Array.from(assignableCodes, (code) => code.split(':')[0]))
   assert.ok(assignableCodes.size > 100, 'failed to parse the V3 assignable permission catalog')
-  return { assignableCodes, roots }
+  return assignableCodes
+}
+
+function isKnownNonPermissionLiteral(value) {
+  return value === 'about:blank'
+    || /^(?:hover|focus|active|disabled|sm|md|lg|xl|2xl):[a-z0-9-]+$/u.test(value)
+    || /^update:[a-z0-9-]+$/u.test(value)
+    || /^(?:xlink:href|xmlns:xlink)$/u.test(value)
 }
 
 function filesRecursively(directory) {
@@ -49,7 +55,7 @@ test('management UI release artifact contains only assignable V3 permission code
   const distRoot = path.resolve(process.env.MANAGEMENT_UI_DIST || path.join(uiRoot, 'dist'))
   assert.ok(fs.existsSync(path.join(distRoot, 'index.html')), `management UI dist is missing: ${distRoot}`)
 
-  const { assignableCodes, roots } = parsePermissionCatalog()
+  const assignableCodes = parsePermissionCatalog()
   const permissionLiteral = /['"`]([a-z][a-z0-9-]*(?::[a-z0-9-]+)+)['"`]/gu
   const invalid = []
 
@@ -62,7 +68,7 @@ test('management UI release artifact contains only assignable V3 permission code
     }
     for (const match of source.matchAll(permissionLiteral)) {
       const code = match[1]
-      if (!roots.has(code.split(':')[0])) continue
+      if (isKnownNonPermissionLiteral(code)) continue
       if (!assignableCodes.has(code)) {
         invalid.push(`${path.relative(distRoot, file)}: ${code}`)
       }

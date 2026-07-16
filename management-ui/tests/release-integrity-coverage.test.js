@@ -19,6 +19,7 @@ test('release integrity verifies every artifact family and source commit', () =>
     'ManagementUiFileCount',
     'ManagementUiIndexSha256',
     'MigrationManifestSha256',
+    'MigrationChecksumsSha256',
     'MigrationCount',
     'SourceGitCommit',
     'ReleasePackageGitCommit',

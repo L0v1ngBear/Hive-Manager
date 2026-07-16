@@ -169,14 +169,6 @@ const permissionV3Leaves = new Set([
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const sourceRoot = path.join(root, 'src')
-const permissionRoots = new Set([
-  ...Array.from(permissionV3Leaves, (code) => code.split(':')[0]),
-  'badproduct',
-  'label',
-  'production',
-  'receipt',
-  'sales'
-])
 
 const retiredPermissionCodes = new Set([
   'table:export',
@@ -200,6 +192,13 @@ const retiredPermissionCodes = new Set([
   'document:breadcrumbs'
 ])
 
+function isKnownNonPermissionLiteral(value) {
+  return value === 'about:blank'
+    || /^(?:hover|focus|active|disabled|sm|md|lg|xl|2xl):[a-z0-9-]+$/u.test(value)
+    || /^update:[a-z0-9-]+$/u.test(value)
+    || /^(?:xlink:href|xmlns:xlink)$/u.test(value)
+}
+
 function sourceFiles(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const absolutePath = path.join(directory, entry.name)
@@ -221,7 +220,7 @@ test('all management UI permission codes are assignable V3 leaves', () => {
     }
     for (const match of source.matchAll(permissionLiteral)) {
       const code = match[1]
-      if (!permissionRoots.has(code.split(':')[0])) continue
+      if (isKnownNonPermissionLiteral(code)) continue
       if (!permissionV3Leaves.has(code)) {
         invalid.push(`${path.relative(root, file)}: ${code}`)
       }

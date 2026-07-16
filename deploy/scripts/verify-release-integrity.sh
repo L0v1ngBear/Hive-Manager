@@ -49,6 +49,10 @@ migration_manifest_expected="$(require_metadata MigrationManifestSha256)"
 migration_manifest_actual="$(file_sha256 db-migrations/migration_manifest.txt)"
 [ "${migration_manifest_actual}" = "${migration_manifest_expected}" ] || fail "migration manifest checksum mismatch"
 
+migration_checksums_expected="$(require_metadata MigrationChecksumsSha256)"
+migration_checksums_actual="$(file_sha256 db-migrations/migration_checksums.sha256)"
+[ "${migration_checksums_actual}" = "${migration_checksums_expected}" ] || fail "migration checksum catalog mismatch"
+
 migration_count_expected="$(require_metadata MigrationCount)"
 migration_count_actual="$(grep -c '^migrations/' db-migrations/migration_manifest.txt | tr -d ' ')"
 [ "${migration_count_actual}" = "${migration_count_expected}" ] || fail "migration manifest count mismatch"
