@@ -34,6 +34,12 @@ bash scripts/rollback-release.sh
 
 `verify-release-integrity.sh` validates the backend JAR, the deterministic management UI tree hash and file count, the UI entry file, the migration manifest and checksums, retired frontend contracts, and resolvable Git commits when `SOURCE_REPOSITORY_ROOT` is supplied on the build host.
 
+## Release host portability
+
+- `SOURCE_REPOSITORY_ROOT` and `MINI_PROGRAM_SOURCE_REPOSITORY_ROOT` are optional build-host inputs. A package-only runtime host should not contain `.git`; metadata resolution warnings are informational and do not block startup.
+- Backend artifact inspection uses the first available command from `jar`, `unzip`, or `python3`. Installing a full JDK on the runtime host is not required when `unzip` or `python3` is present.
+- `start.sh` and `restart.sh` normalize `.env` before health checks. Deployment shell scripts and `docker-compose.yml` are committed with LF line endings so Windows uploads cannot hide the unified `backend` service from validation.
+
 `scripts/migrate-db.sh` is the only migration command in an assembled deployment package. It executes the immutable manifest under `db-migrations` and rejects checksum drift.
 
 The Compose topology contains one business service named `backend`, one container named `hive-backend`, and one `/api/**` nginx upstream. RabbitMQ and XXL-JOB admin are optional profiles; the application still owns only one operation-log listener registration and one executor configuration.

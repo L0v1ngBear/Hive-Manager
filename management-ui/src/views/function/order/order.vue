@@ -288,7 +288,81 @@
                 </div>
               </template>
               <template v-else-if="column.key === 'expressNo'">
-                <div class="order-express-number-cell">{{ row.expressNo || '未填写物流单号' }}</div>
+                <el-popover
+                    v-if="row.expressNo"
+                    trigger="hover"
+                    placement="right-start"
+                    :width="390"
+                    :show-after="260"
+                    :hide-after="120"
+                    popper-class="order-logistics-popover"
+                    @show="loadLogisticsTracking(row)"
+                >
+                  <template #reference>
+                    <button type="button" class="order-express-number-trigger">
+                      <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+                      <span>{{ row.expressNo }}</span>
+                    </button>
+                  </template>
+                  <section class="order-logistics-card" aria-live="polite">
+                    <header class="order-logistics-header">
+                      <div>
+                        <div class="order-logistics-company">{{ row.expressCompany || '物流信息' }}</div>
+                        <div class="order-logistics-number">单号 {{ row.expressNo }}</div>
+                      </div>
+                      <span
+                          v-if="logisticsTrackingState(row).data"
+                          class="order-logistics-state"
+                      >
+                        {{ logisticsTrackingState(row).data.stateLabel || '物流状态已更新' }}
+                      </span>
+                    </header>
+
+                    <div v-if="logisticsTrackingState(row).loading" class="order-logistics-feedback">
+                      <span class="order-logistics-spinner" aria-hidden="true"></span>
+                      <span>物流轨迹加载中</span>
+                    </div>
+                    <div
+                        v-else-if="logisticsTrackingState(row).errorMessage"
+                        class="order-logistics-feedback order-logistics-feedback-error"
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">error</span>
+                      <span>{{ logisticsTrackingState(row).errorMessage }}</span>
+                    </div>
+                    <template v-else-if="logisticsTrackingState(row).data">
+                      <div class="order-logistics-latest">
+                        <span class="material-symbols-outlined" aria-hidden="true">route</span>
+                        <div>
+                          <strong>{{ logisticsTrackingState(row).data.latestContext || '暂未返回物流轨迹' }}</strong>
+                          <span>{{ logisticsTrackingState(row).data.latestTime || '更新时间未知' }}</span>
+                        </div>
+                      </div>
+                      <div
+                          v-if="logisticsTrackingState(row).data.traces?.length"
+                          class="order-logistics-timeline"
+                      >
+                        <div
+                            v-for="(trace, traceIndex) in logisticsTrackingState(row).data.traces"
+                            :key="`${trace.time || 'trace'}-${traceIndex}`"
+                            class="order-logistics-trace"
+                            :class="{'is-latest': traceIndex === 0}"
+                        >
+                          <span class="order-logistics-trace-dot" aria-hidden="true"></span>
+                          <div>
+                            <time>{{ trace.time || '时间未知' }}</time>
+                            <p>{{ trace.context || '物流状态已更新' }}</p>
+                            <small v-if="trace.location">{{ trace.location }}</small>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-else class="order-logistics-feedback">暂未返回物流路径</div>
+                      <footer class="order-logistics-footer">
+                        {{ logisticsTrackingState(row).data.cached ? '缓存结果，30分钟内不重复查询' : '刚刚查询，结果已缓存30分钟' }}
+                      </footer>
+                    </template>
+                  </section>
+                </el-popover>
+                <div v-else class="order-express-number-cell">未填写物流单号</div>
               </template>
               <template v-else-if="column.key === 'informationChannel'">
                 <div class="order-information-channel-cell text-sm text-on-surface-variant">
@@ -805,7 +879,7 @@
 
 <script setup>
 import {computed, onMounted, reactive, ref, watch} from 'vue'
-import {ElButton, ElDatePicker, ElDialog, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElPagination, ElProgress, ElSelect, ElTag} from 'element-plus'
+import {ElButton, ElDatePicker, ElDialog, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElPagination, ElPopover, ElProgress, ElSelect, ElTag} from 'element-plus'
 import {useRoute} from 'vue-router'
 import {useUserStore} from '@/stores/user'
 import {getCustomerOptions} from '../customer/api/customer'
@@ -842,6 +916,7 @@ import {
   createOrderFlowPrintTask,
   downloadOrderAttachment,
   getOrderDetail,
+  getOrderLogisticsTracking,
   getOrderPage,
   getOrderStatusSummary,
   getOrderWarningSetting,
@@ -940,6 +1015,7 @@ const filters = reactive({
   staleOnly: false
 })
 const orderState = reactive({rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false, requestState: 'ready', errorMessage: ''})
+const logisticsTrackingStates = reactive({})
 let orderRequestId = 0
 const orderSummary = reactive({total: 0})
 const orderWarningSetting = reactive({
@@ -1621,6 +1697,47 @@ async function loadOrders() {
     orderState.errorMessage = failure.message
   } finally {
     if (requestId === orderRequestId) orderState.loading = false
+  }
+}
+
+function logisticsTrackingKey(row = {}) {
+  return `${row.orderId || ''}::${row.expressCompany || ''}::${row.expressNo || ''}`
+}
+
+function logisticsTrackingState(row = {}) {
+  const key = logisticsTrackingKey(row)
+  if (!logisticsTrackingStates[key]) {
+    logisticsTrackingStates[key] = {
+      loading: false,
+      data: null,
+      errorMessage: ''
+    }
+  }
+  return logisticsTrackingStates[key]
+}
+
+function logisticsTrackingCacheValid(data) {
+  const expiresAt = Date.parse(data?.cacheExpiresAt || '')
+  return Number.isFinite(expiresAt) && expiresAt > Date.now()
+}
+
+async function loadLogisticsTracking(row) {
+  if (!row?.orderId || !row?.expressNo) return
+  const tracking = logisticsTrackingState(row)
+  if (tracking.loading || logisticsTrackingCacheValid(tracking.data)) return
+
+  tracking.loading = true
+  tracking.errorMessage = ''
+  try {
+    tracking.data = await getOrderLogisticsTracking(row.orderId)
+  } catch (error) {
+    tracking.data = null
+    tracking.errorMessage = error?.message
+      || error?.msg
+      || error?.response?.data?.msg
+      || '物流查询失败，请稍后重试'
+  } finally {
+    tracking.loading = false
   }
 }
 
@@ -3642,6 +3759,205 @@ function fulfillmentProcessText(row = {}) {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow-wrap: anywhere;
+}
+
+.order-express-number-trigger {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: .35rem;
+  border: 0;
+  padding: .25rem 0;
+  background: transparent;
+  color: rgb(var(--primary));
+  cursor: help;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+}
+
+.order-express-number-trigger .material-symbols-outlined {
+  flex: 0 0 auto;
+  font-size: 1rem;
+}
+
+.order-express-number-trigger span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-express-number-trigger:hover,
+.order-express-number-trigger:focus-visible {
+  color: rgb(var(--secondary));
+  text-decoration: underline;
+  text-underline-offset: .2rem;
+}
+
+:global(.order-logistics-popover.el-popper) {
+  border: 1px solid rgb(var(--outline-variant) / .55);
+  border-radius: .5rem;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 14px 34px rgb(15 49 73 / .2);
+}
+
+.order-logistics-card {
+  background: rgb(var(--surface));
+  color: rgb(var(--on-surface));
+}
+
+.order-logistics-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .9rem 1rem;
+  border-bottom: 1px solid rgb(var(--outline-variant) / .35);
+  background: rgb(var(--surface-container-low));
+}
+
+.order-logistics-company {
+  font-size: .92rem;
+  font-weight: 900;
+}
+
+.order-logistics-number {
+  margin-top: .2rem;
+  color: rgb(var(--on-surface-variant));
+  font-size: .76rem;
+}
+
+.order-logistics-state {
+  flex: 0 0 auto;
+  color: rgb(var(--secondary));
+  font-size: .76rem;
+  font-weight: 900;
+}
+
+.order-logistics-feedback {
+  display: flex;
+  min-height: 7rem;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: 1rem;
+  color: rgb(var(--on-surface-variant));
+  text-align: center;
+}
+
+.order-logistics-feedback-error {
+  color: rgb(var(--error));
+}
+
+.order-logistics-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgb(var(--outline-variant));
+  border-top-color: rgb(var(--primary));
+  border-radius: 50%;
+  animation: order-logistics-spin .8s linear infinite;
+}
+
+.order-logistics-latest {
+  display: flex;
+  gap: .6rem;
+  padding: .85rem 1rem;
+  background: rgb(var(--primary-container) / .55);
+}
+
+.order-logistics-latest .material-symbols-outlined {
+  color: rgb(var(--primary));
+  font-size: 1.2rem;
+}
+
+.order-logistics-latest div {
+  display: grid;
+  gap: .2rem;
+}
+
+.order-logistics-latest strong {
+  line-height: 1.45;
+}
+
+.order-logistics-latest span {
+  color: rgb(var(--on-surface-variant));
+  font-size: .75rem;
+}
+
+.order-logistics-timeline {
+  max-height: 17rem;
+  overflow-y: auto;
+  padding: .85rem 1rem .35rem;
+}
+
+.order-logistics-trace {
+  position: relative;
+  display: grid;
+  grid-template-columns: .75rem minmax(0, 1fr);
+  gap: .55rem;
+  padding-bottom: .85rem;
+}
+
+.order-logistics-trace::before {
+  content: '';
+  position: absolute;
+  left: .3rem;
+  top: .7rem;
+  bottom: 0;
+  width: 1px;
+  background: rgb(var(--outline-variant));
+}
+
+.order-logistics-trace:last-child::before {
+  display: none;
+}
+
+.order-logistics-trace-dot {
+  position: relative;
+  z-index: 1;
+  width: .62rem;
+  height: .62rem;
+  margin-top: .25rem;
+  border: 2px solid rgb(var(--surface));
+  border-radius: 50%;
+  background: rgb(var(--outline));
+  box-shadow: 0 0 0 1px rgb(var(--outline-variant));
+}
+
+.order-logistics-trace.is-latest .order-logistics-trace-dot {
+  background: rgb(var(--secondary));
+  box-shadow: 0 0 0 2px rgb(var(--secondary-container));
+}
+
+.order-logistics-trace time {
+  color: rgb(var(--on-surface-variant));
+  font-size: .72rem;
+}
+
+.order-logistics-trace p {
+  margin: .18rem 0 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.order-logistics-trace small {
+  display: block;
+  margin-top: .18rem;
+  color: rgb(var(--on-surface-variant));
+}
+
+.order-logistics-footer {
+  padding: .55rem 1rem;
+  border-top: 1px solid rgb(var(--outline-variant) / .35);
+  color: rgb(var(--on-surface-variant));
+  font-size: .7rem;
+  text-align: right;
+}
+
+@keyframes order-logistics-spin {
+  to { transform: rotate(360deg); }
 }
 
 .order-information-channel-cell {

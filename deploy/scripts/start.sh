@@ -3,6 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
 require_file .env
+bash scripts/normalize-env.sh .env
 require_command docker
 configure_profiles
 prepare_runtime_directories

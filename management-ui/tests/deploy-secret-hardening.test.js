@@ -12,6 +12,8 @@ function read(relativePath) {
 
 const deployHealth = read('scripts/check-deploy-health.sh')
 const deployReadme = read('README.md')
+const composeSource = read('docker-compose.yml')
+const envExample = read('.env.example')
 
 assert.ok(
   deployReadme.includes('test -f .env || cp .env.example .env'),
@@ -59,5 +61,14 @@ assert.ok(
   /NOTIFICATION_SMS_ENABLED[\s\S]*NOTIFICATION_SMS_TEMPLATE_CODE/.test(deployHealth),
   'deploy health check must require SMS template code when SMS sending is enabled'
 )
+assert.match(composeSource, /KUAIDI100_ENABLED: \$\{KUAIDI100_ENABLED:-false\}/)
+assert.match(composeSource, /KUAIDI100_KEY: \$\{KUAIDI100_KEY:-\}/)
+assert.match(composeSource, /KUAIDI100_CUSTOMER: \$\{KUAIDI100_CUSTOMER:-\}/)
+assert.match(envExample, /^KUAIDI100_ENABLED=false$/m)
+assert.match(envExample, /^KUAIDI100_KEY=$/m)
+assert.match(envExample, /^KUAIDI100_CUSTOMER=$/m)
+assert.doesNotMatch(envExample, /^KUAIDI100_(?:KEY|CUSTOMER)=.+$/m)
+assert.doesNotMatch(composeSource, /KUAIDI100_QUERY_URL/)
+assert.doesNotMatch(envExample, /KUAIDI100_QUERY_URL/)
 
 console.log('deploy secret hardening checks passed')

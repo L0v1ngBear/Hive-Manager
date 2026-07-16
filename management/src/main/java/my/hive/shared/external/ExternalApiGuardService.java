@@ -176,6 +176,7 @@ public class ExternalApiGuardService {
                 || normalized.contains("transformer")
                 || normalized.contains("wechat")
                 || normalized.contains("aliyun")
+                || normalized.contains("kuaidi")
                 || normalized.contains("oss");
     }
 

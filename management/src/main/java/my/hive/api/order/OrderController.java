@@ -18,10 +18,12 @@ import my.hive.domain.order.model.dto.SalesOrderUpdateRequest;
 import my.hive.domain.order.model.vo.OrderFlowPrintTaskVO;
 import my.hive.domain.order.model.vo.OrderWarningSettingVO;
 import my.hive.domain.order.model.vo.OrderWarningSummaryVO;
+import my.hive.domain.order.model.vo.OrderLogisticsTrackingVO;
 import my.hive.domain.order.model.vo.SalesOrderAttachmentVO;
 import my.hive.domain.order.model.vo.SalesOrderDetailVO;
 import my.hive.domain.order.model.vo.SalesOrderPageVO;
 import my.hive.domain.order.service.OrderService;
+import my.hive.domain.order.service.OrderLogisticsTrackingService;
 import my.hive.shared.permission.PermissionCatalogV3;
 import my.hive.domain.tenant.model.enums.TenantFeatureEnum;
 import org.springframework.http.HttpHeaders;
@@ -54,6 +56,9 @@ public class OrderController {
     @Resource
     private OrderService orderService;
 
+    @Resource
+    private OrderLogisticsTrackingService orderLogisticsTrackingService;
+
     @GetMapping
     @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_LIST, message = "您没有权限查看订单列表")
     public Result<PageResult<SalesOrderPageVO>> page(SalesOrderPageRequest request) {
@@ -70,6 +75,12 @@ public class OrderController {
     @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_DETAIL, message = "您没有权限查看订单详情")
     public Result<SalesOrderDetailVO> detail(@PathVariable String orderId) {
         return Result.success(orderService.getSalesOrderDetail(orderId));
+    }
+
+    @GetMapping("/{orderId}/logistics-tracking")
+    @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_DETAIL, message = "您没有权限查看订单物流")
+    public Result<OrderLogisticsTrackingVO> logisticsTracking(@PathVariable String orderId) {
+        return Result.success(orderLogisticsTrackingService.getTracking(orderId));
     }
 
     @PostMapping
