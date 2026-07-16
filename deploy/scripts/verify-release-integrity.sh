@@ -72,12 +72,22 @@ if [ -z "${git_root}" ] && command -v git >/dev/null 2>&1 && git -C "${DEPLOY_RO
 fi
 if [ -n "${git_root}" ]; then
   [ -d "${git_root}" ] || fail "SOURCE_REPOSITORY_ROOT does not exist: ${git_root}"
-  for commit_field in SourceGitCommit ReleasePackageGitCommit; do
+  for commit_field in SourceGitCommit ReleasePackageGitCommit ManagementUiSourceGitCommit; do
     commit="$(require_metadata "${commit_field}")"
     git -C "${git_root}" cat-file -e "${commit}^{commit}" 2>/dev/null || fail "${commit_field} is not a resolvable commit: ${commit}"
   done
 else
   echo "WARN: Git metadata resolution deferred; set SOURCE_REPOSITORY_ROOT on the build host."
+fi
+
+mini_commit="$(require_metadata MiniProgramSourceGitCommit)"
+mini_git_root="${MINI_PROGRAM_SOURCE_REPOSITORY_ROOT:-}"
+if [ -n "${mini_git_root}" ]; then
+  [ -d "${mini_git_root}" ] || fail "MINI_PROGRAM_SOURCE_REPOSITORY_ROOT does not exist: ${mini_git_root}"
+  git -C "${mini_git_root}" cat-file -e "${mini_commit}^{commit}" 2>/dev/null \
+    || fail "MiniProgramSourceGitCommit is not a resolvable commit: ${mini_commit}"
+else
+  echo "WARN: Mini-program Git metadata resolution deferred; set MINI_PROGRAM_SOURCE_REPOSITORY_ROOT on the build host."
 fi
 
 bash scripts/inspect-backend-artifact.sh

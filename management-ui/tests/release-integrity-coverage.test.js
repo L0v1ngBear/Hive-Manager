@@ -21,11 +21,14 @@ test('release integrity verifies every artifact family and source commit', () =>
     'MigrationManifestSha256',
     'MigrationCount',
     'SourceGitCommit',
-    'ReleasePackageGitCommit'
+    'ReleasePackageGitCommit',
+    'ManagementUiSourceGitCommit',
+    'MiniProgramSourceGitCommit'
   ]) {
     assert.ok(script.includes(field), `release integrity must verify ${field}`)
   }
   assert.match(script, /git\s+-C\s+"\$\{git_root\}"\s+cat-file\s+-e/u)
+  assert.match(script, /MINI_PROGRAM_SOURCE_REPOSITORY_ROOT/u)
   assert.match(script, /management-ui\/dist/u)
   assert.match(script, /migration_checksums\.sha256/u)
   assert.match(script, /customer:page/u)
