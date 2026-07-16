@@ -1,20 +1,22 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
+import { fileURLToPath } from 'node:url'
 
-const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
+const uiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const repoRoot = path.resolve(uiRoot, '..')
 const migrationName = 'V20260710_003_builtin_role_permission_matrix.sql'
-const migrationPath = path.join(deployRoot, 'db-migrations/migrations', migrationName)
+const migrationPath = path.join(repoRoot, 'db-migrations/migrations', migrationName)
 const scopeMigrationName = 'V20260710_004_order_role_status_scope.sql'
-const scopeMigrationPath = path.join(deployRoot, 'db-migrations/migrations', scopeMigrationName)
+const scopeMigrationPath = path.join(repoRoot, 'db-migrations/migrations', scopeMigrationName)
 
 assert.ok(fs.existsSync(migrationPath), `${migrationName} must exist`)
 assert.ok(fs.existsSync(scopeMigrationPath), `${scopeMigrationName} must exist`)
 
 const migration = fs.readFileSync(migrationPath, 'utf8')
 const scopeMigration = fs.readFileSync(scopeMigrationPath, 'utf8')
-const manifest = fs.readFileSync(path.join(deployRoot, 'db-migrations/migration_manifest.txt'), 'utf8')
-const deployHealth = fs.readFileSync(path.join(deployRoot, 'scripts/check-deploy-health.sh'), 'utf8')
+const manifest = fs.readFileSync(path.join(repoRoot, 'db-migrations/migration_manifest.txt'), 'utf8')
+const deployHealth = fs.readFileSync(path.join(repoRoot, 'deploy/scripts/check-deploy-health.sh'), 'utf8')
 
 const expectedRoles = [
   'ADMIN',

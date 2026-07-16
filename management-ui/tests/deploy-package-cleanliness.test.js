@@ -1,17 +1,16 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
+import { fileURLToPath } from 'node:url'
 
-const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
+const uiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const deployRoot = path.resolve(uiRoot, '..', 'deploy')
 const checkedRoots = [
   'README.md',
-  'RELEASE_BUILD_INFO.txt',
-  'docs',
   'scripts',
-  'db-migrations/README.md',
-  'db-migrations/线上完整迁移执行清单.md',
-  'db-migrations/MySQL存储异常处理.md',
-  'db-migrations/scripts'
+  '.env.example',
+  'docker-compose.yml',
+  'nginx/conf.d'
 ]
 
 function collectFiles(relativePath) {
@@ -58,6 +57,10 @@ const forbiddenTopLevelEntries = new Set([
   'MINI_ORDER_FIX_REPORT_20260714.md',
   'ORDER_PAGE_FIX_REPORT_20260714.md'
 ])
+
+for (const secretPath of ['.env', 'nginx/certs/hellohive.top.key', 'nginx/certs/hellohive.top.pem']) {
+  assert.ok(!fs.existsSync(path.join(deployRoot, secretPath)), `versioned deploy template must not contain ${secretPath}`)
+}
 
 for (const entry of fs.readdirSync(deployRoot)) {
   assert.ok(

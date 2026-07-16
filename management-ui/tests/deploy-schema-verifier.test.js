@@ -1,10 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
+import { fileURLToPath } from 'node:url'
 
-const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
+const uiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const repoRoot = path.resolve(uiRoot, '..')
 const verifier = fs.readFileSync(
-  path.join(deployRoot, 'db-migrations/scripts/verify-online-schema.sh'),
+  path.join(repoRoot, 'db-migrations/scripts/verify-online-schema.sh'),
   'utf8'
 )
 

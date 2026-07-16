@@ -1,7 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEFAULT_DEPLOY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEPLOY_ROOT="${HIVE_RELEASE_ROOT:-${DEFAULT_DEPLOY_ROOT}}"
+case "${DEPLOY_ROOT}" in
+  /*) ;;
+  *) fail_message="HIVE_RELEASE_ROOT must be an absolute path"; echo "FAIL: ${fail_message}" >&2; exit 1 ;;
+esac
+[ -d "${DEPLOY_ROOT}" ] || { echo "FAIL: release root does not exist: ${DEPLOY_ROOT}" >&2; exit 1; }
+DEPLOY_ROOT="$(cd "${DEPLOY_ROOT}" && pwd)"
 cd "${DEPLOY_ROOT}"
 
 fail() {
@@ -51,6 +58,11 @@ file_sha256() {
   else
     openssl dgst -sha256 "$1" | awk '{print $2}'
   fi
+}
+
+metadata_value() {
+  local key="$1"
+  grep -E "^${key}=" RELEASE_BUILD_INFO.txt 2>/dev/null | tail -n 1 | cut -d= -f2- | tr -d '\r' || true
 }
 
 wait_for_healthy_container() {

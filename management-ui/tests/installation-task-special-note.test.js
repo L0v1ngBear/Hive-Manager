@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url'
 const uiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repoRoot = path.resolve(uiRoot, '..')
 const managementRoot = path.join(repoRoot, 'management')
-const deployRoot = path.resolve('C:/Users/HUAWEI/Desktop/hive部署_全新配置')
 
 function read(file) {
   return fs.readFileSync(file, 'utf8')
@@ -38,13 +37,13 @@ const serviceFile = path.join(
 assertContains(serviceFile, 'setSpecialExceptionNote', 'service should persist and return specialExceptionNote')
 
 const migrationFile = path.join(
-  deployRoot,
+  repoRoot,
   'db-migrations/migrations/V20260706_001_installation_task_special_exception_note.sql'
 )
 assert.ok(fs.existsSync(migrationFile), `migration should exist: ${migrationFile}`)
 assertContains(migrationFile, 'special_exception_note', 'migration should add special_exception_note')
 
-const verifySchemaFile = path.join(deployRoot, 'db-migrations/scripts/verify-online-schema.sh')
+const verifySchemaFile = path.join(repoRoot, 'db-migrations/scripts/verify-online-schema.sh')
 assertContains(verifySchemaFile, "SELECT 'installation_task', 'special_exception_note'", 'online schema check should verify special_exception_note')
 
 console.log('installation task special note alignment passed')

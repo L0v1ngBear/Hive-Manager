@@ -15,8 +15,13 @@ The following files are intentionally excluded from Git:
 ## Commands
 
 ```bash
+# Run this against the secret-free staging directory before uploading.
+HIVE_RELEASE_ROOT=/absolute/path/to/upload-staging bash scripts/verify-upload-package.sh
+
+# Run these only inside the server-owned runtime directory.
 cp .env.example .env
 bash scripts/check-deploy-health.sh
+bash scripts/verify-release-integrity.sh
 bash scripts/start.sh
 bash scripts/restart.sh
 bash scripts/smoke-test.sh
@@ -24,6 +29,10 @@ bash scripts/smoke-unified-backend.sh
 bash scripts/reset-fresh-business-data.sh
 bash scripts/rollback-release.sh
 ```
+
+`verify-upload-package.sh` and `check-deploy-health.sh` intentionally enforce opposite secret boundaries. The upload gate rejects `.env`, TLS keys/certificates, persistent volumes, uploads, logs, reports, and snapshots. The runtime gate requires the server-owned `.env` and TLS files. Never bypass either gate by copying the whole runtime directory as an upload package.
+
+`verify-release-integrity.sh` validates the backend JAR, the deterministic management UI tree hash and file count, the UI entry file, the migration manifest and checksums, retired frontend contracts, and resolvable Git commits when `SOURCE_REPOSITORY_ROOT` is supplied on the build host.
 
 `scripts/migrate-db.sh` is the only migration command in an assembled deployment package. It executes the immutable manifest under `db-migrations` and rejects checksum drift.
 

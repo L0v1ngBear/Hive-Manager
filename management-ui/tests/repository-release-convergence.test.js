@@ -15,29 +15,29 @@ const requiredReleaseMigrations = [
 ]
 
 test('repository owns every migration required by the current release', () => {
-  const manifestEntries = fs.readFileSync(path.join(migrationRoot, 'migration_manifest.txt'), 'utf8')
+  const manifestLines = fs.readFileSync(path.join(migrationRoot, 'migration_manifest.txt'), 'utf8')
     .split(/\r?\n/u)
     .map((entry) => entry.trim())
-    .filter((entry) => entry.startsWith('migrations/'))
+    .filter(Boolean)
+  const manifestEntries = manifestLines.filter((entry) => !entry.startsWith('#'))
   const migrationFiles = fs.readdirSync(migrationDirectory)
     .filter((entry) => entry.endsWith('.sql'))
     .sort()
-  const manifestedFiles = manifestEntries
-    .map((entry) => entry.slice('migrations/'.length))
-    .sort()
+  const expectedManifestEntries = migrationFiles.map((entry) => `migrations/${entry}`)
 
-  assert.deepEqual(manifestedFiles, migrationFiles)
+  assert.ok(
+    manifestLines.every((entry) => entry.startsWith('#') || /^migrations\/[^/]+\.sql$/u.test(entry)),
+    'migration manifest contains a malformed line'
+  )
+  assert.deepEqual(manifestEntries, expectedManifestEntries)
   for (const migration of requiredReleaseMigrations) {
     assert.ok(migrationFiles.includes(migration), `repository migration is missing: ${migration}`)
   }
 })
 
-test('migration contract tests never use a workstation deployment directory as source of truth', () => {
-  const contractTests = [
-    'deploy-migration-immutability.test.js',
-    'order-note-backend-contract.test.js'
-  ]
-
+test('repository tests never use a workstation deployment directory as source of truth', () => {
+  const contractTests = fs.readdirSync(path.join(uiRoot, 'tests'))
+    .filter((filename) => filename.endsWith('.test.js'))
   for (const filename of contractTests) {
     const source = fs.readFileSync(path.join(uiRoot, 'tests', filename), 'utf8')
     assert.doesNotMatch(source, /C:[\\/]Users[\\/]HUAWEI[\\/]Desktop/iu, `${filename} reads a desktop release package`)
