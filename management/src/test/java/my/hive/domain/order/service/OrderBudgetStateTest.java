@@ -67,6 +67,9 @@ class OrderBudgetStateTest {
     @Mock
     private OrderNoteService orderNoteService;
 
+    @Mock
+    private OrderShipmentService orderShipmentService;
+
     private OrderService subject;
 
     @BeforeEach
@@ -86,6 +89,7 @@ class OrderBudgetStateTest {
         ReflectionTestUtils.setField(subject, "employeeMapper", employeeMapper);
         ReflectionTestUtils.setField(subject, "orderWarningCacheService", orderWarningCacheService);
         ReflectionTestUtils.setField(subject, "orderNoteService", orderNoteService);
+        ReflectionTestUtils.setField(subject, "orderShipmentService", orderShipmentService);
     }
 
     @AfterEach

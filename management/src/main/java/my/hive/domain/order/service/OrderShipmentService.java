@@ -15,6 +15,8 @@ import my.hive.shared.log.OperationLogEvent;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -78,6 +80,7 @@ public class OrderShipmentService {
         String userName = resolveCurrentUserName(tenantCode, userId);
         String user = String.valueOf(userId);
         LocalDateTime now = LocalDateTime.now();
+        List<ShipmentEvent> pendingEvents = new ArrayList<>();
         for (int index = 0; index < normalized.size(); index++) {
             NormalizedShipment request = normalized.get(index);
             if (request.id() == null) {
@@ -93,8 +96,11 @@ public class OrderShipmentService {
                 shipment.setUpdaterName(userName);
                 shipment.setCreateTime(now);
                 shipment.setUpdateTime(now);
-                shipmentMapper.insert(shipment);
-                collectShipmentEvent(tenantCode, orderId, userId, shipment.getId(), request.trackingNo(), true, now);
+                int inserted = shipmentMapper.insert(shipment);
+                if (inserted != 1) {
+                    throw new BusinessException(500, "Failed to add shipment");
+                }
+                pendingEvents.add(new ShipmentEvent(shipment.getId(), request.trackingNo(), true));
                 continue;
             }
 
@@ -110,9 +116,11 @@ public class OrderShipmentService {
             if (changed != 1) {
                 throw new BusinessException(409, "Shipment has been modified by another user");
             }
-            collectShipmentEvent(tenantCode, orderId, userId, existing.getId(), request.trackingNo(), false, now);
+            pendingEvents.add(new ShipmentEvent(existing.getId(), request.trackingNo(), false));
         }
-        return listShipments(tenantCode, orderId);
+        List<SalesOrderShipmentVO> result = listShipments(tenantCode, orderId);
+        publishShipmentEvents(tenantCode, orderId, userId, pendingEvents, now);
+        return result;
     }
 
     public List<SalesOrderShipmentVO> listShipments(String tenantCode, String orderId) {
@@ -218,13 +226,37 @@ public class OrderShipmentService {
                 || !Integer.valueOf(sortOrder).equals(existing.getSortOrder());
     }
 
-    private void collectShipmentEvent(String tenantCode,
-                                      String orderId,
-                                      Long userId,
-                                      Long shipmentId,
-                                      String trackingNo,
-                                      boolean isNew,
-                                      LocalDateTime createTime) {
+    private void publishShipmentEvents(String tenantCode,
+                                       String orderId,
+                                       Long userId,
+                                       List<ShipmentEvent> pendingEvents,
+                                       LocalDateTime createTime) {
+        if (pendingEvents.isEmpty()) {
+            return;
+        }
+        List<OperationLogEvent> events = pendingEvents.stream()
+                .map(pending -> buildShipmentEvent(tenantCode, orderId, userId, pending, createTime))
+                .toList();
+        Runnable publish = () -> events.forEach(operationLogCollector::collect);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    publish.run();
+                }
+            });
+        } else {
+            publish.run();
+        }
+    }
+
+    private OperationLogEvent buildShipmentEvent(String tenantCode,
+                                                  String orderId,
+                                                  Long userId,
+                                                  ShipmentEvent pending,
+                                                  LocalDateTime createTime) {
+        String trackingNo = pending.trackingNo();
+        boolean isNew = pending.isNew();
         String fingerprint = externalApiGuardService.fingerprint(trackingNo);
         OperationLogEvent event = new OperationLogEvent();
         event.setTenantCode(tenantCode);
@@ -236,11 +268,11 @@ public class OrderShipmentService {
         event.setDescription(isNew
                 ? "\u65b0\u589e\u8ba2\u5355\u7269\u6d41\u8bb0\u5f55"
                 : "\u66f4\u65b0\u8ba2\u5355\u7269\u6d41\u8bb0\u5f55");
-        event.setArgsJson("{\"shipmentId\":" + shipmentId
+        event.setArgsJson("{\"shipmentId\":" + pending.shipmentId()
                 + ",\"trackingFingerprint\":\"" + fingerprint + "\"}");
         event.setSuccess(true);
         event.setCreateTime(createTime);
-        operationLogCollector.collect(event);
+        return event;
     }
 
     private SalesOrderShipmentVO toVO(SalesOrderShipment shipment) {
@@ -250,5 +282,8 @@ public class OrderShipmentService {
     }
 
     private record NormalizedShipment(Long id, Integer version, String logisticsCompany, String trackingNo) {
+    }
+
+    private record ShipmentEvent(Long shipmentId, String trackingNo, boolean isNew) {
     }
 }

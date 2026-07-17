@@ -26,8 +26,6 @@ public interface SalesOrderMapper extends BaseMapper<SalesOrder> {
                    goods_desc AS goodsDesc,
                    total_quantity AS totalQuantity,
                    information_channel AS informationChannel,
-                   express_company AS expressCompany,
-                   express_no AS expressNo,
                    is_invoice AS isInvoice,
                    creator,
                    attachment_name AS attachmentName,

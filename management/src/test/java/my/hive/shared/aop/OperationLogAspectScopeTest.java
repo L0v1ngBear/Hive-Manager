@@ -1,18 +1,27 @@
 package my.hive.shared.aop;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import my.hive.api.order.OrderController;
+import my.hive.domain.order.model.dto.SalesOrderSaveRequest;
+import my.hive.domain.order.model.dto.SalesOrderShipmentSaveRequest;
 import my.hive.shared.annotation.CollectLog;
+import my.hive.shared.dto.Result;
 import my.hive.shared.log.OperationLogCollector;
+import my.hive.shared.log.OperationLogEvent;
 import my.hive.shared.log.OperationLogProperties;
 import my.hive.shared.log.SensitiveDataSanitizer;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -68,6 +77,57 @@ class OperationLogAspectScopeTest {
         assertThat(aspect.around(joinPoint, annotation("createOrder"))).isEqualTo("SO-1001");
         verify(collector).collect(org.mockito.ArgumentMatchers.argThat(event ->
                 "SO-1001".equals(event.getBizNo())));
+    }
+
+    @Test
+    void masksNestedTrackingNumbersForOrderCreateAndSaveWithoutMutatingApiPayload() throws Throwable {
+        OperationLogProperties properties = new OperationLogProperties();
+        properties.setRecordedModules(Set.of("order"));
+        OperationLogCollector collector = mock(OperationLogCollector.class);
+        SensitiveDataSanitizer sanitizer = new SensitiveDataSanitizer(new ObjectMapper(), properties);
+        OperationLogAspect aspect = new OperationLogAspect(properties, collector, sanitizer);
+        SalesOrderSaveRequest request = orderRequest("TRACKING-NO-1234567890");
+
+        Result<String> createResult = Result.success("SO-1001");
+        Object returnedCreateResult = invoke(aspect,
+                OrderController.class.getDeclaredMethod("create", SalesOrderSaveRequest.class),
+                new Object[]{request}, createResult);
+        Result<Void> saveResult = Result.success(null);
+        Object returnedSaveResult = invoke(aspect,
+                OrderController.class.getDeclaredMethod("replace", String.class, SalesOrderSaveRequest.class),
+                new Object[]{"SO-1001", request}, saveResult);
+
+        assertThat(returnedCreateResult).isSameAs(createResult);
+        assertThat(returnedSaveResult).isSameAs(saveResult);
+        assertThat(request.getShipments().get(0).getTrackingNo()).isEqualTo("TRACKING-NO-1234567890");
+        ArgumentCaptor<OperationLogEvent> eventCaptor = ArgumentCaptor.forClass(OperationLogEvent.class);
+        verify(collector, times(2)).collect(eventCaptor.capture());
+        assertThat(eventCaptor.getAllValues())
+                .allSatisfy(event -> assertThat(event.getArgsJson())
+                        .contains("\"trackingNo\":\"******\"")
+                        .doesNotContain("TRACKING-NO-1234567890"));
+    }
+
+    private Object invoke(OperationLogAspect aspect, Method method, Object[] args, Object result) throws Throwable {
+        ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+        MethodSignature signature = mock(MethodSignature.class);
+        when(joinPoint.getSignature()).thenReturn(signature);
+        when(joinPoint.getArgs()).thenReturn(args);
+        when(joinPoint.proceed()).thenReturn(result);
+        when(signature.getMethod()).thenReturn(method);
+        when(signature.getDeclaringTypeName()).thenReturn(method.getDeclaringClass().getName());
+        return aspect.around(joinPoint, method.getAnnotation(CollectLog.class));
+    }
+
+    private SalesOrderSaveRequest orderRequest(String trackingNo) {
+        SalesOrderShipmentSaveRequest shipment = new SalesOrderShipmentSaveRequest();
+        shipment.setLogisticsCompany("SF Express");
+        shipment.setTrackingNo(trackingNo);
+        SalesOrderSaveRequest request = new SalesOrderSaveRequest();
+        request.setCustomerName("Test Customer");
+        request.setProjectName("Test Project");
+        request.setShipments(List.of(shipment));
+        return request;
     }
 
     private CollectLog annotation(String methodName) throws NoSuchMethodException {

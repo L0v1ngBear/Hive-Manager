@@ -15,6 +15,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronizationUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -56,6 +59,9 @@ class OrderShipmentServiceTest {
 
     @AfterEach
     void tearDown() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
         TenantPermissionContext.clear();
     }
 
@@ -185,6 +191,74 @@ class OrderShipmentServiceTest {
                         List.of(request(11L, 2, "SF Express", "SF-NEW"))));
 
         assertEquals(409, error.getCode());
+        verify(operationLogCollector, never()).collect(any());
+    }
+
+    @Test
+    void emitsNoEventsWhenLaterShipmentUpdateLosesOptimisticLock() {
+        SalesOrderShipment first = existingShipment(11L, 2);
+        SalesOrderShipment second = existingShipment(12L, 4);
+        second.setLogisticsCompany("UPS");
+        second.setTrackingNo("UPS-001");
+        second.setSortOrder(1);
+        when(mapper.selectList(any())).thenReturn(List.of(first, second));
+        when(mapper.updateShipment(eq(11L), eq("TENANT_001"), eq("SO-1"), eq(2),
+                eq("SF Express"), eq("SF-NEW"), eq(0), any(), any(), any())).thenReturn(1);
+        when(mapper.updateShipment(eq(12L), eq("TENANT_001"), eq("SO-1"), eq(4),
+                eq("UPS"), eq("UPS-NEW"), eq(1), any(), any(), any())).thenReturn(0);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.saveShipments("TENANT_001", "SO-1", List.of(
+                        request(11L, 2, "SF Express", "SF-NEW"),
+                        request(12L, 4, "UPS", "UPS-NEW"))));
+
+        assertEquals(409, error.getCode());
+        verify(operationLogCollector, never()).collect(any());
+    }
+
+    @Test
+    void rejectsZeroRowInsertWithoutEmittingAddEvent() {
+        when(mapper.selectList(any())).thenReturn(List.of());
+        when(mapper.insert(any())).thenReturn(0);
+
+        assertThrows(BusinessException.class,
+                () -> service.saveShipments("TENANT_001", "SO-1",
+                        List.of(request(null, null, "SF Express", "SF-001"))));
+
+        verify(operationLogCollector, never()).collect(any());
+    }
+
+    @Test
+    void defersSuccessfulShipmentEventsUntilTransactionCommit() {
+        when(mapper.selectList(any())).thenReturn(List.of(), List.of(existingShipment(101L, 0)));
+        when(mapper.insert(any())).thenAnswer(invocation -> {
+            invocation.<SalesOrderShipment>getArgument(0).setId(101L);
+            return 1;
+        });
+        when(externalApiGuardService.fingerprint("SF-001")).thenReturn("tracking-fingerprint");
+        TransactionSynchronizationManager.initSynchronization();
+
+        service.saveShipments("TENANT_001", "SO-1",
+                List.of(request(null, null, "SF Express", "SF-001")));
+
+        verify(operationLogCollector, never()).collect(any());
+        TransactionSynchronizationUtils.triggerAfterCommit();
+        verify(operationLogCollector).collect(any());
+    }
+
+    @Test
+    void emitsNoShipmentEventsWhenTransactionRollsBackAfterSuccessfulMethod() {
+        when(mapper.selectList(any())).thenReturn(List.of(), List.of(existingShipment(101L, 0)));
+        when(mapper.insert(any())).thenAnswer(invocation -> {
+            invocation.<SalesOrderShipment>getArgument(0).setId(101L);
+            return 1;
+        });
+        TransactionSynchronizationManager.initSynchronization();
+
+        service.saveShipments("TENANT_001", "SO-1",
+                List.of(request(null, null, "SF Express", "SF-001")));
+        TransactionSynchronizationUtils.triggerAfterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+
         verify(operationLogCollector, never()).collect(any());
     }
 

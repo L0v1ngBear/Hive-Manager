@@ -23,7 +23,7 @@ public class SensitiveDataSanitizer {
     private static final Set<String> SENSITIVE_KEY_PARTS = Set.of(
             "password", "passwd", "pwd", "token", "authorization", "secret",
             "responsekey", "privatekey", "encryptkey", "credential", "cookie",
-            "openid", "sessionkey", "phone", "mobile", "idcard", "identity"
+            "openid", "sessionkey", "phone", "mobile", "idcard", "identity", "trackingno"
     );
 
     private final ObjectMapper objectMapper;
