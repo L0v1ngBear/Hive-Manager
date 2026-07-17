@@ -141,3 +141,29 @@ exit code 0
 - `git diff --check`: exit code 0.
 - Non-blocking existing warnings: Maven reports the Byte Buddy dynamic-agent/bootstrap-classpath notice; Vite reports terser plugin timing.
 - Environment note: this Windows host has no Bash runtime or WSL distribution, so the Node contract uses its static branch locally. On Linux it sources the helper and executes the zero, non-zero, and malformed-count branches.
+
+## Final Review Round 3: Production SQL Logging and Order Documentation
+
+### Scope
+
+- Starting HEAD: `ab8c79e` on `codex/order-multi-shipment`; no worktree or branch change.
+- The mini-program, installation-task code, and migration SQL remain outside this repair.
+
+### TDD RED
+
+- Added `ProductionMybatisLoggingConfigurationTest` before changing production configuration. `mvn -Dtest=ProductionMybatisLoggingConfigurationTest test` failed because the effective `prod` profile still resolved the exact key `mybatis-plus.configuration.log-impl` to `org.apache.ibatis.logging.stdout.StdOutImpl`.
+- Added an order-documentation contract before changing the document. `node --test tests/frontend-unified-backend-adaptation.test.js` failed because `docs/management-ui/modules/order.md` still declared the retired `table:export` permission.
+
+### TDD GREEN
+
+- `application-prod.yaml` now overrides the common `mybatis-plus.configuration.log-impl` key with `org.apache.ibatis.logging.nologging.NoLoggingImpl`. The regression test parses the common YAML key and boots the real Spring config data with the `prod` profile, proving the effective merged value overrides the development-only `StdOutImpl` setting.
+- The order module documentation now records `order:list` for TableColumnSettings exports. The focused documentation contract verifies the retired permission is absent and the canonical export permission is documented.
+- Focused verification: backend 1/1 passed; management UI documentation contract 6/6 passed.
+
+### Final verification
+
+- `management\.\mvnw.cmd test`: 269/269 passed, 0 failures, 0 errors, 0 skipped; `BUILD SUCCESS`.
+- `management-ui\npm test`: 297/297 passed, 0 failures, 0 skipped.
+- `management-ui\npm run build`: 1861 modules transformed; production build succeeded in 10.45s.
+- Combined automated tests: 566/566 passed.
+- Non-blocking existing warnings: Maven reports Byte Buddy dynamic-agent/bootstrap-classpath notices; Vite reports terser plugin timing.

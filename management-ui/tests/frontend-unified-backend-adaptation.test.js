@@ -18,6 +18,16 @@ test('exports use the exact module permissions instead of retired table export p
   assert.match(document, /document:export/)
 })
 
+test('order module documentation uses the canonical export permission', () => {
+  const orderDocumentation = fs.readFileSync(
+    path.resolve(root, '..', 'docs', 'management-ui', 'modules', 'order.md'),
+    'utf8'
+  )
+
+  assert.doesNotMatch(orderDocumentation, /table:export/)
+  assert.match(orderDocumentation, /TableColumnSettings[\s\S]*order:list/)
+})
+
 test('inventory navigation and requests use list detail and warning permissions independently', () => {
   const router = read('src/router/index.js')
   const inventory = read('src/views/function/inventory/inventory.vue')

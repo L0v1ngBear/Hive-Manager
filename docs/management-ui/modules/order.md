@@ -129,7 +129,7 @@
 
 - 页面初始化仍需复核无 order:warning:setting 时是否读取预警设置；该权限组合纳入视觉 QA。
 - 详情、编辑入口会按 `order:detail` 与阶段权限保持可见禁用并给出原因；handler 同时阻止无权限请求。
-- TableColumnSettings 当前页和全部导出按 `table:export` 保持可见禁用并给出原因，全部导出 handler 仍执行二次守卫。
+- TableColumnSettings 当前页和全部导出按 `order:list` 保持可见禁用并给出原因，全部导出 handler 仍执行二次守卫。
 - order API 中 update、warning/refresh、health 三个封装当前未被页面使用，改造时不得误当死接口删除。
 
 ## 验证清单
