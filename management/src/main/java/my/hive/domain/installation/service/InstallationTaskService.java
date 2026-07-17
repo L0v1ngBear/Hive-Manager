@@ -207,8 +207,6 @@ public class InstallationTaskService {
         task.setGoodsDesc(order.getGoodsDesc());
         task.setTotalQuantity(order.getTotalQuantity());
         task.setInformationChannel(order.getInformationChannel());
-        task.setExpressCompany(order.getExpressCompany());
-        task.setExpressNo(order.getExpressNo());
         task.setIsInvoice(order.getIsInvoice());
         task.setCreator(order.getCreator());
         task.setOrderAttachmentName(order.getAttachmentName());

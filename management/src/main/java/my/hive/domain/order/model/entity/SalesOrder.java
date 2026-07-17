@@ -47,12 +47,6 @@ public class SalesOrder {
     @TableField("information_channel")
     private String informationChannel;
 
-    @TableField("express_company")
-    private String expressCompany;
-
-    @TableField("express_no")
-    private String expressNo;
-
     /**
      * 开票类型：0-未开票，1-已开票，2-其他类型。
      */

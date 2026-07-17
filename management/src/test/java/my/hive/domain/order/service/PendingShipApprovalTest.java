@@ -14,6 +14,7 @@ import my.hive.domain.order.model.dto.SalesOrderUpdateRequest;
 import my.hive.domain.order.model.entity.ProductionOrder;
 import my.hive.domain.order.model.entity.SalesOrder;
 import my.hive.domain.order.model.entity.SalesOrderStatusLog;
+import my.hive.domain.order.model.vo.SalesOrderShipmentVO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,6 +64,9 @@ class PendingShipApprovalTest {
     private ApprovalDefaultAuditorService approvalDefaultAuditorService;
 
     @Mock
+    private OrderShipmentService orderShipmentService;
+
+    @Mock
     private OrderService orderService;
 
     private OrderService subject;
@@ -80,6 +84,7 @@ class PendingShipApprovalTest {
         ReflectionTestUtils.setField(subject, "orderWarningCacheService", orderWarningCacheService);
         ReflectionTestUtils.setField(subject, "approvalAuditorCandidateService", approvalAuditorCandidateService);
         ReflectionTestUtils.setField(subject, "approvalDefaultAuditorService", approvalDefaultAuditorService);
+        ReflectionTestUtils.setField(subject, "orderShipmentService", orderShipmentService);
     }
 
     @AfterEach
@@ -88,17 +93,17 @@ class PendingShipApprovalTest {
     }
 
     @Test
-    void submittingShipmentApprovalKeepsPendingShipAndPersistsShipmentFields() {
+    void submittingShipmentApprovalKeepsPendingShipAndUsesPersistedShipments() {
         SalesOrder order = pendingShipOrder();
         when(salesOrderMapper.selectByOrderIdForUpdate("tenant-a", "SO-100")).thenReturn(order);
         when(employeeMapper.selectActiveApproverIdsByPermission(anyString(), anyString())).thenReturn(List.of(2L));
+        when(orderShipmentService.listShipments("tenant-a", "SO-100"))
+                .thenReturn(List.of(persistedShipment()));
         SalesOrderUpdateRequest request = shipmentRequest();
 
         subject.advanceSalesOrderToNextStage(order.getOrderId(), request);
 
         assertEquals("pending_ship", order.getStatus());
-        assertEquals("SF Express", order.getExpressCompany());
-        assertEquals("SF-100", order.getExpressNo());
         assertEquals("WeChat", order.getInformationChannel());
         verify(salesOrderMapper).updateById(order);
         verify(approvalAuditorCandidateService).replaceActiveCandidates(
@@ -124,8 +129,6 @@ class PendingShipApprovalTest {
 
         assertEquals("pending_pay", order.getStatus());
         assertEquals("Original channel", order.getInformationChannel());
-        assertEquals("Original carrier", order.getExpressCompany());
-        assertEquals("OLD-100", order.getExpressNo());
         assertEquals(0, order.getIsInvoice());
         verify(salesOrderMapper, never()).updateById(order);
         verify(approvalAuditorCandidateService).replaceActiveCandidates(
@@ -157,7 +160,7 @@ class PendingShipApprovalTest {
         SalesOrder order = pendingShipOrder();
         when(salesOrderMapper.selectByOrderIdForUpdate("tenant-a", "SO-100")).thenReturn(order);
         SalesOrderUpdateRequest request = new SalesOrderUpdateRequest();
-        request.setExpressCompany("SF Express");
+        when(orderShipmentService.listShipments("tenant-a", "SO-100")).thenReturn(List.of());
 
         assertThrows(BusinessException.class, () -> subject.advanceSalesOrderToNextStage(order.getOrderId(), request));
 
@@ -368,8 +371,6 @@ class PendingShipApprovalTest {
 
     private SalesOrderUpdateRequest shipmentRequest() {
         SalesOrderUpdateRequest request = new SalesOrderUpdateRequest();
-        request.setExpressCompany("SF Express");
-        request.setExpressNo("SF-100");
         request.setInformationChannel("WeChat");
         request.setRemark("ready to ship");
         request.setAuditorIds(List.of(2L));
@@ -398,10 +399,15 @@ class PendingShipApprovalTest {
         SalesOrder order = pendingShipOrder();
         order.setStatus("pending_pay");
         order.setInformationChannel("Original channel");
-        order.setExpressCompany("Original carrier");
-        order.setExpressNo("OLD-100");
         order.setIsInvoice(0);
         return order;
+    }
+
+    private SalesOrderShipmentVO persistedShipment() {
+        SalesOrderShipmentVO shipment = new SalesOrderShipmentVO();
+        shipment.setLogisticsCompany("SF Express");
+        shipment.setTrackingNo("SF-100");
+        return shipment;
     }
 
     private SalesOrder completedDrawingBudgetOrder() {

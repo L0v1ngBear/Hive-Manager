@@ -32,9 +32,7 @@ public class SalesOrderDetailVO {
 
     private String informationChannel;
 
-    private String expressCompany;
-
-    private String expressNo;
+    private List<SalesOrderShipmentVO> shipments;
 
     private Integer isInvoice;
 

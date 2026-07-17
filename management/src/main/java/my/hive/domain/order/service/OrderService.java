@@ -59,6 +59,7 @@ import my.hive.domain.order.model.vo.OrderWarningSummaryVO;
 import my.hive.domain.order.model.vo.SalesOrderAttachmentVO;
 import my.hive.domain.order.model.vo.SalesOrderDetailVO;
 import my.hive.domain.order.model.vo.SalesOrderPageVO;
+import my.hive.domain.order.model.vo.SalesOrderShipmentVO;
 import my.hive.shared.permission.PermissionCatalogV3;
 import my.hive.shared.dto.PageResult;
 import my.hive.domain.order.model.vo.SalesOrderStatusLogVO;
@@ -193,6 +194,9 @@ public class OrderService {
 
     @Resource
     private OrderNoteService orderNoteService;
+
+    @Resource
+    private OrderShipmentService orderShipmentService;
 
     @Resource
     private JdbcTemplate jdbcTemplate;
@@ -360,6 +364,8 @@ public class OrderService {
         List<SalesOrder> orders = source.getRecords();
         Map<String, List<SalesOrderDetail>> detailMap = buildSalesDetailMap(orders);
         Map<String, List<ProductionOrder>> fulfillmentMap = buildFulfillmentMap(orders);
+        Map<String, List<SalesOrderShipmentVO>> shipmentMap = orderShipmentService.listShipmentsByOrderIds(
+                tenantCode, orders.stream().map(SalesOrder::getOrderId).toList());
 
         List<SalesOrderPageVO> records = orders.stream().map(order -> {
             SalesOrderPageVO vo = new SalesOrderPageVO();
@@ -367,6 +373,7 @@ public class OrderService {
             List<SalesOrderDetail> details = detailMap.getOrDefault(order.getOrderId(), Collections.emptyList());
             vo.setDetailCount(details.size());
             vo.setItems(details.stream().map(this::toSalesOrderPageItem).toList());
+            vo.setShipments(shipmentMap.getOrDefault(order.getOrderId(), Collections.emptyList()));
             applyFulfillmentView(vo, fulfillmentMap.getOrDefault(order.getOrderId(), Collections.emptyList()), order.getStatus());
             markSalesStaleWarning(vo, order, orderSettingService.staleWarningDays(tenantCode, order.getOrderCategory()));
             markInvoiceWarning(vo, order);
@@ -438,6 +445,7 @@ public class OrderService {
 
         SalesOrderDetailVO vo = new SalesOrderDetailVO();
         BeanUtils.copyProperties(order, vo);
+        vo.setShipments(orderShipmentService.listShipments(order.getTenantCode(), orderId));
         Map<String, List<ProductionOrder>> fulfillmentMap = buildFulfillmentMap(List.of(order));
         applyFulfillmentView(vo, fulfillmentMap.getOrDefault(order.getOrderId(), Collections.emptyList()), order.getStatus());
         vo.setItems(details.stream().map(detail -> {
@@ -570,6 +578,9 @@ public class OrderService {
         order.setCreateTime(businessCreateTime);
         order.setUpdateTime(LocalDateTime.now());
         salesOrderMapper.insert(order);
+        List<SalesOrderShipmentVO> shipments = orderShipmentService.saveShipments(
+                order.getTenantCode(), order.getOrderId(), request.getShipments());
+        validateShippingInfo(order.getStatus(), shipments);
         orderWarningCacheService.invalidate(order.getTenantCode());
         replaceSalesOrderItems(order.getOrderId(), request.getItems(), businessCreateTime);
         orderNoteService.saveNotes(order.getTenantCode(), order.getOrderId(), order.getStatus(), request.getNotes());
@@ -594,6 +605,9 @@ public class OrderService {
         assertOrderStatusTransitionPermission(oldStatus, order.getStatus());
         assertSalesOrderStagePermission(order, order.getStatus());
         applyManualCreateTime(order, request.getCreateTime(), "销售订单录单时间");
+        List<SalesOrderShipmentVO> shipments = orderShipmentService.saveShipments(
+                order.getTenantCode(), order.getOrderId(), request.getShipments());
+        validateShippingInfo(order.getStatus(), shipments);
         boolean businessChanged = salesOrderContentChanged(beforeOrder, order) || itemsChanged;
         order.setUpdateTime(businessChanged ? LocalDateTime.now() : beforeOrder.getUpdateTime());
         salesOrderMapper.updateById(order);
@@ -630,16 +644,10 @@ public class OrderService {
         if (request.getInformationChannel() != null) {
             order.setInformationChannel(blankToNull(request.getInformationChannel()));
         }
-        if (request.getExpressCompany() != null) {
-            order.setExpressCompany(blankToNull(request.getExpressCompany()));
-        }
-        if (request.getExpressNo() != null) {
-            order.setExpressNo(blankToNull(request.getExpressNo()));
-        }
         if (request.getIsInvoice() != null) {
             order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
         }
-        validateShippingInfo(order.getStatus(), order.getExpressCompany(), order.getExpressNo());
+        validatePersistedShippingInfo(order.getStatus(), order);
         order.setUpdateTime(LocalDateTime.now());
         salesOrderMapper.updateById(order);
         orderWarningCacheService.invalidate(order.getTenantCode());
@@ -666,19 +674,13 @@ public class OrderService {
             if (request.getInformationChannel() != null) {
                 order.setInformationChannel(blankToNull(request.getInformationChannel()));
             }
-            if (request.getExpressCompany() != null) {
-                order.setExpressCompany(blankToNull(request.getExpressCompany()));
-            }
-            if (request.getExpressNo() != null) {
-                order.setExpressNo(blankToNull(request.getExpressNo()));
-            }
             if (request.getIsInvoice() != null) {
                 order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
             }
         }
         validateSalesStatusForward(order.getOrderCategory(), oldStatus, order.getStatus());
         assertDirectSalesTransitionAllowed(order.getOrderCategory(), oldStatus, order.getStatus());
-        validateShippingInfo(order.getStatus(), order.getExpressCompany(), order.getExpressNo());
+        validatePersistedShippingInfo(order.getStatus(), order);
         order.setUpdateTime(LocalDateTime.now());
         salesOrderMapper.updateById(order);
         orderWarningCacheService.invalidate(order.getTenantCode());
@@ -707,17 +709,11 @@ public class OrderService {
             if (request.getInformationChannel() != null) {
                 order.setInformationChannel(blankToNull(request.getInformationChannel()));
             }
-            if (request.getExpressCompany() != null) {
-                order.setExpressCompany(blankToNull(request.getExpressCompany()));
-            }
-            if (request.getExpressNo() != null) {
-                order.setExpressNo(blankToNull(request.getExpressNo()));
-            }
             if (request.getIsInvoice() != null) {
                 order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
             }
         }
-        validateShippingInfo(targetStatus, order.getExpressCompany(), order.getExpressNo());
+        validatePersistedShippingInfo(targetStatus, order);
         order.setUpdateTime(LocalDateTime.now());
         salesOrderMapper.updateById(order);
         orderWarningCacheService.invalidate(order.getTenantCode());
@@ -844,7 +840,7 @@ public class OrderService {
         String oldStatus = order.getStatus();
         order.setStatus(targetStatus.trim());
         validateSalesStatusForward(order.getOrderCategory(), oldStatus, order.getStatus());
-        validateShippingInfo(order.getStatus(), order.getExpressCompany(), order.getExpressNo());
+        validatePersistedShippingInfo(order.getStatus(), order);
         order.setUpdateTime(LocalDateTime.now());
         salesOrderMapper.updateById(order);
         orderWarningCacheService.invalidate(order.getTenantCode());
@@ -1355,14 +1351,11 @@ public class OrderService {
         String orderCategory = OrderCategoryEnum.normalize(request.getOrderCategory());
         order.setOrderCategory(orderCategory);
         order.setInformationChannel(resolveSalesInformationChannel(orderCategory, request.getInformationChannel()));
-        order.setExpressCompany(blankToNull(request.getExpressCompany()));
-        order.setExpressNo(blankToNull(request.getExpressNo()));
         order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
         order.setAttachmentName(blankToNull(request.getAttachmentName()));
         order.setAttachmentUrl(normalizeSalesOrderAttachmentUrlForStorage(request.getAttachmentUrl()));
         order.setAttachmentSize(request.getAttachmentSize());
         order.setStatus(resolveSalesStatusForCategory(orderCategory, request.getStatus(), order.getStatus(), createMode));
-        validateShippingInfo(order.getStatus(), order.getExpressCompany(), order.getExpressNo());
         ensureCustomerProjectExists(order.getCustomerName(), order.getCustomerPhone(), order.getProjectName());
         order.setGoodsDesc(buildSalesGoodsDesc(request.getItems()));
         order.setTotalQuantity(sumSalesQuantity(request.getItems()));
@@ -1649,13 +1642,21 @@ public class OrderService {
     /**
      * 销售订单发货由物流驱动，所以只有变更为已发货时才强制校验物流信息。
      */
-    private void validateShippingInfo(String status, String expressCompany, String expressNo) {
+    private void validateShippingInfo(String status, List<SalesOrderShipmentVO> shipments) {
         if (!OrderStatusEnum.SHIPPED.matches(status)) {
             return;
         }
-        if (!StringUtils.hasText(expressCompany) || !StringUtils.hasText(expressNo)) {
-            throw new BusinessException("订单变更为已发货时必须填写物流公司和物流单号");
+        if (shipments == null || shipments.isEmpty()) {
+            throw new BusinessException("订单变更为已发货时至少填写一条物流信息");
         }
+    }
+
+    private void validatePersistedShippingInfo(String status, SalesOrder order) {
+        if (!OrderStatusEnum.SHIPPED.matches(status)) {
+            return;
+        }
+        validateShippingInfo(status,
+                orderShipmentService.listShipments(order.getTenantCode(), order.getOrderId()));
     }
 
     private void assertDirectSalesTransitionAllowed(String orderCategory, String oldStatus, String targetStatus) {
@@ -1716,7 +1717,7 @@ public class OrderService {
         }
         String oldSalesStatus = linkedSalesOrder.getStatus();
         linkedSalesOrder.setStatus(productionOrder.getStatus());
-        validateShippingInfo(linkedSalesOrder.getStatus(), linkedSalesOrder.getExpressCompany(), linkedSalesOrder.getExpressNo());
+        validatePersistedShippingInfo(linkedSalesOrder.getStatus(), linkedSalesOrder);
         linkedSalesOrder.setUpdateTime(LocalDateTime.now());
         salesOrderMapper.updateById(linkedSalesOrder);
         orderWarningCacheService.invalidate(linkedSalesOrder.getTenantCode());
@@ -2706,8 +2707,6 @@ public class OrderService {
                 || !sameText(before.getGoodsDesc(), after.getGoodsDesc())
                 || !Objects.equals(before.getTotalQuantity(), after.getTotalQuantity())
                 || !sameText(before.getInformationChannel(), after.getInformationChannel())
-                || !sameText(before.getExpressCompany(), after.getExpressCompany())
-                || !sameText(before.getExpressNo(), after.getExpressNo())
                 || !Objects.equals(before.getIsInvoice(), after.getIsInvoice())
                 || !sameText(before.getAttachmentName(), after.getAttachmentName())
                 || !sameText(before.getAttachmentUrl(), after.getAttachmentUrl())

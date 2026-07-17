@@ -10,6 +10,7 @@ import my.hive.domain.order.mapper.SalesOrderMapper;
 import my.hive.domain.order.mapper.SalesOrderStatusLogMapper;
 import my.hive.domain.order.model.dto.SalesOrderUpdateRequest;
 import my.hive.domain.order.model.entity.SalesOrder;
+import my.hive.domain.order.model.vo.SalesOrderShipmentVO;
 import org.apache.ibatis.annotations.Select;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -65,6 +67,9 @@ class OrderApprovalSubmissionConcurrencyTest {
     @Mock
     private ApprovalDefaultAuditorService approvalDefaultAuditorService;
 
+    @Mock
+    private OrderShipmentService orderShipmentService;
+
     private OrderService subject;
 
     @BeforeEach
@@ -76,6 +81,9 @@ class OrderApprovalSubmissionConcurrencyTest {
         ReflectionTestUtils.setField(subject, "orderWarningCacheService", orderWarningCacheService);
         ReflectionTestUtils.setField(subject, "approvalAuditorCandidateService", approvalAuditorCandidateService);
         ReflectionTestUtils.setField(subject, "approvalDefaultAuditorService", approvalDefaultAuditorService);
+        ReflectionTestUtils.setField(subject, "orderShipmentService", orderShipmentService);
+        lenient().when(orderShipmentService.listShipments(anyString(), eq("SO-100")))
+                .thenReturn(List.of(persistedShipment()));
     }
 
     @AfterEach
@@ -126,12 +134,10 @@ class OrderApprovalSubmissionConcurrencyTest {
             List<Long> winnerCandidates = activeCandidates.get(approvalKey("tenant-a"));
             assertEquals(1, winnerCandidates.size());
             if (winnerCandidates.equals(List.of(2L))) {
-                assertEquals("First carrier", order.getExpressCompany());
-                assertEquals("FIRST-1", order.getExpressNo());
+                assertEquals("Direct sales", order.getInformationChannel());
             } else {
                 assertEquals(List.of(3L), winnerCandidates);
-                assertEquals("Second carrier", order.getExpressCompany());
-                assertEquals("SECOND-2", order.getExpressNo());
+                assertEquals("Direct sales", order.getInformationChannel());
             }
             verify(salesOrderMapper, times(1)).updateById(order);
             verify(approvalAuditorCandidateService, times(1)).replaceActiveCandidates(
@@ -166,8 +172,8 @@ class OrderApprovalSubmissionConcurrencyTest {
 
         assertEquals(List.of(2L), activeCandidates.get(approvalKey("tenant-a")));
         assertEquals(List.of(3L), activeCandidates.get(approvalKey("tenant-b")));
-        assertEquals("A-1", tenantAOrder.getExpressNo());
-        assertEquals("B-1", tenantBOrder.getExpressNo());
+        assertEquals("Direct sales", tenantAOrder.getInformationChannel());
+        assertEquals("Direct sales", tenantBOrder.getInformationChannel());
         verify(salesOrderMapper).selectByOrderIdForUpdate("tenant-a", "SO-100");
         verify(salesOrderMapper).selectByOrderIdForUpdate("tenant-b", "SO-100");
     }
@@ -204,8 +210,6 @@ class OrderApprovalSubmissionConcurrencyTest {
 
     private SalesOrderUpdateRequest shipmentRequest(String carrier, String expressNo, Long auditorId) {
         SalesOrderUpdateRequest request = new SalesOrderUpdateRequest();
-        request.setExpressCompany(carrier);
-        request.setExpressNo(expressNo);
         request.setInformationChannel("Direct sales");
         request.setRemark(expressNo);
         request.setAuditorIds(List.of(auditorId));
@@ -219,6 +223,13 @@ class OrderApprovalSubmissionConcurrencyTest {
         order.setOrderCategory("bulk");
         order.setStatus("pending_ship");
         return order;
+    }
+
+    private SalesOrderShipmentVO persistedShipment() {
+        SalesOrderShipmentVO shipment = new SalesOrderShipmentVO();
+        shipment.setLogisticsCompany("Carrier");
+        shipment.setTrackingNo("TRACKING-1");
+        return shipment;
     }
 
     private String approvalKey(String tenantCode) {

@@ -33,9 +33,9 @@ public class SalesOrderSaveRequest {
      */
     private String createTime;
 
-    private String expressCompany;
-
-    private String expressNo;
+    @Valid
+    @Size(max = 50, message = "每个订单最多添加50条物流信息")
+    private List<SalesOrderShipmentSaveRequest> shipments;
 
     /**
      * 开票类型：0-未开票，1-已开票，2-其他类型。管理端新建时默认未开票。
