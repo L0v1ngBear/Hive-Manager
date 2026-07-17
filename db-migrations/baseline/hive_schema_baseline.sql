@@ -683,8 +683,6 @@ CREATE TABLE `sales_order` (
   `total_quantity` int DEFAULT NULL COMMENT '订单总数量',
   `information_channel` varchar(100) DEFAULT NULL COMMENT '信息渠道',
   `cancel_reason` varchar(500) DEFAULT NULL COMMENT '取消原因',
-  `express_company` varchar(100) DEFAULT NULL COMMENT '物流公司',
-  `express_no` varchar(100) DEFAULT NULL COMMENT '物流单号',
   `creator` varchar(50) DEFAULT NULL COMMENT '创建人',
   `updater` varchar(50) DEFAULT NULL COMMENT '更新人',
   `remark` varchar(500) DEFAULT NULL COMMENT '操作备注',
@@ -700,6 +698,27 @@ CREATE TABLE `sales_order` (
   KEY `idx_sales_order_tenant_status_update` (`tenant_code`,`status`,`update_time`),
   KEY `idx_sales_order_tenant_customer` (`tenant_code`,`customer_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='销售订单表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sales_order_shipment` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `tenant_code` varchar(50) NOT NULL,
+  `order_id` varchar(50) NOT NULL,
+  `logistics_company` varchar(100) NOT NULL,
+  `tracking_no` varchar(100) NOT NULL,
+  `sort_order` int NOT NULL DEFAULT 0,
+  `version` int NOT NULL DEFAULT 0,
+  `creator` varchar(64) DEFAULT NULL,
+  `updater` varchar(64) DEFAULT NULL,
+  `updater_name` varchar(100) DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_order_shipment_tracking` (`tenant_code`,`order_id`,`tracking_no`),
+  KEY `idx_order_shipment_order` (`tenant_code`,`order_id`,`sort_order`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;

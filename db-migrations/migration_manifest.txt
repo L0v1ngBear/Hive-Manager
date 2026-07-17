@@ -81,3 +81,4 @@ migrations/V20260714_001_permission_relation_convergence.sql
 migrations/V20260715_001_order_notes_and_material_approval.sql
 migrations/V20260715_002_installation_task_installer.sql
 migrations/V20260716_001_operation_log_table.sql
+migrations/V20260717_001_order_multi_shipment.sql
