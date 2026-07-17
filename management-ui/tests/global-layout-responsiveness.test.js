@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
-const style = read('src/style.css')
+const style = process.env.GLOBAL_LAYOUT_STYLE ?? read('src/style.css')
 const sidebar = read('src/layout/components/Sidebar.vue')
 const price = read('src/views/function/price/price.vue')
 const equipment = read('src/views/function/equipment/equipment.vue')
@@ -45,6 +45,21 @@ const topLevelCssRules = (block) => {
   return rules
 }
 
+const cssRule = (source, marker) => ({
+  selector: marker,
+  declarations: extractCssBlock(source, marker),
+})
+
+const mediaRules = (source, marker) => topLevelCssRules(extractCssBlock(source, marker)).map((rule) => {
+  const openBrace = rule.indexOf('{')
+  return {
+    selector: rule.slice(0, openBrace),
+    declarations: rule.slice(openBrace + 1, -1),
+  }
+})
+
+const hasRule = (rules, selector, declarations) => rules.some((rule) => selector.test(rule.selector) && declarations.test(rule.declarations))
+
 test('tablet rules do not force every direct business grid to one column', () => {
   const tabletRules = topLevelCssRules(extractCssBlock(style, '@media (max-width: 900px)'))
   const directBusinessGrid = /\.responsive-page-frame \.function-page-container\s*>\s*(?:\.grid|section\.grid|div\.grid)/
@@ -64,6 +79,31 @@ test('shared list layouts expose stable stats filters and horizontal tables', ()
   assert.match(price, /class="[^"]*\bfunction-stats-grid\b[^"]*"/)
   assert.match(price, /class="[^"]*\bfunction-filter-form\b[^"]*"/)
   assert.match(equipment, /class="function-filter-form/)
+})
+
+const responsiveTableWrap = () => cssRule(style, '.function-page-shell .responsive-table-wrap')
+const blockCardLayout = /\.responsive-data-table\s*,[\s\S]*\.responsive-data-table td\s*$/
+const tableHeader = /\.responsive-data-table thead\s*$/
+
+test('responsive table wrapper keeps horizontal scrolling stable', () => {
+  const tableWrap = responsiveTableWrap()
+
+  assert.match(tableWrap.declarations, /overflow-x\s*:\s*auto\s*!important/)
+  assert.match(tableWrap.declarations, /scrollbar-gutter\s*:\s*stable/)
+})
+
+test('responsive table rules retain native tables at tablet widths', () => {
+  const tabletRules = mediaRules(style, '@media (max-width: 900px)')
+
+  assert.equal(hasRule(tabletRules, blockCardLayout, /display\s*:\s*block/), false, '900px rules must retain native table layout')
+  assert.equal(hasRule(tabletRules, tableHeader, /display\s*:\s*none/), false, '900px rules must retain table headers')
+})
+
+test('responsive table rules convert native tables on compact screens', () => {
+  const compactRules = mediaRules(style, '@media (max-width: 640px)')
+
+  assert.equal(hasRule(compactRules, blockCardLayout, /display\s*:\s*block/), true, '640px rules must convert native tables to cards')
+  assert.equal(hasRule(compactRules, tableHeader, /display\s*:\s*none/), true, '640px rules must hide native table headers')
 })
 
 test('desktop sidebar opens by default and collapsed navigation is icon only', () => {
