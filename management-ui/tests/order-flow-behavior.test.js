@@ -12,12 +12,16 @@ async function loadOrderFlow() {
 
 test('advance plan preserves the old status before next and selects the approval message', async () => {
   const { createOrderAdvancePlan } = await loadOrderFlow()
-  const payload = { status: 'shipped', expressCompany: 'Hive Logistics', expressNo: 'HIVE-001' }
+  const payload = {
+    status: 'shipped',
+    shipments: [{ id: 7, logisticsCompany: 'Hive Logistics', trackingNo: 'HIVE-001', version: 2 }]
+  }
 
   const shippingPlan = createOrderAdvancePlan(payload, 'pending_ship', 'shipped')
   assert.equal(shippingPlan.savePayload.status, 'pending_ship')
   assert.equal(shippingPlan.targetStatus, 'shipped')
   assert.equal(shippingPlan.successMessage, '已提交发货审批，审批通过后进入已发货')
+  assert.deepEqual(shippingPlan.savePayload.shipments, payload.shipments)
   assert.equal(payload.status, 'shipped', 'the source payload must not be mutated')
 
   const materialPlan = createOrderAdvancePlan(payload, 'pending_pay', 'pending_material')

@@ -15,11 +15,34 @@ function functionSource(source, name, nextName) {
 
 test('each shipment logistics query is triggered only when its popover opens', () => {
   const loadOrdersSource = functionSource(orderSource, 'loadOrders', 'logisticsTrackingKey')
+  const trackingKeySource = functionSource(orderSource, 'logisticsTrackingKey', 'logisticsTrackingState')
 
   assert.match(orderSource, /<el-popover[\s\S]*v-for="shipment in row\.shipments"[\s\S]*trigger="hover"/)
+  assert.match(orderSource, /:key="logisticsTrackingKey\(row, shipment\)"/)
   assert.match(orderSource, /@show="loadLogisticsTracking\(row, shipment\)"/)
   assert.match(orderSource, /const logisticsTrackingStates = reactive\(\{\}\)/)
-  assert.match(orderSource, /function logisticsTrackingKey\(row = \{\}, shipment = \{\}\)[\s\S]*row\.orderId[\s\S]*shipment\.id/)
+  assert.match(trackingKeySource, /row\.orderId/)
+  assert.match(trackingKeySource, /shipment\.id/)
+  assert.match(trackingKeySource, /shipment\.logisticsCompany/)
+  assert.match(trackingKeySource, /shipment\.trackingNo/)
+  assert.match(trackingKeySource, /shipment\.version/)
+  const trackingKey = Function(`return (${trackingKeySource.trim()})`)()
+  const row = { orderId: 'SO-001' }
+  const shipment = {
+    id: 7,
+    logisticsCompany: 'shunfeng',
+    trackingNo: 'SF123456',
+    version: 2
+  }
+  const originalKey = trackingKey(row, shipment)
+  assert.notEqual(trackingKey({ orderId: 'SO-002' }, shipment), originalKey)
+  assert.notEqual(trackingKey(row, { ...shipment, logisticsCompany: 'zhongtong' }), originalKey)
+  assert.notEqual(trackingKey(row, { ...shipment, trackingNo: 'ZT123456' }), originalKey)
+  assert.notEqual(trackingKey(row, { ...shipment, version: 3 }), originalKey)
+  assert.notEqual(
+    trackingKey(row, { logisticsCompany: 'shunfeng', trackingNo: 'NEW-002', version: 0 }),
+    trackingKey(row, { logisticsCompany: 'shunfeng', trackingNo: 'NEW-001', version: 0 })
+  )
   assert.match(orderSource, /function logisticsTrackingState\(row = \{\}, shipment = \{\}\)/)
   assert.match(orderSource, /function loadLogisticsTracking\(row, shipment\)/)
   assert.match(orderSource, /getOrderLogisticsTracking\(row\.orderId, shipment\.id\)/)

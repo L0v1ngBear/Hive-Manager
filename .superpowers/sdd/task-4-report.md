@@ -78,11 +78,17 @@ The run compiled the standard Maven project lifecycle and exited normally. Its d
 - `OrderService.getSalesOrderForLogisticsTracking` is used only for tenant/data-scope validation and customer phone.
 - Company and tracking number come from `OrderShipmentService.requireShipment`.
 - The shipment's tenant, order ID, and shipment ID are defensively checked before fingerprinting or calling `Kuaidi100Client`.
-- Cache input is exactly `tenant|order|shipmentId|trackingNo`.
+- Cache input is exactly `tenant|order|shipmentId|trimmedCompany|trimmedTrackingNo`.
 - New inserts emit `add_order_shipment`; successful changed updates emit `update_order_shipment`; unchanged and failed optimistic-lock updates emit no event.
 - Audit `argsJson` contains only shipment ID and a SHA-256 tracking fingerprint. Tests assert the complete tracking number is absent.
 - No `expressCompany` or `expressNo` field was restored on `SalesOrder`.
 - Task 3 shipped restoration validates persisted shipments before mutating status or writing the order.
+
+## Cache Identity Review Correction (2026-07-17)
+
+The original Task 4 cache identity omitted the shipment's current logistics company. That allowed a shipment changed to another company while retaining the same tracking number to reuse the previous company's cached response. The corrected identity fingerprints `tenant|order|shipmentId|trimmedCompany|trimmedTrackingNo`; both company and tracking number come from the existing `required(...)` validation/trim path.
+
+`OrderLogisticsTrackingServiceTest` now asserts the complete corrected fingerprint, including a whitespace-padded company and tracking number fixture to prove normalization occurs before fingerprinting.
 
 ## Concerns
 

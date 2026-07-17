@@ -132,7 +132,12 @@ class OrderMultiShipmentLifecycleTest {
         assertThat(shipments.getAnnotation(Size.class).max()).isEqualTo(50);
 
         assertThat(fieldNames(SalesOrder.class)).doesNotContain("expressCompany", "expressNo");
-        assertThat(fieldNames(SalesOrderUpdateRequest.class)).doesNotContain("expressCompany", "expressNo", "shipments");
+        assertThat(fieldNames(SalesOrderUpdateRequest.class)).contains("shipments");
+        assertThat(fieldNames(SalesOrderUpdateRequest.class)).doesNotContain("expressCompany", "expressNo");
+        Field advanceShipments = SalesOrderUpdateRequest.class.getDeclaredField("shipments");
+        assertThat(advanceShipments.getType()).isEqualTo(List.class);
+        assertThat(advanceShipments.getAnnotation(Valid.class)).isNotNull();
+        assertThat(advanceShipments.getAnnotation(Size.class).max()).isEqualTo(50);
         assertThat(fieldNames(SalesOrderPageVO.class)).contains("shipments");
         assertThat(fieldNames(SalesOrderDetailVO.class)).contains("shipments");
     }
@@ -234,14 +239,17 @@ class OrderMultiShipmentLifecycleTest {
     @Test
     void advanceValidatesOnlyPersistedShipments() {
         SalesOrder order = order("SO-100", "pending_ship");
+        SalesOrderUpdateRequest request = new SalesOrderUpdateRequest();
+        request.setShipments(List.of(shipmentRequest("STALE-100")));
         when(salesOrderMapper.selectByOrderIdForUpdate("TENANT_001", "SO-100")).thenReturn(order);
         when(orderShipmentService.listShipments("TENANT_001", "SO-100")).thenReturn(List.of());
 
-        assertThatThrownBy(() -> service.advanceSalesOrderToNextStage("SO-100", new SalesOrderUpdateRequest()))
+        assertThatThrownBy(() -> service.advanceSalesOrderToNextStage("SO-100", request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("至少填写一条物流信息");
 
         verify(orderShipmentService).listShipments("TENANT_001", "SO-100");
+        verify(orderShipmentService, never()).saveShipments(anyString(), anyString(), any());
         verify(salesOrderMapper, never()).updateById(any());
     }
 

@@ -81,7 +81,7 @@ public class OrderLogisticsTrackingService {
         String expressNo = required(shipment.getTrackingNo(), "Shipment tracking number is required");
         String companyCode = resolveCompanyCode(company);
         String cacheSource = String.join("|", order.getTenantCode(), orderId,
-                String.valueOf(shipmentId), shipment.getTrackingNo());
+                String.valueOf(shipmentId), company, expressNo);
         String cacheKey = externalApiGuardService.fingerprint(cacheSource);
 
         OrderLogisticsTrackingVO cached = readCachedTracking(cacheKey);

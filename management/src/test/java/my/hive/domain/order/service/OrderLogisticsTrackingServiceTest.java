@@ -27,16 +27,17 @@ import static org.mockito.Mockito.when;
 class OrderLogisticsTrackingServiceTest {
 
     @Test
-    void queriesShipmentCourierAndCachesByTenantOrderShipmentAndTrackingNumber() {
+    void queriesShipmentCourierAndCachesByTenantOrderShipmentCompanyAndTrackingNumber() {
         OrderService orderService = mock(OrderService.class);
         OrderShipmentService shipmentService = mock(OrderShipmentService.class);
         Kuaidi100Client client = mock(Kuaidi100Client.class);
         ExternalApiGuardService guard = mock(ExternalApiGuardService.class);
         SalesOrder order = order();
-        SalesOrderShipment shipment = shipment(7L, "\u987a\u4e30\u901f\u8fd0", "SF123456");
+        SalesOrderShipment shipment = shipment(7L, "  \u987a\u4e30\u901f\u8fd0  ", "  SF123456  ");
         when(orderService.getSalesOrderForLogisticsTracking("SO-001")).thenReturn(order);
         when(shipmentService.requireShipment("TENANT_001", "SO-001", 7L)).thenReturn(shipment);
-        when(guard.fingerprint("TENANT_001|SO-001|7|SF123456")).thenReturn("cache-fingerprint");
+        when(guard.fingerprint("TENANT_001|SO-001|7|\u987a\u4e30\u901f\u8fd0|SF123456"))
+                .thenReturn("cache-fingerprint");
         when(guard.fingerprint("SF123456")).thenReturn("tracking-fingerprint");
         when(guard.getCachedResponse("kuaidi100", "realtime-query", "cache-fingerprint")).thenReturn(null);
 
@@ -55,7 +56,7 @@ class OrderLogisticsTrackingServiceTest {
         assertThat(result.isCached()).isFalse();
         assertThat(result.getCacheExpiresAt()).isAfter(Instant.now().plus(Duration.ofMinutes(29)));
         verify(shipmentService).requireShipment("TENANT_001", "SO-001", 7L);
-        verify(guard).fingerprint("TENANT_001|SO-001|7|SF123456");
+        verify(guard).fingerprint("TENANT_001|SO-001|7|\u987a\u4e30\u901f\u8fd0|SF123456");
         verify(client).query("shunfeng", "SF123456", "13800000000");
 
         ArgumentCaptor<Duration> ttl = ArgumentCaptor.forClass(Duration.class);
@@ -101,7 +102,7 @@ class OrderLogisticsTrackingServiceTest {
         when(orderService.getSalesOrderForLogisticsTracking("SO-001")).thenReturn(order());
         when(shipmentService.requireShipment("TENANT_001", "SO-001", 7L))
                 .thenReturn(shipment(7L, "zhongtong", "ZT123456"));
-        when(guard.fingerprint("TENANT_001|SO-001|7|ZT123456")).thenReturn("cache-fingerprint");
+        when(guard.fingerprint("TENANT_001|SO-001|7|zhongtong|ZT123456")).thenReturn("cache-fingerprint");
 
         OrderLogisticsTrackingVO cached = new OrderLogisticsTrackingVO();
         cached.setCompany("zhongtong");
@@ -144,7 +145,7 @@ class OrderLogisticsTrackingServiceTest {
         when(orderService.getSalesOrderForLogisticsTracking("SO-001")).thenReturn(order());
         when(shipmentService.requireShipment("TENANT_001", "SO-001", 7L))
                 .thenReturn(shipment(7L, "yunda", "YD123456"));
-        when(guard.fingerprint("TENANT_001|SO-001|7|YD123456")).thenReturn("cache-fingerprint");
+        when(guard.fingerprint("TENANT_001|SO-001|7|yunda|YD123456")).thenReturn("cache-fingerprint");
         when(guard.fingerprint("YD123456")).thenReturn("tracking-fingerprint");
         when(client.query("yunda", "YD123456", null)).thenReturn(new OrderLogisticsTrackingVO());
 
@@ -163,7 +164,7 @@ class OrderLogisticsTrackingServiceTest {
         when(orderService.getSalesOrderForLogisticsTracking("SO-001")).thenReturn(order());
         when(shipmentService.requireShipment("TENANT_001", "SO-001", 7L))
                 .thenReturn(shipment(7L, "shunfeng", "SF123456"));
-        when(guard.fingerprint("TENANT_001|SO-001|7|SF123456")).thenReturn("cache-fingerprint");
+        when(guard.fingerprint("TENANT_001|SO-001|7|shunfeng|SF123456")).thenReturn("cache-fingerprint");
         when(guard.fingerprint("SF123456")).thenReturn("tracking-fingerprint");
         when(guard.getCachedResponse("kuaidi100", "realtime-query", "cache-fingerprint")).thenReturn(null);
         when(guard.getCachedResponse("kuaidi100", "realtime-query-error", "cache-fingerprint"))

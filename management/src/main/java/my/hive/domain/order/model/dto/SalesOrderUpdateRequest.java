@@ -1,5 +1,7 @@
 package my.hive.domain.order.model.dto;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.List;
@@ -19,4 +21,8 @@ public class SalesOrderUpdateRequest {
     private String remark;
 
     private List<Long> auditorIds;
+
+    @Valid
+    @Size(max = 50, message = "每个订单最多添加50条物流信息")
+    private List<SalesOrderShipmentSaveRequest> shipments;
 }

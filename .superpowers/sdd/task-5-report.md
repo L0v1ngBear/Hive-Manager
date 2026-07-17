@@ -91,6 +91,58 @@ exit code 0
 - `git diff --check` 无空白错误；仅有仓库现有 Windows 行尾提示。
 - 中文源文件按 UTF-8 读取、编辑和构建，合同测试直接匹配中文文案，未发现乱码。
 
+## Review Remediation (2026-07-17, base `ab0d227`)
+
+### RED
+
+Frontend contract command:
+
+```powershell
+cd D:\HiveManager\management-ui
+node --test tests/order-logistics-tracking.test.js tests/order-multi-shipment-ui.test.js tests/order-information-channel-and-advance.test.js tests/order-flow-behavior.test.js tests/order-permission-hardening.test.js
+```
+
+Result: exit code `1`; 26 tests, 24 passed and 2 failed. The failures proved that the tracking state key omitted current company/tracking/version and that the table still used the `expressNo` internal column key.
+
+Backend contract command:
+
+```powershell
+cd D:\HiveManager\management
+.\mvnw.cmd "-Dtest=OrderLogisticsTrackingServiceTest,OrderMultiShipmentLifecycleTest" test
+```
+
+Result: `BUILD FAILURE`; 16 tests, 2 failures and 3 errors. The DTO reflection contract could not find `SalesOrderUpdateRequest.shipments`; logistics mocks accepted only the corrected company-aware fingerprint, exposing that production still generated the old identity.
+
+### GREEN
+
+- The same frontend command passed 26/26.
+- The same backend command passed 16/16 with `BUILD SUCCESS`.
+- `node --test tests/order-*.test.js` passed 35/35.
+- `npm run build` succeeded with Vite 8.1.3 and 1,861 transformed modules.
+
+### Changes
+
+- `logisticsTrackingKey` now includes order ID, shipment ID (or a new-row tracking-number identity), current logistics company, tracking number, and version. The popover Vue key uses the same identity. Behavioral assertions prove changing any identity input produces a new key.
+- Backend cache input is now `tenant|order|shipmentId|trimmedCompany|trimmedTrackingNo`.
+- `SalesOrderUpdateRequest.shipments` is formally declared as `@Valid @Size(max = 50) List<SalesOrderShipmentSaveRequest>` for `/advance` JSON binding.
+- Lifecycle coverage passes a stale request list to `advanceSalesOrderToNextStage`, proves persisted shipments are authoritative, and verifies `saveShipments` is never called by advance.
+- `order-flow-behavior.test.js` uses the shipment-array payload model.
+- The order table internal key, export branch, generated column CSS, and tests use `shipments`; local table settings moved to `order.list.commercial.v5` so saved `expressNo` layouts cannot survive the rename.
+
+### Self-Review
+
+- `rg` found no `expressNo` or `expressCompany` reference in `management-ui/src/views/function/order/order.vue` or the order-flow behavior fixture.
+- Installation-task scalar logistics fields and the tracking response VO were not changed.
+- `OrderService.advanceSalesOrderToNextStage` still validates only `orderShipmentService.listShipments(...)`; only full create/save paths call `saveShipments(...)`.
+- Cache identity uses the already validated and trimmed `company` and `expressNo` locals.
+- `git diff --check` reported no whitespace errors; the repository's existing CRLF conversion warnings remain.
+
+### Review Concerns
+
+- Maven still emits the existing Byte Buddy dynamic-agent/bootstrap warnings.
+- Vite reports plugin timing information because terser dominates build time; the build exits successfully.
+- The pre-existing `.superpowers/sdd/progress.md` modification remains excluded from this fix commit.
+
 ## Concerns
 
 - 无阻塞问题。后端 `/advance` 当前 DTO 不声明 `shipments`，但管理端会先通过完整保存接口持久化物流，再按本任务合同把同一 `shipments` 列表传给推进接口。

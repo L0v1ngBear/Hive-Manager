@@ -303,14 +303,14 @@
                   {{ orderCoreMeta(row) }}
                 </div>
               </template>
-              <template v-else-if="column.key === 'expressNo'">
+              <template v-else-if="column.key === 'shipments'">
                 <div v-if="row.shipments?.length" class="order-shipment-list">
                   <div v-if="row.shipments.length > 1" class="order-shipment-count">
                     共 {{ row.shipments.length }} 单
                   </div>
                   <el-popover
                       v-for="shipment in row.shipments"
-                      :key="shipment.id || shipment.trackingNo"
+                      :key="logisticsTrackingKey(row, shipment)"
                       trigger="hover"
                       placement="right-start"
                       :width="390"
@@ -1043,7 +1043,7 @@ const defaultOrderTableColumns = [
   {key: 'customer', label: '客户 / 项目'},
   {key: 'core', label: '订单信息'},
   {key: 'informationChannel', label: '信息渠道'},
-  {key: 'expressNo', label: '物流单号'},
+  {key: 'shipments', label: '物流单号'},
   {key: 'status', label: '状态'},
   {key: 'progress', label: '进度'},
   {key: 'time', label: '时间'}
@@ -1052,7 +1052,7 @@ const {
   orderedColumns: orderTableColumns,
   moveColumn: moveOrderTableColumn,
   resetColumns: resetOrderTableColumns
-} = useLocalTableColumns('order.list.commercial.v4', defaultOrderTableColumns)
+} = useLocalTableColumns('order.list.commercial.v5', defaultOrderTableColumns)
 const MAX_ORDER_EXPORT_ROWS = 2000
 const orderTableColumnCount = computed(() => orderTableColumns.value.length + 1)
 const orderColumnClass = (key) => `order-column-${key}`
@@ -1842,7 +1842,14 @@ async function loadOrders() {
 }
 
 function logisticsTrackingKey(row = {}, shipment = {}) {
-  return `${row.orderId || ''}::${shipment.id || ''}`
+  const shipmentIdentity = shipment.id ?? `new:${shipment.trackingNo || ''}`
+  return JSON.stringify([
+    row.orderId || '',
+    shipmentIdentity,
+    shipment.logisticsCompany || '',
+    shipment.trackingNo || '',
+    shipment.version ?? ''
+  ])
 }
 
 function logisticsTrackingState(row = {}, shipment = {}) {
@@ -1923,7 +1930,7 @@ function formatOrderExportCell(row, key) {
   if (key === 'brand') return row.brandName || ''
   if (key === 'core') return orderCoreExportText(row)
   if (key === 'informationChannel') return row.informationChannel || ''
-  if (key === 'expressNo') return (row.shipments || [])
+  if (key === 'shipments') return (row.shipments || [])
       .map(shipment => shipment.trackingNo)
       .filter(Boolean)
       .join('、')
@@ -3985,7 +3992,7 @@ function fulfillmentProcessText(row = {}) {
   min-width: 11rem;
 }
 
-.order-column-expressNo {
+.order-column-shipments {
   width: 12rem;
   min-width: 11rem;
 }
@@ -4009,7 +4016,7 @@ function fulfillmentProcessText(row = {}) {
 .order-column-customer,
 .order-column-core,
 .order-column-informationChannel,
-.order-column-expressNo {
+.order-column-shipments {
   overflow: hidden;
 }
 
@@ -4017,7 +4024,7 @@ function fulfillmentProcessText(row = {}) {
 .order-column-customer > *,
 .order-column-core > *,
 .order-column-informationChannel > *,
-.order-column-expressNo > * {
+.order-column-shipments > * {
   min-width: 0;
 }
 
