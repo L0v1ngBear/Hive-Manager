@@ -50,7 +50,9 @@ class UniqueRuntimeComponentTest {
         assertThat(context.getEnvironment().getProperty("server.servlet.context-path")).isEqualTo("/api");
         assertResolvedMapping(AdminAuthController.class, HttpMethod.POST, "/auth/admin/login");
         assertResolvedMapping(OrderController.class, HttpMethod.GET, "/orders");
-        assertResolvedMapping(OrderController.class, HttpMethod.GET, "/orders/{orderId}/logistics-tracking");
+        assertResolvedMapping(OrderController.class, HttpMethod.GET,
+                "/orders/{orderId}/shipments/{shipmentId}/logistics-tracking");
+        assertNoResolvedMapping(OrderController.class, HttpMethod.GET, "/orders/{orderId}/logistics-tracking");
         assertResolvedMapping(OrderController.class, HttpMethod.POST, "/orders");
         assertResolvedMapping(OrderController.class, HttpMethod.POST, "/orders/{orderId}/process");
         assertNoResolvedMapping(OrderController.class, HttpMethod.GET, "/orders/health");

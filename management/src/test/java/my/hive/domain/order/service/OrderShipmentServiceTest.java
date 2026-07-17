@@ -8,6 +8,9 @@ import my.hive.domain.order.model.entity.SalesOrderShipment;
 import my.hive.domain.order.model.vo.SalesOrderShipmentVO;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
+import my.hive.shared.external.ExternalApiGuardService;
+import my.hive.shared.log.OperationLogCollector;
+import my.hive.shared.log.OperationLogEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,13 +34,18 @@ class OrderShipmentServiceTest {
 
     private SalesOrderShipmentMapper mapper;
     private EmployeeMapper employeeMapper;
+    private OperationLogCollector operationLogCollector;
+    private ExternalApiGuardService externalApiGuardService;
     private OrderShipmentService service;
 
     @BeforeEach
     void setUp() {
         mapper = mock(SalesOrderShipmentMapper.class);
         employeeMapper = mock(EmployeeMapper.class);
-        service = new OrderShipmentService(mapper, employeeMapper);
+        operationLogCollector = mock(OperationLogCollector.class);
+        externalApiGuardService = mock(ExternalApiGuardService.class);
+        service = new OrderShipmentService(
+                mapper, employeeMapper, operationLogCollector, externalApiGuardService);
         TenantPermissionContext.init("TENANT_001", 9L, Set.of());
 
         Employee employee = new Employee();
@@ -54,6 +62,11 @@ class OrderShipmentServiceTest {
     @Test
     void createsTrimmedShipmentWithTrustedOperator() {
         when(mapper.selectList(any())).thenReturn(List.of(), List.of(existingShipment(101L, 0)));
+        when(mapper.insert(any())).thenAnswer(invocation -> {
+            invocation.<SalesOrderShipment>getArgument(0).setId(101L);
+            return 1;
+        });
+        when(externalApiGuardService.fingerprint("SF-001")).thenReturn("tracking-fingerprint");
         SalesOrderShipmentSaveRequest request = request(null, null, "  SF Express  ", "  SF-001  ");
 
         List<SalesOrderShipmentVO> result = service.saveShipments("TENANT_001", "SO-1", List.of(request));
@@ -67,6 +80,17 @@ class OrderShipmentServiceTest {
         assertEquals("9", shipment.getCreator());
         assertEquals("Test Operator", shipment.getUpdaterName());
         assertEquals(1, result.size());
+
+        ArgumentCaptor<OperationLogEvent> eventCaptor = ArgumentCaptor.forClass(OperationLogEvent.class);
+        verify(operationLogCollector).collect(eventCaptor.capture());
+        OperationLogEvent event = eventCaptor.getValue();
+        assertEquals("TENANT_001", event.getTenantCode());
+        assertEquals(9L, event.getUserId());
+        assertEquals("add_order_shipment", event.getAction());
+        assertEquals("order_shipment", event.getBizType());
+        assertEquals("SO-1", event.getBizNo());
+        assertEquals("{\"shipmentId\":101,\"trackingFingerprint\":\"tracking-fingerprint\"}", event.getArgsJson());
+        org.junit.jupiter.api.Assertions.assertFalse(event.getArgsJson().contains("SF-001"));
     }
 
     @Test
@@ -75,6 +99,7 @@ class OrderShipmentServiceTest {
         when(mapper.selectList(any())).thenReturn(List.of(existing), List.of(existing));
         when(mapper.updateShipment(eq(11L), eq("TENANT_001"), eq("SO-1"), eq(2),
                 eq("SF Express"), eq("SF-NEW"), eq(0), any(), any(), any())).thenReturn(1);
+        when(externalApiGuardService.fingerprint("SF-NEW")).thenReturn("updated-fingerprint");
 
         List<SalesOrderShipmentVO> result = service.saveShipments("TENANT_001", "SO-1",
                 List.of(request(11L, 2, "SF Express", "SF-NEW")));
@@ -82,6 +107,13 @@ class OrderShipmentServiceTest {
         verify(mapper).updateShipment(eq(11L), eq("TENANT_001"), eq("SO-1"), eq(2),
                 eq("SF Express"), eq("SF-NEW"), eq(0), any(), any(), any());
         assertEquals(1, result.size());
+
+        ArgumentCaptor<OperationLogEvent> eventCaptor = ArgumentCaptor.forClass(OperationLogEvent.class);
+        verify(operationLogCollector).collect(eventCaptor.capture());
+        OperationLogEvent event = eventCaptor.getValue();
+        assertEquals("update_order_shipment", event.getAction());
+        assertEquals("{\"shipmentId\":11,\"trackingFingerprint\":\"updated-fingerprint\"}", event.getArgsJson());
+        org.junit.jupiter.api.Assertions.assertFalse(event.getArgsJson().contains("SF-NEW"));
     }
 
     @Test
@@ -92,6 +124,7 @@ class OrderShipmentServiceTest {
         service.saveShipments("TENANT_001", "SO-1", List.of(request(11L, 2, "SF Express", "SF-001")));
 
         verify(mapper, never()).updateShipment(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(operationLogCollector, never()).collect(any());
     }
 
     @Test
@@ -152,6 +185,7 @@ class OrderShipmentServiceTest {
                         List.of(request(11L, 2, "SF Express", "SF-NEW"))));
 
         assertEquals(409, error.getCode());
+        verify(operationLogCollector, never()).collect(any());
     }
 
     @Test

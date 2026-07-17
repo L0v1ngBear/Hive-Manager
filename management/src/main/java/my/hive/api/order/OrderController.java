@@ -78,10 +78,11 @@ public class OrderController {
         return Result.success(orderService.getSalesOrderDetail(orderId));
     }
 
-    @GetMapping("/{orderId}/logistics-tracking")
+    @GetMapping("/{orderId}/shipments/{shipmentId}/logistics-tracking")
     @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_DETAIL, message = "您没有权限查看订单物流")
-    public Result<OrderLogisticsTrackingVO> logisticsTracking(@PathVariable String orderId) {
-        return Result.success(orderLogisticsTrackingService.getTracking(orderId));
+    public Result<OrderLogisticsTrackingVO> logisticsTracking(@PathVariable String orderId,
+                                                               @PathVariable Long shipmentId) {
+        return Result.success(orderLogisticsTrackingService.getTracking(orderId, shipmentId));
     }
 
     @PostMapping

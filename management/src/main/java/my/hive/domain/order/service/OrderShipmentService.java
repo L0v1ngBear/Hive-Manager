@@ -9,6 +9,9 @@ import my.hive.domain.order.model.entity.SalesOrderShipment;
 import my.hive.domain.order.model.vo.SalesOrderShipmentVO;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
+import my.hive.shared.external.ExternalApiGuardService;
+import my.hive.shared.log.OperationLogCollector;
+import my.hive.shared.log.OperationLogEvent;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,11 +34,17 @@ public class OrderShipmentService {
 
     private final SalesOrderShipmentMapper shipmentMapper;
     private final EmployeeMapper employeeMapper;
+    private final OperationLogCollector operationLogCollector;
+    private final ExternalApiGuardService externalApiGuardService;
 
     public OrderShipmentService(SalesOrderShipmentMapper shipmentMapper,
-                                EmployeeMapper employeeMapper) {
+                                EmployeeMapper employeeMapper,
+                                OperationLogCollector operationLogCollector,
+                                ExternalApiGuardService externalApiGuardService) {
         this.shipmentMapper = shipmentMapper;
         this.employeeMapper = employeeMapper;
+        this.operationLogCollector = operationLogCollector;
+        this.externalApiGuardService = externalApiGuardService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -85,6 +94,7 @@ public class OrderShipmentService {
                 shipment.setCreateTime(now);
                 shipment.setUpdateTime(now);
                 shipmentMapper.insert(shipment);
+                collectShipmentEvent(tenantCode, orderId, userId, shipment.getId(), request.trackingNo(), true, now);
                 continue;
             }
 
@@ -100,6 +110,7 @@ public class OrderShipmentService {
             if (changed != 1) {
                 throw new BusinessException(409, "Shipment has been modified by another user");
             }
+            collectShipmentEvent(tenantCode, orderId, userId, existing.getId(), request.trackingNo(), false, now);
         }
         return listShipments(tenantCode, orderId);
     }
@@ -205,6 +216,31 @@ public class OrderShipmentService {
         return !request.logisticsCompany().equals(existing.getLogisticsCompany())
                 || !request.trackingNo().equals(existing.getTrackingNo())
                 || !Integer.valueOf(sortOrder).equals(existing.getSortOrder());
+    }
+
+    private void collectShipmentEvent(String tenantCode,
+                                      String orderId,
+                                      Long userId,
+                                      Long shipmentId,
+                                      String trackingNo,
+                                      boolean isNew,
+                                      LocalDateTime createTime) {
+        String fingerprint = externalApiGuardService.fingerprint(trackingNo);
+        OperationLogEvent event = new OperationLogEvent();
+        event.setTenantCode(tenantCode);
+        event.setUserId(userId);
+        event.setModule("order");
+        event.setAction(isNew ? "add_order_shipment" : "update_order_shipment");
+        event.setBizType("order_shipment");
+        event.setBizNo(orderId);
+        event.setDescription(isNew
+                ? "\u65b0\u589e\u8ba2\u5355\u7269\u6d41\u8bb0\u5f55"
+                : "\u66f4\u65b0\u8ba2\u5355\u7269\u6d41\u8bb0\u5f55");
+        event.setArgsJson("{\"shipmentId\":" + shipmentId
+                + ",\"trackingFingerprint\":\"" + fingerprint + "\"}");
+        event.setSuccess(true);
+        event.setCreateTime(createTime);
+        operationLogCollector.collect(event);
     }
 
     private SalesOrderShipmentVO toVO(SalesOrderShipment shipment) {

@@ -871,6 +871,7 @@ public class OrderService {
         }
         validateSalesRollbackTarget(order, oldStatus, targetStatus);
         assertSalesOrderStagePermission(order, oldStatus);
+        validatePersistedShippingInfo(targetStatus, order);
         order.setStatus(targetStatus);
         order.setUpdateTime(LocalDateTime.now());
         salesOrderMapper.updateById(order);
@@ -889,6 +890,7 @@ public class OrderService {
         }
         String oldStatus = order.getStatus();
         String restoredStatus = resolveStatusBeforePendingCancel(orderId);
+        validatePersistedShippingInfo(restoredStatus, order);
         order.setStatus(restoredStatus);
         order.setUpdateTime(LocalDateTime.now());
         salesOrderMapper.updateById(order);

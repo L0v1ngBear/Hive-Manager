@@ -19,6 +19,7 @@ import my.hive.domain.order.model.dto.SalesOrderSaveRequest;
 import my.hive.domain.order.model.dto.SalesOrderShipmentSaveRequest;
 import my.hive.domain.order.model.dto.SalesOrderUpdateRequest;
 import my.hive.domain.order.model.entity.SalesOrder;
+import my.hive.domain.order.model.entity.SalesOrderStatusLog;
 import my.hive.domain.order.model.vo.SalesOrderDetailVO;
 import my.hive.domain.order.model.vo.SalesOrderPageVO;
 import my.hive.domain.order.model.vo.SalesOrderShipmentVO;
@@ -96,6 +97,7 @@ class OrderMultiShipmentLifecycleTest {
                 "order:status:pending-confirm:view",
                 "order:status:pending-ship:view",
                 "order:status:shipped:view",
+                "order:status:completed:view",
                 "order:status:pending-ship:advance",
                 "order:audit:shipment"
         ));
@@ -244,6 +246,38 @@ class OrderMultiShipmentLifecycleTest {
     }
 
     @Test
+    void approvedRollbackToShippedRejectsEmptyPersistedShipmentsBeforeWrite() {
+        SalesOrder order = order("SO-100", "completed");
+        SalesOrderStatusLog rollbackLog = statusLog("completed", "shipped");
+        when(salesOrderMapper.selectOne(any())).thenReturn(order);
+        when(salesOrderStatusLogMapper.selectOne(any())).thenReturn(rollbackLog);
+        when(orderShipmentService.listShipments("TENANT_001", "SO-100")).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.approveSalesOrderRollback("SO-100", "approved"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("\u81f3\u5c11\u586b\u5199\u4e00\u6761\u7269\u6d41\u4fe1\u606f");
+
+        verify(orderShipmentService).listShipments("TENANT_001", "SO-100");
+        verify(salesOrderMapper, never()).updateById(any());
+    }
+
+    @Test
+    void rejectedCancellationRestoringShippedRejectsEmptyPersistedShipmentsBeforeWrite() {
+        SalesOrder order = order("SO-100", "pending_cancel");
+        SalesOrderStatusLog cancelLog = statusLog("shipped", "pending_cancel");
+        when(salesOrderMapper.selectOne(any())).thenReturn(order);
+        when(salesOrderStatusLogMapper.selectOne(any())).thenReturn(cancelLog);
+        when(orderShipmentService.listShipments("TENANT_001", "SO-100")).thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.rejectPendingCancelSalesOrder("SO-100", "rejected"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("\u81f3\u5c11\u586b\u5199\u4e00\u6761\u7269\u6d41\u4fe1\u606f");
+
+        verify(orderShipmentService).listShipments("TENANT_001", "SO-100");
+        verify(salesOrderMapper, never()).updateById(any());
+    }
+
+    @Test
     void orderWritesAreRollbackTransactionsAndInstallationSyncIsIndependent() throws Exception {
         assertRollbackTransaction("createSalesOrder", SalesOrderSaveRequest.class);
         assertRollbackTransaction("saveSalesOrder", String.class, SalesOrderSaveRequest.class);
@@ -295,6 +329,14 @@ class OrderMultiShipmentLifecycleTest {
         order.setStatus(status);
         order.setOrderCategory("bulk");
         return order;
+    }
+
+    private SalesOrderStatusLog statusLog(String oldStatus, String newStatus) {
+        SalesOrderStatusLog log = new SalesOrderStatusLog();
+        log.setOrderId("SO-100");
+        log.setOldStatus(oldStatus);
+        log.setNewStatus(newStatus);
+        return log;
     }
 
     private SalesOrderShipmentSaveRequest shipmentRequest(String trackingNo) {

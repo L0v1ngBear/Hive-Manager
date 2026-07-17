@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import lombok.RequiredArgsConstructor;
 import my.hive.domain.order.model.entity.SalesOrder;
+import my.hive.domain.order.model.entity.SalesOrderShipment;
 import my.hive.domain.order.model.vo.OrderLogisticsTrackingVO;
 import my.hive.infrastructure.logistics.Kuaidi100Client;
 import my.hive.shared.exception.BusinessException;
@@ -14,6 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -57,20 +59,30 @@ public class OrderLogisticsTrackingService {
     );
 
     private final OrderService orderService;
+    private final OrderShipmentService orderShipmentService;
     private final Kuaidi100Client kuaidi100Client;
     private final ExternalApiGuardService externalApiGuardService;
     private final ConcurrentHashMap<String, Object> queryLocks = new ConcurrentHashMap<>();
 
-    public OrderLogisticsTrackingVO getTracking(String orderId) {
+    public OrderLogisticsTrackingVO getTracking(String orderId, Long shipmentId) {
         if (orderId == null || orderId.isBlank()) {
             throw new BusinessException("订单编号不能为空");
         }
-        SalesOrder order = orderService.getSalesOrderForLogisticsTracking(orderId.trim());
-        String company = required(order.getExpressCompany(), "订单未填写物流公司");
-        String expressNo = required(order.getExpressNo(), "订单未填写物流单号");
+        orderId = orderId.trim();
+        SalesOrder order = orderService.getSalesOrderForLogisticsTracking(orderId);
+        SalesOrderShipment shipment = orderShipmentService.requireShipment(
+                order.getTenantCode(), orderId, shipmentId);
+        if (!Objects.equals(order.getTenantCode(), shipment.getTenantCode())
+                || !Objects.equals(orderId, shipment.getOrderId())
+                || !Objects.equals(shipmentId, shipment.getId())) {
+            throw new BusinessException("Shipment does not exist or does not belong to this order");
+        }
+        String company = required(shipment.getLogisticsCompany(), "Shipment logistics company is required");
+        String expressNo = required(shipment.getTrackingNo(), "Shipment tracking number is required");
         String companyCode = resolveCompanyCode(company);
-        String cacheKey = externalApiGuardService.fingerprint(
-                safe(order.getTenantCode()) + "|" + companyCode + "|" + expressNo);
+        String cacheSource = String.join("|", order.getTenantCode(), orderId,
+                String.valueOf(shipmentId), shipment.getTrackingNo());
+        String cacheKey = externalApiGuardService.fingerprint(cacheSource);
 
         OrderLogisticsTrackingVO cached = readCachedTracking(cacheKey);
         if (cached != null) {
@@ -215,10 +227,6 @@ public class OrderLogisticsTrackingService {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
-    }
-
-    private static String safe(String value) {
-        return value == null ? "" : value.trim();
     }
 
     private static long elapsedMillis(long startedAt) {
