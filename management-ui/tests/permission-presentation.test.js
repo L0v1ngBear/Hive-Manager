@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { groupLeafIds, permissionGroups } from '../src/views/function/role/permissionPresentation.js'
+import { groupActionIds, groupLeafIds, permissionGroups } from '../src/views/function/role/permissionPresentation.js'
 
 const tree = [
   { id: 1, permName: '订单管理', children: [
@@ -22,6 +22,15 @@ test('permissionGroups can show only selected leaves', () => {
   assert.deepEqual(permissionGroups(tree, '', true, [21])[0].permissions.map((item) => item.id), [21])
 })
 
+test('group actions keep the full business group while search filters its presentation', () => {
+  const visibleGroup = permissionGroups(tree, '编辑', false, [])[0]
+
+  assert.deepEqual(visibleGroup.permissions.map((item) => item.id), [12])
+  assert.deepEqual(groupActionIds(tree, visibleGroup.id), [11, 12])
+})
+
 test('groupLeafIds returns unique numeric leaf ids', () => {
-  assert.deepEqual(groupLeafIds(permissionGroups(tree, '', false, [])[0]), [11, 12])
+  assert.deepEqual(groupLeafIds({
+    permissions: [{ id: '11' }, { id: 11 }, { id: '12' }, { id: 12 }]
+  }), [11, 12])
 })

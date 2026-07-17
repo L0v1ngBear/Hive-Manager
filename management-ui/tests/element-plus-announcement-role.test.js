@@ -69,6 +69,21 @@ test("permission drawer distinguishes authorization failures from request failur
   assert.doesNotMatch(permission, /permissionLoadError/);
 });
 
+test("permission drawer keeps full group actions separate from filtered checkbox layout", () => {
+  const permission = read("../src/views/function/role/permissionDrawer.vue");
+  const checkboxRule = permission.match(
+    /\.permission-checkbox-list :deep\(\.el-checkbox\) \{([^}]*)\}/,
+  )?.[1] ?? "";
+
+  assert.match(
+    permission,
+    /groupActionIds\(permissionLoader\.state\.treeData,\s*group\.id\)/,
+  );
+  assert.match(checkboxRule, /display:\s*flex/);
+  assert.match(checkboxRule, /align-items:\s*flex-start/);
+  assert.doesNotMatch(checkboxRule, /grid-template-columns/);
+});
+
 test("latest request guard rejects stale data, error and loading writes", async () => {
   const helperUrl = new URL(
     "../src/views/function/announcement/latestRequestGuard.js",

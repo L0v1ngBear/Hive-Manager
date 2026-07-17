@@ -19,3 +19,8 @@ export function permissionGroups(tree = [], keyword = '', selectedOnly = false, 
 }
 
 export const groupLeafIds = (group) => [...new Set((group?.permissions || []).map((item) => Number(item.id)))]
+
+export function groupActionIds(tree = [], groupId) {
+  const group = permissionGroups(tree).find((item) => item.id === Number(groupId))
+  return groupLeafIds(group)
+}

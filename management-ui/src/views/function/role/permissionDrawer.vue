@@ -125,7 +125,7 @@ import { ElAlert, ElButton, ElCheckbox, ElCheckboxGroup, ElDrawer, ElEmpty, ElIn
 import { computed, ref, nextTick } from 'vue'
 import {getAllPermissions, getRolePermissionIds, updateRolePermissions} from './api/role.js'
 import { createRolePermissionLoader, syncCommittedPermissionIds } from './permissionLoaders.js'
-import { groupLeafIds, permissionGroups } from './permissionPresentation.js'
+import { groupActionIds, permissionGroups } from './permissionPresentation.js'
 
 const visible = ref(false)
 const currentRole = ref(null)
@@ -168,13 +168,13 @@ function close() {
 }
 
 function isGroupSelected(group) {
-  const ids = groupLeafIds(group)
+  const ids = groupActionIds(permissionLoader.state.treeData, group.id)
   const selected = new Set((checkedPermissionIds.value || []).map(Number))
   return ids.length > 0 && ids.every((id) => selected.has(id))
 }
 
 function toggleGroupSelection(group) {
-  const groupIds = groupLeafIds(group)
+  const groupIds = groupActionIds(permissionLoader.state.treeData, group.id)
   const selected = new Set((checkedPermissionIds.value || []).map(Number))
   const shouldSelect = groupIds.some((id) => !selected.has(id))
   groupIds.forEach((id) => shouldSelect ? selected.add(id) : selected.delete(id))
@@ -257,16 +257,21 @@ defineExpose({open})
 }
 
 .permission-checkbox-list :deep(.el-checkbox) {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
+  display: flex;
+  align-items: flex-start;
   width: 100%;
   height: auto;
   margin-right: 0;
   white-space: normal;
 }
 
+.permission-checkbox-list :deep(.el-checkbox__input) {
+  flex: 0 0 auto;
+  margin-top: 0.125rem;
+}
+
 .permission-checkbox-list :deep(.el-checkbox__label) {
+  flex: 1 1 auto;
   min-width: 0;
   overflow-wrap: anywhere;
   padding-left: 0.5rem;

@@ -69,3 +69,57 @@ Result: exit 0 before commit.
 ## Concerns
 
 No functional concerns identified from the focused test suite or production build. The build emitted only an informational plugin-timings notice.
+
+## Review Fix Evidence
+
+Task 5 review fixes were applied on top of original implementation commit `716f394`. The earlier `6cf24b1` hash recorded above was superseded when the report was included in that amended implementation commit.
+
+### Findings Addressed
+
+- Added `groupActionIds(tree, groupId)` so group selection state and group toggle actions always resolve all leaves from the original permission tree. Search and selected-only filters now affect display only.
+- Replaced the one-column checkbox grid with a horizontal flex row. The checkbox input remains fixed at the start while the label takes the remaining width and wraps.
+- Strengthened `groupLeafIds` coverage with duplicate string and numeric forms of the same IDs.
+- Added a drawer source contract proving the full-tree action helper is used and the checkbox row remains horizontally aligned.
+
+### RED Evidence
+
+Command run from `management-ui`:
+
+```text
+node --test tests/permission-presentation.test.js
+```
+
+Result: exit 1. Node reported that `permissionPresentation.js` did not export the required `groupActionIds` helper.
+
+Command run from `management-ui`:
+
+```text
+node --test tests/element-plus-announcement-role.test.js
+```
+
+Result: exit 1 with 13 passing tests and 1 failing test. The new drawer contract could not find full-tree `groupActionIds(...)` integration and the existing checkbox rule still used one-column grid layout.
+
+### GREEN Evidence
+
+Command run from `management-ui`:
+
+```text
+node --test tests/permission-presentation.test.js tests/permission-ui-hardening.test.js tests/element-plus-announcement-role.test.js
+```
+
+Result: exit 0. All 19 tests passed, including the search-independent group action regression, duplicate/string numeric ID coverage, drawer layout contract, stale-response protection, and forbidden/failed/empty state hardening.
+
+Command run from `management-ui`:
+
+```text
+npm run build
+```
+
+Result: exit 0. Vite transformed 1861 modules and completed the production build in 8.59 seconds. The plugin-timings message was informational only.
+
+### Fix Self-Review
+
+- Group actions use the original tree and numeric IDs even when the rendered group is narrowed by search or selected-only filtering.
+- Search and selected-only presentation behavior is unchanged.
+- The save request shape, loader behavior, stale-response guard, permission codes, employee permission UI, and backend contracts remain unchanged.
+- `.superpowers/sdd/progress.md` and `docs/audits/` remain untouched and unstaged.
