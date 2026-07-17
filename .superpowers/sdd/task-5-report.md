@@ -1,59 +1,71 @@
-# Task 5 Report: Unified Order and Approval Domains
+# Task 5 Report: Browsable Role Permissions
 
 ## Status
 
-Implementation complete. The management implementation was selected as the canonical behavioral superset and moved, without parallel admin/mini variants, to `my.hive.domain.order` and `my.hive.domain.approval`. Public controllers now live in `my.hive.api.order` and `my.hive.api.approval`; with the `/api` servlet context their collections are `/api/orders/**` and `/api/approval/**`.
+Implemented and committed on `codex/global-layout-repair`.
 
-## Behavior and parity evidence
+- Starting commit: `d1d2095`
+- Implementation commit: `6cf24b1` (`fix: make role permissions browsable`)
 
-- Added a method-level matrix to `docs/api/unified-api-catalog.md`: 19 order rows and 24 approval rows covering old management/mini method and route, canonical route, exact Permission Catalog V3 code, request/response type, service method, and disposition.
-- Compared the read-only mini source under `D:\HiveBackend\server` with management models/mappers/services before deleting duplicates. Table-backed order and approval entities map the same business records; management retained additional validation, tenant constraints, warning, attachment, approval-candidate, and transaction behavior.
-- Preserved management information-channel propagation, guarded state transitions, drawing-budget terminal behavior, rollback restrictions, pending-shipment approval, multi-auditor selection, and row-lock concurrency behavior.
-- Ported the mini-only signed flow-code advance entry point into the canonical `OrderService`; it verifies order type, tenant-bound signature, and then uses the guarded canonical transition.
-- Runtime scan finds exactly one public `OrderService`, `ApprovalService`, `OrderController`, and `ApprovalController`. No `my.management.module.order` or `my.management.module.approval` references remain.
-- No legacy wildcard permission remains in Task 5 fixtures; old `Set.of("*")` setup was replaced with exact V3 state-action and audit codes.
+## RED Evidence
 
-## TDD evidence
+Created `management-ui/tests/permission-presentation.test.js` before production code. It defines the required contracts for searchable grouped leaves, selected-only filtering, and unique numeric group leaf IDs.
 
-RED:
+Command run from `management-ui`:
 
-- `management/.\mvnw.cmd "-Dtest=*Order*Test,*Approval*Test" test`
-- Failed at test compilation because `my.hive.domain.order` and `my.hive.domain.approval` did not yet exist (4 missing-package errors).
+```text
+node --test tests/permission-presentation.test.js
+```
 
-GREEN:
+Result: exit 1, as expected. Node reported `ERR_MODULE_NOT_FOUND` for `src/views/function/role/permissionPresentation.js`, proving the new pure-function contract was red because its implementation did not exist.
 
-- `management/.\mvnw.cmd "-Dtest=*Order*Test,*Approval*Test" test`
-- PASS: 36 tests, 0 failures, 0 errors, 0 skipped.
-- Coverage includes information-channel propagation, budget and normal status transitions, rollback restrictions, pending-shipment approval, concurrent submission/tenant isolation, auditor decision locking, and transaction-boundary assertions.
+## Implementation
 
-Runtime uniqueness/mapping gate:
+- Added `management-ui/src/views/function/role/permissionPresentation.js`.
+  - `permissionGroups(tree, keyword, selectedOnly, selectedIds)` flattens each business group to leaf permissions, filters by permission name/code and selected IDs, and emits numeric IDs.
+  - `groupLeafIds(group)` returns unique numeric leaf IDs.
+- Replaced only the role permission drawer's collapsed `el-tree-select` with a visible, grouped checkbox list in `management-ui/src/views/function/role/permissionDrawer.vue`.
+  - Added search (`aria-label="搜索权限"`), selected-only switch, selected count, per-group select/cancel action, and a bounded scrollable group list.
+  - Added `id="role-permission-title"` to the visible drawer heading and `aria-labelledby="role-permission-title"` to the drawer.
+  - Tightened drawer padding and checkbox wrapping for compact widths.
+- Added `management-ui/tests/permission-presentation.test.js`.
 
-- `management/.\mvnw.cmd "-Dtest=UniqueRuntimeComponentTest" test`
-- PASS: 3 tests, 0 failures, 0 errors, 0 skipped.
-- The Spring context loads both canonical mapper packages, has no duplicate bean names, and resolves the canonical `/orders` controller mappings under servlet context `/api`.
+## GREEN Evidence
 
-## Self-review
+Command run from `management-ui`:
 
-- One service/model/mapper implementation per domain: PASS.
-- No Admin/Mini service split: PASS.
-- Approved public route roots: PASS (`/api` context + `/orders`; `/api` context + `/approval`).
-- Exact Permission Catalog V3 codes only: PASS.
-- Existing unrelated `management-ui` changes were neither edited nor staged: PASS.
-- Read-only source repositories were not modified: PASS.
+```text
+node --test tests/permission-presentation.test.js tests/permission-ui-hardening.test.js tests/element-plus-announcement-role.test.js
+```
+
+Result: exit 0. All 17 tests passed, including the new presentation tests, existing authorization/load-state tests, and stale role-response tests.
+
+Command run from `management-ui`:
+
+```text
+npm run build
+```
+
+Result: exit 0. Vite built the production client successfully (`1861 modules transformed`, `built in 9.38s`). The informational plugin-timings notice did not report a build failure.
+
+Additional verification:
+
+```text
+git diff --cached --check
+```
+
+Result: exit 0 before commit.
+
+## Self-Review
+
+- `createRolePermissionLoader`, `syncCommittedPermissionIds`, and the loader's stale-response protection remain in place and were covered by the existing passing hardening tests.
+- Forbidden, failed, empty, loading, and ready rendering branches are unchanged.
+- The `updateRolePermissions` request shape and save success/failure handling are unchanged.
+- Checkbox labels and group actions retain numeric permission IDs; no permission codes or backend contracts changed.
+- Employee permission behavior and the role-creation selector were not modified.
+- No existing source-contract test asserted an `el-tree-select` in the role permission drawer, so no intentionally superseded source-contract expectation required modification. Existing hardening assertions remain and passed.
+- `.superpowers/sdd/progress.md` and `docs/audits/` were not touched. Their pre-existing worktree changes remain unstaged.
 
 ## Concerns
 
-- Maven emits existing Byte Buddy dynamic-agent and deprecated-API warnings; tests still exit successfully.
-- The source tree still contains other `my.management.module.*` domains by design; only order and approval were in Task 5 scope.
-
-## Review fix
-
-- Added canonical leave submission at `POST /api/approval/leave`, backed by `ApprovalService.submitLeave` and `LeaveSubmitRequest`, using `approval:leave:submit`.
-- Restored mini list filter semantics on the canonical leave, finance, and resignation list routes: `scope`, `status`, and `limit` are now accepted by one shared `ApprovalService` implementation. The controller accepts exact submit/list/audit V3 leaves, then the service constrains `mine`, `pending`, `others_pending`, and `all` by scope.
-- Removed the order-domain `GET /api/orders/health` endpoint; health remains a deployment/runtime concern, not an order business API.
-- Updated `docs/api/unified-api-catalog.md` so the approval list matrix records `scope,status,limit`.
-
-Review-fix verification:
-
-- `management\.\mvnw.cmd "-Dtest=*Order*Test,*Approval*Test,UniqueRuntimeComponentTest" test`
-- PASS: 41 tests, 0 failures, 0 errors, 0 skipped.
+No functional concerns identified from the focused test suite or production build. The build emitted only an informational plugin-timings notice.

@@ -5,6 +5,7 @@
       size="500px"
       direction="rtl"
       :with-header="false"
+      aria-labelledby="role-permission-title"
       class="atelier-drawer"
       append-to-body
       destroy-on-close
@@ -17,7 +18,7 @@
         <span class="text-sm font-bold text-primary mt-2">正在同步权限矩阵...</span>
       </div>
 
-      <div class="px-8 py-8 border-b border-surface-variant/30 flex-shrink-0">
+      <div class="px-5 py-6 sm:px-8 sm:py-8 border-b border-surface-variant/30 flex-shrink-0">
         <div class="flex justify-between items-start mb-6">
           <div class="p-3 bg-primary-container text-white rounded-xl shadow-lg shadow-primary/10">
             <span class="material-symbols-outlined text-3xl">security</span>
@@ -26,14 +27,14 @@
             <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary">close</span>
           </el-button>
         </div>
-        <h2 class="text-2xl font-black text-primary tracking-tight">分配权限</h2>
+        <h2 id="role-permission-title" class="text-2xl font-black text-primary tracking-tight">分配权限</h2>
         <div class="flex items-center gap-2 mt-2">
           <span class="text-xs font-bold uppercase tracking-widest text-on-surface-variant opacity-70">当前角色:</span>
           <span class="font-bold text-primary bg-primary-fixed px-2 py-0.5 rounded text-xs">{{ currentRole?.roleName || '未指定' }}</span>
         </div>
       </div>
 
-      <div class="flex-1 overflow-y-auto p-8 space-y-3 no-scrollbar">
+      <div class="flex-1 overflow-y-auto p-5 sm:p-8 space-y-3 no-scrollbar">
         <el-alert
             v-if="permissionLoader.state.loadState === 'forbidden'"
             title="无权查看角色权限"
@@ -58,46 +59,53 @@
         </div>
 
         <template v-else-if="permissionLoader.state.treeData.length > 0">
-          <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant flex justify-between mb-2">
-            权限结构树
-            <span class="text-[10px] font-normal lowercase opacity-60">支持搜索与折叠</span>
-          </label>
-
-          <div class="atelier-tree-select-wrapper">
-            <el-tree-select
-                v-model="checkedPermissionIds"
-                :data="permissionLoader.state.treeData"
-                node-key="id"
-                value-key="id"
-                multiple
-                show-checkbox
-                collapse-tags
-                collapse-tags-tooltip
-                filterable
-                check-on-click-node
-                :render-after-expand="false"
-                :props="{ value: 'id', label: 'permName', children: 'children' }"
-                placeholder="请展开选择系统权限"
-                class="atelier-tree-select w-full"
-            >
-              <template #default="scope">
-                <div v-if="scope && scope.data" class="flex items-center gap-2">
-                  <span class="material-symbols-outlined text-[18px] opacity-40">
-                    {{ scope.data.children?.length ? 'folder' : 'description' }}
-                  </span>
-                  <span class="text-sm font-medium text-on-surface">
-                    {{ scope.data.permName || scope.data.label }}
-                  </span>
-                </div>
-              </template>
-            </el-tree-select>
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <label class="text-xs font-black uppercase tracking-widest text-on-surface-variant">权限列表</label>
+            <span class="text-xs font-bold text-primary">已选 {{ checkedPermissionIds.length }} 项</span>
           </div>
+
+          <el-input
+              v-model="permissionKeyword"
+              aria-label="搜索权限"
+              clearable
+              placeholder="搜索权限名称或编码"
+              class="w-full"
+          >
+            <template #prefix>
+              <span class="material-symbols-outlined text-[18px]">search</span>
+            </template>
+          </el-input>
+
+          <div class="flex items-center justify-between gap-3 py-3">
+            <span class="text-sm font-medium text-on-surface">只看已选</span>
+            <el-switch v-model="selectedOnly" aria-label="只看已选" />
+          </div>
+
+          <div v-if="visiblePermissionGroups.length" class="permission-group-list space-y-3 pr-1">
+            <section v-for="group in visiblePermissionGroups" :key="group.id" class="permission-group-card">
+              <div class="permission-group-header">
+                <span class="min-w-0 truncate font-bold text-on-surface">{{ group.name }}</span>
+                <el-button text type="primary" size="small" @click="toggleGroupSelection(group)">
+                  {{ isGroupSelected(group) ? '取消本组' : '全选本组' }}
+                </el-button>
+              </div>
+
+              <el-checkbox-group v-model="checkedPermissionIds" class="permission-checkbox-list">
+                <el-checkbox v-for="permission in group.permissions" :key="permission.id" :label="permission.id">
+                  <span class="permission-name">{{ permission.name }}</span>
+                  <span v-if="permission.code" class="permission-code">{{ permission.code }}</span>
+                </el-checkbox>
+              </el-checkbox-group>
+            </section>
+          </div>
+
+          <el-empty v-else description="未找到匹配权限" :image-size="88" />
         </template>
 
         <el-empty v-else-if="permissionLoader.state.loadState === 'empty'" description="暂无权限数据结构" />
       </div>
 
-      <div class="p-8 bg-surface-container-low border-t border-surface-variant/30 grid grid-cols-2 gap-4 flex-shrink-0">
+      <div class="p-5 sm:p-8 bg-surface-container-low border-t border-surface-variant/30 grid grid-cols-2 gap-4 flex-shrink-0">
         <el-button @click="close">取消返回</el-button>
         <el-button
             type="primary"
@@ -113,10 +121,11 @@
 </template>
 
 <script setup>
-import { ElAlert, ElButton, ElDrawer, ElEmpty, ElMessage, ElTreeSelect } from 'element-plus'
-import { ref, nextTick } from 'vue'
+import { ElAlert, ElButton, ElCheckbox, ElCheckboxGroup, ElDrawer, ElEmpty, ElInput, ElMessage, ElSwitch } from 'element-plus'
+import { computed, ref, nextTick } from 'vue'
 import {getAllPermissions, getRolePermissionIds, updateRolePermissions} from './api/role.js'
 import { createRolePermissionLoader, syncCommittedPermissionIds } from './permissionLoaders.js'
+import { groupLeafIds, permissionGroups } from './permissionPresentation.js'
 
 const visible = ref(false)
 const currentRole = ref(null)
@@ -124,11 +133,19 @@ const emit = defineEmits(['updated', 'closed'])
 
 const isSubmitting = ref(false)
 const checkedPermissionIds = ref([])
+const permissionKeyword = ref('')
+const selectedOnly = ref(false)
 const permissionLoader = createRolePermissionLoader({
   getAllPermissions,
   getRolePermissionIds,
   afterTreeReady: nextTick
 })
+const visiblePermissionGroups = computed(() => permissionGroups(
+  permissionLoader.state.treeData,
+  permissionKeyword.value,
+  selectedOnly.value,
+  checkedPermissionIds.value
+))
 
 async function open(role) {
   if (!role) return
@@ -148,6 +165,20 @@ async function loadPermissionData() {
 function close() {
   visible.value = false
   emit('closed')
+}
+
+function isGroupSelected(group) {
+  const ids = groupLeafIds(group)
+  const selected = new Set((checkedPermissionIds.value || []).map(Number))
+  return ids.length > 0 && ids.every((id) => selected.has(id))
+}
+
+function toggleGroupSelection(group) {
+  const groupIds = groupLeafIds(group)
+  const selected = new Set((checkedPermissionIds.value || []).map(Number))
+  const shouldSelect = groupIds.some((id) => !selected.has(id))
+  groupIds.forEach((id) => shouldSelect ? selected.add(id) : selected.delete(id))
+  checkedPermissionIds.value = [...selected]
 }
 
 async function save() {
@@ -186,26 +217,76 @@ defineExpose({open})
   background-color: #ffffff !important;
 }
 
-:deep(.atelier-tree-select .el-select__wrapper) {
+:deep(.el-input__wrapper) {
   background-color: #f1f4f6 !important;
   box-shadow: none !important;
   border-radius: 4px;
-  min-height: 48px;
-  padding: 4px 12px;
+  min-height: 44px;
 }
 
-:deep(.atelier-tree-select.is-focus .el-select__wrapper) {
+:deep(.el-input.is-focus .el-input__wrapper) {
   box-shadow: 0 0 0 1px var(--ys-primary) inset !important;
 }
 
-:deep(.el-tree-node__content) {
-  height: 36px;
-  border-radius: 6px;
-  margin-bottom: 2px;
+.permission-group-list {
+  max-height: min(44vh, 32rem);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
-:deep(.el-tree-node__content:hover) {
-  background-color: #ebeef0;
+.permission-group-card {
+  border: 1px solid rgba(200, 211, 223, 0.72);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0.75rem;
+}
+
+.permission-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgba(200, 211, 223, 0.58);
+  padding-bottom: 0.5rem;
+}
+
+.permission-checkbox-list {
+  display: grid;
+  gap: 0.625rem;
+  padding-top: 0.75rem;
+}
+
+.permission-checkbox-list :deep(.el-checkbox) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  width: 100%;
+  height: auto;
+  margin-right: 0;
+  white-space: normal;
+}
+
+.permission-checkbox-list :deep(.el-checkbox__label) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding-left: 0.5rem;
+}
+
+.permission-name,
+.permission-code {
+  display: block;
+}
+
+.permission-name {
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+}
+
+.permission-code {
+  color: var(--el-text-color-secondary);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  overflow-wrap: anywhere;
 }
 
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner),
