@@ -132,9 +132,9 @@ Result: `BUILD FAILURE`; 16 tests, 2 failures and 3 errors. The DTO reflection c
 ### Self-Review
 
 - `rg` found no `expressNo` or `expressCompany` reference in `management-ui/src/views/function/order/order.vue` or the order-flow behavior fixture.
-- Installation-task scalar logistics fields and the tracking response VO were not changed.
+- Installation-task scalar logistics fields remain unchanged as an independent domain.
 - `OrderService.advanceSalesOrderToNextStage` still validates only `orderShipmentService.listShipments(...)`; only full create/save paths call `saveShipments(...)`.
-- Cache identity uses the already validated and trimmed `company` and `expressNo` locals.
+- Cache identity uses the already validated and trimmed `company` and `trackingNo` locals.
 - `git diff --check` reported no whitespace errors; the repository's existing CRLF conversion warnings remain.
 
 ### Review Concerns
@@ -145,5 +145,5 @@ Result: `BUILD FAILURE`; 16 tests, 2 failures and 3 errors. The DTO reflection c
 
 ## Concerns
 
-- 无阻塞问题。后端 `/advance` 当前 DTO 不声明 `shipments`，但管理端会先通过完整保存接口持久化物流，再按本任务合同把同一 `shipments` 列表传给推进接口。
+- 无阻塞问题。`SalesOrderUpdateRequest.shipments` 已声明 `@Valid @Size(max = 50)`，且 `/advance` 请求体参数已启用 `@Valid`；管理端仍按先完整保存、再推进的顺序执行。
 - 工作区原有 `.superpowers/sdd/progress.md` 改动不属于本任务，不纳入提交。

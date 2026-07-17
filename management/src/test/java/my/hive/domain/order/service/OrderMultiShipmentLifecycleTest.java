@@ -3,6 +3,7 @@ package my.hive.domain.order.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
+import my.hive.api.order.OrderController;
 import my.hive.domain.customer.mapper.CustomerContactMapper;
 import my.hive.domain.customer.mapper.CustomerMapper;
 import my.hive.domain.customer.mapper.CustomerProjectMapper;
@@ -140,6 +141,14 @@ class OrderMultiShipmentLifecycleTest {
         assertThat(advanceShipments.getAnnotation(Size.class).max()).isEqualTo(50);
         assertThat(fieldNames(SalesOrderPageVO.class)).contains("shipments");
         assertThat(fieldNames(SalesOrderDetailVO.class)).contains("shipments");
+    }
+
+    @Test
+    void advanceEndpointActivatesNestedShipmentValidation() throws Exception {
+        Method advance = OrderController.class.getDeclaredMethod(
+                "advance", String.class, SalesOrderUpdateRequest.class);
+
+        assertThat(advance.getParameters()[1].getAnnotation(Valid.class)).isNotNull();
     }
 
     @Test

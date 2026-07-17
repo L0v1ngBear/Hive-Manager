@@ -34,7 +34,7 @@ class Kuaidi100ClientTest {
         OrderLogisticsTrackingVO result = client.query("shunfeng", "SF123456", "13800000000");
 
         assertThat(result.getCompanyCode()).isEqualTo("shunfeng");
-        assertThat(result.getExpressNo()).isEqualTo("SF123456");
+        assertThat(result.getTrackingNo()).isEqualTo("SF123456");
         assertThat(result.getState()).isEqualTo("3");
         assertThat(result.getStateLabel()).isEqualTo("已签收");
         assertThat(result.getLatestContext()).isEqualTo("已签收");

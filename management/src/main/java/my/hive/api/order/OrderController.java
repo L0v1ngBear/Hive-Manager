@@ -142,7 +142,7 @@ public class OrderController {
     @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_UPDATE, message = "您没有权限推进订单")
     @CollectLog(module = "order", action = "advance_order_status", bizType = "order", bizNo = "#orderId", description = "管理端推进订单到下一阶段")
     public Result<Void> advance(@PathVariable String orderId,
-                                @RequestBody(required = false) SalesOrderUpdateRequest request) {
+                                @RequestBody(required = false) @Valid SalesOrderUpdateRequest request) {
         orderService.advanceSalesOrderToNextStage(orderId, request == null ? new SalesOrderUpdateRequest() : request);
         return Result.success(null);
     }

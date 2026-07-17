@@ -40,12 +40,12 @@ public class Kuaidi100Client {
         this.http = http;
     }
 
-    public OrderLogisticsTrackingVO query(String companyCode, String expressNo, String phone) {
+    public OrderLogisticsTrackingVO query(String companyCode, String trackingNo, String phone) {
         requireConfigured();
-        if (isBlank(companyCode) || isBlank(expressNo) || expressNo.trim().length() < 6 || expressNo.trim().length() > 32) {
+        if (isBlank(companyCode) || isBlank(trackingNo) || trackingNo.trim().length() < 6 || trackingNo.trim().length() > 32) {
             throw new BusinessException(400, "物流公司或物流单号格式不正确");
         }
-        String param = buildParam(companyCode, expressNo, phone);
+        String param = buildParam(companyCode, trackingNo, phone);
         String body = formBody(param, sign(param), properties.getCustomer());
         HttpRequest request = HttpRequest.newBuilder(QUERY_URI)
                 .timeout(properties.getRequestTimeout())
@@ -66,7 +66,7 @@ public class Kuaidi100Client {
             if (!"200".equals(status)) {
                 throw providerFailure(status);
             }
-            return normalize(json, companyCode, expressNo);
+            return normalize(json, companyCode, trackingNo);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new BusinessException(502, "快递100查询被中断，请稍后重试");
@@ -77,10 +77,10 @@ public class Kuaidi100Client {
         }
     }
 
-    static String buildParam(String companyCode, String expressNo, String phone) {
+    static String buildParam(String companyCode, String trackingNo, String phone) {
         Map<String, Object> param = new LinkedHashMap<>();
         param.put("com", companyCode);
-        param.put("num", expressNo);
+        param.put("num", trackingNo);
         if (phone != null && !phone.isBlank()) {
             param.put("phone", phone.trim());
         }
@@ -112,10 +112,10 @@ public class Kuaidi100Client {
                 + "&param=" + encode(param);
     }
 
-    private OrderLogisticsTrackingVO normalize(JSONObject json, String companyCode, String expressNo) {
+    private OrderLogisticsTrackingVO normalize(JSONObject json, String companyCode, String trackingNo) {
         OrderLogisticsTrackingVO result = new OrderLogisticsTrackingVO();
         result.setCompanyCode(companyCode);
-        result.setExpressNo(expressNo);
+        result.setTrackingNo(trackingNo);
         result.setState(json.getString("state"));
         result.setStateLabel(stateLabel(result.getState()));
         result.setQueriedAt(Instant.now());

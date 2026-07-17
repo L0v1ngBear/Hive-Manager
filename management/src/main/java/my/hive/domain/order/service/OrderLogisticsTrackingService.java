@@ -78,10 +78,10 @@ public class OrderLogisticsTrackingService {
             throw new BusinessException("Shipment does not exist or does not belong to this order");
         }
         String company = required(shipment.getLogisticsCompany(), "Shipment logistics company is required");
-        String expressNo = required(shipment.getTrackingNo(), "Shipment tracking number is required");
+        String trackingNo = required(shipment.getTrackingNo(), "Shipment tracking number is required");
         String companyCode = resolveCompanyCode(company);
         String cacheSource = String.join("|", order.getTenantCode(), orderId,
-                String.valueOf(shipmentId), company, expressNo);
+                String.valueOf(shipmentId), company, trackingNo);
         String cacheKey = externalApiGuardService.fingerprint(cacheSource);
 
         OrderLogisticsTrackingVO cached = readCachedTracking(cacheKey);
@@ -97,7 +97,7 @@ public class OrderLogisticsTrackingService {
                     return cached;
                 }
                 throwCachedFailure(cacheKey);
-                return queryAndCache(order, company, companyCode, expressNo, cacheKey);
+                return queryAndCache(order, company, companyCode, trackingNo, cacheKey);
             }
         } finally {
             queryLocks.remove(cacheKey, queryLock);
@@ -107,7 +107,7 @@ public class OrderLogisticsTrackingService {
     private OrderLogisticsTrackingVO queryAndCache(SalesOrder order,
                                                     String company,
                                                     String companyCode,
-                                                    String expressNo,
+                                                    String trackingNo,
                                                     String cacheKey) {
         long startedAt = System.nanoTime();
         try {
@@ -116,11 +116,11 @@ public class OrderLogisticsTrackingService {
                     : null;
             OrderLogisticsTrackingVO result = kuaidi100Client.query(
                     companyCode,
-                    expressNo,
+                    trackingNo,
                     phone);
             result.setCompany(company);
             result.setCompanyCode(companyCode);
-            result.setExpressNo(expressNo);
+            result.setTrackingNo(trackingNo);
             result.setCached(false);
             if (result.getQueriedAt() == null) {
                 result.setQueriedAt(Instant.now());
@@ -141,7 +141,7 @@ public class OrderLogisticsTrackingService {
                     200,
                     elapsedMillis(startedAt),
                     "kuaidi100 realtime query succeeded",
-                    Map.of("trackingFingerprint", externalApiGuardService.fingerprint(expressNo)));
+                    Map.of("trackingFingerprint", externalApiGuardService.fingerprint(trackingNo)));
             return result;
         } catch (BusinessException exception) {
             int failureCode = exception.getCode() == null ? 502 : exception.getCode();
@@ -162,7 +162,7 @@ public class OrderLogisticsTrackingService {
                     exception.getCode(),
                     elapsedMillis(startedAt),
                     "kuaidi100 realtime query failed",
-                    Map.of("trackingFingerprint", externalApiGuardService.fingerprint(expressNo)));
+                    Map.of("trackingFingerprint", externalApiGuardService.fingerprint(trackingNo)));
             throw exception;
         }
     }

@@ -52,7 +52,7 @@ class OrderLogisticsTrackingServiceTest {
 
         assertThat(result.getCompany()).isEqualTo("\u987a\u4e30\u901f\u8fd0");
         assertThat(result.getCompanyCode()).isEqualTo("shunfeng");
-        assertThat(result.getExpressNo()).isEqualTo("SF123456");
+        assertThat(result.getTrackingNo()).isEqualTo("SF123456");
         assertThat(result.isCached()).isFalse();
         assertThat(result.getCacheExpiresAt()).isAfter(Instant.now().plus(Duration.ofMinutes(29)));
         verify(shipmentService).requireShipment("TENANT_001", "SO-001", 7L);
@@ -107,7 +107,7 @@ class OrderLogisticsTrackingServiceTest {
         OrderLogisticsTrackingVO cached = new OrderLogisticsTrackingVO();
         cached.setCompany("zhongtong");
         cached.setCompanyCode("zhongtong");
-        cached.setExpressNo("ZT123456");
+        cached.setTrackingNo("ZT123456");
         cached.setCacheExpiresAt(Instant.now().plus(Duration.ofMinutes(20)));
         cached.setTraces(List.of());
         when(guard.getCachedResponse("kuaidi100", "realtime-query", "cache-fingerprint"))

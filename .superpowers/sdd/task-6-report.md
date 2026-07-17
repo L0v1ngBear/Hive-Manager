@@ -1,58 +1,75 @@
-# Task 6 Report: Unified Inventory, Quality, and Installation Domains
+# Task 6 订单多物流代码/文档门禁报告
 
-## Status
+## 范围
 
-Inventory, quality, and installation implementations were moved into canonical `my.hive.domain.inventory`, `my.hive.domain.quality`, and `my.hive.domain.installation` packages. Public adapters now live under `my.hive.api.inventory`, `my.hive.api.quality`, and `my.hive.api.installation`, with the application context path making the external routes `/api/inventory/**`, `/api/quality/**`, and `/api/installation-tasks/**`.
+- 分支：`codex/order-multi-shipment`
+- 起始 HEAD：`a0a891e2f00caf68555807c158a3cdd17cdfca39`
+- 仅执行 Task 6 brief 步骤 1-5；未切换 `main`、未合并、未创建 worktree、未打包或部署。
+- 未修改历史迁移、小程序前端或安装任务独立物流字段。
 
-## Behavior and parity evidence
+## TDD RED
 
-- Retired legacy management package implementations for inventory, bad-product quality, and installation task lifecycle.
-- Updated order completion sync to depend on canonical `InstallationTaskService`.
-- Updated approval quality flow to depend on canonical `QualityService` and `BadProductMapper`.
-- Updated dashboard and notification collaborators to read inventory warnings from canonical inventory services.
-- Kept exact Permission Catalog V3 annotations on canonical adapters; no legacy permission enum was introduced.
-- Restored clean UTF-8 source from current HEAD legacy implementations after a failed subagent rewrite produced BOM and mojibake syntax damage.
-- Closed final review blockers by tenant-scoping all canonical quality record reads/mutations, enforcing `quality:update` for existing quality-record saves, and removing legacy `"badproduct"` / `"bad_product"` approval-type aliases from auditor permission resolution.
+先新增跨层合同门禁和 `/advance` 参数注解反射测试，再运行：
 
-## TDD and verification
+```powershell
+cd D:\HiveManager\management-ui
+node --test tests/order-multi-shipment-cross-layer.test.js
+```
 
-RED:
+结果：退出码 `1`，4 项测试中 2 项通过、2 项失败。失败分别命中 `OrderLogisticsTrackingVO.expressNo` 和 `/advance` 请求体缺少 `@Valid`。
 
-- `management\.\mvnw.cmd "-Dtest=*Inventory*Test,*Quality*Test,*Installation*Test" test`
-- Initially failed while canonical packages were incomplete, then failed on BOM/mojibake introduced by the interrupted implementer rewrite.
+```powershell
+cd D:\HiveManager\management
+.\mvnw.cmd "-Dtest=OrderMultiShipmentLifecycleTest" test
+```
 
-GREEN:
+结果：`BUILD FAILURE`，11 项测试中 10 项通过、1 项失败；反射断言确认 `/advance` 的 `SalesOrderUpdateRequest` 参数没有 `@Valid`。
 
-- `management\.\mvnw.cmd "-Dtest=*Inventory*Test,*Quality*Test,*Installation*Test" test`
-- PASS: 10 tests, 0 failures, 0 errors, 0 skipped.
+## TDD GREEN
 
-Final Task 6 gate:
+- 跨层合同门禁：4/4 通过。
+- 定向后端测试：`OrderMultiShipmentLifecycleTest`、`OrderLogisticsTrackingServiceTest`、`Kuaidi100ClientTest` 共 19/19 通过，且执行了 481 个主源码文件和 61 个测试源码文件的 Java 编译。
+- tracking response VO、物流服务和快递客户端统一使用 `trackingNo`；未保留 `expressNo` 兼容字段。
+- `OrderController` 的 `/advance` 请求体参数补充 `@Valid`，使 `SalesOrderUpdateRequest.shipments` 上的 `@Size(max = 50)` 和嵌套 `@Valid` 进入 MVC 校验链。
 
-- `management\.\mvnw.cmd "-Dtest=*Inventory*Test,*Quality*Test,*Installation*Test,*Permission*Test,UniqueRuntimeComponentTest" test`
-- PASS: 47 tests, 0 failures, 0 errors, 0 skipped.
+## 完整标准验证
 
-Final review follow-up gate:
+```text
+management\.\mvnw.cmd test
+Tests run: 260, Failures: 0, Errors: 0, Skipped: 0
+BUILD SUCCESS
 
-- `management\.\mvnw.cmd clean "-Dtest=*Inventory*Test,*Quality*Test,*Installation*Test,*Approval*Test,*Permission*Test,UniqueRuntimeComponentTest" test`
-- PASS: 80 tests, 0 failures, 0 errors, 0 skipped; 448 main sources were recompiled.
-- Static checks confirmed no `my.management.module.inventory`, `my.management.module.badproduct`, `my.management.module.installation`, `my.hive_back`, or `PermissionCodeEnum` references remain in the unified Task 6 runtime surface.
+management-ui\npm test
+tests 289, pass 289, fail 0, skipped 0
 
-## Other branch and dev-target note
+management-ui\npm run build
+vite v8.1.3, 1861 modules transformed, built in 11.56s
 
-The user added that other-branch changes must be considered and the final delivery should land on the new repository `dev` branch. During Task 6, no branch switching or push was performed. `origin` was fetched and current local branch remains `codex/unify-hive-backend`; final integration into `dev` is deferred until the unified backend work is ready for controlled branch reconciliation.
+git diff --check
+exit code 0
+```
 
-## Self-review
+完整标准测试总数：549/549（后端 260 + 管理端 289）。
 
-- One canonical inventory service/controller: PASS.
-- One canonical quality service/controller: PASS.
-- One canonical installation service/controller: PASS.
-- Quality record tenant isolation: PASS.
-- Canonical quality approval type only: PASS.
-- No `/web` route introduced: PASS.
-- No `my.hive_back` import introduced: PASS.
-- Existing unrelated `management-ui` changes were not staged: PASS.
+## 改动
+
+- 新增 `management-ui/tests/order-multi-shipment-cross-layer.test.js`，扫描活动订单 Java/Vue/API 合同、数据库基线和迁移目标，并明确把安装任务作为独立保留域排除。
+- tracking response 的 `expressNo` 重命名为 `trackingNo`，同步 `OrderLogisticsTrackingService`、`Kuaidi100Client` 和后端测试。
+- `/orders/{orderId}/advance` 请求体增加 `@Valid`，新增控制器参数反射回归测试。
+- 更新 `docs/management-ui/modules/order.md`，记录 shipment 子表生命周期、已保存不可删除、乐观锁、shipped 校验、shipment-specific 轨迹、hover-only 查询、成功/失败缓存、company-aware 身份、操作日志及先保存再推进。
+- 清理 `.superpowers/sdd/task-5-report.md` 中 tracking VO 和 `/advance` DTO 的过期结论。
+
+## 自审
+
+- 活动订单控制器、模型、服务、快递客户端和管理端订单页面/API 中无 `expressCompany`、`expressNo` 及对应 get/set 残留。
+- `SalesOrderSaveRequest` 与 `SalesOrderUpdateRequest` 均保留 `List<SalesOrderShipmentSaveRequest> shipments`；订单表单使用 `orderForm.shipments`；轨迹 API 仅使用 `/orders/{orderId}/shipments/{shipmentId}/logistics-tracking`。
+- 基线中的 `sales_order` 不含旧物流列，`sales_order_shipment` 使用 `logistics_company` / `tracking_no`；历史迁移只读未改。
+- 安装任务 DTO、实体、服务和管理端页面均未修改，其 `expressCompany` / `expressNo` 独立合同仍由门禁显式确认。
+- 未修改小程序源码，未生成或替换发布包，未触碰 `main`。
+- 用户已有 `.superpowers/sdd/progress.md` 修改保持未暂存，不纳入本任务提交。
 
 ## Concerns
 
-- The repository still contains other legacy `my.management` domains by design; Task 6 only retired inventory, bad-product quality, and installation packages.
-- Some existing tests under `my.management` still remain until Task 9 removes legacy roots.
+- Maven 仍输出既有 Byte Buddy 动态 agent 和 bootstrap classpath 警告，不影响测试成功。
+- Vite 构建仍输出 terser 插件耗时提示，不影响构建成功。
+- 无阻塞问题。

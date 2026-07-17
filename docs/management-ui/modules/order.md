@@ -20,9 +20,9 @@
 - 按状态、小项、开票、关键字、客户、品牌、创建时间、交付时间和预警筛选。
 - 开票状态分为未开票、已开票、其他类型；未开票订单从创建时间起满 7 个完整自然日后标红预警，已开票和其他类型统一使用灰色已处理样式。
 - 查看分页订单表；点击行或“查看”图标打开订单详情。
-- 查看订单明细、附件、物流、开票、流转码和状态流转日志。
+- 查看订单明细、附件、多条物流、开票、流转码和状态流转日志。
 - 新建订单；客户与项目可从客户选项联动，也允许录入新值。
-- 编辑订单主体、明细、状态、物流、开票、业务时间和附件。
+- 编辑订单主体、明细、状态、物流子表、开票、业务时间和附件。
 - 订单备注使用独立多记录：可新增、可修改，不允许删除；每条显示最后修改人和最后修改时间。
 - 按当前订单阶段权限执行推进、回退审批和流转码补打。
 - 配置分订单小项的未更新预警天数，并支持全量或单条重新计算。
@@ -36,6 +36,8 @@
 | getOrderPage               | GET  | /orders                           | 分页查询与全量导出取数       |
 | getOrderStatusSummary      | GET  | /orders/status-summary            | 状态、小项和开票统计         |
 | getOrderDetail             | GET  | /orders/{orderId}                 | 详情、编辑回填、备注与日志刷新 |
+| getOrderOperationLogs      | GET  | /orders/{orderId}/operation-logs  | 分页读取订单操作日志           |
+| getOrderLogisticsTracking  | GET  | /orders/{orderId}/shipments/{shipmentId}/logistics-tracking | 查询指定物流记录的轨迹 |
 | createOrder                | POST | /orders                           | 新建订单并保存备注           |
 | uploadOrderAttachment      | POST | /orders/attachment                | 上传订单附件，30 秒超时      |
 | downloadOrderAttachment    | GET  | /orders/attachment                | 下载附件 Blob，30 秒超时     |
@@ -50,6 +52,18 @@
 | refreshOrderWarningSummary | POST | /orders/warning/refresh           | 刷新预警摘要                 |
 | refreshOrderWarnings       | POST | /orders/warning/refresh-all       | 重算全部订单预警             |
 | refreshOrderWarning        | POST | /orders/warning/{orderId}/refresh | 重算单条订单预警             |
+
+## 多物流子表与轨迹合同
+
+- 订单物流使用 `shipments` 子表合同，保存项包含 `id`、`logisticsCompany`、`trackingNo` 和 `version`；列表、详情、编辑回填与导出都读取 shipment 列表，不再读写订单级物流公司或物流单号。
+- 新增行在首次保存前可以放弃；服务端已经保存并取得 `id` 的行不可删除，只能修改。保存请求必须回传全部已保存行，遗漏任一行会被后端拒绝为“已保存的物流记录不允许删除”。
+- 已保存行以 `version` 做乐观锁校验。版本缺失、过期或并发更新失败返回 409，前端不得覆盖他人修改，应重新加载详情后再编辑。
+- 保存为 `shipped` 或从 `pending_ship` 推进到 `shipped` 前，至少要有一条物流公司和物流单号均完整的已保存记录；推进服务以数据库中的 shipment 为准。
+- 编辑后推进必须先调用 `PUT /orders/{orderId}` 保存完整订单和 shipment 子表，保存成功后才调用 `POST /orders/{orderId}/advance`；保存失败时不得继续推进。
+- 单条轨迹只使用 shipment-specific 路径 `GET /orders/{orderId}/shipments/{shipmentId}/logistics-tracking`，响应单号字段为 `trackingNo`，不保留订单级或旧字段兼容合同。
+- 物流供应商查询仅在用户 hover 打开对应物流单号 popover 时触发；列表加载、详情加载和普通鼠标移动不得预查询供应商。
+- 成功轨迹缓存 30 分钟，供应商失败使用 30 秒短缓存抑制重复请求。缓存身份包含 tenant、order、shipmentId、当前物流公司和当前物流单号；更换公司、单号或 shipment 后必须形成新的缓存身份。
+- 新增和更新 shipment 在事务提交后分别记录 `add_order_shipment`、`update_order_shipment` 操作动作；日志只保存 shipment 标识和脱敏后的单号指纹，不记录明文物流单号。
 
 ## 权限与 feature
 
@@ -74,9 +88,9 @@
 - 图纸预算流程：budgeting → budget_completed。
 - 创建或保存 `pending_pay` 不创建审批。只有用户执行 `pending_pay -> pending_material` 推进时才创建备料审批候选；审批通过后进入备料中，拒绝后保持待收款。
 - 回退动作提交审批；特殊订单创建固定从 pending_confirm 进入审核语义。
-- 推进到 shipped 前要求物流公司和物流单号；编辑保存也执行同样前端校验。
-- 动态列默认 8 列：编号、客户/项目、订单信息、信息渠道、物流单号、状态、进度、时间。
-- 列顺序以 hive.table.columns.order.list.commercial.v3 存在 localStorage；当前实现只排序，不隐藏列。
+- 推进到 shipped 前要求至少一条完整的 shipment；管理端按“先保存、再推进”的顺序执行，后端对 `/advance` 请求启用嵌套 DTO 校验并以已持久化 shipment 做状态校验。
+- 动态列默认 8 列：编号、客户/项目、订单信息、信息渠道、物流单号列表、状态、进度、时间。
+- 列顺序以 hive.table.columns.order.list.commercial.v5 存在 localStorage；当前实现只排序，不隐藏列。
 - 当前页导出读取 DOM；全部导出按当前筛选重新请求，最多 2000 条，并严格使用当前动态列顺序。
 
 ## 加载 / 空态 / 错误态
@@ -84,6 +98,7 @@
 - orderState.loading 通过 v-loading 控制表格加载并禁用分页；非加载且请求成功、rows 为空时才显示“暂无订单数据”。
 - 列表将真实空态与 401/403、网络异常、5xx/其他失败互斥展示，错误态提供“重新加载”；request-id 防止旧筛选响应覆盖新结果。
 - detailLoading、submitting、附件上传、预警刷新和日志保存均有独立状态。
+- 每条 shipment 的物流轨迹按订单、shipment、公司、单号和版本维护独立 loading/data/error 状态；只有 popover 打开时请求，失败短缓存期间直接复用错误，不冲击供应商。
 - 详情打开前清空旧数据；加载、成功内容和错误态互斥显示，错误态留在抽屉内并可重试，request-id 防止跨订单旧响应。
 - 编辑抽屉同样在打开前重置表单，通过独立 loading、错误态、重试和 request-id 隔离跨订单响应；加载失败或请求进行中禁止保存，关闭抽屉会使在途请求失效。
 - 统计与预警统计失败只记录 console.warn，页面没有持久错误块或重试块。
@@ -120,7 +135,10 @@
 - [ ] `order:note:view/create/update` 分别验证可见、新增、修改和无删除入口；并发版本冲突不得覆盖他人内容。
 - [ ] 新建待收款无审批，推进备料才生成 `order:audit:material` 审批候选。
 - [ ] 普通流程、图纸预算、特殊订单、推进审批和回退审批不变。
-- [ ] shipped 的物流校验、附件上传下载与日志时间修正通过。
+- [ ] shipment 新增、修改、未保存行放弃、已保存行不可删除和 409 乐观锁冲突均通过。
+- [ ] shipped 的多物流校验与“先保存再推进”、附件上传下载及日志时间修正通过。
+- [ ] shipment-specific 轨迹只在 hover 时查询；30 分钟成功缓存、30 秒失败短缓存及 company-aware 身份均通过。
+- [ ] `add_order_shipment` / `update_order_shipment` 操作日志在事务提交后生成且不泄露明文单号。
 - [ ] 筛选、卡片、路由关键字、分页和统计刷新一致。
 - [ ] 动态列顺序刷新后保留，恢复默认可用。
 - [ ] 当前页/全部导出列顺序一致，0 条与超过 2000 条提示正确。

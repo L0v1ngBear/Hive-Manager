@@ -11,7 +11,7 @@ public class OrderLogisticsTrackingVO {
 
     private String company;
     private String companyCode;
-    private String expressNo;
+    private String trackingNo;
     private String state;
     private String stateLabel;
     private String latestContext;
