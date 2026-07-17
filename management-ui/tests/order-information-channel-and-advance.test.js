@@ -73,7 +73,7 @@ test('advance intent saves the current status before attempting the next-stage r
   assert.match(submitSource, /订单已保存，流转未完成，请重试/)
 })
 
-test('order list replaces remark with the form logistics tracking number', () => {
+test('order list replaces remark with all shipment tracking numbers', () => {
   const informationChannelCell = sourceBetween(
     orderSource,
     `<template v-else-if="column.key === 'informationChannel'">`,
@@ -83,10 +83,10 @@ test('order list replaces remark with the form logistics tracking number', () =>
 
   assert.match(orderSource, /\{key: 'expressNo', label: '物流单号'\}/)
   assert.doesNotMatch(orderSource, /\{key: 'remark', label: '备注'\}/)
-  assert.match(orderSource, /column\.key === 'expressNo'[\s\S]*v-if="row\.expressNo"[\s\S]*\{\{ row\.expressNo \}\}[\s\S]*v-else[^>]*>未填写物流单号/)
+  assert.match(orderSource, /column\.key === 'expressNo'[\s\S]*v-if="row\.shipments\?\.length"[\s\S]*v-for="shipment in row\.shipments"[\s\S]*shipment\.trackingNo[\s\S]*v-else[^>]*>未填写物流单号/)
   assert.match(informationChannelCell, /row\.informationChannel \|\| '未填写信息渠道'/)
-  assert.doesNotMatch(informationChannelCell, /row\.(?:expressCompany|expressNo)/)
-  assert.match(exportSource, /if \(key === 'expressNo'\) return row\.expressNo \|\| ''/)
+  assert.doesNotMatch(informationChannelCell, /row\.(?:expressCompany|expressNo|shipments)/)
+  assert.match(exportSource, /if \(key === 'expressNo'\) return \(row\.shipments \|\| \[\]\)[\s\S]*\.join\('、'\)/)
   assert.doesNotMatch(exportSource, /key === 'remark'/)
   assert.match(orderSource, /class="order-information-channel-cell text-sm text-on-surface-variant"/)
   assert.match(orderSource, /\.order-column-informationChannel\s*\{[\s\S]*?min-width:\s*11rem/)
@@ -99,9 +99,10 @@ test('order list replaces remark with the form logistics tracking number', () =>
 
 test('shipping advance requires logistics fields within the edit dialog', () => {
   assert.match(orderSource, /advanceIntent\.value\?\.targetStatus === 'shipped'/)
-  assert.match(orderSource, /v-if="requiresShippingDetails"/)
-  assert.match(orderSource, /if \(requiresShippingDetails\.value && !String\(orderForm\.expressCompany/)
-  assert.match(orderSource, /if \(requiresShippingDetails\.value && !String\(orderForm\.expressNo/)
+  assert.match(orderSource, /物流信息/)
+  assert.match(orderSource, /if \(requiresShippingDetails\.value && !orderForm\.shipments\.length\)/)
+  assert.match(orderSource, /shipments:\s*payload\.shipments/)
+  assert.doesNotMatch(orderSource, /\{expressCompany: payload\.expressCompany, expressNo: payload\.expressNo\}/)
 })
 
 test('advance success messages distinguish shipping approval, material approval, and direct advance', () => {

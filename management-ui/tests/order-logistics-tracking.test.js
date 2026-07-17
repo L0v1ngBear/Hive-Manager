@@ -13,29 +13,32 @@ function functionSource(source, name, nextName) {
   return source.slice(start, start + 1 + end)
 }
 
-test('order logistics query is triggered only when the express number popover opens', () => {
+test('each shipment logistics query is triggered only when its popover opens', () => {
   const loadOrdersSource = functionSource(orderSource, 'loadOrders', 'logisticsTrackingKey')
 
-  assert.match(orderSource, /<el-popover[\s\S]*trigger="hover"[\s\S]*@show="loadLogisticsTracking\(row\)"/)
-  assert.match(orderSource, /v-if="row\.expressNo"/)
+  assert.match(orderSource, /<el-popover[\s\S]*v-for="shipment in row\.shipments"[\s\S]*trigger="hover"/)
+  assert.match(orderSource, /@show="loadLogisticsTracking\(row, shipment\)"/)
   assert.match(orderSource, /const logisticsTrackingStates = reactive\(\{\}\)/)
-  assert.match(orderSource, /row\.orderId[\s\S]*row\.expressCompany[\s\S]*row\.expressNo/)
-  assert.match(orderSource, /function loadLogisticsTracking\(row\)/)
+  assert.match(orderSource, /function logisticsTrackingKey\(row = \{\}, shipment = \{\}\)[\s\S]*row\.orderId[\s\S]*shipment\.id/)
+  assert.match(orderSource, /function logisticsTrackingState\(row = \{\}, shipment = \{\}\)/)
+  assert.match(orderSource, /function loadLogisticsTracking\(row, shipment\)/)
+  assert.match(orderSource, /getOrderLogisticsTracking\(row\.orderId, shipment\.id\)/)
   assert.doesNotMatch(loadOrdersSource, /getOrderLogisticsTracking/)
   assert.doesNotMatch(orderSource, /@(mouseenter|mouseover)="loadLogisticsTracking/)
 })
 
 test('management UI calls only the canonical order tracking endpoint', () => {
-  assert.match(apiSource, /export function getOrderLogisticsTracking\(orderId\)/)
-  assert.match(apiSource, /`\/orders\/\$\{encodeURIComponent\(orderId\)\}\/logistics-tracking`/)
+  assert.match(apiSource, /export function getOrderLogisticsTracking\(orderId, shipmentId\)/)
+  assert.match(apiSource, /`\/orders\/\$\{encodeURIComponent\(orderId\)\}\/shipments\/\$\{encodeURIComponent\(shipmentId\)\}\/logistics-tracking`/)
+  assert.doesNotMatch(apiSource, /`\/orders\/\$\{encodeURIComponent\(orderId\)\}\/logistics-tracking`/)
   assert.doesNotMatch(apiSource, /kuaidi100\.com|poll\/query\.do|legacy|fallback/i)
 })
 
 test('tracking popover renders loading, error, cache and trace states without exposing credentials', () => {
   assert.match(orderSource, /物流轨迹加载中/)
-  assert.match(orderSource, /logisticsTrackingState\(row\)\.errorMessage/)
-  assert.match(orderSource, /logisticsTrackingState\(row\)\.data\.latestContext/)
-  assert.match(orderSource, /logisticsTrackingState\(row\)\.data\.traces/)
-  assert.match(orderSource, /logisticsTrackingState\(row\)\.data\.cached/)
+  assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.errorMessage/)
+  assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.data\.latestContext/)
+  assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.data\.traces/)
+  assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.data\.cached/)
   assert.doesNotMatch(orderSource, /KUAIDI100_(?:KEY|CUSTOMER)|secret-key|customer-code/)
 })

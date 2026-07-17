@@ -20,9 +20,9 @@ export function getOrderOperationLogs(orderId, params = {}) {
   })
 }
 
-export function getOrderLogisticsTracking(orderId) {
+export function getOrderLogisticsTracking(orderId, shipmentId) {
   return request({
-    url: `/orders/${encodeURIComponent(orderId)}/logistics-tracking`,
+    url: `/orders/${encodeURIComponent(orderId)}/shipments/${encodeURIComponent(shipmentId)}/logistics-tracking`,
     method: 'get',
     silent: true
   })

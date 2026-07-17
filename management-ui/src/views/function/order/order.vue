@@ -304,80 +304,86 @@
                 </div>
               </template>
               <template v-else-if="column.key === 'expressNo'">
-                <el-popover
-                    v-if="row.expressNo"
-                    trigger="hover"
-                    placement="right-start"
-                    :width="390"
-                    :show-after="260"
-                    :hide-after="120"
-                    popper-class="order-logistics-popover"
-                    @show="loadLogisticsTracking(row)"
-                >
-                  <template #reference>
-                    <button type="button" class="order-express-number-trigger">
-                      <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
-                      <span>{{ row.expressNo }}</span>
-                    </button>
-                  </template>
-                  <section class="order-logistics-card" aria-live="polite">
-                    <header class="order-logistics-header">
-                      <div>
-                        <div class="order-logistics-company">{{ row.expressCompany || '物流信息' }}</div>
-                        <div class="order-logistics-number">单号 {{ row.expressNo }}</div>
-                      </div>
-                      <span
-                          v-if="logisticsTrackingState(row).data"
-                          class="order-logistics-state"
-                      >
-                        {{ logisticsTrackingState(row).data.stateLabel || '物流状态已更新' }}
-                      </span>
-                    </header>
-
-                    <div v-if="logisticsTrackingState(row).loading" class="order-logistics-feedback">
-                      <span class="order-logistics-spinner" aria-hidden="true"></span>
-                      <span>物流轨迹加载中</span>
-                    </div>
-                    <div
-                        v-else-if="logisticsTrackingState(row).errorMessage"
-                        class="order-logistics-feedback order-logistics-feedback-error"
-                    >
-                      <span class="material-symbols-outlined" aria-hidden="true">error</span>
-                      <span>{{ logisticsTrackingState(row).errorMessage }}</span>
-                    </div>
-                    <template v-else-if="logisticsTrackingState(row).data">
-                      <div class="order-logistics-latest">
-                        <span class="material-symbols-outlined" aria-hidden="true">route</span>
+                <div v-if="row.shipments?.length" class="order-shipment-list">
+                  <div v-if="row.shipments.length > 1" class="order-shipment-count">
+                    共 {{ row.shipments.length }} 单
+                  </div>
+                  <el-popover
+                      v-for="shipment in row.shipments"
+                      :key="shipment.id || shipment.trackingNo"
+                      trigger="hover"
+                      placement="right-start"
+                      :width="390"
+                      :show-after="260"
+                      :hide-after="120"
+                      popper-class="order-logistics-popover"
+                      @show="loadLogisticsTracking(row, shipment)"
+                  >
+                    <template #reference>
+                      <button type="button" class="order-express-number-trigger">
+                        <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+                        <span>{{ shipment.trackingNo }}</span>
+                      </button>
+                    </template>
+                    <section class="order-logistics-card" aria-live="polite">
+                      <header class="order-logistics-header">
                         <div>
-                          <strong>{{ logisticsTrackingState(row).data.latestContext || '暂未返回物流轨迹' }}</strong>
-                          <span>{{ logisticsTrackingState(row).data.latestTime || '更新时间未知' }}</span>
+                          <div class="order-logistics-company">{{ shipment.logisticsCompany || '物流信息' }}</div>
+                          <div class="order-logistics-number">单号 {{ shipment.trackingNo }}</div>
                         </div>
+                        <span
+                            v-if="logisticsTrackingState(row, shipment).data"
+                            class="order-logistics-state"
+                        >
+                          {{ logisticsTrackingState(row, shipment).data.stateLabel || '物流状态已更新' }}
+                        </span>
+                      </header>
+
+                      <div v-if="logisticsTrackingState(row, shipment).loading" class="order-logistics-feedback">
+                        <span class="order-logistics-spinner" aria-hidden="true"></span>
+                        <span>物流轨迹加载中</span>
                       </div>
                       <div
-                          v-if="logisticsTrackingState(row).data.traces?.length"
-                          class="order-logistics-timeline"
+                          v-else-if="logisticsTrackingState(row, shipment).errorMessage"
+                          class="order-logistics-feedback order-logistics-feedback-error"
                       >
-                        <div
-                            v-for="(trace, traceIndex) in logisticsTrackingState(row).data.traces"
-                            :key="`${trace.time || 'trace'}-${traceIndex}`"
-                            class="order-logistics-trace"
-                            :class="{'is-latest': traceIndex === 0}"
-                        >
-                          <span class="order-logistics-trace-dot" aria-hidden="true"></span>
+                        <span class="material-symbols-outlined" aria-hidden="true">error</span>
+                        <span>{{ logisticsTrackingState(row, shipment).errorMessage }}</span>
+                      </div>
+                      <template v-else-if="logisticsTrackingState(row, shipment).data">
+                        <div class="order-logistics-latest">
+                          <span class="material-symbols-outlined" aria-hidden="true">route</span>
                           <div>
-                            <time>{{ trace.time || '时间未知' }}</time>
-                            <p>{{ trace.context || '物流状态已更新' }}</p>
-                            <small v-if="trace.location">{{ trace.location }}</small>
+                            <strong>{{ logisticsTrackingState(row, shipment).data.latestContext || '暂未返回物流轨迹' }}</strong>
+                            <span>{{ logisticsTrackingState(row, shipment).data.latestTime || '更新时间未知' }}</span>
                           </div>
                         </div>
-                      </div>
-                      <div v-else class="order-logistics-feedback">暂未返回物流路径</div>
-                      <footer class="order-logistics-footer">
-                        {{ logisticsTrackingState(row).data.cached ? '缓存结果，30分钟内不重复查询' : '刚刚查询，结果已缓存30分钟' }}
-                      </footer>
-                    </template>
-                  </section>
-                </el-popover>
+                        <div
+                            v-if="logisticsTrackingState(row, shipment).data.traces?.length"
+                            class="order-logistics-timeline"
+                        >
+                          <div
+                              v-for="(trace, traceIndex) in logisticsTrackingState(row, shipment).data.traces"
+                              :key="`${trace.time || 'trace'}-${traceIndex}`"
+                              class="order-logistics-trace"
+                              :class="{'is-latest': traceIndex === 0}"
+                          >
+                            <span class="order-logistics-trace-dot" aria-hidden="true"></span>
+                            <div>
+                              <time>{{ trace.time || '时间未知' }}</time>
+                              <p>{{ trace.context || '物流状态已更新' }}</p>
+                              <small v-if="trace.location">{{ trace.location }}</small>
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else class="order-logistics-feedback">暂未返回物流路径</div>
+                        <footer class="order-logistics-footer">
+                          {{ logisticsTrackingState(row, shipment).data.cached ? '缓存结果，30分钟内不重复查询' : '刚刚查询，结果已缓存30分钟' }}
+                        </footer>
+                      </template>
+                    </section>
+                  </el-popover>
+                </div>
                 <div v-else class="order-express-number-cell">未填写物流单号</div>
               </template>
               <template v-else-if="column.key === 'informationChannel'">
@@ -550,10 +556,18 @@
                 <div class="info-card">
                   <div class="info-label">信息渠道</div>
                   <div class="info-value">{{ orderDetail.informationChannel || '未填写信息渠道' }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">
-                    {{ orderDetail.expressCompany || '未发货' }}
-                    <template v-if="orderDetail.expressNo"> / {{ orderDetail.expressNo }}</template>
+                </div>
+                <div class="info-card">
+                  <div class="info-label">物流信息</div>
+                  <div v-if="orderDetail.shipments?.length" class="order-detail-shipment-list">
+                    <div v-for="shipment in orderDetail.shipments" :key="shipment.id || shipment.trackingNo" class="order-detail-shipment">
+                      <div class="info-value">{{ shipment.logisticsCompany }} / {{ shipment.trackingNo }}</div>
+                      <div class="mt-1 text-xs text-on-surface-variant">
+                        最后修改：{{ formatDateTime(shipment.updateTime) }}{{ shipment.updaterName ? ` · ${shipment.updaterName}` : '' }}
+                      </div>
+                    </div>
                   </div>
+                  <div v-else class="info-value">未发货</div>
                 </div>
                 <div class="info-card">
                   <div class="info-label">开票状态</div>
@@ -814,13 +828,65 @@
                     <el-option label="其他类型" :value="2" />
                   </el-select>
                 </div>
-                <div v-if="requiresShippingDetails">
-                  <label class="field-label">物流公司</label>
-                  <el-input v-model.trim="orderForm.expressCompany" data-field="order.expressCompany" class="box-input" />
+              </div>
+              <div class="order-shipments-editor">
+                <div class="order-shipments-editor-header">
+                  <div>
+                    <label class="field-label">物流信息</label>
+                    <p class="order-shipment-hint">每条物流信息均需填写公司和单号，最多 50 条。</p>
+                  </div>
+                  <el-button
+                    text
+                    class="text-xs font-bold text-primary"
+                    :disabled="orderForm.shipments.length >= 50"
+                    @click="addOrderShipment"
+                  >
+                    新增物流
+                  </el-button>
                 </div>
-                <div v-if="requiresShippingDetails">
-                  <label class="field-label">物流单号</label>
-                  <el-input v-model.trim="orderForm.expressNo" data-field="order.expressNo" class="box-input" />
+                <div class="space-y-3">
+                  <div
+                    v-for="(shipment, index) in orderForm.shipments"
+                    :key="shipment.id || `new-shipment-${index}`"
+                    class="order-shipment-row"
+                  >
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label class="field-label">物流公司 *</label>
+                        <el-input
+                          v-model.trim="shipment.logisticsCompany"
+                          :data-field="`order.shipments.${index}.logisticsCompany`"
+                          class="box-input"
+                        />
+                      </div>
+                      <div>
+                        <label class="field-label">物流单号 *</label>
+                        <el-input
+                          v-model.trim="shipment.trackingNo"
+                          :data-field="`order.shipments.${index}.trackingNo`"
+                          class="box-input"
+                        />
+                      </div>
+                    </div>
+                    <div class="order-shipment-row-footer">
+                      <span v-if="shipment.id" class="order-shipment-meta">
+                        最后修改：{{ formatDateTime(shipment.updateTime) }}{{ shipment.updaterName ? ` · ${shipment.updaterName}` : '' }}
+                      </span>
+                      <span v-else class="order-shipment-meta">保存后记录修改人和修改时间</span>
+                      <el-button
+                        v-if="!shipment.id"
+                        text
+                        type="danger"
+                        class="text-xs font-bold"
+                        @click="discardUnsavedOrderShipment(index)"
+                      >
+                        放弃
+                      </el-button>
+                    </div>
+                  </div>
+                  <div v-if="!orderForm.shipments.length" class="order-shipment-empty">
+                    暂无物流信息
+                  </div>
                 </div>
               </div>
               <div class="order-notes-editor">
@@ -1348,6 +1414,43 @@ function defaultOrderItem() {
   return {modelCode: '', quantity: '', weight: '', spec: ''}
 }
 
+function defaultOrderShipment() {
+  return {
+    id: null,
+    logisticsCompany: '',
+    trackingNo: '',
+    version: null,
+    updaterName: '',
+    updateTime: '',
+    isNew: true
+  }
+}
+
+function normalizeOrderShipment(shipment = {}) {
+  return {
+    ...defaultOrderShipment(),
+    id: shipment.id ?? null,
+    logisticsCompany: String(shipment.logisticsCompany || ''),
+    trackingNo: String(shipment.trackingNo || ''),
+    version: shipment.version ?? null,
+    updaterName: shipment.updaterName || '',
+    updateTime: shipment.updateTime || '',
+    isNew: !shipment.id
+  }
+}
+
+function addOrderShipment() {
+  if (orderForm.shipments.length >= 50) {
+    ElMessage.warning('每个订单最多添加50条物流信息')
+    return
+  }
+  orderForm.shipments.push(defaultOrderShipment())
+}
+
+function discardUnsavedOrderShipment(index) {
+  if (!orderForm.shipments[index]?.id) orderForm.shipments.splice(index, 1)
+}
+
 function defaultOrderNote() {
   return {id: null, content: '', version: null, updaterName: '', updateTime: '', isNew: true}
 }
@@ -1381,8 +1484,7 @@ function defaultOrderForm() {
     orderCategory: 'bulk',
     informationChannel: '',
     createTime: '',
-    expressCompany: '',
-    expressNo: '',
+    shipments: [],
     isInvoice: 0,
     notes: [],
     attachmentName: '',
@@ -1739,12 +1841,12 @@ async function loadOrders() {
   }
 }
 
-function logisticsTrackingKey(row = {}) {
-  return `${row.orderId || ''}::${row.expressCompany || ''}::${row.expressNo || ''}`
+function logisticsTrackingKey(row = {}, shipment = {}) {
+  return `${row.orderId || ''}::${shipment.id || ''}`
 }
 
-function logisticsTrackingState(row = {}) {
-  const key = logisticsTrackingKey(row)
+function logisticsTrackingState(row = {}, shipment = {}) {
+  const key = logisticsTrackingKey(row, shipment)
   if (!logisticsTrackingStates[key]) {
     logisticsTrackingStates[key] = {
       loading: false,
@@ -1760,15 +1862,15 @@ function logisticsTrackingCacheValid(data) {
   return Number.isFinite(expiresAt) && expiresAt > Date.now()
 }
 
-async function loadLogisticsTracking(row) {
-  if (!row?.orderId || !row?.expressNo) return
-  const tracking = logisticsTrackingState(row)
+async function loadLogisticsTracking(row, shipment) {
+  if (!row?.orderId || !shipment?.id) return
+  const tracking = logisticsTrackingState(row, shipment)
   if (tracking.loading || logisticsTrackingCacheValid(tracking.data)) return
 
   tracking.loading = true
   tracking.errorMessage = ''
   try {
-    tracking.data = await getOrderLogisticsTracking(row.orderId)
+    tracking.data = await getOrderLogisticsTracking(row.orderId, shipment.id)
   } catch (error) {
     tracking.data = null
     tracking.errorMessage = error?.message
@@ -1821,7 +1923,10 @@ function formatOrderExportCell(row, key) {
   if (key === 'brand') return row.brandName || ''
   if (key === 'core') return orderCoreExportText(row)
   if (key === 'informationChannel') return row.informationChannel || ''
-  if (key === 'expressNo') return row.expressNo || ''
+  if (key === 'expressNo') return (row.shipments || [])
+      .map(shipment => shipment.trackingNo)
+      .filter(Boolean)
+      .join('、')
   if (key === 'invoice') return invoiceLabel(row.isInvoice)
   if (key === 'status') return orderStatusLabel(row.status)
   if (key === 'progress') {
@@ -2009,8 +2114,7 @@ async function openEdit(orderId, row = {}, intent = null) {
     orderForm.orderCategory = normalizeOrderCategory(detail.orderCategory)
     orderForm.informationChannel = detail.informationChannel || ''
     orderForm.createTime = toDateTimeLocal(detail.createTime)
-    orderForm.expressCompany = detail.expressCompany || ''
-    orderForm.expressNo = detail.expressNo || ''
+    orderForm.shipments = (detail.shipments || []).map(normalizeOrderShipment)
     orderForm.isInvoice = Number(detail.isInvoice || 0)
     orderForm.notes = canViewOrderNotes.value
         ? (detail.notes || []).map(normalizeOrderNote)
@@ -2128,7 +2232,7 @@ async function submitForm() {
     }
     if (advancePlan) {
       const advancePayload = advancePlan.targetStatus === 'shipped'
-          ? {expressCompany: payload.expressCompany, expressNo: payload.expressNo}
+          ? {shipments: payload.shipments}
           : {}
       try {
         await advanceOrderNextStage(editingOrderId.value, advancePayload)
@@ -2161,12 +2265,19 @@ function validateOrderForm() {
   if (!orderForm.projectName.trim()) fail('请输入项目名称', 'order.projectName')
   if (orderForm.orderCategory !== 'drawing_budget' && !orderForm.informationChannel) fail('请输入信息渠道', 'order.informationChannel')
   validateCreateTimeInput(orderForm.createTime)
-  if (requiresShippingDetails.value && !String(orderForm.expressCompany || '').trim()) {
-    fail('订单变更为已发货时必须填写物流公司', 'order.expressCompany')
+  if (orderForm.shipments.length > 50) fail('每个订单最多添加50条物流信息', 'order.shipments')
+  if (requiresShippingDetails.value && !orderForm.shipments.length) {
+    fail('订单变更为已发货时至少需要一条完整物流信息', 'order.shipments')
   }
-  if (requiresShippingDetails.value && !String(orderForm.expressNo || '').trim()) {
-    fail('订单变更为已发货时必须填写物流单号', 'order.expressNo')
-  }
+  const trackingNumbers = new Set()
+  orderForm.shipments.forEach((shipment, index) => {
+    const logisticsCompany = String(shipment.logisticsCompany || '').trim()
+    const trackingNo = String(shipment.trackingNo || '').trim()
+    if (!logisticsCompany) fail('物流公司不能为空', `order.shipments.${index}.logisticsCompany`)
+    if (!trackingNo) fail('物流单号不能为空', `order.shipments.${index}.trackingNo`)
+    if (trackingNumbers.has(trackingNo)) fail('物流单号不能重复', `order.shipments.${index}.trackingNo`)
+    trackingNumbers.add(trackingNo)
+  })
   if (orderForm.notes.length > 50) fail('每个订单最多添加50条备注', 'order.notes')
   orderForm.notes.forEach((note, index) => {
     const content = String(note.content || '').trim()
@@ -2193,8 +2304,12 @@ function buildOrderPayload() {
     orderCategory,
     informationChannel: blank(orderForm.informationChannel),
     createTime: blank(formatCreateTimePayload(orderForm.createTime)),
-    expressCompany: blank(orderForm.expressCompany),
-    expressNo: blank(orderForm.expressNo),
+    shipments: orderForm.shipments.map(({ id, logisticsCompany, trackingNo, version }) => ({
+      id,
+      logisticsCompany: logisticsCompany.trim(),
+      trackingNo: trackingNo.trim(),
+      version
+    })),
     isInvoice: Number(orderForm.isInvoice || 0),
     notes: orderForm.notes.map(({ id, content, version }) => ({ id, content: content.trim(), version })),
     attachmentName: blank(orderForm.attachmentName),
@@ -3925,6 +4040,24 @@ function fulfillmentProcessText(row = {}) {
   overflow-wrap: anywhere;
 }
 
+.order-shipment-list,
+.order-detail-shipment-list {
+  display: grid;
+  gap: .35rem;
+  min-width: 0;
+}
+
+.order-shipment-count {
+  color: rgb(var(--on-surface-variant));
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.order-detail-shipment + .order-detail-shipment {
+  border-top: 1px solid rgb(var(--outline-variant) / .35);
+  padding-top: .5rem;
+}
+
 .order-express-number-trigger {
   display: inline-flex;
   max-width: 100%;
@@ -4133,11 +4266,14 @@ function fulfillmentProcessText(row = {}) {
   overflow-wrap: anywhere;
 }
 
+.order-shipments-editor,
 .order-notes-editor {
   display: grid;
   gap: .75rem;
 }
 
+.order-shipments-editor-header,
+.order-shipment-row-footer,
 .order-notes-editor-header,
 .order-note-row-footer {
   display: flex;
@@ -4146,6 +4282,7 @@ function fulfillmentProcessText(row = {}) {
   gap: .75rem;
 }
 
+.order-shipment-row,
 .order-note-row {
   border: 1px solid rgba(148, 163, 184, .28);
   border-radius: .5rem;
@@ -4153,6 +4290,9 @@ function fulfillmentProcessText(row = {}) {
   padding: .75rem;
 }
 
+.order-shipment-hint,
+.order-shipment-meta,
+.order-shipment-empty,
 .order-note-meta,
 .order-note-empty,
 .order-note-permission-empty {
@@ -4160,6 +4300,7 @@ function fulfillmentProcessText(row = {}) {
   color: rgb(var(--on-surface-variant));
 }
 
+.order-shipment-empty,
 .order-note-empty,
 .order-note-permission-empty {
   border: 1px dashed rgba(148, 163, 184, .35);
