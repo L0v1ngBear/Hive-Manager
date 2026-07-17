@@ -62,13 +62,19 @@
 
 完整接口以 `docs/api/unified-api-catalog.md` 和统一后端 Controller 为准。
 
+## 订单物流合同
+
+- 管理端订单发货正式使用 `shipments` 列表；每个发货批次分别提交 `shipments[].logisticsCompany` 和 `shipments[].trackingNo`，订单不再定义顶层物流字段。
+- 已保存的 shipment 记录不可删除；后续操作只能更新或新增 shipment，以保留订单发货审计记录。
+- 单条物流轨迹按 shipment 查询：`GET /orders/{orderId}/shipments/{shipmentId}/logistics-tracking`。
+- 小程序前端当前不在本次订单多物流改造范围内。本合同不宣称小程序已经实现 shipment 列表物流；其后续适配必须以本节订单物流合同为准。
+
 ## 小程序适配约束
 
 - 加入组织接口是公开接口，首次加入组织时必须使用 `needAuth: false` 和 `needTenant: false`。
 - 首页入口同时受租户功能开关和精确权限控制，不能只根据 `features` 展示。
 - 库存页面只请求当前用户有权读取的数据；只有出入库权限的员工也能进入页面并执行对应操作。
 - 出库允许直接输入订单号；拥有 `order:list` 时才提供订单搜索候选。
-- 发货物流字段固定为顶层 `expressCompany` 和 `expressNo`。
 - 统一订单的生产工序与异常上报使用 `POST /orders/{orderId}/process`，不再把生产字段提交给普通状态接口。
 - 普通订单和图纸预算订单只允许推进到紧邻的下一状态，统一调用 `POST /orders/{orderId}/advance`；`/status` 不承担需要审批的正常推进。
 - 发票状态固定为 `0=未开票`、`1=已开票`、`2=其他`，筛选、列表显示和发货表单必须覆盖三种值。

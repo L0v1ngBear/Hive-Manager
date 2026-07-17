@@ -17,6 +17,12 @@ function tableBlock(schema, tableName) {
   return match[1]
 }
 
+function sectionBlock(document, heading) {
+  const match = document.match(new RegExp('^## ' + heading + '\\r?\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))', 'mu'))
+  assert.ok(match, `document must define ${heading}`)
+  return match[1]
+}
+
 function sourceFiles(relativeRoot) {
   const absoluteRoot = path.join(repoRoot, relativeRoot)
   return fs.readdirSync(absoluteRoot, { withFileTypes: true }).flatMap(entry => {
@@ -47,12 +53,17 @@ test('active order contracts contain only shipment-list logistics', () => {
   const trackingResponse = read('management/src/main/java/my/hive/domain/order/model/vo/OrderLogisticsTrackingVO.java')
   const orderVue = read('management-ui/src/views/function/order/order.vue')
   const orderApi = read('management-ui/src/views/function/order/api/order.js')
+  const frontendContract = read('docs/architecture/unified-frontend-contract.md')
+  const orderLogisticsContract = sectionBlock(frontendContract, '订单物流合同')
 
   assert.match(saveRequest, /List<SalesOrderShipmentSaveRequest> shipments/u)
   assert.match(updateRequest, /List<SalesOrderShipmentSaveRequest> shipments/u)
   assert.match(trackingResponse, /private String trackingNo;/u)
   assert.match(orderVue, /orderForm\.shipments/u)
   assert.match(orderApi, /shipments\/\$\{encodeURIComponent\(shipmentId\)\}\/logistics-tracking/u)
+  assert.match(orderLogisticsContract, /`shipments\[\]\.logisticsCompany`/u)
+  assert.match(orderLogisticsContract, /`shipments\[\]\.trackingNo`/u)
+  assert.doesNotMatch(orderLogisticsContract, /expressCompany|expressNo/u)
 })
 
 test('database contracts normalize order logistics without rewriting migration history', () => {

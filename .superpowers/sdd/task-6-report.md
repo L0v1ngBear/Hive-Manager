@@ -68,6 +68,18 @@ exit code 0
 - 未修改小程序源码，未生成或替换发布包，未触碰 `main`。
 - 用户已有 `.superpowers/sdd/progress.md` 修改保持未暂存，不纳入本任务提交。
 
+## Review Follow-up: Unified Frontend Contract
+
+- Starting HEAD: `2c873a6` on `codex/order-multi-shipment`; no worktree or branch change.
+- TDD RED: `node --test tests/order-multi-shipment-cross-layer.test.js` exited `1` with 3 passing and 1 failing test. The new active-contract assertion failed because `docs/architecture/unified-frontend-contract.md` did not define the `订单物流合同` section.
+- TDD GREEN: the same focused test passed 4/4 after the contract documented management UI shipment-list logistics as `shipments[].logisticsCompany` and `shipments[].trackingNo`, prohibited order-level legacy fields, preserved saved shipment records, and specified the shipment-specific tracking route.
+- Scope statement: the contract explicitly says the mini-program frontend is not implemented as part of this multi-shipment change and must not be represented as already adapted. It no longer defines the retired top-level order logistics fields as the unified contract.
+- Verification: `git diff --check` exited `0`.
+
+## Review Follow-up Concerns
+
+- No blocking concerns. The existing user-owned `.superpowers/sdd/progress.md` modification remains unstaged and excluded from this fix.
+
 ## Concerns
 
 - Maven 仍输出既有 Byte Buddy 动态 agent 和 bootstrap classpath 警告，不影响测试成功。
