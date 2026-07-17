@@ -37,48 +37,50 @@
             custom
             v-slot="{ navigate }"
         >
-          <el-button
-              native-type="button"
-              text
-              class="relative flex h-auto w-full justify-start overflow-hidden rounded-xl text-left transition-all duration-200"
-              :class="linkClass(item)"
-              :disabled="item.disabled"
-              :title="item.disabled ? item.disabledReason : item.name"
-              @click="handleMenuNavigate(item, navigate)"
-          >
-          <span class="material-symbols-outlined shrink-0 transition-all"
-                :class="isCollapsed ? 'text-[24px]' : 'text-[20px]'">{{ item.icon }}</span>
-          <span class="whitespace-nowrap transition-all duration-200"
-                :class="isCollapsed ? 'text-[10px] font-bold tracking-tighter' : 'text-sm font-medium'">{{
-              item.name
-            }}</span>
-          <el-badge
-              v-if="item.path === '/function/approval' && approvalPendingCount > 0"
-              :value="approvalPendingCount"
-              :max="99"
-              class="approval-menu-badge"
-              :class="isCollapsed ? 'absolute right-1.5 top-1.5' : 'ml-auto'"
-          />
-          </el-button>
+          <el-tooltip :disabled="!isCollapsed" :content="item.name" placement="right">
+            <el-button
+                native-type="button"
+                text
+                class="relative flex h-auto w-full justify-start overflow-hidden rounded-xl text-left transition-all duration-200"
+                :class="linkClass(item)"
+                :disabled="item.disabled"
+                :title="item.disabled ? item.disabledReason : item.name"
+                :aria-label="item.name"
+                @click="handleMenuNavigate(item, navigate)"
+            >
+              <span class="material-symbols-outlined shrink-0 transition-all"
+                    :class="isCollapsed ? 'text-[24px]' : 'text-[20px]'">{{ item.icon }}</span>
+              <span v-if="!isCollapsed" class="whitespace-nowrap text-sm font-medium transition-all duration-200">{{ item.name }}</span>
+              <el-badge
+                  v-if="item.path === '/function/approval' && approvalPendingCount > 0"
+                  :value="approvalPendingCount"
+                  :max="99"
+                  class="approval-menu-badge"
+                  :class="isCollapsed ? 'absolute right-1.5 top-1.5' : 'ml-auto'"
+              />
+            </el-button>
+          </el-tooltip>
         </router-link>
       </div>
 
       <div v-if="secondaryMenus.length" class="mt-4 border-t border-outline-variant/20 pt-4">
-        <el-button
-            @click="toggleMore"
-            text
-            class="w-full rounded-xl text-on-surface-variant transition-all duration-200 hover:bg-surface-container-highest hover:text-primary"
-            :class="isCollapsed ? 'flex-col items-center justify-center py-3 gap-1' : 'flex-row items-center justify-between px-4 py-3'"
-        >
-          <div class="flex items-center" :class="isCollapsed ? 'flex-col gap-1' : 'flex-row gap-3'">
-            <span class="material-symbols-outlined shrink-0"
-                  :class="isCollapsed ? 'text-[24px]' : 'text-[20px]'">apps</span>
-            <span class="whitespace-nowrap"
-                  :class="isCollapsed ? 'text-[10px] font-bold tracking-tighter' : 'text-sm font-medium'">更多功能</span>
-          </div>
-          <span v-if="!isCollapsed" class="material-symbols-outlined text-[18px] transition-transform"
-                :class="showMore ? 'rotate-90' : ''">chevron_right</span>
-        </el-button>
+        <el-tooltip :disabled="!isCollapsed" content="更多功能" placement="right">
+          <el-button
+              @click="toggleMore"
+              text
+              class="w-full rounded-xl text-on-surface-variant transition-all duration-200 hover:bg-surface-container-highest hover:text-primary"
+              :class="isCollapsed ? 'flex items-center justify-center px-3 py-3' : 'flex-row items-center justify-between px-4 py-3'"
+              aria-label="更多功能"
+          >
+            <div class="flex items-center" :class="isCollapsed ? '' : 'flex-row gap-3'">
+              <span class="material-symbols-outlined shrink-0"
+                    :class="isCollapsed ? 'text-[24px]' : 'text-[20px]'">apps</span>
+              <span v-if="!isCollapsed" class="whitespace-nowrap text-sm font-medium">更多功能</span>
+            </div>
+            <span v-if="!isCollapsed" class="material-symbols-outlined text-[18px] transition-transform"
+                  :class="showMore ? 'rotate-90' : ''">chevron_right</span>
+          </el-button>
+        </el-tooltip>
 
         <div v-show="showMore" class="mt-2 space-y-2">
           <router-link
@@ -88,22 +90,22 @@
               custom
               v-slot="{ navigate }"
           >
-            <el-button
-                native-type="button"
-                text
-                class="flex h-auto w-full justify-start overflow-hidden rounded-xl text-left transition-all duration-200"
-                :class="linkClass(item)"
-                :disabled="item.disabled"
-                :title="item.disabled ? item.disabledReason : item.name"
-                @click="handleMenuNavigate(item, navigate)"
-            >
-            <span class="material-symbols-outlined shrink-0 transition-all"
-                  :class="isCollapsed ? 'text-[24px]' : 'text-[20px]'">{{ item.icon }}</span>
-            <span class="whitespace-nowrap transition-all duration-200"
-                  :class="isCollapsed ? 'text-[10px] font-bold tracking-tighter' : 'text-sm font-medium'">{{
-                item.name
-              }}</span>
-            </el-button>
+            <el-tooltip :disabled="!isCollapsed" :content="item.name" placement="right">
+              <el-button
+                  native-type="button"
+                  text
+                  class="flex h-auto w-full justify-start overflow-hidden rounded-xl text-left transition-all duration-200"
+                  :class="linkClass(item)"
+                  :disabled="item.disabled"
+                  :title="item.disabled ? item.disabledReason : item.name"
+                  :aria-label="item.name"
+                  @click="handleMenuNavigate(item, navigate)"
+              >
+                <span class="material-symbols-outlined shrink-0 transition-all"
+                      :class="isCollapsed ? 'text-[24px]' : 'text-[20px]'">{{ item.icon }}</span>
+                <span v-if="!isCollapsed" class="whitespace-nowrap text-sm font-medium transition-all duration-200">{{ item.name }}</span>
+              </el-button>
+            </el-tooltip>
           </router-link>
         </div>
       </div>
@@ -111,15 +113,17 @@
 
     <div v-if="!props.mobile" class="p-4 border-t border-outline-variant/20 flex shrink-0"
          :class="isCollapsed ? 'justify-center' : 'justify-end'">
-      <el-button
-          @click="toggleSidebar"
-          text
-          class="h-auto p-2 text-on-surface-variant hover:bg-surface-container-highest hover:text-primary"
-      >
-        <span class="material-symbols-outlined text-[20px] transition-transform duration-300"
-              :class="isCollapsed ? '' : 'rotate-180'">keyboard_double_arrow_right</span>
-        <span v-if="isCollapsed" class="text-[10px] font-bold tracking-tighter scale-90">展开</span>
-      </el-button>
+      <el-tooltip :content="isCollapsed ? '展开导航' : '收起导航'" placement="right">
+        <el-button
+            @click="toggleSidebar"
+            text
+            class="h-auto p-2 text-on-surface-variant hover:bg-surface-container-highest hover:text-primary"
+            :aria-label="isCollapsed ? '展开导航' : '收起导航'"
+        >
+          <span class="material-symbols-outlined text-[20px] transition-transform duration-300"
+                :class="isCollapsed ? '' : 'rotate-180'">keyboard_double_arrow_right</span>
+        </el-button>
+      </el-tooltip>
     </div>
   </aside>
 </template>
@@ -127,7 +131,7 @@
 <script setup>
 import {computed, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
-import {ElBadge, ElButton} from 'element-plus'
+import {ElBadge, ElButton, ElTooltip} from 'element-plus'
 import {useUserStore} from '@/stores/user'
 import {getApprovalSummary} from '@/views/function/approval/api/approval'
 import {decorateAccessItems} from '@/utils/access'
@@ -144,13 +148,13 @@ const props = defineProps({
 
 const route = useRoute()
 const userStore = useUserStore()
-const isCollapsed = ref(!props.mobile)
+const isCollapsed = ref(false)
 const approvalPendingCount = ref(0)
 const tenantName = computed(() => userStore.currentTenantName)
 const tenantLogoUrl = computed(() => userStore.currentTenantLogoUrl)
 const brandLogoUrl = computed(() => tenantLogoUrl.value || defaultLogo)
-const brandLogoAlt = computed(() => tenantLogoUrl.value ? `${tenantName.value} logo` : '轻巢 Hive logo')
-const brandTitle = computed(() => tenantLogoUrl.value && !userStore.isPlatformTenant ? tenantName.value : '轻巢 Hive')
+const brandLogoAlt = computed(() => tenantLogoUrl.value ? `${tenantName.value} logo` : '蜂巢 Hive logo')
+const brandTitle = computed(() => tenantLogoUrl.value && !userStore.isPlatformTenant ? tenantName.value : '蜂巢 Hive')
 const brandSubtitle = computed(() => tenantLogoUrl.value && !userStore.isPlatformTenant ? '企业工作台' : '业务协同系统')
 const ANNOUNCEMENT_PERMISSIONS = [
   'notification:announcement:list',

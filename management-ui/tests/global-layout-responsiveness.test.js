@@ -110,12 +110,20 @@ test('desktop sidebar opens by default and collapsed navigation is icon only', (
   assert.match(sidebar, /const isCollapsed = ref\(false\)/)
   assert.doesNotMatch(sidebar, /isCollapsed \? 'text-\[10px\]/)
   assert.match(sidebar, /v-if="!isCollapsed"[\s\S]{0,140}item\.name/)
-  assert.match(sidebar, /:content="item\.name"/)
+  assert.equal((sidebar.match(/:content="item\.name"/g) ?? []).length, 2)
+  assert.equal((sidebar.match(/:disabled="!isCollapsed"/g) ?? []).length >= 3, true)
+  assert.match(sidebar, /<el-tooltip[\s\S]{0,180}:content="item\.name"[\s\S]{0,120}placement="right"/)
+  assert.match(sidebar, /aria-label="item\.name"/)
+  assert.match(sidebar, /aria-label="更多功能"/)
+  assert.match(sidebar, /aria-label="isCollapsed \? '展开导航' : '收起导航'"/)
+  assert.match(sidebar, /:content="isCollapsed \? '展开导航' : '收起导航'"/)
 })
 
 test('Hive branding is consistent', () => {
   assert.doesNotMatch(sidebar, /\u8f7b\u5de2 Hive/)
   assert.match(sidebar, /\u8702\u5de2 Hive/)
+  assert.match(sidebar, /tenantLogoUrl\.value \? `\$\{tenantName\.value\} logo` : '蜂巢 Hive logo'/)
+  assert.match(sidebar, /tenantLogoUrl\.value && !userStore\.isPlatformTenant \? tenantName\.value : '蜂巢 Hive'/)
 })
 
 test('order page defines responsive summary filters and a compact mobile entry', () => {
