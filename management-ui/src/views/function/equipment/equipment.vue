@@ -7,7 +7,7 @@
           <h1 class="function-page-title">设备巡检记录</h1>
           <p class="function-page-desc">建立固定设备二维码，现场扫码巡检后记录自动沉淀到设备档案。</p>
         </div>
-        <el-form :inline="true" class="flex flex-wrap justify-end gap-3">
+        <el-form :inline="true" class="function-filter-form flex flex-wrap justify-end gap-3">
           <el-form-item>
             <el-input v-model.trim="filters.keyword" clearable placeholder="搜索设备编码、名称、位置或负责人" @keyup.enter="fetchDevices" />
           </el-form-item>

@@ -523,10 +523,48 @@ button[aria-disabled="true"],
   max-width: 100%;
 }
 
+.function-table-scroll {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto !important;
+  scrollbar-gutter: stable;
+}
+
 .function-page-shell .responsive-table-wrap {
   width: 100%;
   min-width: 0;
-  overflow-x: hidden !important;
+  overflow-x: auto !important;
+  scrollbar-gutter: stable;
+}
+
+.function-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--responsive-card-gap);
+}
+
+.function-filter-form {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  align-items: end;
+  gap: 0.75rem 1rem;
+}
+
+.function-filter-form .el-form-item {
+  width: 100%;
+  min-width: 0;
+  margin: 0 !important;
+}
+
+.function-filter-form :is(.el-input, .el-select, .el-date-editor, .el-input-number) {
+  width: 100% !important;
+  min-width: 0;
+}
+
+.function-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .function-page-shell .responsive-data-table {
@@ -613,11 +651,12 @@ button[aria-disabled="true"],
     --responsive-control-height: 2.9rem;
   }
 
-  .responsive-page-frame .function-page-container > .grid,
-  .responsive-page-frame .function-page-container > section.grid,
-  .responsive-page-frame .function-page-container > div.grid,
   .responsive-page-frame .function-page-container :is(.order-filter-grid, .print-editor-grid, .template-grid, .receipt-preview-layout) {
     grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .function-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .responsive-page-frame :is(.function-page-header, .order-title-row, .template-page-head, .drawer-head) {
@@ -637,8 +676,12 @@ button[aria-disabled="true"],
     min-height: var(--responsive-control-height);
   }
 
-  .function-page-shell .responsive-table-wrap {
-    overflow: visible !important;
+}
+
+@media (max-width: 640px) {
+  .function-stats-grid,
+  .function-filter-form {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .function-page-shell .responsive-data-table,
