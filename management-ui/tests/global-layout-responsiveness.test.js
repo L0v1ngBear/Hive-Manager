@@ -70,6 +70,8 @@ const templateSection = (source, startMarker, endMarker) => {
   return source.slice(start, end + endMarker.length)
 }
 
+const unguardedCollapsedSpans = (section) => [...section.matchAll(/<span\b(?![^>]*v-if="!isCollapsed")[^>]*>[\s\S]*?<\/span>/g)]
+
 test('tablet rules do not force every direct business grid to one column', () => {
   const tabletRules = topLevelCssRules(extractCssBlock(style, '@media (max-width: 900px)'))
   const directBusinessGrid = /\.responsive-page-frame \.function-page-container\s*>\s*(?:\.grid|section\.grid|div\.grid)/
@@ -123,19 +125,26 @@ test('desktop sidebar opens by default and collapsed navigation is icon only', (
   const bottomToggle = templateSection(sidebar, '<div v-if="!props.mobile"', '  </aside>')
   const approvalBadge = templateSection(primaryMenu, '<el-badge', '/>')
   const toggleButton = templateSection(bottomToggle, '<el-button', '</el-button>')
-  const unguardedMoreLabels = [...moreControl.matchAll(/<span\b(?![^>]*v-if="!isCollapsed")[^>]*>([\s\S]*?)<\/span>/g)]
+  const unguardedPrimarySpans = unguardedCollapsedSpans(primaryMenu)
+  const unguardedSecondarySpans = unguardedCollapsedSpans(secondaryMenu)
+  const unguardedMoreSpans = unguardedCollapsedSpans(moreControl)
 
   assert.match(sidebar, /const isCollapsed = ref\(false\)/)
   assert.match(primaryMenu, /<span v-if="!isCollapsed"[^>]*>\s*\{\{ item\.name \}\}\s*<\/span>/)
   assert.match(primaryMenu, /<el-tooltip[^>]*:content="item\.name"[^>]*placement="right"/)
   assert.match(secondaryMenu, /<span v-if="!isCollapsed"[^>]*>\s*\{\{ item\.name \}\}\s*<\/span>/)
   assert.match(secondaryMenu, /<el-tooltip[^>]*:content="item\.name"[^>]*placement="right"/)
+  for (const [menuName, unguardedSpans] of [['primary', unguardedPrimarySpans], ['secondary', unguardedSecondarySpans]]) {
+    assert.equal(unguardedSpans.length, 1, `collapsed ${menuName} menu must keep only the icon span`)
+    assert.match(unguardedSpans[0][0], /class="[^"]*\bmaterial-symbols-outlined\b[^"]*"/)
+    assert.match(unguardedSpans[0][0], />\s*\{\{ item\.icon \}\}\s*<\/span>/)
+  }
 
   assert.match(moreControl, />apps<\/span>/)
   assert.match(moreControl, /<span v-if="!isCollapsed"[^>]*>更多功能<\/span>/)
   assert.match(moreControl, /<span v-if="!isCollapsed"[^>]*>\s*chevron_right\s*<\/span>/)
-  assert.equal(unguardedMoreLabels.length, 1, 'collapsed More control must keep only one visible span')
-  assert.match(unguardedMoreLabels[0][1], /^\s*apps\s*$/)
+  assert.equal(unguardedMoreSpans.length, 1, 'collapsed More control must keep only one visible span')
+  assert.match(unguardedMoreSpans[0][0], />\s*apps\s*<\/span>/)
 
   assert.match(bottomToggle, /<el-tooltip[^>]*:content="isCollapsed \? '展开导航' : '收起导航'"[^>]*placement="right"/)
   assert.match(toggleButton, /:aria-label="isCollapsed \? '展开导航' : '收起导航'"/)
