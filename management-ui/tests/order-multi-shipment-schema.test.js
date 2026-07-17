@@ -34,8 +34,9 @@ test('order logistics use a normalized non-deletable shipment table', () => {
   const salesOrderBlock = tableBlock(baseline, 'sales_order')
   const releaseSalesOrderBlock = tableBlock(releaseBaseline, 'sales_order')
   assert.doesNotMatch(salesOrderBlock, /`express_company`|`express_no`/u)
-  assert.doesNotMatch(releaseSalesOrderBlock, /`express_company`|`express_no`/u)
-  assert.match(releaseBaseline, /CREATE TABLE `sales_order_shipment`/u)
+  assert.match(releaseSalesOrderBlock, /`express_company`/u)
+  assert.match(releaseSalesOrderBlock, /`express_no`/u)
+  assert.doesNotMatch(releaseBaseline, /CREATE TABLE `sales_order_shipment`/u)
   assert.match(migration, /CREATE TABLE `sales_order_shipment`/u)
   assert.match(migration, /DROP COLUMN `express_company`/u)
   assert.match(migration, /DROP COLUMN `express_no`/u)
@@ -45,15 +46,15 @@ test('order logistics use a normalized non-deletable shipment table', () => {
   assert.match(checksums, new RegExp('^' + migrationHash + '  migrations/V20260717_001_order_multi_shipment\\.sql$', 'mu'))
 })
 
-test('baseline import registers the represented shipment migration before running newer migrations', () => {
+test('immutable baseline defers the shipment migration to the versioned runner', () => {
   const importer = read('db-migrations/scripts/import-baseline-to-shadow.sh')
-  const cutoff = 'migrations/V20260717_001_order_multi_shipment.sql'
+  const cutoff = 'migrations/V20260716_001_operation_log_table.sql'
 
   assert.match(importer, new RegExp('BASELINE_CUTOFF="\\$\\{BASELINE_CUTOFF:-' + cutoff.replace('.', '\\.') + '\\}"', 'u'))
   assert.match(importer, /if \[ "\$\{entry\}" = "\$\{BASELINE_CUTOFF\}" \]/u)
   assert.ok(
     importer.indexOf('Register checksummed baseline migration state') < importer.indexOf('run-versioned-migrations.sh'),
-    'represented migration history must be registered before the migration runner starts'
+    'baseline migration history must be registered before the migration runner starts'
   )
 })
 

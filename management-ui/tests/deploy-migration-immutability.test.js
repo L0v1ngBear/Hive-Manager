@@ -11,6 +11,13 @@ function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
 }
 
+const releaseBaseline = read('db-migrations/baseline/hive_schema_baseline_v2.sql')
+assert.equal(
+  createHash('sha256').update(releaseBaseline).digest('hex'),
+  'd99de67e80de5170588af4c1c7923ebd57994a15866becdb7d96fea94e59bd7c',
+  'baseline v2 must remain byte-for-byte identical to the baseline already registered by production'
+)
+
 const historicalInstallationTaskMigration = read('db-migrations/migrations/V20260705_004_installation_task_schema.sql')
 assert.equal(
   createHash('sha256').update(historicalInstallationTaskMigration).digest('hex'),

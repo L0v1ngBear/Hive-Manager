@@ -45,7 +45,7 @@ This release's order multi-shipment schema is a clean-launch destructive contrac
    ```
 
 The initializer creates only `TENANT_001`, one enterprise owner, the built-in role catalog and current assignable permissions. It refuses a non-empty or incomplete database.
-Its schema baseline already represents `V20260717_001_order_multi_shipment.sql`; the importer records that cutoff and runs only later migrations.
+Its immutable schema baseline represents migrations through `V20260716_001_operation_log_table.sql`; the importer records that cutoff and the versioned runner then executes `V20260717_001_order_multi_shipment.sql`.
 
 ## Routine release
 
@@ -60,7 +60,7 @@ bash scripts/smoke-test.sh
 
 `restart.sh` builds the local backend image, stops backend writes, runs the sole migration entry and recreates only `backend` and `nginx`. A migration failure leaves the backend stopped. It never recreates MySQL or Redis and does not pull images unless explicitly requested.
 
-The sole migration entry enforces the `V20260717_001` clean-launch contract at runtime. When that version is still pending, `sales_order` must exist and its exact row count must be zero; a non-zero count or any inability to prove emptiness fails closed with an instruction to run the formal cleanup process. When a fresh baseline has already registered the version as `SUCCESS`, the gate does not query order rows and the represented migration remains skipped. No confirmation or compatibility override exists.
+The sole migration entry enforces the `V20260717_001` clean-launch contract at runtime. When that version is still pending, `sales_order` must exist and its exact row count must be zero; a non-zero count or any inability to prove emptiness fails closed with an instruction to run the formal cleanup process. When that migration has already executed successfully, the gate does not query order rows and the migration remains skipped. No confirmation or compatibility override exists.
 
 ## Database recovery
 

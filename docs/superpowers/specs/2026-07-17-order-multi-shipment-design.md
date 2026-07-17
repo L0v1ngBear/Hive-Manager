@@ -25,7 +25,7 @@ The mini-program frontend is not changed in this iteration. Installation tasks k
 
 `V20260717_001_order_multi_shipment.sql` is a clean-launch destructive contract. Before deploying this release, operators must back up as required and clear all legacy business data so the production business database is empty. The release does not support an in-place upgrade that retains pre-launch order data.
 
-There is deliberately no backfill from `sales_order.express_company` or `sales_order.express_no`. The old columns are dropped, no compatibility read path is retained, and shipment data starts only from records created through the new `sales_order_shipment` contract. The current schema baseline already represents `V20260717_001`; baseline import registers that migration through the cutoff and must not execute it again.
+There is deliberately no backfill from `sales_order.express_company` or `sales_order.express_no`. The old columns are dropped, no compatibility read path is retained, and shipment data starts only from records created through the new `sales_order_shipment` contract. The immutable schema baseline represents migrations through `V20260716_001`; baseline import registers that cutoff and then executes `V20260717_001` through the versioned runner.
 
 ## Data Model
 
@@ -51,7 +51,7 @@ Indexes:
 - Unique `(tenant_code, order_id, tracking_no)` to reject duplicate tracking numbers in one order.
 - Ordered lookup `(tenant_code, order_id, sort_order, id)`.
 
-The current schema baseline removes `express_company` and `express_no` from `sales_order` and adds the child table. A new migration performs the same forward schema change. Existing historical migrations are not edited.
+The immutable v2 schema baseline retains `express_company` and `express_no` and does not contain the child table. The new migration performs the forward schema change. Existing historical baselines and migrations are not edited.
 
 ## Backend Contract
 

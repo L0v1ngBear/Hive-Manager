@@ -22,8 +22,7 @@ test('fresh database initialization uses a current schema-only baseline', () => 
     'equipment_device',
     'operation_log',
     'sales_order_note',
-    'installation_task_installer',
-    'sales_order_shipment'
+    'installation_task_installer'
   ]) {
     assert.match(baseline, new RegExp('CREATE TABLE `' + table + '`'), `baseline v2 must contain ${table}`)
   }
@@ -61,11 +60,14 @@ test('fresh initialization is explicit, stops writes, and verifies the result', 
   const importer = read('db-migrations/scripts/import-baseline-to-shadow.sh')
   assert.match(importer, /hive_schema_baseline_v2\.sql/)
   assert.match(importer, /baseline\/hive_schema_baseline_v2/)
-  assert.match(importer, /BASELINE_CUTOFF="\$\{BASELINE_CUTOFF:-migrations\/V20260717_001_order_multi_shipment\.sql\}"/)
-  assert.doesNotMatch(importer, /V20260716_001_operation_log_table\.sql/)
+  assert.match(importer, /BASELINE_CUTOFF="\$\{BASELINE_CUTOFF:-migrations\/V20260716_001_operation_log_table\.sql\}"/)
+  assert.doesNotMatch(importer, /BASELINE_CUTOFF="[^\n]*V20260717_001_order_multi_shipment\.sql/)
 
   const salesOrder = baseline.match(/CREATE TABLE `sales_order` \(([\s\S]*?)\n\) ENGINE=/u)?.[1] || ''
-  assert.doesNotMatch(salesOrder, /`express_company`|`express_no`/u)
+  assert.match(salesOrder, /`express_company`/u)
+  assert.match(salesOrder, /`express_no`/u)
+  assert.doesNotMatch(baseline, /CREATE TABLE `sales_order_shipment`/u)
+  assert.match(read('db-migrations/migrations/V20260717_001_order_multi_shipment.sql'), /CREATE TABLE `sales_order_shipment`/u)
 })
 
 test('pending destructive order migration fails closed unless sales_order is empty', () => {

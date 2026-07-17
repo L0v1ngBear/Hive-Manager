@@ -36,7 +36,7 @@ CONFIRM_FRESH_DATABASE_INITIALIZATION=YES \
 
 5. Start and verify: `bash scripts/start.sh`.
 
-Fresh initialization creates only `TENANT_001`, one administrator that must change its temporary password, the active permission catalog, and the current schema. The baseline already represents `V20260717_001`, so the importer registers that cutoff and runs only newer migrations. It does not create test data, `TENANT_002`, AI permissions or old dual-order permissions.
+Fresh initialization creates only `TENANT_001`, one administrator that must change its temporary password, the active permission catalog, and the current schema. The immutable baseline represents migrations through `V20260716_001`; the importer registers that cutoff and the versioned runner executes `V20260717_001`. It does not create test data, `TENANT_002`, AI permissions or old dual-order permissions.
 
 ## Normal release
 
@@ -48,7 +48,7 @@ bash scripts/restart.sh
 
 `restart.sh` validates the release, builds the backend image, stops backend writes, backs up and migrates the managed database, then recreates only `backend` and `nginx`. It does not recreate MySQL or Redis. A failed migration leaves the backend stopped.
 
-Before the versioned runner reaches `V20260717_001`, `scripts/migrate-db.sh` reads its migration-history state. A recorded `SUCCESS` (including the fresh-baseline cutoff) bypasses the destructive row check because that migration will not run. If the version is pending, the runtime gate permits execution only when `sales_order` can be verified to contain exactly zero rows; any rows, missing table, failed query or non-success history state stops the release and directs operators to the formal cleanup process. There is no bypass flag.
+Before the versioned runner reaches `V20260717_001`, `scripts/migrate-db.sh` reads its migration-history state. A recorded `SUCCESS` bypasses the destructive row check because that migration will not run. If the version is pending, the runtime gate permits execution only when `sales_order` can be verified to contain exactly zero rows; any rows, missing table, failed query or non-success history state stops the release and directs operators to the formal cleanup process. There is no bypass flag.
 
 Set `PULL_IMAGES=1` only for an intentional image update. Set `NO_CACHE=1` only when Docker build cache must be bypassed.
 
