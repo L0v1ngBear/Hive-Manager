@@ -85,3 +85,31 @@ exit code 0
 - Maven 仍输出既有 Byte Buddy 动态 agent 和 bootstrap classpath 警告，不影响测试成功。
 - Vite 构建仍输出 terser 插件耗时提示，不影响构建成功。
 - 无阻塞问题。
+
+## Final Review Fix: Clean Launch, Audit, Export, and Permission Gates
+
+### Product decision
+
+- `V20260717_001_order_multi_shipment.sql` is a clean-launch destructive contract. Production deployment must start after old business data is cleared.
+- No data is backfilled from `sales_order.express_company` or `sales_order.express_no`; the old columns and compatibility reads are not retained.
+- The v2 schema baseline represents `V20260717_001`, and baseline import registers that cutoff before running newer migrations.
+
+### TDD RED
+
+- Focused Maven run: 17 tests executed with 3 failures and 1 error. Shipment events had no `traceId`; the real H2 `operation_log` insert failed its NOT NULL contract; the order audit query excluded `order_shipment`.
+- Focused management UI run: 16 tests executed with 6 failures. The v2 baseline and cutoff had not converged, current-page export still used DOM text, and list-only users had no logistics-query gate.
+
+### TDD GREEN
+
+- Focused Maven run: 17/17 passed after shipment events adopted the standard 32-character UUID trace, `INFO` level, zero-duration defaults, and order audit queries included `order_shipment`.
+- Focused management UI run: 16/16 passed after baseline/cutoff convergence, structured current-page export, and the `order:detail` popover/request gate.
+- Historical migrations, mini-program code, and installation-task logistics were not changed.
+
+### Final verification
+
+- `management\.\mvnw.cmd test`: 262/262 passed, 0 failures, 0 errors, 0 skipped; `BUILD SUCCESS`.
+- `management-ui\npm test`: 293/293 passed, 0 failures, 0 skipped.
+- `management-ui\npm run build`: 1861 modules transformed; production build succeeded in 10.79s.
+- Combined automated tests: 555/555 passed.
+- `git diff --check`: exit code 0.
+- Non-blocking existing warnings: Maven reports the Byte Buddy dynamic-agent/bootstrap-classpath notice; Vite reports terser plugin timing.

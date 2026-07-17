@@ -47,3 +47,9 @@ test('order list and detail render all shipments in stable order', () => {
   assert.match(orderSource, /orderDetail\.shipments/)
   assert.match(orderSource, /orderDetail\.shipments[\s\S]*shipment\.logisticsCompany[\s\S]*shipment\.trackingNo/)
 })
+
+test('current-page export uses the same structured shipment formatter as all-page export', () => {
+  assert.match(orderSource, /<TableColumnSettings[\s\S]*:export-rows="visibleOrderRows"/)
+  assert.match(orderSource, /<TableColumnSettings[\s\S]*:export-cell="formatOrderExportCell"/)
+  assert.match(orderSource, /if \(key === 'shipments'\)[\s\S]*\.map\(shipment => shipment\.trackingNo\)[\s\S]*\.join\('、'\)/u)
+})

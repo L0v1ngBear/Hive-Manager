@@ -21,6 +21,12 @@ The mini-program frontend is not changed in this iteration. Installation tasks k
 - No compatibility API, fallback mapping, delimiter format, or JSON-in-order-column format is provided for the retired `sales_order.express_company` and `sales_order.express_no` fields.
 - Historical migration SQL files remain immutable.
 
+## Clean-Launch Destructive Contract
+
+`V20260717_001_order_multi_shipment.sql` is a clean-launch destructive contract. Before deploying this release, operators must back up as required and clear all legacy business data so the production business database is empty. The release does not support an in-place upgrade that retains pre-launch order data.
+
+There is deliberately no backfill from `sales_order.express_company` or `sales_order.express_no`. The old columns are dropped, no compatibility read path is retained, and shipment data starts only from records created through the new `sales_order_shipment` contract. The current schema baseline already represents `V20260717_001`; baseline import registers that migration through the cutoff and must not execute it again.
+
 ## Data Model
 
 Create `sales_order_shipment` as a tenant-scoped child table:
@@ -117,6 +123,7 @@ Order saves record concise logistics changes:
 - `update_order_shipment` when company or tracking number changes.
 
 Logs contain the shipment ID and masked/fingerprinted tracking identifier, not external integration credentials. Normal unchanged order saves do not create shipment-specific operation logs.
+Shipment events carry the standard operation-log trace ID and `INFO` level, satisfy the production `operation_log` non-null persistence contract, and are included in the order operation-log query by `biz_type = order_shipment`.
 
 ## Management UI
 
@@ -134,8 +141,10 @@ The order list logistics column renders records in stable order:
 - One record: display its tracking number.
 - Multiple records: display each tracking number as an independent compact trigger and show the total batch count.
 - Hovering one trigger opens only that record's tracking popover and starts only that record's request.
+- A user without `order:detail` sees muted, non-interactive tracking numbers. No popover is created and no tracking API request is made.
 - Loading, error, cached result, latest state, and timeline are isolated per shipment.
 - No logistics record: display `未填写物流单号`.
+- Current-page and all-page exports both use the programmatic order cell formatter; multiple tracking numbers are joined with `、`.
 
 ## Installation Task Boundary
 

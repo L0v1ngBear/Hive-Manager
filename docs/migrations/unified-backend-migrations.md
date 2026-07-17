@@ -26,7 +26,15 @@ CONFIRM_FRESH_DATABASE_INITIALIZATION=YES \
 
 The initializer imports the v2 baseline and permission seed, creates only `TENANT_001` and one owner account, and marks the bootstrap password for mandatory first-login replacement.
 
+### Order multi-shipment clean-launch gate
+
+`V20260717_001_order_multi_shipment.sql` is a clean-launch destructive contract and is supported only for the formal clean launch. Before deploying this release, back up if required and clear all old business data; the production business database must be empty before initialization. Do not retain pre-launch order rows.
+
+The release does not backfill `sales_order.express_company` or `sales_order.express_no`, does not preserve those columns, and does not provide compatibility reads. `hive_schema_baseline_v2.sql` already contains `sales_order_shipment` and omits the retired columns. `import-baseline-to-shadow.sh` therefore registers migration history through `V20260717_001` before invoking the versioned runner, preventing the represented migration from running again after baseline import.
+
 ## Existing database
+
+The general routine below applies only to releases whose migrations support retained data. It must not be used to carry legacy business data across the `V20260717_001` clean-launch boundary.
 
 Before migration:
 

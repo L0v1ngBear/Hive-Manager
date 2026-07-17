@@ -493,7 +493,7 @@ public class OrderService {
                 WHERE tenant_code = ?
                   AND module = 'order'
                   AND biz_no = ?
-                  AND biz_type IN ('order', 'order_approval')
+                  AND biz_type IN ('order', 'order_approval', 'order_shipment')
                 """, Long.class, tenantCode, orderId);
 
         List<OrderOperationLogVO> rows = jdbcTemplate.query("""
@@ -509,7 +509,7 @@ public class OrderService {
                 WHERE BINARY ol.tenant_code = BINARY ?
                   AND ol.module = 'order'
                   AND ol.biz_no = ?
-                  AND ol.biz_type IN ('order', 'order_approval')
+                  AND ol.biz_type IN ('order', 'order_approval', 'order_shipment')
                 ORDER BY ol.create_time DESC, ol.id DESC
                 LIMIT ? OFFSET ?
                 """, (rs, rowNum) -> {

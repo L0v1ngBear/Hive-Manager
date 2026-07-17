@@ -21,7 +21,8 @@ test('fresh database initialization uses a current schema-only baseline', () => 
     'equipment_device',
     'operation_log',
     'sales_order_note',
-    'installation_task_installer'
+    'installation_task_installer',
+    'sales_order_shipment'
   ]) {
     assert.match(baseline, new RegExp('CREATE TABLE `' + table + '`'), `baseline v2 must contain ${table}`)
   }
@@ -48,6 +49,7 @@ test('routine migration rejects missing or incomplete baseline schemas', () => {
 
 test('fresh initialization is explicit, stops writes, and verifies the result', () => {
   const initializer = read('db-migrations/scripts/initialize-fresh-database.sh')
+  const baseline = read('db-migrations/baseline/hive_schema_baseline_v2.sql')
   assert.match(initializer, /CONFIRM_FRESH_DATABASE_INITIALIZATION/)
   assert.match(initializer, /docker compose stop backend/)
   assert.match(initializer, /hive_schema_baseline_v2\.sql/)
@@ -58,7 +60,11 @@ test('fresh initialization is explicit, stops writes, and verifies the result', 
   const importer = read('db-migrations/scripts/import-baseline-to-shadow.sh')
   assert.match(importer, /hive_schema_baseline_v2\.sql/)
   assert.match(importer, /baseline\/hive_schema_baseline_v2/)
-  assert.match(importer, /V20260716_001_operation_log_table\.sql/)
+  assert.match(importer, /BASELINE_CUTOFF="\$\{BASELINE_CUTOFF:-migrations\/V20260717_001_order_multi_shipment\.sql\}"/)
+  assert.doesNotMatch(importer, /V20260716_001_operation_log_table\.sql/)
+
+  const salesOrder = baseline.match(/CREATE TABLE `sales_order` \(([\s\S]*?)\n\) ENGINE=/u)?.[1] || ''
+  assert.doesNotMatch(salesOrder, /`express_company`|`express_no`/u)
 })
 
 test('baseline import seeds the active permission catalog before full verification', () => {

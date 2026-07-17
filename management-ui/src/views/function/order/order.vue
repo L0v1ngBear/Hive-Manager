@@ -208,6 +208,8 @@
               export-file-name="订单列表"
               export-sheet-name="订单列表"
               export-module="order"
+              :export-rows="visibleOrderRows"
+              :export-cell="formatOrderExportCell"
               :export-allable="true"
               :export-disabled="!canExportTable"
               export-disabled-reason="当前账号暂无表格导出权限"
@@ -308,9 +310,12 @@
                   <div v-if="row.shipments.length > 1" class="order-shipment-count">
                     共 {{ row.shipments.length }} 单
                   </div>
-                  <el-popover
+                  <template
                       v-for="shipment in row.shipments"
                       :key="logisticsTrackingKey(row, shipment)"
+                  >
+                    <el-popover
+                      v-if="canViewOrderDetail(row)"
                       trigger="hover"
                       placement="right-start"
                       :width="390"
@@ -318,14 +323,14 @@
                       :hide-after="120"
                       popper-class="order-logistics-popover"
                       @show="loadLogisticsTracking(row, shipment)"
-                  >
-                    <template #reference>
-                      <button type="button" class="order-express-number-trigger">
-                        <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
-                        <span>{{ shipment.trackingNo }}</span>
-                      </button>
-                    </template>
-                    <section class="order-logistics-card" aria-live="polite">
+                    >
+                      <template #reference>
+                        <button type="button" class="order-express-number-trigger">
+                          <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+                          <span>{{ shipment.trackingNo }}</span>
+                        </button>
+                      </template>
+                      <section class="order-logistics-card" aria-live="polite">
                       <header class="order-logistics-header">
                         <div>
                           <div class="order-logistics-company">{{ shipment.logisticsCompany || '物流信息' }}</div>
@@ -381,8 +386,17 @@
                           {{ logisticsTrackingState(row, shipment).data.cached ? '缓存结果，30分钟内不重复查询' : '刚刚查询，结果已缓存30分钟' }}
                         </footer>
                       </template>
-                    </section>
-                  </el-popover>
+                      </section>
+                    </el-popover>
+                    <span
+                        v-else
+                        class="order-express-number-trigger is-disabled"
+                        aria-disabled="true"
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+                      <span>{{ shipment.trackingNo }}</span>
+                    </span>
+                  </template>
                 </div>
                 <div v-else class="order-express-number-cell">未填写物流单号</div>
               </template>
@@ -1870,7 +1884,7 @@ function logisticsTrackingCacheValid(data) {
 }
 
 async function loadLogisticsTracking(row, shipment) {
-  if (!row?.orderId || !shipment?.id) return
+  if (!canViewOrderDetail(row) || !row?.orderId || !shipment?.id) return
   const tracking = logisticsTrackingState(row, shipment)
   if (tracking.loading || logisticsTrackingCacheValid(tracking.data)) return
 
@@ -4092,11 +4106,17 @@ function fulfillmentProcessText(row = {}) {
   white-space: nowrap;
 }
 
-.order-express-number-trigger:hover,
-.order-express-number-trigger:focus-visible {
+.order-express-number-trigger:not(.is-disabled):hover,
+.order-express-number-trigger:not(.is-disabled):focus-visible {
   color: rgb(var(--secondary));
   text-decoration: underline;
   text-underline-offset: .2rem;
+}
+
+.order-express-number-trigger.is-disabled {
+  color: var(--ys-disabled-text);
+  cursor: default;
+  font-weight: 700;
 }
 
 :global(.order-logistics-popover.el-popper) {

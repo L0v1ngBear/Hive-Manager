@@ -17,6 +17,8 @@ The upload staging directory must contain no secrets, certificates or persistent
 
 ## First installation
 
+`V20260717_001_order_multi_shipment.sql` is a clean-launch destructive contract. Before this release is deployed, back up if required and clear all old business data so the target database is empty. Do not preserve or backfill `sales_order.express_company` / `sales_order.express_no`; this release drops those columns and has no compatibility reads.
+
 1. Synchronize the release into the server runtime directory.
 2. Create `.env` once, without overwriting a server-owned file, then set production secrets:
 
@@ -34,7 +36,7 @@ CONFIRM_FRESH_DATABASE_INITIALIZATION=YES \
 
 5. Start and verify: `bash scripts/start.sh`.
 
-Fresh initialization creates only `TENANT_001`, one administrator that must change its temporary password, the active permission catalog, and the current schema. It does not create test data, `TENANT_002`, AI permissions or old dual-order permissions.
+Fresh initialization creates only `TENANT_001`, one administrator that must change its temporary password, the active permission catalog, and the current schema. The baseline already represents `V20260717_001`, so the importer registers that cutoff and runs only newer migrations. It does not create test data, `TENANT_002`, AI permissions or old dual-order permissions.
 
 ## Normal release
 

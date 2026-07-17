@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -96,7 +98,8 @@ class OrderShipmentServiceTest {
         assertEquals("order_shipment", event.getBizType());
         assertEquals("SO-1", event.getBizNo());
         assertEquals("{\"shipmentId\":101,\"trackingFingerprint\":\"tracking-fingerprint\"}", event.getArgsJson());
-        org.junit.jupiter.api.Assertions.assertFalse(event.getArgsJson().contains("SF-001"));
+        assertPersistableShipmentEvent(event);
+        assertFalse(event.getArgsJson().contains("SF-001"));
     }
 
     @Test
@@ -119,7 +122,8 @@ class OrderShipmentServiceTest {
         OperationLogEvent event = eventCaptor.getValue();
         assertEquals("update_order_shipment", event.getAction());
         assertEquals("{\"shipmentId\":11,\"trackingFingerprint\":\"updated-fingerprint\"}", event.getArgsJson());
-        org.junit.jupiter.api.Assertions.assertFalse(event.getArgsJson().contains("SF-NEW"));
+        assertPersistableShipmentEvent(event);
+        assertFalse(event.getArgsJson().contains("SF-NEW"));
     }
 
     @Test
@@ -323,5 +327,15 @@ class OrderShipmentServiceTest {
         shipment.setCreateTime(LocalDateTime.now().minusDays(1));
         shipment.setUpdateTime(LocalDateTime.now().minusHours(1));
         return shipment;
+    }
+
+    private void assertPersistableShipmentEvent(OperationLogEvent event) {
+        assertNotNull(event.getTraceId());
+        assertFalse(event.getTraceId().isBlank());
+        assertEquals("INFO", event.getLogLevel());
+        assertEquals(Boolean.TRUE, event.getSuccess());
+        assertEquals(Boolean.FALSE, event.getSlow());
+        assertEquals(0L, event.getDurationMs());
+        assertNotNull(event.getCreateTime());
     }
 }

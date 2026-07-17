@@ -12,7 +12,7 @@ BASELINE_FILE="${BASELINE_FILE:-${MIGRATION_DIR}/baseline/hive_schema_baseline_v
 PERMISSION_SEED_FILE="${PERMISSION_SEED_FILE:-${MIGRATION_DIR}/seeds/system_permission_catalog_v3.sql}"
 MANIFEST_FILE="${MIGRATION_MANIFEST:-${MIGRATION_DIR}/migration_manifest.txt}"
 BASELINE_MIGRATION_VERSION="baseline/hive_schema_baseline_v2"
-BASELINE_LAST_MIGRATION="${BASELINE_LAST_MIGRATION:-migrations/V20260716_001_operation_log_table.sql}"
+BASELINE_CUTOFF="${BASELINE_CUTOFF:-migrations/V20260717_001_order_multi_shipment.sql}"
 RESET_TARGET="${RESET_TARGET:-NO}"
 CONFIRM_IMPORT_TO_HIVE="${CONFIRM_IMPORT_TO_HIVE:-NO}"
 ALLOW_DATA_BASELINE="${ALLOW_DATA_BASELINE:-NO}"
@@ -121,7 +121,7 @@ case "${REAL_BASELINE_FILE}" in
     ;;
 esac
 
-echo "4/7 Register checksummed baseline migration state through ${BASELINE_LAST_MIGRATION}..."
+echo "4/7 Register checksummed baseline migration state through ${BASELINE_CUTOFF}..."
 mysql_root_db "${TARGET_DATABASE}" <<'EOSQL'
 CREATE TABLE IF NOT EXISTS `schema_migration_history` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
@@ -183,13 +183,13 @@ ON DUPLICATE KEY UPDATE
   updated_at = NOW();
 " </dev/null
 
-  if [ "${entry}" = "${BASELINE_LAST_MIGRATION}" ]; then
+  if [ "${entry}" = "${BASELINE_CUTOFF}" ]; then
     baseline_cutoff_reached="YES"
   fi
 done < "${MANIFEST_FILE}"
 
 if [ "${baseline_cutoff_reached}" != "YES" ]; then
-  fail "Baseline cutoff is missing from migration manifest: ${BASELINE_LAST_MIGRATION}"
+  fail "Baseline cutoff is missing from migration manifest: ${BASELINE_CUTOFF}"
 fi
 
 echo "5/7 Execute migrations newer than the baseline cutoff..."

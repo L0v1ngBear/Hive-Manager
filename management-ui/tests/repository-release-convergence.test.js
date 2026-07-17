@@ -11,7 +11,8 @@ const migrationDirectory = path.join(migrationRoot, 'migrations')
 
 const requiredReleaseMigrations = [
   'V20260715_001_order_notes_and_material_approval.sql',
-  'V20260715_002_installation_task_installer.sql'
+  'V20260715_002_installation_task_installer.sql',
+  'V20260717_001_order_multi_shipment.sql'
 ]
 
 test('repository owns every migration required by the current release', () => {

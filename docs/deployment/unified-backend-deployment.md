@@ -21,6 +21,8 @@ Production `.env`, certificates, database/cache files, uploads, logs and backups
 
 ## Fresh installation
 
+This release's order multi-shipment schema is a clean-launch destructive contract. Before deployment, back up if required and clear all old business data so the target business database is empty. Do not attempt to preserve or migrate values from `sales_order.express_company` or `sales_order.express_no`; the release has no old-column or compatibility-read path.
+
 1. Create the production environment file only when it is absent:
 
    ```bash
@@ -43,6 +45,7 @@ Production `.env`, certificates, database/cache files, uploads, logs and backups
    ```
 
 The initializer creates only `TENANT_001`, one enterprise owner, the built-in role catalog and current assignable permissions. It refuses a non-empty or incomplete database.
+Its schema baseline already represents `V20260717_001_order_multi_shipment.sql`; the importer records that cutoff and runs only later migrations.
 
 ## Routine release
 

@@ -28,6 +28,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class OrderShipmentService {
@@ -259,6 +260,7 @@ public class OrderShipmentService {
         boolean isNew = pending.isNew();
         String fingerprint = externalApiGuardService.fingerprint(trackingNo);
         OperationLogEvent event = new OperationLogEvent();
+        event.setTraceId(UUID.randomUUID().toString().replace("-", ""));
         event.setTenantCode(tenantCode);
         event.setUserId(userId);
         event.setModule("order");
@@ -270,7 +272,10 @@ public class OrderShipmentService {
                 : "\u66f4\u65b0\u8ba2\u5355\u7269\u6d41\u8bb0\u5f55");
         event.setArgsJson("{\"shipmentId\":" + pending.shipmentId()
                 + ",\"trackingFingerprint\":\"" + fingerprint + "\"}");
+        event.setLogLevel("INFO");
         event.setSuccess(true);
+        event.setSlow(false);
+        event.setDurationMs(0L);
         event.setCreateTime(createTime);
         return event;
     }

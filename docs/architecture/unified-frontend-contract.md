@@ -65,8 +65,11 @@
 ## 订单物流合同
 
 - 管理端订单发货正式使用 `shipments` 列表；每个发货批次分别提交 `shipments[].logisticsCompany` 和 `shipments[].trackingNo`，订单不再定义顶层物流字段。
+- `V20260717_001` 是正式上线前清空旧业务数据的 destructive clean-launch 合同；不回填、不保留也不兼容读取 `sales_order.express_company` / `sales_order.express_no`。
 - 已保存的 shipment 记录不可删除；后续操作只能更新或新增 shipment，以保留订单发货审计记录。
 - 单条物流轨迹按 shipment 查询：`GET /orders/{orderId}/shipments/{shipmentId}/logistics-tracking`。
+- 只有 `order:detail` 与订单阶段查看权限同时满足时才创建物流 hover popover 并查询后端；list-only 用户只看到置灰的不可交互单号。
+- 当前页和全部页导出统一使用程序化订单单元格格式化，多物流单号使用 `、` 拼接。
 - 小程序前端当前不在本次订单多物流改造范围内。本合同不宣称小程序已经实现 shipment 列表物流；其后续适配必须以本节订单物流合同为准。
 
 ## 小程序适配约束

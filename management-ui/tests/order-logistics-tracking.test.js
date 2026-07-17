@@ -17,7 +17,7 @@ test('each shipment logistics query is triggered only when its popover opens', (
   const loadOrdersSource = functionSource(orderSource, 'loadOrders', 'logisticsTrackingKey')
   const trackingKeySource = functionSource(orderSource, 'logisticsTrackingKey', 'logisticsTrackingState')
 
-  assert.match(orderSource, /<el-popover[\s\S]*v-for="shipment in row\.shipments"[\s\S]*trigger="hover"/)
+  assert.match(orderSource, /v-for="shipment in row\.shipments"[\s\S]*<el-popover[\s\S]*trigger="hover"/)
   assert.match(orderSource, /:key="logisticsTrackingKey\(row, shipment\)"/)
   assert.match(orderSource, /@show="loadLogisticsTracking\(row, shipment\)"/)
   assert.match(orderSource, /const logisticsTrackingStates = reactive\(\{\}\)/)
@@ -64,4 +64,30 @@ test('tracking popover renders loading, error, cache and trace states without ex
   assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.data\.traces/)
   assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.data\.cached/)
   assert.doesNotMatch(orderSource, /KUAIDI100_(?:KEY|CUSTOMER)|secret-key|customer-code/)
+})
+
+test('list-only users render disabled tracking numbers and never call the tracking API', async () => {
+  const loadSource = functionSource(orderSource, 'loadLogisticsTracking', 'resolveOrderListFailure').trim()
+  assert.match(orderSource, /v-for="shipment in row\.shipments"[\s\S]*<el-popover\s+v-if="canViewOrderDetail\(row\)"/)
+  assert.match(orderSource, /v-else[\s\S]*order-express-number-trigger is-disabled[\s\S]*aria-disabled="true"/)
+
+  let apiCalls = 0
+  const loadLogisticsTracking = Function(
+    'canViewOrderDetail',
+    'logisticsTrackingState',
+    'logisticsTrackingCacheValid',
+    'getOrderLogisticsTracking',
+    `return (${loadSource})`
+  )(
+    () => false,
+    () => ({ loading: false, data: null, errorMessage: '' }),
+    () => false,
+    async () => { apiCalls += 1 }
+  )
+
+  await loadLogisticsTracking(
+    { orderId: 'SO-001', status: 'pending_ship' },
+    { id: 7, trackingNo: 'SF123456' }
+  )
+  assert.equal(apiCalls, 0)
 })

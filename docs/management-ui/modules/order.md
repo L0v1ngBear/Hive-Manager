@@ -27,6 +27,7 @@
 - 按当前订单阶段权限执行推进、回退审批和流转码补打。
 - 配置分订单小项的未更新预警天数，并支持全量或单条重新计算。
 - 调整表格列顺序，恢复默认，并导出当前页或当前筛选的全部数据。
+- 当前页与全部页导出都走 `formatOrderExportCell` 程序化格式化；多条物流单号固定使用 `、` 拼接，不读取表格 DOM 文本。
 - 业务时间修正模式下可修正订单创建时间及状态日志时间。
 
 ## 前端 API
@@ -62,8 +63,10 @@
 - 编辑后推进必须先调用 `PUT /orders/{orderId}` 保存完整订单和 shipment 子表，保存成功后才调用 `POST /orders/{orderId}/advance`；保存失败时不得继续推进。
 - 单条轨迹只使用 shipment-specific 路径 `GET /orders/{orderId}/shipments/{shipmentId}/logistics-tracking`，响应单号字段为 `trackingNo`，不保留订单级或旧字段兼容合同。
 - 物流供应商查询仅在用户 hover 打开对应物流单号 popover 时触发；列表加载、详情加载和普通鼠标移动不得预查询供应商。
+- 物流 hover 查询要求 `order:detail` 与当前订单阶段查看权限；list-only 用户仅看到置灰单号，不创建 popover，也不调用 tracking API。
 - 成功轨迹缓存 30 分钟，供应商失败使用 30 秒短缓存抑制重复请求。缓存身份包含 tenant、order、shipmentId、当前物流公司和当前物流单号；更换公司、单号或 shipment 后必须形成新的缓存身份。
 - 新增和更新 shipment 在事务提交后分别记录 `add_order_shipment`、`update_order_shipment` 操作动作；日志只保存 shipment 标识和脱敏后的单号指纹，不记录明文物流单号。
+- 多物流上线采用 `V20260717_001` clean-launch destructive contract：部署前必须清空旧业务数据，不回填、不保留、不兼容读取 `sales_order.express_company` / `sales_order.express_no`。
 
 ## 权限与 feature
 
@@ -138,7 +141,9 @@
 - [ ] shipment 新增、修改、未保存行放弃、已保存行不可删除和 409 乐观锁冲突均通过。
 - [ ] shipped 的多物流校验与“先保存再推进”、附件上传下载及日志时间修正通过。
 - [ ] shipment-specific 轨迹只在 hover 时查询；30 分钟成功缓存、30 秒失败短缓存及 company-aware 身份均通过。
+- [ ] list-only 用户的物流单号置灰且不会创建 popover 或触发 tracking API；有 `order:detail` 才按 `@show` 查询。
 - [ ] `add_order_shipment` / `update_order_shipment` 操作日志在事务提交后生成且不泄露明文单号。
+- [ ] 当前页和全部页导出均使用程序化 formatter，多物流单号使用 `、` 拼接。
 - [ ] 筛选、卡片、路由关键字、分页和统计刷新一致。
 - [ ] 动态列顺序刷新后保留，恢复默认可用。
 - [ ] 当前页/全部导出列顺序一致，0 条与超过 2000 条提示正确。

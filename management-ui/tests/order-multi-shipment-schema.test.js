@@ -20,6 +20,7 @@ function tableBlock(schema, tableName) {
 
 test('order logistics use a normalized non-deletable shipment table', () => {
   const baseline = read('db-migrations/baseline/hive_schema_baseline.sql')
+  const releaseBaseline = read('db-migrations/baseline/hive_schema_baseline_v2.sql')
   const migrationPath = 'db-migrations/migrations/V20260717_001_order_multi_shipment.sql'
   assert.ok(fs.existsSync(path.join(repoRoot, migrationPath)), 'order shipment migration must exist')
   const migration = read(migrationPath)
@@ -31,7 +32,10 @@ test('order logistics use a normalized non-deletable shipment table', () => {
     assert.match(baseline, new RegExp('`' + column + '`', 'u'))
   }
   const salesOrderBlock = tableBlock(baseline, 'sales_order')
+  const releaseSalesOrderBlock = tableBlock(releaseBaseline, 'sales_order')
   assert.doesNotMatch(salesOrderBlock, /`express_company`|`express_no`/u)
+  assert.doesNotMatch(releaseSalesOrderBlock, /`express_company`|`express_no`/u)
+  assert.match(releaseBaseline, /CREATE TABLE `sales_order_shipment`/u)
   assert.match(migration, /CREATE TABLE `sales_order_shipment`/u)
   assert.match(migration, /DROP COLUMN `express_company`/u)
   assert.match(migration, /DROP COLUMN `express_no`/u)
@@ -39,4 +43,34 @@ test('order logistics use a normalized non-deletable shipment table', () => {
 
   const migrationHash = createHash('sha256').update(read(migrationPath)).digest('hex')
   assert.match(checksums, new RegExp('^' + migrationHash + '  migrations/V20260717_001_order_multi_shipment\\.sql$', 'mu'))
+})
+
+test('baseline import registers the represented shipment migration before running newer migrations', () => {
+  const importer = read('db-migrations/scripts/import-baseline-to-shadow.sh')
+  const cutoff = 'migrations/V20260717_001_order_multi_shipment.sql'
+
+  assert.match(importer, new RegExp('BASELINE_CUTOFF="\\$\\{BASELINE_CUTOFF:-' + cutoff.replace('.', '\\.') + '\\}"', 'u'))
+  assert.match(importer, /if \[ "\$\{entry\}" = "\$\{BASELINE_CUTOFF\}" \]/u)
+  assert.ok(
+    importer.indexOf('Register checksummed baseline migration state') < importer.indexOf('run-versioned-migrations.sh'),
+    'represented migration history must be registered before the migration runner starts'
+  )
+})
+
+test('release documentation gates the destructive clean-launch contract', () => {
+  const documents = [
+    'docs/superpowers/specs/2026-07-17-order-multi-shipment-design.md',
+    'docs/migrations/unified-backend-migrations.md',
+    'docs/deployment/unified-backend-deployment.md',
+    'deploy/README.md'
+  ].map(read)
+
+  for (const document of documents) {
+    assert.match(document, /V20260717_001/u)
+    assert.match(document, /clean-launch destructive contract/iu)
+    assert.match(document, /clear all (?:legacy|old) business data/iu)
+    assert.match(document, /express_company/u)
+    assert.match(document, /express_no/u)
+    assert.match(document, /(?:no|does not|do not)[^\n]*(?:backfill|compatibility)/iu)
+  }
 })
