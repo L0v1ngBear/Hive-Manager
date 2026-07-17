@@ -60,6 +60,16 @@ const mediaRules = (source, marker) => topLevelCssRules(extractCssBlock(source, 
 
 const hasRule = (rules, selector, declarations) => rules.some((rule) => selector.test(rule.selector) && declarations.test(rule.declarations))
 
+const templateSection = (source, startMarker, endMarker) => {
+  const start = source.indexOf(startMarker)
+  assert.notEqual(start, -1, `Missing template section start: ${startMarker}`)
+
+  const end = source.indexOf(endMarker, start)
+  assert.notEqual(end, -1, `Missing template section end: ${endMarker}`)
+
+  return source.slice(start, end + endMarker.length)
+}
+
 test('tablet rules do not force every direct business grid to one column', () => {
   const tabletRules = topLevelCssRules(extractCssBlock(style, '@media (max-width: 900px)'))
   const directBusinessGrid = /\.responsive-page-frame \.function-page-container\s*>\s*(?:\.grid|section\.grid|div\.grid)/
@@ -107,16 +117,35 @@ test('responsive table rules convert native tables on compact screens', () => {
 })
 
 test('desktop sidebar opens by default and collapsed navigation is icon only', () => {
+  const primaryMenu = templateSection(sidebar, 'v-for="item in primaryMenus"', '      <div v-if="secondaryMenus.length"')
+  const moreControl = templateSection(sidebar, '<el-tooltip :disabled="!isCollapsed" content="更多功能"', '        <div v-show="showMore"')
+  const secondaryMenu = templateSection(sidebar, 'v-for="item in secondaryMenus"', '    </nav>')
+  const bottomToggle = templateSection(sidebar, '<div v-if="!props.mobile"', '  </aside>')
+  const approvalBadge = templateSection(primaryMenu, '<el-badge', '/>')
+  const toggleButton = templateSection(bottomToggle, '<el-button', '</el-button>')
+  const unguardedMoreLabels = [...moreControl.matchAll(/<span\b(?![^>]*v-if="!isCollapsed")[^>]*>([\s\S]*?)<\/span>/g)]
+
   assert.match(sidebar, /const isCollapsed = ref\(false\)/)
-  assert.doesNotMatch(sidebar, /isCollapsed \? 'text-\[10px\]/)
-  assert.match(sidebar, /v-if="!isCollapsed"[\s\S]{0,140}item\.name/)
-  assert.equal((sidebar.match(/:content="item\.name"/g) ?? []).length, 2)
-  assert.equal((sidebar.match(/:disabled="!isCollapsed"/g) ?? []).length >= 3, true)
-  assert.match(sidebar, /<el-tooltip[\s\S]{0,180}:content="item\.name"[\s\S]{0,120}placement="right"/)
-  assert.match(sidebar, /aria-label="item\.name"/)
-  assert.match(sidebar, /aria-label="更多功能"/)
-  assert.match(sidebar, /aria-label="isCollapsed \? '展开导航' : '收起导航'"/)
-  assert.match(sidebar, /:content="isCollapsed \? '展开导航' : '收起导航'"/)
+  assert.match(primaryMenu, /<span v-if="!isCollapsed"[^>]*>\s*\{\{ item\.name \}\}\s*<\/span>/)
+  assert.match(primaryMenu, /<el-tooltip[^>]*:content="item\.name"[^>]*placement="right"/)
+  assert.match(secondaryMenu, /<span v-if="!isCollapsed"[^>]*>\s*\{\{ item\.name \}\}\s*<\/span>/)
+  assert.match(secondaryMenu, /<el-tooltip[^>]*:content="item\.name"[^>]*placement="right"/)
+
+  assert.match(moreControl, />apps<\/span>/)
+  assert.match(moreControl, /<span v-if="!isCollapsed"[^>]*>更多功能<\/span>/)
+  assert.match(moreControl, /<span v-if="!isCollapsed"[^>]*>\s*chevron_right\s*<\/span>/)
+  assert.equal(unguardedMoreLabels.length, 1, 'collapsed More control must keep only one visible span')
+  assert.match(unguardedMoreLabels[0][1], /^\s*apps\s*$/)
+
+  assert.match(bottomToggle, /<el-tooltip[^>]*:content="isCollapsed \? '展开导航' : '收起导航'"[^>]*placement="right"/)
+  assert.match(toggleButton, /:aria-label="isCollapsed \? '展开导航' : '收起导航'"/)
+  assert.match(toggleButton, />keyboard_double_arrow_right<\/span>/)
+  assert.equal(toggleButton.replace(/<[^>]+>/g, '').replace('keyboard_double_arrow_right', '').trim(), '')
+
+  assert.match(approvalBadge, /v-if="item\.path === '\/function\/approval' && approvalPendingCount > 0"/)
+  assert.match(approvalBadge, /:value="approvalPendingCount"/)
+  assert.match(approvalBadge, /class="approval-menu-badge"/)
+  assert.match(approvalBadge, /:class="isCollapsed \? 'absolute right-1\.5 top-1\.5' : 'ml-auto'"/)
 })
 
 test('Hive branding is consistent', () => {
