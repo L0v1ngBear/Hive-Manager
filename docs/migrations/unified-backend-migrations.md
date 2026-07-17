@@ -32,6 +32,8 @@ The initializer imports the v2 baseline and permission seed, creates only `TENAN
 
 The release does not backfill `sales_order.express_company` or `sales_order.express_no`, does not preserve those columns, and does not provide compatibility reads. `hive_schema_baseline_v2.sql` already contains `sales_order_shipment` and omits the retired columns. `import-baseline-to-shadow.sh` therefore registers migration history through `V20260717_001` before invoking the versioned runner, preventing the represented migration from running again after baseline import.
 
+The routine entry also calls `check-order-multi-shipment-clean-launch.sh` before the versioned runner. If `V20260717_001` is pending, the helper fails closed unless `sales_order` exists and `SELECT COUNT(*)` returns exactly `0`. Existing rows require the formal cleanup process; query errors, malformed counts, missing tables and non-success history records are all blocking states. A baseline-registered `SUCCESS` returns before the row query because the destructive SQL is no longer eligible to execute. The gate has no bypass environment variable.
+
 ## Existing database
 
 The general routine below applies only to releases whose migrations support retained data. It must not be used to carry legacy business data across the `V20260717_001` clean-launch boundary.

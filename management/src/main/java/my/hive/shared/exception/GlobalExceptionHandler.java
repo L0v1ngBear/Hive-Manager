@@ -10,6 +10,7 @@ import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.dto.Result;
 import my.hive.shared.event.SystemEvent;
 import my.hive.shared.event.SystemEventPublisher;
+import my.hive.shared.log.SensitiveDataSanitizer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +32,7 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private final ObjectProvider<SystemEventPublisher> systemEventPublisherProvider;
+    private final SensitiveDataSanitizer sanitizer;
 
     @PostConstruct
     public void init() {
@@ -66,6 +68,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Result<Void>> handleBusinessException(BusinessException e) {
+        if (sanitizer.isDataConstraintViolation(e)) {
+            log.warn("business exception caused by a database constraint");
+            return new ResponseEntity<>(
+                    Result.fail(e.getCode(), sanitizer.toSafeExceptionMessage(e)), HttpStatus.OK);
+        }
         log.warn("business exception: {}", e.getMsg());
         return new ResponseEntity<>(Result.fail(e.getCode(), e.getMsg()), HttpStatus.OK);
     }
@@ -86,6 +93,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Result<Void>> handleGlobalException(Exception e, HttpServletRequest request) {
+        if (sanitizer.isDataConstraintViolation(e)) {
+            String safeMessage = sanitizer.toSafeExceptionMessage(e);
+            log.error("database constraint violation");
+            publishExceptionEvent("DATA_CONSTRAINT_VIOLATION", "Database constraint violation", e, request);
+            return new ResponseEntity<>(Result.fail(409, safeMessage), HttpStatus.CONFLICT);
+        }
         log.error("system internal exception", e);
         publishExceptionEvent("GLOBAL_EXCEPTION", "接口发生未处理异常", e, request);
         return new ResponseEntity<>(Result.fail(500, "服务器内部错误，请稍后重试"), HttpStatus.INTERNAL_SERVER_ERROR);
@@ -93,13 +106,14 @@ public class GlobalExceptionHandler {
 
     private void publishExceptionEvent(String eventType, String title, Exception exception, HttpServletRequest request) {
         try {
+            String safeMessage = sanitizer.toSafeExceptionMessage(exception);
             SystemEventPublisher publisher = systemEventPublisherProvider.getIfAvailable();
             if (publisher == null) {
                 return;
             }
             Map<String, Object> detail = new LinkedHashMap<>();
             detail.put("errorType", exception.getClass().getName());
-            detail.put("errorMessage", exception.getMessage());
+            detail.put("errorMessage", safeMessage);
             if (request != null) {
                 detail.put("method", request.getMethod());
                 detail.put("path", request.getRequestURI());
@@ -114,13 +128,17 @@ public class GlobalExceptionHandler {
                     .tenantCode(TenantPermissionContext.getTenantCode())
                     .module("global-exception")
                     .title(title)
-                    .content(exception.getMessage())
+                    .content(safeMessage)
                     .bizType("http-request")
                     .bizNo(request == null ? null : request.getRequestURI())
                     .detail(detail)
                     .build());
         } catch (Exception publishEx) {
-            log.warn("publish global exception event failed", publishEx);
+            if (sanitizer.isDataConstraintViolation(publishEx)) {
+                log.warn("publish global exception event failed due to a database constraint");
+            } else {
+                log.warn("publish global exception event failed", publishEx);
+            }
         }
     }
 }

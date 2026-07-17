@@ -44,3 +44,15 @@ test('repository tests never use a workstation deployment directory as source of
     assert.doesNotMatch(source, /C:[\\/]Users[\\/]HUAWEI[\\/]Desktop/iu, `${filename} reads a desktop release package`)
   }
 })
+
+test('release template carries the clean-launch migration gate entrypoint', () => {
+  const repositoryEntrypoint = fs.readFileSync(path.join(repoRoot, 'scripts/migrate-db.sh'), 'utf8')
+  const releaseEntrypoint = fs.readFileSync(path.join(repoRoot, 'deploy/scripts/migrate-db.sh'), 'utf8')
+
+  assert.equal(releaseEntrypoint, repositoryEntrypoint)
+  assert.match(repositoryEntrypoint, /check-order-multi-shipment-clean-launch\.sh/)
+  assert.equal(
+    fs.existsSync(path.join(repoRoot, 'db-migrations/scripts/check-order-multi-shipment-clean-launch.sh')),
+    true
+  )
+})

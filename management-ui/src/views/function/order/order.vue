@@ -209,7 +209,7 @@
               export-sheet-name="订单列表"
               export-module="order"
               :export-rows="visibleOrderRows"
-              :export-cell="formatOrderExportCell"
+              :export-cell="(row, column) => formatOrderExportCell(row, column.key)"
               :export-allable="true"
               :export-disabled="!canExportTable"
               export-disabled-reason="当前账号暂无表格导出权限"

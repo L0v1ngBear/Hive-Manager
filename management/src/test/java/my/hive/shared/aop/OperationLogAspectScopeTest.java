@@ -14,6 +14,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -106,6 +107,35 @@ class OperationLogAspectScopeTest {
                 .allSatisfy(event -> assertThat(event.getArgsJson())
                         .contains("\"trackingNo\":\"******\"")
                         .doesNotContain("TRACKING-NO-1234567890"));
+    }
+
+    @Test
+    void sanitizesTrackingConstraintFailureBeforeOperationLogPersistence() throws Throwable {
+        OperationLogProperties properties = new OperationLogProperties();
+        properties.setRecordedModules(Set.of("order"));
+        OperationLogCollector collector = mock(OperationLogCollector.class);
+        SensitiveDataSanitizer sanitizer = new SensitiveDataSanitizer(new ObjectMapper(), properties);
+        OperationLogAspect aspect = new OperationLogAspect(properties, collector, sanitizer);
+        String rawMessage = "Duplicate entry 'TENANT-ORDER-SF123' for key 'uk_order_shipment_tracking'";
+        DataIntegrityViolationException failure = new DataIntegrityViolationException(rawMessage);
+
+        ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+        MethodSignature signature = mock(MethodSignature.class);
+        Method method = Fixture.class.getDeclaredMethod("orderOperation");
+        when(joinPoint.getSignature()).thenReturn(signature);
+        when(joinPoint.getArgs()).thenReturn(new Object[0]);
+        when(joinPoint.proceed()).thenThrow(failure);
+        when(signature.getMethod()).thenReturn(method);
+        when(signature.getDeclaringTypeName()).thenReturn(Fixture.class.getName());
+
+        org.junit.jupiter.api.Assertions.assertThrows(DataIntegrityViolationException.class,
+                () -> aspect.around(joinPoint, annotation("orderOperation")));
+        ArgumentCaptor<OperationLogEvent> eventCaptor = ArgumentCaptor.forClass(OperationLogEvent.class);
+        verify(collector).collect(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().getErrorMessage())
+                .isEqualTo(SensitiveDataSanitizer.DATA_CONSTRAINT_MESSAGE)
+                .doesNotContain("SF123")
+                .doesNotContain("TENANT-ORDER");
     }
 
     private Object invoke(OperationLogAspect aspect, Method method, Object[] args, Object result) throws Throwable {

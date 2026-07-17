@@ -77,6 +77,7 @@ test('repository exposes one migration entry and never executes application reso
 
   const entrypointSource = fs.readFileSync(entrypoint, 'utf8')
   assert.match(entrypointSource, /db-migrations\/scripts\/run-versioned-migrations\.sh/)
+  assert.match(entrypointSource, /db-migrations\/scripts\/check-order-multi-shipment-clean-launch\.sh/)
   assert.match(entrypointSource, /db-migrations\/migration_manifest\.txt/)
   for (const helper of [
     'normalize-env.sh',
@@ -84,6 +85,10 @@ test('repository exposes one migration entry and never executes application reso
   ]) {
     assert.ok(fs.existsSync(path.join(repoRoot, 'scripts', helper)), `missing migration helper: ${helper}`)
   }
+  assert.ok(
+    fs.existsSync(path.join(migrationRoot, 'scripts', 'check-order-multi-shipment-clean-launch.sh')),
+    'missing destructive migration runtime gate'
+  )
   for (const retiredHelper of [
     'verify-order-information-channel-artifacts.sh',
     'diagnose-migration-drift.sh'

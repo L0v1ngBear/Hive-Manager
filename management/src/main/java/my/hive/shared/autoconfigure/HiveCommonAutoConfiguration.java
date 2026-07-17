@@ -8,6 +8,7 @@ import my.hive.shared.event.SystemEventPublisher;
 import my.hive.shared.log.OperationLogCollector;
 import my.hive.shared.log.OperationLogProperties;
 import my.hive.shared.log.Slf4jOperationLogCollector;
+import my.hive.shared.log.SensitiveDataSanitizer;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -37,10 +38,11 @@ public class HiveCommonAutoConfiguration {
     @ConditionalOnMissingBean(SystemEventPublisher.class)
     public SystemEventPublisher systemEventPublisher(ObjectMapper objectMapper,
                                                      JdbcTemplate jdbcTemplate,
-                                                     SystemEventProperties properties) {
+                                                     SystemEventProperties properties,
+                                                     SensitiveDataSanitizer sanitizer) {
         if (!properties.isEnabled()) {
             return new NoopSystemEventPublisher();
         }
-        return new JdbcSystemEventPublisher(objectMapper, jdbcTemplate, properties);
+        return new JdbcSystemEventPublisher(objectMapper, jdbcTemplate, properties, sanitizer);
     }
 }

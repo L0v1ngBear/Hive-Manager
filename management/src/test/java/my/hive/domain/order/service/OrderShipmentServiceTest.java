@@ -1,5 +1,8 @@
 package my.hive.domain.order.service;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import my.hive.domain.employee.mapper.EmployeeMapper;
 import my.hive.domain.employee.model.entity.Employee;
 import my.hive.domain.order.mapper.SalesOrderShipmentMapper;
@@ -15,6 +18,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionSynchronizationUtils;
@@ -28,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -45,6 +50,9 @@ class OrderShipmentServiceTest {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), "order-shipment-test"),
+                SalesOrderShipment.class);
         mapper = mock(SalesOrderShipmentMapper.class);
         employeeMapper = mock(EmployeeMapper.class);
         operationLogCollector = mock(OperationLogCollector.class);
@@ -292,6 +300,28 @@ class OrderShipmentServiceTest {
         SalesOrderShipment shipment = service.requireShipment("TENANT_001", "SO-1", 11L);
 
         assertEquals(11L, shipment.getId());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<SalesOrderShipment>> wrapperCaptor =
+                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(mapper).selectOne(wrapperCaptor.capture());
+        LambdaQueryWrapper<SalesOrderShipment> wrapper = wrapperCaptor.getValue();
+        assertTrue(wrapper.getSqlSegment().matches(
+                ".*tenant_code\\s*=.*order_id\\s*=.*id\\s*=.*LIMIT 1.*"));
+        assertEquals(Set.<Object>of("TENANT_001", "SO-1", 11L),
+                Set.copyOf(wrapper.getParamNameValuePairs().values()));
+    }
+
+    @Test
+    void acceptsEmptyRequestWhenNoShipmentsExistWithoutWrites() {
+        when(mapper.selectList(any())).thenReturn(List.of(), List.of());
+
+        List<SalesOrderShipmentVO> result = service.saveShipments("TENANT_001", "SO-1", List.of());
+
+        assertTrue(result.isEmpty());
+        verify(mapper, never()).insert(any());
+        verify(mapper, never()).updateShipment(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(mapper, never()).delete(any());
+        verify(operationLogCollector, never()).collect(any());
     }
 
     @Test

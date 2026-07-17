@@ -113,3 +113,31 @@ exit code 0
 - Combined automated tests: 555/555 passed.
 - `git diff --check`: exit code 0.
 - Non-blocking existing warnings: Maven reports the Byte Buddy dynamic-agent/bootstrap-classpath notice; Vite reports terser plugin timing.
+
+## Final Review Round 2: Runtime Gate, Export Callback, and Exception Redaction
+
+### TDD RED
+
+- Migration/export Node run: 10 tests executed with 3 failures. The clean-launch helper was missing and the real current-page export callback returned empty values because it received a column object instead of a key.
+- Expanded migration contract run: 11 tests executed with 4 failures across migration entry, fresh-baseline behavior, and release-template convergence.
+- Focused Maven compilation failed on 11 missing sanitizer API/constructor references, proving the AOP, global handler, and JDBC event persistence boundaries had no shared constraint-message protection.
+- Supplemental `GlobalExceptionHandlerTest`: 2 tests executed with 1 failure because a constraint-shaped `BusinessException` still returned and logged the raw tracking value.
+
+### TDD GREEN
+
+- `check-order-multi-shipment-clean-launch.sh` now permits the destructive migration only when its history version is absent and `sales_order` can be proven to contain exactly zero rows. A baseline-registered `SUCCESS` returns before the row query; non-success state, missing table, malformed count, query failure, or any business row fails closed with the formal-cleanup instruction. No bypass flag exists.
+- Current-page export now adapts the public callback as `(row, column) => formatOrderExportCell(row, column.key)`. The behavior test invokes the actual Vue binding through `buildStructuredExportData` and verifies `SO-1` plus `SF1、SF2`.
+- `SensitiveDataSanitizer` now identifies database integrity/constraint failures through the cause chain and replaces only those messages with a generic description. `OperationLogAspect`, `GlobalExceptionHandler`, and `JdbcSystemEventPublisher` use the shared protection; data-constraint logger branches do not pass the original throwable or message. Ordinary business messages remain unchanged.
+- `OrderShipmentServiceTest` now asserts the exact tenant/order/id wrapper predicates and proves an empty request with no existing shipment succeeds without insert, update, delete, or audit writes. No service implementation change was required.
+- Focused verification: management UI 19/19 passed; backend 23/23 passed; the supplemental business-exception safety test then passed 2/2.
+- Historical migrations, mini-program code, and installation-task code were not changed.
+
+### Final verification
+
+- `management\.\mvnw.cmd test`: 268/268 passed, 0 failures, 0 errors, 0 skipped; `BUILD SUCCESS`.
+- `management-ui\npm test`: 296/296 passed, 0 failures, 0 skipped.
+- `management-ui\npm run build`: 1861 modules transformed; production build succeeded in 10.47s.
+- Combined automated tests: 564/564 passed.
+- `git diff --check`: exit code 0.
+- Non-blocking existing warnings: Maven reports the Byte Buddy dynamic-agent/bootstrap-classpath notice; Vite reports terser plugin timing.
+- Environment note: this Windows host has no Bash runtime or WSL distribution, so the Node contract uses its static branch locally. On Linux it sources the helper and executes the zero, non-zero, and malformed-count branches.

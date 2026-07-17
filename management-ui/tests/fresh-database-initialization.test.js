@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
@@ -65,6 +66,47 @@ test('fresh initialization is explicit, stops writes, and verifies the result', 
 
   const salesOrder = baseline.match(/CREATE TABLE `sales_order` \(([\s\S]*?)\n\) ENGINE=/u)?.[1] || ''
   assert.doesNotMatch(salesOrder, /`express_company`|`express_no`/u)
+})
+
+test('pending destructive order migration fails closed unless sales_order is empty', () => {
+  const helperPath = path.join(repoRoot, 'db-migrations/scripts/check-order-multi-shipment-clean-launch.sh')
+  assert.equal(fs.existsSync(helperPath), true, 'clean-launch runtime gate helper must exist')
+  const helper = fs.readFileSync(helperPath, 'utf8')
+  const migrate = read('scripts/migrate-db.sh')
+
+  const gateIndex = migrate.indexOf('check-order-multi-shipment-clean-launch.sh')
+  const runnerIndex = migrate.indexOf('run-versioned-migrations.sh')
+  assert.ok(gateIndex >= 0 && gateIndex < runnerIndex, 'clean-launch gate must run before versioned migrations')
+  assert.match(helper, /migrations\/V20260717_001_order_multi_shipment/)
+  assert.match(helper, /schema_migration_history/)
+  assert.match(helper, /sales_order/)
+  assert.match(helper, /SELECT COUNT\(\*\)/)
+  assert.match(helper, /formal cleanup process/i)
+  assert.doesNotMatch(helper, /(?:SKIP|BYPASS|ALLOW)_CLEAN_LAUNCH/i)
+
+  if (process.platform !== 'win32') {
+    const script = [
+      `source ${JSON.stringify(helperPath)}`,
+      'assert_empty_sales_order 0',
+      '! assert_empty_sales_order 1',
+      '! assert_empty_sales_order invalid'
+    ].join('; ')
+    const result = spawnSync('bash', ['-c', script], { encoding: 'utf8' })
+    assert.equal(result.status, 0, result.stderr || result.stdout)
+  } else {
+    assert.match(helper, /assert_empty_sales_order\(\)/)
+    assert.match(helper, /0\)\s*return 0/)
+    assert.match(helper, /\*\)[\s\S]*formal cleanup process[\s\S]*return 1/i)
+  }
+})
+
+test('baseline-registered destructive migration bypasses row gate without re-execution', () => {
+  const helper = read('db-migrations/scripts/check-order-multi-shipment-clean-launch.sh')
+  const successCheck = helper.indexOf('SUCCESS')
+  const orderCountCheck = helper.indexOf('SELECT COUNT(*) FROM sales_order')
+
+  assert.ok(successCheck >= 0 && successCheck < orderCountCheck)
+  assert.match(helper, /migration_state[\s\S]*SUCCESS[\s\S]*(?:exit|return) 0/)
 })
 
 test('baseline import seeds the active permission catalog before full verification', () => {

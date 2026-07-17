@@ -48,6 +48,8 @@ bash scripts/restart.sh
 
 `restart.sh` validates the release, builds the backend image, stops backend writes, backs up and migrates the managed database, then recreates only `backend` and `nginx`. It does not recreate MySQL or Redis. A failed migration leaves the backend stopped.
 
+Before the versioned runner reaches `V20260717_001`, `scripts/migrate-db.sh` reads its migration-history state. A recorded `SUCCESS` (including the fresh-baseline cutoff) bypasses the destructive row check because that migration will not run. If the version is pending, the runtime gate permits execution only when `sales_order` can be verified to contain exactly zero rows; any rows, missing table, failed query or non-success history state stops the release and directs operators to the formal cleanup process. There is no bypass flag.
+
 Set `PULL_IMAGES=1` only for an intentional image update. Set `NO_CACHE=1` only when Docker build cache must be bypassed.
 
 ## Database recovery

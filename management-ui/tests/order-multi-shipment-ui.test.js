@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { buildStructuredExportData } from '../src/utils/structuredTableExport.js'
 
 const orderSource = readFileSync(new URL('../src/views/function/order/order.vue', import.meta.url), 'utf8')
 
@@ -48,8 +49,23 @@ test('order list and detail render all shipments in stable order', () => {
   assert.match(orderSource, /orderDetail\.shipments[\s\S]*shipment\.logisticsCompany[\s\S]*shipment\.trackingNo/)
 })
 
-test('current-page export uses the same structured shipment formatter as all-page export', () => {
+test('current-page export callback formats shipment and ordinary columns', () => {
   assert.match(orderSource, /<TableColumnSettings[\s\S]*:export-rows="visibleOrderRows"/)
-  assert.match(orderSource, /<TableColumnSettings[\s\S]*:export-cell="formatOrderExportCell"/)
+  const callbackExpression = orderSource.match(/:export-cell="([^"]+)"/)?.[1]
+  assert.ok(callbackExpression, 'order export callback binding must exist')
+
+  const formatterSource = functionSource(orderSource, 'formatOrderExportCell', 'openDetail').trim()
+  const formatter = Function(`return (${formatterSource})`)()
+  const exportCell = Function('formatOrderExportCell', `return (${callbackExpression})`)(formatter)
+  const data = buildStructuredExportData(
+    [
+      { key: 'orderNo', label: 'Order number' },
+      { key: 'shipments', label: 'Tracking numbers' }
+    ],
+    [{ orderId: 'SO-1', shipments: [{ trackingNo: 'SF1' }, { trackingNo: 'SF2' }] }],
+    exportCell
+  )
+
+  assert.deepEqual(data.rows, [['SO-1', 'SF1、SF2']])
   assert.match(orderSource, /if \(key === 'shipments'\)[\s\S]*\.map\(shipment => shipment\.trackingNo\)[\s\S]*\.join\('、'\)/u)
 })

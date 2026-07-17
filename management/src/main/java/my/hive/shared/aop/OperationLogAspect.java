@@ -65,7 +65,7 @@ public class OperationLogAspect {
         } catch (Throwable throwable) {
             event.setSuccess(false);
             event.setErrorType(throwable.getClass().getName());
-            event.setErrorMessage(throwable.getMessage());
+            event.setErrorMessage(sanitizer.toSafeExceptionMessage(throwable));
             throw throwable;
         } finally {
             long duration = System.currentTimeMillis() - startTime;

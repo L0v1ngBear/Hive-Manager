@@ -94,7 +94,7 @@
 - 推进到 shipped 前要求至少一条完整的 shipment；管理端按“先保存、再推进”的顺序执行，后端对 `/advance` 请求启用嵌套 DTO 校验并以已持久化 shipment 做状态校验。
 - 动态列默认 8 列：编号、客户/项目、订单信息、信息渠道、物流单号列表、状态、进度、时间。
 - 列顺序以 hive.table.columns.order.list.commercial.v5 存在 localStorage；当前实现只排序，不隐藏列。
-- 当前页导出读取 DOM；全部导出按当前筛选重新请求，最多 2000 条，并严格使用当前动态列顺序。
+- 当前页导出通过 `exportCell(row, column)` 回调读取结构化订单数据；全部导出按当前筛选重新请求，最多 2000 条，两者都使用 `formatOrderExportCell(row, column.key)` 并严格遵循当前动态列顺序。
 
 ## 加载 / 空态 / 错误态
 
@@ -110,7 +110,7 @@
 
 - 已迁移：筛选与编辑表单使用 ElInput、ElSelect/ElOption、ElDatePicker、ElInputNumber；分页、抽屉、预警表单、状态、进度、空态和加载分别使用 ElPagination、ElDrawer、ElDialog/ElForm、ElTag、ElProgress、ElEmpty 和 v-loading。
 - 预警设置由页面拥有的 ElDialog 表单承载，不再拼接 HTML 提示内容。
-- 显式保留原生动态响应式订单表格：它承载动态列顺序、移动端 data-label、整行点击与操作按钮 stop，并继续为当前页导出提供当前列 DOM；不得改造成破坏这些契约的固定列结构。
+- 显式保留原生动态响应式订单表格：它承载动态列顺序、移动端 data-label、整行点击与操作按钮 stop；当前页导出使用结构化行数据和列 key，不依赖表格 DOM 文本；不得改造成破坏这些契约的固定列结构。
 - 普通页面命令已迁移为 ElButton，并保留原有 `.stop`、CSS 和阶段权限语义；原生 button 只保留在统计/状态卡片和业务联想选项等定制交互面。
 - 自定义：TableColumnSettings、DateFilterInput、BusinessTimeCorrectionPanel、DragAttachmentUpload。
 - 工序步骤和客户/项目联想面板仍为业务自定义实现。

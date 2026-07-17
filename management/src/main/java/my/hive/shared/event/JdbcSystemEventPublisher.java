@@ -3,6 +3,7 @@ package my.hive.shared.event;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import my.hive.shared.log.SensitiveDataSanitizer;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -23,6 +24,7 @@ public class JdbcSystemEventPublisher implements SystemEventPublisher {
     private final ObjectMapper objectMapper;
     private final JdbcTemplate jdbcTemplate;
     private final SystemEventProperties properties;
+    private final SensitiveDataSanitizer sanitizer;
 
     @Override
     public void publish(SystemEvent event) {
@@ -39,16 +41,24 @@ public class JdbcSystemEventPublisher implements SystemEventPublisher {
                     blankToNull(event.getTenantCode()),
                     blankToNull(event.getModule()),
                     truncate(defaultText(event.getTitle(), "System event"), properties.getMaxTitleLength()),
-                    truncate(event.getContent(), properties.getMaxContentLength()),
+                    truncate(sanitizer.toSafeText(event.getContent()), properties.getMaxContentLength()),
                     blankToNull(event.getBizType()),
                     blankToNull(event.getBizNo()),
                     blankToNull(event.getTraceId()),
                     toJson(event.getDetail()),
                     occurTime);
         } catch (DataAccessException ex) {
-            log.warn("system_event write failed, please confirm migration V20260429_005_system_event.sql has been executed", ex);
+            if (sanitizer.isDataConstraintViolation(ex)) {
+                log.warn("system_event write failed due to a database constraint");
+            } else {
+                log.warn("system_event write failed, please confirm migration V20260429_005_system_event.sql has been executed", ex);
+            }
         } catch (Exception ex) {
-            log.warn("system_event publish failed", ex);
+            if (sanitizer.isDataConstraintViolation(ex)) {
+                log.warn("system_event publish failed due to a database constraint");
+            } else {
+                log.warn("system_event publish failed", ex);
+            }
         }
     }
 
@@ -56,7 +66,7 @@ public class JdbcSystemEventPublisher implements SystemEventPublisher {
         if (detail == null) {
             return null;
         }
-        return truncate(objectMapper.writeValueAsString(detail), properties.getMaxJsonLength());
+        return truncate(objectMapper.writeValueAsString(sanitizer.toSafeTree(detail)), properties.getMaxJsonLength());
     }
 
     private String truncate(String value, int maxLength) {

@@ -60,6 +60,8 @@ bash scripts/smoke-test.sh
 
 `restart.sh` builds the local backend image, stops backend writes, runs the sole migration entry and recreates only `backend` and `nginx`. A migration failure leaves the backend stopped. It never recreates MySQL or Redis and does not pull images unless explicitly requested.
 
+The sole migration entry enforces the `V20260717_001` clean-launch contract at runtime. When that version is still pending, `sales_order` must exist and its exact row count must be zero; a non-zero count or any inability to prove emptiness fails closed with an instruction to run the formal cleanup process. When a fresh baseline has already registered the version as `SUCCESS`, the gate does not query order rows and the represented migration remains skipped. No confirmation or compatibility override exists.
+
 ## Database recovery
 
 Recovery is database-first. Verify the latest backup and restore it through a shadow database before replacing the online schema:
