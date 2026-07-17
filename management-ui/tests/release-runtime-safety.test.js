@@ -46,4 +46,13 @@ test('release synchronization is allowlisted and preserves runtime-owned paths',
   for (const runtimePath of ['.env', 'mysql/data', 'redis/data', 'nginx/certs', 'uploads', 'backups']) {
     assert.match(sync, new RegExp(runtimePath.replace('/', '\\/')))
   }
+  assert.match(sync, /find "\$\{RELEASE_TARGET_DIR\}\/management-ui\/dist" -type d -exec chmod 0755/)
+  assert.match(sync, /find "\$\{RELEASE_TARGET_DIR\}\/management-ui\/dist" -type f -exec chmod 0644/)
+})
+
+test('release smoke test verifies that the management web home is readable', () => {
+  const smoke = read('deploy/scripts/smoke-test.sh')
+  assert.match(smoke, /https:\/\/127\.0\.0\.1\//)
+  assert.match(smoke, /Host: \$\{PUBLIC_DOMAIN\}/)
+  assert.match(smoke, /management web home HTTP 200/)
 })

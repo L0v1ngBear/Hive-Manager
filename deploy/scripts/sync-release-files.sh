@@ -47,6 +47,10 @@ for directory in backend management-ui/dist nginx/conf.d scripts db-migrations m
   fi
 done
 
+# Nginx workers run as an unprivileged user and must be able to traverse and read the bind-mounted UI tree.
+find "${RELEASE_TARGET_DIR}/management-ui/dist" -type d -exec chmod 0755 {} +
+find "${RELEASE_TARGET_DIR}/management-ui/dist" -type f -exec chmod 0644 {} +
+
 find "${RELEASE_TARGET_DIR}/scripts" "${RELEASE_TARGET_DIR}/db-migrations/scripts" \
   -type f -name '*.sh' -exec chmod +x {} +
 
