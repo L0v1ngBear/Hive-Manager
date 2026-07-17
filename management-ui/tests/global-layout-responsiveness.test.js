@@ -165,9 +165,94 @@ test('Hive branding is consistent', () => {
 })
 
 test('order page defines responsive summary filters and a compact mobile entry', () => {
-  assert.match(order, /order-summary-grid-new/)
-  assert.match(order, /order-filter-grid/)
-  assert.match(order, /<button\b[^>]*class="[^"]*\border-mobile-summary-toggle\b[^"]*"[^>]*>/)
-  assert.match(order, /\.order-mobile-summary-toggle\s*\{[\s\S]{0,320}display\s*:/)
-  assert.match(order, /@media\s*\([^)]*(?:max-width|min-width)\s*:[^)]*\)\s*\{[\s\S]{0,2000}\.order-mobile-summary-toggle[\s\S]{0,420}display\s*:/)
+  const summary = cssRule(order, '.order-summary-grid-new')
+  const categorySummary = cssRule(order, '.order-category-summary-grid-new')
+  const tabletSummaryRules = mediaRules(order, '@media (min-width: 641px) and (max-width: 1280px)')
+  const compactSummaryRules = mediaRules(order, '@media (max-width: 640px)')
+  const tabletFilterRules = mediaRules(order, '@media (min-width: 641px) and (max-width: 1279px)')
+  const filterGrid = cssRule(order, '.order-filter-grid')
+  const dateInputs = cssRule(order, '.order-filter-date-inputs')
+
+  assert.match(summary.declarations, /grid-template-columns\s*:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/)
+  assert.match(categorySummary.declarations, /grid-template-columns\s*:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/)
+  assert.equal(hasRule(tabletSummaryRules, /\.order-summary-grid-new/, /grid-template-columns\s*:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/), true)
+  assert.equal(hasRule(tabletSummaryRules, /\.order-category-summary-grid-new/, /grid-template-columns\s*:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/), true)
+  assert.equal(hasRule(compactSummaryRules, /\.order-summary-grid-new/, /grid-template-columns\s*:\s*minmax\(0,\s*1fr\)/), true)
+  assert.equal(hasRule(compactSummaryRules, /\.order-category-summary-grid-new/, /grid-template-columns\s*:\s*minmax\(0,\s*1fr\)/), true)
+
+  assert.match(filterGrid.declarations, /grid-template-columns\s*:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/)
+  assert.equal(hasRule(tabletFilterRules, /\.order-filter-grid/, /grid-template-columns\s*:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/), true)
+  assert.match(order, /class="order-filter-date-label">创建时间<\/span>/)
+  assert.match(cssRule(order, '.order-filter-date-label').declarations, /white-space\s*:\s*nowrap/)
+  assert.match(dateInputs.declarations, /display\s*:\s*grid/)
+  assert.match(dateInputs.declarations, /grid-template-columns\s*:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/)
+
+  const mobileToggle = order.match(/<button\b[^>]*class="[^"]*\border-mobile-summary-toggle\b[^"]*"[^>]*>[\s\S]*?<\/button>/)?.[0] || ''
+  assert.match(mobileToggle, /:aria-expanded="mobileSummaryExpanded"/)
+  assert.match(mobileToggle, /aria-controls="order-secondary-summaries"/)
+  assert.match(mobileToggle, /@click="mobileSummaryExpanded = !mobileSummaryExpanded"/)
+  assert.match(order, /const mobileSummaryExpanded = ref\(false\)/)
+  assert.match(order, /id="order-secondary-summaries"[^>]*:class="\{ 'order-secondary-summaries-open': mobileSummaryExpanded \}"/)
+  assert.match(cssRule(order, '.order-mobile-summary-toggle').declarations, /display\s*:\s*none/)
+  assert.equal(hasRule(compactSummaryRules, /\.order-mobile-summary-toggle/, /display\s*:\s*(?:inline-)?flex/), true)
+  assert.equal(hasRule(compactSummaryRules, /\.order-secondary-summaries\s*$/, /display\s*:\s*none/), true)
+  assert.equal(hasRule(compactSummaryRules, /\.order-secondary-summaries-open/, /display\s*:\s*grid/), true)
+
+  const globalTabletRules = mediaRules(style, '@media (max-width: 1280px)')
+  assert.equal(hasRule(globalTabletRules, /order-(?:category-)?summary-grid-new/, /grid-template-columns[^;]*!important/), false)
+})
+
+test('order selection remains click-only and empty rows stay compact', () => {
+  const summaryButtons = templateSection(order, '<div class="order-summary-grid-new"', '        </div>')
+  const statusButtons = templateSection(order, '<div class="status-chip-row order-primary-status-tabs', '        </div>')
+
+  assert.match(summaryButtons, /@click="selectSummaryCard\(card\)"/)
+  assert.match(statusButtons, /@click="selectStatus\(status\.value\)"/)
+  assert.doesNotMatch(summaryButtons, /@(?:mouse(?:enter|over)|pointer(?:enter|over))=/)
+  assert.doesNotMatch(statusButtons, /@(?:mouse(?:enter|over)|pointer(?:enter|over))=/)
+  assert.equal((order.match(/class="order-empty-state-cell"/g) || []).length, 2)
+  assert.match(cssRule(order, '.order-empty-state-cell').declarations, /height\s*:\s*12rem/)
+})
+
+test('price uses shared stat cards, accessible filters, grouped actions and a scrolling table', () => {
+  const statsSection = templateSection(price, '<section v-else v-loading="statsLoading"', '</section>')
+  const filterForm = templateSection(price, '<el-form :model="query"', '</el-form>')
+  const tableScroll = templateSection(price, '<div class="function-table-scroll">', '</div>')
+
+  assert.match(style, /\.function-stat-card\s*\{[\s\S]{0,420}min-width\s*:\s*0[\s\S]{0,420}border-radius\s*:\s*8px[\s\S]{0,420}padding\s*:\s*1\.25rem/)
+  assert.match(statsSection, /class="[^"]*\bfunction-stats-grid\b[^"]*"/)
+  assert.equal((statsSection.match(/<el-statistic\b[^>]*class="function-stat-card"/g) || []).length, 4)
+  assert.match(filterForm, /class="function-filter-form p-4"/)
+
+  for (const [model, label] of [
+    ['query.keyword', '价格关键词'],
+    ['query.status', '价格状态'],
+    ['query.batchNo', '价格批号'],
+    ['query.spec', '价格规格'],
+    ['query.currency', '价格币种'],
+    ['query.priceMin', '最低价格'],
+    ['query.priceMax', '最高价格'],
+    ['query.effectiveStart', '生效开始日期'],
+    ['query.effectiveEnd', '生效结束日期'],
+  ]) {
+    assert.match(filterForm, new RegExp(`<el-(?:input|select|input-number|date-picker)\\b(?=[^>]*v-model(?:\\.trim)?="${model.replace('.', '\\.')}")(?=[^>]*aria-label="${label}")[^>]*>`))
+  }
+
+  assert.match(filterForm, /<div class="function-filter-actions">[\s\S]*@click="handleFilter"[\s\S]*@click="resetFilter"[\s\S]*<\/div>/)
+  assert.match(tableScroll, /<el-table\b[\s\S]*<el-table-column label="操作" fixed="right" width="200"[\s\S]*<\/el-table>/)
+})
+
+test('equipment uses accessible shared filters, grouped actions and a scrolling table', () => {
+  const filterForm = templateSection(equipment, '<el-form :inline="true"', '</el-form>')
+  const tableScroll = templateSection(equipment, '<div class="function-table-scroll">', '</div>')
+  const actions = templateSection(filterForm, '<el-form-item class="function-filter-actions">', '</el-form-item>')
+
+  assert.match(filterForm, /class="function-filter-form equipment-filter-form"/)
+  assert.match(filterForm, /<el-input\b(?=[^>]*v-model\.trim="filters\.keyword")(?=[^>]*aria-label="设备关键词")[^>]*>/)
+  assert.match(filterForm, /<el-select\b(?=[^>]*v-model="filters\.status")(?=[^>]*aria-label="设备状态")[^>]*>/)
+  assert.match(actions, /@click="handleSearch"/)
+  assert.match(actions, /@click="resetSearch"/)
+  assert.match(actions, /@click="exportEquipmentExcel"/)
+  assert.match(actions, /@click="openCreate"/)
+  assert.match(tableScroll, /<el-table\b[\s\S]*<el-table-column label="操作" width="210" fixed="right"[\s\S]*<\/el-table>/)
 })

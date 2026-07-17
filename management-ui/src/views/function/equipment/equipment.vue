@@ -7,20 +7,22 @@
           <h1 class="function-page-title">设备巡检记录</h1>
           <p class="function-page-desc">建立固定设备二维码，现场扫码巡检后记录自动沉淀到设备档案。</p>
         </div>
-        <el-form :inline="true" class="function-filter-form flex flex-wrap justify-end gap-3">
+        <el-form :inline="true" class="function-filter-form equipment-filter-form">
           <el-form-item>
-            <el-input v-model.trim="filters.keyword" clearable placeholder="搜索设备编码、名称、位置或负责人" @keyup.enter="fetchDevices" />
+            <el-input v-model.trim="filters.keyword" aria-label="设备关键词" clearable placeholder="搜索设备编码、名称、位置或负责人" @keyup.enter="fetchDevices" />
           </el-form-item>
           <el-form-item>
-            <el-select v-model="filters.status" clearable placeholder="全部状态" class="w-32">
+            <el-select v-model="filters.status" aria-label="设备状态" clearable placeholder="全部状态" class="w-32">
               <el-option label="启用中" value="enabled" />
               <el-option label="已停用" value="disabled" />
             </el-select>
           </el-form-item>
-          <el-form-item><el-button type="primary" @click="handleSearch">查询</el-button></el-form-item>
-          <el-form-item><el-button @click="resetSearch">重置</el-button></el-form-item>
-          <el-form-item><el-tooltip :disabled="canExport" content="暂无 equipment:export 权限"><span><el-button :disabled="!canExport" @click="exportEquipmentExcel">导出 Excel</el-button></span></el-tooltip></el-form-item>
-          <el-form-item><el-tooltip :disabled="canCreate" content="暂无 equipment:create 权限"><span><el-button type="primary" :disabled="!canCreate" @click="openCreate">新增设备</el-button></span></el-tooltip></el-form-item>
+          <el-form-item class="function-filter-actions">
+            <el-button type="primary" @click="handleSearch">查询</el-button>
+            <el-button @click="resetSearch">重置</el-button>
+            <el-tooltip :disabled="canExport" content="暂无 equipment:export 权限"><span><el-button :disabled="!canExport" @click="exportEquipmentExcel">导出 Excel</el-button></span></el-tooltip>
+            <el-tooltip :disabled="canCreate" content="暂无 equipment:create 权限"><span><el-button type="primary" :disabled="!canCreate" @click="openCreate">新增设备</el-button></span></el-tooltip>
+          </el-form-item>
         </el-form>
       </header>
 
@@ -42,8 +44,9 @@
           </template>
         </el-result>
         <template v-else>
-          <el-table v-loading="loading" :data="devices" class="equipment-table" row-key="id">
-            <el-table-column label="设备" min-width="170">
+          <div class="function-table-scroll">
+            <el-table v-loading="loading" :data="devices" class="equipment-table" row-key="id">
+              <el-table-column label="设备" min-width="170">
               <template #default="{ row }">
                 <el-tooltip :disabled="canViewDetail" content="暂无 equipment:detail 权限"><span><el-button link type="primary" :disabled="!canViewDetail" @click="openDetail(row)">{{ row.equipmentName }}</el-button></span></el-tooltip>
                 <p class="mt-1 text-xs text-on-surface-variant">{{ row.equipmentCode }}</p>
@@ -56,18 +59,19 @@
             <el-table-column label="巡检周期" min-width="110"><template #default="{ row }">{{ row.inspectionCycleDays ?? 7 }} 天</template></el-table-column>
             <el-table-column label="最近巡检" min-width="150"><template #default="{ row }">{{ formatDateTime(row.lastInspectionTime) }}</template></el-table-column>
             <el-table-column label="状态" min-width="100"><template #default="{ row }"><el-tag :type="row.status === 'enabled' ? 'success' : 'info'">{{ row.status === 'enabled' ? '启用中' : '已停用' }}</el-tag></template></el-table-column>
-            <el-table-column label="操作" width="210" fixed="right">
+              <el-table-column label="操作" width="210" fixed="right">
               <template #default="{ row }">
                 <el-tooltip :disabled="canViewDetail" content="暂无 equipment:detail 权限"><span><el-button link type="primary" :disabled="!canViewDetail" @click="openDetail(row)">详情</el-button></span></el-tooltip>
                 <el-tooltip :disabled="canViewInspection" content="暂无 equipment:inspection:list 权限"><span><el-button link type="primary" :disabled="!canViewInspection" @click="openInspection(row)">巡检记录</el-button></span></el-tooltip>
                 <el-tooltip :disabled="canUpdate" content="暂无 equipment:update 权限"><span><el-button link type="primary" :disabled="!canUpdate" @click="openEdit(row)">编辑</el-button></span></el-tooltip>
                 <el-tooltip v-if="row.status === 'enabled'" :disabled="canDisable" content="暂无 equipment:disable 权限"><span><el-button link type="danger" :disabled="!canDisable" @click="handleDisable(row)">停用</el-button></span></el-tooltip>
               </template>
-            </el-table-column>
-            <template #empty>
-              <el-empty description="暂无设备档案" />
-            </template>
-          </el-table>
+              </el-table-column>
+              <template #empty>
+                <el-empty description="暂无设备档案" />
+              </template>
+            </el-table>
+          </div>
           <div class="table-footer">
             <span>共 {{ total }} 条</span>
             <el-pagination :current-page="pageNum" :page-size="pageSize" :page-count="totalPages" :total="total" :disabled="loading" layout="prev, pager, next" @current-change="changePage" />

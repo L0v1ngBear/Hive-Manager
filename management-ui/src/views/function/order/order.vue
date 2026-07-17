@@ -84,44 +84,61 @@
           </button>
         </div>
 
-        <div class="order-summary-section">
-          <div class="order-summary-section-title">普通订单小项</div>
-          <div class="order-category-summary-grid-new" aria-label="普通订单小项数量统计">
-            <button
-                v-for="card in categorySummaryCards"
-                :key="card.key"
-                type="button"
-                class="category-stat-card"
-                :class="{ 'category-stat-card-active': filters.orderCategory === card.value }"
-                :aria-pressed="filters.orderCategory === card.value"
-                @click="selectCategoryCard(card.value)"
-            >
-              <span>{{ card.label }}</span>
-              <strong>{{ card.count }}</strong>
-              <small>{{ card.hint }}</small>
-            </button>
-          </div>
-        </div>
+        <button
+            type="button"
+            class="order-mobile-summary-toggle"
+            :aria-expanded="mobileSummaryExpanded"
+            aria-controls="order-secondary-summaries"
+            @click="mobileSummaryExpanded = !mobileSummaryExpanded"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">{{ mobileSummaryExpanded ? 'expand_less' : 'expand_more' }}</span>
+          <span>{{ mobileSummaryExpanded ? '收起更多统计' : '展开更多统计' }}</span>
+        </button>
 
-        <div class="order-summary-section drawing-budget-summary-section">
-          <div class="order-summary-section-title">
-            <span class="material-symbols-outlined" aria-hidden="true">draw</span>
-            图纸预算
+        <div
+            id="order-secondary-summaries"
+            class="order-secondary-summaries"
+            :class="{ 'order-secondary-summaries-open': mobileSummaryExpanded }"
+        >
+          <div class="order-summary-section">
+            <div class="order-summary-section-title">普通订单小项</div>
+            <div class="order-category-summary-grid-new" aria-label="普通订单小项数量统计">
+              <button
+                  v-for="card in categorySummaryCards"
+                  :key="card.key"
+                  type="button"
+                  class="category-stat-card"
+                  :class="{ 'category-stat-card-active': filters.orderCategory === card.value }"
+                  :aria-pressed="filters.orderCategory === card.value"
+                  @click="selectCategoryCard(card.value)"
+              >
+                <span>{{ card.label }}</span>
+                <strong>{{ card.count }}</strong>
+                <small>{{ card.hint }}</small>
+              </button>
+            </div>
           </div>
-          <div class="drawing-budget-summary-grid" aria-label="图纸预算数量统计">
-            <button
-                v-for="card in drawingBudgetSummaryCards"
-                :key="card.key"
-                type="button"
-                class="category-stat-card drawing-budget-stat-card"
-                :class="{ 'category-stat-card-active': isDrawingBudgetCardActive(card) }"
-                :aria-pressed="isDrawingBudgetCardActive(card)"
-                @click="selectDrawingBudgetCard(card)"
-            >
-              <span>{{ card.label }}</span>
-              <strong>{{ card.count }}</strong>
-              <small>{{ card.hint }}</small>
-            </button>
+
+          <div class="order-summary-section drawing-budget-summary-section">
+            <div class="order-summary-section-title">
+              <span class="material-symbols-outlined" aria-hidden="true">draw</span>
+              图纸预算
+            </div>
+            <div class="drawing-budget-summary-grid" aria-label="图纸预算数量统计">
+              <button
+                  v-for="card in drawingBudgetSummaryCards"
+                  :key="card.key"
+                  type="button"
+                  class="category-stat-card drawing-budget-stat-card"
+                  :class="{ 'category-stat-card-active': isDrawingBudgetCardActive(card) }"
+                  :aria-pressed="isDrawingBudgetCardActive(card)"
+                  @click="selectDrawingBudgetCard(card)"
+              >
+                <span>{{ card.label }}</span>
+                <strong>{{ card.count }}</strong>
+                <small>{{ card.hint }}</small>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -143,7 +160,7 @@
         </button>
         </div>
         <div
-            class="order-filter-grid grid grid-cols-1 gap-4 border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-5 md:grid-cols-2 xl:grid-cols-12">
+            class="order-filter-grid grid gap-4 border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-5">
         <el-input
             v-model.trim="filters.keyword"
             class="box-input xl:col-span-2"
@@ -199,13 +216,12 @@
               @export-all="exportAllOrders"
           />
         </div>
-        <div class="grid grid-cols-1 gap-3 md:col-span-2 md:grid-cols-2 xl:col-span-12">
-          <label class="flex items-center gap-2 text-xs font-bold text-on-surface-variant">
-            <span>创建时间</span>
-            <DateFilterInput v-model="filters.createStart" placeholder="开始日期" class="box-input min-w-0 flex-1" />
-            <span>至</span>
-            <DateFilterInput v-model="filters.createEnd" placeholder="结束日期" class="box-input min-w-0 flex-1" />
-          </label>
+        <div class="order-filter-date-row xl:col-span-12">
+          <span class="order-filter-date-label">创建时间</span>
+          <div class="order-filter-date-inputs">
+            <DateFilterInput v-model="filters.createStart" placeholder="开始日期" class="box-input min-w-0" />
+            <DateFilterInput v-model="filters.createEnd" placeholder="结束日期" class="box-input min-w-0" />
+          </div>
         </div>
         </div>
       </div>
@@ -472,14 +488,14 @@
             </td>
           </tr>
           <tr v-if="!orderState.loading && orderState.requestState !== 'ready'">
-            <td :colspan="orderTableColumnCount" class="px-6 py-14 text-center text-sm text-on-surface-variant">
+            <td :colspan="orderTableColumnCount" class="order-empty-state-cell">
               <el-empty :description="orderState.errorMessage">
                 <el-button type="primary" @click="loadOrders">重新加载</el-button>
               </el-empty>
             </td>
           </tr>
           <tr v-else-if="!orderState.loading && !visibleOrderRows.length">
-            <td :colspan="orderTableColumnCount" class="px-6 py-14 text-center text-sm text-on-surface-variant"><el-empty description="暂无订单数据" /></td>
+            <td :colspan="orderTableColumnCount" class="order-empty-state-cell"><el-empty description="暂无订单数据" /></td>
           </tr>
           </tbody>
         </table>
@@ -1091,6 +1107,7 @@ const orderForm = reactive(defaultOrderForm())
 const orderAttachmentUploading = ref(false)
 const latestOrderFlowPrintTask = ref(null)
 const filterOverviewExpanded = ref(true)
+const mobileSummaryExpanded = ref(false)
 
 const canCreateCurrentOrder = computed(() => userStore.hasPermission('order:create'))
 const canManageWarningSetting = computed(() => userStore.hasPermission('order:warning:setting'))
@@ -3113,7 +3130,34 @@ function fulfillmentProcessText(row = {}) {
   outline-offset: 2px;
 }
 
+.order-mobile-summary-toggle {
+  display: none;
+  width: 100%;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  border: 1px solid rgb(var(--ys-primary-rgb) / .24);
+  border-radius: .5rem;
+  background: #fff;
+  padding: .5rem .75rem;
+  color: rgb(var(--primary));
+  font-size: .8rem;
+  font-weight: 900;
+}
+
+.order-mobile-summary-toggle:focus-visible {
+  outline: 3px solid rgba(14, 165, 233, .28);
+  outline-offset: 2px;
+}
+
 .order-filter-overview-panel {
+  display: grid;
+  min-width: 0;
+  gap: 20px;
+}
+
+.order-secondary-summaries {
   display: grid;
   min-width: 0;
   gap: 20px;
@@ -3212,10 +3256,10 @@ function fulfillmentProcessText(row = {}) {
   box-shadow: 0 16px 34px rgb(var(--ys-primary-rgb) / .12);
 }
 
-@media (max-width: 1280px) {
+@media (min-width: 641px) and (max-width: 1280px) {
   .order-summary-grid-new,
   .order-category-summary-grid-new {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -3243,11 +3287,6 @@ function fulfillmentProcessText(row = {}) {
     width: 100%;
   }
 
-  .order-summary-grid-new,
-  .order-category-summary-grid-new {
-    grid-template-columns: repeat(1, minmax(0, 1fr));
-  }
-
   .drawing-budget-summary-grid {
     grid-template-columns: none;
     grid-auto-flow: column;
@@ -3265,6 +3304,25 @@ function fulfillmentProcessText(row = {}) {
 
   .order-header-button-row {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .order-summary-grid-new,
+  .order-category-summary-grid-new {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .order-mobile-summary-toggle {
+    display: flex;
+  }
+
+  .order-secondary-summaries {
+    display: none;
+  }
+
+  .order-secondary-summaries-open {
+    display: grid;
   }
 }
 
@@ -3662,7 +3720,32 @@ function fulfillmentProcessText(row = {}) {
 }
 
 .order-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   align-items: stretch;
+}
+
+.order-filter-date-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: .75rem;
+  color: rgb(var(--on-surface-variant));
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.order-filter-date-label {
+  white-space: nowrap;
+}
+
+.order-filter-date-inputs {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
 }
 
 .order-filter-actions {
@@ -3709,10 +3792,44 @@ function fulfillmentProcessText(row = {}) {
   white-space: nowrap;
 }
 
+@media (min-width: 641px) and (max-width: 1279px) {
+  .order-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .order-filter-actions,
+  .order-filter-date-row {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .order-filter-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .order-filter-actions,
+  .order-filter-date-row {
+    grid-column: 1;
+  }
+
+  .order-filter-date-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .function-page-shell .order-list-table.responsive-data-table {
   width: max-content;
   min-width: 100%;
   table-layout: auto;
+}
+
+.order-empty-state-cell {
+  height: 12rem;
+  padding: 1rem 1.5rem;
+  text-align: center;
+  color: rgb(var(--on-surface-variant));
+  font-size: .875rem;
 }
 
 .function-page-shell .order-list-table.responsive-data-table th:last-child,

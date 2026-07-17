@@ -543,6 +543,15 @@ button[aria-disabled="true"],
   gap: var(--responsive-card-gap);
 }
 
+.function-stat-card {
+  min-width: 0;
+  border: 1px solid rgba(200, 211, 223, 0.72);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 1.25rem;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+}
+
 .function-filter-form {
   display: grid !important;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
@@ -624,8 +633,6 @@ button[aria-disabled="true"],
 
 @media (max-width: 1280px) {
   .responsive-page-frame :is(
-    .order-summary-grid-new,
-    .order-category-summary-grid-new,
     .print-tabs,
     .print-workbench,
     .receipt-workspace,
@@ -651,7 +658,7 @@ button[aria-disabled="true"],
     --responsive-control-height: 2.9rem;
   }
 
-  .responsive-page-frame .function-page-container :is(.order-filter-grid, .print-editor-grid, .template-grid, .receipt-preview-layout) {
+  .responsive-page-frame .function-page-container :is(.print-editor-grid, .template-grid, .receipt-preview-layout) {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
