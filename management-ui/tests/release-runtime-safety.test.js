@@ -56,3 +56,18 @@ test('release smoke test verifies that the management web home is readable', () 
   assert.match(smoke, /Host: \$\{PUBLIC_DOMAIN\}/)
   assert.match(smoke, /management web home HTTP 200/)
 })
+
+test('root publish wrapper delegates to the guarded synchronization and restart entrypoints', () => {
+  const publishPath = path.join(repoRoot, 'deploy/publish.sh')
+  assert.equal(fs.existsSync(publishPath), true, 'root publish wrapper must exist')
+  const publish = fs.readFileSync(publishPath, 'utf8')
+
+  assert.match(publish, /BASH_SOURCE\[0\]/)
+  assert.match(publish, /HIVE_RUNTIME_DIR:-\/root\/hive/)
+  assert.match(publish, /RELEASE_SOURCE_DIR="\$\{RELEASE_SOURCE_DIR\}" RELEASE_TARGET_DIR="\$\{RELEASE_TARGET_DIR\}"/)
+  assert.match(publish, /scripts\/sync-release-files\.sh/)
+  assert.match(publish, /cd "\$\{RELEASE_TARGET_DIR\}"/)
+  assert.match(publish, /bash scripts\/restart\.sh/)
+  assert.match(publish, /release package and runtime directory must be different/)
+  assert.doesNotMatch(publish, /docker compose|mysql|migrate-db\.sh/)
+})
