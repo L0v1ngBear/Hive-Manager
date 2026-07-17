@@ -37,3 +37,19 @@ Task 4: complete (commits e588c0c..822325f, review PASS/PASS, focused business s
 Task 5: complete (commits 822325f..decf0ac, review PASS/PASS, full management UI suite 197/197 and Vite build passed; public entry browser QA passed at recorded sizes, protected pages remain unapproved due local API 502/no session)
 Final review: complete (commits 26b6702..ce6dfe9, final reviewer Ready to merge YES with no Critical/Important/Minor findings after five fix/re-review cycles)
 Final verification: complete (management UI 225/225 passed, Vite build transformed 1,859 modules, retired-blue scan zero, git diff check clean, final login browser QA passed at 1440x900 and 390x844; protected pages remain environment-blocked)
+
+## Order Multi-Shipment
+
+Branch: codex/order-multi-shipment
+Plan: docs/superpowers/plans/2026-07-17-order-multi-shipment.md
+Baseline before Task 1: 08cef4f
+Task 1: complete (commits 08cef4f..5ca5e85, review PASS/PASS, controller verification 4/4 passed and exactly one new migration added)
+Task 2: complete (commits 5ca5e85..08dc86b, review PASS/APPROVED, controller verification 11/11 passed)
+- Final-review minors: consider explicit wrapper predicate assertions and an explicit no-existing-plus-empty-request test in OrderShipmentServiceTest.
+Task 3: complete (commits 08dc86b..0355f99, re-review PASS/PASS, lifecycle restore validation and legacy-column SQL blocker fixed)
+Task 4: complete (commits fb1f7c8..0355f99, re-review PASS/PASS, full backend suite 259/259 passed)
+Task 5: complete (commits 0355f99..a0a891e, re-review PASS/PASS WITH MINOR CLEANUP, order UI 35/35 and Vite build passed)
+- Task 5 review minors resolved in a0a891e..2c873a6.
+Task 6: complete (commits a0a891e..8a54898, review PASS/PASS, cross-layer gate and active documentation aligned)
+Final review: complete (commits 6b52587..8a54898, Ready to merge YES with no Critical/Important/Minor findings after remediation)
+Final verification on merged main: complete (backend 269/269, management UI 297/297, Vite production build passed)
