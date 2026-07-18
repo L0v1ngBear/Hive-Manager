@@ -351,12 +351,10 @@ public class AuthenticationService {
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
         String tenantCode = StringUtils.hasText(request.getTenantCode()) ? request.getTenantCode().trim() : null;
         if (tenantCode != null && !boundedTenantProperties.isTenantAllowed(tenantCode)) {
-            throw new BusinessException(403, "当前企业不可用，请联系企业负责人");
+            throw tenantUnavailable();
         }
-        List<LoginUserRow> candidates = authMapper.selectLoginUsersByPhoneInTenants(
-                phone,
+        List<LoginUserRow> candidates = authMapper.selectLoginUsersByPhoneHashInTenants(
                 phoneHash,
-                null,
                 tenantCode == null ? allowedTenantCodes() : List.of(tenantCode)
         );
         if (candidates == null || candidates.isEmpty()) {
@@ -890,14 +888,57 @@ public class AuthenticationService {
     }
 
     private void validateLoginEligibility(LoginUserRow loginUser) {
-        if (loginUser == null) throw new BusinessException(403, "当前账号不可用，请联系企业负责人");
+        if (loginUser == null) {
+            throw new BusinessException(
+                    403,
+                    AuthReason.ACCOUNT_DISABLED,
+                    "当前账号不可用，请联系企业负责人"
+            );
+        }
         if (!isUsableEmployeeStatus(loginUser.getUserStatus())) {
             String message = employeeStatusMessage(loginUser.getUserStatus());
-            throw new BusinessException(403, message.contains("请联系") ? message : message + "，请联系企业负责人");
+            String reason = Objects.equals(loginUser.getUserStatus(), EmployeeStatusEnum.RESIGNED.getCode())
+                    ? AuthReason.EMPLOYEE_RESIGNED
+                    : AuthReason.ACCOUNT_DISABLED;
+            throw new BusinessException(
+                    403,
+                    reason,
+                    message.contains("请联系") ? message : message + "，请联系企业负责人"
+            );
         }
-        if (!StringUtils.hasText(loginUser.getTenantCode())) throw new BusinessException(403, "当前企业已停用或不可用，请联系企业负责人");
-        boundedTenantProperties.assertTenantAllowed(loginUser.getTenantCode());
-        tenantLicenseService.ensureTenantUsable(loginUser.getTenantCode());
+        if (!StringUtils.hasText(loginUser.getTenantCode())) {
+            throw tenantUnavailable();
+        }
+        try {
+            boundedTenantProperties.assertTenantAllowed(loginUser.getTenantCode());
+        } catch (IllegalArgumentException exception) {
+            throw tenantUnavailable();
+        }
+        try {
+            tenantLicenseService.ensureTenantUsable(loginUser.getTenantCode());
+        } catch (BusinessException exception) {
+            throw new BusinessException(
+                    403,
+                    AuthReason.TENANT_LICENSE_UNAVAILABLE,
+                    StringUtils.hasText(exception.getMsg())
+                            ? exception.getMsg()
+                            : "当前企业授权已到期或不可用，请联系平台管理员续费"
+            );
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(
+                    403,
+                    AuthReason.TENANT_LICENSE_UNAVAILABLE,
+                    "当前企业授权已到期或不可用，请联系平台管理员续费"
+            );
+        }
+    }
+
+    private BusinessException tenantUnavailable() {
+        return new BusinessException(
+                403,
+                AuthReason.TENANT_UNAVAILABLE,
+                "当前企业已停用或不可用，请联系企业负责人"
+        );
     }
 
     private Long requireAuthVersion(LoginUserRow loginUser) {

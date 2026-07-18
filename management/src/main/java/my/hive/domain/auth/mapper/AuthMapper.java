@@ -99,8 +99,23 @@ public interface AuthMapper {
                                                         @Param("tenantCodes") List<String> tenantCodes);
 
     @Select({
+            "<script>",
             "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
-            "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
+            "u.phone_mask AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
+            "FROM user u ",
+            "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
+            "WHERE u.phone_hash = #{phoneHash} ",
+            "AND u.tenant_code IN ",
+            "<foreach collection='tenantCodes' item='tenantCode' open='(' separator=',' close=')'>#{tenantCode}</foreach> ",
+            "ORDER BY u.tenant_code ASC, u.id ASC",
+            "</script>"
+    })
+    List<LoginUserRow> selectLoginUsersByPhoneHashInTenants(@Param("phoneHash") String phoneHash,
+                                                            @Param("tenantCodes") List<String> tenantCodes);
+
+    @Select({
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "u.phone_mask AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
             "FROM user u LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
             "WHERE u.phone_hash = #{phoneHash} AND u.tenant_code = #{tenantCode} ORDER BY u.id ASC LIMIT 2"
     })

@@ -37,6 +37,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -95,7 +96,7 @@ class AuthenticationServiceTest {
 
     @Test
     void returnsLoggedInFlowForOneEligibleEmployee() {
-        when(mapper.selectLoginUsersByPhoneInTenants(PHONE, HASH, null, List.of("a", "b")))
+        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
                 .thenReturn(List.of(user(1L, "a", 1)));
 
         MiniWechatLoginVO result = service.wechatLogin(wechatRequest("code"));
@@ -114,7 +115,7 @@ class AuthenticationServiceTest {
         tenantA.setTenantLogoUrl("a.png");
         LoginUserRow tenantB = user(2L, "b", 1);
         tenantB.setTenantName("Tenant B");
-        when(mapper.selectLoginUsersByPhoneInTenants(PHONE, HASH, null, List.of("a", "b")))
+        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
                 .thenReturn(List.of(tenantA, tenantB));
 
         MiniWechatLoginVO result = service.wechatLogin(wechatRequest("code"));
@@ -144,7 +145,7 @@ class AuthenticationServiceTest {
 
     @Test
     void rejectsUnknownWechatEmployeeWithReasonAndNoLoginToken() {
-        when(mapper.selectLoginUsersByPhoneInTenants(PHONE, HASH, null, List.of("a", "b")))
+        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
                 .thenReturn(List.of());
 
         assertThatThrownBy(() -> service.wechatLogin(wechatRequest("code")))
@@ -155,6 +156,109 @@ class AuthenticationServiceTest {
                         AuthReason.EMPLOYEE_NOT_FOUND,
                         "管理员尚未添加该手机号，请联系企业负责人或使用组织邀请码加入"
                 );
+        verify(tokenService, never()).create(any(), anyString(), any());
+    }
+
+    @Test
+    void usesOnlyPhoneHashForWechatEmployeeLookup() {
+        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.wechatLogin(wechatRequest("code")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("reason")
+                .isEqualTo(AuthReason.EMPLOYEE_NOT_FOUND);
+
+        verify(mapper).selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b"));
+        verify(mapper, never()).selectLoginUsersByPhoneInTenants(anyString(), anyString(), any(), any());
+    }
+
+    @Test
+    void disabledEmployeeReasonPropagatesThroughInitialAndSelectedFlows() throws Exception {
+        LoginUserRow disabled = user(1L, "a", -1);
+        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
+                .thenReturn(List.of(disabled));
+
+        assertThatThrownBy(() -> service.wechatLogin(wechatRequest("code")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "reason", "msg")
+                .containsExactly(403, AuthReason.ACCOUNT_DISABLED,
+                        "该员工账号已禁用，请联系企业负责人");
+
+        prepareSelection("disabled", disabled);
+        assertThatThrownBy(() -> service.selectWechatTenant(selectRequest("disabled", "a")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "reason", "msg")
+                .containsExactly(403, AuthReason.ACCOUNT_DISABLED,
+                        "该员工账号已禁用，请联系企业负责人");
+        verify(tokenService, never()).create(any(), anyString(), any());
+    }
+
+    @Test
+    void resignedEmployeeReasonPropagatesThroughInitialAndSelectedFlows() throws Exception {
+        LoginUserRow resigned = user(1L, "a", 0);
+        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
+                .thenReturn(List.of(resigned));
+
+        assertThatThrownBy(() -> service.wechatLogin(wechatRequest("code")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "reason", "msg")
+                .containsExactly(403, AuthReason.EMPLOYEE_RESIGNED,
+                        "该员工账号已离职，请联系管理员重新启用");
+
+        prepareSelection("resigned", resigned);
+        assertThatThrownBy(() -> service.selectWechatTenant(selectRequest("resigned", "a")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "reason", "msg")
+                .containsExactly(403, AuthReason.EMPLOYEE_RESIGNED,
+                        "该员工账号已离职，请联系管理员重新启用");
+        verify(tokenService, never()).create(any(), anyString(), any());
+    }
+
+    @Test
+    void unavailableTenantReasonPropagatesThroughInitialAndSelectedFlows() throws Exception {
+        when(tenants.isTenantAllowed("blocked")).thenReturn(false);
+        WechatLoginRequest initial = wechatRequest("code");
+        initial.setTenantCode("blocked");
+
+        assertThatThrownBy(() -> service.wechatLogin(initial))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "reason", "msg")
+                .containsExactly(403, AuthReason.TENANT_UNAVAILABLE,
+                        "当前企业已停用或不可用，请联系企业负责人");
+
+        LoginUserRow active = user(1L, "a", 1);
+        prepareSelection("tenant-unavailable", active);
+        doThrow(new IllegalArgumentException("tenant is not in allowed tenant list"))
+                .when(tenants).assertTenantAllowed("a");
+        assertThatThrownBy(() -> service.selectWechatTenant(selectRequest("tenant-unavailable", "a")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "reason", "msg")
+                .containsExactly(403, AuthReason.TENANT_UNAVAILABLE,
+                        "当前企业已停用或不可用，请联系企业负责人");
+        verify(tokenService, never()).create(any(), anyString(), any());
+    }
+
+    @Test
+    void unavailableLicenseReasonPropagatesThroughInitialAndSelectedFlows() throws Exception {
+        LoginUserRow active = user(1L, "a", 1);
+        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
+                .thenReturn(List.of(active));
+        doThrow(new BusinessException(403, "租户已到期或被停用，请联系平台管理员续费"))
+                .when(license).ensureTenantUsable("a");
+
+        assertThatThrownBy(() -> service.wechatLogin(wechatRequest("code")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "reason", "msg")
+                .containsExactly(403, AuthReason.TENANT_LICENSE_UNAVAILABLE,
+                        "租户已到期或被停用，请联系平台管理员续费");
+
+        prepareSelection("license-unavailable", active);
+        assertThatThrownBy(() -> service.selectWechatTenant(selectRequest("license-unavailable", "a")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "reason", "msg")
+                .containsExactly(403, AuthReason.TENANT_LICENSE_UNAVAILABLE,
+                        "租户已到期或被停用，请联系平台管理员续费");
         verify(tokenService, never()).create(any(), anyString(), any());
     }
 
@@ -223,8 +327,9 @@ class AuthenticationServiceTest {
 
         assertThatThrownBy(() -> service.wechatLogin(request))
                 .isInstanceOf(BusinessException.class)
-                .extracting("code", "msg")
-                .containsExactly(403, "当前企业不可用，请联系企业负责人");
+                .extracting("code", "reason", "msg")
+                .containsExactly(403, AuthReason.TENANT_UNAVAILABLE,
+                        "当前企业已停用或不可用，请联系企业负责人");
     }
 
     @Test
@@ -282,6 +387,13 @@ class AuthenticationServiceTest {
         payload.setTenantCodes(tenantCodes);
         payload.setExpireAt(expireAt);
         return objectMapper.writeValueAsString(payload);
+    }
+
+    private void prepareSelection(String ticket, LoginUserRow loginUser) throws Exception {
+        when(values.getAndDelete(selectionKey(ticket)))
+                .thenReturn(selectionPayload(HASH, List.of("a"), System.currentTimeMillis() + 60_000));
+        when(mapper.selectLoginUsersByPhoneHashAndTenant(HASH, "a"))
+                .thenReturn(List.of(loginUser));
     }
 
     private String selectionKey(String ticket) {

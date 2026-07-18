@@ -74,4 +74,11 @@ class SharedInfrastructureContextTest {
         String[] publicPaths = (String[]) ReflectionTestUtils.getField(WebMvcConfig.class, "PUBLIC_PATHS");
         assertThat(publicPaths).isNotNull().noneMatch(path -> path.startsWith("/web/"));
     }
+
+    @Test
+    void tenantSelectionEndpointBypassesSessionInterceptors() {
+        String[] publicPaths = (String[]) ReflectionTestUtils.getField(WebMvcConfig.class, "PUBLIC_PATHS");
+
+        assertThat(publicPaths).isNotNull().contains("/auth/mini/wechat-login/select");
+    }
 }
