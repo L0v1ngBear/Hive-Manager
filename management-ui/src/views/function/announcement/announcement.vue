@@ -1,21 +1,22 @@
 <template>
-  <div class="min-h-fit max-w-7xl mx-auto space-y-6">
-    <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+  <div class="function-page-shell h-full min-h-0 font-sans">
+    <div class="function-page-container space-y-6">
+      <section class="function-page-header">
       <div>
-        <p class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-xs font-black tracking-[0.18em] text-primary">
-          <span class="material-symbols-outlined text-[18px]">campaign</span>
+        <p class="function-page-eyebrow">
+          <span class="material-symbols-outlined">campaign</span>
           企业通知公告
         </p>
-        <h1 class="mt-4 text-3xl md:text-4xl font-black tracking-tight text-on-surface">
+        <h1 class="function-page-title">
           公告查看
         </h1>
-        <p class="mt-2 text-base text-on-surface-variant max-w-2xl">
+        <p class="function-page-desc">
           查看当前组织发布的普通公告、紧急公告和重要公告，并同步展示员工已读未读情况。
         </p>
       </div>
       <el-button
           type="primary"
-          class="rounded-2xl bg-primary px-6 py-4 text-sm font-black text-white shadow-lg shadow-primary/20 transition"
+          class="function-action-primary bg-primary text-white"
           :class="canPublishAnnouncement ? 'hover:bg-primary/90' : 'cursor-not-allowed grayscale'"
           :disabled="!canPublishAnnouncement"
           :title="canPublishAnnouncement ? '发布公告' : '当前账号暂无发布公告权限'"
@@ -25,27 +26,27 @@
       </el-button>
     </section>
 
-    <section class="rounded-3xl border border-outline-variant/20 bg-white p-6 shadow-sm">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <section class="function-list-panel">
+      <div class="flex flex-col gap-3 border-b border-outline-variant/50 p-4 lg:flex-row lg:items-center lg:justify-between">
         <div class="flex flex-wrap gap-2">
           <el-button
               v-for="item in levelTabs"
               :key="item.value"
               :type="activeLevel === item.value ? 'primary' : 'default'"
-              class="rounded-full border px-4 py-2 text-sm font-black transition"
+              class="rounded-lg border px-3 py-2 text-sm font-black transition"
               :class="activeLevel === item.value ? 'border-primary bg-primary text-white shadow-md shadow-primary/15' : 'border-outline-variant/30 bg-surface-container-lowest text-on-surface-variant hover:border-primary/40 hover:text-primary'"
               @click="selectLevel(item.value)"
           >
             {{ item.label }}
           </el-button>
         </div>
-        <el-button class="rounded-xl bg-primary/10 px-4 py-2 text-xs font-black text-primary" :disabled="!canReadAnnouncements" @click="loadAnnouncements">
+        <el-button class="function-action-secondary text-xs" :disabled="!canReadAnnouncements" @click="loadAnnouncements">
           刷新
         </el-button>
       </div>
 
-      <el-skeleton v-if="loading" class="mt-6" :rows="4" animated />
-      <div v-else-if="announcementLoadError" class="mt-6 space-y-4 rounded-2xl border border-red-200 bg-red-50 p-5">
+      <el-skeleton v-if="loading" class="m-4" :rows="4" animated />
+      <div v-else-if="announcementLoadError" class="m-4 space-y-3 rounded-lg border border-red-200 bg-red-50 p-4">
         <el-alert
             title="公告加载失败"
             :description="announcementLoadError"
@@ -59,11 +60,11 @@
         </el-button>
       </div>
       <el-empty v-else-if="!announcements.length" class="mt-6" description="暂无公告" />
-      <div v-else class="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div v-else class="grid grid-cols-1 gap-3 p-4 xl:grid-cols-2">
         <div
             v-for="item in announcements"
             :key="item.id || `${item.title}-${item.updateTime}`"
-            class="rounded-2xl border p-4"
+            class="rounded-lg border p-4"
             :class="announcementCardClass(item.level)"
         >
           <div class="flex items-start justify-between gap-3">
@@ -73,7 +74,7 @@
             </el-tag>
           </div>
           <p class="mt-2 whitespace-pre-wrap text-sm leading-7 opacity-90">{{ item.content }}</p>
-          <div class="mt-4 rounded-2xl border border-white/70 bg-white/55 p-3">
+          <div class="mt-3 rounded-lg border border-white/70 bg-white/55 p-3">
             <div class="flex flex-wrap items-center gap-2 text-xs font-black">
               <el-tag class="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700" type="success" effect="light">
                 已读 {{ numberText(item.readCount) }}
@@ -90,7 +91,7 @@
                 <div
                     v-for="receiver in receiverList(item)"
                     :key="receiver.userId"
-                    class="flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs"
+                    class="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs"
                     :class="receiverRead(receiver) ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'"
                 >
                   <div class="min-w-0">
@@ -108,14 +109,15 @@
                 </div>
               </div>
             </div>
-            <p v-else class="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-500">
+            <p v-else class="mt-3 rounded-md bg-slate-50 px-3 py-2 text-xs font-bold text-slate-500">
               当前暂无可统计人员。
             </p>
           </div>
           <p class="mt-3 text-xs font-bold opacity-60">{{ formatTime(item.updateTime) }}</p>
         </div>
       </div>
-    </section>
+      </section>
+    </div>
   </div>
 </template>
 

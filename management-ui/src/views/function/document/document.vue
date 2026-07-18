@@ -1,5 +1,6 @@
 <template>
-  <div class="document-page flex overflow-hidden bg-surface font-sans text-on-surface">
+  <div class="function-page-shell h-full min-h-0 font-sans">
+  <div class="document-page function-page-container flex overflow-hidden bg-surface text-on-surface">
     <aside class="flex w-64 shrink-0 flex-col border-r border-outline-variant/20 bg-surface-container-lowest">
       <div class="flex h-16 shrink-0 items-center border-b border-outline-variant/20 px-6">
         <span class="material-symbols-outlined mr-2 text-2xl text-primary">corporate_fare</span>
@@ -24,17 +25,8 @@
     </aside>
 
     <main class="flex min-w-0 flex-1 flex-col bg-surface">
-      <header class="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-outline-variant/20 bg-surface-container-lowest px-4 py-3 sm:px-6">
+      <header class="function-page-header min-h-14 shrink-0 border-b border-outline-variant/20 bg-surface-container-lowest px-4 py-2 sm:px-5">
         <div class="flex flex-wrap items-center gap-2">
-          <el-button
-            circle
-            :disabled="currentParentId === 0 || !canBrowseDocuments"
-            :class="permissionDisabledClass(!canBrowseDocuments)"
-            :title="canBrowseDocuments ? '上一级' : breadcrumbPermissionReason"
-            @click="navigateUp"
-          >
-            <span class="material-symbols-outlined">arrow_upward</span>
-          </el-button>
           <el-button
             :disabled="!canCreateFolder"
             :class="permissionDisabledClass(!canCreateFolder)"
@@ -72,7 +64,7 @@
         </div>
       </header>
 
-      <div class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-3 text-sm">
+      <div class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-outline-variant/10 bg-surface-container-low/30 px-4 py-2 text-sm sm:px-5">
         <el-button
           text
           :disabled="!canBrowseDocuments"
@@ -95,9 +87,9 @@
         </template>
       </div>
 
-      <div class="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div class="flex-1 overflow-y-auto p-4 sm:p-5">
         <DragAttachmentUpload
-          class="mb-4"
+          class="mb-3"
           title="点击或拖拽文件上传到当前目录"
           helper-text="支持图片、PDF、Word、Excel、PPT、文本或压缩包"
           accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.rar,.7z"
@@ -107,7 +99,7 @@
           disabled-reason="当前账号暂无上传文档权限"
           @select="handleDocumentUpload"
         />
-        <div class="min-h-full overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
+        <div class="function-list-panel">
           <el-result v-if="documentError" :icon="documentError.icon" :title="documentError.title" :sub-title="documentError.message">
             <template #extra>
               <el-button type="primary" @click="retryDocuments">重试</el-button>
@@ -178,6 +170,7 @@
         </el-button>
       </template>
     </el-dialog>
+  </div>
   </div>
 </template>
 
@@ -313,12 +306,6 @@ const handleDoubleClick = async (doc) => {
   } else {
     ElMessage.info('当前文件还没有可访问链接')
   }
-}
-
-const navigateUp = async () => {
-  if (currentParentId.value === 0) return
-  const parent = breadcrumbs.value.length >= 2 ? breadcrumbs.value[breadcrumbs.value.length - 2].id : 0
-  await documentNavigator.navigateUp(parent)
 }
 
 const navigateTo = async (id) => {

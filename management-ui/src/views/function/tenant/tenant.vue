@@ -1,6 +1,7 @@
 <template>
-  <section class="tenant-page function-page-shell">
-    <header class="tenant-page__header">
+  <section class="tenant-page function-page-shell h-full min-h-0">
+    <div class="function-page-container space-y-6">
+      <header class="function-page-header">
       <div>
         <div class="function-page-eyebrow"><span class="material-symbols-outlined">domain</span>租户管理</div>
         <h1 class="function-page-title">企业租户管理</h1>
@@ -8,10 +9,12 @@
       </div>
       <el-button type="primary" :loading="loading" @click="loadTenants">刷新</el-button>
     </header>
+      <section class="function-list-panel">
 
     <el-result v-if="requestError" :icon="requestError.icon" :title="requestError.title" :sub-title="requestError.message"><template #extra><el-button type="primary" @click="retry">重试</el-button></template></el-result>
     <el-alert v-else-if="featureError" :title="featureError.title" :description="featureError.message" type="warning" show-icon :closable="false"><template #default><el-button link type="primary" @click="retryFeatures">重试功能目录</el-button></template></el-alert><div v-else-if="featureLoading">功能目录加载中…</div><el-empty v-else-if="featuresLoaded && !features.length" description="暂无功能目录" />
-    <el-table v-else v-loading="loading" :data="tenants" class="tenant-table" row-key="id" empty-text="暂无租户数据">
+    <div v-else class="function-table-scroll">
+    <el-table v-loading="loading" :data="tenants" class="tenant-table" row-key="id" empty-text="暂无租户数据">
       <el-table-column label="企业" min-width="190">
         <template #default="{ row }">
           <div class="tenant-table__company">
@@ -34,8 +37,11 @@
       </el-table-column>
       <template #empty><el-empty description="暂无租户数据" /></template>
     </el-table>
+    </div>
 
-    <el-drawer :model-value="Boolean(profileTenant)" :with-header="false" size="680px" @update:model-value="(visible) => !visible && closeProfileEditor()">
+      </section>
+
+      <el-drawer :model-value="Boolean(profileTenant)" :with-header="false" size="680px" @update:model-value="(visible) => !visible && closeProfileEditor()">
       <template #default>
         <h2>企业信息</h2><p>{{ profileTenant?.tenantName }} / {{ profileTenant?.tenantCode }}</p>
         <el-form :model="profileForm" label-position="top" class="tenant-form">
@@ -69,6 +75,7 @@
       <el-form :model="ownerForm" label-position="top" class="tenant-form"><el-alert title="保存后该账号成为企业最高负责人，原负责人不再保留企业负责人身份。" type="warning" :closable="false" class="tenant-form__wide" /><el-form-item label="负责人姓名"><el-input v-model.trim="ownerForm.ownerName" maxlength="50" /></el-form-item><el-form-item label="登录账号"><el-input v-model.trim="ownerForm.loginName" maxlength="64" /></el-form-item><el-form-item label="手机号"><el-input v-model.trim="ownerForm.phone" maxlength="20" /></el-form-item><el-form-item label="初始密码"><el-input v-model.trim="ownerForm.initialPassword" type="password" maxlength="64" show-password /></el-form-item><el-form-item label="考勤" class="tenant-form__wide"><el-checkbox-group v-model="ownerAttendance"><el-checkbox value="required">该负责人需要参与考勤打卡</el-checkbox></el-checkbox-group><el-switch v-model="ownerForm.attendanceRequired" /></el-form-item></el-form>
       <template #footer><el-button @click="closeOwnerEditor">取消</el-button><el-button type="primary" :loading="ownerSaving" @click="saveOwnerAccount">保存负责人账号</el-button></template>
     </el-drawer>
+    </div>
   </section>
 </template>
 
@@ -467,16 +474,7 @@ function numericOrZero(value) {
 
 <style scoped>
 .tenant-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.tenant-page__header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
+  --function-section-gap: 1rem;
 }
 
 .tenant-grid {
