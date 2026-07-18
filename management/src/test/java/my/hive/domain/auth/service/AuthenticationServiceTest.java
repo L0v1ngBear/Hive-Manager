@@ -5,10 +5,24 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import my.hive.domain.auth.mapper.AuthMapper;
 import my.hive.domain.auth.model.AuthReason;
 import my.hive.domain.auth.model.WechatLoginRequest;
+import my.hive.domain.auth.model.dto.OrganizationJoinRequest;
 import my.hive.domain.auth.model.dto.WechatTenantSelectRequest;
+import my.hive.domain.auth.model.vo.LoginVO;
 import my.hive.domain.auth.model.vo.LoginUserRow;
 import my.hive.domain.auth.model.vo.MiniWechatLoginVO;
 import my.hive.domain.auth.model.vo.WechatTenantOptionVO;
+import my.hive.domain.employee.mapper.DepartmentMapper;
+import my.hive.domain.employee.mapper.EmployeeExtMapper;
+import my.hive.domain.employee.mapper.EmployeeMapper;
+import my.hive.domain.employee.mapper.PositionMapper;
+import my.hive.domain.employee.model.entity.Department;
+import my.hive.domain.employee.model.entity.Employee;
+import my.hive.domain.employee.model.entity.Position;
+import my.hive.domain.permission.mapper.SysUserRoleMapper;
+import my.hive.domain.permission.model.entity.SysRole;
+import my.hive.domain.permission.service.BuiltInRoleProvisionService;
+import my.hive.domain.tenant.mapper.TenantMapper;
+import my.hive.domain.tenant.model.entity.Tenant;
 import my.hive.domain.tenant.service.TenantLicenseService;
 import my.hive.infrastructure.wechat.WechatMiniProgramClient;
 import my.hive.shared.auth.TokenService;
@@ -18,7 +32,11 @@ import my.hive.shared.permission.EffectivePermissionService;
 import my.hive.shared.privacy.PrivacyProtectionUtil;
 import my.hive.shared.redis.HiveRedisKeyBuilder;
 import my.hive.shared.tenant.BoundedTenantProperties;
+import my.hive.shared.utils.CodeGeneratorUtil;
+import my.hive.shared.utils.EncryptUtil;
+import my.hive.shared.utils.PermissionCacheUtil;
 import my.hive.shared.utils.ResponseEncryptUtil;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.apache.ibatis.annotations.Select;
@@ -28,11 +46,13 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -61,6 +81,16 @@ class AuthenticationServiceTest {
     @SuppressWarnings("unchecked")
     private final ValueOperations<String, String> values = mock(ValueOperations.class);
     private final HiveRedisKeyBuilder redisKeyBuilder = mock(HiveRedisKeyBuilder.class);
+    private final EncryptUtil encryptUtil = mock(EncryptUtil.class);
+    private final PermissionCacheUtil permissionCacheUtil = mock(PermissionCacheUtil.class);
+    private final TenantMapper tenantMapper = mock(TenantMapper.class);
+    private final EmployeeMapper employeeMapper = mock(EmployeeMapper.class);
+    private final EmployeeExtMapper employeeExtMapper = mock(EmployeeExtMapper.class);
+    private final DepartmentMapper departmentMapper = mock(DepartmentMapper.class);
+    private final PositionMapper positionMapper = mock(PositionMapper.class);
+    private final SysUserRoleMapper sysUserRoleMapper = mock(SysUserRoleMapper.class);
+    private final BuiltInRoleProvisionService builtInRoleProvisionService = mock(BuiltInRoleProvisionService.class);
+    private final CodeGeneratorUtil codeGeneratorUtil = mock(CodeGeneratorUtil.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AuthenticationService service = new AuthenticationService();
     private final TenantContext context = mock(TenantContext.class);
@@ -79,10 +109,21 @@ class AuthenticationServiceTest {
         ReflectionTestUtils.setField(service, "stringRedisTemplate", redis);
         ReflectionTestUtils.setField(service, "objectMapper", objectMapper);
         ReflectionTestUtils.setField(service, "redisKeyBuilder", redisKeyBuilder);
+        ReflectionTestUtils.setField(service, "encryptUtil", encryptUtil);
+        ReflectionTestUtils.setField(service, "permissionCacheUtil", permissionCacheUtil);
+        ReflectionTestUtils.setField(service, "tenantMapper", tenantMapper);
+        ReflectionTestUtils.setField(service, "employeeMapper", employeeMapper);
+        ReflectionTestUtils.setField(service, "employeeExtMapper", employeeExtMapper);
+        ReflectionTestUtils.setField(service, "departmentMapper", departmentMapper);
+        ReflectionTestUtils.setField(service, "positionMapper", positionMapper);
+        ReflectionTestUtils.setField(service, "sysUserRoleMapper", sysUserRoleMapper);
+        ReflectionTestUtils.setField(service, "builtInRoleProvisionService", builtInRoleProvisionService);
+        ReflectionTestUtils.setField(service, "codeGeneratorUtil", codeGeneratorUtil);
 
         when(tenants.allowedTenantCodes()).thenReturn(List.of("a", "b"));
         when(tenants.isTenantAllowed(anyString())).thenReturn(true);
         when(wechat.getPhoneNumber("code")).thenReturn(PHONE);
+        when(privacy.normalizePhone(PHONE)).thenReturn(PHONE);
         when(privacy.hashPhone(PHONE)).thenReturn(HASH);
         when(privacy.maskPhone(PHONE)).thenReturn(MASK);
         when(redis.opsForValue()).thenReturn(values);
@@ -92,9 +133,21 @@ class AuthenticationServiceTest {
                         invocation.getArgument(1),
                         invocation.getArgument(2),
                         invocation.getArgument(3)));
+        when(redisKeyBuilder.cache(anyString(), anyString(), anyString())).thenAnswer(invocation ->
+                String.join(":",
+                        invocation.getArgument(0),
+                        invocation.getArgument(1),
+                        invocation.getArgument(2)));
+        when(redisKeyBuilder.counter(anyString(), anyString(), anyString(), anyString())).thenAnswer(invocation ->
+                String.join(":",
+                        invocation.getArgument(0),
+                        invocation.getArgument(1),
+                        invocation.getArgument(2),
+                        invocation.getArgument(3)));
         when(permissions.resolve(anyLong(), anyString())).thenReturn(Set.of());
         when(tokenService.create(any(), anyString(), any())).thenReturn("login-token");
         when(responseEncryptUtil.buildResponseKey("login-token")).thenReturn("response-key");
+        when(encryptUtil.encode(anyString())).thenReturn("encoded-password");
         when(license.enabledFeatureKeys(anyString())).thenReturn(List.of());
         when(mapper.backfillWechatPhoneHashAndMask(anyLong(), anyString(), eq(PHONE), eq(HASH), eq(MASK)))
                 .thenReturn(1);
@@ -156,18 +209,112 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void rejectsUnknownWechatEmployeeWithReasonAndNoLoginToken() {
+    void rejectsUnknownWechatEmployeeWithOneTimePhoneProofAndNoLoginToken() throws Exception {
         mockWechatCandidates(List.of());
 
-        assertThatThrownBy(() -> service.wechatLogin(wechatRequest("code")))
-                .isInstanceOf(BusinessException.class)
+        long before = System.currentTimeMillis();
+        BusinessException exception = catchThrowableOfType(
+                () -> service.wechatLogin(wechatRequest("code")),
+                BusinessException.class
+        );
+        long after = System.currentTimeMillis();
+
+        assertThat(exception)
                 .extracting("code", "reason", "msg")
                 .containsExactly(
                         403,
                         AuthReason.EMPLOYEE_NOT_FOUND,
                         "管理员尚未添加该手机号，请联系企业负责人或使用组织邀请码加入"
                 );
+        assertThat(exception.getData()).asInstanceOf(InstanceOfAssertFactories.MAP)
+                .containsOnlyKeys("phoneVerificationTicket");
+        String ticket = (String) ((Map<?, ?>) exception.getData())
+                .get("phoneVerificationTicket");
+        assertThat(ticket).isNotBlank();
+
+        var keyCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        var jsonCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(values).set(keyCaptor.capture(), jsonCaptor.capture(), eq(5L), eq(TimeUnit.MINUTES));
+        assertThat(keyCaptor.getValue()).isEqualTo("auth:mini-wechat:phone-proof:" + ticket);
+        JsonNode stored = objectMapper.readTree(jsonCaptor.getValue());
+        assertThat(stored.fieldNames()).toIterable()
+                .containsExactlyInAnyOrder("phoneHash", "expireAt");
+        assertThat(stored.get("phoneHash").asText()).isEqualTo(HASH);
+        assertThat(stored.get("expireAt").asLong())
+                .isBetween(before + TimeUnit.MINUTES.toMillis(5),
+                        after + TimeUnit.MINUTES.toMillis(5));
+        assertThat(jsonCaptor.getValue()).doesNotContain(PHONE, "code", ticket);
         verify(tokenService, never()).create(any(), anyString(), any());
+    }
+
+    @Test
+    void joinsWithMatchingWechatPhoneProofAndRejectsReuse() throws Exception {
+        prepareSuccessfulOrganizationJoin();
+        when(values.getAndDelete(phoneProofKey("proof-1")))
+                .thenReturn(phoneProofPayload(HASH, System.currentTimeMillis() + 60_000), null);
+
+        LoginVO result = service.joinOrganization(joinRequest("proof-1", null));
+
+        assertThat(result.getToken()).isEqualTo("login-token");
+        verify(values, never()).get(organizationJoinSmsKey());
+        assertInvalidPhoneProof(() -> service.joinOrganization(joinRequest("proof-1", null)));
+        verify(values, org.mockito.Mockito.times(2)).getAndDelete(phoneProofKey("proof-1"));
+    }
+
+    @Test
+    void rejectsWechatPhoneProofForDifferentTypedPhoneHash() throws Exception {
+        when(values.getAndDelete(phoneProofKey("mismatch")))
+                .thenReturn(phoneProofPayload("different-phone-hash", System.currentTimeMillis() + 60_000));
+
+        assertInvalidPhoneProof(() -> service.joinOrganization(joinRequest("mismatch", null)));
+
+        verify(values).getAndDelete(phoneProofKey("mismatch"));
+        verify(values, never()).get(organizationJoinSmsKey());
+    }
+
+    @Test
+    void rejectsExpiredWechatPhoneProof() throws Exception {
+        when(values.getAndDelete(phoneProofKey("expired-proof")))
+                .thenReturn(phoneProofPayload(HASH, System.currentTimeMillis() - 1));
+
+        assertInvalidPhoneProof(() -> service.joinOrganization(joinRequest("expired-proof", null)));
+
+        verify(values).getAndDelete(phoneProofKey("expired-proof"));
+    }
+
+    @Test
+    void rejectsMalformedWechatPhoneProofWithChineseGuidance() {
+        when(values.getAndDelete(phoneProofKey("malformed-proof"))).thenReturn("null");
+
+        assertInvalidPhoneProof(() -> service.joinOrganization(joinRequest("malformed-proof", null)));
+
+        verify(values).getAndDelete(phoneProofKey("malformed-proof"));
+    }
+
+    @Test
+    void requiresExactlyOneOrganizationJoinPhoneProof() {
+        assertThatThrownBy(() -> service.joinOrganization(joinRequest(null, null)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "msg")
+                .containsExactly(400, "请使用微信手机号验证凭证或短信验证码完成手机号验证");
+
+        assertThatThrownBy(() -> service.joinOrganization(joinRequest("proof", "123456")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "msg")
+                .containsExactly(400, "微信手机号验证凭证和短信验证码只能选择一种");
+        verify(values, never()).getAndDelete(anyString());
+    }
+
+    @Test
+    void preservesSmsFallbackForOrganizationJoin() {
+        prepareSuccessfulOrganizationJoin();
+        when(values.get(organizationJoinSmsKey())).thenReturn("123456");
+
+        LoginVO result = service.joinOrganization(joinRequest(null, "123456"));
+
+        assertThat(result.getToken()).isEqualTo("login-token");
+        verify(values).get(organizationJoinSmsKey());
+        verify(values, never()).getAndDelete(anyString());
     }
 
     @Test
@@ -410,6 +557,68 @@ class AuthenticationServiceTest {
         verify(tokenService, never()).create(any(), anyString(), any());
     }
 
+    private void assertInvalidPhoneProof(Runnable action) {
+        assertThatThrownBy(action::run)
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "reason", "msg")
+                .containsExactly(
+                        400,
+                        AuthReason.INVITATION_INVALID_OR_EXPIRED,
+                        "微信手机号验证凭证无效或已过期，请重新授权手机号或使用短信验证码"
+                );
+    }
+
+    private String phoneProofPayload(String phoneHash, long expireAt) throws Exception {
+        WechatPhoneVerificationPayload payload = new WechatPhoneVerificationPayload();
+        payload.setPhoneHash(phoneHash);
+        payload.setExpireAt(expireAt);
+        return objectMapper.writeValueAsString(payload);
+    }
+
+    private void prepareSuccessfulOrganizationJoin() {
+        when(values.get("auth:organization-join-code:JOIN1234")).thenReturn("a");
+        Tenant tenant = new Tenant();
+        tenant.setTenantCode("a");
+        tenant.setStatus(1);
+        when(tenantMapper.selectByTenantCode("a")).thenReturn(tenant);
+        when(employeeMapper.selectList(any())).thenReturn(List.of());
+
+        Department department = new Department();
+        department.setId(21L);
+        department.setDeptName("待分配部门");
+        when(departmentMapper.selectOne(any())).thenReturn(department);
+        Position position = new Position();
+        position.setId(31L);
+        position.setPositionName("普通员工");
+        when(positionMapper.selectOne(any())).thenReturn(position);
+        SysRole role = new SysRole();
+        role.setId(41L);
+        when(builtInRoleProvisionService.ensureTenantRoles("a"))
+                .thenReturn(Map.of("EMPLOYEE", role));
+        when(employeeMapper.insert(any(Employee.class))).thenAnswer(invocation -> {
+            invocation.<Employee>getArgument(0).setId(11L);
+            return 1;
+        });
+        when(employeeExtMapper.insert(any())).thenReturn(1);
+        when(sysUserRoleMapper.insert(any())).thenReturn(1);
+        when(mapper.selectLoginUserByUserIdAndTenantCode(11L, "a"))
+                .thenReturn(user(11L, "a", 1));
+    }
+
+    private OrganizationJoinRequest joinRequest(String ticket, String smsCode) {
+        OrganizationJoinRequest request = new OrganizationJoinRequest();
+        request.setName("张三");
+        request.setPhone(PHONE);
+        request.setSmsCode(smsCode);
+        request.setOrganizationCode("JOIN1234");
+        request.setPassword("Password1");
+        request.setConfirmPassword("Password1");
+        if (ticket != null) {
+            request.setPhoneVerificationTicket(ticket);
+        }
+        return request;
+    }
+
     private String selectionPayload(String phoneHash, List<String> tenantCodes, long expireAt) throws Exception {
         WechatTenantSelectionPayload payload = new WechatTenantSelectionPayload();
         payload.setPhoneHash(phoneHash);
@@ -434,6 +643,14 @@ class AuthenticationServiceTest {
 
     private String selectionKey(String ticket) {
         return "auth:mini-wechat:tenant-selection:" + ticket;
+    }
+
+    private String phoneProofKey(String ticket) {
+        return "auth:mini-wechat:phone-proof:" + ticket;
+    }
+
+    private String organizationJoinSmsKey() {
+        return "auth:organization-join:sms:" + HASH;
     }
 
     private WechatLoginRequest wechatRequest(String code) {

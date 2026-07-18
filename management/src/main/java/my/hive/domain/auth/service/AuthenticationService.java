@@ -94,6 +94,7 @@ public class AuthenticationService {
     private static final long ORGANIZATION_JOIN_SMS_EXPIRE_MINUTES = 5L;
     private static final long ORGANIZATION_JOIN_SMS_INTERVAL_SECONDS = 60L;
     private static final long WECHAT_TENANT_SELECTION_EXPIRE_MINUTES = 5L;
+    private static final long WECHAT_PHONE_PROOF_EXPIRE_MINUTES = 5L;
     private static final String JOIN_CODE_KEY_PART = "organization-join-code";
     private static final String PLATFORM_TENANT_CODE = "super";
     private static final String PLATFORM_LOGIN_NAME = "super";
@@ -235,7 +236,19 @@ public class AuthenticationService {
         String name = normalizeJoinName(request.getName());
         String phone = normalizeResetPhone(request.getPhone());
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
-        validateOrganizationJoinSmsCode(phoneHash, request.getSmsCode());
+        boolean hasWechatPhoneProof = StringUtils.hasText(request.getPhoneVerificationTicket());
+        boolean hasSmsCode = StringUtils.hasText(request.getSmsCode());
+        if (!hasWechatPhoneProof && !hasSmsCode) {
+            throw new BusinessException(400, "请使用微信手机号验证凭证或短信验证码完成手机号验证");
+        }
+        if (hasWechatPhoneProof && hasSmsCode) {
+            throw new BusinessException(400, "微信手机号验证凭证和短信验证码只能选择一种");
+        }
+        if (hasWechatPhoneProof) {
+            validateAndConsumeWechatPhoneProof(request.getPhoneVerificationTicket(), phoneHash);
+        } else {
+            validateOrganizationJoinSmsCode(phoneHash, request.getSmsCode());
+        }
         validateNewPassword(request.getPassword(), request.getConfirmPassword(), phone);
 
         String tenantCode = resolveTenantCodeByOrganizationCode(request.getOrganizationCode());
@@ -360,7 +373,7 @@ public class AuthenticationService {
                 lookupTenantCodes
         );
         if (compatibilityCandidates == null || compatibilityCandidates.isEmpty()) {
-            throw employeeNotFound();
+            throw employeeNotFoundWithPhoneProof(phoneHash);
         }
         String phoneMask = privacyProtectionUtil.maskPhone(phone);
         for (LoginUserRow candidate : compatibilityCandidates) {
@@ -382,7 +395,7 @@ public class AuthenticationService {
                 lookupTenantCodes
         );
         if (candidates == null || candidates.isEmpty()) {
-            throw employeeNotFound();
+            throw employeeNotFoundWithPhoneProof(phoneHash);
         }
 
         MiniWechatLoginVO result = new MiniWechatLoginVO();
@@ -407,7 +420,7 @@ public class AuthenticationService {
             }
         }
         if (candidateTenantCodes.isEmpty()) {
-            throw employeeNotFound();
+            throw employeeNotFoundWithPhoneProof(phoneHash);
         }
 
         String selectionTicket = UUID.randomUUID().toString();
@@ -957,6 +970,37 @@ public class AuthenticationService {
         }
     }
 
+    private void validateAndConsumeWechatPhoneProof(String ticket, String phoneHash) {
+        String payloadJson = stringRedisTemplate.opsForValue()
+                .getAndDelete(wechatPhoneProofKey(ticket.trim()));
+        if (!StringUtils.hasText(payloadJson)) {
+            throw invalidWechatPhoneProof();
+        }
+        try {
+            WechatPhoneVerificationPayload payload = objectMapper.readValue(
+                    payloadJson,
+                    WechatPhoneVerificationPayload.class
+            );
+            if (payload == null
+                    || !StringUtils.hasText(payload.getPhoneHash())
+                    || payload.getExpireAt() == null
+                    || payload.getExpireAt() <= System.currentTimeMillis()
+                    || !Objects.equals(payload.getPhoneHash(), phoneHash)) {
+                throw invalidWechatPhoneProof();
+            }
+        } catch (JsonProcessingException exception) {
+            throw invalidWechatPhoneProof();
+        }
+    }
+
+    private BusinessException invalidWechatPhoneProof() {
+        return new BusinessException(
+                400,
+                AuthReason.INVITATION_INVALID_OR_EXPIRED,
+                "微信手机号验证凭证无效或已过期，请重新授权手机号或使用短信验证码"
+        );
+    }
+
     private BusinessException tenantUnavailable() {
         return new BusinessException(
                 403,
@@ -1008,6 +1052,30 @@ public class AuthenticationService {
                 403,
                 AuthReason.EMPLOYEE_NOT_FOUND,
                 "管理员尚未添加该手机号，请联系企业负责人或使用组织邀请码加入"
+        );
+    }
+
+    private BusinessException employeeNotFoundWithPhoneProof(String phoneHash) {
+        String ticket = UUID.randomUUID().toString();
+        WechatPhoneVerificationPayload payload = new WechatPhoneVerificationPayload();
+        payload.setPhoneHash(phoneHash);
+        payload.setExpireAt(System.currentTimeMillis()
+                + TimeUnit.MINUTES.toMillis(WECHAT_PHONE_PROOF_EXPIRE_MINUTES));
+        try {
+            stringRedisTemplate.opsForValue().set(
+                    wechatPhoneProofKey(ticket),
+                    objectMapper.writeValueAsString(payload),
+                    WECHAT_PHONE_PROOF_EXPIRE_MINUTES,
+                    TimeUnit.MINUTES
+            );
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(500, "微信手机号验证凭证生成失败，请稍后重试");
+        }
+        return new BusinessException(
+                403,
+                AuthReason.EMPLOYEE_NOT_FOUND,
+                "管理员尚未添加该手机号，请联系企业负责人或使用组织邀请码加入",
+                Map.of("phoneVerificationTicket", ticket)
         );
     }
 
@@ -1079,5 +1147,9 @@ public class AuthenticationService {
 
     private String organizationJoinSmsSendLockKey(String phoneHash) {
         return redisKeyBuilder.counter("auth", "organization-join", "sms-send-lock", phoneHash);
+    }
+
+    private String wechatPhoneProofKey(String ticket) {
+        return redisKeyBuilder.cache("auth", "mini-wechat", "phone-proof", ticket);
     }
 }
