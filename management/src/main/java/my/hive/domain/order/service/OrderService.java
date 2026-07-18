@@ -589,7 +589,7 @@ public class OrderService {
         if (BinaryFlagEnum.isYes(request.getCreateProductionOrder()) && canAutoCreateProductionOrder(order.getOrderCategory())) {
             createProductionOrdersFromSales(order, request.getItems());
         }
-        syncInstallationTaskIfCompleted(order);
+        syncInstallationTaskIfReady(order);
         return order.getOrderId();
     }
 
@@ -621,7 +621,7 @@ public class OrderService {
             insertSalesLog(order, oldStatus, OrderLogOperateTypeEnum.STATUS_CHANGE.getCode(), "管理端更新订单状态");
         }
         syncLinkedProductionOrders(order, oldStatus);
-        syncInstallationTaskIfCompleted(order);
+        syncInstallationTaskIfReady(order);
         if (!businessChanged && !logChanged) {
             OperationLogSkipContext.skipCurrent();
         }
@@ -655,7 +655,7 @@ public class OrderService {
             insertSalesLog(order, oldStatus, OrderLogOperateTypeEnum.STATUS_CHANGE.getCode(), blankToNull(request.getRemark()));
         }
         syncLinkedProductionOrders(order, oldStatus);
-        syncInstallationTaskIfCompleted(order);
+        syncInstallationTaskIfReady(order);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -687,7 +687,7 @@ public class OrderService {
         insertSalesLog(order, oldStatus, OrderLogOperateTypeEnum.STATUS_CHANGE.getCode(),
                 request == null ? null : blankToNull(request.getRemark()));
         syncLinkedProductionOrders(order, oldStatus);
-        syncInstallationTaskIfCompleted(order);
+        syncInstallationTaskIfReady(order);
     }
 
     private boolean isSalesTransitionApprovalRequired(String oldStatus, String targetStatus) {
@@ -849,7 +849,7 @@ public class OrderService {
                     StringUtils.hasText(remark) ? remark.trim() : "审批中心确认销售订单流转");
         }
         syncLinkedProductionOrders(order, oldStatus);
-        syncInstallationTaskIfCompleted(order);
+        syncInstallationTaskIfReady(order);
         if (STATUS_CANCELLED.equals(order.getStatus())) {
             return;
         }
@@ -879,7 +879,7 @@ public class OrderService {
         insertSalesLog(order, oldStatus, OrderLogOperateTypeEnum.ROLLBACK_APPROVED.getCode(),
                 StringUtils.hasText(remark) ? remark.trim() : "订单回退审批通过");
         syncLinkedProductionOrders(order, oldStatus);
-        syncInstallationTaskIfCompleted(order);
+        syncInstallationTaskIfReady(order);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -1724,12 +1724,14 @@ public class OrderService {
         salesOrderMapper.updateById(linkedSalesOrder);
         orderWarningCacheService.invalidate(linkedSalesOrder.getTenantCode());
         insertSalesLog(linkedSalesOrder, oldSalesStatus, OrderLogOperateTypeEnum.SYNC.getCode(), "生产订单状态同步更新");
-        syncInstallationTaskIfCompleted(linkedSalesOrder);
+        syncInstallationTaskIfReady(linkedSalesOrder);
     }
 
-    private void syncInstallationTaskIfCompleted(SalesOrder order) {
-        if (order != null && OrderStatusEnum.COMPLETED.matches(order.getStatus())) {
-            installationTaskService.createOrSyncFromCompletedOrder(order);
+    private void syncInstallationTaskIfReady(SalesOrder order) {
+        if (order != null && (OrderStatusEnum.PENDING_SHIP.matches(order.getStatus())
+                || OrderStatusEnum.SHIPPED.matches(order.getStatus())
+                || OrderStatusEnum.COMPLETED.matches(order.getStatus()))) {
+            installationTaskService.createOrSyncFromInstallationReadyOrder(order);
         }
     }
 

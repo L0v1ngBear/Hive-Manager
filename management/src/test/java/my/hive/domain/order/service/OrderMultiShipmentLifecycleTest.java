@@ -96,9 +96,11 @@ class OrderMultiShipmentLifecycleTest {
         TenantPermissionContext.init("TENANT_001", 1L, Set.of(
                 "order:scope:tenant",
                 "order:status:pending-confirm:view",
+                "order:status:producing:view",
                 "order:status:pending-ship:view",
                 "order:status:shipped:view",
                 "order:status:completed:view",
+                "order:status:producing:advance",
                 "order:status:pending-ship:advance",
                 "order:audit:shipment"
         ));
@@ -242,7 +244,7 @@ class OrderMultiShipmentLifecycleTest {
                 .hasMessageContaining("至少填写一条物流信息");
 
         verify(orderShipmentService).saveShipments("TENANT_001", "SO-100", List.of());
-        verify(installationTaskService, never()).createOrSyncFromCompletedOrder(any());
+        verify(installationTaskService, never()).createOrSyncFromInstallationReadyOrder(any());
     }
 
     @Test
@@ -260,6 +262,17 @@ class OrderMultiShipmentLifecycleTest {
         verify(orderShipmentService).listShipments("TENANT_001", "SO-100");
         verify(orderShipmentService, never()).saveShipments(anyString(), anyString(), any());
         verify(salesOrderMapper, never()).updateById(any());
+    }
+
+    @Test
+    void advancingProducingOrderCreatesInstallationTaskAtPendingShipment() {
+        SalesOrder order = order("SO-100", "producing");
+        when(salesOrderMapper.selectByOrderIdForUpdate("TENANT_001", "SO-100")).thenReturn(order);
+
+        service.advanceSalesOrderToNextStage("SO-100", new SalesOrderUpdateRequest());
+
+        assertThat(order.getStatus()).isEqualTo("pending_ship");
+        verify(installationTaskService).createOrSyncFromInstallationReadyOrder(order);
     }
 
     @Test

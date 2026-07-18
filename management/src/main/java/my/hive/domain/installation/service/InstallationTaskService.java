@@ -96,8 +96,8 @@ public class InstallationTaskService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void createOrSyncFromCompletedOrder(SalesOrder order) {
-        if (order == null || !OrderStatusEnum.COMPLETED.matches(order.getStatus())) {
+    public void createOrSyncFromInstallationReadyOrder(SalesOrder order) {
+        if (order == null || !isInstallationReadyOrder(order.getStatus())) {
             return;
         }
         InstallationTask task = installationTaskMapper.selectOne(new LambdaQueryWrapper<InstallationTask>()
@@ -111,8 +111,10 @@ public class InstallationTaskService {
             task.setTenantCode(order.getTenantCode());
             task.setOrderId(order.getOrderId());
             task.setInstallationStatus(InstallationTaskStatusEnum.PRODUCTION_COMPLETED.getCode());
-            task.setOrderCompletedTime(now);
             task.setCreateTime(now);
+        }
+        if (OrderStatusEnum.COMPLETED.matches(order.getStatus()) && task.getOrderCompletedTime() == null) {
+            task.setOrderCompletedTime(now);
         }
         copyOrderFields(order, task);
         task.setUpdateTime(now);
@@ -121,6 +123,12 @@ public class InstallationTaskService {
         } else {
             installationTaskMapper.updateById(task);
         }
+    }
+
+    private boolean isInstallationReadyOrder(String orderStatus) {
+        return OrderStatusEnum.PENDING_SHIP.matches(orderStatus)
+                || OrderStatusEnum.SHIPPED.matches(orderStatus)
+                || OrderStatusEnum.COMPLETED.matches(orderStatus);
     }
 
     @Transactional(rollbackFor = Exception.class)

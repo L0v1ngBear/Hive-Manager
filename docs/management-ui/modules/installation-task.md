@@ -51,6 +51,10 @@
 - 挂载后调用 loadTasks；状态卡、重置和翻页都会更新 filters 后重新请求。
 - 服务端返回 data、total、pages，分别写入 rows 与 pagination。
 - 状态固定为 production_completed、shipped_pending_install、completed_accepted。
+- 销售订单从 `producing` 进入 `pending_ship` 时，订单事务内按“租户 + 订单号”创建或同步安装任务；初始安装状态固定为 `production_completed`。
+- 订单处于 `pending_ship`、`shipped`、`completed` 时允许同步客户、项目、商品、物流和开票等订单快照；同步不得重置安装任务自身的处理状态，也不得重复创建任务。
+- `orderCompletedTime` 只在订单首次进入 `completed` 时写入；创建待发货安装任务时保持为空，后续重复同步不覆盖已有完成时间。
+- `producing` 及更早状态不创建安装任务；已创建任务不因订单后续回退而自动删除，保留交付业务痕迹。
 - 编辑器从当前行的 `installers` 深拷贝回填，不另发详情请求。
 - shipped_pending_install 保存前必须同时填写 expressCompany 与 expressNo。
 - 每个人员行的姓名和联系电话都必填；姓名最多 50 字，电话最多 40 字，允许手机号、座机和分机，完全相同的姓名和电话组合不能重复。

@@ -30,7 +30,7 @@ class UnifiedInstallationServiceTest {
 
     @Test
     void completedOrderSyncAndStatusTransitionUseRollbackTransactionBoundary() throws Exception {
-        assertRollbackTransaction("createOrSyncFromCompletedOrder", my.hive.domain.order.model.entity.SalesOrder.class);
+        assertRollbackTransaction("createOrSyncFromInstallationReadyOrder", my.hive.domain.order.model.entity.SalesOrder.class);
         assertRollbackTransaction("updateStatus", my.hive.domain.installation.model.dto.InstallationTaskStatusUpdateRequest.class);
     }
 

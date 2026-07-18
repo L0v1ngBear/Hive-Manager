@@ -35,10 +35,13 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -135,18 +138,49 @@ class InformationChannelPropagationServiceTest {
     }
 
     @Test
-    void completingSalesOrderCopiesInformationChannelToInstallationTask() {
+    void pendingShipmentOrderCreatesInstallationTask() {
         InstallationTaskService installationTaskService = new InstallationTaskService();
         ReflectionTestUtils.setField(installationTaskService, "installationTaskMapper", installationTaskMapper);
-        SalesOrder order = salesOrder("completed");
+        SalesOrder order = salesOrder("pending_ship");
 
-        installationTaskService.createOrSyncFromCompletedOrder(order);
+        installationTaskService.createOrSyncFromInstallationReadyOrder(order);
 
         ArgumentCaptor<InstallationTask> captor = ArgumentCaptor.forClass(InstallationTask.class);
         verify(installationTaskMapper).insert(captor.capture());
         assertEquals("tenant-a", captor.getValue().getTenantCode());
         assertEquals("SO-100", captor.getValue().getOrderId());
         assertEquals(INFORMATION_CHANNEL, captor.getValue().getInformationChannel());
+        assertEquals("production_completed", captor.getValue().getInstallationStatus());
+        assertNull(captor.getValue().getOrderCompletedTime());
+    }
+
+    @Test
+    void producingOrderDoesNotCreateInstallationTask() {
+        InstallationTaskService installationTaskService = new InstallationTaskService();
+        ReflectionTestUtils.setField(installationTaskService, "installationTaskMapper", installationTaskMapper);
+
+        installationTaskService.createOrSyncFromInstallationReadyOrder(salesOrder("producing"));
+
+        verify(installationTaskMapper, never()).insert(any());
+        verify(installationTaskMapper, never()).updateById(any());
+    }
+
+    @Test
+    void completedOrderPreservesInstallationProgressAndRecordsCompletionTime() {
+        InstallationTaskService installationTaskService = new InstallationTaskService();
+        ReflectionTestUtils.setField(installationTaskService, "installationTaskMapper", installationTaskMapper);
+        InstallationTask existing = new InstallationTask();
+        existing.setTenantCode("tenant-a");
+        existing.setOrderId("SO-100");
+        existing.setInstallationStatus("shipped_pending_install");
+        when(installationTaskMapper.selectOne(any())).thenReturn(existing);
+
+        installationTaskService.createOrSyncFromInstallationReadyOrder(salesOrder("completed"));
+
+        ArgumentCaptor<InstallationTask> captor = ArgumentCaptor.forClass(InstallationTask.class);
+        verify(installationTaskMapper).updateById(captor.capture());
+        assertEquals("shipped_pending_install", captor.getValue().getInstallationStatus());
+        assertNotNull(captor.getValue().getOrderCompletedTime());
     }
 
     @Test
