@@ -82,3 +82,4 @@ migrations/V20260715_001_order_notes_and_material_approval.sql
 migrations/V20260715_002_installation_task_installer.sql
 migrations/V20260716_001_operation_log_table.sql
 migrations/V20260717_001_order_multi_shipment.sql
+migrations/V20260718_001_unified_employee_login.sql
