@@ -93,14 +93,14 @@ class OrderLogisticsTrackingServiceTest {
         when(shipmentService.requireShipment("TENANT_001", "SO-001", 7L)).thenReturn(otherOrder);
         assertThatThrownBy(() -> service.getTracking("SO-001", 7L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("does not belong");
+                .hasMessageContaining("物流记录不存在或不属于当前订单");
 
         SalesOrderShipment otherTenant = shipment(8L, "shunfeng", "SF654321");
         otherTenant.setTenantCode("TENANT_OTHER");
         when(shipmentService.requireShipment("TENANT_001", "SO-001", 8L)).thenReturn(otherTenant);
         assertThatThrownBy(() -> service.getTracking("SO-001", 8L))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("does not belong");
+                .hasMessageContaining("物流记录不存在或不属于当前订单");
 
         verify(guard, never()).fingerprint(anyString());
         verify(gateway, never()).query(any(LogisticsTrackingQuery.class));

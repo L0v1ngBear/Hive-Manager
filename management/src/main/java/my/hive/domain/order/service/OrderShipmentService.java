@@ -67,10 +67,10 @@ public class OrderShipmentService {
                 continue;
             }
             if (!existingById.containsKey(shipment.id())) {
-                throw new BusinessException("Shipment does not exist or does not belong to this order");
+                throw new BusinessException("发货记录不存在或不属于当前订单");
             }
             if (!submittedExistingIds.add(shipment.id())) {
-                throw new BusinessException("Duplicate shipment id");
+                throw new BusinessException("发货记录编号重复");
             }
         }
         if (!submittedExistingIds.equals(existingById.keySet())) {
@@ -99,7 +99,7 @@ public class OrderShipmentService {
                 shipment.setUpdateTime(now);
                 int inserted = shipmentMapper.insert(shipment);
                 if (inserted != 1) {
-                    throw new BusinessException(500, "Failed to add shipment");
+                    throw new BusinessException(500, "新增发货记录失败");
                 }
                 pendingEvents.add(new ShipmentEvent(shipment.getId(), request.trackingNo(), true));
                 continue;
@@ -107,7 +107,7 @@ public class OrderShipmentService {
 
             SalesOrderShipment existing = existingById.get(request.id());
             if (request.version() == null || !request.version().equals(existing.getVersion())) {
-                throw new BusinessException(409, "Shipment has been modified by another user");
+                throw new BusinessException(409, "发货记录已被其他人修改，请刷新后重试");
             }
             if (!hasChanged(existing, request, index)) {
                 continue;
@@ -115,7 +115,7 @@ public class OrderShipmentService {
             int changed = shipmentMapper.updateShipment(existing.getId(), tenantCode, orderId, request.version(),
                     request.logisticsCompany(), request.trackingNo(), index, user, userName, now);
             if (changed != 1) {
-                throw new BusinessException(409, "Shipment has been modified by another user");
+                throw new BusinessException(409, "发货记录已被其他人修改，请刷新后重试");
             }
             pendingEvents.add(new ShipmentEvent(existing.getId(), request.trackingNo(), false));
         }
@@ -157,7 +157,7 @@ public class OrderShipmentService {
 
     public SalesOrderShipment requireShipment(String tenantCode, String orderId, Long shipmentId) {
         if (shipmentId == null) {
-            throw new BusinessException("Shipment does not exist or does not belong to this order");
+            throw new BusinessException("发货记录不存在或不属于当前订单");
         }
         SalesOrderShipment shipment = shipmentMapper.selectOne(new LambdaQueryWrapper<SalesOrderShipment>()
                 .eq(SalesOrderShipment::getTenantCode, tenantCode)
@@ -165,7 +165,7 @@ public class OrderShipmentService {
                 .eq(SalesOrderShipment::getId, shipmentId)
                 .last("LIMIT 1"));
         if (shipment == null) {
-            throw new BusinessException("Shipment does not exist or does not belong to this order");
+            throw new BusinessException("发货记录不存在或不属于当前订单");
         }
         return shipment;
     }
@@ -173,7 +173,7 @@ public class OrderShipmentService {
     private List<NormalizedShipment> normalizeRequests(List<SalesOrderShipmentSaveRequest> requests) {
         List<SalesOrderShipmentSaveRequest> safeRequests = requests == null ? List.of() : requests;
         if (safeRequests.size() > MAX_SHIPMENTS) {
-            throw new BusinessException("At most 50 shipments are allowed");
+            throw new BusinessException("每个订单最多允许 50 条发货记录");
         }
         Set<String> trackingNumbers = new LinkedHashSet<>();
         List<NormalizedShipment> normalized = new ArrayList<>(safeRequests.size());
@@ -181,7 +181,7 @@ public class OrderShipmentService {
             String company = trimRequired(request == null ? null : request.getLogisticsCompany());
             String trackingNo = trimRequired(request == null ? null : request.getTrackingNo());
             if (!trackingNumbers.add(trackingNo)) {
-                throw new BusinessException("Duplicate tracking number");
+                throw new BusinessException("物流单号不能重复");
             }
             normalized.add(new NormalizedShipment(request.getId(), request.getVersion(), company, trackingNo));
         }
@@ -190,7 +190,7 @@ public class OrderShipmentService {
 
     private String trimRequired(String value) {
         if (!StringUtils.hasText(value)) {
-            throw new BusinessException("Logistics company and tracking number are required");
+            throw new BusinessException("物流公司和物流单号不能为空");
         }
         return value.trim();
     }
@@ -206,7 +206,7 @@ public class OrderShipmentService {
     private Long requireCurrentUserId() {
         Long userId = TenantPermissionContext.getUserId();
         if (userId == null) {
-            throw new BusinessException(401, "Login session has expired");
+            throw new BusinessException(401, "登录状态已失效，请重新登录");
         }
         return userId;
     }

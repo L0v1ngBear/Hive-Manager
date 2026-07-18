@@ -155,7 +155,7 @@ public class RoleService {
                 .eq(SysRole::getRoleName, request.getRoleName())
                 .eq(SysRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
         if (count > 0) {
-            throw new BusinessException("role already exists");
+            throw new BusinessException("角色已存在");
         }
 
         SysRole role = new SysRole();

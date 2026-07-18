@@ -55,7 +55,7 @@ public class CustomerService {
                 .eq(Customer::getTenantCode, tenantCode)
                 .eq(Customer::getCustomerName, request.getCustomerName()));
         if (count > 0) {
-            throw new BusinessException("customer already exists");
+            throw new BusinessException("客户已存在");
         }
 
         Customer customer = new Customer();
@@ -74,7 +74,7 @@ public class CustomerService {
                 .eq(Customer::getId, request.getId())
                 .last("LIMIT 1"));
         if (customer == null) {
-            throw new BusinessException("customer not found");
+            throw new BusinessException("客户不存在");
         }
 
         Long duplicateCount = customerMapper.selectCount(new LambdaQueryWrapper<Customer>()
@@ -82,7 +82,7 @@ public class CustomerService {
                 .eq(Customer::getCustomerName, request.getCustomerName())
                 .ne(Customer::getId, request.getId()));
         if (duplicateCount != null && duplicateCount > 0) {
-            throw new BusinessException("customer already exists");
+            throw new BusinessException("客户已存在");
         }
 
         customer.setCustomerName(request.getCustomerName());
@@ -157,7 +157,7 @@ public class CustomerService {
                 .eq(Customer::getId, id)
                 .last("LIMIT 1"));
         if (customer == null) {
-            throw new BusinessException("customer not found");
+            throw new BusinessException("客户不存在");
         }
 
         List<CustomerContact> customerContactList = customerContactMapper.selectList(new LambdaQueryWrapper<CustomerContact>()

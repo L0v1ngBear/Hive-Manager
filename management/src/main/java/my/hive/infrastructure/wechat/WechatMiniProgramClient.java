@@ -90,8 +90,8 @@ public class WechatMiniProgramClient {
         } catch(InterruptedException e){Thread.currentThread().interrupt();throw failure("request interrupted");}
         catch(BusinessException e){throw e;} catch(Exception e){throw failure("request");}
     }
-    private void requireConfigured(){if(!enabled||blank(appId)||blank(appSecret))throw new BusinessException(503,"WeChat Mini Program login is not configured");}
-    private BusinessException failure(String operation){return new BusinessException(502,"WeChat "+operation+" failed");}
+    private void requireConfigured(){if(!enabled||blank(appId)||blank(appSecret))throw new BusinessException(503,"微信小程序登录未配置");}
+    private BusinessException failure(String operation){return new BusinessException(502,"微信服务调用失败，请稍后重试");}
     private String encode(String value){return URLEncoder.encode(value,StandardCharsets.UTF_8);}
     private boolean blank(String value){return value==null||value.isBlank();}
 }

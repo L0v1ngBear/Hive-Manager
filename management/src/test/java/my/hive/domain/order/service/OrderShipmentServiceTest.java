@@ -163,7 +163,7 @@ class OrderShipmentServiceTest {
                         request(null, null, "SF Express", " SF-001 "),
                         request(null, null, "UPS", "SF-001"))));
 
-        assertEquals("Duplicate tracking number", error.getMessage());
+        assertEquals("物流单号不能重复", error.getMessage());
         verify(mapper, never()).insert(any());
     }
 
@@ -175,7 +175,7 @@ class OrderShipmentServiceTest {
                 () -> service.saveShipments("TENANT_001", "SO-1",
                         List.of(request(11L, 2, "SF Express", "SF-001"))));
 
-        assertEquals("Shipment does not exist or does not belong to this order", error.getMessage());
+        assertEquals("发货记录不存在或不属于当前订单", error.getMessage());
         verify(mapper, never()).updateShipment(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
@@ -188,7 +188,7 @@ class OrderShipmentServiceTest {
         BusinessException error = assertThrows(BusinessException.class,
                 () -> service.saveShipments("TENANT_001", "SO-1", requests));
 
-        assertEquals("At most 50 shipments are allowed", error.getMessage());
+        assertEquals("每个订单最多允许 50 条发货记录", error.getMessage());
         verify(mapper, never()).insert(any());
     }
 
@@ -330,7 +330,7 @@ class OrderShipmentServiceTest {
                 () -> service.saveShipments("TENANT_001", "SO-1",
                         List.of(request(null, null, " ", "SF-001"))));
 
-        assertEquals("Logistics company and tracking number are required", error.getMessage());
+        assertEquals("物流公司和物流单号不能为空", error.getMessage());
     }
 
     private SalesOrderShipmentSaveRequest request(Long id, Integer version, String company, String trackingNo) {

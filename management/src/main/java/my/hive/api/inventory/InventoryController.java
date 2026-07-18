@@ -52,25 +52,25 @@ public class InventoryController {
     private InventorySettingService inventorySettingService;
 
     @GetMapping("/summary")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_LIST, message = "No permission to view inventory")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_LIST, message = "当前账号没有库存查看权限")
     public Result<InventorySummaryVO> summary() {
         return Result.success(inventoryService.summary());
     }
 
     @GetMapping("/page")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_LIST, message = "No permission to view inventory")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_LIST, message = "当前账号没有库存查看权限")
     public Result<PageResult<ClothInventoryVO>> page(InventoryPageRequest request) {
         return Result.success(inventoryService.page(request));
     }
 
     @GetMapping("/model/page")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_LIST, message = "No permission to view inventory")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_LIST, message = "当前账号没有库存查看权限")
     public Result<PageResult<InventoryModelSummaryVO>> modelPage(InventoryPageRequest request) {
         return Result.success(inventoryService.modelPage(request));
     }
 
     @GetMapping("/model/detail")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_DETAIL, message = "No permission to view inventory detail")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_DETAIL, message = "当前账号没有库存详情查看权限")
     public Result<List<ClothInventoryVO>> modelDetail(@RequestParam String modelCode,
                                                       @RequestParam(required = false) java.math.BigDecimal spec,
                                                       @RequestParam(required = false) Integer status,
@@ -79,81 +79,81 @@ public class InventoryController {
     }
 
     @GetMapping("/cloth/detail")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_DETAIL, message = "No permission to view cloth inventory detail")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_DETAIL, message = "当前账号没有布料库存详情查看权限")
     public Result<ClothInventoryDetailVO> clothDetail(@RequestParam(required = false) Long id,
                                                       @RequestParam(required = false) String barcode) {
         return Result.success(inventoryService.clothDetail(id, barcode));
     }
 
     @GetMapping("/warning/list")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_WARNING_LIST, message = "No permission to view inventory warnings")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_WARNING_LIST, message = "当前账号没有库存预警查看权限")
     public Result<List<InventoryWarningVO>> warnings() {
         return Result.success(inventoryService.warnings());
     }
 
     @GetMapping("/warning/setting")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_WARNING_LIST, message = "No permission to view inventory warning setting")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_WARNING_LIST, message = "当前账号没有库存预警设置查看权限")
     public Result<InventoryWarningSettingVO> warningSetting() {
         return Result.success(inventorySettingService.currentSetting());
     }
 
     @PostMapping("/warning/setting")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_WARNING_SETTING, message = "No permission to update inventory warning setting")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_WARNING_SETTING, message = "当前账号没有库存预警设置修改权限")
     public Result<InventoryWarningSettingVO> updateWarningSetting(@Valid @RequestBody InventoryWarningSettingUpdateRequest request) {
         return Result.success(inventorySettingService.updateCurrentSetting(request));
     }
 
     @GetMapping("/record/recent")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_RECORD_LIST, message = "No permission to view inventory records")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_RECORD_LIST, message = "当前账号没有库存记录查看权限")
     public Result<List<InventoryRecordVO>> recentRecords() {
         return Result.success(inventoryService.recentRecords());
     }
 
     @GetMapping("/trend")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_TREND, message = "No permission to view inventory trend")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_TREND, message = "当前账号没有库存趋势查看权限")
     public Result<List<InventoryTrendVO>> trend() {
         return Result.success(inventoryService.trend());
     }
 
     @GetMapping("/model/search")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_MODEL_SEARCH, message = "No permission to search inventory models")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_MODEL_SEARCH, message = "当前账号没有库存型号搜索权限")
     public Result<List<InventoryModelOptionVO>> searchModels(@RequestParam(required = false) String keyword) {
         return Result.success(inventoryService.searchModels(keyword));
     }
 
     @GetMapping("/barCode/search")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_BARCODE_SEARCH, message = "No permission to search inventory barcodes")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_BARCODE_SEARCH, message = "当前账号没有库存条码搜索权限")
     public Result<ClothInventoryVO> searchByBarcode(@RequestParam String barCode) {
         return Result.success(inventoryService.searchByBarcode(barCode));
     }
 
     @PostMapping("/cloth/in")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_CLOTH_IN, message = "No permission to receive inventory")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_CLOTH_IN, message = "当前账号没有入库权限")
     public Result<InventoryInResultVO> in(@Valid @RequestBody InventoryInRequest request) {
         return Result.success(inventoryService.in(request));
     }
 
     @PostMapping("/cloth/image-recognition")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_CLOTH_IN, message = "No permission to recognize inventory images")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_CLOTH_IN, message = "当前账号没有图片识别入库权限")
     public Result<InventoryImageRecognitionVO> recognizeInboundImage(@RequestParam("file") MultipartFile file) {
         return Result.success(inventoryService.recognizeInboundImage(file));
     }
 
     @PostMapping("/cloth/out")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_CLOTH_OUT, message = "No permission to issue inventory")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_CLOTH_OUT, message = "当前账号没有出库权限")
     public Result<Void> out(@Valid @RequestBody InventoryOutRequest request) {
         inventoryService.out(request);
         return Result.success(null);
     }
 
     @GetMapping("/import-template")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_IMPORT, message = "No permission to download inventory import template")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_IMPORT, message = "当前账号没有库存导入模板下载权限")
     public void downloadImportTemplate(HttpServletResponse response) {
         inventoryService.downloadImportTemplate(response);
     }
 
     @PostMapping("/import")
-    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_IMPORT, message = "No permission to import inventory")
+    @RequirePermission(value = PermissionCatalogV3.CODE_INVENTORY_IMPORT, message = "当前账号没有库存导入权限")
     public Result<InventoryImportResultVO> importInventory(@RequestParam("file") MultipartFile file) {
         return Result.success(inventoryService.importInventory(file));
     }

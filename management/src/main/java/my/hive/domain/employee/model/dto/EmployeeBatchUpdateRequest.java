@@ -10,7 +10,7 @@ import java.util.List;
 @Data
 public class EmployeeBatchUpdateRequest {
 
-    @NotEmpty(message = "ids cannot be empty")
+    @NotEmpty(message = "员工ID列表不能为空")
     private List<Long> ids;
 
     private Long departmentId;

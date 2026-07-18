@@ -8,10 +8,10 @@ import lombok.Data;
 @Data
 public class EmployeeStatusChangeRequest {
 
-    @NotNull(message = "id is required")
+    @NotNull(message = "员工ID不能为空")
     private Long id;
 
-    @NotNull(message = "status is required")
+    @NotNull(message = "员工状态不能为空")
     private Integer status;
 
     private String remark;

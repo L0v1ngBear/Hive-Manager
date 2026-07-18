@@ -24,7 +24,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class SensitiveDataSanitizer {
 
-    public static final String DATA_CONSTRAINT_MESSAGE = "Data violates a database constraint";
+    public static final String DATA_CONSTRAINT_MESSAGE = "数据违反唯一性或完整性约束，请检查后重试";
     private static final String MASK = "******";
     private static final Set<String> SENSITIVE_KEY_PARTS = Set.of(
             "password", "passwd", "pwd", "token", "authorization", "secret",

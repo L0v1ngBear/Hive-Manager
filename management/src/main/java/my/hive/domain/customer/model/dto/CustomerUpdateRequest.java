@@ -10,6 +10,6 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 public class CustomerUpdateRequest extends CustomerAddRequest {
 
-    @NotNull(message = "id is required")
+    @NotNull(message = "客户ID不能为空")
     private Long id;
 }

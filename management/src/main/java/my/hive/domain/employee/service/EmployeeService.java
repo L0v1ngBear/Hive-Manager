@@ -204,7 +204,7 @@ public class EmployeeService {
     public EmployeeDetailVO detail(Long id) {
         EmployeeDetailVO detail = employeeMapper.selectEmployeeDetail(TenantPermissionContext.getTenantCode(), id);
         if (detail == null) {
-            throw new BusinessException("employee not found");
+            throw new BusinessException("员工不存在");
         }
         fillViewFields(List.of(detail));
         return detail;
@@ -354,7 +354,7 @@ public class EmployeeService {
     public void batchUpdate(@Valid EmployeeBatchUpdateRequest request) {
         if (request.getDepartmentId() == null && request.getPositionId() == null && request.getLeaderName() == null
                 && request.getStatus() == null && !StringUtils.hasText(request.getRemark())) {
-            throw new BusinessException("at least one field is required for batch update");
+            throw new BusinessException("批量更新至少需要填写一个字段");
         }
 
         Department department = request.getDepartmentId() == null ? null : requireDepartment(request.getDepartmentId());
@@ -602,13 +602,13 @@ public class EmployeeService {
                 .eq(Employee::getId, id)
                 .last("LIMIT 1"));
         if (employee == null) {
-            throw new BusinessException("employee not found");
+            throw new BusinessException("员工不存在");
         }
         EmployeeExt ext = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>()
                 .eq(EmployeeExt::getUserId, id)
                 .last("LIMIT 1"));
         if (ext != null && DeleteFlagEnum.isDeleted(ext.getIsDeleted())) {
-            throw new BusinessException("employee has been deleted");
+            throw new BusinessException("员工已删除");
         }
         return employee;
     }
@@ -616,7 +616,7 @@ public class EmployeeService {
     private Department requireDepartment(Long id) {
         Department department = departmentMapper.selectById(id);
         if (department == null || DeleteFlagEnum.isDeleted(department.getIsDeleted()) || !CommonStatusEnum.isEnabled(department.getStatus())) {
-            throw new BusinessException("department is invalid");
+            throw new BusinessException("部门不合法");
         }
         return department;
     }
@@ -624,7 +624,7 @@ public class EmployeeService {
     private Position requirePosition(Long id) {
         Position position = positionMapper.selectById(id);
         if (position == null || DeleteFlagEnum.isDeleted(position.getIsDeleted()) || !CommonStatusEnum.isEnabled(position.getStatus())) {
-            throw new BusinessException("position is invalid");
+            throw new BusinessException("职位不合法");
         }
         return position;
     }
@@ -636,14 +636,14 @@ public class EmployeeService {
                 .eq(Department::getStatus, CommonStatusEnum.ENABLED.getCode())
                 .last("LIMIT 1"));
         if (department == null) {
-            throw new BusinessException("employee department is invalid");
+            throw new BusinessException("员工所属部门不合法");
         }
         return department;
     }
 
     private void assertPositionBelongsToDepartment(Position position, Department department) {
         if (!Objects.equals(position.getDepartmentId(), department.getId())) {
-            throw new BusinessException("position does not belong to department");
+            throw new BusinessException("职位不属于所选部门");
         }
     }
 
@@ -653,7 +653,7 @@ public class EmployeeService {
         }
         String normalized = leaderName.trim();
         if (normalized.length() > 64) {
-            throw new BusinessException("leader name is too long");
+            throw new BusinessException("直属领导姓名过长");
         }
         return normalized;
     }
@@ -799,7 +799,7 @@ public class EmployeeService {
         try {
             return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException e) {
-            throw new BusinessException("failed to serialize employee change log");
+            throw new BusinessException("员工变更记录生成失败");
         }
     }
 

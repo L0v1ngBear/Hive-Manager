@@ -344,11 +344,11 @@ public class AuthenticationService {
     public LoginVO wechatLogin(WechatLoginRequest request) {
         String phone = wechatMiniProgramClient.getPhoneNumber(request.getPhoneCode());
         String tenantCode = StringUtils.hasText(request.getTenantCode()) ? request.getTenantCode().trim() : null;
-        if (tenantCode != null && !boundedTenantProperties.isTenantAllowed(tenantCode)) throw new BusinessException(403, "Tenant is not allowed");
+        if (tenantCode != null && !boundedTenantProperties.isTenantAllowed(tenantCode)) throw new BusinessException(403, "当前企业不可用，请联系企业负责人");
         List<LoginUserRow> candidates = authMapper.selectLoginUsersByPhoneInTenants(phone, privacyProtectionUtil.hashPhone(phone), null,
                 tenantCode == null ? allowedTenantCodes() : List.of(tenantCode));
-        if (candidates == null || candidates.isEmpty()) throw new BusinessException(401, "Account is disabled or unavailable");
-        if (candidates.size() != 1) throw new BusinessException(409, "Phone belongs to multiple tenants; select a tenant");
+        if (candidates == null || candidates.isEmpty()) throw new BusinessException(403, "该手机号尚未加入企业，请先加入组织");
+        if (candidates.size() != 1) throw new BusinessException(409, "该手机号属于多个企业，请使用账号密码登录或联系企业负责人处理");
         LoginUserRow loginUser = candidates.get(0);
         validateLoginEligibility(loginUser);
         return buildLoginVO(loginUser, null);
@@ -367,7 +367,7 @@ public class AuthenticationService {
         Long userId = tenantContext.userId();
         String tenantCode = tenantContext.tenantCode();
         if (userId == null || !StringUtils.hasText(tenantCode)) {
-            throw new BusinessException(401, "Authentication required");
+            throw new BusinessException(401, "请先登录");
         }
         authMapper.incrementAuthVersion(userId, tenantCode);
     }
@@ -813,8 +813,12 @@ public class AuthenticationService {
     }
 
     private void validateLoginEligibility(LoginUserRow loginUser) {
-        if (loginUser == null || !isUsableEmployeeStatus(loginUser.getUserStatus())) throw new BusinessException(403, "Account is disabled or unavailable");
-        if (!StringUtils.hasText(loginUser.getTenantCode())) throw new BusinessException(403, "Tenant is disabled or unavailable");
+        if (loginUser == null) throw new BusinessException(403, "当前账号不可用，请联系企业负责人");
+        if (!isUsableEmployeeStatus(loginUser.getUserStatus())) {
+            String message = employeeStatusMessage(loginUser.getUserStatus());
+            throw new BusinessException(403, message.contains("请联系") ? message : message + "，请联系企业负责人");
+        }
+        if (!StringUtils.hasText(loginUser.getTenantCode())) throw new BusinessException(403, "当前企业已停用或不可用，请联系企业负责人");
         boundedTenantProperties.assertTenantAllowed(loginUser.getTenantCode());
         tenantLicenseService.ensureTenantUsable(loginUser.getTenantCode());
     }

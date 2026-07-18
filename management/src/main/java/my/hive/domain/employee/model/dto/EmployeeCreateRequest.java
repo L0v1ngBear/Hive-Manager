@@ -12,28 +12,28 @@ import java.util.List;
 @Data
 public class EmployeeCreateRequest {
 
-    @NotBlank(message = "name is required")
+    @NotBlank(message = "员工姓名不能为空")
     private String name;
 
-    @NotBlank(message = "phone is required")
+    @NotBlank(message = "员工手机号不能为空")
     private String phone;
 
     private String email;
 
     private String employeeType;
 
-    @NotNull(message = "departmentId is required")
+    @NotNull(message = "部门ID不能为空")
     private Long departmentId;
 
-    @NotNull(message = "positionId is required")
+    @NotNull(message = "职位ID不能为空")
     private Long positionId;
 
     private String leaderName;
 
-    @NotNull(message = "entryDate is required")
+    @NotNull(message = "入职日期不能为空")
     private LocalDate entryDate;
 
-    @NotNull(message = "status is required")
+    @NotNull(message = "员工状态不能为空")
     private Integer status;
 
     private Integer attendanceRequired = 1;

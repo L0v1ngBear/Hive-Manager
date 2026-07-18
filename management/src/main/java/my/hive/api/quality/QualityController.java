@@ -38,13 +38,13 @@ public class QualityController {
     private QualityService qualityService;
 
     @GetMapping("/list")
-    @RequirePermission(value = PermissionCatalogV3.CODE_QUALITY_LIST, message = "No permission to view quality records")
+    @RequirePermission(value = PermissionCatalogV3.CODE_QUALITY_LIST, message = "当前账号没有质量记录查看权限")
     public Result<PageResult<BadProductVO>> list(BadProductPageRequest request) {
         return Result.success(qualityService.page(request));
     }
 
     @PostMapping("/save")
-    @RequirePermission(value = {PermissionCatalogV3.CODE_QUALITY_CREATE, PermissionCatalogV3.CODE_QUALITY_UPDATE}, message = "No permission to save quality records")
+    @RequirePermission(value = {PermissionCatalogV3.CODE_QUALITY_CREATE, PermissionCatalogV3.CODE_QUALITY_UPDATE}, message = "当前账号没有质量记录保存权限")
     @CollectLog(module = "bad_product", action = "save", bizType = "bad_product", bizNo = "#request.defectiveId", description = "Save quality record")
     public Result<Void> save(@Valid @RequestBody BadProductSaveRequest request) {
         qualityService.save(request);
@@ -52,14 +52,14 @@ public class QualityController {
     }
 
     @PostMapping("/attachment/upload")
-    @RequirePermission(value = PermissionCatalogV3.CODE_QUALITY_ATTACHMENT_UPLOAD, message = "No permission to upload quality attachments")
+    @RequirePermission(value = PermissionCatalogV3.CODE_QUALITY_ATTACHMENT_UPLOAD, message = "当前账号没有质量附件上传权限")
     @CollectLog(module = "bad_product", action = "upload_attachment", bizType = "bad_product_attachment", description = "Upload quality attachment")
     public Result<BusinessAttachmentVO> uploadAttachment(@RequestParam("file") MultipartFile file) {
         return Result.success(qualityService.uploadAttachment(file));
     }
 
     @GetMapping("/attachment/download")
-    @RequirePermission(value = PermissionCatalogV3.CODE_QUALITY_ATTACHMENT_DOWNLOAD, message = "No permission to download quality attachments")
+    @RequirePermission(value = PermissionCatalogV3.CODE_QUALITY_ATTACHMENT_DOWNLOAD, message = "当前账号没有质量附件下载权限")
     public ResponseEntity<org.springframework.core.io.Resource> downloadAttachment(@RequestParam String url,
                                                                                   @RequestParam(required = false) String name) {
         org.springframework.core.io.Resource resource = qualityService.loadAttachment(url);
@@ -73,7 +73,7 @@ public class QualityController {
     }
 
     @PostMapping("/process")
-    @RequirePermission(value = PermissionCatalogV3.CODE_QUALITY_PROCESS, message = "No permission to process quality records")
+    @RequirePermission(value = PermissionCatalogV3.CODE_QUALITY_PROCESS, message = "当前账号没有质量记录处理权限")
     @CollectLog(module = "bad_product", action = "process", bizType = "bad_product", bizNo = "#request.defectiveId", description = "Process quality record")
     public Result<Void> process(@Valid @RequestBody BadProductProcessRequest request) {
         qualityService.process(request);
