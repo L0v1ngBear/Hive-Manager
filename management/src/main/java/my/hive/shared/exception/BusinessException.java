@@ -11,14 +11,28 @@ import lombok.Setter;
 public class BusinessException extends RuntimeException {
     /** 业务响应码 */
     private Integer code;
+    /** 稳定的机器可读错误原因 */
+    private String reason;
     /** 错误提示 */
     private String msg;
+    /** 可安全返回给客户端的附加数据 */
+    private Object data;
 
     // 构造方法
     public BusinessException(Integer code, String msg) {
+        this(code, null, msg, null);
+    }
+
+    public BusinessException(Integer code, String reason, String msg) {
+        this(code, reason, msg, null);
+    }
+
+    public BusinessException(Integer code, String reason, String msg, Object data) {
         super(msg);
         this.code = code;
+        this.reason = reason;
         this.msg = msg;
+        this.data = data;
     }
 
     // 重载：默认业务码400

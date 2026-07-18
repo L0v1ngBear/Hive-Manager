@@ -44,13 +44,39 @@ class AuthenticationServiceTest {
                 .thenReturn(List.of(user(1L, "a", 1), user(2L, "b", 1)));
         WechatLoginRequest request = new WechatLoginRequest(); request.setPhoneCode("code");
         assertThatThrownBy(() -> service.wechatLogin(request)).isInstanceOf(BusinessException.class)
-                .extracting("code").isEqualTo(409);
+                .extracting("code", "msg")
+                .containsExactly(409, "该手机号属于多个企业，请使用账号密码登录或联系企业负责人处理");
+    }
+
+    @Test void returnsChineseMessageWhenWechatTenantIsNotAllowed() {
+        when(tenants.isTenantAllowed("blocked")).thenReturn(false);
+        WechatLoginRequest request = new WechatLoginRequest();
+        request.setPhoneCode("code");
+        request.setTenantCode("blocked");
+
+        assertThatThrownBy(() -> service.wechatLogin(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "msg")
+                .containsExactly(403, "当前企业不可用，请联系企业负责人");
+    }
+
+    @Test void directsUnknownWechatPhoneToJoinOrganizationInsteadOfReportingDisabledAccount() {
+        when(mapper.selectLoginUsersByPhoneInTenants("13800000000", "hash", null, List.of("a", "b")))
+                .thenReturn(List.of());
+        WechatLoginRequest request = new WechatLoginRequest(); request.setPhoneCode("code");
+
+        assertThatThrownBy(() -> service.wechatLogin(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "msg")
+                .containsExactly(403, "该手机号尚未加入企业，请先加入组织");
     }
 
     @Test void rejectsDisabledAndProbationUsesTenantEligibilityPolicy() {
-        LoginUserRow disabled = user(1L, "a", 0);
+        LoginUserRow disabled = user(1L, "a", -1);
         assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "validateLoginEligibility", disabled))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "msg")
+                .containsExactly(403, "该员工账号已禁用，请联系企业负责人");
         LoginUserRow probation = user(2L, "a", 2);
         ReflectionTestUtils.invokeMethod(service, "validateLoginEligibility", probation);
         verify(license).ensureTenantUsable("a");
@@ -60,6 +86,25 @@ class AuthenticationServiceTest {
         when(context.userId()).thenReturn(9L); when(context.tenantCode()).thenReturn("a");
         service.logout();
         verify(mapper).incrementAuthVersion(9L, "a");
+    }
+
+    @Test void logoutWithoutSessionReturnsChineseAuthenticationMessage() {
+        when(context.userId()).thenReturn(null);
+        when(context.tenantCode()).thenReturn(null);
+
+        assertThatThrownBy(service::logout)
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "msg")
+                .containsExactly(401, "请先登录");
+    }
+
+    @Test void accountWithoutTenantReturnsChineseUnavailableMessage() {
+        LoginUserRow user = user(3L, null, 1);
+
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(service, "validateLoginEligibility", user))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "msg")
+                .containsExactly(403, "当前企业已停用或不可用，请联系企业负责人");
     }
 
     private LoginUserRow user(long id, String tenant, int status) { LoginUserRow u=new LoginUserRow(); u.setUserId(id); u.setTenantCode(tenant); u.setUserStatus(status); u.setAuthVersion(1L); return u; }

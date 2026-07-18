@@ -67,21 +67,22 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<Result<Void>> handleBusinessException(BusinessException e) {
+    public ResponseEntity<Result<Object>> handleBusinessException(BusinessException e) {
         if (sanitizer.isDataConstraintViolation(e)) {
             log.warn("business exception caused by a database constraint");
             return new ResponseEntity<>(
-                    Result.fail(e.getCode(), sanitizer.toSafeExceptionMessage(e)), HttpStatus.OK);
+                    Result.fail(e.getCode(), null, sanitizer.toSafeExceptionMessage(e), null), HttpStatus.OK);
         }
         log.warn("business exception: {}", e.getMsg());
-        return new ResponseEntity<>(Result.fail(e.getCode(), e.getMsg()), HttpStatus.OK);
+        return new ResponseEntity<>(
+                Result.fail(e.getCode(), e.getReason(), e.getMsg(), e.getData()), HttpStatus.OK);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Result<Void>> handleIllegalArgException(IllegalArgumentException e, HttpServletRequest request) {
         log.error("illegal argument exception: {}", e.getMessage(), e);
         publishExceptionEvent("ILLEGAL_ARGUMENT_EXCEPTION", "接口参数格式异常", e, request);
-        return new ResponseEntity<>(Result.fail(400, "参数格式错误：" + e.getMessage()), HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(Result.fail(400, "参数格式错误，请检查后重试"), HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(NullPointerException.class)

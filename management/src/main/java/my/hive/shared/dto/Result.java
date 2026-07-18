@@ -10,6 +10,8 @@ public class Result<T> {
 
     private Integer code;
 
+    private String reason;
+
     private String msg;
 
     private T data;
@@ -30,12 +32,21 @@ public class Result<T> {
     }
 
     public static <T> Result<T> fail(Integer code, String msg) {
+        return fail(code, null, msg, null);
+    }
+
+    public static <T> Result<T> fail(Integer code, String reason, String msg, T data) {
         Result<T> result = new Result<>();
         result.setCode(code);
+        result.setReason(reason);
         result.setMsg(msg);
-        result.setData(null);
+        result.setData(data);
         result.setEncrypted(false);
         return result;
+    }
+
+    public static <T> Result<T> fail(Integer code, String reason, String msg) {
+        return fail(code, reason, msg, null);
     }
 
     public static <T> Result<T> fail(String msg) {
