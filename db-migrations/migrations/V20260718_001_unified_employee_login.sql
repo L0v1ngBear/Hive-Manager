@@ -1,5 +1,7 @@
 -- Enforce one hashed phone per real tenant without changing existing user data.
 -- Tenant-less rows are reported by audit-unified-employee-login.sh for manual reconciliation.
+-- This retires the standalone mini-program login model introduced by
+-- V20260506_001_mini_wechat_standalone_login.sql; only tenant-bound employee sessions authenticate.
 
 DROP PROCEDURE IF EXISTS guard_unified_employee_login_phone_uniqueness;
 

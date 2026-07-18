@@ -155,9 +155,6 @@ public class EmployeeService {
     @Resource
     private EmployeeAttendanceLocationMapper employeeAttendanceLocationMapper;
 
-    /**
-     * 新员工初始密码从配置读取，避免敏感默认值固定写死在代码中。
-     */
     public Page<EmployeePageVO> page(EmployeePageQuery query) {
         if (query == null) {
             query = new EmployeePageQuery();
@@ -1008,10 +1005,6 @@ public class EmployeeService {
         return request;
     }
 
-    /**
-     * 小程序一键登录会先产生一条没有 emp_employee_ext 档案的 user。
-     * 管理端新增/导入同手机号员工时应补全这条记录，而不是再新建一条或直接报重复。
-     */
     private Employee findReusableJoinedEmployee(String normalizedPhone, String phoneHash) {
         List<Employee> matchedUsers = employeeMapper.selectList(new LambdaQueryWrapper<Employee>()
                 .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
