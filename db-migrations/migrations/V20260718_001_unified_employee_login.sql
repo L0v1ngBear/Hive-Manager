@@ -24,6 +24,12 @@ BEGIN
             SET MESSAGE_TEXT = 'Duplicate tenant phone hashes must be resolved before unified employee login migration';
     END IF;
 
+    -- Empty tenant codes represent tenant-less legacy users. Normalize only that sentinel
+    -- to NULL so MySQL's unique key leaves those rows outside tenant-phone uniqueness.
+    UPDATE `user`
+    SET tenant_code = NULL
+    WHERE tenant_code = '';
+
     SELECT COUNT(*)
       INTO index_exists
       FROM information_schema.statistics

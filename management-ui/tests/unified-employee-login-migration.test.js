@@ -21,9 +21,12 @@ test('unified employee login migration guards duplicates before adding the tenan
   assert.doesNotMatch(sql, /DELETE\s+FROM\s+`?user`?/i);
 
   const guardOffset = sql.search(/SIGNAL SQLSTATE '45000'/i);
+  const normalizeOffset = sql.search(/UPDATE\s+`?user`?\s+SET\s+tenant_code\s*=\s*NULL\s+WHERE\s+tenant_code\s*=\s*''/i);
   const alterOffset = sql.search(/ALTER\s+TABLE\s+`?user`?/i);
   assert.ok(guardOffset >= 0 && guardOffset < alterOffset, 'duplicate guard must precede ALTER TABLE');
-  assert.doesNotMatch(sql, /(?:UPDATE|INSERT\s+INTO)\s+`?user`?/i);
+  assert.ok(normalizeOffset >= 0 && normalizeOffset < alterOffset,
+    'blank tenant codes must be normalized to NULL before ALTER TABLE');
+  assert.doesNotMatch(sql, /INSERT\s+INTO\s+`?user`?/i);
 });
 
 test('unified employee login migration is appended to the manifest with its checksum', () => {
