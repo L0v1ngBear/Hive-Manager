@@ -3,7 +3,7 @@ Wall time: 0.4 seconds
 Output:
 <template>
   <div class="function-page-shell h-full min-h-0 font-body">
-    <div class="function-page-container space-y-6">
+    <div class="function-page-container quality-page-content">
       <header class="function-page-header">
         <div>
           <div class="function-page-eyebrow">
@@ -18,7 +18,7 @@ Output:
         </el-button>
       </header>
 
-      <section class="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <section class="quality-scope-grid">
         <el-button
           v-for="scope in scopeOptions"
           :key="scope.value"
@@ -35,27 +35,27 @@ Output:
         </el-button>
       </section>
 
-      <section class="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <div class="bg-surface-container-lowest p-6 shadow-sm">
-          <p class="text-xs font-bold text-on-surface-variant">总记录数</p>
-          <h3 class="mt-2 text-4xl font-black text-primary">{{ pagination.total }}</h3>
+      <section class="quality-stats-grid">
+        <div class="quality-stat-card">
+          <p>总记录数</p>
+          <h3 class="quality-stat-value quality-stat-value--primary">{{ pagination.total }}</h3>
         </div>
-        <div class="bg-surface-container-lowest p-6 shadow-sm">
-          <p class="text-xs font-bold text-on-surface-variant">当前页待处理</p>
-          <h3 class="mt-2 text-4xl font-black text-amber-600">{{ stats.pending }}</h3>
+        <div class="quality-stat-card">
+          <p>当前页待处理</p>
+          <h3 class="quality-stat-value quality-stat-value--pending">{{ stats.pending }}</h3>
         </div>
-        <div class="bg-surface-container-lowest p-6 shadow-sm">
-          <p class="text-xs font-bold text-on-surface-variant">当前页已处理</p>
-          <h3 class="mt-2 text-4xl font-black text-emerald-600">{{ stats.processed }}</h3>
+        <div class="quality-stat-card">
+          <p>当前页已处理</p>
+          <h3 class="quality-stat-value quality-stat-value--processed">{{ stats.processed }}</h3>
         </div>
-        <div class="bg-[#1a365d] p-6 text-white shadow-md">
-          <p class="text-xs font-bold">当前页损失金额</p>
-          <h3 class="mt-2 text-4xl font-black">¥{{ money(stats.lossAmount) }}</h3>
+        <div class="quality-stat-card quality-stat-card--loss">
+          <p>当前页损失金额</p>
+          <h3 class="quality-stat-value">¥{{ money(stats.lossAmount) }}</h3>
         </div>
       </section>
 
-      <section class="bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20">
-        <el-form :model="query" class="quality-filter-form" @submit.prevent="handleFilter">
+      <section class="quality-workspace">
+        <el-form :model="query" class="quality-filter-form quality-filter-grid" @submit.prevent="handleFilter">
           <el-form-item label="综合搜索">
             <el-input
               v-model.trim="query.keyword"
@@ -80,39 +80,41 @@ Output:
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="发生日期">
-            <DateFilterInput v-model="query.date" placeholder="发生日期" />
-          </el-form-item>
-          <el-form-item label="开始日期">
-            <DateFilterInput v-model="query.startDate" placeholder="开始日期" />
-          </el-form-item>
-          <el-form-item label="结束日期">
-            <DateFilterInput v-model="query.endDate" placeholder="结束日期" />
-          </el-form-item>
-          <div class="quality-filter-actions">
-            <el-button type="primary" @click="handleFilter">查询</el-button>
-            <el-button @click="resetFilter">重置</el-button>
-            <TableColumnSettings
-              :columns="badProductTableColumns"
-              export-module="badproduct"
-              @move="moveBadProductTableColumn"
-              @reset="resetBadProductTableColumns"
-            />
+          <div class="quality-date-fields">
+            <el-form-item label="发生日期">
+              <DateFilterInput v-model="query.date" placeholder="发生日期" />
+            </el-form-item>
+            <el-form-item label="开始日期">
+              <DateFilterInput v-model="query.startDate" placeholder="开始日期" />
+            </el-form-item>
+            <el-form-item label="结束日期">
+              <DateFilterInput v-model="query.endDate" placeholder="结束日期" />
+            </el-form-item>
           </div>
         </el-form>
+        <div class="quality-filter-actions">
+          <el-button type="primary" @click="handleFilter">查询</el-button>
+          <el-button @click="resetFilter">重置</el-button>
+          <TableColumnSettings
+            :columns="badProductTableColumns"
+            export-module="badproduct"
+            @move="moveBadProductTableColumn"
+            @reset="resetBadProductTableColumns"
+          />
+        </div>
 
         <div
           v-if="requestState === 'loading'"
           v-loading="true"
-          class="min-h-[300px]"
+          class="quality-request-state"
           aria-label="质量记录加载中"
         />
-        <div v-else-if="requestState === 'permission'" class="min-h-[300px]">
+        <div v-else-if="requestState === 'permission'" class="quality-request-state">
           <el-empty :description="requestErrorMessage">
             <el-button type="primary" @click="fetchData">重新加载</el-button>
           </el-empty>
         </div>
-        <div v-else-if="requestState === 'error'" class="min-h-[300px]">
+        <div v-else-if="requestState === 'error'" class="quality-request-state">
           <el-empty :description="requestErrorMessage">
             <el-button type="primary" @click="fetchData">重新加载</el-button>
           </el-empty>
@@ -1026,6 +1028,217 @@ function normalizeTypeForScope(value) {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.quality-page-content {
+  display: grid;
+  gap: 1rem;
+}
+
+.quality-scope-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.quality-scope-button {
+  min-height: 4.75rem;
+  height: auto;
+  justify-content: flex-start;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  white-space: normal;
+}
+
+.quality-scope-button > span:first-child {
+  flex: 0 0 auto;
+  font-size: 1.25rem;
+}
+
+.quality-scope-button > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.quality-scope-button strong,
+.quality-scope-button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quality-scope-button strong {
+  font-size: 0.875rem;
+}
+
+.quality-scope-button small {
+  color: inherit;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  opacity: 0.76;
+}
+
+.quality-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.quality-stat-card {
+  display: grid;
+  min-height: 5.75rem;
+  align-content: center;
+  gap: 0.25rem;
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.12);
+  background: var(--ys-surface);
+  padding: 0.75rem 1rem;
+}
+
+.quality-stat-card p {
+  color: var(--el-text-color-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.quality-stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.quality-stat-value--primary {
+  color: var(--ys-primary);
+}
+
+.quality-stat-value--pending {
+  color: #b45309;
+}
+
+.quality-stat-value--processed {
+  color: #047857;
+}
+
+.quality-stat-card--loss {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
+}
+
+.quality-stat-card--loss p {
+  color: rgb(255 255 255 / 0.78);
+}
+
+.quality-workspace {
+  min-width: 0;
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.12);
+  background: var(--ys-surface);
+  padding: 1rem;
+}
+
+.quality-filter-grid {
+  grid-template-columns: minmax(14rem, 1.4fr) repeat(2, minmax(10rem, 0.8fr));
+}
+
+.quality-date-fields {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+}
+
+.quality-date-fields :deep(.el-form-item) {
+  margin: 0;
+}
+
+.quality-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  border-top: 1px solid rgb(var(--ys-primary-rgb) / 0.1);
+  padding-top: 0.75rem;
+}
+
+.quality-request-state {
+  min-height: 12rem;
+}
+
+.quality-table {
+  margin-top: 0.75rem;
+}
+
+.quality-table :deep(.el-table__header th.el-table__cell),
+.quality-table :deep(.el-table__body td.el-table__cell) {
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+}
+
+.quality-table :deep(.el-table__header .cell) {
+  color: var(--el-text-color-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.quality-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-top: 1px solid rgb(var(--ys-primary-rgb) / 0.1);
+  padding-top: 0.75rem;
+  color: var(--el-text-color-secondary);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .quality-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quality-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quality-filter-grid > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .quality-scope-grid,
+  .quality-stats-grid,
+  .quality-filter-grid,
+  .quality-date-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quality-date-fields {
+    grid-column: auto;
+  }
+
+  .quality-filter-grid > :first-child {
+    grid-column: auto;
+  }
+
+  .quality-stat-card {
+    min-height: 5.25rem;
+  }
+
+  .quality-filter-actions {
+    align-items: stretch;
+  }
+
+  .quality-filter-actions :deep(.el-button) {
+    flex: 1 1 auto;
+  }
+
+  .quality-pagination {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 .drawer-head-actions {
