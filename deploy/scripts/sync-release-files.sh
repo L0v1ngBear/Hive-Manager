@@ -23,6 +23,7 @@ for required in \
   docker-compose.yml \
   backend/hive-backend.jar \
   management-ui/dist/index.html \
+  management-ui/dist-manifest.sha256 \
   nginx/conf.d/hive.conf \
   scripts/restart.sh \
   db-migrations/migration_manifest.txt; do
@@ -34,7 +35,7 @@ for forbidden in .env mysql/data redis/data nginx/certs uploads backups; do
 done
 
 # Files are copied explicitly; directories are mirrored so stale release-owned files disappear.
-for file in docker-compose.yml .env.example README.md RELEASE_BUILD_INFO.txt; do
+for file in docker-compose.yml .env.example README.md RELEASE_BUILD_INFO.txt management-ui/dist-manifest.sha256; do
   if [ -f "${RELEASE_SOURCE_DIR}/${file}" ]; then
     install -D -m 0644 "${RELEASE_SOURCE_DIR}/${file}" "${RELEASE_TARGET_DIR}/${file}"
   fi

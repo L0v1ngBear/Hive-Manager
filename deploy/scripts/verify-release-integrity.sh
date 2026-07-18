@@ -5,6 +5,7 @@ source "$(dirname "$0")/common.sh"
 require_file RELEASE_BUILD_INFO.txt
 require_file backend/hive-backend.jar
 require_file management-ui/dist/index.html
+require_file management-ui/dist-manifest.sha256
 require_file db-migrations/migration_manifest.txt
 require_file db-migrations/migration_checksums.sha256
 
@@ -23,8 +24,9 @@ backend_actual="$(file_sha256 backend/hive-backend.jar)"
 [ "$(find backend -maxdepth 1 -type f -name '*.jar' | wc -l | tr -d ' ')" = "1" ] || fail "release must contain exactly one backend JAR"
 
 ui_manifest="$(mktemp)"
+canonical_release_manifest="$(mktemp)"
 cleanup() {
-  rm -f "${ui_manifest}"
+  rm -f "${ui_manifest}" "${canonical_release_manifest}"
 }
 trap cleanup EXIT
 
@@ -32,6 +34,12 @@ while IFS= read -r -d '' file; do
   relative_path="${file#management-ui/dist/}"
   printf '%s  %s\n' "$(file_sha256 "${file}")" "${relative_path}"
 done < <(find management-ui/dist -type f -print0 | LC_ALL=C sort -z) > "${ui_manifest}"
+
+tr -d '\r' < management-ui/dist-manifest.sha256 > "${canonical_release_manifest}"
+manifest_expected="$(require_metadata ManagementUiManifestSha256)"
+manifest_actual="$(file_sha256 "${canonical_release_manifest}")"
+[ "${manifest_actual}" = "${manifest_expected}" ] || fail "management UI release manifest checksum mismatch"
+cmp -s "${ui_manifest}" "${canonical_release_manifest}" || fail "management UI release manifest does not match dist"
 
 ui_expected="$(require_metadata ManagementUiSha256)"
 ui_actual="$(file_sha256 "${ui_manifest}")"

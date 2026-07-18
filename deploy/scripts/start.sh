@@ -8,6 +8,7 @@ require_command docker
 configure_profiles
 prepare_runtime_directories
 
+bash scripts/prune-management-ui.sh
 echo "1/6 Validate release source"
 bash scripts/check-deploy-health.sh
 

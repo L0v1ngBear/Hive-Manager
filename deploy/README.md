@@ -40,14 +40,14 @@ Fresh initialization creates only `TENANT_001`, one administrator that must chan
 
 ## Normal release
 
-After uploading the clean release package, run the root wrapper:
+When the server uses only `/root/hive`, upload the release contents into that directory and run:
 
 ```bash
-cd /path/to/uploaded-release
+cd /root/hive
 bash publish.sh
 ```
 
-The wrapper uses `/root/hive` as the runtime directory, synchronizes only release-owned files, and then runs the guarded restart entrypoint. All backup, migration, static-file permission and web/API smoke gates remain active. Set `HIVE_RUNTIME_DIR` only when validating an isolated runtime directory.
+The direct-runtime wrapper removes stale hashed management UI files using the signed release manifest, then runs the guarded restart entrypoint. Runtime-owned `.env`, certificates, database files, uploads and backups are preserved. A separate staging directory remains optional; when used, the wrapper synchronizes release-owned files into `/root/hive` with `rsync --delete` before restarting.
 
 The equivalent lower-level commands remain available for diagnosis:
 

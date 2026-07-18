@@ -8,6 +8,7 @@ require_command docker
 configure_profiles
 prepare_runtime_directories
 
+bash scripts/prune-management-ui.sh
 bash scripts/check-deploy-health.sh
 
 build_args=()

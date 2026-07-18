@@ -21,8 +21,11 @@ esac
 mkdir -p "${RELEASE_TARGET_DIR}"
 RELEASE_TARGET_DIR="$(cd "${RELEASE_TARGET_DIR}" && pwd)"
 [ "${RELEASE_SOURCE_DIR}" != "${RELEASE_TARGET_DIR}" ] || {
-  echo "FAIL: release package and runtime directory must be different" >&2
-  exit 1
+  echo "Publishing directly from runtime directory: ${RELEASE_TARGET_DIR}"
+  cd "${RELEASE_TARGET_DIR}"
+  bash scripts/restart.sh
+  echo "Hive release completed."
+  exit 0
 }
 
 echo "Release source: ${RELEASE_SOURCE_DIR}"
