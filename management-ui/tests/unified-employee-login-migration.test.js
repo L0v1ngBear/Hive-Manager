@@ -34,6 +34,10 @@ test('unified employee login migration guards duplicates before adding the tenan
   assert.ok(dropProcedureOffset >= 0 && dropProcedureOffset < createProcedureOffset,
     'retry cleanup must drop an interrupted migration procedure before recreating it');
   assert.match(sql, /index_name\s*=\s*'uk_user_tenant_phone_hash'[\s\S]*non_unique\s*=\s*0/i);
+  assert.match(sql, /HAVING\s+COUNT\(\*\)\s*=\s*2/i);
+  assert.match(sql, /SUM\(CASE\s+WHEN\s+non_unique\s*=\s*0\s+THEN\s+1\s+ELSE\s+0\s+END\)\s*=\s*2/i);
+  assert.match(sql, /SUM\(CASE\s+WHEN\s+expression\s+IS\s+NULL\s+THEN\s+1\s+ELSE\s+0\s+END\)\s*=\s*2/i);
+  assert.match(sql, /SUM\(CASE\s+WHEN\s+sub_part\s+IS\s+NULL\s+THEN\s+1\s+ELSE\s+0\s+END\)\s*=\s*2/i);
   assert.match(sql, /GROUP_CONCAT\(column_name\s+ORDER\s+BY\s+seq_in_index\s+SEPARATOR\s+','\)\s*=\s*'tenant_code,phone_hash'/i);
   assert.match(sql, /SIGNAL SQLSTATE '45000'[\s\S]*uk_user_tenant_phone_hash/i);
   assert.doesNotMatch(sql, /INSERT\s+INTO\s+`?user`?/i);

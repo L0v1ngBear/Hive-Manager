@@ -49,8 +49,11 @@ BEGIN
               WHERE table_schema = DATABASE()
                 AND table_name = 'user'
                 AND index_name = 'uk_user_tenant_phone_hash'
-              GROUP BY index_name, non_unique
-              HAVING non_unique = 0
+              GROUP BY index_name
+              HAVING COUNT(*) = 2
+                 AND SUM(CASE WHEN non_unique = 0 THEN 1 ELSE 0 END) = 2
+                 AND SUM(CASE WHEN expression IS NULL THEN 1 ELSE 0 END) = 2
+                 AND SUM(CASE WHEN sub_part IS NULL THEN 1 ELSE 0 END) = 2
                  AND GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',') = 'tenant_code,phone_hash'
           ) valid_indexes;
 
