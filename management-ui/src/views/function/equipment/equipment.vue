@@ -9,7 +9,7 @@
         </div>
       </header>
 
-      <el-form :inline="true" class="function-filter-form equipment-filter-form" @submit.prevent="handleSearch">
+      <el-form v-filter-collapse :inline="true" class="function-filter-form equipment-filter-form" @submit.prevent="handleSearch">
           <el-form-item>
             <el-input v-model.trim="filters.keyword" aria-label="设备关键词" clearable placeholder="搜索设备编码、名称、位置或负责人" @keyup.enter="fetchDevices" />
           </el-form-item>

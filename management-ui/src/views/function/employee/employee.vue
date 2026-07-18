@@ -98,7 +98,7 @@ Output:
       </div>
 
       <div class="function-list-panel shadow-sm flex flex-col border border-surface-variant/50">
-        <div class="function-filter-form p-4 bg-surface-container-low border-b border-surface-variant/50">
+        <div v-filter-collapse class="function-filter-form p-4 bg-surface-container-low border-b border-surface-variant/50">
           <div class="flex-1 min-w-[300px] relative">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
             <el-input

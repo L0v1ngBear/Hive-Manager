@@ -117,7 +117,7 @@
             </el-tab-pane>
           </el-tabs>
         </div>
-        <el-form :model="filters" class="function-filter-form p-4" @submit.prevent>
+        <el-form v-filter-collapse :model="filters" class="function-filter-form p-4" @submit.prevent>
           <el-form-item>
             <el-input
               v-model.trim="filters.keyword"

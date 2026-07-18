@@ -49,15 +49,17 @@
             <span class="material-symbols-outlined text-[18px]">refresh</span>
             刷新
           </el-button>
-          <el-input v-model.trim="filters.keyword" class="w-full sm:w-56" placeholder="搜索文件名或扩展名" clearable>
-            <template #prefix>
-              <span class="material-symbols-outlined text-[18px]">search</span>
-            </template>
-          </el-input>
-          <el-select v-model="filters.type" class="w-full sm:w-32" placeholder="全部类型" clearable>
-            <el-option label="文件夹" value="folder" />
-            <el-option label="文件" value="file" />
-          </el-select>
+          <div v-filter-collapse class="document-filter-controls function-filter-form">
+            <el-input v-model.trim="filters.keyword" class="w-full sm:w-56" placeholder="搜索文件名或扩展名" clearable>
+              <template #prefix>
+                <span class="material-symbols-outlined text-[18px]">search</span>
+              </template>
+            </el-input>
+            <el-select v-model="filters.type" class="w-full sm:w-32" placeholder="全部类型" clearable>
+              <el-option label="文件夹" value="folder" />
+              <el-option label="文件" value="file" />
+            </el-select>
+          </div>
           <TableColumnSettings
             :columns="documentTableColumns"
             :export-rows="filteredDocumentList"

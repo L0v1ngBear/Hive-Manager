@@ -115,7 +115,7 @@
 
       <section class="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_340px]">
         <div class="function-list-panel flex min-h-0 flex-col shadow-sm">
-          <div class="function-filter-form border-b border-slate-100 bg-slate-50/50 p-4">
+          <div v-filter-collapse class="function-filter-form border-b border-slate-100 bg-slate-50/50 p-4">
             <div class="contents">
               <div class="relative">
                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-slate-400">search</span>

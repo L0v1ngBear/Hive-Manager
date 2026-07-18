@@ -34,7 +34,7 @@
       </section>
 
       <section class="function-list-panel installation-panel">
-        <el-form :model="filters" class="function-filter-form installation-filter-grid" @submit.prevent="loadTasks">
+        <el-form v-filter-collapse :model="filters" class="function-filter-form installation-filter-grid" @submit.prevent="loadTasks">
           <el-form-item label="综合搜索" class="installation-filter-field installation-filter-field-wide">
             <el-input
               v-model.trim="filters.keyword"

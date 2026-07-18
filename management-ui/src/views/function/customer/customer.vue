@@ -13,7 +13,7 @@
           </p>
         </div>
 
-        <div class="function-filter-form">
+        <div v-filter-collapse class="function-filter-form">
           <el-input
             v-model.trim="filters.keyword"
             class="w-full sm:w-[260px]"

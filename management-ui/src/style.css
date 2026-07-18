@@ -596,6 +596,93 @@ button[aria-disabled="true"],
   margin-left: 0;
 }
 
+.function-filter-collapse-bar {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex: 1 0 100%;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(200, 211, 223, 0.72);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0.65rem 0.75rem;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+}
+
+.function-filter-collapse-bar--collapsed {
+  margin-bottom: 0;
+}
+
+.function-filter-collapse-copy,
+.function-filter-collapse-labels {
+  display: flex;
+  min-width: 0;
+}
+
+.function-filter-collapse-copy {
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.function-filter-collapse-copy > .material-symbols-outlined {
+  color: var(--ys-primary);
+  font-size: 1.25rem;
+}
+
+.function-filter-collapse-labels {
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.function-filter-collapse-labels strong {
+  color: #0f172a;
+  font-size: 0.875rem;
+  line-height: 1.2rem;
+}
+
+.function-filter-collapse-labels small {
+  overflow: hidden;
+  color: var(--ys-on-surface-variant);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.function-filter-collapse-toggle {
+  display: inline-flex;
+  min-height: 2.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1px solid rgb(var(--ys-primary-rgb) / 0.2);
+  border-radius: 8px;
+  background: rgb(var(--ys-primary-rgb) / 0.06);
+  padding: 0.35rem 0.65rem;
+  color: var(--ys-primary-dark);
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.function-filter-collapse-toggle:hover {
+  border-color: rgb(var(--ys-primary-rgb) / 0.42);
+  background: rgb(var(--ys-primary-rgb) / 0.1);
+}
+
+.function-filter-collapse-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--ys-focus-ring);
+}
+
+.function-filter-collapse-toggle .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
 .function-list-panel {
   min-width: 0;
   overflow: hidden;
@@ -724,6 +811,10 @@ button[aria-disabled="true"],
   .function-stats-grid,
   .function-filter-form {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .function-filter-collapse-labels small {
+    display: none;
   }
 
   .function-page-shell .responsive-data-table,

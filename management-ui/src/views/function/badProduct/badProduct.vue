@@ -55,7 +55,7 @@ Output:
       </section>
 
       <section class="quality-workspace">
-        <el-form :model="query" class="quality-filter-form quality-filter-grid" @submit.prevent="handleFilter">
+        <el-form v-filter-collapse :model="query" class="quality-filter-form quality-filter-grid" @submit.prevent="handleFilter">
           <el-form-item label="综合搜索">
             <el-input
               v-model.trim="query.keyword"

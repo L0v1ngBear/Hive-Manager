@@ -69,7 +69,7 @@
       </section>
 
       <section class="function-list-panel shadow-sm border-slate-200">
-        <div class="function-filter-form border-b border-slate-100 bg-slate-50/50 p-4">
+        <div v-filter-collapse class="function-filter-form border-b border-slate-100 bg-slate-50/50 p-4">
             <label class="block">
               <span class="block text-xs text-slate-500 font-bold mb-1.5">日期</span>
               <el-date-picker
