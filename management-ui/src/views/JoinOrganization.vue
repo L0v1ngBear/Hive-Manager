@@ -16,9 +16,9 @@
             </el-button>
 
             <div class="mb-8 inline-flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
-              <img src="../../images/logo.png" alt="蜂巢 logo" class="h-11 w-11 rounded-xl object-contain" />
+              <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="h-11 w-28 rounded-xl object-cover" />
               <div>
-                <p class="text-sm font-black uppercase tracking-[0.28em] text-slate-400">HIVE</p>
+                <p class="text-sm font-black uppercase tracking-[0.28em] text-slate-400">{{ brandConfig.productName }}</p>
                 <p class="text-lg font-extrabold text-slate-900">组织加入</p>
               </div>
             </div>
@@ -147,6 +147,7 @@ import { useRouter } from 'vue-router'
 import { ElButton, ElForm, ElFormItem, ElInput, ElMessage } from 'element-plus'
 import { joinOrganization, sendOrganizationJoinCode } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
+import { brandConfig } from '@/config/brand'
 
 const router = useRouter()
 const userStore = useUserStore()

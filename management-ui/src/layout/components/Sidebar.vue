@@ -5,8 +5,8 @@
   >
     <div class="h-20 flex items-center shrink-0 overflow-hidden" :class="isCollapsed ? 'justify-center px-0' : 'px-6'">
       <div class="sidebar-brand" :class="isCollapsed ? 'sidebar-brand--collapsed' : ''">
-        <span class="sidebar-brand-logo" :class="{ 'sidebar-brand-logo--tenant': tenantLogoUrl }">
-          <img :src="brandLogoUrl" :alt="brandLogoAlt">
+        <span class="sidebar-brand-logo">
+          <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" :title="brandConfig.companyName">
         </span>
         <div v-if="!isCollapsed" class="min-w-0">
           <h1 class="sidebar-brand-title">{{ brandTitle }}</h1>
@@ -23,7 +23,7 @@
       <img v-if="tenantLogoUrl" :src="tenantLogoUrl" :alt="`${tenantName} logo`" class="sidebar-tenant-card__logo">
       <span v-else class="material-symbols-outlined sidebar-tenant-card__icon">domain</span>
       <div class="min-w-0">
-        <p class="sidebar-tenant-card__eyebrow">欢迎你</p>
+        <p class="sidebar-tenant-card__eyebrow">组织</p>
         <p class="sidebar-tenant-card__name">{{ tenantName }}</p>
       </div>
     </div>
@@ -135,7 +135,7 @@ import {ElBadge, ElButton, ElTooltip} from 'element-plus'
 import {useUserStore} from '@/stores/user'
 import {getApprovalSummary} from '@/views/function/approval/api/approval'
 import {decorateAccessItems} from '@/utils/access'
-import defaultLogo from '../../../images/logo.png'
+import {brandConfig} from '@/config/brand'
 
 defineOptions({name: 'Sidebar'})
 
@@ -152,10 +152,8 @@ const isCollapsed = ref(false)
 const approvalPendingCount = ref(0)
 const tenantName = computed(() => userStore.currentTenantName)
 const tenantLogoUrl = computed(() => userStore.currentTenantLogoUrl)
-const brandLogoUrl = computed(() => tenantLogoUrl.value || defaultLogo)
-const brandLogoAlt = computed(() => tenantLogoUrl.value ? `${tenantName.value} logo` : '蜂巢 Hive logo')
-const brandTitle = computed(() => tenantLogoUrl.value && !userStore.isPlatformTenant ? tenantName.value : '蜂巢 Hive')
-const brandSubtitle = computed(() => tenantLogoUrl.value && !userStore.isPlatformTenant ? '企业工作台' : '业务协同系统')
+const brandTitle = computed(() => brandConfig.companyName)
+const brandSubtitle = computed(() => brandConfig.productName)
 const ANNOUNCEMENT_PERMISSIONS = [
   'notification:announcement:list',
   'notification:announcement:publish'
@@ -356,28 +354,27 @@ const linkClass = (item) => {
 
 .sidebar-brand-logo {
   display: inline-flex;
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 7rem;
+  height: 3.5rem;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 1.1rem;
+  border-radius: 0.75rem;
   background: #ffffff;
   box-shadow: 0 14px 28px rgba(15, 31, 51, 0.14), inset 0 0 0 1px rgb(var(--ys-primary-rgb) / 0.08);
 }
 
-.sidebar-brand-logo--tenant {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 1.25rem;
-  box-shadow: 0 18px 34px rgb(var(--ys-primary-rgb) / 0.18), inset 0 0 0 1px rgb(var(--ys-primary-rgb) / 0.14);
+.sidebar-brand--collapsed .sidebar-brand-logo {
+  width: 3.25rem;
+  height: 1.8rem;
+  border-radius: 0.55rem;
 }
 
 .sidebar-brand-logo img {
-  width: 86%;
-  height: 86%;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .sidebar-brand-title {

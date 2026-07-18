@@ -38,8 +38,8 @@
 
       <div class="text-center mb-10 max-w-2xl mx-auto z-40">
         <div class="inline-flex items-center justify-center gap-3 mb-6 bg-white/60 backdrop-blur-md px-6 py-2 rounded-full shadow-sm border border-white/40">
-          <img src="../../images/logo.png" alt="蜂巢 logo" class="h-10 w-10 rounded-xl object-contain drop-shadow-sm ring-1 ring-primary/10" />
-          <span class="text-xl font-bold tracking-tight text-slate-800">蜂巢 Hive</span>
+          <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="h-10 w-24 rounded-xl object-cover drop-shadow-sm ring-1 ring-primary/10" />
+          <span class="text-xl font-bold tracking-tight text-slate-800">{{ brandConfig.productName }}</span>
         </div>
         <h1 class="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight mb-4">
           企业信息管理
@@ -250,6 +250,7 @@ import { useUserStore } from '@/stores/user'
 import { normalizeLoginRedirect } from '@/utils/redirect'
 import { readLoginMemory, saveLoginMemory } from '@/utils/loginMemory'
 import { ElButton, ElCheckbox, ElDialog, ElForm, ElFormItem, ElInput, ElMessage } from 'element-plus'
+import { brandConfig } from '@/config/brand'
 
 const router = useRouter()
 const route = useRoute()

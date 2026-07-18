@@ -48,14 +48,12 @@
     </div>
 
     <div class="flex items-center gap-2 md:gap-4">
-      <div class="tenant-chip" :class="{ 'tenant-chip--branded': tenantLogoUrl }" :title="tenantTooltip">
-        <span v-if="tenantLogoUrl" class="tenant-chip__logo-frame">
-          <img :src="tenantLogoUrl" alt="公司logo" class="tenant-chip__logo">
+      <div class="tenant-chip tenant-chip--branded" :title="brandConfig.companyName">
+        <span class="tenant-chip__logo-frame">
+          <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="tenant-chip__logo">
         </span>
-        <span v-else class="material-symbols-outlined tenant-chip__fallback-icon">waving_hand</span>
         <span class="tenant-chip__text">
-          <span class="tenant-chip__label">欢迎你</span>
-          <span class="tenant-chip__name">{{ tenantName }}</span>
+          <span class="tenant-chip__name">{{ brandConfig.companyName }}</span>
         </span>
       </div>
 
@@ -152,8 +150,7 @@
         <template #dropdown>
           <el-dropdown-menu>
             <div class="user-menu-brand border-b border-outline-variant/30 px-4 py-4">
-              <img v-if="tenantLogoUrl" :src="tenantLogoUrl" alt="公司logo" class="user-menu-brand__logo">
-              <span v-else class="material-symbols-outlined user-menu-brand__icon">domain</span>
+              <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" :title="brandConfig.companyName" class="user-menu-brand__logo">
               <div class="min-w-0">
                 <p class="truncate text-sm font-black text-on-surface">{{ displayName }}</p>
                 <p class="mt-1 truncate text-xs font-bold text-on-surface-variant">组织：{{ tenantName }}</p>
@@ -231,6 +228,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { closeNotificationTask, getUnreadNotifications, markNotificationRead, syncNotifications } from '@/api/notification.js'
 import {decorateAccessItems, resolveAccessState} from '@/utils/access'
+import {brandConfig} from '@/config/brand'
 
 defineOptions({ name: 'Navbar' });
 
@@ -274,8 +272,6 @@ const pendingNotifications = ref([])
 const pageTitle = computed(() => route.meta.title || '高管总览大盘')
 const displayName = computed(() => userStore.userInfo?.userName || '当前用户')
 const tenantName = computed(() => userStore.currentTenantName)
-const tenantLogoUrl = computed(() => userStore.currentTenantLogoUrl)
-const tenantTooltip = computed(() => `欢迎你：${userStore.currentTenantLabel}`)
 const roleLabel = computed(() => '运营管理')
 const canSyncNotifications = computed(() => userStore.hasPermission('notification:announcement:publish'))
 const avatarText = computed(() => {
@@ -650,12 +646,12 @@ onBeforeUnmount(() => {
 .tenant-chip__logo-frame,
 .tenant-chip__fallback-icon {
   display: inline-flex;
-  width: 2.25rem;
+  width: 4rem;
   height: 2.25rem;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 0.9rem;
+  border-radius: 0.65rem;
   background: #ffffff;
   box-shadow: inset 0 0 0 1px rgb(var(--ys-primary-rgb) / 0.08), 0 8px 18px rgb(var(--ys-primary-rgb) / 0.1);
 }
@@ -666,9 +662,9 @@ onBeforeUnmount(() => {
 }
 
 .tenant-chip__logo {
-  width: 82%;
-  height: 82%;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .tenant-chip__text {
@@ -703,7 +699,7 @@ onBeforeUnmount(() => {
 
 .user-menu-brand__logo,
 .user-menu-brand__icon {
-  width: 2.6rem;
+  width: 4.6rem;
   height: 2.6rem;
   flex: 0 0 auto;
   border-radius: 0.9rem;
@@ -712,8 +708,7 @@ onBeforeUnmount(() => {
 }
 
 .user-menu-brand__logo {
-  object-fit: contain;
-  padding: 0.22rem;
+  object-fit: cover;
 }
 
 .user-menu-brand__icon {
@@ -733,7 +728,7 @@ onBeforeUnmount(() => {
 
   .tenant-chip__logo-frame,
   .tenant-chip__fallback-icon {
-    width: 1.8rem;
+    width: 3.2rem;
     height: 1.8rem;
   }
 
