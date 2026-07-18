@@ -8,12 +8,11 @@ import java.time.Duration;
 
 @Data
 @Component
-@ConfigurationProperties(prefix = "logistics.kuaidi100")
-public class Kuaidi100Properties {
+@ConfigurationProperties(prefix = "logistics.apispace")
+public class ApispaceLogisticsProperties {
 
     private boolean enabled;
-    private String key;
-    private String customer;
+    private String token;
     private Duration connectTimeout = Duration.ofSeconds(5);
     private Duration requestTimeout = Duration.ofSeconds(10);
 }

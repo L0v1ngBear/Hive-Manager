@@ -51,14 +51,15 @@ external-api:
       upload-window-seconds: ${EXTERNAL_API_OSS_UPLOAD_WINDOW_SECONDS:3600}
 
 logistics:
-  kuaidi100:
-    enabled: ${KUAIDI100_ENABLED:false}
-    key: ${KUAIDI100_KEY:}
-    customer: ${KUAIDI100_CUSTOMER:}
-    connect-timeout: ${KUAIDI100_CONNECT_TIMEOUT:5s}
-    request-timeout: ${KUAIDI100_REQUEST_TIMEOUT:10s}
+  provider: ${LOGISTICS_PROVIDER:apispace}
+  apispace:
+    enabled: ${APISPACE_LOGISTICS_ENABLED:false}
+    token: ${APISPACE_LOGISTICS_TOKEN:}
+    connect-timeout: ${APISPACE_LOGISTICS_CONNECT_TIMEOUT:5s}
+    request-timeout: ${APISPACE_LOGISTICS_REQUEST_TIMEOUT:10s}
 
 storage:
+  provider: ${FILE_STORAGE_PROVIDER:local}
   oss:
     enabled: ${ALIYUN_OSS_ENABLED:false}
     endpoint: ${ALIYUN_OSS_ENDPOINT:}

@@ -2,6 +2,14 @@
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
+trim_value() {
+  printf '%s' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+}
+
+normalize_provider() {
+  trim_value "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 docker_available="YES"
 if ! command -v docker >/dev/null 2>&1; then
   if [ "${ALLOW_MISSING_DOCKER:-NO}" = "YES" ]; then
@@ -57,13 +65,33 @@ if env_true NOTIFICATION_SMS_ENABLED; then
   done
 fi
 
-if env_true KUAIDI100_ENABLED; then
-  for key in KUAIDI100_KEY KUAIDI100_CUSTOMER; do
-    value="$(env_value "${key}")"
-    [ -n "${value}" ] || fail "Kuaidi100 is enabled but ${key} is empty"
-    case "${value}" in CHANGE_ME*) fail "Kuaidi100 is enabled but ${key} is a placeholder" ;; esac
+logistics_provider="$(normalize_provider "$(env_value LOGISTICS_PROVIDER)")"
+case "${logistics_provider}" in
+  apispace) ;;
+  *) fail "unsupported logistics provider: ${logistics_provider}" ;;
+esac
+
+if env_true APISPACE_LOGISTICS_ENABLED; then
+  for key in APISPACE_LOGISTICS_TOKEN; do
+    value="$(trim_value "$(env_value "${key}")")"
+    [ -n "${value}" ] || fail "APISpace logistics is enabled but ${key} is empty"
+    case "${value}" in CHANGE_ME*) fail "APISpace logistics is enabled but ${key} is a placeholder" ;; esac
   done
 fi
+
+storage_provider="$(normalize_provider "$(env_value FILE_STORAGE_PROVIDER)")"
+case "${storage_provider}" in
+  local) ;;
+  aliyun-oss)
+    env_true ALIYUN_OSS_ENABLED || fail "aliyun-oss storage requires ALIYUN_OSS_ENABLED=true"
+    for key in ALIYUN_OSS_ENDPOINT ALIYUN_OSS_BUCKET ALIYUN_OSS_ACCESS_KEY_ID ALIYUN_OSS_ACCESS_KEY_SECRET; do
+      value="$(trim_value "$(env_value "${key}")")"
+      [ -n "${value}" ] || fail "aliyun-oss storage requires ${key}"
+      case "${value}" in CHANGE_ME*) fail "aliyun-oss storage uses a placeholder for ${key}" ;; esac
+    done
+    ;;
+  *) fail "unsupported file storage provider: ${storage_provider}" ;;
+esac
 
 [ "$(find backend -maxdepth 1 -type f -name '*.jar' | wc -l | tr -d ' ')" = "1" ] || fail "backend directory must contain exactly one JAR"
 if [ "${docker_available}" = "YES" ]; then

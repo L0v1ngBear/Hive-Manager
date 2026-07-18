@@ -63,6 +63,8 @@
 - 编辑后推进必须先调用 `PUT /orders/{orderId}` 保存完整订单和 shipment 子表，保存成功后才调用 `POST /orders/{orderId}/advance`；保存失败时不得继续推进。
 - 单条轨迹只使用 shipment-specific 路径 `GET /orders/{orderId}/shipments/{shipmentId}/logistics-tracking`，响应单号字段为 `trackingNo`，不保留订单级或旧字段兼容合同。
 - 物流供应商查询仅在用户 hover 打开对应物流单号 popover 时触发；列表加载、详情加载和普通鼠标移动不得预查询供应商。
+- 订单领域只调用 `LogisticsTrackingGateway` 统一入口；Gateway 根据 `LOGISTICS_PROVIDER` 分派供应商子实现。当前实现为 `apispace`，业务服务不直接拼接 APISpace 请求参数。
+- APISpace 查询只发送客户电话数字的最后四位，不发送完整电话号码；Token 仅存在服务器环境变量中。
 - 物流 hover 查询要求 `order:detail` 与当前订单阶段查看权限；list-only 用户仅看到置灰单号，不创建 popover，也不调用 tracking API。
 - 成功轨迹缓存 30 分钟，供应商失败使用 30 秒短缓存抑制重复请求。缓存身份包含 tenant、order、shipmentId、当前物流公司和当前物流单号；更换公司、单号或 shipment 后必须形成新的缓存身份。
 - 新增和更新 shipment 在事务提交后分别记录 `add_order_shipment`、`update_order_shipment` 操作动作；日志只保存 shipment 标识和脱敏后的单号指纹，不记录明文物流单号。

@@ -9,6 +9,7 @@ import com.aliyun.oss.model.PutObjectResult;
 import lombok.extern.slf4j.Slf4j;
 import my.hive.shared.external.ExternalApiGuardService;
 import my.hive.shared.exception.BusinessException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -27,16 +28,18 @@ import java.time.LocalDate;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-public class OssStorageService {
+public class OssStorageService implements FileStorageProvider {
 
     private static final String STORAGE_PROVIDER = "ALIYUN_OSS";
 
     private final OssStorageProperties properties;
     private final ExternalApiGuardService externalApiGuardService;
+    private final Supplier<OSS> clientSupplier;
 
     @Value("${external-api.guard.oss.max-uploads-per-tenant-window:120}")
     private Integer ossMaxUploadsPerTenantWindow;
@@ -44,14 +47,32 @@ public class OssStorageService {
     @Value("${external-api.guard.oss.upload-window-seconds:3600}")
     private Integer ossUploadWindowSeconds;
 
+    @Autowired
     public OssStorageService(OssStorageProperties properties, ExternalApiGuardService externalApiGuardService) {
-        this.properties = properties;
-        this.externalApiGuardService = externalApiGuardService;
+        this(properties, externalApiGuardService, () -> new OSSClientBuilder().build(
+                properties.getEndpoint(),
+                properties.getAccessKeyId(),
+                properties.getAccessKeySecret()
+        ));
     }
 
-    public FileUploadResult upload(MultipartFile file, String tenantCode) {
+    OssStorageService(OssStorageProperties properties,
+                      ExternalApiGuardService externalApiGuardService,
+                      Supplier<OSS> clientSupplier) {
+        this.properties = properties;
+        this.externalApiGuardService = externalApiGuardService;
+        this.clientSupplier = clientSupplier;
+    }
+
+    @Override
+    public String providerCode() {
+        return "aliyun-oss";
+    }
+
+    @Override
+    public FileUploadResult upload(MultipartFile file, String tenantCode, String module) {
         validateConfig();
-        FileCandidate candidate = validateFile(file, tenantCode);
+        FileCandidate candidate = validateFile(file, tenantCode, module);
         externalApiGuardService.checkRateLimit(
                 "aliyun-oss",
                 "upload",
@@ -59,14 +80,10 @@ public class OssStorageService {
                 ossMaxUploadsPerTenantWindow == null ? 120 : ossMaxUploadsPerTenantWindow,
                 Duration.ofSeconds(ossUploadWindowSeconds == null ? 3600 : Math.max(1, ossUploadWindowSeconds))
         );
-        String objectKey = buildObjectKey(candidate.tenantCode(), candidate.fileExt());
+        String objectKey = buildObjectKey(candidate.tenantCode(), candidate.module(), candidate.fileExt());
         String fileHash = sha256(file);
 
-        OSS ossClient = new OSSClientBuilder().build(
-                properties.getEndpoint(),
-                properties.getAccessKeyId(),
-                properties.getAccessKeySecret()
-        );
+        OSS ossClient = clientSupplier.get();
         try (InputStream inputStream = file.getInputStream()) {
             ObjectMetadata metadata = new ObjectMetadata();
             metadata.setContentLength(candidate.fileSize());
@@ -104,17 +121,14 @@ public class OssStorageService {
         return properties.isEnabled();
     }
 
+    @Override
     public void deleteQuietly(String objectKey) {
         if (!properties.isEnabled() || !StringUtils.hasText(objectKey)) {
             return;
         }
         OSS ossClient = null;
         try {
-            ossClient = new OSSClientBuilder().build(
-                    properties.getEndpoint(),
-                    properties.getAccessKeyId(),
-                    properties.getAccessKeySecret()
-            );
+            ossClient = clientSupplier.get();
             ossClient.deleteObject(properties.getBucketName(), objectKey);
         } catch (Exception e) {
             log.warn("delete aliyun oss object failed, objectKey={}", objectKey, e);
@@ -140,9 +154,12 @@ public class OssStorageService {
         }
     }
 
-    private FileCandidate validateFile(MultipartFile file, String tenantCode) {
+    private FileCandidate validateFile(MultipartFile file, String tenantCode, String module) {
         if (!StringUtils.hasText(tenantCode)) {
             throw new BusinessException("租户信息缺失，无法上传文件");
+        }
+        if (!StringUtils.hasText(module)) {
+            throw new BusinessException("File storage module is required");
         }
         if (file == null || file.isEmpty()) {
             throw new BusinessException("请选择需要上传的文件");
@@ -173,7 +190,14 @@ public class OssStorageService {
             throw new BusinessException("不支持的文件内容类型：" + mimeType);
         }
 
-        return new FileCandidate(sanitizePathSegment(tenantCode), originalName, fileExt, mimeType, size);
+        return new FileCandidate(
+                sanitizePathSegment(tenantCode),
+                sanitizePathSegment(module),
+                originalName,
+                fileExt,
+                mimeType,
+                size
+        );
     }
 
     private String normalizeOriginalName(String originalFilename) {
@@ -198,10 +222,10 @@ public class OssStorageService {
         return originalName.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
     }
 
-    private String buildObjectKey(String tenantCode, String fileExt) {
+    private String buildObjectKey(String tenantCode, String module, String fileExt) {
         LocalDate today = LocalDate.now();
         String prefix = sanitizePrefix(properties.getPathPrefix());
-        return prefix + "/" + tenantCode + "/" + today.getYear() + "/"
+        return prefix + "/" + tenantCode + "/" + module + "/" + today.getYear() + "/"
                 + String.format("%02d", today.getMonthValue()) + "/"
                 + String.format("%02d", today.getDayOfMonth()) + "/"
                 + UUID.randomUUID() + "." + fileExt;
@@ -274,6 +298,13 @@ public class OssStorageService {
                 .collect(Collectors.joining("/"));
     }
 
-    private record FileCandidate(String tenantCode, String originalName, String fileExt, String mimeType, long fileSize) {
+    private record FileCandidate(
+            String tenantCode,
+            String module,
+            String originalName,
+            String fileExt,
+            String mimeType,
+            long fileSize
+    ) {
     }
 }

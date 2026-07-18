@@ -29,7 +29,7 @@ Hive is a single-tenant-first enterprise workflow system. The public business mo
 The following integrations remain disabled by default and are enabled only through production configuration:
 
 - WeChat mini-program login and subscription messages
-- Kuaidi100 logistics tracking
+- APISpace logistics tracking through the configurable logistics provider gateway
 - Aliyun OSS
 - SMS
 - RabbitMQ

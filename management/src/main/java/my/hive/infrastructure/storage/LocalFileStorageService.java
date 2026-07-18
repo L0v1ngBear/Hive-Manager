@@ -23,7 +23,7 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-public class LocalFileStorageService {
+public class LocalFileStorageService implements FileStorageProvider {
 
     private static final String STORAGE_PROVIDER = "LOCAL";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
@@ -42,6 +42,12 @@ public class LocalFileStorageService {
     @Value("${server.servlet.context-path:}")
     private String contextPath;
 
+    @Override
+    public String providerCode() {
+        return "local";
+    }
+
+    @Override
     public FileUploadResult upload(MultipartFile file, String tenantCode, String module) {
         FileCandidate candidate = validateFile(file, tenantCode, module);
         String dateFolder = LocalDate.now().format(DATE_FORMATTER);
@@ -76,6 +82,7 @@ public class LocalFileStorageService {
                 .build();
     }
 
+    @Override
     public void deleteQuietly(String objectKey) {
         if (!StringUtils.hasText(objectKey)) {
             return;

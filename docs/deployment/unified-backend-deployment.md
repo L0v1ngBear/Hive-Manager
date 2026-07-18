@@ -77,7 +77,9 @@ Do not use file-only rollback, partial business-data reset, edited historical mi
 
 ## Optional integrations
 
-WeChat, Kuaidi100, OSS, SMS, RabbitMQ and XXL-JOB remain disabled by default. Enable each integration only after its credentials and health checks are configured. Optional services must not create a second Hive backend process.
+WeChat, APISpace logistics, OSS, SMS, RabbitMQ and XXL-JOB remain disabled by default. Logistics uses `LOGISTICS_PROVIDER=apispace`, with `APISPACE_LOGISTICS_ENABLED=false` and a blank `APISPACE_LOGISTICS_TOKEN` in `.env.example`. Set the token only in the server-owned `.env`; the deployment package and source configuration must contain only environment-variable mappings.
+
+File storage uses `FILE_STORAGE_PROVIDER=local` by default, so existing local uploads remain unchanged. To select `aliyun-oss`, set `ALIYUN_OSS_ENABLED=true` and provide the endpoint, bucket, access key ID and access key secret. The deployment health check rejects an enabled APISpace integration without its token and rejects an OSS provider without all required OSS settings. Optional services must not create a second Hive backend process.
 
 ## Acceptance
 

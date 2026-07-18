@@ -409,8 +409,8 @@ stateDiagram-v2
 | `cache:inventory:warning-threshold:{tenant}` | 6 小时 | 设置保存删除阈值与 warning/dashboard。 |
 | `cache:order:warning:{tenant}:{version-thresholds-scopeHash}` | 2 分钟 | 订单创建/保存/状态变化、设置保存或手工 refresh 删除 pattern。 |
 | `cache:order:stale-warning-setting:{tenant}` | 6 小时 | `order_setting` 保存删除；兼容删除旧 `stale-warning-days` key。 |
-| `cache:external-api:kuaidi100:realtime-query:{fingerprint}` | 30 分钟，规范化物流轨迹 | 网页端只在悬浮物流单号时请求；后端按租户、快递100公司编码和物流单号生成指纹。同一实例内相同指纹并发请求合并为一次。 |
-| `cache:external-api:kuaidi100:realtime-query-error:{fingerprint}` | 30 秒，脱敏失败冷却 | 上游暂时失败后短暂复用业务错误，避免连续悬浮反复冲击快递100；缓存不保存上游原始响应、密钥或手机号。 |
+| `cache:external-api:apispace-logistics:realtime-query:{fingerprint}` | 30 分钟，规范化物流轨迹 | 网页端只在悬浮物流单号时请求；订单领域调用统一 `LogisticsTrackingGateway`，由配置选择供应商子实现。后端按租户、订单、shipment、公司和物流单号生成指纹，同一实例内相同指纹并发请求合并为一次。 |
+| `cache:external-api:apispace-logistics:realtime-query-error:{fingerprint}` | 30 秒，脱敏失败冷却 | 上游暂时失败后短暂复用业务错误，避免连续悬浮反复冲击 APISpace；缓存不保存上游原始响应、Token、完整物流单号或客户电话。 |
 | `cache:auth:web-scan-login:{scene}` | 180 秒 | session 创建/确认/消费覆盖状态，过期即失败。 |
 | `cache:auth:password-reset:code:{phoneHash}`、组织加入 SMS | 5 分钟 | 验证成功删除；发送锁 60 秒，失败计数按锁窗过期。 |
 | `cache:auth:organization-join:{code}` | 15 分钟 | 管理组织生成，小程序/网页加入读取；过期无效。 |
