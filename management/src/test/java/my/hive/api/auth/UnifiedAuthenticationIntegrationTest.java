@@ -1,6 +1,7 @@
 package my.hive.api.auth;
 
 import my.hive.domain.auth.service.AuthenticationService;
+import my.hive.domain.auth.model.vo.MiniWechatLoginVO;
 import my.hive.shared.utils.ResponseEncryptUtil;
 import my.hive.shared.interceptor.PlatformScopeInterceptor;
 import my.hive.shared.interceptor.TenantContextFilter;
@@ -70,12 +71,28 @@ class UnifiedAuthenticationIntegrationTest {
         org.assertj.core.api.Assertions.assertThat(Files.exists(canonical)).isTrue();
     }
 
-    @Test void exposesWechatScanConfirmMeAndLogoutThroughSharedService() throws Exception {
+    @Test void exposesWechatLoginAndTenantSelectionRoutes() throws Exception {
         LoginVO principal=new LoginVO(); principal.setUserId(7L); principal.setTenantCode("tenant-a");
-        when(authenticationService.wechatLogin(any())).thenReturn(principal);
-        when(authenticationService.currentUser()).thenReturn(principal);
+        MiniWechatLoginVO wechatLogin = new MiniWechatLoginVO();
+        wechatLogin.setFlowStatus("LOGGED_IN");
+        wechatLogin.setLoginInfo(principal);
+        when(authenticationService.wechatLogin(any())).thenReturn(wechatLogin);
+        when(authenticationService.selectWechatTenant(any())).thenReturn(principal);
         mvc.perform(post("/auth/mini/wechat-login").contentType(MediaType.APPLICATION_JSON).content("{\"phoneCode\":\"wx\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.userId").value(7));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.flowStatus").value("LOGGED_IN"))
+                .andExpect(jsonPath("$.data.loginInfo.userId").value(7));
+        mvc.perform(post("/auth/mini/wechat-login/select").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"selectionTicket\":\"ticket\",\"tenantCode\":\"tenant-a\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.userId").value(7));
+        verify(authenticationService).wechatLogin(any());
+        verify(authenticationService).selectWechatTenant(any());
+    }
+
+    @Test void exposesScanConfirmMeAndLogoutThroughSharedService() throws Exception {
+        LoginVO principal=new LoginVO(); principal.setUserId(7L); principal.setTenantCode("tenant-a");
+        when(authenticationService.currentUser()).thenReturn(principal);
         mvc.perform(post("/auth/admin/scan-login/confirm").contentType(MediaType.APPLICATION_JSON).content("{\"sceneKey\":\"scene\"}"))
                 .andExpect(status().isOk());
         mvc.perform(get("/auth/me")).andExpect(status().isOk()).andExpect(jsonPath("$.data.tenantCode").value("tenant-a"));
