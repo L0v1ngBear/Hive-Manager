@@ -28,6 +28,15 @@
       <header class="function-page-header min-h-14 shrink-0 border-b border-outline-variant/20 bg-surface-container-lowest px-4 py-2 sm:px-5">
         <div class="flex flex-wrap items-center gap-2">
           <el-button
+            circle
+            :disabled="currentParentId === 0 || !canBrowseDocuments"
+            :class="permissionDisabledClass(!canBrowseDocuments)"
+            :title="canBrowseDocuments ? '上一级' : breadcrumbPermissionReason"
+            @click="navigateUp"
+          >
+            <span class="material-symbols-outlined">arrow_upward</span>
+          </el-button>
+          <el-button
             :disabled="!canCreateFolder"
             :class="permissionDisabledClass(!canCreateFolder)"
             :title="canCreateFolder ? '新建文件夹' : '当前账号暂无新建文件夹权限'"
@@ -306,6 +315,12 @@ const handleDoubleClick = async (doc) => {
   } else {
     ElMessage.info('当前文件还没有可访问链接')
   }
+}
+
+const navigateUp = async () => {
+  if (currentParentId.value === 0) return
+  const parent = breadcrumbs.value.length >= 2 ? breadcrumbs.value[breadcrumbs.value.length - 2].id : 0
+  await documentNavigator.navigateUp(parent)
 }
 
 const navigateTo = async (id) => {
