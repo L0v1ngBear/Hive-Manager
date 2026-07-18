@@ -16,7 +16,7 @@
             </el-button>
 
             <div class="mb-8 inline-flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
-              <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="h-11 w-28 rounded-xl object-cover" />
+              <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="brand-logo-image h-11 w-28 rounded-xl object-cover" />
               <div>
                 <p class="text-sm font-black uppercase tracking-[0.28em] text-slate-400">{{ brandConfig.productName }}</p>
                 <p class="text-lg font-extrabold text-slate-900">组织加入</p>

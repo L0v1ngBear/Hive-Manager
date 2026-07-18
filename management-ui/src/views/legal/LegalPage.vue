@@ -4,7 +4,7 @@
       <header class="border-b border-[#e2e8f0]/60 bg-gradient-to-br from-[#ccfbf1] via-white to-[#ffffff] px-6 py-8 md:px-10">
         <div class="flex flex-wrap items-center justify-between gap-5">
           <div class="flex items-center gap-4">
-            <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="h-14 w-36 rounded-xl object-cover drop-shadow-sm">
+            <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="brand-logo-image h-14 w-36 rounded-xl object-cover drop-shadow-sm">
             <div>
               <p class="text-xs font-black uppercase tracking-[0.24em] text-[#0f766e]">{{ brandConfig.productName }}</p>
               <h1 class="mt-2 text-3xl font-black tracking-tight md:text-4xl">{{ pageTitle }}</h1>

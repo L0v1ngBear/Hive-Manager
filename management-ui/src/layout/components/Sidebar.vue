@@ -6,7 +6,7 @@
     <div class="h-20 flex items-center shrink-0 overflow-hidden" :class="isCollapsed ? 'justify-center px-0' : 'px-6'">
       <div class="sidebar-brand" :class="isCollapsed ? 'sidebar-brand--collapsed' : ''">
         <span class="sidebar-brand-logo">
-          <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" :title="brandConfig.companyName">
+          <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" :title="brandConfig.companyName" class="brand-logo-image">
         </span>
         <div v-if="!isCollapsed" class="min-w-0">
           <h1 class="sidebar-brand-title">{{ brandTitle }}</h1>
@@ -20,7 +20,7 @@
       class="sidebar-tenant-card"
       :title="brandConfig.companyName"
     >
-      <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="sidebar-tenant-card__logo">
+      <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="sidebar-tenant-card__logo brand-logo-image">
       <div class="min-w-0">
         <p class="sidebar-tenant-card__eyebrow">企业</p>
         <p class="sidebar-tenant-card__name">{{ brandConfig.companyName }}</p>

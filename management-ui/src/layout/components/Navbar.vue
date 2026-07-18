@@ -50,7 +50,7 @@
     <div class="flex items-center gap-2 md:gap-4">
       <div class="tenant-chip tenant-chip--branded" :title="brandConfig.companyName">
         <span class="tenant-chip__logo-frame">
-          <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="tenant-chip__logo">
+          <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="tenant-chip__logo brand-logo-image">
         </span>
         <span class="tenant-chip__text">
           <span class="tenant-chip__name">{{ brandConfig.companyName }}</span>
@@ -150,7 +150,7 @@
         <template #dropdown>
           <el-dropdown-menu>
             <div class="user-menu-brand border-b border-outline-variant/30 px-4 py-4">
-              <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" :title="brandConfig.companyName" class="user-menu-brand__logo">
+              <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" :title="brandConfig.companyName" class="user-menu-brand__logo brand-logo-image">
               <div class="min-w-0">
                 <p class="truncate text-sm font-black text-on-surface">{{ displayName }}</p>
                 <p class="mt-1 truncate text-xs font-bold text-on-surface-variant">组织：{{ tenantName }}</p>

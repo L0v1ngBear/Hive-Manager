@@ -277,6 +277,10 @@ button[aria-disabled="true"],
   margin: 0 auto;
 }
 
+.brand-logo-image {
+  object-position: center 62%;
+}
+
 .function-page-container.space-y-6 > :not([hidden]) ~ :not([hidden]) {
   margin-top: var(--function-section-gap);
 }
