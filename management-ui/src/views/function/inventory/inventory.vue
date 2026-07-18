@@ -160,7 +160,7 @@
 
           <div v-if="!canListInventory" class="flex flex-1 items-center justify-center p-8"><el-empty description="暂无 inventory:list 权限，无法查看库存内容" /></div>
           <div v-else-if="listLoadError" class="flex flex-1 items-center justify-center p-8"><el-empty :description="listLoadError.message"><el-button type="primary" @click="fetchData">重试</el-button></el-empty></div>
-          <div v-else-if="loading" v-loading="loading" class="flex-1" element-loading-text="正在加载库存数据" />
+          <div v-else-if="loading" v-loading="loading" class="min-h-40 flex-1" element-loading-text="正在加载库存数据" />
           <div v-else class="function-table-scroll responsive-table-wrap relative flex-1">
             <table v-if="rows.length" class="responsive-data-table w-full border-collapse text-left">
               <thead class="sticky top-0 z-0 bg-slate-50/80">
