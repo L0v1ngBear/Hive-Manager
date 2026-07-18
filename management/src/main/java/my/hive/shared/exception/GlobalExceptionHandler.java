@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import my.hive.domain.auth.model.AuthReason;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.dto.Result;
 import my.hive.shared.event.SystemEvent;
@@ -20,8 +21,11 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -98,11 +102,28 @@ public class GlobalExceptionHandler {
             String safeMessage = sanitizer.toSafeExceptionMessage(e);
             log.error("database constraint violation");
             publishExceptionEvent("DATA_CONSTRAINT_VIOLATION", "Database constraint violation", e, request);
+            if (isTenantPhoneHashUniqueViolation(e)) {
+                return new ResponseEntity<>(
+                        Result.fail(409, AuthReason.PHONE_ACCOUNT_AMBIGUOUS, safeMessage), HttpStatus.CONFLICT);
+            }
             return new ResponseEntity<>(Result.fail(409, safeMessage), HttpStatus.CONFLICT);
         }
         log.error("system internal exception", e);
         publishExceptionEvent("GLOBAL_EXCEPTION", "接口发生未处理异常", e, request);
         return new ResponseEntity<>(Result.fail(500, "服务器内部错误，请稍后重试"), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    private boolean isTenantPhoneHashUniqueViolation(Throwable throwable) {
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        Throwable current = throwable;
+        while (current != null && visited.add(current)) {
+            String message = current.getMessage();
+            if (message != null && message.toLowerCase(Locale.ROOT).contains("uk_user_tenant_phone_hash")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private void publishExceptionEvent(String eventType, String title, Exception exception, HttpServletRequest request) {
