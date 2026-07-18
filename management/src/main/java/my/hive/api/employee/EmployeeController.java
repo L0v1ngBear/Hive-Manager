@@ -19,6 +19,7 @@ import my.hive.domain.employee.model.dto.EmployeePermissionOverrideRequest;
 import my.hive.domain.employee.model.dto.EmployeeStatusChangeRequest;
 import my.hive.domain.employee.model.dto.EmployeeUpdateRequest;
 import my.hive.domain.employee.model.vo.EmployeeDetailVO;
+import my.hive.domain.employee.model.vo.EmployeeCreateVO;
 import my.hive.domain.employee.model.vo.EmployeeFormOptionsVO;
 import my.hive.domain.employee.model.vo.EmployeeLeaderOptionVO;
 import my.hive.domain.employee.model.vo.EmployeePageVO;
@@ -80,7 +81,7 @@ public class EmployeeController {
     @PostMapping("/create")
     @RequirePermission(value = PermissionCatalogV3.CODE_EMPLOYEE_CREATE, message = "您没有权限新增员工")
     @CollectLog(module = "employee", action = "create", bizType = "employee", description = "管理端新增员工")
-    public Result<Long> create(@Valid @RequestBody EmployeeCreateRequest request) {
+    public Result<EmployeeCreateVO> create(@Valid @RequestBody EmployeeCreateRequest request) {
         return Result.success(employeeService.create(request));
     }
 

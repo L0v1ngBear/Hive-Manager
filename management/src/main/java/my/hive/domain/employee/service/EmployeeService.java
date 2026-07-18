@@ -39,6 +39,7 @@ import my.hive.domain.employee.model.entity.Position;
 import my.hive.domain.employee.model.enums.EmployeeStatusEnum;
 import my.hive.domain.employee.model.enums.EmployeeTypeEnum;
 import my.hive.domain.employee.model.vo.DepartmentOptionVO;
+import my.hive.domain.employee.model.vo.EmployeeCreateVO;
 import my.hive.domain.employee.model.vo.EmployeeDetailVO;
 import my.hive.domain.employee.model.vo.EmployeeFormOptionsVO;
 import my.hive.domain.employee.model.vo.EmployeeLeaderOptionVO;
@@ -56,16 +57,17 @@ import my.hive.domain.tenant.service.TenantLicenseService;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -97,6 +99,7 @@ public class EmployeeService {
     private static final int MAX_LEADER_NAME_LENGTH = 64;
     private static final int MAX_ROLE_NAMES_LENGTH = 500;
     private static final int MAX_REMARK_LENGTH = 500;
+    private static final SecureRandom INITIAL_CREDENTIAL_RANDOM = new SecureRandom();
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
     private static final List<String> EMPLOYEE_IMPORT_HEADERS = List.of(
             "姓名", "手机号", "部门", "职位", "状态", "员工类型", "入职日期", "邮箱", "直属领导姓名", "角色名称", "备注");
@@ -155,9 +158,6 @@ public class EmployeeService {
     /**
      * 新员工初始密码从配置读取，避免敏感默认值固定写死在代码中。
      */
-    @Value("${app.default-password.employee}")
-    private String defaultPassword;
-
     public Page<EmployeePageVO> page(EmployeePageQuery query) {
         if (query == null) {
             query = new EmployeePageQuery();
@@ -211,7 +211,7 @@ public class EmployeeService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public Long create(@Valid EmployeeCreateRequest request) {
+    public EmployeeCreateVO create(@Valid EmployeeCreateRequest request) {
         tenantLicenseService.ensureUserQuotaAvailable(TenantPermissionContext.getTenantCode());
         Department department = requireDepartment(request.getDepartmentId());
         Position position = requirePosition(request.getPositionId());
@@ -236,7 +236,7 @@ public class EmployeeService {
         employee.setPhone(phoneMask);
         employee.setPhoneHash(phoneHash);
         employee.setPhoneMask(phoneMask);
-        employee.setPassword(encryptUtil.encode(defaultPassword));
+        employee.setPassword(encryptUtil.encode(generateInitialCredential()));
         employee.setMustChangePassword(1);
         employee.setDepartmentName(department.getDeptName());
         employee.setPosition(position.getPositionName());
@@ -277,7 +277,12 @@ public class EmployeeService {
                 "attendanceRequired", employee.getAttendanceRequired(),
                 "empNo", ext.getEmpNo()
         ));
-        return employee.getId();
+        EmployeeCreateVO result = new EmployeeCreateVO();
+        result.setEmployeeId(employee.getId());
+        result.setEmpNo(empNo);
+        result.setPhoneMask(phoneMask);
+        result.setActivationRequired(true);
+        return result;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -1016,7 +1021,7 @@ public class EmployeeService {
             return null;
         }
         if (matchedUsers.size() > 1) {
-            throw new BusinessException("手机号 " + privacyProtectionUtil.maskPhone(normalizedPhone) + " 存在多条账号，请先合并用户后再导入");
+            throw duplicatePhoneException(normalizedPhone);
         }
 
         Employee matchedUser = matchedUsers.get(0);
@@ -1025,9 +1030,20 @@ public class EmployeeService {
                 .eq(EmployeeExt::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .last("LIMIT 1"));
         if (activeExt != null) {
-            throw new BusinessException("手机号 " + privacyProtectionUtil.maskPhone(normalizedPhone) + " 已存在");
+            throw duplicatePhoneException(normalizedPhone);
         }
         return matchedUser;
+    }
+
+    private String generateInitialCredential() {
+        byte[] bytes = new byte[32];
+        INITIAL_CREDENTIAL_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private BusinessException duplicatePhoneException(String normalizedPhone) {
+        return new BusinessException(409, "PHONE_ACCOUNT_AMBIGUOUS",
+                "手机号" + privacyProtectionUtil.maskPhone(normalizedPhone) + "已存在员工账号");
     }
 
     private void ensurePhoneNotExistsForUpdate(Long employeeId, String phone) {
