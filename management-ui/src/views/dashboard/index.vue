@@ -15,25 +15,24 @@
       </div>
 
       <div class="dashboard-quick-grid">
-        <el-button
+        <button
             v-for="action in quickActions"
             :key="action.route"
+            type="button"
             @click="openQuickAction(action)"
-            plain
-            class="dashboard-quick-action h-auto justify-start px-4 py-3.5 text-left"
+            class="dashboard-quick-action group"
         >
-          <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary transition-colors">
+          <div class="dashboard-quick-action__icon">
               <span class="material-symbols-outlined text-[30px] text-primary group-hover:text-white leading-none transition-colors">
                 {{ action.icon }}
               </span>
-            </div>
-            <div class="min-w-0">
-              <p class="text-sm font-bold text-on-surface truncate">{{ action.title }}</p>
-              <p class="text-xs text-on-surface-variant truncate mt-1">{{ action.description }}</p>
-            </div>
           </div>
-        </el-button>
+          <span class="dashboard-quick-action__copy">
+            <strong>{{ action.title }}</strong>
+            <small>{{ action.description }}</small>
+          </span>
+          <span class="material-symbols-outlined dashboard-quick-action__arrow">chevron_right</span>
+        </button>
       </div>
     </section>
 
@@ -530,12 +529,15 @@ onMounted(fetchOverview)
 <style scoped>
 .dashboard-overview {
   display: grid;
+  width: min(100%, 80rem);
+  min-width: 0;
+  margin-inline: auto;
   gap: 1rem;
 }
 
 .dashboard-hero {
   display: grid;
-  align-items: end;
+  align-items: stretch;
   gap: 1rem;
 }
 
@@ -555,11 +557,82 @@ onMounted(fetchOverview)
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
+  width: 100%;
   min-width: 0;
 }
 
 .dashboard-quick-action {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) 1.25rem;
+  align-items: center;
+  width: 100%;
+  min-height: 4rem;
   min-width: 0;
+  margin: 0;
+  border: 1px solid #d6dee8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.65rem 0.75rem;
+  color: #0f172a;
+  text-align: left;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.dashboard-quick-action:hover {
+  border-color: rgb(var(--ys-primary-rgb) / 0.45);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.09);
+  transform: translateY(-1px);
+}
+
+.dashboard-quick-action:focus-visible {
+  outline: none;
+  box-shadow: var(--ys-focus-ring);
+}
+
+.dashboard-quick-action__icon {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgb(var(--ys-primary-rgb) / 0.1);
+}
+
+.dashboard-quick-action:hover .dashboard-quick-action__icon {
+  background: var(--ys-primary);
+}
+
+.dashboard-quick-action__copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+  padding-inline: 0.65rem;
+}
+
+.dashboard-quick-action__copy strong,
+.dashboard-quick-action__copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-quick-action__copy strong {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.dashboard-quick-action__copy small {
+  color: var(--ys-on-surface-variant);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.dashboard-quick-action__arrow {
+  color: #94a3b8;
+  font-size: 1.25rem;
 }
 
 .dashboard-summary-grid {
@@ -589,7 +662,7 @@ onMounted(fetchOverview)
 
 @media (min-width: 1321px) {
   .dashboard-hero {
-    grid-template-columns: minmax(0, 0.9fr) minmax(34rem, 1.1fr);
+    grid-template-columns: minmax(20rem, 0.85fr) minmax(32rem, 1.15fr);
   }
 }
 

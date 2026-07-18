@@ -1,7 +1,10 @@
 <template>
   <aside
       class="ys-sidebar bg-surface-container-low flex-col relative z-20 transition-all duration-300 ease-in-out border-r border-outline-variant/20"
-      :class="[props.mobile ? 'flex h-full w-72' : 'hidden md:flex', props.mobile ? '' : isCollapsed ? 'w-[88px]' : 'w-64']"
+      :class="[
+        props.mobile ? 'flex h-full w-72' : 'hidden md:flex',
+        props.mobile ? '' : isCollapsed ? 'w-[88px] ys-sidebar--collapsed' : 'w-64'
+      ]"
   >
     <div class="h-20 flex items-center shrink-0 overflow-hidden" :class="isCollapsed ? 'justify-center px-0' : 'px-6'">
       <div class="sidebar-brand" :class="isCollapsed ? 'sidebar-brand--collapsed' : ''">
@@ -40,7 +43,7 @@
             <el-button
                 native-type="button"
                 text
-                class="relative flex h-auto w-full justify-start overflow-hidden rounded-xl text-left transition-all duration-200"
+                class="sidebar-nav-button relative flex h-auto w-full justify-start overflow-hidden rounded-xl text-left transition-all duration-200"
                 :class="linkClass(item)"
                 :disabled="item.disabled"
                 :title="item.disabled ? item.disabledReason : item.name"
@@ -67,7 +70,7 @@
           <el-button
               @click="toggleMore"
               text
-              class="w-full rounded-xl text-on-surface-variant transition-all duration-200 hover:bg-surface-container-highest hover:text-primary"
+              class="sidebar-nav-button w-full rounded-xl text-on-surface-variant transition-all duration-200 hover:bg-surface-container-highest hover:text-primary"
               :class="isCollapsed ? 'flex items-center justify-center px-3 py-3' : 'flex-row items-center justify-between px-4 py-3'"
               aria-label="更多功能"
           >
@@ -93,7 +96,7 @@
               <el-button
                   native-type="button"
                   text
-                  class="flex h-auto w-full justify-start overflow-hidden rounded-xl text-left transition-all duration-200"
+                  class="sidebar-nav-button flex h-auto w-full justify-start overflow-hidden rounded-xl text-left transition-all duration-200"
                   :class="linkClass(item)"
                   :disabled="item.disabled"
                   :title="item.disabled ? item.disabledReason : item.name"
@@ -366,6 +369,32 @@ const linkClass = (item) => {
   width: 3.25rem;
   height: 1.8rem;
   border-radius: 0.55rem;
+}
+
+.sidebar-nav-button {
+  min-height: 3rem;
+  margin: 0 !important;
+  padding: 0.65rem 1rem !important;
+}
+
+:deep(.sidebar-nav-button > span) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ys-sidebar--collapsed .sidebar-nav-button {
+  width: 100%;
+  min-width: 0;
+  padding: 0.65rem 0 !important;
+  justify-content: center !important;
+}
+
+.ys-sidebar--collapsed :deep(.sidebar-nav-button > span) {
+  justify-content: center;
+  gap: 0;
 }
 
 .sidebar-brand-logo img {

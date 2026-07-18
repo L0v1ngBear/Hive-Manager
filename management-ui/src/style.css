@@ -473,7 +473,7 @@ button[aria-disabled="true"],
   min-width: 0;
   min-height: 100%;
   container-type: inline-size;
-  --responsive-content-max: 112rem;
+  --responsive-content-max: 96rem;
   --responsive-section-gap: var(--function-section-gap, 1rem);
   --responsive-card-gap: var(--function-card-gap, 0.875rem);
   --responsive-card-radius: 0.75rem;
@@ -503,7 +503,9 @@ button[aria-disabled="true"],
 }
 
 .responsive-page-frame .function-page-container {
+  width: 100%;
   max-width: var(--responsive-content-max);
+  margin-inline: auto;
 }
 
 .responsive-page-frame .function-page-container.space-y-6 > :not([hidden]) ~ :not([hidden]) {
@@ -566,8 +568,9 @@ button[aria-disabled="true"],
 
 .function-filter-form {
   display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 15rem));
   align-items: end;
+  justify-content: start;
   gap: 0.75rem;
 }
 
@@ -585,7 +588,12 @@ button[aria-disabled="true"],
 .function-filter-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
+}
+
+.function-filter-actions .el-button + .el-button {
+  margin-left: 0;
 }
 
 .function-list-panel {

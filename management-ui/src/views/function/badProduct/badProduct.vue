@@ -1137,13 +1137,15 @@ function normalizeTypeForScope(value) {
 }
 
 .quality-filter-grid {
-  grid-template-columns: minmax(14rem, 1.4fr) repeat(2, minmax(10rem, 0.8fr));
+  grid-template-columns: minmax(16rem, 24rem) repeat(2, minmax(11rem, 16rem));
+  justify-content: start;
 }
 
 .quality-date-fields {
   display: grid;
   grid-column: 1 / -1;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(11rem, 16rem));
+  justify-content: start;
   gap: 0.75rem 1rem;
 }
 

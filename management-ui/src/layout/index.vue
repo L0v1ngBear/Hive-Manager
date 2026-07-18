@@ -11,7 +11,7 @@
     <div class="flex-1 flex flex-col min-w-0">
       <Navbar @toggle-mobile-menu="mobileMenuOpen = true" />
 
-      <main ref="mainRef" class="ys-app-main flex-1 min-h-0 overflow-y-auto">
+      <main ref="mainRef" class="ys-app-main flex-1 min-h-0 overflow-x-hidden overflow-y-auto">
         <div class="ys-app-content-frame">
           <router-view v-slot="{ Component, route }">
             <ResponsivePageFrame :route="route">

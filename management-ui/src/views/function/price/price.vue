@@ -100,9 +100,10 @@ watch(() => [route.query.keyword, route.query.q], async () => { applyRouteKeywor
 </script>
 
 <style scoped>
-:deep(.el-form--inline .el-form-item) { margin-bottom: 12px; }
-.price-filter-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; min-width: 0; }
-.price-filter-group:first-child { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+:deep(.el-form--inline.el-form) { grid-template-columns: minmax(0, 1fr); }
+:deep(.el-form--inline .el-form-item) { margin-bottom: 0; }
+.price-filter-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 15rem)); justify-content: start; gap: .75rem; min-width: 0; }
+.price-filter-group:first-child { grid-template-columns: repeat(auto-fit, minmax(11rem, 15rem)); }
 @media (max-width: 640px) { .price-filter-group, .price-filter-group:first-child { grid-template-columns: minmax(0, 1fr); } }
 h3 { margin: 20px 0 8px; font-weight: 800; }
 </style>
