@@ -1,15 +1,15 @@
 ReleaseName=Hive Unified Release
 ReleaseVersion=2.0.0
 ReleaseSource=git-commit
-SourceGitCommit=66b80dc94f3706482f395d6221dbf803fd6c6e15
+SourceGitCommit=05eacd268626265202c8216ce3d5b4f98e7e5761
 SourceBranch=main
-ReleasePackageGitCommit=66b80dc94f3706482f395d6221dbf803fd6c6e15
-BuildTimeUtc=2026-07-18T05:41:34Z
+ReleasePackageGitCommit=05eacd268626265202c8216ce3d5b4f98e7e5761
+BuildTimeUtc=2026-07-18T06:06:35Z
 
 BackendArtifact=backend/hive-backend.jar
 BackendArtifactCount=1
-BackendJarSha256=e55dc36095428b9d8d1ff448368951b4bb59555f7bf7b846e93c449ccf4fb43a
-BackendJarBytes=103319505
+BackendJarSha256=a722ce00f68a00df27052a9678cda62f6d33f62e9ad5298307fd51e98951cf0f
+BackendJarBytes=103319661
 SpringBootApplicationCount=1
 BackendBusinessContainerCount=1
 BackendContainerName=hive-backend
