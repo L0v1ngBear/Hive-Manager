@@ -587,13 +587,13 @@ onMounted(fetchOverview)
   margin-top: 0.25rem;
 }
 
-@media (min-width: 1025px) {
+@media (min-width: 1321px) {
   .dashboard-hero {
     grid-template-columns: minmax(0, 0.9fr) minmax(34rem, 1.1fr);
   }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1320px) {
   .dashboard-quick-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

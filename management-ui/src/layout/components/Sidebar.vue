@@ -18,13 +18,12 @@
     <div
       v-if="!isCollapsed && !userStore.isPlatformTenant"
       class="sidebar-tenant-card"
-      :title="tenantName"
+      :title="brandConfig.companyName"
     >
-      <img v-if="tenantLogoUrl" :src="tenantLogoUrl" :alt="`${tenantName} logo`" class="sidebar-tenant-card__logo">
-      <span v-else class="material-symbols-outlined sidebar-tenant-card__icon">domain</span>
+      <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="sidebar-tenant-card__logo">
       <div class="min-w-0">
-        <p class="sidebar-tenant-card__eyebrow">组织</p>
-        <p class="sidebar-tenant-card__name">{{ tenantName }}</p>
+        <p class="sidebar-tenant-card__eyebrow">企业</p>
+        <p class="sidebar-tenant-card__name">{{ brandConfig.companyName }}</p>
       </div>
     </div>
 
@@ -150,10 +149,8 @@ const route = useRoute()
 const userStore = useUserStore()
 const isCollapsed = ref(false)
 const approvalPendingCount = ref(0)
-const tenantName = computed(() => userStore.currentTenantName)
-const tenantLogoUrl = computed(() => userStore.currentTenantLogoUrl)
-const brandTitle = computed(() => brandConfig.companyName)
-const brandSubtitle = computed(() => brandConfig.productName)
+const brandTitle = computed(() => brandConfig.productName)
+const brandSubtitle = computed(() => '业务协同系统')
 const ANNOUNCEMENT_PERMISSIONS = [
   'notification:announcement:list',
   'notification:announcement:publish'
@@ -354,7 +351,7 @@ const linkClass = (item) => {
 
 .sidebar-brand-logo {
   display: inline-flex;
-  width: 7rem;
+  width: 6rem;
   height: 3.5rem;
   flex: 0 0 auto;
   align-items: center;
@@ -383,7 +380,7 @@ const linkClass = (item) => {
   white-space: nowrap;
   font-size: 1.05rem;
   font-weight: 950;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   color: #0f172a;
 }
 
@@ -394,7 +391,7 @@ const linkClass = (item) => {
   white-space: nowrap;
   font-size: 0.68rem;
   font-weight: 900;
-  letter-spacing: 0.16em;
+  letter-spacing: 0;
   color: var(--ys-on-surface-variant);
 }
 
@@ -415,7 +412,7 @@ const linkClass = (item) => {
 
 .sidebar-tenant-card__logo,
 .sidebar-tenant-card__icon {
-  width: 2.35rem;
+  width: 4rem;
   height: 2.35rem;
   flex: 0 0 auto;
   border-radius: 0.9rem;
@@ -424,8 +421,7 @@ const linkClass = (item) => {
 }
 
 .sidebar-tenant-card__logo {
-  object-fit: contain;
-  padding: 0.22rem;
+  object-fit: cover;
 }
 
 .sidebar-tenant-card__icon {
