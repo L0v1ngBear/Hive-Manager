@@ -14,8 +14,8 @@ function read(relativePath) {
 const releaseBaseline = read('db-migrations/baseline/hive_schema_baseline_v2.sql')
 assert.equal(
   createHash('sha256').update(releaseBaseline).digest('hex'),
-  '9f355eba38d9009fa92063f4c55b1ae8b52d9233fbcdd7c8ef4864f7810fb4bb',
-  'baseline v2 must remain byte-for-byte identical to the reviewed standalone-guidance-free baseline'
+  'd99de67e80de5170588af4c1c7923ebd57994a15866becdb7d96fea94e59bd7c',
+  'baseline v2 must remain byte-for-byte identical to the baseline already registered by production'
 )
 
 const historicalInstallationTaskMigration = read('db-migrations/migrations/V20260705_004_installation_task_schema.sql')

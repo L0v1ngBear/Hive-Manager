@@ -1258,7 +1258,7 @@ CREATE TABLE `tenant_usage_meter` (
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `user` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `tenant_code` varchar(50) DEFAULT NULL COMMENT '租户编码，允许为空仅用于遗留数据核对；认证会话必须绑定企业',
+  `tenant_code` varchar(50) DEFAULT NULL COMMENT '租户编码，微信一键登录未加入组织时为空',
   `name` varchar(50) DEFAULT NULL COMMENT '姓名',
   `login_name` varchar(64) DEFAULT NULL,
   `phone` varchar(20) DEFAULT NULL COMMENT '手机号',
