@@ -108,13 +108,32 @@ class GlobalExceptionHandlerTest {
         String rawMessage = "Duplicate entry 'TENANT-abc' for key 'uk_user_tenant_phone_hash'";
 
         ResponseEntity<Result<Void>> response = handler.handleGlobalException(
-                new DataIntegrityViolationException(rawMessage), request);
+                new IllegalStateException("persistence failure", new DataIntegrityViolationException(rawMessage)), request);
 
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getReason()).isEqualTo(AuthReason.PHONE_ACCOUNT_AMBIGUOUS);
         assertThat(response.getBody().getMsg()).isEqualTo(SensitiveDataSanitizer.DATA_CONSTRAINT_MESSAGE);
         assertThat(response.getBody().getMsg()).doesNotContain("uk_user_tenant_phone_hash");
         assertThat(output.getAll()).doesNotContain("uk_user_tenant_phone_hash");
+    }
+
+    @Test
+    void doesNotMapPhoneReasonForConstraintNamesThatOnlyContainTheTargetName() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<SystemEventPublisher> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(null);
+        SensitiveDataSanitizer sanitizer = new SensitiveDataSanitizer(
+                new ObjectMapper(), new OperationLogProperties());
+        GlobalExceptionHandler handler = new GlobalExceptionHandler(provider, sanitizer);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        String rawMessage = "Duplicate entry 'TENANT-abc' for key 'uk_user_tenant_phone_hash_backup'";
+
+        ResponseEntity<Result<Void>> response = handler.handleGlobalException(
+                new DataIntegrityViolationException(rawMessage), request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getReason()).isNull();
+        assertThat(response.getBody().getMsg()).isEqualTo(SensitiveDataSanitizer.DATA_CONSTRAINT_MESSAGE);
     }
 
     @Test

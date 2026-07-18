@@ -3,23 +3,15 @@ set -euo pipefail
 
 DEPLOY_DIR="${DEPLOY_DIR:-/root/hive}"
 DATABASE_NAME="${DATABASE_NAME:-hive}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 fail() {
   echo "FAIL: $1" >&2
   exit 1
 }
 
-mysql_root_db() {
-  docker compose exec -T mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-    --default-character-set=utf8mb4 "$@" "${DATABASE_NAME}"
-}
-
-cd "${DEPLOY_DIR}"
-test -f ".env" || fail "Missing ${DEPLOY_DIR}/.env"
-set -a
-source ./.env
-set +a
-test -n "${MYSQL_ROOT_PASSWORD:-}" || fail ".env missing MYSQL_ROOT_PASSWORD"
+source "${SCRIPT_DIR}/lib/database.sh"
+load_database_env || fail "Unable to load database connection settings"
 
 echo "Duplicate tenant phone hashes:"
 duplicate_rows="$(mysql_root_db -N -B <<'EOSQL'

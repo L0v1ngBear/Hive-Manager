@@ -25,15 +25,20 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @RestControllerAdvice
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private static final String TENANT_PHONE_HASH_UNIQUE_INDEX = "uk_user_tenant_phone_hash";
+    private static final Pattern MYSQL_CONSTRAINT_NAME = Pattern.compile(
+            "(?i)\\bfor key\\s+['`]?((?:[^'`.\\s]+\\.)?[^'`\\s]+)['`]?");
 
     private final ObjectProvider<SystemEventPublisher> systemEventPublisherProvider;
     private final SensitiveDataSanitizer sanitizer;
@@ -118,8 +123,18 @@ public class GlobalExceptionHandler {
         Throwable current = throwable;
         while (current != null && visited.add(current)) {
             String message = current.getMessage();
-            if (message != null && message.toLowerCase(Locale.ROOT).contains("uk_user_tenant_phone_hash")) {
-                return true;
+            if (message != null) {
+                Matcher matcher = MYSQL_CONSTRAINT_NAME.matcher(message);
+                if (matcher.find()) {
+                    String constraintName = matcher.group(1);
+                    int qualifierIndex = constraintName.lastIndexOf('.');
+                    String unqualifiedName = qualifierIndex >= 0
+                            ? constraintName.substring(qualifierIndex + 1)
+                            : constraintName;
+                    if (TENANT_PHONE_HASH_UNIQUE_INDEX.equalsIgnoreCase(unqualifiedName)) {
+                        return true;
+                    }
+                }
             }
             current = current.getCause();
         }

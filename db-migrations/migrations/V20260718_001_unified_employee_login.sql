@@ -1,12 +1,15 @@
 -- Enforce one hashed phone per real tenant without changing existing user data.
 -- Tenant-less rows are reported by audit-unified-employee-login.sh for manual reconciliation.
 
+DROP PROCEDURE IF EXISTS guard_unified_employee_login_phone_uniqueness;
+
 DELIMITER $$
 
 CREATE PROCEDURE guard_unified_employee_login_phone_uniqueness()
 BEGIN
     DECLARE duplicate_count BIGINT DEFAULT 0;
     DECLARE index_exists BIGINT DEFAULT 0;
+    DECLARE valid_index_count BIGINT DEFAULT 0;
 
     SELECT COUNT(*)
       INTO duplicate_count
@@ -37,7 +40,25 @@ BEGIN
         AND table_name = 'user'
         AND index_name = 'uk_user_tenant_phone_hash';
 
-    IF index_exists = 0 THEN
+    IF index_exists > 0 THEN
+        SELECT COUNT(*)
+          INTO valid_index_count
+          FROM (
+              SELECT index_name
+              FROM information_schema.statistics
+              WHERE table_schema = DATABASE()
+                AND table_name = 'user'
+                AND index_name = 'uk_user_tenant_phone_hash'
+              GROUP BY index_name, non_unique
+              HAVING non_unique = 0
+                 AND GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',') = 'tenant_code,phone_hash'
+          ) valid_indexes;
+
+        IF valid_index_count = 0 THEN
+            SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'Existing uk_user_tenant_phone_hash must be UNIQUE (tenant_code, phone_hash)';
+        END IF;
+    ELSE
         ALTER TABLE `user`
             ADD UNIQUE KEY `uk_user_tenant_phone_hash` (`tenant_code`, `phone_hash`);
     END IF;
