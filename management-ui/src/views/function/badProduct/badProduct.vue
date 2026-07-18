@@ -363,7 +363,7 @@ Output:
           <el-input
             v-model.trim="processForm.method"
             data-field="badProduct.processMethod"
-            placeholder="例如报废、返工、让步接收"
+            placeholder="请输入处理方式"
           />
         </el-form-item>
         <el-form-item label="处理措施">
