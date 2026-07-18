@@ -358,8 +358,8 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import { ElButton, ElDatePicker, ElDrawer, ElForm, ElInput, ElMessage, ElOption, ElRadio, ElRadioGroup, ElSelect } from 'element-plus'
+import { computed, h, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { ElButton, ElDatePicker, ElDrawer, ElForm, ElInput, ElMessage, ElMessageBox, ElOption, ElRadio, ElRadioGroup, ElSelect } from 'element-plus'
 import { useTenantFieldConfig } from '@/composables/useTenantFieldConfig'
 import { warnAndFocusField } from '@/utils/formFocus'
 import {
@@ -584,13 +584,33 @@ async function submit() {
       })
       ElMessage.success('员工基本信息更新成功。')
     } else {
-      await createEmployee(payload)
+      const createResult = await createEmployee(payload)
       ElMessage.success('员工档案创建成功。')
+      showEmployeeActivationGuide(createResult)
     }
     emit('success')
     emit('close')
   } finally {
     submitting.value = false
   }
+}
+
+function showEmployeeActivationGuide(createResult) {
+  if (!createResult.activationRequired) {
+    return
+  }
+
+  void ElMessageBox.alert(
+    h('div', { class: 'space-y-2 text-sm leading-6 text-slate-700' }, [
+      h('p', [h('span', { class: 'font-semibold' }, '登录工号：'), createResult.empNo || '--']),
+      h('p', [h('span', { class: 'font-semibold' }, '绑定手机号：'), createResult.phoneMask || '--']),
+      h('p', { class: 'pt-2 text-slate-500' }, '请员工在登录页选择“首次登录 / 忘记密码”，验证手机号后设置密码。')
+    ]),
+    '员工档案创建成功',
+    {
+      confirmButtonText: '我知道了',
+      type: 'success'
+    }
+  ).catch(() => {})
 }
 </script>

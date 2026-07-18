@@ -100,7 +100,7 @@
                     id="username"
                     v-model.trim="loginForm.username"
                     autocomplete="username"
-                    placeholder="请输入员工编号或邮箱"
+                    placeholder="请输入工号、手机号或登录账号"
                     size="large"
                 >
                   <template #prefix><span class="material-symbols-outlined text-lg">person</span></template>
@@ -111,7 +111,7 @@
               <template #label>
               <div class="flex justify-between items-center">
                 <span>密码</span>
-                <a href="#" class="text-sm font-semibold text-primary hover:text-on-primary-container transition-colors" @click.prevent="openResetPasswordDialog">忘记密码?</a>
+                <a href="#" class="text-sm font-semibold text-primary hover:text-on-primary-container transition-colors" @click.prevent="openResetPasswordDialog">首次登录 / 忘记密码</a>
               </div>
               </template>
                 <el-input
@@ -164,10 +164,10 @@
       </div>
     </section>
 
-    <el-dialog v-model="resetDialogVisible" title="重置密码" width="440px" destroy-on-close @closed="closeResetPasswordDialog">
+    <el-dialog v-model="resetDialogVisible" title="首次登录 / 忘记密码" width="440px" destroy-on-close @closed="closeResetPasswordDialog">
         <div class="mb-6">
           <div>
-            <p class="mt-2 text-sm text-slate-500">通过绑定手机号接收短信验证码后修改登录密码。</p>
+            <p class="mt-2 text-sm text-slate-500">首次登录或忘记密码时，通过绑定手机号接收短信验证码后设置登录密码。</p>
           </div>
         </div>
 
