@@ -21,6 +21,8 @@ import my.hive.shared.tenant.BoundedTenantProperties;
 import my.hive.shared.utils.ResponseEncryptUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -45,6 +47,7 @@ import static org.mockito.Mockito.when;
 class AuthenticationServiceTest {
     private static final String PHONE = "13800000000";
     private static final String HASH = "phone-hash";
+    private static final String MASK = "138****0000";
 
     private final AuthMapper mapper = mock(AuthMapper.class);
     private final WechatMiniProgramClient wechat = mock(WechatMiniProgramClient.class);
@@ -81,6 +84,7 @@ class AuthenticationServiceTest {
         when(tenants.isTenantAllowed(anyString())).thenReturn(true);
         when(wechat.getPhoneNumber("code")).thenReturn(PHONE);
         when(privacy.hashPhone(PHONE)).thenReturn(HASH);
+        when(privacy.maskPhone(PHONE)).thenReturn(MASK);
         when(redis.opsForValue()).thenReturn(values);
         when(redisKeyBuilder.cache(anyString(), anyString(), anyString(), anyString())).thenAnswer(invocation ->
                 String.join(":",
@@ -92,12 +96,13 @@ class AuthenticationServiceTest {
         when(tokenService.create(any(), anyString(), any())).thenReturn("login-token");
         when(responseEncryptUtil.buildResponseKey("login-token")).thenReturn("response-key");
         when(license.enabledFeatureKeys(anyString())).thenReturn(List.of());
+        when(mapper.backfillWechatPhoneHashAndMask(anyLong(), anyString(), eq(PHONE), eq(HASH), eq(MASK)))
+                .thenReturn(1);
     }
 
     @Test
     void returnsLoggedInFlowForOneEligibleEmployee() {
-        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
-                .thenReturn(List.of(user(1L, "a", 1)));
+        mockWechatCandidates(List.of(user(1L, "a", 1)));
 
         MiniWechatLoginVO result = service.wechatLogin(wechatRequest("code"));
 
@@ -109,14 +114,13 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void returnsOneTimeTenantSelectionForMultipleEmployees() throws Exception {
+    void backfillsMultipleLegacyTenantsIncludingPlainShaSeedBeforeOneTimeSelection() throws Exception {
         LoginUserRow tenantA = user(1L, "a", 1);
         tenantA.setTenantName("Tenant A");
         tenantA.setTenantLogoUrl("a.png");
         LoginUserRow tenantB = user(2L, "b", 1);
         tenantB.setTenantName("Tenant B");
-        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
-                .thenReturn(List.of(tenantA, tenantB));
+        mockWechatCandidates(List.of(tenantA, tenantB));
 
         MiniWechatLoginVO result = service.wechatLogin(wechatRequest("code"));
 
@@ -141,12 +145,19 @@ class AuthenticationServiceTest {
                 .containsExactly("a", "b");
         assertThat(jsonCaptor.getValue()).doesNotContain(PHONE, "login-token", "response-key");
         verify(tokenService, never()).create(any(), anyString(), any());
+        verify(mapper).backfillWechatPhoneHashAndMask(1L, "a", PHONE, HASH, MASK);
+        verify(mapper).backfillWechatPhoneHashAndMask(2L, "b", PHONE, HASH, MASK);
+
+        when(values.getAndDelete(keyCaptor.getValue())).thenReturn(jsonCaptor.getValue());
+        when(mapper.selectLoginUsersByPhoneHashAndTenant(HASH, "a")).thenReturn(List.of(tenantA));
+        assertThat(service.selectWechatTenant(selectRequest(result.getSelectionTicket(), "a")).getToken())
+                .isEqualTo("login-token");
+        verify(mapper).selectLoginUsersByPhoneHashAndTenant(HASH, "a");
     }
 
     @Test
     void rejectsUnknownWechatEmployeeWithReasonAndNoLoginToken() {
-        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
-                .thenReturn(List.of());
+        mockWechatCandidates(List.of());
 
         assertThatThrownBy(() -> service.wechatLogin(wechatRequest("code")))
                 .isInstanceOf(BusinessException.class)
@@ -160,24 +171,44 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void usesOnlyPhoneHashForWechatEmployeeLookup() {
-        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
-                .thenReturn(List.of());
+    void backfillsLegacyEmployeeBeforeHashOnlyRequery() {
+        LoginUserRow legacy = user(7L, "a", 1);
+        mockWechatCandidates(List.of(legacy));
 
-        assertThatThrownBy(() -> service.wechatLogin(wechatRequest("code")))
-                .isInstanceOf(BusinessException.class)
-                .extracting("reason")
-                .isEqualTo(AuthReason.EMPLOYEE_NOT_FOUND);
+        MiniWechatLoginVO result = service.wechatLogin(wechatRequest("code"));
 
+        assertThat(result.getFlowStatus()).isEqualTo("LOGGED_IN");
+        verify(mapper).selectWechatLoginUsersByPhoneInTenants(PHONE, HASH, List.of("a", "b"));
+        verify(mapper).backfillWechatPhoneHashAndMask(7L, "a", PHONE, HASH, MASK);
         verify(mapper).selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b"));
-        verify(mapper, never()).selectLoginUsersByPhoneInTenants(anyString(), anyString(), any(), any());
+    }
+
+    @Test
+    void compatibilityMapperMasksProjectionAndReplacesNonHmacHashesOnlyForUnchangedPhone() throws Exception {
+        Select lookup = AuthMapper.class.getMethod(
+                        "selectWechatLoginUsersByPhoneInTenants", String.class, String.class, List.class)
+                .getAnnotation(Select.class);
+        Update backfill = AuthMapper.class.getMethod(
+                        "backfillWechatPhoneHashAndMask",
+                        Long.class, String.class, String.class, String.class, String.class)
+                .getAnnotation(Update.class);
+        String lookupSql = String.join(" ", lookup.value());
+        String backfillSql = String.join(" ", backfill.value());
+
+        assertThat(lookupSql)
+                .contains("u.phone_mask AS phone")
+                .contains("u.phone_hash = #{phoneHash} OR u.phone = #{phone}")
+                .doesNotContain("COALESCE(u.phone_mask, u.phone)");
+        assertThat(backfillSql)
+                .contains("phone_hash = #{phoneHash}")
+                .contains("phone = #{phone}")
+                .doesNotContain("phone_hash IS NULL");
     }
 
     @Test
     void disabledEmployeeReasonPropagatesThroughInitialAndSelectedFlows() throws Exception {
         LoginUserRow disabled = user(1L, "a", -1);
-        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
-                .thenReturn(List.of(disabled));
+        mockWechatCandidates(List.of(disabled));
 
         assertThatThrownBy(() -> service.wechatLogin(wechatRequest("code")))
                 .isInstanceOf(BusinessException.class)
@@ -197,8 +228,7 @@ class AuthenticationServiceTest {
     @Test
     void resignedEmployeeReasonPropagatesThroughInitialAndSelectedFlows() throws Exception {
         LoginUserRow resigned = user(1L, "a", 0);
-        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
-                .thenReturn(List.of(resigned));
+        mockWechatCandidates(List.of(resigned));
 
         assertThatThrownBy(() -> service.wechatLogin(wechatRequest("code")))
                 .isInstanceOf(BusinessException.class)
@@ -242,8 +272,7 @@ class AuthenticationServiceTest {
     @Test
     void unavailableLicenseReasonPropagatesThroughInitialAndSelectedFlows() throws Exception {
         LoginUserRow active = user(1L, "a", 1);
-        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
-                .thenReturn(List.of(active));
+        mockWechatCandidates(List.of(active));
         doThrow(new BusinessException(403, "租户已到期或被停用，请联系平台管理员续费"))
                 .when(license).ensureTenantUsable("a");
 
@@ -394,6 +423,13 @@ class AuthenticationServiceTest {
                 .thenReturn(selectionPayload(HASH, List.of("a"), System.currentTimeMillis() + 60_000));
         when(mapper.selectLoginUsersByPhoneHashAndTenant(HASH, "a"))
                 .thenReturn(List.of(loginUser));
+    }
+
+    private void mockWechatCandidates(List<LoginUserRow> candidates) {
+        when(mapper.selectWechatLoginUsersByPhoneInTenants(PHONE, HASH, List.of("a", "b")))
+                .thenReturn(candidates);
+        when(mapper.selectLoginUsersByPhoneHashInTenants(HASH, List.of("a", "b")))
+                .thenReturn(candidates);
     }
 
     private String selectionKey(String ticket) {

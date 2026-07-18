@@ -353,9 +353,33 @@ public class AuthenticationService {
         if (tenantCode != null && !boundedTenantProperties.isTenantAllowed(tenantCode)) {
             throw tenantUnavailable();
         }
+        List<String> lookupTenantCodes = tenantCode == null ? allowedTenantCodes() : List.of(tenantCode);
+        List<LoginUserRow> compatibilityCandidates = authMapper.selectWechatLoginUsersByPhoneInTenants(
+                phone,
+                phoneHash,
+                lookupTenantCodes
+        );
+        if (compatibilityCandidates == null || compatibilityCandidates.isEmpty()) {
+            throw employeeNotFound();
+        }
+        String phoneMask = privacyProtectionUtil.maskPhone(phone);
+        for (LoginUserRow candidate : compatibilityCandidates) {
+            if (candidate != null
+                    && candidate.getUserId() != null
+                    && StringUtils.hasText(candidate.getTenantCode())) {
+                authMapper.backfillWechatPhoneHashAndMask(
+                        candidate.getUserId(),
+                        candidate.getTenantCode(),
+                        phone,
+                        phoneHash,
+                        phoneMask
+                );
+            }
+        }
+
         List<LoginUserRow> candidates = authMapper.selectLoginUsersByPhoneHashInTenants(
                 phoneHash,
-                tenantCode == null ? allowedTenantCodes() : List.of(tenantCode)
+                lookupTenantCodes
         );
         if (candidates == null || candidates.isEmpty()) {
             throw employeeNotFound();

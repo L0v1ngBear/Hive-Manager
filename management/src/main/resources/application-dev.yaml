@@ -58,7 +58,7 @@ logging:
     my.hive: DEBUG
     my.hive.domain: DEBUG
     my.hive.api: DEBUG
-    my.hive.domain.auth.mapper: TRACE
+    my.hive.domain.auth.mapper: WARN
     my.hive.domain.customer.mapper: DEBUG
     my.hive.domain.document.mapper: DEBUG
     my.hive.domain.employee.mapper: DEBUG
@@ -66,8 +66,8 @@ logging:
     my.hive.domain.print.receipt.mapper: DEBUG
     my.hive.domain.permission.mapper: DEBUG
     my.hive.domain.tenant.mapper: DEBUG
-    com.baomidou.mybatisplus: DEBUG
-    org.apache.ibatis: TRACE
-    org.mybatis: DEBUG
-    java.sql: DEBUG
-    javax.sql: DEBUG
+    com.baomidou.mybatisplus: WARN
+    org.apache.ibatis: WARN
+    org.mybatis: WARN
+    java.sql: WARN
+    javax.sql: WARN
