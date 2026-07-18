@@ -36,7 +36,7 @@
           </el-button>
 
           <el-button
-              class="function-action-primary px-6 py-4"
+              class="function-action-primary order-create-button"
               :class="permissionDisabledClass(!canCreateCurrentOrder)"
               :disabled="!canCreateCurrentOrder"
               :title="canCreateCurrentOrder ? '新建订单' : '当前账号暂无创建订单权限'"
@@ -160,7 +160,7 @@
         </button>
         </div>
         <div
-            class="order-filter-grid grid gap-4 border-b border-outline-variant/10 bg-surface-container-low/30 px-6 py-5">
+            class="order-filter-grid grid border-b border-outline-variant/10 bg-surface-container-low/30 px-4 py-3">
         <el-input
             v-model.trim="filters.keyword"
             class="box-input xl:col-span-2"
@@ -195,10 +195,10 @@
         </el-select>
         <div class="order-filter-actions flex flex-wrap items-center gap-2 md:col-span-2 xl:col-span-12">
           <div class="order-query-actions">
-            <el-button type="primary" class="order-filter-action-btn rounded-lg px-5 py-2.5 text-sm font-bold" @click="refreshOrders">
+            <el-button type="primary" class="order-filter-action-btn rounded-lg text-sm font-bold" @click="refreshOrders">
               查询
             </el-button>
-            <el-button class="order-filter-action-btn rounded-lg px-5 py-2.5 text-sm font-bold" @click="resetFilters">
+            <el-button class="order-filter-action-btn rounded-lg text-sm font-bold" @click="resetFilters">
               重置
             </el-button>
           </div>
@@ -3180,20 +3180,20 @@ function fulfillmentProcessText(row = {}) {
 .order-page-header-new {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--function-section-gap);
 }
 
 .order-title-row {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
+  gap: var(--function-card-gap);
 }
 
 .order-filter-overview-bar {
   display: flex;
   min-width: 0;
-  min-height: 3.25rem;
+  min-height: 2.75rem;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -3290,19 +3290,19 @@ function fulfillmentProcessText(row = {}) {
 .order-filter-overview-panel {
   display: grid;
   min-width: 0;
-  gap: 20px;
+  gap: var(--function-card-gap);
 }
 
 .order-secondary-summaries {
   display: grid;
   min-width: 0;
-  gap: 20px;
+  gap: var(--function-card-gap);
 }
 
 .order-summary-section {
   display: grid;
   min-width: 0;
-  gap: 10px;
+  gap: .625rem;
 }
 
 .order-summary-section-title {
@@ -3324,19 +3324,19 @@ function fulfillmentProcessText(row = {}) {
 .order-summary-grid-new {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--function-card-gap);
 }
 
 .order-category-summary-grid-new {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--function-card-gap);
 }
 
 .drawing-budget-summary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--function-card-gap);
 }
 
 .drawing-budget-stat-card {
@@ -3348,7 +3348,7 @@ function fulfillmentProcessText(row = {}) {
   min-width: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: .75rem;
 }
 
 .category-stat-card {
@@ -3859,6 +3859,7 @@ function fulfillmentProcessText(row = {}) {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   align-items: stretch;
+  gap: var(--function-card-gap);
 }
 
 .order-filter-date-row {
@@ -3889,8 +3890,8 @@ function fulfillmentProcessText(row = {}) {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  gap: .9rem;
-  row-gap: .9rem;
+  gap: .75rem;
+  row-gap: .75rem;
 }
 
 .order-query-actions {
@@ -3898,13 +3899,13 @@ function fulfillmentProcessText(row = {}) {
   flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: .65rem;
+  gap: .5rem;
 }
 
 .order-filter-action-btn {
   display: inline-flex;
-  min-width: 6.75rem;
-  min-height: 3rem;
+  min-width: 6.25rem;
+  min-height: var(--function-control-height);
   align-items: center;
   justify-content: center;
   white-space: nowrap;
@@ -3923,7 +3924,7 @@ function fulfillmentProcessText(row = {}) {
 
 .order-filter-actions :deep(.column-settings-trigger) {
   min-width: 7.8rem;
-  height: 3rem;
+  height: var(--function-control-height);
   padding-inline: .9rem;
   white-space: nowrap;
 }

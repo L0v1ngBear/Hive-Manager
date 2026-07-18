@@ -1,5 +1,5 @@
 <template>
-  <div class="label-print-page">
+  <div class="label-print-page function-page-shell font-body">
     <header class="label-print-header">
       <div>
         <div class="function-page-eyebrow">
@@ -42,14 +42,18 @@
         <strong>浏览器打印适配</strong>
         <span>不同打印机、热敏纸和驱动会有偏移，先打印校准页，再微调下面参数。</span>
       </div>
-      <el-form-item label="纸宽(mm)"><el-input-number v-model="printProfile.paperWidthMm" :min="20" :max="500" :step="0.1" @change="persistPrintProfile" /></el-form-item>
-      <el-form-item label="纸高(mm)"><el-input-number v-model="printProfile.paperHeightMm" :min="10" :max="500" :step="0.1" @change="persistPrintProfile" /></el-form-item>
-      <el-form-item label="边距(mm)"><el-input-number v-model="printProfile.pageMarginMm" :min="0" :max="30" :step="0.1" @change="persistPrintProfile" /></el-form-item>
-      <el-form-item label="左右偏移(mm)"><el-input-number v-model="printProfile.offsetXmm" :min="-50" :max="50" :step="0.1" @change="persistPrintProfile" /></el-form-item>
-      <el-form-item label="上下偏移(mm)"><el-input-number v-model="printProfile.offsetYmm" :min="-50" :max="50" :step="0.1" @change="persistPrintProfile" /></el-form-item>
-      <el-form-item label="缩放"><el-input-number v-model="printProfile.scale" :min="0.5" :max="1.5" :step="0.01" @change="persistPrintProfile" /></el-form-item>
-      <el-button @click="syncProfileWithTemplate">使用模板尺寸</el-button>
-      <el-button @click="resetCurrentPrintProfile">恢复默认</el-button>
+      <div class="print-profile-controls">
+        <el-form-item label="纸宽(mm)"><el-input-number v-model="printProfile.paperWidthMm" :min="20" :max="500" :step="0.1" @change="persistPrintProfile" /></el-form-item>
+        <el-form-item label="纸高(mm)"><el-input-number v-model="printProfile.paperHeightMm" :min="10" :max="500" :step="0.1" @change="persistPrintProfile" /></el-form-item>
+        <el-form-item label="边距(mm)"><el-input-number v-model="printProfile.pageMarginMm" :min="0" :max="30" :step="0.1" @change="persistPrintProfile" /></el-form-item>
+        <el-form-item label="左右偏移(mm)"><el-input-number v-model="printProfile.offsetXmm" :min="-50" :max="50" :step="0.1" @change="persistPrintProfile" /></el-form-item>
+        <el-form-item label="上下偏移(mm)"><el-input-number v-model="printProfile.offsetYmm" :min="-50" :max="50" :step="0.1" @change="persistPrintProfile" /></el-form-item>
+        <el-form-item label="缩放"><el-input-number v-model="printProfile.scale" :min="0.5" :max="1.5" :step="0.01" @change="persistPrintProfile" /></el-form-item>
+      </div>
+      <div class="print-profile-actions">
+        <el-button @click="syncProfileWithTemplate">使用模板尺寸</el-button>
+        <el-button @click="resetCurrentPrintProfile">恢复默认</el-button>
+      </div>
     </el-form>
 
     <section v-if="showTemplateEditor" class="template-editor-panel">
@@ -1308,8 +1312,8 @@ function formatDate(value) {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: clamp(18px, 2vw, 32px);
+  gap: var(--function-section-gap);
+  padding: clamp(12px, 1.25vw, 20px);
   background:
     radial-gradient(circle at 12% -6%, rgb(var(--ys-primary-rgb) / 0.14), transparent 34%),
     linear-gradient(180deg, #f7f9fc 0%, #ffffff 100%);
@@ -1319,13 +1323,13 @@ function formatDate(value) {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 20px;
+  gap: var(--function-card-gap);
 }
 
 .header-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: .5rem;
   justify-content: flex-end;
 }
 
@@ -1361,12 +1365,12 @@ function formatDate(value) {
 
 .print-profile-panel {
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) repeat(6, minmax(110px, 1fr)) auto auto;
-  gap: 12px;
+  grid-template-columns: minmax(12rem, 1.25fr) minmax(0, 3fr) auto;
+  gap: .75rem;
   align-items: end;
-  padding: 16px;
+  padding: .75rem;
   border: 1px solid rgb(var(--ys-primary-rgb) / 0.14);
-  border-radius: 22px;
+  border-radius: .75rem;
   background: rgba(255, 255, 255, 0.88);
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
 }
@@ -1394,6 +1398,25 @@ function formatDate(value) {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.print-profile-controls {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(6, minmax(6.25rem, 1fr));
+  gap: .5rem;
+}
+
+.print-profile-controls :deep(.el-form-item) {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.print-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: .5rem;
 }
 
 .print-profile-panel input {
@@ -1922,12 +1945,22 @@ function formatDate(value) {
     grid-template-columns: 1fr;
   }
 
+  .print-profile-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .label-print-header {
     align-items: stretch;
     flex-direction: column;
   }
 
   .template-field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .print-profile-controls {
     grid-template-columns: 1fr;
   }
 }

@@ -24,15 +24,19 @@
           <strong>浏览器打印适配</strong>
           <span>用于适配 241-1 连续纸、A4、热敏纸和不同打印驱动的边距偏移。</span>
         </div>
-        <el-form-item label="纸宽(mm)"><el-input-number v-model="receiptPrintProfile.paperWidthMm" :min="20" :max="500" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
-        <el-form-item label="纸高(mm)"><el-input-number v-model="receiptPrintProfile.paperHeightMm" :min="10" :max="500" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
-        <el-form-item label="边距(mm)"><el-input-number v-model="receiptPrintProfile.pageMarginMm" :min="0" :max="30" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
-        <el-form-item label="左右偏移(mm)"><el-input-number v-model="receiptPrintProfile.offsetXmm" :min="-50" :max="50" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
-        <el-form-item label="上下偏移(mm)"><el-input-number v-model="receiptPrintProfile.offsetYmm" :min="-50" :max="50" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
-        <el-form-item label="缩放"><el-input-number v-model="receiptPrintProfile.scale" :min="0.5" :max="1.5" :step="0.01" @change="persistReceiptPrintProfile" /></el-form-item>
-        <el-button @click="syncReceiptProfileWithTemplate">使用模板尺寸</el-button>
-        <el-button @click="printReceiptCalibrationPage">校准页</el-button>
-        <el-button @click="resetReceiptPrintProfile">恢复默认</el-button>
+        <div class="receipt-print-profile-controls">
+          <el-form-item label="纸宽(mm)"><el-input-number v-model="receiptPrintProfile.paperWidthMm" :min="20" :max="500" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
+          <el-form-item label="纸高(mm)"><el-input-number v-model="receiptPrintProfile.paperHeightMm" :min="10" :max="500" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
+          <el-form-item label="边距(mm)"><el-input-number v-model="receiptPrintProfile.pageMarginMm" :min="0" :max="30" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
+          <el-form-item label="左右偏移(mm)"><el-input-number v-model="receiptPrintProfile.offsetXmm" :min="-50" :max="50" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
+          <el-form-item label="上下偏移(mm)"><el-input-number v-model="receiptPrintProfile.offsetYmm" :min="-50" :max="50" :step="0.1" @change="persistReceiptPrintProfile" /></el-form-item>
+          <el-form-item label="缩放"><el-input-number v-model="receiptPrintProfile.scale" :min="0.5" :max="1.5" :step="0.01" @change="persistReceiptPrintProfile" /></el-form-item>
+        </div>
+        <div class="receipt-print-profile-actions">
+          <el-button @click="syncReceiptProfileWithTemplate">使用模板尺寸</el-button>
+          <el-button @click="printReceiptCalibrationPage">校准页</el-button>
+          <el-button @click="resetReceiptPrintProfile">恢复默认</el-button>
+        </div>
       </el-form>
 
   <div v-if="activeMode === 'print'" class="receipt-workspace">
@@ -1289,7 +1293,11 @@ function buildReceiptTemplateContent(config) {
 }
 
 .receipt-page-container {
-  padding-bottom: 1rem;
+  padding-bottom: .75rem;
+}
+
+.receipt-hero {
+  gap: var(--function-card-gap);
 }
 
 .receipt-tabs {
@@ -1321,13 +1329,13 @@ function buildReceiptTemplateContent(config) {
 
 .receipt-print-profile-panel {
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) repeat(6, minmax(110px, 1fr)) auto auto auto;
-  gap: 12px;
+  grid-template-columns: minmax(12rem, 1.25fr) minmax(0, 3fr) auto;
+  gap: .75rem;
   align-items: end;
-  margin-bottom: 1rem;
-  padding: 1rem;
+  margin-bottom: .75rem;
+  padding: .75rem;
   border: 1px solid rgb(var(--ys-primary-rgb) / 0.14);
-  border-radius: 1.25rem;
+  border-radius: .75rem;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
 }
@@ -1355,6 +1363,25 @@ function buildReceiptTemplateContent(config) {
   display: flex;
   flex-direction: column;
   gap: .4rem;
+}
+
+.receipt-print-profile-controls {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(6, minmax(6.25rem, 1fr));
+  gap: .5rem;
+}
+
+.receipt-print-profile-controls :deep(.el-form-item) {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.receipt-print-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: .5rem;
 }
 
 .receipt-print-profile-panel input {
@@ -2289,11 +2316,11 @@ function buildReceiptTemplateContent(config) {
 
 @media (max-width: 1280px) {
   .receipt-print-profile-panel {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
-  .receipt-print-profile-panel .profile-intro {
-    grid-column: 1 / -1;
+  .receipt-print-profile-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .receipt-preview-layout {
@@ -2349,6 +2376,10 @@ function buildReceiptTemplateContent(config) {
 
 @media (max-width: 720px) {
   .receipt-print-profile-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .receipt-print-profile-controls {
     grid-template-columns: 1fr;
   }
 
