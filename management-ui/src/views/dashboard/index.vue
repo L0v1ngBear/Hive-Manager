@@ -1,11 +1,11 @@
 <template>
-  <div v-loading="loading" class="min-h-fit max-w-7xl mx-auto space-y-6">
+  <div v-loading="loading" class="dashboard-overview min-h-fit max-w-7xl mx-auto">
     <el-result v-if="overviewLoadError" :icon="overviewLoadError.kind === 'permission' ? 'warning' : 'error'" :title="overviewLoadError.title" :sub-title="overviewLoadError.message"><template #extra><el-button type="primary" @click="fetchOverview">重试</el-button></template></el-result>
     <template v-else>
-    <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-      <div>
+    <section class="dashboard-hero">
+      <div class="dashboard-hero-copy">
         <p class="text-sm font-bold tracking-[0.2em] text-primary uppercase">经营总览</p>
-        <h1 class="mt-2 text-3xl md:text-4xl font-black tracking-tight text-on-surface">
+        <h1 class="dashboard-greeting mt-2 text-3xl md:text-4xl font-black tracking-tight text-on-surface">
           {{ greetingText }}，{{ userName }}
         </h1>
         <p class="mt-2 text-base text-on-surface-variant max-w-2xl">
@@ -14,13 +14,13 @@
         </p>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 w-full lg:w-auto lg:min-w-[500px]">
+      <div class="dashboard-quick-grid">
         <el-button
             v-for="action in quickActions"
             :key="action.route"
             @click="openQuickAction(action)"
             plain
-            class="h-auto justify-start px-4 py-3.5 text-left"
+            class="dashboard-quick-action h-auto justify-start px-4 py-3.5 text-left"
         >
           <div class="flex items-center gap-3">
             <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary transition-colors">
@@ -37,40 +37,40 @@
       </div>
     </section>
 
-    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <article class="rounded-2xl p-5 bg-primary text-white shadow-md shadow-primary/20 overflow-hidden relative flex flex-col justify-between min-h-[120px]">
+    <section class="dashboard-summary-grid">
+      <article class="dashboard-summary-card rounded-2xl bg-primary text-white shadow-md shadow-primary/20 overflow-hidden relative flex flex-col justify-between">
         <div class="absolute -right-2 -top-2 text-white/10">
           <span class="material-symbols-outlined text-[90px]">receipt_long</span>
         </div>
         <p class="text-xs font-bold tracking-widest uppercase text-white/80 z-10">本月新增订单</p>
         <div class="mt-auto z-10">
-          <p class="text-4xl font-black leading-none">{{ summary.monthOrderCount }}</p>
+          <p class="dashboard-summary-value font-black leading-none">{{ summary.monthOrderCount }}</p>
           <p class="text-xs text-white/70 mt-1.5 truncate">本月创建的订单总数</p>
         </div>
       </article>
 
-      <article class="rounded-2xl p-5 bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between min-h-[120px]">
+      <article class="dashboard-summary-card rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between">
         <div class="flex items-center justify-between mb-2">
           <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant">预警订单</p>
-          <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <div class="dashboard-summary-icon w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
             <span class="material-symbols-outlined text-[30px] leading-none">warning</span>
           </div>
         </div>
         <div class="mt-auto">
-          <p class="text-4xl font-black text-on-surface leading-none">{{ summary.orderWarningCount }}</p>
+          <p class="dashboard-summary-value font-black text-on-surface leading-none">{{ summary.orderWarningCount }}</p>
           <p class="text-xs text-on-surface-variant mt-1.5 truncate">超过预警天数未更新</p>
         </div>
       </article>
 
-      <article class="rounded-2xl p-5 bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between min-h-[120px]">
+      <article class="dashboard-summary-card rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between">
         <div class="flex items-center justify-between mb-2">
           <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant">待我审批</p>
-          <div class="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+          <div class="dashboard-summary-icon w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
             <span class="material-symbols-outlined text-[30px] leading-none">fact_check</span>
           </div>
         </div>
         <div class="mt-auto">
-          <p class="text-4xl font-black text-on-surface leading-none">{{ summary.pendingApprovalCount }}</p>
+          <p class="dashboard-summary-value font-black text-on-surface leading-none">{{ summary.pendingApprovalCount }}</p>
           <p class="text-xs text-on-surface-variant mt-1.5 truncate">等待当前账号处理</p>
         </div>
       </article>
@@ -528,6 +528,87 @@ onMounted(fetchOverview)
 </script>
 
 <style scoped>
+.dashboard-overview {
+  display: grid;
+  gap: 1rem;
+}
+
+.dashboard-hero {
+  display: grid;
+  align-items: end;
+  gap: 1rem;
+}
+
+.dashboard-hero-copy {
+  min-width: 0;
+  max-inline-size: 32rem;
+}
+
+.dashboard-greeting {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.dashboard-quick-action {
+  min-width: 0;
+}
+
+.dashboard-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.dashboard-summary-card {
+  box-sizing: border-box;
+  block-size: 6.5rem;
+  padding: 0.625rem 1rem;
+}
+
+.dashboard-summary-icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+.dashboard-summary-value {
+  font-size: 2rem;
+}
+
+.dashboard-summary-card .mt-auto > p + p {
+  margin-top: 0.25rem;
+}
+
+@media (min-width: 1025px) {
+  .dashboard-hero {
+    grid-template-columns: minmax(0, 0.9fr) minmax(34rem, 1.1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .dashboard-quick-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
