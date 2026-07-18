@@ -21,6 +21,27 @@ class CustomerFacingChineseMessageContractTest {
     private static final Set<String> ALLOWED_TECHNICAL_LITERALS = Set.of("MB");
 
     @Test
+    void businessExceptionScannerSelectsOnlyTheCustomerMessageArgument() {
+        assertThat(businessExceptionMessageExpression("""
+                return new BusinessException(
+                        403,
+                        AuthReason.EMPLOYEE_NOT_FOUND,
+                        "管理员尚未添加该手机号",
+                        Map.of("phoneVerificationTicket", ticket)
+                );
+                """))
+                .isEqualTo("\"管理员尚未添加该手机号\"");
+
+        String englishMessage = businessExceptionMessageExpression(
+                "throw new BusinessException(409, \"PHONE_ACCOUNT_AMBIGUOUS\", \"account unavailable\");");
+        assertThat(englishMessage).isEqualTo("\"account unavailable\"");
+        Matcher englishLiteral = STRING_LITERAL.matcher(englishMessage);
+        assertThat(englishLiteral.find()).isTrue();
+        assertThat(ASCII_WORD.matcher(englishLiteral.group(1)).find()).isTrue();
+        assertThat(CHINESE_TEXT.matcher(englishLiteral.group(1)).find()).isFalse();
+    }
+
+    @Test
     void businessExceptionsDoNotExposePureEnglishCustomerMessages() throws IOException {
         Path sourceRoot = Path.of("src/main/java");
         List<String> violations = new ArrayList<>();
@@ -47,7 +68,7 @@ class CustomerFacingChineseMessageContractTest {
                     continue;
                 }
                 String expression = businessExceptionMessage
-                        ? collectStatement(lines, index)
+                        ? businessExceptionMessageExpression(collectStatement(lines, index))
                         : line;
                 Matcher matcher = STRING_LITERAL.matcher(expression);
                 while (matcher.find()) {
@@ -75,5 +96,51 @@ class CustomerFacingChineseMessageContractTest {
             }
         }
         return statement.toString();
+    }
+
+    private String businessExceptionMessageExpression(String statement) {
+        int constructor = statement.indexOf("new BusinessException");
+        int openParenthesis = statement.indexOf('(', constructor);
+        if (constructor < 0 || openParenthesis < 0) {
+            return statement;
+        }
+
+        List<String> arguments = new ArrayList<>();
+        int argumentStart = openParenthesis + 1;
+        int nestedDepth = 0;
+        boolean inString = false;
+        boolean escaped = false;
+        for (int index = argumentStart; index < statement.length(); index++) {
+            char current = statement.charAt(index);
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\') {
+                    escaped = true;
+                } else if (current == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (current == '"') {
+                inString = true;
+            } else if (current == '(' || current == '[' || current == '{') {
+                nestedDepth++;
+            } else if (current == ')' && nestedDepth == 0) {
+                arguments.add(statement.substring(argumentStart, index).trim());
+                break;
+            } else if (current == ')' || current == ']' || current == '}') {
+                nestedDepth--;
+            } else if (current == ',' && nestedDepth == 0) {
+                arguments.add(statement.substring(argumentStart, index).trim());
+                argumentStart = index + 1;
+            }
+        }
+
+        if (arguments.isEmpty()) {
+            return statement;
+        }
+        int messageIndex = arguments.size() == 1 ? 0 : arguments.size() == 2 ? 1 : 2;
+        return arguments.get(messageIndex);
     }
 }
