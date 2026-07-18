@@ -1,7 +1,7 @@
 <template>
   <div class="function-page-shell h-full min-h-0">
-    <div class="function-page-container space-y-6">
-      <header class="function-page-header mb-8">
+    <div class="function-page-container space-y-4">
+      <header class="function-page-header">
         <div>
           <div class="function-page-eyebrow">
             <span class="material-symbols-outlined">handshake</span>
@@ -13,7 +13,7 @@
           </p>
         </div>
 
-        <div class="flex flex-wrap gap-3">
+        <div class="function-filter-form">
           <el-input
             v-model.trim="filters.keyword"
             class="w-full sm:w-[260px]"
@@ -44,6 +44,7 @@
             value-format="YYYY-MM-DD"
             placeholder="创建结束"
           />
+          <div class="function-filter-actions">
           <el-button :loading="loading" @click="handleFilter">
             <span class="material-symbols-outlined text-[20px]">refresh</span>
             刷新
@@ -64,6 +65,7 @@
             @move="moveCustomerTableColumn"
             @reset="resetCustomerTableColumns"
           />
+          </div>
           <el-button
             type="primary"
             :disabled="!canCreateCustomer"
@@ -77,23 +79,24 @@
         </div>
       </header>
 
-      <section class="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
-        <div class="group relative overflow-hidden rounded-xl bg-primary-container p-6 shadow-sm">
+      <section class="function-stats-grid grid-cols-1 md:grid-cols-4">
+        <div class="function-stat-card group relative overflow-hidden bg-primary-container">
           <div class="absolute top-0 right-0 p-4 opacity-10 transition-transform group-hover:scale-110">
             <span class="material-symbols-outlined text-[80px]">corporate_fare</span>
           </div>
           <p class="text-xs font-bold tracking-widest text-on-primary/80 uppercase">客户总数</p>
-          <h3 class="mt-2 text-4xl font-black text-white">{{ total }}</h3>
+          <h3 class="mt-2 text-2xl font-black text-white">{{ total }}</h3>
         </div>
       </section>
 
-      <section class="relative overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
+      <section class="function-list-panel relative shadow-sm border-outline-variant/20 bg-surface-container-lowest">
         <el-result v-if="listError" :icon="listError.icon" :title="listError.title" :sub-title="listError.message">
           <template #extra>
             <el-button type="primary" @click="fetchCustomerList">重试</el-button>
           </template>
         </el-result>
         <template v-else>
+          <div class="function-table-scroll">
           <el-table
             :data="customerList"
             row-key="id"
@@ -157,6 +160,7 @@
             <el-empty v-if="!loading" :description="customerEmptyDescription" />
           </template>
         </el-table>
+          </div>
 
           <div class="flex flex-wrap items-center justify-between gap-3 border-t border-outline-variant/10 bg-surface-container-low/30 px-6 py-4 text-sm">
             <span class="text-on-surface-variant">共 {{ total }} 条</span>

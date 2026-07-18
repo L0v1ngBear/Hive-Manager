@@ -3,7 +3,7 @@ Wall time: 0.5 seconds
 Output:
 <template>
   <div class="function-page-shell h-full min-h-0 relative">
-    <div class="function-page-container space-y-6">
+    <div class="function-page-container space-y-4">
       <div class="function-page-header">
         <div>
           <div class="function-page-eyebrow">
@@ -13,7 +13,7 @@ Output:
           <h2 class="function-page-title">员工名录</h2>
           <p class="function-page-desc">管理员工记录、入职及人事状态，联动组织架构和角色权限。</p>
         </div>
-        <div class="flex gap-3">
+        <div class="flex max-w-full flex-wrap justify-end gap-2">
           <el-button
               @click="openOrganizationDrawer"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
@@ -58,20 +58,20 @@ Output:
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="bg-primary-container p-6 rounded-xl relative overflow-hidden group">
+      <div class="function-stats-grid grid-cols-1 md:grid-cols-4">
+        <div class="function-stat-card bg-primary-container relative overflow-hidden group">
           <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
             <span class="material-symbols-outlined text-[80px]">groups</span>
           </div>
           <p class="text-on-primary-container text-sm font-bold uppercase tracking-widest">员工总数</p>
-          <h3 class="text-4xl font-black text-black mt-2">{{ stats.totalEmployees }}</h3>
-          <p class="text-on-primary-container text-xs mt-3">实时员工基数</p>
+          <h3 class="text-2xl font-black text-black mt-2">{{ stats.totalEmployees }}</h3>
+          <p class="text-on-primary-container text-xs mt-2">实时员工基数</p>
         </div>
 
-        <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-primary">
+        <div class="function-stat-card bg-surface-container-lowest border-l-4 border-primary">
           <p class="text-on-surface-variant text-sm font-bold uppercase tracking-widest">今日出勤</p>
           <div class="flex items-end justify-between mt-2">
-            <h3 class="text-4xl font-black text-primary">{{ formatPercent(stats.todayAttendanceRate) }}</h3>
+            <h3 class="text-2xl font-black text-primary">{{ formatPercent(stats.todayAttendanceRate) }}</h3>
             <div class="h-10 w-20 bg-surface-container-high rounded flex items-end p-1 gap-0.5">
               <div class="w-full bg-primary/20 h-[60%] rounded-t-sm"></div>
               <div class="w-full bg-primary/20 h-[70%] rounded-t-sm"></div>
@@ -79,26 +79,26 @@ Output:
               <div class="w-full bg-primary h-full rounded-t-sm"></div>
             </div>
           </div>
-          <p class="text-on-surface-variant text-xs mt-3 uppercase font-bold tracking-tighter">同步自考勤记录</p>
+          <p class="text-on-surface-variant text-xs mt-2 uppercase font-bold tracking-tighter">同步自考勤记录</p>
         </div>
 
-        <div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm">
+        <div class="function-stat-card bg-surface-container-lowest">
           <p class="text-on-surface-variant text-sm font-bold uppercase tracking-widest">部门数量</p>
-          <h3 class="text-4xl font-black text-primary mt-2">{{ stats.departmentCount }}</h3>
-          <p class="text-on-surface-variant text-xs mt-3">可供分配的活跃组织架构</p>
+          <h3 class="text-2xl font-black text-primary mt-2">{{ stats.departmentCount }}</h3>
+          <p class="text-on-surface-variant text-xs mt-2">可供分配的活跃组织架构</p>
         </div>
 
-        <div class="bg-white/70 backdrop-blur-md p-6 rounded-xl shadow-sm border border-orange-200">
+        <div class="function-stat-card bg-white/70 backdrop-blur-md border border-orange-200">
           <p class="text-orange-900 text-sm font-bold uppercase tracking-widest">待入职</p>
-          <h3 class="text-4xl font-black text-orange-700 mt-2">{{ stats.pendingOnboardCount }}</h3>
-          <p class="text-orange-900/70 text-xs mt-3 flex items-center gap-1 font-medium">
+          <h3 class="text-2xl font-black text-orange-700 mt-2">{{ stats.pendingOnboardCount }}</h3>
+          <p class="text-orange-900/70 text-xs mt-2 flex items-center gap-1 font-medium">
             <span class="material-symbols-outlined text-xs">schedule</span> 未来入职日期的记录
           </p>
         </div>
       </div>
 
-      <div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex flex-col border border-surface-variant/50">
-        <div class="p-4 bg-surface-container-low flex flex-wrap items-center gap-4 border-b border-surface-variant/50">
+      <div class="function-list-panel shadow-sm flex flex-col border border-surface-variant/50">
+        <div class="function-filter-form p-4 bg-surface-container-low border-b border-surface-variant/50">
           <div class="flex-1 min-w-[300px] relative">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
             <el-input
@@ -108,7 +108,7 @@ Output:
                 placeholder="按姓名、电话或工号搜索"
             />
           </div>
-          <div class="flex items-center gap-3 flex-wrap">
+          <div class="contents">
             <el-select
                 v-model="query.departmentId"
                 @change="handleFilterChange"
@@ -154,6 +154,7 @@ Output:
                 class="px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
                 @change="handleFilterChange"
             />
+            <div class="function-filter-actions">
             <el-button
                 @click="fetchEmployees"
                 class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors"
@@ -172,11 +173,12 @@ Output:
                 @move="moveEmployeeTableColumn"
                 @reset="resetEmployeeTableColumns"
             />
+            </div>
           </div>
         </div>
 
-        <div class="employee-table-wrap responsive-table-wrap relative min-h-[240px]">
-          <div v-if="listError" class="flex min-h-[240px] flex-col items-center justify-center gap-3 px-6 text-center">
+        <div class="employee-table-wrap function-table-scroll responsive-table-wrap relative">
+          <div v-if="listError" class="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
             <span class="material-symbols-outlined text-4xl text-on-surface-variant">
               {{ listError.type === 'permission' ? 'lock' : 'cloud_off' }}
             </span>

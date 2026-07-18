@@ -1,6 +1,6 @@
 <template>
   <div class="function-page-shell h-full min-h-0 font-sans">
-    <div class="function-page-container space-y-6 p-2 md:p-4">
+    <div class="function-page-container space-y-4 p-2 md:p-4">
       <header class="function-page-header">
         <div>
           <div class="function-page-eyebrow">
@@ -40,37 +40,36 @@
         </div>
       </header>
 
-      <section v-if="summaryLoading" v-loading="true" class="min-h-32 rounded-2xl bg-white" />
-      <section v-else-if="summaryError" class="flex min-h-32 flex-col items-center justify-center gap-2 rounded-2xl bg-white text-center">
+      <section v-if="summaryLoading" v-loading="true" class="function-stats-grid min-h-20 rounded-lg bg-white" />
+      <section v-else-if="summaryError" class="flex min-h-20 flex-col items-center justify-center gap-2 rounded-lg bg-white text-center">
         <p class="font-bold text-slate-800">{{ summaryError.title }}</p>
         <p class="text-sm text-slate-500">{{ summaryError.message }}</p>
         <el-button type="primary" @click="fetchSummary(currentQuerySnapshot())">重新加载统计</el-button>
       </section>
-      <section v-else-if="summaryEmpty" class="flex min-h-32 items-center justify-center rounded-2xl bg-white text-sm text-slate-500">暂无考勤统计</section>
-      <section v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+      <section v-else-if="summaryEmpty" class="flex min-h-20 items-center justify-center rounded-lg bg-white text-sm text-slate-500">暂无考勤统计</section>
+      <section v-else class="function-stats-grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5">
         <div
             v-for="stat in stats"
             :key="stat.label"
-            class="relative overflow-hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-100 group hover:shadow-md transition-all"
+            class="function-stat-card relative overflow-hidden bg-white group hover:shadow-md transition-all"
         >
           <span
-              class="material-symbols-outlined absolute -right-4 -bottom-4 text-[100px] opacity-50 group-hover:scale-110 transition-transform"
+              class="material-symbols-outlined absolute -right-3 -bottom-3 text-[80px] opacity-50 group-hover:scale-110 transition-transform"
               :class="stat.iconClass"
           >
             {{ stat.icon }}
           </span>
           <p class="text-xs font-bold text-slate-500 tracking-widest relative z-10">{{ stat.label }}</p>
-          <div class="mt-3 flex items-baseline gap-1 relative z-10 min-w-0">
-            <h3 class="text-3xl xl:text-4xl font-black truncate" :class="stat.valueClass">{{ stat.value }}</h3>
+          <div class="mt-2 flex items-baseline gap-1 relative z-10 min-w-0">
+            <h3 class="text-2xl font-black truncate" :class="stat.valueClass">{{ stat.value }}</h3>
             <span class="text-xs text-slate-400 font-medium whitespace-nowrap">{{ stat.unit }}</span>
           </div>
-          <p v-if="stat.desc" class="relative z-10 text-xs text-slate-400 mt-3">{{ stat.desc }}</p>
+          <p v-if="stat.desc" class="relative z-10 text-xs text-slate-400 mt-2">{{ stat.desc }}</p>
         </div>
       </section>
 
-      <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-          <div class="flex flex-wrap items-end gap-3">
+      <section class="function-list-panel shadow-sm border-slate-200">
+        <div class="function-filter-form border-b border-slate-100 bg-slate-50/50 p-4">
             <label class="block">
               <span class="block text-xs text-slate-500 font-bold mb-1.5">日期</span>
               <el-date-picker
@@ -120,6 +119,7 @@
                 <el-option label="加班" value="overtime" />
               </el-select>
             </label>
+            <div class="function-filter-actions">
             <el-button class="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors" @click="handleFilter">查询</el-button>
             <el-button class="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors" @click="resetFilter">重置</el-button>
             <TableColumnSettings
@@ -128,11 +128,11 @@
                 @move="moveAttendanceTableColumn"
                 @reset="resetAttendanceTableColumns"
             />
-          </div>
+            </div>
         </div>
 
-        <div class="responsive-table-wrap relative min-h-[420px]">
-          <div v-if="listError" class="flex min-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center">
+        <div class="function-table-scroll responsive-table-wrap relative">
+          <div v-if="listError" class="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
             <span class="material-symbols-outlined text-4xl text-slate-400">
               {{ listError.type === 'permission' ? 'lock' : 'cloud_off' }}
             </span>

@@ -56,7 +56,7 @@
         </div>
       </header>
 
-      <section v-if="canListInventory" class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <section v-if="canListInventory" class="function-stats-grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5">
         <div class="inventory-stat-card">
           <span class="material-symbols-outlined inventory-stat-bg text-blue-50">all_inbox</span>
           <p class="inventory-stat-label">可用总库存</p>
@@ -101,22 +101,22 @@
           </div>
         </div>
 
-        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 p-6 text-white shadow-lg shadow-slate-900/20 transition-all hover:-translate-y-0.5">
+        <div class="inventory-stat-card bg-slate-900 text-white">
           <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-[100px] text-white/5 transition-transform">outbox</span>
           <p class="relative z-10 text-xs font-bold uppercase tracking-widest text-slate-300">今日出库</p>
-          <div class="relative z-10 mt-3 flex min-w-0 items-baseline gap-1">
-            <h3 class="truncate text-3xl font-black xl:text-4xl" :title="meter(summary.todayOutMeters)">
+          <div class="inventory-stat-value-wrap text-white">
+            <h3 class="inventory-stat-value" :title="meter(summary.todayOutMeters)">
               {{ formatBigNumber(summary.todayOutMeters) }}
             </h3>
-            <span class="whitespace-nowrap text-xs font-medium text-slate-400">{{ getUnit(summary.todayOutMeters, '米') }}</span>
+            <span class="inventory-stat-unit text-slate-400">{{ getUnit(summary.todayOutMeters, '米') }}</span>
           </div>
         </div>
       </section>
 
-      <section class="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_340px]">
-        <div class="flex min-h-[500px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/50 px-6 py-5">
-            <div class="flex flex-wrap items-center gap-3">
+      <section class="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_340px]">
+        <div class="function-list-panel flex min-h-0 flex-col shadow-sm">
+          <div class="function-filter-form border-b border-slate-100 bg-slate-50/50 p-4">
+            <div class="contents">
               <div class="relative">
                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-slate-400">search</span>
                 <el-input
@@ -142,6 +142,7 @@
               <el-input-number v-model="query.remainingMax" :min="0" :step="0.01" :precision="2" placeholder="剩余米数上限" class="w-32" />
               <DateFilterInput v-model="query.updatedStart" placeholder="更新开始" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" />
               <DateFilterInput v-model="query.updatedEnd" placeholder="更新结束" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" />
+              <div class="function-filter-actions">
               <el-button type="primary" @click="handleFilter">查询</el-button>
               <el-button @click="resetFilter">重置</el-button>
               <TableColumnSettings
@@ -150,16 +151,17 @@
                 @move="moveInventoryTableColumn"
                 @reset="resetInventoryTableColumns"
               />
+              </div>
             </div>
             <span class="rounded-lg border border-slate-100 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm">
               共 <b class="text-slate-800">{{ pagination.total }}</b> 条记录
             </span>
           </div>
 
-          <div v-if="!canListInventory" class="flex min-h-[360px] flex-1 items-center justify-center p-8"><el-empty description="暂无 inventory:list 权限，无法查看库存内容" /></div>
-          <div v-else-if="listLoadError" class="flex min-h-[360px] flex-1 items-center justify-center p-8"><el-empty :description="listLoadError.message"><el-button type="primary" @click="fetchData">重试</el-button></el-empty></div>
-          <div v-else-if="loading" v-loading="loading" class="min-h-[360px] flex-1" element-loading-text="正在加载库存数据" />
-          <div v-else class="responsive-table-wrap relative flex-1">
+          <div v-if="!canListInventory" class="flex flex-1 items-center justify-center p-8"><el-empty description="暂无 inventory:list 权限，无法查看库存内容" /></div>
+          <div v-else-if="listLoadError" class="flex flex-1 items-center justify-center p-8"><el-empty :description="listLoadError.message"><el-button type="primary" @click="fetchData">重试</el-button></el-empty></div>
+          <div v-else-if="loading" v-loading="loading" class="flex-1" element-loading-text="正在加载库存数据" />
+          <div v-else class="function-table-scroll responsive-table-wrap relative flex-1">
             <table v-if="rows.length" class="responsive-data-table w-full border-collapse text-left">
               <thead class="sticky top-0 z-0 bg-slate-50/80">
                 <tr>
@@ -1433,10 +1435,10 @@ function getUnit(value, defaultUnit = '米') {
 .inventory-stat-card {
   position: relative;
   overflow: hidden;
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   border: 1px solid rgb(241 245 249);
   background: #fff;
-  padding: 1.5rem;
+  padding: 1rem;
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
   transition: box-shadow 0.2s ease;
 }
@@ -1471,7 +1473,7 @@ function getUnit(value, defaultUnit = '米') {
 .inventory-stat-value-wrap {
   position: relative;
   z-index: 1;
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
   display: flex;
   min-width: 0;
   align-items: baseline;
@@ -1482,13 +1484,13 @@ function getUnit(value, defaultUnit = '米') {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 1.875rem;
+  font-size: 1.5rem;
   font-weight: 900;
 }
 
 @media (min-width: 1280px) {
   .inventory-stat-value {
-    font-size: 2.25rem;
+    font-size: 1.875rem;
   }
 }
 
