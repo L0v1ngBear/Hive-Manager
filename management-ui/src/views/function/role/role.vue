@@ -1,7 +1,7 @@
 <template>
-  <div class="function-page-shell h-full min-h-0 font-body">
+  <div class="function-page-shell function-page-shell--compact h-full min-h-0 font-body">
     <div class="function-page-container space-y-6">
-      <header class="function-page-header mb-8">
+      <header class="function-page-header">
         <div>
           <div class="function-page-eyebrow">
             <span class="material-symbols-outlined">admin_panel_settings</span>
@@ -23,7 +23,8 @@
         </div>
       </header>
 
-      <section class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border-l-4 border-primary/20 relative">
+      <section class="function-list-panel relative border-l-4 border-primary/20">
+        <div class="function-table-scroll">
         <el-table v-loading="loading" :data="roles" row-key="id" class="w-full" table-layout="auto">
           <el-table-column
               v-for="column in roleTableColumns"
@@ -54,8 +55,8 @@
             </template>
           </el-table-column>
           <template #empty>
-            <div v-if="loading" class="h-24" aria-hidden="true"></div>
-            <div v-else-if="roleLoadError" class="space-y-4 px-6 py-8">
+            <div v-if="loading" class="py-6" aria-hidden="true"></div>
+            <div v-else-if="roleLoadError" class="space-y-4 px-4 py-6">
               <el-alert
                   title="角色列表加载失败"
                   :description="roleLoadError"
@@ -71,6 +72,7 @@
             <el-empty v-else description="暂无角色数据" />
           </template>
         </el-table>
+        </div>
         <div v-if="!loading && !roleLoadError" class="flex justify-end px-6 py-4">
           <el-pagination :current-page="1" :page-size="100" :total="roles.length" layout="total" />
         </div>

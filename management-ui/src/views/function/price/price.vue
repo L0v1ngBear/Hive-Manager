@@ -1,5 +1,5 @@
 <template>
-  <div class="function-page-shell h-full min-h-0 font-body">
+  <div class="function-page-shell function-page-shell--compact h-full min-h-0 font-body">
     <div class="function-page-container space-y-6">
       <header class="function-page-header">
         <div><div class="function-page-eyebrow"><span class="material-symbols-outlined">sell</span>价格策略中心</div><h1 class="function-page-title">价格管理</h1><p class="function-page-desc">维护面料 SKU 基准价、客户等级价和指定客户特价。</p></div>
@@ -17,10 +17,12 @@
         <el-statistic class="function-stat-card" title="计划中价格" :value="stats.pendingCount" />
         <el-statistic class="function-stat-card" title="客户特价" :value="stats.overrideCount" />
       </section>
-      <section class="overflow-hidden rounded-lg bg-surface-container-lowest shadow-sm">
+      <section class="function-list-panel">
         <el-form :model="query" inline class="function-filter-form p-4">
-          <el-form-item><el-input v-model.trim="query.keyword" aria-label="价格关键词" placeholder="搜索型号、批号、规格" @keyup.enter="handleFilter" /></el-form-item><el-form-item><el-select v-model="query.status" aria-label="价格状态" placeholder="全部状态" clearable><el-option :value="1" label="生效中" /><el-option :value="2" label="计划中" /><el-option :value="0" label="已过期" /></el-select></el-form-item><el-form-item><el-input v-model.trim="query.batchNo" aria-label="价格批号" placeholder="批号" /></el-form-item><el-form-item><el-input v-model.trim="query.spec" aria-label="价格规格" placeholder="规格" /></el-form-item><el-form-item><el-select v-model="query.currency" aria-label="价格币种" placeholder="全部币种" clearable><el-option value="CNY" label="CNY" /><el-option value="USD" label="USD" /></el-select></el-form-item><el-form-item><el-input-number v-model="query.priceMin" aria-label="最低价格" :min="0" :precision="2" placeholder="最低价" /></el-form-item><el-form-item><el-input-number v-model="query.priceMax" aria-label="最高价格" :min="0" :precision="2" placeholder="最高价" /></el-form-item><el-form-item><el-date-picker v-model="query.effectiveStart" aria-label="生效开始日期" type="date" value-format="YYYY-MM-DD" placeholder="生效开始" /></el-form-item><el-form-item><el-date-picker v-model="query.effectiveEnd" aria-label="生效结束日期" type="date" value-format="YYYY-MM-DD" placeholder="生效结束" /></el-form-item><el-form-item><div class="function-filter-actions"><el-button type="primary" @click="handleFilter">查询</el-button><el-button @click="resetFilter">重置</el-button></div></el-form-item>
-          <TableColumnSettings :columns="priceTableColumns" :exportable="false" @move="movePriceTableColumn" @reset="resetPriceTableColumns" />
+          <div class="price-filter-group"><el-form-item><el-input v-model.trim="query.keyword" aria-label="价格关键词" placeholder="搜索型号、批号、规格" @keyup.enter="handleFilter" /></el-form-item><el-form-item><el-select v-model="query.status" aria-label="价格状态" placeholder="全部状态" clearable><el-option :value="1" label="生效中" /><el-option :value="2" label="计划中" /><el-option :value="0" label="已过期" /></el-select></el-form-item><el-form-item><el-input v-model.trim="query.batchNo" aria-label="价格批号" placeholder="批号" /></el-form-item><el-form-item><el-input v-model.trim="query.spec" aria-label="价格规格" placeholder="规格" /></el-form-item><el-form-item><el-select v-model="query.currency" aria-label="价格币种" placeholder="全部币种" clearable><el-option value="CNY" label="CNY" /><el-option value="USD" label="USD" /></el-select></el-form-item></div>
+          <div class="price-filter-group"><el-form-item><el-input-number v-model="query.priceMin" aria-label="最低价格" :min="0" :precision="2" placeholder="最低价" /></el-form-item><el-form-item><el-input-number v-model="query.priceMax" aria-label="最高价格" :min="0" :precision="2" placeholder="最高价" /></el-form-item></div>
+          <div class="price-filter-group"><el-form-item><el-date-picker v-model="query.effectiveStart" aria-label="生效开始日期" type="date" value-format="YYYY-MM-DD" placeholder="生效开始" /></el-form-item><el-form-item><el-date-picker v-model="query.effectiveEnd" aria-label="生效结束日期" type="date" value-format="YYYY-MM-DD" placeholder="生效结束" /></el-form-item></div>
+          <div class="function-filter-actions"><el-button type="primary" @click="handleFilter">查询</el-button><el-button @click="resetFilter">重置</el-button><TableColumnSettings :columns="priceTableColumns" :exportable="false" @move="movePriceTableColumn" @reset="resetPriceTableColumns" /></div>
         </el-form>
         <el-result v-if="requestError" :icon="requestError.icon" :title="requestError.title" :sub-title="requestError.message"><template #extra><el-button type="primary" @click="retry">重试</el-button></template></el-result>
         <template v-else>
@@ -99,5 +101,8 @@ watch(() => [route.query.keyword, route.query.q], async () => { applyRouteKeywor
 
 <style scoped>
 :deep(.el-form--inline .el-form-item) { margin-bottom: 12px; }
+.price-filter-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; min-width: 0; }
+.price-filter-group:first-child { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 640px) { .price-filter-group, .price-filter-group:first-child { grid-template-columns: minmax(0, 1fr); } }
 h3 { margin: 20px 0 8px; font-weight: 800; }
 </style>

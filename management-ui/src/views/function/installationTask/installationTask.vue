@@ -1,5 +1,5 @@
 <template>
-  <div class="function-page-shell h-full min-h-0 font-body">
+  <div class="function-page-shell function-page-shell--compact h-full min-h-0 font-body">
     <div class="function-page-container space-y-6">
       <header class="installation-header">
         <div>
@@ -15,7 +15,7 @@
         <el-button type="primary" :loading="loading" @click="loadTasks">刷新</el-button>
       </header>
 
-      <section class="installation-summary-grid">
+      <section class="function-stats-grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 installation-summary-grid">
         <el-button
           v-for="card in summaryCards"
           :key="card.key"
@@ -33,8 +33,8 @@
         </el-button>
       </section>
 
-      <section class="installation-panel">
-        <el-form :model="filters" class="installation-filter-grid" @submit.prevent="loadTasks">
+      <section class="function-list-panel installation-panel">
+        <el-form :model="filters" class="function-filter-form installation-filter-grid" @submit.prevent="loadTasks">
           <el-form-item label="综合搜索" class="installation-filter-field installation-filter-field-wide">
             <el-input
               v-model.trim="filters.keyword"
@@ -58,7 +58,7 @@
               />
             </el-select>
           </el-form-item>
-          <div class="installation-filter-actions">
+          <div class="function-filter-actions installation-filter-actions">
             <el-button type="primary" @click="loadTasks">查询</el-button>
             <el-button @click="resetFilters">重置</el-button>
           </div>
@@ -67,20 +67,21 @@
         <div
           v-if="requestState === 'loading'"
           v-loading="true"
-          class="min-h-[280px]"
+          class="py-10"
           aria-label="安装任务加载中"
         />
-        <div v-else-if="requestState === 'permission'" class="min-h-[280px]">
+        <div v-else-if="requestState === 'permission'" class="py-8">
           <el-empty :description="requestErrorMessage">
             <el-button type="primary" @click="loadTasks">重新加载</el-button>
           </el-empty>
         </div>
-        <div v-else-if="requestState === 'error'" class="min-h-[280px]">
+        <div v-else-if="requestState === 'error'" class="py-8">
           <el-empty :description="requestErrorMessage">
             <el-button type="primary" @click="loadTasks">重新加载</el-button>
           </el-empty>
         </div>
         <template v-else>
+        <div class="function-table-scroll">
         <el-table v-loading="false" :data="rows" row-key="id" class="installation-table">
           <el-table-column label="订单信息" min-width="220">
             <template #default="{ row }">
@@ -190,6 +191,7 @@
             <el-empty description="暂无安装任务" />
           </template>
         </el-table>
+        </div>
 
         <div class="installation-pagination">
           <span>共 {{ pagination.total }} 条</span>
@@ -733,24 +735,14 @@ function formatDateTime(value) {
 }
 
 .installation-filter-grid {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  padding: 16px;
   border-bottom: 1px solid rgb(var(--ys-primary-rgb) / 0.1);
   background: rgba(248, 250, 252, 0.72);
 }
 
-.installation-filter-grid > .box-input {
-  grid-column: span 3;
-}
-
 .installation-filter-actions {
-  grid-column: span 3;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .installation-primary-btn,
@@ -923,14 +915,6 @@ function formatDateTime(value) {
     flex-direction: column;
   }
 
-  .installation-filter-grid > .box-input,
-  .installation-filter-actions {
-    grid-column: span 12;
-  }
-
-  .installation-filter-actions {
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: 640px) {
@@ -1066,13 +1050,12 @@ function formatDateTime(value) {
 .installation-filter-grid {
   align-items: end;
   gap: 12px;
-  padding: 18px 20px;
+  padding: 16px;
 }
 
 .installation-filter-field {
   display: flex;
   min-width: 0;
-  grid-column: span 2;
   flex-direction: column;
   gap: 7px;
   color: var(--ys-on-surface-variant);
@@ -1080,16 +1063,12 @@ function formatDateTime(value) {
   font-weight: 950;
 }
 
-.installation-filter-field-wide {
-  grid-column: span 4;
-}
-
 .installation-filter-field .box-input {
   width: 100%;
 }
 
 .installation-filter-actions {
-  grid-column: span 4;
+  justify-content: flex-start;
 }
 
 .installation-table {

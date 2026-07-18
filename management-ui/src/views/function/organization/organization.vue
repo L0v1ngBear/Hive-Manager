@@ -1,5 +1,5 @@
 <template>
-  <div class="function-page-shell h-full min-h-0 font-body">
+  <div class="function-page-shell function-page-shell--compact h-full min-h-0 font-body">
     <div class="function-page-container space-y-6">
       <header class="function-page-header">
         <div>
@@ -15,14 +15,14 @@
         </el-tooltip>
       </header>
 
-      <section v-if="!loading && !overviewFailure" class="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <article class="stat-card"><p>部门总数</p><strong>{{ stats.departmentCount }}</strong></article>
-        <article class="stat-card"><p>启用部门</p><strong>{{ stats.enabledDepartmentCount }}</strong></article>
-        <article class="stat-card"><p>员工总数</p><strong>{{ stats.employeeCount }}</strong></article>
-        <article class="stat-card stat-card--warning"><p>空部门</p><strong>{{ stats.emptyDepartmentCount }}</strong></article>
+      <section v-if="!loading && !overviewFailure" class="function-stats-grid">
+        <article class="function-stat-card stat-card"><p>部门总数</p><strong>{{ stats.departmentCount }}</strong></article>
+        <article class="function-stat-card stat-card"><p>启用部门</p><strong>{{ stats.enabledDepartmentCount }}</strong></article>
+        <article class="function-stat-card stat-card"><p>员工总数</p><strong>{{ stats.employeeCount }}</strong></article>
+        <article class="function-stat-card stat-card stat-card--warning"><p>空部门</p><strong>{{ stats.emptyDepartmentCount }}</strong></article>
       </section>
 
-      <section class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_560px]">
+      <section class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.9fr)]">
         <section class="panel-card" v-loading="loading">
           <header class="panel-header">
             <div>

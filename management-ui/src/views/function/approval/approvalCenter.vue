@@ -1,5 +1,5 @@
 <template>
-  <div class="function-page-shell h-full min-h-0 font-body">
+  <div class="function-page-shell function-page-shell--compact h-full min-h-0 font-body">
     <div class="function-page-container space-y-6">
       <header class="function-page-header">
         <div>
@@ -45,8 +45,8 @@
         </div>
       </header>
 
-      <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <article class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm ring-1 ring-outline-variant/15 flex flex-col justify-between">
+      <section class="function-stats-grid">
+        <article class="function-stat-card flex flex-col justify-between">
           <div class="flex justify-between items-start mb-2">
             <p class="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">待我处理</p>
             <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -54,12 +54,12 @@
             </div>
           </div>
           <div>
-            <h3 class="text-3xl font-black text-on-surface">{{ approvalSummary.totalPending }}</h3>
+            <h3 class="text-2xl font-black text-on-surface">{{ approvalSummary.totalPending }}</h3>
             <p class="text-[10px] text-on-surface-variant mt-1">当前需要处理的全部事项</p>
           </div>
         </article>
 
-        <article class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm ring-1 ring-outline-variant/15 flex flex-col justify-between">
+        <article class="function-stat-card flex flex-col justify-between">
           <div class="flex justify-between items-start mb-2">
             <p class="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">我发起的</p>
             <div class="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
@@ -67,12 +67,12 @@
             </div>
           </div>
           <div>
-            <h3 class="text-3xl font-black text-on-surface">{{ stats.mine }}</h3>
+            <h3 class="text-2xl font-black text-on-surface">{{ stats.mine }}</h3>
             <p class="text-[10px] text-on-surface-variant mt-1">由您提交的审批申请总数</p>
           </div>
         </article>
 
-        <article class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm ring-1 ring-outline-variant/15 flex flex-col justify-between">
+        <article class="function-stat-card flex flex-col justify-between">
           <div class="flex justify-between items-start mb-2">
             <p class="text-[11px] font-bold text-on-surface-variant uppercase tracking-widest">已通过</p>
             <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -80,12 +80,12 @@
             </div>
           </div>
           <div>
-            <h3 class="text-3xl font-black text-on-surface">{{ stats.approved }}</h3>
+            <h3 class="text-2xl font-black text-on-surface">{{ stats.approved }}</h3>
             <p class="text-[10px] text-on-surface-variant mt-1">和您相关且已通过的记录</p>
           </div>
         </article>
 
-        <article class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm ring-1 ring-outline-variant/15 flex flex-col justify-between relative overflow-hidden">
+        <article class="function-stat-card flex flex-col justify-between relative overflow-hidden">
           <div class="absolute -right-2 -bottom-2 text-primary/5">
             <span class="material-symbols-outlined text-[80px]">dataset</span>
           </div>
@@ -93,14 +93,14 @@
             <p class="text-[11px] font-bold text-primary uppercase tracking-widest">当前列表</p>
           </div>
           <div class="relative z-10">
-            <h3 class="text-3xl font-black text-primary">{{ filteredRows.length }}</h3>
+            <h3 class="text-2xl font-black text-primary">{{ filteredRows.length }}</h3>
             <p class="text-[10px] text-on-surface-variant mt-1">与您本人相关的审批请求</p>
           </div>
         </article>
       </section>
 
-      <section class="bg-surface-container-lowest rounded-2xl shadow-sm ring-1 ring-outline-variant/15 flex flex-col">
-        <div class="p-4 md:p-5 border-b border-surface-variant/40 flex items-center justify-between gap-4">
+      <section class="function-list-panel flex flex-col">
+        <div class="border-b border-surface-variant/40 px-4 pt-3">
           <el-tabs v-model="activeTab" class="approval-tabs" @tab-change="changeTab">
             <el-tab-pane
               v-for="tab in tabs"
@@ -116,13 +116,17 @@
               </template>
             </el-tab-pane>
           </el-tabs>
-          <div class="flex flex-wrap items-center justify-end gap-3">
+        </div>
+        <el-form :model="filters" class="function-filter-form p-4" @submit.prevent>
+          <el-form-item>
             <el-input
               v-model.trim="filters.keyword"
               clearable
               class="w-56"
               placeholder="搜索单号、申请人、摘要"
             />
+          </el-form-item>
+          <el-form-item>
             <el-select
               v-model="filters.status"
               class="w-32"
@@ -133,6 +137,8 @@
               <el-option label="已通过" value="2" />
               <el-option label="已拒绝" value="3" />
             </el-select>
+          </el-form-item>
+          <div class="function-filter-actions">
             <p class="text-xs font-bold text-on-surface-variant">列表已按“与我相关”自动过滤</p>
             <TableColumnSettings
               :columns="approvalTableColumns"
@@ -141,12 +147,12 @@
               @reset="resetApprovalTableColumns"
             />
           </div>
-        </div>
+        </el-form>
 
-        <div class="responsive-table-wrap relative min-h-[300px]">
-          <div v-if="loading" v-loading="true" class="min-h-[300px]" element-loading-text="正在加载审批列表"></div>
+        <div class="function-table-scroll responsive-table-wrap relative">
+          <div v-if="loading" v-loading="true" class="py-10" element-loading-text="正在加载审批列表"></div>
           <el-empty v-else-if="!activeTabCanViewList" description="当前账号暂无权限查看该审批列表" />
-          <div v-else-if="listLoadError" class="flex min-h-[300px] flex-col items-center justify-center px-6 text-center">
+          <div v-else-if="listLoadError" class="flex flex-col items-center justify-center px-6 py-10 text-center">
             <span class="material-symbols-outlined text-5xl text-error/70">{{ listLoadError.kind === 'permission' ? 'lock' : 'cloud_off' }}</span>
             <p class="mt-3 text-base font-black text-on-surface">{{ listLoadError.title }}</p>
             <p class="mt-2 max-w-lg text-sm leading-6 text-on-surface-variant">{{ listLoadError.message }}</p>

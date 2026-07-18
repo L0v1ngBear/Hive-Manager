@@ -1,5 +1,5 @@
 <template>
-  <div class="function-page-shell h-full min-h-0">
+  <div class="function-page-shell function-page-shell--compact h-full min-h-0">
     <div class="function-page-container space-y-6">
       <header class="function-page-header">
         <div>
@@ -7,7 +7,9 @@
           <h1 class="function-page-title">设备巡检记录</h1>
           <p class="function-page-desc">建立固定设备二维码，现场扫码巡检后记录自动沉淀到设备档案。</p>
         </div>
-        <el-form :inline="true" class="function-filter-form equipment-filter-form">
+      </header>
+
+      <el-form :inline="true" class="function-filter-form equipment-filter-form" @submit.prevent="handleSearch">
           <el-form-item>
             <el-input v-model.trim="filters.keyword" aria-label="设备关键词" clearable placeholder="搜索设备编码、名称、位置或负责人" @keyup.enter="fetchDevices" />
           </el-form-item>
@@ -23,16 +25,15 @@
             <el-tooltip :disabled="canExport" content="暂无 equipment:export 权限"><span><el-button :disabled="!canExport" @click="exportEquipmentExcel">导出 Excel</el-button></span></el-tooltip>
             <el-tooltip :disabled="canCreate" content="暂无 equipment:create 权限"><span><el-button type="primary" :disabled="!canCreate" @click="openCreate">新增设备</el-button></span></el-tooltip>
           </el-form-item>
-        </el-form>
-      </header>
+      </el-form>
 
-      <section class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <article class="stat-card"><p>设备总数</p><strong>{{ total }}</strong></article>
-        <article class="stat-card"><p>固定二维码</p><strong>一次打印</strong></article>
-        <article class="stat-card"><p>巡检方式</p><strong>扫码记录</strong></article>
+      <section class="function-stats-grid grid-cols-1 md:grid-cols-3 equipment-stats-grid">
+        <article class="function-stat-card stat-card"><p>设备总数</p><strong>{{ total }}</strong></article>
+        <article class="function-stat-card stat-card"><p>固定二维码</p><strong>一次打印</strong></article>
+        <article class="function-stat-card stat-card"><p>巡检方式</p><strong>扫码记录</strong></article>
       </section>
 
-      <section class="table-panel">
+      <section class="function-list-panel table-panel">
         <el-result
           v-if="listFailure"
           :icon="listFailure.kind === 'forbidden' ? 'warning' : 'error'"
