@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { existsSync } from 'node:fs'
+import net from 'node:net'
 import { resolve } from 'node:path'
 import test from 'node:test'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -8,10 +10,41 @@ import { chromium } from 'playwright-core'
 
 const projectRoot = resolve(import.meta.dirname, '..')
 const viteEntry = resolve(projectRoot, 'node_modules/vite/bin/vite.js')
-const chromeExecutable = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-const port = 4179
-const baseUrl = `http://127.0.0.1:${port}`
 const legacyLayout = process.env.CUSTOMER_LAYOUT_LEGACY === '1'
+const browserTestRequested = process.env.CUSTOMER_LAYOUT_BROWSER === '1'
+
+const chromeCandidates = {
+  win32: [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
+  ],
+  darwin: [
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    `${process.env.HOME || ''}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+  ],
+  linux: ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser']
+}
+
+const getFreePort = () => new Promise((resolvePort, reject) => {
+  const probe = net.createServer()
+  probe.once('error', reject)
+  probe.listen(0, '127.0.0.1', () => {
+    const { port } = probe.address()
+    probe.close((error) => error ? reject(error) : resolvePort(port))
+  })
+})
+
+const launchChrome = () => {
+  const override = process.env.CUSTOMER_LAYOUT_CHROME_PATH
+  if (override && !existsSync(override)) {
+    throw new Error(`CUSTOMER_LAYOUT_CHROME_PATH does not exist: ${override}`)
+  }
+  const executablePath = override || chromeCandidates[process.platform]?.find(existsSync)
+  const options = executablePath ? { executablePath } : { channel: 'chrome' }
+  return chromium.launch({ ...options, headless: true }).catch((error) => {
+    throw new Error(`Customer layout browser test requires Google Chrome. Set CUSTOMER_LAYOUT_CHROME_PATH or install Chrome discoverable by Playwright. ${error.message}`)
+  })
+}
 
 const customer = {
   id: 1,
@@ -21,7 +54,7 @@ const customer = {
   projects: [{ projectName: '测试项目', projectOwner: '测试负责人', constructionArea: '1000㎡' }]
 }
 
-const waitForVite = async () => {
+const waitForVite = async (baseUrl) => {
   const deadline = Date.now() + 20_000
   while (Date.now() < deadline) {
     try {
@@ -35,7 +68,8 @@ const waitForVite = async () => {
   throw new Error('Vite test server did not become ready')
 }
 
-const startVite = async () => {
+const startVite = async (port) => {
+  const baseUrl = `http://127.0.0.1:${port}`
   const server = spawn(process.execPath, [viteEntry, '--host', '127.0.0.1', '--port', String(port), '--strictPort'], {
     cwd: projectRoot,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -49,7 +83,7 @@ const startVite = async () => {
   })
 
   try {
-    await waitForVite()
+    await waitForVite(baseUrl)
   } catch (error) {
     server.kill()
     throw new Error(`${error.message}\n${output}`)
@@ -140,7 +174,7 @@ const assertLayout = (geometry, name) => {
   assert.ok(geometry.table.fixedRightSticky, `${name}: fixed right operation column was not sticky`)
 }
 
-const openCustomerPage = async (browser, viewport) => {
+const openCustomerPage = async (browser, baseUrl, viewport) => {
   const context = await browser.newContext({ viewport: { width: viewport, height: 900 } })
   await context.addInitScript(() => {
     sessionStorage.setItem('token', 'browser-layout-token')
@@ -169,18 +203,24 @@ const openCustomerPage = async (browser, viewport) => {
   return { context, page }
 }
 
-test('customer layout renders without clipped filters across shell widths', { timeout: 60_000 }, async (t) => {
-  const server = await startVite()
-  const browser = await chromium.launch({ executablePath: chromeExecutable, headless: true })
+const browserTest = browserTestRequested ? test : test.skip
+
+browserTest('customer layout renders without clipped filters across shell widths', { timeout: 60_000 }, async (t) => {
+  let server
+  let browser
   const measurements = {}
 
   try {
-    const wide = await openCustomerPage(browser, 1440)
+    const port = await getFreePort()
+    const baseUrl = `http://127.0.0.1:${port}`
+    server = await startVite(port)
+    browser = await launchChrome()
+    const wide = await openCustomerPage(browser, baseUrl, 1440)
     measurements.wide = await collectGeometry(wide.page)
     assertLayout(measurements.wide, '1440px')
     await wide.context.close()
 
-    const desktop = await openCustomerPage(browser, 1024)
+    const desktop = await openCustomerPage(browser, baseUrl, 1024)
     measurements.expanded = await collectGeometry(desktop.page)
     assertLayout(measurements.expanded, '1024px expanded sidebar')
     await desktop.page.locator('aside.ys-sidebar > div:last-child button').click()
@@ -192,13 +232,13 @@ test('customer layout renders without clipped filters across shell widths', { ti
     assert.ok(measurements.expanded.shellWidth < measurements.collapsed.shellWidth, '1024px shell width did not grow after sidebar collapse')
     await desktop.context.close()
 
-    const compact = await openCustomerPage(browser, 390)
+    const compact = await openCustomerPage(browser, baseUrl, 390)
     measurements.compact = await collectGeometry(compact.page)
     assertLayout(measurements.compact, '390px')
     await compact.context.close()
     t.diagnostic(JSON.stringify(measurements))
   } finally {
-    await browser.close()
+    await browser?.close()
     await stop(server)
   }
 })

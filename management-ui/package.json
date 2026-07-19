@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "test:customer-layout-browser": "node --test tests/customer-layout-browser.test.js",
+    "test:customer-layout-browser": "node --test tests/run-customer-layout-browser.mjs",
     "dev": "vite",
     "build": "vite build && node scripts/write-dist-manifest.mjs",
     "preview": "vite preview",
