@@ -56,6 +56,8 @@ import my.hive.domain.permission.mapper.SysUserRoleMapper;
 import my.hive.domain.permission.model.entity.SysRole;
 import my.hive.domain.permission.model.entity.SysUserRole;
 import my.hive.domain.permission.service.BuiltInRoleProvisionService;
+import my.hive.domain.organization.model.OrganizationInvitationPayload;
+import my.hive.domain.organization.service.OrganizationInvitationService;
 import my.hive.domain.tenant.mapper.TenantMapper;
 import my.hive.domain.tenant.model.entity.Tenant;
 import my.hive.domain.tenant.service.TenantLicenseService;
@@ -91,13 +93,11 @@ public class AuthenticationService {
     private static final long PASSWORD_RESET_CODE_EXPIRE_MINUTES = 5L;
     private static final long PASSWORD_RESET_SEND_INTERVAL_SECONDS = 60L;
     private static final long PASSWORD_RESET_MAX_VERIFY_FAIL = 5L;
-    private static final long ORGANIZATION_JOIN_CODE_EXPIRE_SECONDS = 15L * 60L;
     private static final long ORGANIZATION_JOIN_SMS_EXPIRE_MINUTES = 5L;
     private static final long ORGANIZATION_JOIN_SMS_INTERVAL_SECONDS = 60L;
     private static final long WECHAT_TENANT_SELECTION_EXPIRE_MINUTES = 5L;
     private static final long WECHAT_PHONE_PROOF_EXPIRE_MINUTES = 5L;
     private static final Duration PUBLIC_RATE_LIMIT_WINDOW = Duration.ofMinutes(5);
-    private static final String JOIN_CODE_KEY_PART = "organization-join-code";
     private static final String PLATFORM_TENANT_CODE = "super";
     private static final String PLATFORM_LOGIN_NAME = "super";
     private static final String DEFAULT_JOIN_ROLE_CODE = "EMPLOYEE";
@@ -176,6 +176,9 @@ public class AuthenticationService {
 
     @Resource
     private PublicAuthRateLimiter publicAuthRateLimiter;
+
+    @Resource
+    private OrganizationInvitationService organizationInvitationService;
 
     @Value("${auth.login.max-fail-count:5}")
     private Long maxFailCount;
@@ -808,23 +811,24 @@ public class AuthenticationService {
     }
 
     private String resolveTenantCodeByOrganizationCode(String organizationCode) {
-        String code = organizationCode == null ? "" : organizationCode.trim().toUpperCase();
-        if (!code.matches("^[A-Z0-9]{4,32}$")) {
-            throw new BusinessException(400, "组织码格式不正确");
-        }
-        String cachedTenantCode = stringRedisTemplate.opsForValue().get(redisKeyBuilder.cache("auth", JOIN_CODE_KEY_PART, code));
-        if (!StringUtils.hasText(cachedTenantCode)) {
-            throw new BusinessException(404, "组织码无效或已过期");
-        }
-        String tenantCode = cachedTenantCode.trim();
+        OrganizationInvitationPayload invitation = organizationInvitationService.consume(organizationCode);
+        String tenantCode = invitation.getTenantCode();
         if (!boundedTenantProperties.isTenantAllowed(tenantCode)) {
-            throw new BusinessException(404, "组织码无效或已过期");
+            throw invalidInvitation();
         }
         Tenant tenant = tenantMapper.selectByTenantCode(tenantCode);
         if (tenant == null || !CommonStatusEnum.isEnabled(tenant.getStatus())) {
-            throw new BusinessException(404, "组织码无效或已过期");
+            throw invalidInvitation();
         }
         return tenantCode;
+    }
+
+    private BusinessException invalidInvitation() {
+        return new BusinessException(
+                400,
+                AuthReason.INVITATION_INVALID_OR_EXPIRED,
+                "组织邀请码无效或已过期，请联系企业负责人重新获取"
+        );
     }
 
     private Employee resolveOrCreateJoinEmployee(String tenantCode, String name, String phone, String phoneHash, String password) {

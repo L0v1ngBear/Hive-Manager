@@ -39,7 +39,7 @@ xxl:
 hive:
   operation-log:
     enabled: true
-    recorded-modules: order
+    recorded-modules: order,auth,organization
     collect-to-db: true
     collect-to-slf4j: true
     async-db: true

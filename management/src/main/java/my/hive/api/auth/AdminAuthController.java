@@ -36,10 +36,10 @@ public class AdminAuthController {
     @CollectLog(module = "auth", action = "password_reset", bizType = "authentication", description = "重置管理端密码", recordArgs = false)
     public Result<Void> reset(@Valid @RequestBody PasswordResetRequest r, HttpServletRequest req) { authentication.resetPasswordBySmsCode(r, trustedClientIpResolver.resolve(req)); return Result.success(null); }
     @PostMapping("/join-organization/code")
-    @CollectLog(module = "auth", action = "join_organization_code", bizType = "authentication", description = "发送加入组织验证码", recordArgs = false)
+    @CollectLog(module = "auth", action = "join_organization_code", bizType = "authentication", description = "发送加入组织验证码", recordArgs = false, recordResult = false)
     public Result<Void> joinCode(@Valid @RequestBody OrganizationJoinCodeSendRequest r, HttpServletRequest req) { authentication.sendOrganizationJoinCode(r, trustedClientIpResolver.resolve(req)); return Result.success(null); }
     @PostMapping("/join-organization")
-    @CollectLog(module = "auth", action = "join_organization", bizType = "authentication", description = "加入组织", recordArgs = false)
+    @CollectLog(module = "auth", action = "join_organization", bizType = "authentication", description = "加入组织", recordArgs = false, recordResult = false)
     public Result<LoginVO> join(@Valid @RequestBody OrganizationJoinRequest r, HttpServletRequest req) { return Result.success(authentication.joinOrganization(r, trustedClientIpResolver.resolve(req))); }
     @PostMapping("/initial-password")
     @CollectLog(module = "auth", action = "initial_password_change", bizType = "authentication", description = "修改初始密码", recordArgs = false)

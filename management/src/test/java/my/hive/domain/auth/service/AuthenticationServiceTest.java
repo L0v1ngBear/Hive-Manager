@@ -21,6 +21,8 @@ import my.hive.domain.employee.model.entity.Position;
 import my.hive.domain.permission.mapper.SysUserRoleMapper;
 import my.hive.domain.permission.model.entity.SysRole;
 import my.hive.domain.permission.service.BuiltInRoleProvisionService;
+import my.hive.domain.organization.model.OrganizationInvitationPayload;
+import my.hive.domain.organization.service.OrganizationInvitationService;
 import my.hive.domain.tenant.mapper.TenantMapper;
 import my.hive.domain.tenant.model.entity.Tenant;
 import my.hive.domain.tenant.service.TenantLicenseService;
@@ -95,6 +97,7 @@ class AuthenticationServiceTest {
     private final AuthenticationService service = new AuthenticationService();
     private final TenantContext context = mock(TenantContext.class);
     private final PublicAuthRateLimiter publicAuthRateLimiter = mock(PublicAuthRateLimiter.class);
+    private final OrganizationInvitationService organizationInvitationService = mock(OrganizationInvitationService.class);
 
     @BeforeEach
     void setUp() {
@@ -121,6 +124,7 @@ class AuthenticationServiceTest {
         ReflectionTestUtils.setField(service, "builtInRoleProvisionService", builtInRoleProvisionService);
         ReflectionTestUtils.setField(service, "codeGeneratorUtil", codeGeneratorUtil);
         ReflectionTestUtils.setField(service, "publicAuthRateLimiter", publicAuthRateLimiter);
+        ReflectionTestUtils.setField(service, "organizationInvitationService", organizationInvitationService);
 
         when(tenants.allowedTenantCodes()).thenReturn(List.of("a", "b"));
         when(tenants.isTenantAllowed(anyString())).thenReturn(true);
@@ -578,7 +582,12 @@ class AuthenticationServiceTest {
     }
 
     private void prepareSuccessfulOrganizationJoin() {
-        when(values.get("auth:organization-join-code:JOIN1234")).thenReturn("a");
+        OrganizationInvitationPayload invitation = new OrganizationInvitationPayload();
+        invitation.setTenantCode("a");
+        invitation.setIssuerUserId(7L);
+        invitation.setExpiresAt(System.currentTimeMillis() + 60_000);
+        invitation.setRemainingUses(0);
+        when(organizationInvitationService.consume("JOIN1234")).thenReturn(invitation);
         Tenant tenant = new Tenant();
         tenant.setTenantCode("a");
         tenant.setStatus(1);
