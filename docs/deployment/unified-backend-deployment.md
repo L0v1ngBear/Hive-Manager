@@ -6,6 +6,15 @@ Hive has one business service named `backend`, one container named `hive-backend
 
 The mini-program and management web use the same backend. There are no `management-backend-1`, `backend-1`, `/web/**` compatibility routes or dual-backend startup paths in the current release.
 
+Nginx is the only externally published HTTP entry. The backend exposes port
+8080 only inside `hive-net`. Compose assigns that network
+`HIVE_DOCKER_SUBNET=172.30.0.0/24` by default and passes the same subnet, plus
+loopback, to the backend trusted-proxy list. Before first startup, compare this
+subnet with host, LAN, cloud, and VPN routes. If it overlaps, change the single
+`HIVE_DOCKER_SUBNET` value in the server-owned `.env`; Compose then updates both
+IPAM and proxy trust together. Do not add general RFC1918 ranges or publish the
+backend port directly.
+
 ## Required release contents
 
 - `backend/hive-backend.jar`

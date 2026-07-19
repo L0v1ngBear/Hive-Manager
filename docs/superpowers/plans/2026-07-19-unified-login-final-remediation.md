@@ -259,3 +259,59 @@ Write every RED/GREEN command, focused commit, security decision, test/build out
 - Spec coverage: design sections 8-10 and review findings map to Tasks 1-5; release requirements map to Task 6.
 - Placeholder scan: no deferred implementation placeholders remain.
 - Type consistency: invitation issue/consume, trusted IP, public limiter, tenant reasons, and target-tenant candidate lookup are defined once and consumed by later tasks with matching names.
+
+### Task 7: Deployment proxy trust and audit defaults
+
+**Files:**
+- Create: `management-ui/tests/public-auth-deployment-security.test.js`
+- Modify: `deploy/docker-compose.yml`
+- Modify: `deploy/.env.example`
+- Modify: `docs/deployment/unified-backend-deployment.md`
+- Modify: `.superpowers/sdd/final-remediation-report.md`
+- Modify: `RELEASE_BUILD_INFO.txt`
+
+**Interfaces:**
+- `HIVE_DOCKER_SUBNET` defaults to `172.30.0.0/24` and supplies both the
+  `hive-net` IPAM subnet and the non-loopback entry in
+  `TRUSTED_PROXY_CIDRS`.
+- Operation audit defaults are `order,auth,organization` in Compose,
+  `.env.example`, and `application-prod.yaml`.
+- Backend remains internal on `expose: 8080`; Nginx alone publishes ports
+  80/443.
+
+- [ ] **Step 1: Write the failing deployment contract**
+
+Assert the shared subnet default and override interpolation, loopback trusted
+CIDRs, Nginx-only HTTP publication, and exact operation-log module defaults
+across all three configuration sources.
+
+- [ ] **Step 2: Run RED**
+
+Run: `node --test tests/public-auth-deployment-security.test.js`
+
+Expected: FAIL because Compose lacks IPAM/trusted-proxy propagation and both
+deploy defaults still record only `order`.
+
+- [ ] **Step 3: Implement the minimal aligned configuration**
+
+Add the shared subnet variable, Compose IPAM, derived trusted-proxy value,
+aligned operation modules, and collision guidance. Do not publish backend HTTP
+ports.
+
+- [ ] **Step 4: Run GREEN and commit**
+
+Run the Step 2 command and the relevant deployment topology tests. Commit the
+test/configuration/documentation files with
+`fix: align deployment proxy trust and auth audit`.
+
+- [ ] **Step 5: Run full gates and refresh release**
+
+Run management UI tests/build and focused backend configuration/security tests,
+then mirror the corrected release-owned files to the fixed desktop directory.
+Verify metadata, exactly one desktop JAR, no repository staging JAR, forbidden
+path absence, and source/delivery configuration equality.
+
+- [ ] **Step 6: Update evidence and commit release metadata**
+
+Append RED/GREEN and release evidence to the final remediation report and
+commit only the report/metadata with `build: refresh proxy-hardened release`.
