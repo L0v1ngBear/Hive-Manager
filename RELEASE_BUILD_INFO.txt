@@ -1,10 +1,10 @@
 ReleaseName=Hive Unified Release
 ReleaseVersion=2.0.0
 ReleaseSource=git-commit
-SourceGitCommit=97cb45fb1851e60e32c390a25d072da9cd011a3e
+SourceGitCommit=b8d46c2835f8789906e62566d539bdb5bd696eaf
 SourceBranch=codex/unified-employee-login
-ReleasePackageGitCommit=97cb45fb1851e60e32c390a25d072da9cd011a3e
-BuildTimeUtc=2026-07-19T05:01:31Z
+ReleasePackageGitCommit=b8d46c2835f8789906e62566d539bdb5bd696eaf
+BuildTimeUtc=2026-07-19T05:20:22Z
 
 BackendArtifact=backend/hive-backend.jar
 BackendArtifactCount=1
@@ -33,7 +33,7 @@ JavaVersion=21.0.5
 MavenVersion=3.9.14
 NodeVersion=25.1.0
 BackendTests=351
-ManagementUiTests=312
+ManagementUiTests=315
 ManagementUiBuild=PASS
 UnifiedRouteSmoke=NOT_RUN_TASK9
 DockerComposeValidation=PENDING_RELEASE_HOST

@@ -200,3 +200,85 @@ TENANT_LICENSE_UNAVAILABLE=True
 
 Handoff remains local only: overwrite `/root/hive` with the fixed desktop tree,
 then an authorized operator may run `cd /root/hive && bash publish.sh`.
+
+## Final deployment re-review addendum
+
+The final re-review retained two deployment findings: the backend container did
+not receive the internal Nginx network as a trusted proxy, and deploy defaults
+still restricted operation logging to `order`. Both were closed in focused
+commit `b8d46c2` (`fix: align deployment proxy trust and auth audit`).
+
+### RED/GREEN evidence
+
+```text
+node --test tests/public-auth-deployment-security.test.js
+RED: tests=3 pass=1 fail=2
+Expected failures: missing shared hive-net/trusted-proxy subnet and stale
+order-only operation-log defaults. The Nginx-only publication check passed.
+
+node --test tests/public-auth-deployment-security.test.js
+GREEN: tests=3 pass=3 fail=0
+
+node --test tests/public-auth-deployment-security.test.js \
+  tests/unified-deployment-topology.test.js \
+  tests/deploy-secret-hardening.test.js \
+  tests/deploy-host-portability.test.js \
+  tests/release-runtime-safety.test.js
+tests=23 pass=23 fail=0
+
+.\mvnw.cmd -q \
+  '-Dtest=TrustedClientIpResolverTest,CommercialHardeningStaticTest,ProductionMybatisLoggingConfigurationTest' test
+exit=0
+```
+
+Fresh complete management UI gates after the deployment change:
+
+```text
+npm test
+tests=315 pass=315 fail=0 cancelled=0 skipped=0 todo=0
+
+npm run build
+PASS; files=99
+```
+
+The mini repository was unchanged by this deployment-only correction and
+remains at `82bd200cfb815610d3fb651723673032e100beab`.
+
+### Deployment security contract
+
+- `hive-net` now has explicit IPAM with default subnet `172.30.0.0/24`.
+- The single `.env` override `HIVE_DOCKER_SUBNET` drives both IPAM and the
+  backend `TRUSTED_PROXY_CIDRS` value. The trusted list is exactly loopback
+  (`127.0.0.0/8`, `::1/128`) plus that internal subnet; it does not trust broad
+  Internet or RFC1918 peer ranges.
+- Backend remains `expose: 8080` only, with no host `ports` mapping. Nginx is
+  the sole externally published HTTP entry on ports 80/443.
+- Operators must compare the default subnet against host, LAN, cloud, and VPN
+  routes before first startup. If it overlaps, changing the one server-owned
+  `HIVE_DOCKER_SUBNET` value updates both network allocation and proxy trust.
+- Compose and `.env.example` now default
+  `OPERATION_LOG_RECORDED_MODULES=order,auth,organization`, matching
+  `application-prod.yaml` so authentication and organization invitation/join
+  events are collected.
+
+### Refreshed desktop verification
+
+```text
+Target=C:\Users\HUAWEI\Desktop\hive全新部署
+RequiredEntries=12
+ForbiddenPaths=0
+BackendJars=1
+BackendJarSha256=4f51410b4bab8228e504c568ccdfd4c2315e6096bdac1bf8b77e9ca07762818c
+ManagementUiFiles=99
+ManagementUiSha256=6210e28f4c25b6be0fc74a1840cf53e1f36c3c575a0f98ccf634a9cbd038c2d5
+MigrationChecksumEntries=81
+DesktopConfigCopies=MATCH
+TrustedProxy=LOOPBACK_PLUS_HIVE_NET
+PublishedBackendPorts=0
+RepositoryDeployStagedJars=0
+MetadataCommits=RESOLVED
+```
+
+Docker remains unavailable on this workstation, so actual Compose expansion
+and subnet allocation/collision validation remain release-host gates. No
+remote deployment was performed.
