@@ -12,7 +12,7 @@ test('login uses the approved split layout and preserves both login modes', () =
   assert.match(source, /role="tablist"/)
   assert.match(source, /@click="loginMode = 'account'"/)
   assert.match(source, /@click="loginMode = 'scan'"/)
-  assert.match(source, /v-if="loginMode === 'account'"/)
+  assert.match(source, /:hidden="loginMode !== 'account'"/)
   assert.match(source, /class="login-scan-panel"/)
   assert.match(source, /@submit\.prevent="handleLogin"/)
   assert.match(source, /@click="goJoinOrganization"/)
@@ -42,4 +42,23 @@ test('login mode tabs expose linked panels and roving keyboard navigation', () =
   assert.match(source, /case 'End':/)
   assert.match(source, /event\.preventDefault\(\)/)
   assert.match(source, /focusLoginModeTab\(nextMode\)/)
+})
+
+test('login preserves baseline copy and keeps linked panels live for every mode', () => {
+  for (const copy of [
+    '企业信息管理',
+    '专业、高效、可靠、价值，协同工业生产效率。',
+    '把经验和流程变成可追踪、可复盘、可优化的数据资产。',
+    '快捷登录',
+    '使用 Hive 移动端小程序扫码',
+    '账号登录',
+    '欢迎回来，请输入账号信息'
+  ]) {
+    assert.match(source, new RegExp(copy))
+  }
+  assert.doesNotMatch(source, /让生产协同更清晰、更高效/)
+  assert.doesNotMatch(source, /统一业务协同/)
+  assert.match(source, /id="login-account-panel"[\s\S]*:hidden="loginMode !== 'account'"/)
+  assert.match(source, /id="login-scan-panel"[\s\S]*:hidden="loginMode !== 'scan'"/)
+  assert.match(source, /role="status"[\s\S]*aria-live="polite"[\s\S]*aria-atomic="true"/)
 })

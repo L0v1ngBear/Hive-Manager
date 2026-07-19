@@ -10,27 +10,22 @@
           <span>{{ brandConfig.productName }}</span>
         </div>
         <div class="login-brand-copy">
-          <p class="login-kicker">企业信息管理</p>
-          <h1>让生产协同更清晰、更高效</h1>
-          <p>专业、高效、可靠、价值，协同工业生产效率。把经验和流程变成可追踪、可复盘、可优化的数据资产。</p>
+          <h1>企业信息管理</h1>
+          <p>专业、高效、可靠、价值，协同工业生产效率。<br />把经验和流程变成可追踪、可复盘、可优化的数据资产。</p>
         </div>
-        <ul class="login-benefits">
-          <li>统一业务协同</li>
-          <li>安全权限控制</li>
-          <li>生产过程可追踪</li>
-        </ul>
       </aside>
 
       <section class="login-auth-panel">
-        <div class="login-auth-heading">
-          <h2>欢迎登录</h2>
-          <p>请输入账号信息进入系统</p>
-        </div>
         <div class="login-mode-tabs" role="tablist" aria-label="登录方式">
           <button id="login-account-tab" ref="accountLoginTab" type="button" role="tab" :aria-selected="loginMode === 'account'" :tabindex="loginMode === 'account' ? 0 : -1" aria-controls="login-account-panel" @click="loginMode = 'account'" @keydown="handleLoginModeKeydown($event, 'account')">账号登录</button>
           <button id="login-scan-tab" ref="scanLoginTab" type="button" role="tab" :aria-selected="loginMode === 'scan'" :tabindex="loginMode === 'scan' ? 0 : -1" aria-controls="login-scan-panel" @click="loginMode = 'scan'" @keydown="handleLoginModeKeydown($event, 'scan')">扫码登录</button>
         </div>
-        <el-form v-if="loginMode === 'account'" id="login-account-panel" role="tabpanel" aria-labelledby="login-account-tab" :model="loginForm" label-position="top" class="space-y-2" @submit.prevent="handleLogin">
+        <div id="login-account-panel" role="tabpanel" aria-labelledby="login-account-tab" :hidden="loginMode !== 'account'">
+          <div class="login-account-heading">
+            <h3>账号登录</h3>
+            <p>欢迎回来，请输入账号信息</p>
+          </div>
+          <el-form :model="loginForm" label-position="top" class="space-y-2" @submit.prevent="handleLogin">
             <el-form-item label="账号">
                 <el-input
                     id="username"
@@ -95,9 +90,10 @@
                 <span>使用组织码加入组织</span>
               </el-button>
             </div>
-        </el-form>
+          </el-form>
+        </div>
 
-        <div v-else id="login-scan-panel" class="login-scan-panel" role="tabpanel" aria-labelledby="login-scan-tab">
+        <div id="login-scan-panel" class="login-scan-panel" role="tabpanel" aria-labelledby="login-scan-tab" :hidden="loginMode !== 'scan'">
           <h3>快捷登录</h3>
           <p>使用 Hive 移动端小程序扫码</p>
           <div v-if="scanStatus === 'CONFIRMED'" class="w-full h-64 bg-emerald-50/80 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center gap-4 p-6 transition-all">
@@ -126,6 +122,7 @@
               <p class="text-sm font-medium text-slate-600">{{ scanStatusText }}</p>
             </div>
           </div>
+          <p id="login-scan-status" class="login-scan-live-region" role="status" aria-live="polite" aria-atomic="true">{{ scanStatusText }}</p>
         </div>
       </section>
     </section>
@@ -671,8 +668,7 @@ onUnmounted(() => {
 }
 
 .login-brand-lockup,
-.login-brand-copy,
-.login-benefits {
+.login-brand-copy {
   position: relative;
   z-index: 1;
 }
@@ -700,49 +696,30 @@ onUnmounted(() => {
   object-fit: cover;
 }
 
-.login-kicker {
-  margin: 0 0 1rem;
-  font-size: 0.875rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.login-brand-copy h1,
-.login-auth-heading h2 {
+.login-brand-copy h1 {
   margin: 0;
   font-size: clamp(2rem, 4vw, 3rem);
   line-height: 1.2;
 }
 
-.login-brand-copy > p:last-child,
-.login-auth-heading p {
+.login-brand-copy > p:last-child {
   line-height: 1.75;
   opacity: 0.82;
 }
 
-.login-benefits {
-  display: grid;
-  gap: 0.75rem;
-  padding: 0;
-  margin: 2rem 0 0;
-  list-style: none;
-}
-
-.login-benefits li::before {
-  content: '✓';
-  margin-right: 0.625rem;
-}
-
-.login-auth-heading {
+.login-account-heading {
   margin-bottom: 2rem;
 }
 
-.login-auth-heading h2 {
+.login-account-heading h3 {
+  margin: 0;
   color: #0f172a;
   font-size: 2rem;
 }
 
-.login-auth-heading p {
+.login-account-heading p {
+  line-height: 1.75;
+  opacity: 0.82;
   color: #64748b;
 }
 
@@ -785,9 +762,21 @@ onUnmounted(() => {
   font-size: 1.5rem;
 }
 
-.login-scan-panel > p {
+.login-scan-panel > p:not(.login-scan-live-region) {
   margin: 0.5rem 0 2rem;
   color: #64748b;
+}
+
+.login-scan-live-region {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 900px) {
