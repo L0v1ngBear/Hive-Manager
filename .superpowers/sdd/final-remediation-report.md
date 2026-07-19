@@ -186,9 +186,9 @@ TENANT_LICENSE_UNAVAILABLE=True
 
 ## Remaining operational gates
 
-- Git Bash and Docker are unavailable locally. The equivalent Windows artifact
-  checks passed, but `scripts/verify-release-integrity.sh`, upload-package Bash
-  execution, Compose validation, and runtime smoke remain release-host gates.
+- Docker is unavailable locally. Git Bash artifact and upload-package checks
+  now pass; Compose allocation validation and runtime smoke remain release-host
+  gates.
 - The read-only data audit was contract-tested but not run against a live
   production database; operators must run it with production credentials
   before migration and stop on duplicate real-tenant phone hashes.
@@ -282,3 +282,88 @@ MetadataCommits=RESOLVED
 Docker remains unavailable on this workstation, so actual Compose expansion
 and subnet allocation/collision validation remain release-host gates. No
 remote deployment was performed.
+
+## Existing Compose network upgrade-path addendum
+
+The final Important re-review finding was a real upgrade hazard: releases with
+the new fixed `hive-net` IPAM could silently reuse an older Docker network with
+a different subnet. That would make the live Nginx peer network diverge from
+the backend trusted-proxy CIDR. The stale desktop operator guide also omitted
+the required one-time network migration behavior.
+
+Focused commit `293bc15` (`fix: migrate legacy compose network safely`) closes
+the finding without remote deployment.
+
+### RED/GREEN evidence
+
+```text
+node --test tests/deploy-network-migration.test.js
+RED: tests=7 pass=0 fail=7
+Expected failures: no network marker, no pre/post inspect, mismatch and legacy
+networks still used the limited restart, foreign attachments were accepted,
+and a wrong post-up subnet reached success.
+
+node --test tests/deploy-network-migration.test.js
+GREEN: tests=10 pass=10 fail=0
+
+bash -n deploy/scripts/restart.sh
+exit=0
+
+Focused deployment suite
+tests=36 pass=36 fail=0
+
+npm test
+tests=325 pass=325 fail=0 cancelled=0 skipped=0 todo=0
+
+npm run build
+PASS; files=99
+```
+
+The expanded GREEN suite also proves safe failure when an existing network
+cannot be inspected, when project teardown fails, and when project recreation
+fails.
+
+### Upgrade contract
+
+- Compose labels `hive-net` with a subnet-derived release configuration marker.
+- `restart.sh` resolves the effective project and actual network name from the
+  rendered Compose JSON, so top-level `name` and `COMPOSE_PROJECT_NAME` are
+  honored.
+- An absent or exact matching network uses the limited `backend nginx` restart.
+- A subnet mismatch or legacy/missing marker performs
+  `docker compose down --remove-orphans` followed by unfiltered
+  `docker compose up -d`, restarting all services enabled by the current
+  `.env`/`COMPOSE_PROFILES`.
+- The full migration never uses `-v` or `--volumes`; named volumes, bind-mounted
+  database/cache data, uploads and logs remain intact.
+- Foreign Compose project attachments and inspection/migration errors fail with
+  explicit guidance. The live subnet is asserted again before health checks.
+
+### Final desktop refresh and integrity
+
+```text
+Target=C:\Users\HUAWEI\Desktop\hive全新部署
+SourceGitCommit=293bc15a0a6e4188421899a0ba543312e3403651
+BackendJars=1
+BackendJarSha256=4f51410b4bab8228e504c568ccdfd4c2315e6096bdac1bf8b77e9ca07762818c
+BackendJarBytes=103358279
+ManagementUiFiles=99
+ManagementUiSha256=6210e28f4c25b6be0fc74a1840cf53e1f36c3c575a0f98ccf634a9cbd038c2d5
+MigrationFiles=79
+MigrationChecksumEntries=81
+ForbiddenPaths=0
+RepositoryDeployStagedJars=0
+ComposeCopy=MATCH
+ScriptsTree=MATCH
+DeploymentGuide=MATCH
+MetadataCopy=MATCH
+ReleaseIntegrity=PASS
+UploadPackageCleanliness=PASS
+```
+
+The corrected `docs/deployment/unified-backend-deployment.md` is now present in
+the desktop release and matches the repository byte-for-byte. It documents the
+one-time downtime, subnet collision override, full enabled-service restart,
+and volume-preserving behavior. Docker remains the only unavailable local gate;
+actual network allocation and runtime health/smoke must be checked on the
+authorized release host. No merge, push, upload, or remote deployment occurred.

@@ -360,7 +360,7 @@ Run the Step 2 command plus deployment topology, portability, runtime-safety,
 and proxy security tests. Commit script/test/Compose/docs with
 `fix: migrate legacy compose network safely`.
 
-- [ ] **Step 5: Run full UI tests/build and refresh release**
+- [x] **Step 5: Run full UI tests/build and refresh release**
 
 Run `npm test` and `npm run build`, update release metadata/report, mirror the
 corrected source-owned files to the fixed desktop directory, and verify hashes,
