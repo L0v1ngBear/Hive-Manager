@@ -274,6 +274,16 @@ test('deploy health rejects a whitespace-only APISpace token', () => {
   assert.match(`${result.stdout}\n${result.stderr}`, /APISpace logistics is enabled but APISPACE_LOGISTICS_TOKEN is empty/)
 })
 
+test('deploy health applies runtime defaults when provider settings are empty', () => {
+  const result = runHealth({
+    LOGISTICS_PROVIDER: '',
+    FILE_STORAGE_PROVIDER: ''
+  })
+  assert.equal(result.error, undefined)
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+  assert.match(result.stdout, /Deployment source health check passed/)
+})
+
 test('deploy health normalizes the storage provider before applying the OSS gate', () => {
   const result = runHealth({
     FILE_STORAGE_PROVIDER: ' ALIYUN-OSS ',

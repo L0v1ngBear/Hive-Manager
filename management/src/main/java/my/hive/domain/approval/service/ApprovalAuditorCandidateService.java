@@ -146,7 +146,7 @@ public class ApprovalAuditorCandidateService {
                                            String comment) {
         if (!StringUtils.hasText(tenantCode) || !StringUtils.hasText(approvalType)
                 || !StringUtils.hasText(approvalCode) || auditorId == null || auditorId <= 0) {
-            throw new BusinessException("approval decision parameters are invalid");
+            throw new BusinessException("审批决定参数不合法");
         }
         List<ApprovalAuditorCandidate> history = approvalAuditorCandidateMapper.selectApprovalForUpdate(
                 tenantCode, approvalType, approvalCode);
@@ -158,7 +158,7 @@ public class ApprovalAuditorCandidateService {
                         && AUDIT_STATUS_PENDING == valueOrDefault(candidate.getAuditStatus())
                         && auditorId.equals(candidate.getAuditorId()));
         if (!pendingCandidate) {
-            throw new BusinessException("approval has already been processed or current user is not an auditor");
+            throw new BusinessException("审批已处理或当前账号不是审批人");
         }
 
         LocalDateTime auditTime = LocalDateTime.now();
@@ -171,7 +171,7 @@ public class ApprovalAuditorCandidateService {
                 comment,
                 auditTime);
         if (updatedRows != 1) {
-            throw new BusinessException("approval has already been processed or current user is not an auditor");
+            throw new BusinessException("审批已处理或当前账号不是审批人");
         }
 
         List<ApprovalAuditorCandidate> current = approvalAuditorCandidateMapper.selectApprovalForUpdate(
@@ -180,7 +180,7 @@ public class ApprovalAuditorCandidateService {
                 .filter(candidate -> STATUS_ACTIVE == valueOrDefault(candidate.getStatus()))
                 .toList();
         if (active.isEmpty()) {
-            throw new BusinessException("approval instance is no longer active");
+            throw new BusinessException("审批流程已结束，不能继续处理");
         }
         if (active.stream().anyMatch(candidate -> AUDIT_STATUS_REJECTED == valueOrDefault(candidate.getAuditStatus()))) {
             return ApprovalDecision.REJECTED;
@@ -191,7 +191,7 @@ public class ApprovalAuditorCandidateService {
         if (active.stream().allMatch(candidate -> AUDIT_STATUS_APPROVED == valueOrDefault(candidate.getAuditStatus()))) {
             return ApprovalDecision.APPROVED;
         }
-        throw new BusinessException("approval candidate state is invalid");
+        throw new BusinessException("审批候选人状态不合法");
     }
 
     public boolean markAuditorDecision(String tenantCode,

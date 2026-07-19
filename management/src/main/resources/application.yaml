@@ -22,7 +22,7 @@ tenant:
 
 mybatis-plus:
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
 
 auth:
   token:
@@ -150,6 +150,11 @@ maintenance:
     system-event-retention-days: ${SYSTEM_EVENT_RETENTION_DAYS:180}
 
 hive:
+  web:
+    client-ip:
+      # Only socket peers in these CIDRs may supply X-Forwarded-For/X-Real-IP.
+      # Loopback covers the supported local nginx/container proxy topology.
+      trusted-proxies: ${TRUSTED_PROXY_CIDRS:127.0.0.0/8,::1/128}
   tenant:
     # BOUNDED = keep tenant_code isolation, but only allow the configured fixed tenants.
     # OPEN is reserved for a future multi-tenant platform and should not be used now.

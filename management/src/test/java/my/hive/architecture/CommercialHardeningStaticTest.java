@@ -267,6 +267,8 @@ class CommercialHardeningStaticTest {
                 "action = \"login\"",
                 "action = \"password_reset_code\"",
                 "action = \"password_reset\"",
+                "action = \"join_organization_code\"",
+                "action = \"join_organization\"",
                 "action = \"initial_password_change\"",
                 "action = \"scan_login_confirm\""
         );
@@ -286,6 +288,34 @@ class CommercialHardeningStaticTest {
                 })
                 .toList();
         assertTrue(violations.isEmpty(), "Auth operation logs must not record credential or login-code request payloads: " + violations);
+    }
+
+    @Test
+    void productionOperationLogPersistsAuthAndOrganizationWithoutInvitationPayloads() throws IOException {
+        Path prodConfig = Path.of("src", "main", "resources", "application-prod.yaml");
+        String config = Files.readString(prodConfig, StandardCharsets.UTF_8);
+        assertTrue(config.contains("OPERATION_LOG_RECORDED_MODULES:order,auth,organization"),
+                "Production must persist successful invitation issuance and join operations: " + prodConfig);
+
+        Path adminController = MAIN_SOURCE.resolve("my/hive/api/auth/AdminAuthController.java");
+        String admin = Files.readString(adminController, StandardCharsets.UTF_8);
+        for (String action : List.of("join_organization_code", "join_organization")) {
+            int actionIndex = admin.indexOf("action = \"" + action + "\"");
+            int annotationStart = admin.lastIndexOf("@CollectLog", actionIndex);
+            int annotationEnd = admin.indexOf(")", actionIndex);
+            assertTrue(actionIndex >= 0 && annotationStart >= 0 && annotationEnd > actionIndex);
+            String annotation = admin.substring(annotationStart, annotationEnd);
+            assertTrue(annotation.contains("recordArgs = false") && annotation.contains("recordResult = false"),
+                    "Invitation auth audit must exclude args/results: " + action);
+        }
+
+        Path organizationController = MAIN_SOURCE.resolve("my/hive/api/organization/OrganizationController.java");
+        String organization = Files.readString(organizationController, StandardCharsets.UTF_8);
+        int issuance = organization.indexOf("action = \"create_join_code\"");
+        String issuanceAnnotation = organization.substring(
+                organization.lastIndexOf("@CollectLog", issuance), organization.indexOf(")", issuance));
+        assertTrue(issuanceAnnotation.contains("recordArgs = false") && issuanceAnnotation.contains("recordResult = false"),
+                "Invitation issuance audit must exclude args/results");
     }
 
     @Test

@@ -22,14 +22,14 @@ public class FileStorageProviderRouter {
         for (FileStorageProvider provider : providers) {
             String providerCode = normalizeProviderCode(provider.providerCode());
             if (providersByCode.putIfAbsent(providerCode, provider) != null) {
-                throw new BusinessException("Duplicate file storage provider code: " + providerCode);
+                throw new BusinessException("文件存储供应商编码重复：" + providerCode);
             }
         }
 
         String selectedCode = normalizeProviderCode(configuredProvider);
         selectedProvider = providersByCode.get(selectedCode);
         if (selectedProvider == null) {
-            throw new BusinessException("Unsupported file storage provider: " + selectedCode);
+            throw new BusinessException("不支持的文件存储供应商：" + selectedCode);
         }
     }
 
@@ -43,7 +43,7 @@ public class FileStorageProviderRouter {
 
     private String normalizeProviderCode(String providerCode) {
         if (!StringUtils.hasText(providerCode)) {
-            throw new BusinessException("File storage provider code is required");
+            throw new BusinessException("文件存储供应商编码不能为空");
         }
         return providerCode.trim().toLowerCase(Locale.ROOT);
     }

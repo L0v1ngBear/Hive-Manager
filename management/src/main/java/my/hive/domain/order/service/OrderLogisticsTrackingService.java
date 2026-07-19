@@ -72,7 +72,7 @@ public class OrderLogisticsTrackingService {
         if (!Objects.equals(order.getTenantCode(), shipment.getTenantCode())
                 || !Objects.equals(orderId, shipment.getOrderId())
                 || !Objects.equals(shipmentId, shipment.getId())) {
-            throw new BusinessException("Shipment does not exist or does not belong to this order");
+            throw new BusinessException("物流记录不存在或不属于当前订单");
         }
         String company = required(shipment.getLogisticsCompany(), "Shipment logistics company is required");
         String trackingNo = required(shipment.getTrackingNo(), "Shipment tracking number is required");

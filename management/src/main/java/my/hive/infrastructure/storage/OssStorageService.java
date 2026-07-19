@@ -159,7 +159,7 @@ public class OssStorageService implements FileStorageProvider {
             throw new BusinessException("租户信息缺失，无法上传文件");
         }
         if (!StringUtils.hasText(module)) {
-            throw new BusinessException("File storage module is required");
+            throw new BusinessException("文件业务模块不能为空");
         }
         if (file == null || file.isEmpty()) {
             throw new BusinessException("请选择需要上传的文件");

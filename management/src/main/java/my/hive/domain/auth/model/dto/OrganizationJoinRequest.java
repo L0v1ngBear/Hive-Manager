@@ -12,8 +12,9 @@ public class OrganizationJoinRequest {
     @NotBlank(message = "请输入手机号")
     private String phone;
 
-    @NotBlank(message = "请输入短信验证码")
     private String smsCode;
+
+    private String phoneVerificationTicket;
 
     @NotBlank(message = "请输入组织码")
     private String organizationCode;

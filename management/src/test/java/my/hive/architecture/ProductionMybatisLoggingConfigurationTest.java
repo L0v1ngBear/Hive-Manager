@@ -16,29 +16,35 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class ProductionMybatisLoggingConfigurationTest {
 
     private static final String LOG_IMPLEMENTATION_PROPERTY = "mybatis-plus.configuration.log-impl";
-    private static final String STDOUT_IMPLEMENTATION = "org.apache.ibatis.logging.stdout.StdOutImpl";
     private static final String NO_LOGGING_IMPLEMENTATION = "org.apache.ibatis.logging.nologging.NoLoggingImpl";
 
     @Test
-    void prodProfileMustOverrideCommonMybatisPlusStdoutLogging() {
+    void defaultDevAndProdProfilesNeverEmitSqlParameterOrResultValues() {
+        assertEquals(NO_LOGGING_IMPLEMENTATION, yamlProperties("application.yaml")
+                        .getProperty(LOG_IMPLEMENTATION_PROPERTY),
+                "The common MyBatis configuration must never print SQL parameters or result rows");
+        assertEquals("WARN", yamlProperties("application-dev.yaml")
+                        .getProperty("logging.level.my.hive.domain.auth.mapper"),
+                "The dev auth mapper logger must not expose parameter values at TRACE");
+        assertEquals("WARN", yamlProperties("application-dev.yaml")
+                        .getProperty("logging.level.org.apache.ibatis"),
+                "The dev MyBatis logger must not expose parameter values at TRACE");
+
         try (ConfigurableApplicationContext context = new SpringApplicationBuilder(TestConfiguration.class)
                 .web(WebApplicationType.NONE)
                 .profiles("prod")
                 .run()) {
             Environment environment = context.getEnvironment();
 
-            assertEquals(STDOUT_IMPLEMENTATION, commonLogImplementation(),
-                    "The common application configuration must retain development SQL logging");
             assertEquals(NO_LOGGING_IMPLEMENTATION, environment.getProperty(LOG_IMPLEMENTATION_PROPERTY),
                     "The effective prod MyBatis-Plus configuration must disable SQL and parameter logging");
         }
     }
 
-    private String commonLogImplementation() {
+    private Properties yamlProperties(String resource) {
         YamlPropertiesFactoryBean yaml = new YamlPropertiesFactoryBean();
-        yaml.setResources(new ClassPathResource("application.yaml"));
-        Properties properties = yaml.getObject();
-        return properties.getProperty(LOG_IMPLEMENTATION_PROPERTY);
+        yaml.setResources(new ClassPathResource(resource));
+        return yaml.getObject();
     }
 
     @Configuration(proxyBeanMethods = false)

@@ -2071,7 +2071,7 @@ public class OrderService {
                 .eq(SalesOrder::getOrderId, orderId)
                 .last("LIMIT 1"));
         if (order == null) {
-            throw new BusinessException("sales order not found");
+            throw new BusinessException("销售订单不存在");
         }
         assertSalesOrderDataScope(order);
         return order;
@@ -2081,7 +2081,7 @@ public class OrderService {
         String tenantCode = TenantPermissionContext.getTenantCode();
         SalesOrder order = salesOrderMapper.selectByOrderIdForUpdate(tenantCode, orderId);
         if (order == null) {
-            throw new BusinessException("sales order not found");
+            throw new BusinessException("销售订单不存在");
         }
         assertSalesOrderDataScope(order);
         return order;
@@ -2092,7 +2092,7 @@ public class OrderService {
                 .eq(ProductionOrder::getOrderId, orderId)
                 .last("LIMIT 1"));
         if (order == null) {
-            throw new BusinessException("production order not found");
+            throw new BusinessException("生产订单不存在");
         }
         return order;
     }

@@ -50,7 +50,7 @@ public class OrganizationController {
 
     @PostMapping("/join-code")
     @RequirePermission(value = PermissionCatalogV3.CODE_EMPLOYEE_CREATE, message = "您没有权限生成组织加入码")
-    @CollectLog(module = "organization", action = "create_join_code", bizType = "organization", description = "管理端生成组织加入码", recordResult = false)
+    @CollectLog(module = "organization", action = "create_join_code", bizType = "organization", description = "管理端生成组织加入码", recordArgs = false, recordResult = false)
     public Result<OrganizationJoinCodeVO> createJoinCode() {
         return Result.success(organizationService.createJoinCode());
     }

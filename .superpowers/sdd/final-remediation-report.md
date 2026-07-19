@@ -1,0 +1,369 @@
+# Unified Employee Login Final Security Remediation Report
+
+Date: 2026-07-19 (Asia/Shanghai)
+
+## Outcome
+
+The reviewed public employee-login findings are remediated on
+`codex/unified-employee-login`. Backend, management UI, and mini-program full
+test suites pass; both production builds pass; the fixed desktop release tree
+has been refreshed and verified without remote deployment.
+
+## Focused commits
+
+- `ccc5ecf` — `fix: rate limit public authentication flows`
+- `8ba6154` — `fix: consume organization invitations atomically`
+- `b93bfe0` — `fix: preserve tenant reasons across invitation joins`
+- `97cb45f` — `fix: audit unresolved employee login data`
+- Mini repository `82bd200` — `fix: harden mini authentication inputs and logs`
+
+Unrelated pre-existing `.superpowers/sdd` edits were preserved and never
+staged. No merge, push, upload, or remote command was performed.
+
+## TDD evidence
+
+### Trusted IP and public rate limits
+
+RED: the focused Maven command failed to compile because the resolver,
+limiter, and IP-plumbed signatures did not exist.
+
+GREEN:
+
+```text
+cd D:\HiveManager\management
+.\mvnw.cmd -q '-Dtest=TrustedClientIpResolverTest,PublicAuthRateLimiterTest,UnifiedAuthenticationIntegrationTest,WechatTenantSelectionPublicPathIntegrationTest,AuthenticationServiceTest' test
+exit=0 tests=38 failures=0 errors=0
+```
+
+### Atomic invitations and audit scope
+
+RED: the focused suite failed to compile because the structured invitation
+payload/service did not exist.
+
+GREEN:
+
+```text
+.\mvnw.cmd -q '-Dtest=OrganizationInvitationServiceTest,OrganizationPositionServiceTest,SensitiveDataSanitizerTest,CommercialHardeningStaticTest,AuthenticationServiceTest' test
+exit=0
+```
+
+The concurrency regression proves exactly one success across 24 concurrent
+consumers for a one-use invitation.
+
+### Tenant reasons and cross-tenant joining
+
+RED: the first run failed to compile for the missing canonical selection
+reason/mapper method; the next run exposed the real quota failure as
+`(400, null)` instead of the typed tenant-license reason.
+
+GREEN:
+
+```text
+.\mvnw.cmd -q '-Dtest=AuthenticationServiceTest,TenantLicenseServiceTest,OrganizationInvitationServiceTest,GlobalExceptionHandlerTest' test
+exit=0
+```
+
+### Cleartext-safe backfill and release audit
+
+RED: the mapper contract retained plaintext phone data, and the Node audit
+contract lacked the required report categories.
+
+GREEN:
+
+```text
+.\mvnw.cmd -q '-Dtest=AuthenticationServiceTest' test
+tests=30 failures=0 errors=0
+
+node --test tests/unified-employee-login-migration.test.js
+tests=3 pass=3 fail=0
+```
+
+### Mini-program validation and safe logging
+
+RED:
+
+```text
+node --test --test-name-pattern="join organization requires exactly six|join organization enforces backend password|join failure console" tests/wechat-employee-login-flow.test.js
+tests=3 pass=0 fail=3
+
+node --test --test-name-pattern="EMPLOYEE_NOT_FOUND opens|tenant selection backend rejection|tenant selection lost response|authentication pages never" tests/wechat-employee-login-flow.test.js
+tests=4 pass=0 fail=4
+```
+
+GREEN:
+
+```text
+node --test tests/wechat-employee-login-flow.test.js
+tests=18 pass=18 fail=0
+```
+
+## Security and data-integrity decisions
+
+- Forwarded client IP headers are trusted only from configured proxy CIDRs;
+  the default trusts loopback only. Chains are normalized right-to-left and
+  malformed/untrusted input falls back to the socket peer.
+- Redis limits use one atomic Lua increment/first-expiry operation, fail closed
+  on Redis failure, and use independent IP plus phone/account/ticket
+  dimensions. Every subject is SHA-256 fingerprinted before key construction.
+- Invitations are Redis hashes containing tenant, issuer, expiry, and remaining
+  uses. Consumption validates/decrements/deletes atomically; legacy string
+  values are consumed once. Default lifetime is 15 minutes and default use
+  count is one.
+- Auth/organization operation logs are enabled without recording sensitive
+  arguments/results; invitation, proof, SMS, password, phone, and selection
+  fields are sanitized.
+- Stable reviewed reasons are preserved: `INVITATION_INVALID_OR_EXPIRED`,
+  `TENANT_SELECTION_INVALID_OR_EXPIRED`, `TENANT_UNAVAILABLE`,
+  `TENANT_LICENSE_UNAVAILABLE`, employee/account state reasons, and phone
+  ambiguity/activation reasons.
+- Organization join candidates are restricted to the target tenant plus
+  tenant-less legacy rows. An unrelated tenant membership creates a distinct
+  target-tenant employee; one tenant-less row may be reused; a target duplicate
+  blocks.
+- Compatibility backfill atomically writes phone hash/mask and clears plaintext
+  only while the original id/tenant/phone still match. Authentication proceeds
+  only after the hash-only requery.
+- The release audit is SELECT-only. Duplicate real-tenant phone hashes are the
+  sole data blocker; tenant-less rows, missing extensions/roles, invalid
+  statuses, and blank login-capable hashes are explicitly reported.
+- Mini join accepts exactly six numeric SMS digits and an 8–64 character
+  password containing at least one ASCII letter and digit. Auth-page console
+  output is restricted to a constant label and safe `{code, reason}` object.
+
+## Fresh complete verification
+
+```text
+Backend focused combined suite: exit=0
+Backend .\mvnw.cmd test: tests=351 failures=0 errors=0 skipped=0
+Backend .\mvnw.cmd -DskipTests package: BUILD SUCCESS
+Management UI npm test: tests=312 pass=312 fail=0
+Management UI npm run build: PASS, files=99
+Mini node --test tests/*.test.js: tests=53 pass=53 fail=0
+Dedicated migration/schema/audit gate: tests=5 pass=5 fail=0
+CustomerFacingChineseMessageContractTest: exit=0
+```
+
+The mini repository has no `package.json`, so the plan's `npm test` command
+correctly fails with `ENOENT`; its complete native Node test command was used.
+
+## Release refresh and integrity
+
+Target: `C:\Users\HUAWEI\Desktop\hive全新部署`
+
+```text
+BackendJarSha256=4f51410b4bab8228e504c568ccdfd4c2315e6096bdac1bf8b77e9ca07762818c
+BackendJarBytes=103358279
+BackendJars=1
+RepositoryDeployStagedJars=0
+ManagementUiSha256=6210e28f4c25b6be0fc74a1840cf53e1f36c3c575a0f98ccf634a9cbd038c2d5
+ManagementUiFiles=99
+MigrationFiles=79
+MigrationChecksumEntries=81
+RequiredReleaseEntries=14
+ForbiddenPathsOrFiles=0
+ReleaseOwnedSourceTrees=MATCH
+ReleaseCommitMetadata=RESOLVED
+```
+
+The desktop JAR equals the Maven artifact and metadata. Every UI manifest and
+migration checksum entry was re-hashed. Backend, migrations, UI, Nginx,
+scripts, and root release files match their repository sources byte-for-byte.
+The mini source package metadata covers 114 deployable source files,
+1,165,917 bytes, with canonical manifest SHA-256
+`42a3bc6ab504b010f7aed2da9e1c7a8abd3023ab9784e3c141c2372851555e68`.
+
+Compiled-class scan:
+
+```text
+Account is disabled or unavailable=False
+Chinese account/tenant/not-found messages=True
+ACCOUNT_DISABLED=True
+EMPLOYEE_NOT_FOUND=True
+TENANT_SELECTION_INVALID_OR_EXPIRED=True
+INVITATION_INVALID_OR_EXPIRED=True
+TENANT_LICENSE_UNAVAILABLE=True
+```
+
+## Remaining operational gates
+
+- Docker is unavailable locally. Git Bash artifact and upload-package checks
+  now pass; Compose allocation validation and runtime smoke remain release-host
+  gates.
+- The read-only data audit was contract-tested but not run against a live
+  production database; operators must run it with production credentials
+  before migration and stop on duplicate real-tenant phone hashes.
+- WeChat DevTools preview/upload was not run and remains recorded as
+  `NOT_RUN_TASK9`.
+- Existing legacy password/QR/generic validation exceptions outside the
+  reviewed unified employee public-flow reason contract may still have a null
+  machine reason; their messages remain covered by the Chinese-message gate.
+
+Handoff remains local only: overwrite `/root/hive` with the fixed desktop tree,
+then an authorized operator may run `cd /root/hive && bash publish.sh`.
+
+## Final deployment re-review addendum
+
+The final re-review retained two deployment findings: the backend container did
+not receive the internal Nginx network as a trusted proxy, and deploy defaults
+still restricted operation logging to `order`. Both were closed in focused
+commit `b8d46c2` (`fix: align deployment proxy trust and auth audit`).
+
+### RED/GREEN evidence
+
+```text
+node --test tests/public-auth-deployment-security.test.js
+RED: tests=3 pass=1 fail=2
+Expected failures: missing shared hive-net/trusted-proxy subnet and stale
+order-only operation-log defaults. The Nginx-only publication check passed.
+
+node --test tests/public-auth-deployment-security.test.js
+GREEN: tests=3 pass=3 fail=0
+
+node --test tests/public-auth-deployment-security.test.js \
+  tests/unified-deployment-topology.test.js \
+  tests/deploy-secret-hardening.test.js \
+  tests/deploy-host-portability.test.js \
+  tests/release-runtime-safety.test.js
+tests=23 pass=23 fail=0
+
+.\mvnw.cmd -q \
+  '-Dtest=TrustedClientIpResolverTest,CommercialHardeningStaticTest,ProductionMybatisLoggingConfigurationTest' test
+exit=0
+```
+
+Fresh complete management UI gates after the deployment change:
+
+```text
+npm test
+tests=315 pass=315 fail=0 cancelled=0 skipped=0 todo=0
+
+npm run build
+PASS; files=99
+```
+
+The mini repository was unchanged by this deployment-only correction and
+remains at `82bd200cfb815610d3fb651723673032e100beab`.
+
+### Deployment security contract
+
+- `hive-net` now has explicit IPAM with default subnet `172.30.0.0/24`.
+- The single `.env` override `HIVE_DOCKER_SUBNET` drives both IPAM and the
+  backend `TRUSTED_PROXY_CIDRS` value. The trusted list is exactly loopback
+  (`127.0.0.0/8`, `::1/128`) plus that internal subnet; it does not trust broad
+  Internet or RFC1918 peer ranges.
+- Backend remains `expose: 8080` only, with no host `ports` mapping. Nginx is
+  the sole externally published HTTP entry on ports 80/443.
+- Operators must compare the default subnet against host, LAN, cloud, and VPN
+  routes before first startup. If it overlaps, changing the one server-owned
+  `HIVE_DOCKER_SUBNET` value updates both network allocation and proxy trust.
+- Compose and `.env.example` now default
+  `OPERATION_LOG_RECORDED_MODULES=order,auth,organization`, matching
+  `application-prod.yaml` so authentication and organization invitation/join
+  events are collected.
+
+### Refreshed desktop verification
+
+```text
+Target=C:\Users\HUAWEI\Desktop\hive全新部署
+RequiredEntries=12
+ForbiddenPaths=0
+BackendJars=1
+BackendJarSha256=4f51410b4bab8228e504c568ccdfd4c2315e6096bdac1bf8b77e9ca07762818c
+ManagementUiFiles=99
+ManagementUiSha256=6210e28f4c25b6be0fc74a1840cf53e1f36c3c575a0f98ccf634a9cbd038c2d5
+MigrationChecksumEntries=81
+DesktopConfigCopies=MATCH
+TrustedProxy=LOOPBACK_PLUS_HIVE_NET
+PublishedBackendPorts=0
+RepositoryDeployStagedJars=0
+MetadataCommits=RESOLVED
+```
+
+Docker remains unavailable on this workstation, so actual Compose expansion
+and subnet allocation/collision validation remain release-host gates. No
+remote deployment was performed.
+
+## Existing Compose network upgrade-path addendum
+
+The final Important re-review finding was a real upgrade hazard: releases with
+the new fixed `hive-net` IPAM could silently reuse an older Docker network with
+a different subnet. That would make the live Nginx peer network diverge from
+the backend trusted-proxy CIDR. The stale desktop operator guide also omitted
+the required one-time network migration behavior.
+
+Focused commit `293bc15` (`fix: migrate legacy compose network safely`) closes
+the finding without remote deployment.
+
+### RED/GREEN evidence
+
+```text
+node --test tests/deploy-network-migration.test.js
+RED: tests=7 pass=0 fail=7
+Expected failures: no network marker, no pre/post inspect, mismatch and legacy
+networks still used the limited restart, foreign attachments were accepted,
+and a wrong post-up subnet reached success.
+
+node --test tests/deploy-network-migration.test.js
+GREEN: tests=10 pass=10 fail=0
+
+bash -n deploy/scripts/restart.sh
+exit=0
+
+Focused deployment suite
+tests=36 pass=36 fail=0
+
+npm test
+tests=325 pass=325 fail=0 cancelled=0 skipped=0 todo=0
+
+npm run build
+PASS; files=99
+```
+
+The expanded GREEN suite also proves safe failure when an existing network
+cannot be inspected, when project teardown fails, and when project recreation
+fails.
+
+### Upgrade contract
+
+- Compose labels `hive-net` with a subnet-derived release configuration marker.
+- `restart.sh` resolves the effective project and actual network name from the
+  rendered Compose JSON, so top-level `name` and `COMPOSE_PROJECT_NAME` are
+  honored.
+- An absent or exact matching network uses the limited `backend nginx` restart.
+- A subnet mismatch or legacy/missing marker performs
+  `docker compose down --remove-orphans` followed by unfiltered
+  `docker compose up -d`, restarting all services enabled by the current
+  `.env`/`COMPOSE_PROFILES`.
+- The full migration never uses `-v` or `--volumes`; named volumes, bind-mounted
+  database/cache data, uploads and logs remain intact.
+- Foreign Compose project attachments and inspection/migration errors fail with
+  explicit guidance. The live subnet is asserted again before health checks.
+
+### Final desktop refresh and integrity
+
+```text
+Target=C:\Users\HUAWEI\Desktop\hive全新部署
+SourceGitCommit=293bc15a0a6e4188421899a0ba543312e3403651
+BackendJars=1
+BackendJarSha256=4f51410b4bab8228e504c568ccdfd4c2315e6096bdac1bf8b77e9ca07762818c
+BackendJarBytes=103358279
+ManagementUiFiles=99
+ManagementUiSha256=6210e28f4c25b6be0fc74a1840cf53e1f36c3c575a0f98ccf634a9cbd038c2d5
+MigrationFiles=79
+MigrationChecksumEntries=81
+ForbiddenPaths=0
+RepositoryDeployStagedJars=0
+ComposeCopy=MATCH
+ScriptsTree=MATCH
+DeploymentGuide=MATCH
+MetadataCopy=MATCH
+ReleaseIntegrity=PASS
+UploadPackageCleanliness=PASS
+```
+
+The corrected `docs/deployment/unified-backend-deployment.md` is now present in
+the desktop release and matches the repository byte-for-byte. It documents the
+one-time downtime, subnet collision override, full enabled-service restart,
+and volume-preserving behavior. Docker remains the only unavailable local gate;
+actual network allocation and runtime health/smoke must be checked on the
+authorized release host. No merge, push, upload, or remote deployment occurred.

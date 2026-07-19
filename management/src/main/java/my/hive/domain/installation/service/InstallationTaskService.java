@@ -378,7 +378,7 @@ public class InstallationTaskService {
             return null;
         }
         if (attachmentSize < 0) {
-            throw new BusinessException("Invalid attachment size");
+            throw new BusinessException("附件大小不合法");
         }
         return attachmentSize;
     }

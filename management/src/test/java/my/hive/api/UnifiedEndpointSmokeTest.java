@@ -109,6 +109,7 @@ class UnifiedEndpointSmokeTest {
                 Map.entry("/auth/mini/login", HttpMethod.POST),
                 Map.entry("/auth/me", HttpMethod.GET),
                 Map.entry("/emp/employee/page", HttpMethod.GET),
+                Map.entry("/emp/employee/create", HttpMethod.POST),
                 Map.entry("/orders", HttpMethod.GET),
                 Map.entry("/approval/summary", HttpMethod.GET),
                 Map.entry("/inventory/summary", HttpMethod.GET),

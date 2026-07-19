@@ -13,10 +13,10 @@ import java.util.List;
 @Data
 public class CustomerAddRequest {
 
-    @NotBlank(message = "customerName is required")
+    @NotBlank(message = "客户名称不能为空")
     private String customerName;
 
-    @NotNull(message = "customerType is required")
+    @NotNull(message = "客户类型不能为空")
     private Integer customerType;
 
     private List<CustomerContact> contacts;

@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import my.hive.domain.auth.model.AuthReason;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.dto.Result;
 import my.hive.shared.event.SystemEvent;
@@ -20,16 +21,24 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @RestControllerAdvice
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private static final String TENANT_PHONE_HASH_UNIQUE_INDEX = "uk_user_tenant_phone_hash";
+    private static final Pattern MYSQL_CONSTRAINT_NAME = Pattern.compile(
+            "(?i)\\bfor key\\s+['`]?((?:[^'`.\\s]+\\.)?[^'`\\s]+)['`]?");
 
     private final ObjectProvider<SystemEventPublisher> systemEventPublisherProvider;
     private final SensitiveDataSanitizer sanitizer;
@@ -67,21 +76,22 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<Result<Void>> handleBusinessException(BusinessException e) {
+    public ResponseEntity<Result<Object>> handleBusinessException(BusinessException e) {
         if (sanitizer.isDataConstraintViolation(e)) {
             log.warn("business exception caused by a database constraint");
             return new ResponseEntity<>(
-                    Result.fail(e.getCode(), sanitizer.toSafeExceptionMessage(e)), HttpStatus.OK);
+                    Result.fail(e.getCode(), null, sanitizer.toSafeExceptionMessage(e), null), HttpStatus.OK);
         }
         log.warn("business exception: {}", e.getMsg());
-        return new ResponseEntity<>(Result.fail(e.getCode(), e.getMsg()), HttpStatus.OK);
+        return new ResponseEntity<>(
+                Result.fail(e.getCode(), e.getReason(), e.getMsg(), e.getData()), HttpStatus.OK);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Result<Void>> handleIllegalArgException(IllegalArgumentException e, HttpServletRequest request) {
         log.error("illegal argument exception: {}", e.getMessage(), e);
         publishExceptionEvent("ILLEGAL_ARGUMENT_EXCEPTION", "接口参数格式异常", e, request);
-        return new ResponseEntity<>(Result.fail(400, "参数格式错误：" + e.getMessage()), HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(Result.fail(400, "参数格式错误，请检查后重试"), HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(NullPointerException.class)
@@ -97,11 +107,38 @@ public class GlobalExceptionHandler {
             String safeMessage = sanitizer.toSafeExceptionMessage(e);
             log.error("database constraint violation");
             publishExceptionEvent("DATA_CONSTRAINT_VIOLATION", "Database constraint violation", e, request);
+            if (isTenantPhoneHashUniqueViolation(e)) {
+                return new ResponseEntity<>(
+                        Result.fail(409, AuthReason.PHONE_ACCOUNT_AMBIGUOUS, safeMessage), HttpStatus.CONFLICT);
+            }
             return new ResponseEntity<>(Result.fail(409, safeMessage), HttpStatus.CONFLICT);
         }
         log.error("system internal exception", e);
         publishExceptionEvent("GLOBAL_EXCEPTION", "接口发生未处理异常", e, request);
         return new ResponseEntity<>(Result.fail(500, "服务器内部错误，请稍后重试"), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    private boolean isTenantPhoneHashUniqueViolation(Throwable throwable) {
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        Throwable current = throwable;
+        while (current != null && visited.add(current)) {
+            String message = current.getMessage();
+            if (message != null) {
+                Matcher matcher = MYSQL_CONSTRAINT_NAME.matcher(message);
+                if (matcher.find()) {
+                    String constraintName = matcher.group(1);
+                    int qualifierIndex = constraintName.lastIndexOf('.');
+                    String unqualifiedName = qualifierIndex >= 0
+                            ? constraintName.substring(qualifierIndex + 1)
+                            : constraintName;
+                    if (TENANT_PHONE_HASH_UNIQUE_INDEX.equalsIgnoreCase(unqualifiedName)) {
+                        return true;
+                    }
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private void publishExceptionEvent(String eventType, String title, Exception exception, HttpServletRequest request) {

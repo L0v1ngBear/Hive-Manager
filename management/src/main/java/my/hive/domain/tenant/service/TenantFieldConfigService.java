@@ -209,10 +209,10 @@ public class TenantFieldConfigService {
 
     private void ensureSupportedOrCustomFieldKey(String moduleCode, String fieldKey) {
         if (!SUPPORTED_FIELDS.containsKey(moduleCode)) {
-            throw new BusinessException("moduleCode is not supported for page field configuration");
+            throw new BusinessException("当前页面模块不支持字段配置");
         }
         if (!isSupportedOrCustomFieldKey(moduleCode, fieldKey)) {
-            throw new BusinessException("fieldKey is not supported by backend: " + fieldKey);
+            throw new BusinessException("后端不支持该字段：" + fieldKey);
         }
     }
 

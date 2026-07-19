@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import my.hive.shared.exception.BusinessException;
+import my.hive.domain.auth.model.AuthReason;
 import my.hive.shared.redis.HiveRedisKeyBuilder;
 import my.hive.shared.enums.CommonStatusEnum;
 import my.hive.shared.enums.DeleteFlagEnum;
@@ -93,8 +94,11 @@ public class TenantLicenseService {
 
     public void ensureTenantUsable(String tenantCode) {
         Tenant tenant = requireTenant(tenantCode);
-        if (!isTenantUsable(tenant)) {
-            throw new BusinessException(403, "租户已到期或被停用，请联系平台管理员续费");
+        if (!isTenantLifecycleAvailable(tenant)) {
+            throw tenantUnavailable();
+        }
+        if (!isTenantLicenseAvailable(tenant)) {
+            throw tenantLicenseUnavailable();
         }
     }
 
@@ -105,11 +109,11 @@ public class TenantLicenseService {
             return;
         }
         if (maxUsers <= 0) {
-            throw new BusinessException("当前套餐暂未开放员工账号，请升级套餐后再新增员工");
+            throw tenantLicenseUnavailable("当前套餐暂未开放员工账号，请升级套餐后再新增员工");
         }
         Long usedUsers = employeeMapper.countAvailableEmployees(tenantCode);
         if (usedUsers != null && usedUsers >= maxUsers) {
-            throw new BusinessException("当前套餐最多允许 " + maxUsers + " 名员工，请升级套餐后再新增员工");
+            throw tenantLicenseUnavailable("当前套餐最多允许 " + maxUsers + " 名员工，请升级套餐后再新增员工");
         }
     }
 
@@ -174,7 +178,21 @@ public class TenantLicenseService {
     }
 
     public boolean isTenantUsable(Tenant tenant) {
-        if (tenant == null || DeleteFlagEnum.isDeleted(tenant.getDeleted()) || !CommonStatusEnum.isEnabled(tenant.getStatus())) {
+        return isTenantLifecycleAvailable(tenant) && isTenantLicenseAvailable(tenant);
+    }
+
+    private boolean isTenantLifecycleAvailable(Tenant tenant) {
+        return tenant != null
+                && !DeleteFlagEnum.isDeleted(tenant.getDeleted())
+                && CommonStatusEnum.isEnabled(tenant.getStatus());
+    }
+
+    private boolean isTenantLicenseAvailable(Tenant tenant) {
+        if (tenant == null) {
+            return false;
+        }
+        if (StringUtils.hasText(tenant.getPackageCode())
+                && !ALLOWED_PLANS.contains(tenant.getPackageCode().trim().toUpperCase(Locale.ROOT))) {
             return false;
         }
         String subscriptionStatus = normalizeStatusOnly(tenant.getSubscriptionStatus());
@@ -187,15 +205,35 @@ public class TenantLicenseService {
 
     private Tenant requireTenant(String tenantCode) {
         if (!StringUtils.hasText(tenantCode)) {
-            throw new BusinessException(401, "登录状态异常，请重新登录");
+            throw tenantUnavailable();
         }
         Tenant tenant = tenantMapper.selectOne(new LambdaQueryWrapper<Tenant>()
                 .eq(Tenant::getTenantCode, tenantCode.trim())
                 .last("LIMIT 1"));
         if (tenant == null) {
-            throw new BusinessException(403, "租户不存在或已被停用");
+            throw tenantUnavailable();
         }
         return tenant;
+    }
+
+    private BusinessException tenantUnavailable() {
+        return new BusinessException(
+                403,
+                AuthReason.TENANT_UNAVAILABLE,
+                "当前企业已停用或不存在，请联系企业负责人"
+        );
+    }
+
+    private BusinessException tenantLicenseUnavailable() {
+        return tenantLicenseUnavailable("当前企业授权已到期或不可用，请联系平台管理员续费");
+    }
+
+    private BusinessException tenantLicenseUnavailable(String message) {
+        return new BusinessException(
+                403,
+                AuthReason.TENANT_LICENSE_UNAVAILABLE,
+                message
+        );
     }
 
     private String normalizePlanCode(String value, String fallback) {

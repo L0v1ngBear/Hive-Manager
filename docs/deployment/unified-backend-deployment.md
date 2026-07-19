@@ -2,9 +2,18 @@
 
 ## Runtime topology
 
-Hive has one business service named `backend`, one container named `hive-backend`, one executable backend JAR and one management web build. Nginx routes `/api/**` to `backend:8080`. MySQL and Redis are persistent infrastructure services and are never recreated during a routine application release.
+Hive has one business service named `backend`, one container named `hive-backend`, one executable backend JAR and one management web build. Nginx routes `/api/**` to `backend:8080`. MySQL and Redis stay running during a routine application release when the existing Compose network already matches this release. A controlled network upgrade is the documented exception described below.
 
 The mini-program and management web use the same backend. There are no `management-backend-1`, `backend-1`, `/web/**` compatibility routes or dual-backend startup paths in the current release.
+
+Nginx is the only externally published HTTP entry. The backend exposes port
+8080 only inside `hive-net`. Compose assigns that network
+`HIVE_DOCKER_SUBNET=172.30.0.0/24` by default and passes the same subnet, plus
+loopback, to the backend trusted-proxy list. Before first startup, compare this
+subnet with host, LAN, cloud, and VPN routes. If it overlaps, change the single
+`HIVE_DOCKER_SUBNET` value in the server-owned `.env`; Compose then updates both
+IPAM and proxy trust together. Do not add general RFC1918 ranges or publish the
+backend port directly.
 
 ## Required release contents
 
@@ -58,7 +67,17 @@ NO_CACHE=1 bash scripts/restart.sh
 bash scripts/smoke-test.sh
 ```
 
-`restart.sh` builds the local backend image, stops backend writes, runs the sole migration entry and recreates only `backend` and `nginx`. A migration failure leaves the backend stopped. It never recreates MySQL or Redis and does not pull images unless explicitly requested.
+Before changing services, `restart.sh` renders the effective Compose configuration, so a top-level `name` or `COMPOSE_PROJECT_NAME` override is respected, and resolves the actual `hive-net` network name. It compares the existing network's IPAM subnet with `HIVE_DOCKER_SUBNET` and checks the release-owned network configuration marker.
+
+- If the network is absent, startup proceeds normally and recreates only `backend` and `nginx`.
+- If the subnet and configuration marker match, the routine path recreates only `backend` and `nginx`; MySQL, Redis and optional services remain running.
+- If the subnet differs, or the network is from a legacy release and has no current configuration marker, the script performs a controlled full-project network migration. After database migration it runs `docker compose down --remove-orphans` and then unfiltered `docker compose up -d`, restarting every service enabled by the current `.env` and `COMPOSE_PROFILES`, including RabbitMQ or XXL-JOB when enabled. Expect downtime for the entire Compose project while its network and containers are recreated.
+
+The controlled migration never passes `-v` or `--volumes`. Named volumes, bind-mounted MySQL/Redis data, uploads, logs and other persistent data are preserved. It fails before migration if the network has containers owned by another Compose project, or if Docker cannot inspect the network. If teardown or recreation fails, follow the printed recovery guidance; do not delete volumes to retry.
+
+After either startup path, the script inspects the live network again and requires its actual subnet to equal `HIVE_DOCKER_SUBNET` before starting container health checks. If the default subnet collides with a host, LAN, cloud or VPN route, first choose an unused CIDR and change the single `HIVE_DOCKER_SUBNET` value in the server-owned `.env`; the next restart intentionally takes the full-project migration path. Never silence a mismatch by broadening `TRUSTED_PROXY_CIDRS`.
+
+The script builds the local backend image, stops backend writes and runs the sole migration entry before bringing up the selected topology. A database migration failure leaves the backend stopped. It does not pull images unless explicitly requested.
 
 The sole migration entry enforces the `V20260717_001` clean-launch contract at runtime. When that version is still pending, `sales_order` must exist and its exact row count must be zero; a non-zero count or any inability to prove emptiness fails closed with an instruction to run the formal cleanup process. When that migration has already executed successfully, the gate does not query order rows and the migration remains skipped. No confirmation or compatibility override exists.
 

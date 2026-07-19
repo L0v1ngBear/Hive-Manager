@@ -3,21 +3,35 @@ package my.hive.api.auth;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import my.hive.domain.auth.model.WechatLoginRequest;
+import my.hive.domain.auth.model.dto.WechatTenantSelectRequest;
 import my.hive.domain.auth.service.AuthenticationService;
 import my.hive.shared.annotation.CollectLog;
 import my.hive.shared.dto.Result;
 import my.hive.domain.auth.model.dto.LoginRequest;
 import my.hive.domain.auth.model.vo.LoginVO;
+import my.hive.domain.auth.model.vo.MiniWechatLoginVO;
+import my.hive.shared.web.TrustedClientIpResolver;
 import org.springframework.web.bind.annotation.*;
 
 @RestController @RequestMapping("/auth/mini")
 public class MiniAuthController {
     private final AuthenticationService authentication;
-    public MiniAuthController(AuthenticationService authentication) { this.authentication=authentication; }
+    private final TrustedClientIpResolver trustedClientIpResolver;
+    public MiniAuthController(AuthenticationService authentication, TrustedClientIpResolver trustedClientIpResolver) {
+        this.authentication = authentication;
+        this.trustedClientIpResolver = trustedClientIpResolver;
+    }
     @PostMapping("/login")
     @CollectLog(module = "auth", action = "mini_login", bizType = "authentication", description = "小程序账号登录", recordArgs = false)
-    public Result<LoginVO> login(@Valid @RequestBody LoginRequest r, HttpServletRequest req) { return Result.success(authentication.miniLogin(r, req.getRemoteAddr())); }
+    public Result<LoginVO> login(@Valid @RequestBody LoginRequest r, HttpServletRequest req) { return Result.success(authentication.miniLogin(r, trustedClientIpResolver.resolve(req))); }
     @PostMapping("/wechat-login")
     @CollectLog(module = "auth", action = "wechat_login", bizType = "authentication", description = "微信小程序登录", recordArgs = false)
-    public Result<LoginVO> wechat(@Valid @RequestBody WechatLoginRequest r) { return Result.success(authentication.wechatLogin(r)); }
+    public Result<MiniWechatLoginVO> wechat(@Valid @RequestBody WechatLoginRequest request, HttpServletRequest servletRequest) {
+        return Result.success(authentication.wechatLogin(request, trustedClientIpResolver.resolve(servletRequest)));
+    }
+    @PostMapping("/wechat-login/select")
+    @CollectLog(module = "auth", action = "wechat_tenant_select", bizType = "authentication", description = "微信小程序企业选择", recordArgs = false)
+    public Result<LoginVO> selectWechatTenant(@Valid @RequestBody WechatTenantSelectRequest request, HttpServletRequest servletRequest) {
+        return Result.success(authentication.selectWechatTenant(request, trustedClientIpResolver.resolve(servletRequest)));
+    }
 }

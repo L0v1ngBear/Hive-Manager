@@ -66,6 +66,7 @@ if env_true NOTIFICATION_SMS_ENABLED; then
 fi
 
 logistics_provider="$(normalize_provider "$(env_value LOGISTICS_PROVIDER)")"
+logistics_provider="${logistics_provider:-apispace}"
 case "${logistics_provider}" in
   apispace) ;;
   *) fail "unsupported logistics provider: ${logistics_provider}" ;;
@@ -80,6 +81,7 @@ if env_true APISPACE_LOGISTICS_ENABLED; then
 fi
 
 storage_provider="$(normalize_provider "$(env_value FILE_STORAGE_PROVIDER)")"
+storage_provider="${storage_provider:-local}"
 case "${storage_provider}" in
   local) ;;
   aliyun-oss)

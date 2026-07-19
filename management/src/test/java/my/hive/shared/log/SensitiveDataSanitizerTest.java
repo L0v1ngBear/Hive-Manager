@@ -2,6 +2,7 @@ package my.hive.shared.log;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.Map;
@@ -12,6 +13,20 @@ class SensitiveDataSanitizerTest {
 
     private final SensitiveDataSanitizer sanitizer =
             new SensitiveDataSanitizer(new ObjectMapper(), new OperationLogProperties());
+
+    @Test
+    void masksInvitationSmsAndProofCredentials() {
+        String safe = sanitizer.toSafeJson(Map.of(
+                "organizationCode", "JOIN1234",
+                "smsCode", "123456",
+                "phoneVerificationTicket", "phone-proof-secret",
+                "selectionTicket", "selection-secret"
+        ));
+
+        assertThat(safe)
+                .doesNotContain("JOIN1234", "123456", "phone-proof-secret", "selection-secret")
+                .contains("******");
+    }
 
     @Test
     void replacesDatabaseConstraintMessagesButPreservesOrdinaryBusinessMessages() {

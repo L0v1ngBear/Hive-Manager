@@ -323,7 +323,7 @@ public class QualityService {
     private String requireTenantCode() {
         String tenantCode = TenantPermissionContext.getTenantCode();
         if (tenantCode == null || tenantCode.isBlank()) {
-            throw new BusinessException(403, "Tenant context is required for quality records");
+            throw new BusinessException(403, "缺少当前企业上下文，无法处理质量记录");
         }
         return tenantCode;
     }
@@ -332,8 +332,8 @@ public class QualityService {
         String permissionCode = update ? PermissionCatalogV3.CODE_QUALITY_UPDATE : PermissionCatalogV3.CODE_QUALITY_CREATE;
         if (!TenantPermissionContext.hasPermission(permissionCode)) {
             throw new BusinessException(403, update
-                    ? "No permission to update quality records"
-                    : "No permission to create quality records");
+                    ? "无权限修改质量记录"
+                    : "无权限创建质量记录");
         }
     }
 

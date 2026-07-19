@@ -2,6 +2,7 @@ package my.hive.shared.exception;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
+import my.hive.domain.auth.model.AuthReason;
 import my.hive.shared.dto.Result;
 import my.hive.shared.event.SystemEvent;
 import my.hive.shared.event.SystemEventPublisher;
@@ -16,6 +17,8 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -23,6 +26,45 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(OutputCaptureExtension.class)
 class GlobalExceptionHandlerTest {
+
+    @Test
+    void businessExceptionPreservesReasonAndSafeData() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<SystemEventPublisher> provider = mock(ObjectProvider.class);
+        SensitiveDataSanitizer sanitizer = new SensitiveDataSanitizer(
+                new ObjectMapper(), new OperationLogProperties());
+        GlobalExceptionHandler handler = new GlobalExceptionHandler(provider, sanitizer);
+        BusinessException exception = new BusinessException(
+                403,
+                AuthReason.EMPLOYEE_NOT_FOUND,
+                "管理员尚未添加该手机号",
+                Map.of("phoneVerificationTicket", "ticket-1")
+        );
+
+        ResponseEntity<Result<Object>> response = handler.handleBusinessException(exception);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getReason()).isEqualTo(AuthReason.EMPLOYEE_NOT_FOUND);
+        assertThat(response.getBody().getMsg()).isEqualTo("管理员尚未添加该手机号");
+        assertThat(response.getBody().getData())
+                .isEqualTo(Map.of("phoneVerificationTicket", "ticket-1"));
+    }
+
+    @Test
+    void legacyBusinessExceptionHasNoReason() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<SystemEventPublisher> provider = mock(ObjectProvider.class);
+        SensitiveDataSanitizer sanitizer = new SensitiveDataSanitizer(
+                new ObjectMapper(), new OperationLogProperties());
+        GlobalExceptionHandler handler = new GlobalExceptionHandler(provider, sanitizer);
+
+        ResponseEntity<Result<Object>> response = handler.handleBusinessException(
+                new BusinessException(400, "请检查输入"));
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getReason()).isNull();
+        assertThat(response.getBody().getMsg()).isEqualTo("请检查输入");
+    }
 
     @Test
     void hidesTrackingConstraintMessageFromResponseEventAndApplicationLog(CapturedOutput output) {
@@ -55,6 +97,46 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void mapsTenantPhoneUniqueIndexRaceToPhoneAccountAmbiguous(CapturedOutput output) {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<SystemEventPublisher> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(null);
+        SensitiveDataSanitizer sanitizer = new SensitiveDataSanitizer(
+                new ObjectMapper(), new OperationLogProperties());
+        GlobalExceptionHandler handler = new GlobalExceptionHandler(provider, sanitizer);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        String rawMessage = "Duplicate entry 'TENANT-abc' for key 'uk_user_tenant_phone_hash'";
+
+        ResponseEntity<Result<Void>> response = handler.handleGlobalException(
+                new IllegalStateException("persistence failure", new DataIntegrityViolationException(rawMessage)), request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getReason()).isEqualTo(AuthReason.PHONE_ACCOUNT_AMBIGUOUS);
+        assertThat(response.getBody().getMsg()).isEqualTo(SensitiveDataSanitizer.DATA_CONSTRAINT_MESSAGE);
+        assertThat(response.getBody().getMsg()).doesNotContain("uk_user_tenant_phone_hash");
+        assertThat(output.getAll()).doesNotContain("uk_user_tenant_phone_hash");
+    }
+
+    @Test
+    void doesNotMapPhoneReasonForConstraintNamesThatOnlyContainTheTargetName() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<SystemEventPublisher> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(null);
+        SensitiveDataSanitizer sanitizer = new SensitiveDataSanitizer(
+                new ObjectMapper(), new OperationLogProperties());
+        GlobalExceptionHandler handler = new GlobalExceptionHandler(provider, sanitizer);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        String rawMessage = "Duplicate entry 'TENANT-abc' for key 'uk_user_tenant_phone_hash_backup'";
+
+        ResponseEntity<Result<Void>> response = handler.handleGlobalException(
+                new DataIntegrityViolationException(rawMessage), request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getReason()).isNull();
+        assertThat(response.getBody().getMsg()).isEqualTo(SensitiveDataSanitizer.DATA_CONSTRAINT_MESSAGE);
+    }
+
+    @Test
     void sanitizesConstraintShapedBusinessMessageButPreservesOrdinaryBusinessMessage(CapturedOutput output) {
         @SuppressWarnings("unchecked")
         ObjectProvider<SystemEventPublisher> provider = mock(ObjectProvider.class);
@@ -63,18 +145,37 @@ class GlobalExceptionHandlerTest {
         GlobalExceptionHandler handler = new GlobalExceptionHandler(provider, sanitizer);
         String rawMessage = "Duplicate entry 'TENANT-ORDER-SF123' for key 'uk_order_shipment_tracking'";
 
-        ResponseEntity<Result<Void>> constraintResponse =
+        ResponseEntity<Result<Object>> constraintResponse =
                 handler.handleBusinessException(new BusinessException(409, rawMessage));
-        ResponseEntity<Result<Void>> ordinaryResponse =
-                handler.handleBusinessException(new BusinessException(409, "Shipment has been modified"));
+        ResponseEntity<Result<Object>> ordinaryResponse =
+                handler.handleBusinessException(new BusinessException(409, "发货记录已被修改"));
 
         assertThat(constraintResponse.getBody()).isNotNull();
         assertThat(constraintResponse.getBody().getMsg()).isEqualTo(SensitiveDataSanitizer.DATA_CONSTRAINT_MESSAGE);
         assertThat(ordinaryResponse.getBody()).isNotNull();
-        assertThat(ordinaryResponse.getBody().getMsg()).isEqualTo("Shipment has been modified");
+        assertThat(ordinaryResponse.getBody().getMsg()).isEqualTo("发货记录已被修改");
         assertThat(output.getAll())
                 .doesNotContain("SF123")
                 .doesNotContain("TENANT-ORDER")
-                .contains("Shipment has been modified");
+                .contains("发货记录已被修改");
+    }
+
+    @Test
+    void illegalArgumentResponseDoesNotExposeFrameworkEnglishMessage() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<SystemEventPublisher> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(null);
+        SensitiveDataSanitizer sanitizer = new SensitiveDataSanitizer(
+                new ObjectMapper(), new OperationLogProperties());
+        GlobalExceptionHandler handler = new GlobalExceptionHandler(provider, sanitizer);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+
+        ResponseEntity<Result<Void>> response = handler.handleIllegalArgException(
+                new IllegalArgumentException("Failed to convert value"), request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getMsg()).isEqualTo("参数格式错误，请检查后重试");
+        assertThat(SensitiveDataSanitizer.DATA_CONSTRAINT_MESSAGE)
+                .isEqualTo("数据违反唯一性或完整性约束，请检查后重试");
     }
 }

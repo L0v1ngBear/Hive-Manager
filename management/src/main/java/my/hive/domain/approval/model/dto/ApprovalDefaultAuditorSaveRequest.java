@@ -8,7 +8,7 @@ import java.util.List;
 @Data
 public class ApprovalDefaultAuditorSaveRequest {
 
-    @NotBlank(message = "approval type is required")
+    @NotBlank(message = "审批类型不能为空")
     private String approvalType;
 
     private Long auditorId;

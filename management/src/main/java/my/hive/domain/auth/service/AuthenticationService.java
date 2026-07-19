@@ -17,6 +17,7 @@ import my.hive.shared.redis.HiveRedisKeyBuilder;
 import my.hive.shared.utils.EncryptUtil;
 import my.hive.shared.utils.ResponseEncryptUtil;
 import my.hive.shared.context.TenantContext;
+import my.hive.domain.auth.model.AuthReason;
 import my.hive.domain.auth.model.WechatLoginRequest;
 import my.hive.infrastructure.wechat.WechatMiniProgramClient;
 import my.hive.domain.auth.mapper.AuthMapper;
@@ -27,8 +28,11 @@ import my.hive.domain.auth.model.dto.OrganizationJoinRequest;
 import my.hive.domain.auth.model.dto.PasswordResetCodeRequest;
 import my.hive.domain.auth.model.dto.PasswordResetRequest;
 import my.hive.domain.auth.model.dto.WebScanConfirmRequest;
+import my.hive.domain.auth.model.dto.WechatTenantSelectRequest;
 import my.hive.domain.auth.model.vo.LoginUserRow;
 import my.hive.domain.auth.model.vo.LoginVO;
+import my.hive.domain.auth.model.vo.MiniWechatLoginVO;
+import my.hive.domain.auth.model.vo.WechatTenantOptionVO;
 import my.hive.domain.auth.model.vo.WebScanSessionVO;
 import my.hive.domain.auth.model.vo.WebScanStatusVO;
 import my.hive.domain.auth.service.WebScanLoginRedisPayload;
@@ -52,6 +56,8 @@ import my.hive.domain.permission.mapper.SysUserRoleMapper;
 import my.hive.domain.permission.model.entity.SysRole;
 import my.hive.domain.permission.model.entity.SysUserRole;
 import my.hive.domain.permission.service.BuiltInRoleProvisionService;
+import my.hive.domain.organization.model.OrganizationInvitationPayload;
+import my.hive.domain.organization.service.OrganizationInvitationService;
 import my.hive.domain.tenant.mapper.TenantMapper;
 import my.hive.domain.tenant.model.entity.Tenant;
 import my.hive.domain.tenant.service.TenantLicenseService;
@@ -64,6 +70,7 @@ import org.springframework.util.StringUtils;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Collections;
@@ -86,10 +93,11 @@ public class AuthenticationService {
     private static final long PASSWORD_RESET_CODE_EXPIRE_MINUTES = 5L;
     private static final long PASSWORD_RESET_SEND_INTERVAL_SECONDS = 60L;
     private static final long PASSWORD_RESET_MAX_VERIFY_FAIL = 5L;
-    private static final long ORGANIZATION_JOIN_CODE_EXPIRE_SECONDS = 15L * 60L;
     private static final long ORGANIZATION_JOIN_SMS_EXPIRE_MINUTES = 5L;
     private static final long ORGANIZATION_JOIN_SMS_INTERVAL_SECONDS = 60L;
-    private static final String JOIN_CODE_KEY_PART = "organization-join-code";
+    private static final long WECHAT_TENANT_SELECTION_EXPIRE_MINUTES = 5L;
+    private static final long WECHAT_PHONE_PROOF_EXPIRE_MINUTES = 5L;
+    private static final Duration PUBLIC_RATE_LIMIT_WINDOW = Duration.ofMinutes(5);
     private static final String PLATFORM_TENANT_CODE = "super";
     private static final String PLATFORM_LOGIN_NAME = "super";
     private static final String DEFAULT_JOIN_ROLE_CODE = "EMPLOYEE";
@@ -166,6 +174,12 @@ public class AuthenticationService {
     @Resource
     private WechatMiniProgramClient wechatMiniProgramClient;
 
+    @Resource
+    private PublicAuthRateLimiter publicAuthRateLimiter;
+
+    @Resource
+    private OrganizationInvitationService organizationInvitationService;
+
     @Value("${auth.login.max-fail-count:5}")
     private Long maxFailCount;
 
@@ -176,8 +190,14 @@ public class AuthenticationService {
     private Long lockMinutes;
 
     public void sendPasswordResetCode(PasswordResetCodeRequest request) {
+        sendPasswordResetCode(request, "unknown");
+    }
+
+    public void sendPasswordResetCode(PasswordResetCodeRequest request, String clientIp) {
         String phone = normalizeResetPhone(request.getPhone());
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
+        enforcePublicLimit("password-reset-sms-send", "ip", clientIp, 10);
+        enforcePublicLimit("password-reset-sms-send", "phone", phoneHash, 3);
         LoginUserRow loginUser = resolvePasswordResetUser(phone, phoneHash, request.getAccount());
 
         String sendLockKey = passwordResetSendLockKey(phoneHash);
@@ -203,8 +223,14 @@ public class AuthenticationService {
     }
 
     public void sendOrganizationJoinCode(OrganizationJoinCodeSendRequest request) {
+        sendOrganizationJoinCode(request, "unknown");
+    }
+
+    public void sendOrganizationJoinCode(OrganizationJoinCodeSendRequest request, String clientIp) {
         String phone = normalizeResetPhone(request.getPhone());
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
+        enforcePublicLimit("organization-join-sms-send", "ip", clientIp, 10);
+        enforcePublicLimit("organization-join-sms-send", "phone", phoneHash, 3);
         String sendLockKey = organizationJoinSmsSendLockKey(phoneHash);
         if (Boolean.TRUE.equals(stringRedisTemplate.hasKey(sendLockKey))) {
             throw new BusinessException(429, "验证码发送过于频繁，请稍后再试");
@@ -227,10 +253,27 @@ public class AuthenticationService {
 
     @Transactional(rollbackFor = Exception.class)
     public LoginVO joinOrganization(OrganizationJoinRequest request) {
+        return joinOrganization(request, "unknown");
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public LoginVO joinOrganization(OrganizationJoinRequest request, String clientIp) {
         String name = normalizeJoinName(request.getName());
         String phone = normalizeResetPhone(request.getPhone());
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
-        validateOrganizationJoinSmsCode(phoneHash, request.getSmsCode());
+        boolean hasWechatPhoneProof = StringUtils.hasText(request.getPhoneVerificationTicket());
+        boolean hasSmsCode = StringUtils.hasText(request.getSmsCode());
+        if (!hasWechatPhoneProof && !hasSmsCode) {
+            throw new BusinessException(400, "请使用微信手机号验证凭证或短信验证码完成手机号验证");
+        }
+        if (hasWechatPhoneProof && hasSmsCode) {
+            throw new BusinessException(400, "微信手机号验证凭证和短信验证码只能选择一种");
+        }
+        if (hasWechatPhoneProof) {
+            validateAndConsumeWechatPhoneProof(request.getPhoneVerificationTicket(), phoneHash);
+        } else {
+            validateOrganizationJoinSmsCode(phoneHash, request.getSmsCode(), clientIp);
+        }
         validateNewPassword(request.getPassword(), request.getConfirmPassword(), phone);
 
         String tenantCode = resolveTenantCodeByOrganizationCode(request.getOrganizationCode());
@@ -247,6 +290,10 @@ public class AuthenticationService {
     }
 
     public void resetPasswordBySmsCode(PasswordResetRequest request) {
+        resetPasswordBySmsCode(request, "unknown");
+    }
+
+    public void resetPasswordBySmsCode(PasswordResetRequest request, String clientIp) {
         String phone = normalizeResetPhone(request.getPhone());
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
         validateNewPassword(request.getNewPassword(), request.getConfirmPassword(), phone);
@@ -256,6 +303,7 @@ public class AuthenticationService {
         ensurePasswordResetNotLocked(phoneHash);
         String storedValue = stringRedisTemplate.opsForValue().get(passwordResetCodeKey(phoneHash));
         if (storedValue == null || storedValue.isBlank()) {
+            recordPublicSmsFailure("password-reset-sms-fail", clientIp, phoneHash);
             recordPasswordResetFail(phoneHash);
             throw new BusinessException(400, "验证码已过期，请重新获取");
         }
@@ -263,6 +311,7 @@ public class AuthenticationService {
         String expectedPrefix = loginUser.getUserId() + ":";
         String expectedCode = storedValue.startsWith(expectedPrefix) ? storedValue.substring(expectedPrefix.length()) : "";
         if (!Objects.equals(expectedCode, request.getCode().trim())) {
+            recordPublicSmsFailure("password-reset-sms-fail", clientIp, phoneHash);
             recordPasswordResetFail(phoneHash);
             throw new BusinessException(400, "验证码错误");
         }
@@ -341,14 +390,120 @@ public class AuthenticationService {
         return login(request, clientIp);
     }
 
-    public LoginVO wechatLogin(WechatLoginRequest request) {
+    public MiniWechatLoginVO wechatLogin(WechatLoginRequest request) {
+        return wechatLogin(request, "unknown");
+    }
+
+    public MiniWechatLoginVO wechatLogin(WechatLoginRequest request, String clientIp) {
+        enforcePublicLimit("wechat-login", "ip", clientIp, 30);
         String phone = wechatMiniProgramClient.getPhoneNumber(request.getPhoneCode());
+        String phoneHash = privacyProtectionUtil.hashPhone(phone);
+        enforcePublicLimit("wechat-login", "phone", phoneHash, 10);
         String tenantCode = StringUtils.hasText(request.getTenantCode()) ? request.getTenantCode().trim() : null;
-        if (tenantCode != null && !boundedTenantProperties.isTenantAllowed(tenantCode)) throw new BusinessException(403, "Tenant is not allowed");
-        List<LoginUserRow> candidates = authMapper.selectLoginUsersByPhoneInTenants(phone, privacyProtectionUtil.hashPhone(phone), null,
-                tenantCode == null ? allowedTenantCodes() : List.of(tenantCode));
-        if (candidates == null || candidates.isEmpty()) throw new BusinessException(401, "Account is disabled or unavailable");
-        if (candidates.size() != 1) throw new BusinessException(409, "Phone belongs to multiple tenants; select a tenant");
+        if (tenantCode != null && !boundedTenantProperties.isTenantAllowed(tenantCode)) {
+            throw tenantUnavailable();
+        }
+        List<String> lookupTenantCodes = tenantCode == null ? allowedTenantCodes() : List.of(tenantCode);
+        List<LoginUserRow> compatibilityCandidates = authMapper.selectWechatLoginUsersByPhoneInTenants(
+                phone,
+                phoneHash,
+                lookupTenantCodes
+        );
+        if (compatibilityCandidates == null || compatibilityCandidates.isEmpty()) {
+            throw employeeNotFoundWithPhoneProof(phoneHash);
+        }
+        String phoneMask = privacyProtectionUtil.maskPhone(phone);
+        for (LoginUserRow candidate : compatibilityCandidates) {
+            if (candidate != null
+                    && candidate.getUserId() != null
+                    && StringUtils.hasText(candidate.getTenantCode())) {
+                authMapper.backfillWechatPhoneHashAndMask(
+                        candidate.getUserId(),
+                        candidate.getTenantCode(),
+                        phone,
+                        phoneHash,
+                        phoneMask
+                );
+            }
+        }
+
+        List<LoginUserRow> candidates = authMapper.selectLoginUsersByPhoneHashInTenants(
+                phoneHash,
+                lookupTenantCodes
+        );
+        if (candidates == null || candidates.isEmpty()) {
+            throw employeeNotFoundWithPhoneProof(phoneHash);
+        }
+
+        MiniWechatLoginVO result = new MiniWechatLoginVO();
+        if (candidates.size() == 1) {
+            LoginUserRow loginUser = candidates.get(0);
+            validateLoginEligibility(loginUser);
+            result.setFlowStatus("LOGGED_IN");
+            result.setLoginInfo(buildLoginVO(loginUser, null));
+            return result;
+        }
+
+        LinkedHashSet<String> candidateTenantCodes = new LinkedHashSet<>();
+        for (LoginUserRow candidate : candidates) {
+            if (candidate != null
+                    && StringUtils.hasText(candidate.getTenantCode())
+                    && candidateTenantCodes.add(candidate.getTenantCode())) {
+                WechatTenantOptionVO option = new WechatTenantOptionVO();
+                option.setTenantCode(candidate.getTenantCode());
+                option.setTenantName(candidate.getTenantName());
+                option.setTenantLogoUrl(candidate.getTenantLogoUrl());
+                result.getTenants().add(option);
+            }
+        }
+        if (candidateTenantCodes.isEmpty()) {
+            throw employeeNotFoundWithPhoneProof(phoneHash);
+        }
+
+        String selectionTicket = UUID.randomUUID().toString();
+        WechatTenantSelectionPayload payload = new WechatTenantSelectionPayload();
+        payload.setPhoneHash(phoneHash);
+        payload.setTenantCodes(List.copyOf(candidateTenantCodes));
+        payload.setExpireAt(System.currentTimeMillis()
+                + TimeUnit.MINUTES.toMillis(WECHAT_TENANT_SELECTION_EXPIRE_MINUTES));
+        saveWechatTenantSelectionPayload(selectionTicket, payload);
+
+        result.setFlowStatus(AuthReason.TENANT_SELECTION_REQUIRED);
+        result.setSelectionTicket(selectionTicket);
+        return result;
+    }
+
+    public LoginVO selectWechatTenant(WechatTenantSelectRequest request) {
+        return selectWechatTenant(request, "unknown");
+    }
+
+    public LoginVO selectWechatTenant(WechatTenantSelectRequest request, String clientIp) {
+        String selectionTicket = request.getSelectionTicket().trim();
+        String tenantCode = request.getTenantCode().trim();
+        enforcePublicLimit("tenant-selection", "ip", clientIp, 20);
+        enforcePublicLimit("tenant-selection", "ticket", selectionTicket, 5);
+        WechatTenantSelectionPayload payload = consumeWechatTenantSelectionPayload(selectionTicket);
+        if (payload == null
+                || !StringUtils.hasText(payload.getPhoneHash())
+                || payload.getExpireAt() == null
+                || payload.getExpireAt() < System.currentTimeMillis()
+                || payload.getTenantCodes() == null
+                || !payload.getTenantCodes().contains(tenantCode)) {
+            throw invalidWechatTenantSelectionTicket();
+        }
+
+        List<LoginUserRow> candidates = authMapper.selectLoginUsersByPhoneHashAndTenant(
+                payload.getPhoneHash(), tenantCode);
+        if (candidates == null || candidates.isEmpty()) {
+            throw employeeNotFound();
+        }
+        if (candidates.size() != 1) {
+            throw new BusinessException(
+                    409,
+                    AuthReason.PHONE_ACCOUNT_AMBIGUOUS,
+                    "该企业内手机号对应多个员工账号，请联系企业负责人处理"
+            );
+        }
         LoginUserRow loginUser = candidates.get(0);
         validateLoginEligibility(loginUser);
         return buildLoginVO(loginUser, null);
@@ -367,7 +522,7 @@ public class AuthenticationService {
         Long userId = tenantContext.userId();
         String tenantCode = tenantContext.tenantCode();
         if (userId == null || !StringUtils.hasText(tenantCode)) {
-            throw new BusinessException(401, "Authentication required");
+            throw new BusinessException(401, "请先登录");
         }
         authMapper.incrementAuthVersion(userId, tenantCode);
     }
@@ -615,18 +770,33 @@ public class AuthenticationService {
         }
     }
 
-    private void validateOrganizationJoinSmsCode(String phoneHash, String smsCode) {
+    private void validateOrganizationJoinSmsCode(String phoneHash, String smsCode, String clientIp) {
         String code = smsCode == null ? "" : smsCode.trim();
         if (!code.matches("^\\d{6}$")) {
+            recordPublicSmsFailure("organization-join-sms-fail", clientIp, phoneHash);
             throw new BusinessException(400, "请输入6位短信验证码");
         }
         String expected = stringRedisTemplate.opsForValue().get(organizationJoinSmsCodeKey(phoneHash));
         if (expected == null || expected.isBlank()) {
+            recordPublicSmsFailure("organization-join-sms-fail", clientIp, phoneHash);
             throw new BusinessException(400, "验证码已过期，请重新获取");
         }
         if (!Objects.equals(expected, code)) {
+            recordPublicSmsFailure("organization-join-sms-fail", clientIp, phoneHash);
             throw new BusinessException(400, "验证码错误");
         }
+    }
+
+    private void recordPublicSmsFailure(String flow, String clientIp, String phoneHash) {
+        enforcePublicLimit(flow, "ip", clientIp, 20);
+        enforcePublicLimit(flow, "phone", phoneHash, 5);
+    }
+
+    private void enforcePublicLimit(String flow,
+                                    String dimension,
+                                    String subject,
+                                    int limit) {
+        publicAuthRateLimiter.check(flow, dimension, subject, limit, PUBLIC_RATE_LIMIT_WINDOW);
     }
 
     private String normalizeJoinName(String name) {
@@ -641,32 +811,31 @@ public class AuthenticationService {
     }
 
     private String resolveTenantCodeByOrganizationCode(String organizationCode) {
-        String code = organizationCode == null ? "" : organizationCode.trim().toUpperCase();
-        if (!code.matches("^[A-Z0-9]{4,32}$")) {
-            throw new BusinessException(400, "组织码格式不正确");
-        }
-        String cachedTenantCode = stringRedisTemplate.opsForValue().get(redisKeyBuilder.cache("auth", JOIN_CODE_KEY_PART, code));
-        if (!StringUtils.hasText(cachedTenantCode)) {
-            throw new BusinessException(404, "组织码无效或已过期");
-        }
-        String tenantCode = cachedTenantCode.trim();
+        OrganizationInvitationPayload invitation = organizationInvitationService.consume(organizationCode);
+        String tenantCode = invitation.getTenantCode();
         if (!boundedTenantProperties.isTenantAllowed(tenantCode)) {
-            throw new BusinessException(404, "组织码无效或已过期");
+            throw invalidInvitation();
         }
         Tenant tenant = tenantMapper.selectByTenantCode(tenantCode);
         if (tenant == null || !CommonStatusEnum.isEnabled(tenant.getStatus())) {
-            throw new BusinessException(404, "组织码无效或已过期");
+            throw invalidInvitation();
         }
         return tenantCode;
+    }
+
+    private BusinessException invalidInvitation() {
+        return new BusinessException(
+                400,
+                AuthReason.INVITATION_INVALID_OR_EXPIRED,
+                "组织邀请码无效或已过期，请联系企业负责人重新获取"
+        );
     }
 
     private Employee resolveOrCreateJoinEmployee(String tenantCode, String name, String phone, String phoneHash, String password) {
         tenantContext.initialize(tenantCode, null, Collections.emptySet());
         try {
             Employee reusableUnjoined = null;
-            List<Employee> matched = employeeMapper.selectList(new LambdaQueryWrapper<Employee>()
-                    .and(wrapper -> wrapper.eq(Employee::getPhoneHash, phoneHash).or().eq(Employee::getPhone, phone))
-                    .last("LIMIT 5"));
+            List<Employee> matched = employeeMapper.selectOrganizationJoinCandidates(tenantCode, phoneHash, phone);
             if (matched != null) {
                 for (Employee existing : matched) {
                     if (existing == null) {
@@ -677,7 +846,7 @@ public class AuthenticationService {
                         throw new BusinessException(409, "该手机号已加入组织，请直接登录或联系管理员重置密码");
                     }
                     if (StringUtils.hasText(existingTenantCode)) {
-                        throw new BusinessException(409, "该手机号已加入其他组织，请先由原组织办理离职或解绑");
+                        continue;
                     }
                     if (reusableUnjoined != null) {
                         throw new BusinessException(409, "该手机号存在多条未加入账号，请联系管理员合并后再加入组织");
@@ -813,10 +982,91 @@ public class AuthenticationService {
     }
 
     private void validateLoginEligibility(LoginUserRow loginUser) {
-        if (loginUser == null || !isUsableEmployeeStatus(loginUser.getUserStatus())) throw new BusinessException(403, "Account is disabled or unavailable");
-        if (!StringUtils.hasText(loginUser.getTenantCode())) throw new BusinessException(403, "Tenant is disabled or unavailable");
-        boundedTenantProperties.assertTenantAllowed(loginUser.getTenantCode());
-        tenantLicenseService.ensureTenantUsable(loginUser.getTenantCode());
+        if (loginUser == null) {
+            throw new BusinessException(
+                    403,
+                    AuthReason.ACCOUNT_DISABLED,
+                    "当前账号不可用，请联系企业负责人"
+            );
+        }
+        if (!isUsableEmployeeStatus(loginUser.getUserStatus())) {
+            String message = employeeStatusMessage(loginUser.getUserStatus());
+            String reason = Objects.equals(loginUser.getUserStatus(), EmployeeStatusEnum.RESIGNED.getCode())
+                    ? AuthReason.EMPLOYEE_RESIGNED
+                    : AuthReason.ACCOUNT_DISABLED;
+            throw new BusinessException(
+                    403,
+                    reason,
+                    message.contains("请联系") ? message : message + "，请联系企业负责人"
+            );
+        }
+        if (!StringUtils.hasText(loginUser.getTenantCode())) {
+            throw tenantUnavailable();
+        }
+        try {
+            boundedTenantProperties.assertTenantAllowed(loginUser.getTenantCode());
+        } catch (IllegalArgumentException exception) {
+            throw tenantUnavailable();
+        }
+        try {
+            tenantLicenseService.ensureTenantUsable(loginUser.getTenantCode());
+        } catch (BusinessException exception) {
+            if (StringUtils.hasText(exception.getReason())) {
+                throw exception;
+            }
+            throw new BusinessException(
+                    403,
+                    AuthReason.TENANT_LICENSE_UNAVAILABLE,
+                    StringUtils.hasText(exception.getMsg())
+                            ? exception.getMsg()
+                            : "当前企业授权已到期或不可用，请联系平台管理员续费"
+            );
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(
+                    403,
+                    AuthReason.TENANT_LICENSE_UNAVAILABLE,
+                    "当前企业授权已到期或不可用，请联系平台管理员续费"
+            );
+        }
+    }
+
+    private void validateAndConsumeWechatPhoneProof(String ticket, String phoneHash) {
+        String payloadJson = stringRedisTemplate.opsForValue()
+                .getAndDelete(wechatPhoneProofKey(ticket.trim()));
+        if (!StringUtils.hasText(payloadJson)) {
+            throw invalidWechatPhoneProof();
+        }
+        try {
+            WechatPhoneVerificationPayload payload = objectMapper.readValue(
+                    payloadJson,
+                    WechatPhoneVerificationPayload.class
+            );
+            if (payload == null
+                    || !StringUtils.hasText(payload.getPhoneHash())
+                    || payload.getExpireAt() == null
+                    || payload.getExpireAt() <= System.currentTimeMillis()
+                    || !Objects.equals(payload.getPhoneHash(), phoneHash)) {
+                throw invalidWechatPhoneProof();
+            }
+        } catch (JsonProcessingException exception) {
+            throw invalidWechatPhoneProof();
+        }
+    }
+
+    private BusinessException invalidWechatPhoneProof() {
+        return new BusinessException(
+                400,
+                AuthReason.INVITATION_INVALID_OR_EXPIRED,
+                "微信手机号验证凭证无效或已过期，请重新授权手机号或使用短信验证码"
+        );
+    }
+
+    private BusinessException tenantUnavailable() {
+        return new BusinessException(
+                403,
+                AuthReason.TENANT_UNAVAILABLE,
+                "当前企业已停用或不可用，请联系企业负责人"
+        );
     }
 
     private Long requireAuthVersion(LoginUserRow loginUser) {
@@ -828,6 +1078,73 @@ public class AuthenticationService {
 
     private boolean isPlatformTenant(String tenantCode) {
         return PLATFORM_TENANT_CODE.equalsIgnoreCase(String.valueOf(tenantCode).trim());
+    }
+
+    private void saveWechatTenantSelectionPayload(String selectionTicket,
+                                                   WechatTenantSelectionPayload payload) {
+        try {
+            stringRedisTemplate.opsForValue().set(
+                    wechatTenantSelectionKey(selectionTicket),
+                    objectMapper.writeValueAsString(payload),
+                    WECHAT_TENANT_SELECTION_EXPIRE_MINUTES,
+                    TimeUnit.MINUTES
+            );
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(500, "企业选择凭证生成失败，请稍后重试");
+        }
+    }
+
+    private WechatTenantSelectionPayload consumeWechatTenantSelectionPayload(String selectionTicket) {
+        String payloadJson = stringRedisTemplate.opsForValue()
+                .getAndDelete(wechatTenantSelectionKey(selectionTicket));
+        if (!StringUtils.hasText(payloadJson)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(payloadJson, WechatTenantSelectionPayload.class);
+        } catch (JsonProcessingException exception) {
+            throw invalidWechatTenantSelectionTicket();
+        }
+    }
+
+    private BusinessException employeeNotFound() {
+        return new BusinessException(
+                403,
+                AuthReason.EMPLOYEE_NOT_FOUND,
+                "管理员尚未添加该手机号，请联系企业负责人或使用组织邀请码加入"
+        );
+    }
+
+    private BusinessException employeeNotFoundWithPhoneProof(String phoneHash) {
+        String ticket = UUID.randomUUID().toString();
+        WechatPhoneVerificationPayload payload = new WechatPhoneVerificationPayload();
+        payload.setPhoneHash(phoneHash);
+        payload.setExpireAt(System.currentTimeMillis()
+                + TimeUnit.MINUTES.toMillis(WECHAT_PHONE_PROOF_EXPIRE_MINUTES));
+        try {
+            stringRedisTemplate.opsForValue().set(
+                    wechatPhoneProofKey(ticket),
+                    objectMapper.writeValueAsString(payload),
+                    WECHAT_PHONE_PROOF_EXPIRE_MINUTES,
+                    TimeUnit.MINUTES
+            );
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(500, "微信手机号验证凭证生成失败，请稍后重试");
+        }
+        return new BusinessException(
+                403,
+                AuthReason.EMPLOYEE_NOT_FOUND,
+                "管理员尚未添加该手机号，请联系企业负责人或使用组织邀请码加入",
+                Map.of("phoneVerificationTicket", ticket)
+        );
+    }
+
+    private BusinessException invalidWechatTenantSelectionTicket() {
+        return new BusinessException(
+                400,
+                AuthReason.TENANT_SELECTION_INVALID_OR_EXPIRED,
+                "企业选择凭证无效或已过期，请重新登录"
+        );
     }
 
     private WebScanLoginRedisPayload getWebScanPayload(String sceneKey) {
@@ -872,6 +1189,10 @@ public class AuthenticationService {
         return redisKeyBuilder.cache("auth", "web-scan-login", sceneKey);
     }
 
+    private String wechatTenantSelectionKey(String selectionTicket) {
+        return redisKeyBuilder.cache("auth", "mini-wechat", "tenant-selection", selectionTicket);
+    }
+
     private String passwordResetCodeKey(String phoneHash) {
         return redisKeyBuilder.cache("auth", "password-reset", "code", phoneHash);
     }
@@ -890,5 +1211,9 @@ public class AuthenticationService {
 
     private String organizationJoinSmsSendLockKey(String phoneHash) {
         return redisKeyBuilder.counter("auth", "organization-join", "sms-send-lock", phoneHash);
+    }
+
+    private String wechatPhoneProofKey(String ticket) {
+        return redisKeyBuilder.cache("auth", "mini-wechat", "phone-proof", ticket);
     }
 }

@@ -23,7 +23,7 @@ public class OperationLogProperties {
      * Business modules persisted to operation_log. The default is deliberately
      * limited to order workflow mutations.
      */
-    private Set<String> recordedModules = Set.of("order");
+    private Set<String> recordedModules = Set.of("order", "auth", "organization");
 
     public boolean shouldRecordModule(String module) {
         if (module == null || module.isBlank() || recordedModules == null) {
@@ -123,6 +123,8 @@ public class OperationLogProperties {
             "password", "oldPassword", "newPassword", "token", "authorization",
             "secret", "authToken", "responseKey", "privateKey", "encryptKey",
             "phone", "mobile", "contactPhone", "customerPhone", "receiverPhone",
-            "phoneHash", "phone_hash", "idCard", "idcard", "openId", "openid", "sessionKey"
+            "phoneHash", "phone_hash", "idCard", "idcard", "openId", "openid", "sessionKey",
+            "organizationCode", "invitationCode", "smsCode", "phoneCode",
+            "phoneVerificationTicket", "selectionTicket"
     );
 }

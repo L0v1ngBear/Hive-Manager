@@ -5,7 +5,6 @@ import jakarta.annotation.Resource;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
 import my.hive.shared.privacy.PrivacyProtectionUtil;
-import my.hive.shared.redis.HiveRedisKeyBuilder;
 import my.hive.shared.enums.CommonStatusEnum;
 import my.hive.shared.enums.DeleteFlagEnum;
 import my.hive.shared.utils.CodeGeneratorUtil;
@@ -23,7 +22,6 @@ import my.hive.domain.organization.model.vo.OrganizationJoinCodeVO;
 import my.hive.domain.organization.model.vo.OrganizationOverviewVO;
 import my.hive.domain.organization.model.vo.OrganizationPositionVO;
 import my.hive.domain.organization.model.vo.OrganizationStatsVO;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,19 +33,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.security.SecureRandom;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 组织架构服务，围绕部门层级维护和部门员工查看进行业务编排。
  */
 @Service
 public class OrganizationService {
-
-    private static final long JOIN_CODE_EXPIRE_SECONDS = 15L * 60L;
-    private static final String JOIN_CODE_KEY_PART = "organization-join-code";
-    private static final char[] JOIN_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @Resource
     private DepartmentMapper departmentMapper;
@@ -68,10 +59,7 @@ public class OrganizationService {
     private PrivacyProtectionUtil privacyProtectionUtil;
 
     @Resource
-    private StringRedisTemplate stringRedisTemplate;
-
-    @Resource
-    private HiveRedisKeyBuilder redisKeyBuilder;
+    private OrganizationInvitationService organizationInvitationService;
 
     public OrganizationOverviewVO overview() {
         List<Department> departments = listTenantDepartments();
@@ -106,15 +94,7 @@ public class OrganizationService {
             throw new BusinessException(401, "当前登录组织异常，请重新登录");
         }
 
-        String code = generateJoinCode();
-        String key = redisKeyBuilder.cache("auth", JOIN_CODE_KEY_PART, code);
-        stringRedisTemplate.opsForValue().set(key, tenantCode, JOIN_CODE_EXPIRE_SECONDS, TimeUnit.SECONDS);
-
-        OrganizationJoinCodeVO vo = new OrganizationJoinCodeVO();
-        vo.setOrganizationCode(code);
-        vo.setExpiresInSeconds(JOIN_CODE_EXPIRE_SECONDS);
-        vo.setExpireAt(System.currentTimeMillis() / 1000 + JOIN_CODE_EXPIRE_SECONDS);
-        return vo;
+        return organizationInvitationService.issue(tenantCode, TenantPermissionContext.getUserId());
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -413,18 +393,4 @@ public class OrganizationService {
         }
     }
 
-    private String generateJoinCode() {
-        for (int attempt = 0; attempt < 8; attempt++) {
-            StringBuilder builder = new StringBuilder(8);
-            for (int i = 0; i < 8; i++) {
-                builder.append(JOIN_CODE_CHARS[SECURE_RANDOM.nextInt(JOIN_CODE_CHARS.length)]);
-            }
-            String code = builder.toString();
-            String key = redisKeyBuilder.cache("auth", JOIN_CODE_KEY_PART, code);
-            if (Boolean.FALSE.equals(stringRedisTemplate.hasKey(key))) {
-                return code;
-            }
-        }
-        throw new BusinessException(500, "组织码生成失败，请稍后重试");
-    }
 }

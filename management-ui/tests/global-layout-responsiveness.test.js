@@ -4,6 +4,7 @@ import test from 'node:test'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 const style = process.env.GLOBAL_LAYOUT_STYLE ?? read('src/style.css')
+const brand = read('src/config/brand.js')
 const sidebar = read('src/layout/components/Sidebar.vue')
 const price = read('src/views/function/price/price.vue')
 const equipment = read('src/views/function/equipment/equipment.vue')
@@ -158,10 +159,14 @@ test('desktop sidebar opens by default and collapsed navigation is icon only', (
 })
 
 test('Hive branding is consistent', () => {
-  assert.doesNotMatch(sidebar, /\u8f7b\u5de2 Hive/)
-  assert.match(sidebar, /\u8702\u5de2 Hive/)
-  assert.match(sidebar, /tenantLogoUrl\.value \? `\$\{tenantName\.value\} logo` : '蜂巢 Hive logo'/)
-  assert.match(sidebar, /tenantLogoUrl\.value && !userStore\.isPlatformTenant \? tenantName\.value : '蜂巢 Hive'/)
+  assert.doesNotMatch(`${brand}\n${sidebar}`, /\u8f7b\u5de2 Hive/)
+  assert.match(brand, /productName: '蜂巢 Hive'/)
+  assert.match(brand, /companyName: '北京北方新青人窗帘有限公司'/)
+  assert.match(sidebar, /import \{brandConfig\} from '@\/config\/brand'/)
+  assert.match(sidebar, /const brandTitle = computed\(\(\) => brandConfig\.productName\)/)
+  assert.match(sidebar, /:src="brandConfig\.logoUrl"/)
+  assert.match(sidebar, /:alt="brandConfig\.logoAlt"/)
+  assert.match(sidebar, /\{\{ brandConfig\.companyName \}\}/)
 })
 
 test('order page defines responsive summary filters and a compact mobile entry', () => {
@@ -216,10 +221,10 @@ test('order selection remains click-only and empty rows stay compact', () => {
 
 test('price uses shared stat cards, accessible filters, grouped actions and a scrolling table', () => {
   const statsSection = templateSection(price, '<section v-else v-loading="statsLoading"', '</section>')
-  const filterForm = templateSection(price, '<el-form :model="query"', '</el-form>')
+  const filterForm = templateSection(price, '<el-form v-filter-collapse :model="query"', '</el-form>')
   const tableScroll = templateSection(price, '<div class="function-table-scroll">', '</div>')
 
-  assert.match(style, /\.function-stat-card\s*\{[\s\S]{0,420}min-width\s*:\s*0[\s\S]{0,420}border-radius\s*:\s*8px[\s\S]{0,420}padding\s*:\s*1\.25rem/)
+  assert.match(style, /\.function-stat-card\s*\{[\s\S]{0,420}min-width\s*:\s*0[\s\S]{0,420}border-radius\s*:\s*8px[\s\S]{0,420}padding\s*:\s*1rem/)
   assert.match(statsSection, /class="[^"]*\bfunction-stats-grid\b[^"]*"/)
   assert.equal((statsSection.match(/<el-statistic\b[^>]*class="function-stat-card"/g) || []).length, 4)
   assert.match(filterForm, /class="function-filter-form p-4"/)
@@ -243,7 +248,7 @@ test('price uses shared stat cards, accessible filters, grouped actions and a sc
 })
 
 test('equipment uses accessible shared filters, grouped actions and a scrolling table', () => {
-  const filterForm = templateSection(equipment, '<el-form :inline="true"', '</el-form>')
+  const filterForm = templateSection(equipment, '<el-form v-filter-collapse :inline="true"', '</el-form>')
   const tableScroll = templateSection(equipment, '<div class="function-table-scroll">', '</div>')
   const actions = templateSection(filterForm, '<el-form-item class="function-filter-actions">', '</el-form-item>')
 
