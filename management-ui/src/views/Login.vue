@@ -27,10 +27,10 @@
           <p>请输入账号信息进入系统</p>
         </div>
         <div class="login-mode-tabs" role="tablist" aria-label="登录方式">
-          <button type="button" role="tab" :aria-selected="loginMode === 'account'" @click="loginMode = 'account'">账号登录</button>
-          <button type="button" role="tab" :aria-selected="loginMode === 'scan'" @click="loginMode = 'scan'">扫码登录</button>
+          <button id="login-account-tab" ref="accountLoginTab" type="button" role="tab" :aria-selected="loginMode === 'account'" :tabindex="loginMode === 'account' ? 0 : -1" aria-controls="login-account-panel" @click="loginMode = 'account'" @keydown="handleLoginModeKeydown($event, 'account')">账号登录</button>
+          <button id="login-scan-tab" ref="scanLoginTab" type="button" role="tab" :aria-selected="loginMode === 'scan'" :tabindex="loginMode === 'scan' ? 0 : -1" aria-controls="login-scan-panel" @click="loginMode = 'scan'" @keydown="handleLoginModeKeydown($event, 'scan')">扫码登录</button>
         </div>
-        <el-form v-if="loginMode === 'account'" :model="loginForm" label-position="top" class="space-y-2" @submit.prevent="handleLogin">
+        <el-form v-if="loginMode === 'account'" id="login-account-panel" role="tabpanel" aria-labelledby="login-account-tab" :model="loginForm" label-position="top" class="space-y-2" @submit.prevent="handleLogin">
             <el-form-item label="账号">
                 <el-input
                     id="username"
@@ -97,7 +97,7 @@
             </div>
         </el-form>
 
-        <div v-else class="login-scan-panel">
+        <div v-else id="login-scan-panel" class="login-scan-panel" role="tabpanel" aria-labelledby="login-scan-tab">
           <h3>快捷登录</h3>
           <p>使用 Hive 移动端小程序扫码</p>
           <div v-if="scanStatus === 'CONFIRMED'" class="w-full h-64 bg-emerald-50/80 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center gap-4 p-6 transition-all">
@@ -252,6 +252,8 @@ const isRefreshingScan = ref(false)
 const isError = ref(false)
 const errorMessage = ref('')
 const loginMode = ref('account')
+const accountLoginTab = ref(null)
+const scanLoginTab = ref(null)
 const scanStatus = ref('IDLE')
 const scanMessage = ref('请使用已登录的小程序扫码确认')
 
@@ -268,6 +270,36 @@ const scanStatusText = computed(() => {
   }
   return scanMessage.value || '请使用小程序扫码登录'
 })
+
+function focusLoginModeTab(mode) {
+  const tab = mode === 'account' ? accountLoginTab.value : scanLoginTab.value
+  tab?.focus()
+}
+
+function handleLoginModeKeydown(event, currentMode) {
+  let nextMode = currentMode
+
+  switch (event.key) {
+    case 'ArrowRight':
+      nextMode = currentMode === 'account' ? 'scan' : 'account'
+      break
+    case 'ArrowLeft':
+      nextMode = currentMode === 'account' ? 'scan' : 'account'
+      break
+    case 'Home':
+      nextMode = 'account'
+      break
+    case 'End':
+      nextMode = 'scan'
+      break
+    default:
+      return
+  }
+
+  event.preventDefault()
+  loginMode.value = nextMode
+  focusLoginModeTab(nextMode)
+}
 
 async function handleLogin() {
   if (!loginForm.username || !loginForm.password || isLoading.value) {
