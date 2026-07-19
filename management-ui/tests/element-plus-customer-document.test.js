@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
+const globalStyle = read("../src/style.css");
 
 test("customer surfaces use Element Plus table dialog drawer and form", () => {
   const list = read("../src/views/function/customer/customer.vue");
@@ -33,8 +34,27 @@ test("customer list separates header actions from collapsible filters", () => {
   assert.match(listPanel, /<el-table-column label="操作" fixed="right" width="128"/);
   assert.match(customer, /class="customer-summary-grid"/);
   assert.match(customer, /\.customer-filter-form\s*\{[\s\S]*grid-template-columns/);
-  assert.match(customer, /@media \(max-width: 900px\)[\s\S]*\.customer-filter-form/);
-  assert.match(customer, /@media \(max-width: 640px\)[\s\S]*\.customer-filter-form/);
+  assert.match(customer, /@container \(max-width: 64rem\)[\s\S]*\.customer-filter-form/);
+  assert.match(customer, /@container \(max-width: 40rem\)[\s\S]*\.customer-filter-form/);
+});
+
+test("customer filters use shell-width container queries at desktop sidebar widths", () => {
+  const customer = read("../src/views/function/customer/customer.vue");
+  const rem = 16;
+  const columnsAt = (shellWidth) => {
+    if (shellWidth <= 40 * rem) return 1;
+    if (shellWidth <= 64 * rem) return 2;
+    return 5;
+  };
+
+  assert.match(globalStyle, /\.function-page-shell\s*\{[\s\S]*?container-type\s*:\s*inline-size/);
+  assert.match(customer, /@container \(max-width: 64rem\)\s*\{[\s\S]*?\.customer-filter-form\s*\{[\s\S]*?grid-template-columns\s*:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(customer, /@container \(max-width: 40rem\)\s*\{[\s\S]*?\.customer-filter-form\s*\{[\s\S]*?grid-template-columns\s*:\s*minmax\(0, 1fr\)/);
+  assert.doesNotMatch(customer, /@media \(max-width: (?:900|640)px\)[\s\S]*?\.customer-filter-form/);
+
+  assert.equal(columnsAt(1024 - 256), 2, "1024px viewport with expanded sidebar uses two tracks");
+  assert.equal(columnsAt(1024 - 88), 2, "1024px viewport with collapsed sidebar uses two tracks");
+  assert.equal(columnsAt(390), 1, "compact content container uses one track");
 });
 
 test("document page uses Element Plus filters and data states", () => {

@@ -534,13 +534,13 @@ watch(
   flex: 0 0 auto;
 }
 
-@media (max-width: 900px) {
+@container (max-width: 64rem) {
   .customer-filter-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 640px) {
+@container (max-width: 40rem) {
   .customer-summary-grid,
   .customer-filter-form {
     grid-template-columns: minmax(0, 1fr);
