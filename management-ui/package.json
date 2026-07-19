@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
+    "test:customer-layout-browser": "node --test tests/run-customer-layout-browser.mjs",
+    "test:login-layout-browser": "node --test tests/run-login-layout-browser.mjs",
     "dev": "vite",
     "build": "vite build && node scripts/write-dist-manifest.mjs",
     "preview": "vite preview",
@@ -37,6 +39,7 @@
     "jiti": "^2.6.1",
     "npm-run-all2": "^8.0.4",
     "oxlint": "~1.57.0",
+    "playwright-core": "1.57.0",
     "postcss": "^8.5.8",
     "prettier": "3.8.1",
     "tailwindcss": "^4.2.2",
