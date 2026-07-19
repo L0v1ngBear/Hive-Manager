@@ -36,6 +36,53 @@ FROM user
 WHERE tenant_code IS NULL OR tenant_code = '';
 EOSQL
 
+echo "Missing employee extension rows:"
+mysql_root_db <<'EOSQL'
+SELECT u.id, u.tenant_code, u.phone_mask, u.status
+FROM user u
+LEFT JOIN emp_employee_ext ext
+  ON ext.user_id = u.id
+ AND ext.tenant_code = u.tenant_code
+ AND IFNULL(ext.is_deleted, 0) = 0
+WHERE u.tenant_code IS NOT NULL
+  AND u.tenant_code <> ''
+  AND ext.user_id IS NULL;
+EOSQL
+
+echo "Missing role assignments:"
+mysql_root_db <<'EOSQL'
+SELECT u.id, u.tenant_code, u.phone_mask, u.status
+FROM user u
+WHERE u.tenant_code IS NOT NULL
+  AND u.tenant_code <> ''
+  AND NOT EXISTS (
+    SELECT 1
+    FROM sys_user_role ur
+    WHERE ur.user_id = u.id
+      AND ur.tenant_code = u.tenant_code
+      AND IFNULL(ur.is_deleted, 0) = 0
+  );
+EOSQL
+
+echo "Invalid employee statuses:"
+mysql_root_db <<'EOSQL'
+SELECT u.id, u.tenant_code, u.phone_mask, u.status
+FROM user u
+WHERE u.tenant_code IS NOT NULL
+  AND u.tenant_code <> ''
+  AND (u.status IS NULL OR u.status NOT IN (0, 1, 2));
+EOSQL
+
+echo "Blank phone hashes for login-capable tenant employees:"
+mysql_root_db <<'EOSQL'
+SELECT u.id, u.tenant_code, u.phone_mask, u.status
+FROM user u
+WHERE u.tenant_code IS NOT NULL
+  AND u.tenant_code <> ''
+  AND u.status IN (1, 2)
+  AND (u.phone_hash IS NULL OR u.phone_hash = '');
+EOSQL
+
 if [ -n "${duplicate_rows}" ]; then
   fail "Duplicate tenant phone hashes must be resolved before unified employee login migration"
 fi

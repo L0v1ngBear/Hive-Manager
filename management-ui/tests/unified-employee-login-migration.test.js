@@ -52,7 +52,7 @@ test('unified employee login migration is appended to the manifest with its chec
   assert.match(checksums, new RegExp(`^${migrationChecksum}  ${relativeMigration.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'));
 });
 
-test('unified employee login audit script reports tenant-less rows and fails only for duplicate tenant phone hashes', () => {
+test('unified employee login audit reports every remediation category and blocks duplicate real-tenant hashes', () => {
   const script = fs.readFileSync(auditScriptPath, 'utf8');
   const databaseHelper = fs.readFileSync(databaseHelperPath, 'utf8');
 
@@ -71,5 +71,15 @@ test('unified employee login audit script reports tenant-less rows and fails onl
   assert.match(script, /phone_hash IS NOT NULL AND phone_hash <> ''/i);
   assert.match(script, /GROUP BY\s+tenant_code\s*,\s*phone_hash[\s\S]*HAVING COUNT\(\*\) > 1/i);
   assert.match(script, /SELECT\s+id\s*,\s*phone_mask\s*,\s*status[\s\S]*tenant_code IS NULL OR tenant_code = ''/i);
+  assert.match(script, /Missing employee extension/i);
+  assert.match(script, /LEFT JOIN\s+emp_employee_ext\s+ext[\s\S]*ext\.user_id IS NULL/i);
+  assert.match(script, /Missing role assignments/i);
+  assert.match(script, /NOT EXISTS\s*\([\s\S]*FROM\s+sys_user_role\s+ur[\s\S]*ur\.user_id\s*=\s*u\.id/i);
+  assert.match(script, /Invalid employee statuses/i);
+  assert.match(script, /u\.status IS NULL OR u\.status NOT IN\s*\(0\s*,\s*1\s*,\s*2\)/i);
+  assert.match(script, /Blank phone hashes for login-capable tenant employees/i);
+  assert.match(script, /u\.status IN\s*\(1\s*,\s*2\)[\s\S]*u\.phone_hash IS NULL OR u\.phone_hash = ''/i);
+  assert.match(script, /fail "Duplicate tenant phone hashes must be resolved before unified employee login migration"/i);
+  assert.doesNotMatch(script, /fail "(?:Missing employee extension|Missing role assignments|Invalid employee statuses|Blank phone hashes)/i);
   assert.doesNotMatch(script, /(?:DELETE|UPDATE|INSERT|ALTER|DROP|TRUNCATE)\b/i);
 });

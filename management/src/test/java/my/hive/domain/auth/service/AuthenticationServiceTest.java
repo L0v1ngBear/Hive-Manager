@@ -355,6 +355,8 @@ class AuthenticationServiceTest {
         assertThat(backfillSql)
                 .contains("phone_hash = #{phoneHash}")
                 .contains("phone = #{phone}")
+                .contains("phone = NULL")
+                .contains("phone_mask = CASE")
                 .doesNotContain("phone_hash IS NULL");
     }
 

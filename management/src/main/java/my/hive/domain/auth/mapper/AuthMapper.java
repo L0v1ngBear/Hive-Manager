@@ -116,7 +116,8 @@ public interface AuthMapper {
 
     @Update({
             "UPDATE user SET phone_hash = #{phoneHash}, ",
-            "phone_mask = CASE WHEN phone_mask IS NULL OR phone_mask = '' THEN #{phoneMask} ELSE phone_mask END ",
+            "phone_mask = CASE WHEN phone_mask IS NULL OR phone_mask = '' THEN #{phoneMask} ELSE phone_mask END, ",
+            "phone = NULL ",
             "WHERE id = #{userId} AND tenant_code = #{tenantCode} AND phone = #{phone}"
     })
     int backfillWechatPhoneHashAndMask(@Param("userId") Long userId,
