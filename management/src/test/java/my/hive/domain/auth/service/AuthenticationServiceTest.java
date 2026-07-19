@@ -445,6 +445,89 @@ class AuthenticationServiceTest {
     }
 
     @Test
+    void preservesReasonAwareTenantUnavailableFailureFromLicenseService() {
+        LoginUserRow active = user(1L, "a", 1);
+        mockWechatCandidates(List.of(active));
+        doThrow(new BusinessException(
+                403,
+                AuthReason.TENANT_UNAVAILABLE,
+                "当前企业已停用或不存在，请联系企业负责人"
+        )).when(license).ensureTenantUsable("a");
+
+        assertThatThrownBy(() -> service.wechatLogin(wechatRequest("code")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "reason", "msg")
+                .containsExactly(403, AuthReason.TENANT_UNAVAILABLE,
+                        "当前企业已停用或不存在，请联系企业负责人");
+    }
+
+    @Test
+    void joinsTargetTenantWhenSamePhoneAlreadyBelongsToAnotherTenant() {
+        prepareSuccessfulOrganizationJoin("b");
+        Employee tenantA = new Employee();
+        tenantA.setId(88L);
+        tenantA.setTenantCode("a");
+        when(employeeMapper.selectOrganizationJoinCandidates("b", HASH, PHONE)).thenReturn(List.of(tenantA));
+        when(values.get(organizationJoinSmsKey())).thenReturn("123456");
+
+        LoginVO result = service.joinOrganization(joinRequest(null, "123456"));
+
+        assertThat(result.getTenantCode()).isEqualTo("b");
+        verify(employeeMapper).insert(org.mockito.ArgumentMatchers.argThat(employee ->
+                "b".equals(employee.getTenantCode()) && HASH.equals(employee.getPhoneHash())));
+        verify(license).ensureUserQuotaAvailable("b");
+    }
+
+    @Test
+    void rejectsDuplicateOnlyInsideInvitationTargetTenant() {
+        prepareSuccessfulOrganizationJoin("b");
+        Employee tenantB = new Employee();
+        tenantB.setId(89L);
+        tenantB.setTenantCode("b");
+        when(employeeMapper.selectOrganizationJoinCandidates("b", HASH, PHONE)).thenReturn(List.of(tenantB));
+        when(values.get(organizationJoinSmsKey())).thenReturn("123456");
+
+        assertThatThrownBy(() -> service.joinOrganization(joinRequest(null, "123456")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "msg")
+                .containsExactly(409, "该手机号已加入组织，请直接登录或联系管理员重置密码");
+        verify(employeeMapper, never()).insert(any(Employee.class));
+    }
+
+    @Test
+    void safelyReusesSingleTenantlessLegacyRowForInvitationTarget() {
+        prepareSuccessfulOrganizationJoin("b");
+        Employee tenantless = new Employee();
+        tenantless.setId(77L);
+        tenantless.setTenantCode(null);
+        when(employeeMapper.selectOrganizationJoinCandidates("b", HASH, PHONE)).thenReturn(List.of(tenantless));
+        when(values.get(organizationJoinSmsKey())).thenReturn("123456");
+        when(mapper.selectLoginUserByUserIdAndTenantCode(77L, "b")).thenReturn(user(77L, "b", 1));
+
+        LoginVO result = service.joinOrganization(joinRequest(null, "123456"));
+
+        assertThat(result.getTenantCode()).isEqualTo("b");
+        verify(employeeMapper).updateById(org.mockito.ArgumentMatchers.argThat(employee ->
+                employee.getId().equals(77L) && "b".equals(employee.getTenantCode())));
+        verify(employeeMapper, never()).insert(any(Employee.class));
+        verify(employeeMapper).incrementPermissionAndAuthVersion("b", 77L);
+    }
+
+    @Test
+    void organizationJoinCandidateSqlExcludesUnrelatedTenantRows() throws Exception {
+        Select select = EmployeeMapper.class.getMethod(
+                        "selectOrganizationJoinCandidates", String.class, String.class, String.class)
+                .getAnnotation(Select.class);
+        String sql = String.join(" ", select.value()).replaceAll("\\s+", " ");
+
+        assertThat(sql)
+                .contains("tenant_code = #{tenantCode}")
+                .contains("tenant_code IS NULL", "tenant_code = ''")
+                .contains("phone_hash = #{phoneHash}", "phone = #{phone}")
+                .doesNotContain("tenant_code <> #{tenantCode}");
+    }
+
+    @Test
     void rejectsExpiredTenantSelectionTicket() throws Exception {
         when(values.getAndDelete(selectionKey("expired")))
                 .thenReturn(selectionPayload(HASH, List.of("a", "b"), System.currentTimeMillis() - 1));
@@ -558,8 +641,9 @@ class AuthenticationServiceTest {
     private void assertInvalidTicket(WechatTenantSelectRequest request) {
         assertThatThrownBy(() -> service.selectWechatTenant(request))
                 .isInstanceOf(BusinessException.class)
-                .extracting("code")
-                .isEqualTo(400);
+                .extracting("code", "reason", "msg")
+                .containsExactly(400, AuthReason.TENANT_SELECTION_INVALID_OR_EXPIRED,
+                        "企业选择凭证无效或已过期，请重新登录");
         verify(tokenService, never()).create(any(), anyString(), any());
     }
 
@@ -582,17 +666,21 @@ class AuthenticationServiceTest {
     }
 
     private void prepareSuccessfulOrganizationJoin() {
+        prepareSuccessfulOrganizationJoin("a");
+    }
+
+    private void prepareSuccessfulOrganizationJoin(String targetTenantCode) {
         OrganizationInvitationPayload invitation = new OrganizationInvitationPayload();
-        invitation.setTenantCode("a");
+        invitation.setTenantCode(targetTenantCode);
         invitation.setIssuerUserId(7L);
         invitation.setExpiresAt(System.currentTimeMillis() + 60_000);
         invitation.setRemainingUses(0);
         when(organizationInvitationService.consume("JOIN1234")).thenReturn(invitation);
         Tenant tenant = new Tenant();
-        tenant.setTenantCode("a");
+        tenant.setTenantCode(targetTenantCode);
         tenant.setStatus(1);
-        when(tenantMapper.selectByTenantCode("a")).thenReturn(tenant);
-        when(employeeMapper.selectList(any())).thenReturn(List.of());
+        when(tenantMapper.selectByTenantCode(targetTenantCode)).thenReturn(tenant);
+        when(employeeMapper.selectOrganizationJoinCandidates(targetTenantCode, HASH, PHONE)).thenReturn(List.of());
 
         Department department = new Department();
         department.setId(21L);
@@ -604,7 +692,7 @@ class AuthenticationServiceTest {
         when(positionMapper.selectOne(any())).thenReturn(position);
         SysRole role = new SysRole();
         role.setId(41L);
-        when(builtInRoleProvisionService.ensureTenantRoles("a"))
+        when(builtInRoleProvisionService.ensureTenantRoles(targetTenantCode))
                 .thenReturn(Map.of("EMPLOYEE", role));
         when(employeeMapper.insert(any(Employee.class))).thenAnswer(invocation -> {
             invocation.<Employee>getArgument(0).setId(11L);
@@ -612,8 +700,8 @@ class AuthenticationServiceTest {
         });
         when(employeeExtMapper.insert(any())).thenReturn(1);
         when(sysUserRoleMapper.insert(any())).thenReturn(1);
-        when(mapper.selectLoginUserByUserIdAndTenantCode(11L, "a"))
-                .thenReturn(user(11L, "a", 1));
+        when(mapper.selectLoginUserByUserIdAndTenantCode(11L, targetTenantCode))
+                .thenReturn(user(11L, targetTenantCode, 1));
     }
 
     private OrganizationJoinRequest joinRequest(String ticket, String smsCode) {

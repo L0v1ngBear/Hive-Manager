@@ -835,9 +835,7 @@ public class AuthenticationService {
         tenantContext.initialize(tenantCode, null, Collections.emptySet());
         try {
             Employee reusableUnjoined = null;
-            List<Employee> matched = employeeMapper.selectList(new LambdaQueryWrapper<Employee>()
-                    .and(wrapper -> wrapper.eq(Employee::getPhoneHash, phoneHash).or().eq(Employee::getPhone, phone))
-                    .last("LIMIT 5"));
+            List<Employee> matched = employeeMapper.selectOrganizationJoinCandidates(tenantCode, phoneHash, phone);
             if (matched != null) {
                 for (Employee existing : matched) {
                     if (existing == null) {
@@ -848,7 +846,7 @@ public class AuthenticationService {
                         throw new BusinessException(409, "该手机号已加入组织，请直接登录或联系管理员重置密码");
                     }
                     if (StringUtils.hasText(existingTenantCode)) {
-                        throw new BusinessException(409, "该手机号已加入其他组织，请先由原组织办理离职或解绑");
+                        continue;
                     }
                     if (reusableUnjoined != null) {
                         throw new BusinessException(409, "该手机号存在多条未加入账号，请联系管理员合并后再加入组织");
@@ -1013,6 +1011,9 @@ public class AuthenticationService {
         try {
             tenantLicenseService.ensureTenantUsable(loginUser.getTenantCode());
         } catch (BusinessException exception) {
+            if (StringUtils.hasText(exception.getReason())) {
+                throw exception;
+            }
             throw new BusinessException(
                     403,
                     AuthReason.TENANT_LICENSE_UNAVAILABLE,
@@ -1139,7 +1140,11 @@ public class AuthenticationService {
     }
 
     private BusinessException invalidWechatTenantSelectionTicket() {
-        return new BusinessException(400, "企业选择凭证无效或已过期，请重新登录");
+        return new BusinessException(
+                400,
+                AuthReason.TENANT_SELECTION_INVALID_OR_EXPIRED,
+                "企业选择凭证无效或已过期，请重新登录"
+        );
     }
 
     private WebScanLoginRedisPayload getWebScanPayload(String sceneKey) {

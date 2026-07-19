@@ -22,6 +22,20 @@ import java.util.List;
 @InterceptorIgnore(tenantLine = "true")
 public interface EmployeeMapper extends BaseMapper<Employee> {
 
+    @Select("""
+            SELECT u.*
+            FROM `user` u
+            WHERE (u.tenant_code = #{tenantCode}
+                   OR u.tenant_code IS NULL
+                   OR u.tenant_code = '')
+              AND (u.phone_hash = #{phoneHash} OR u.phone = #{phone})
+            ORDER BY CASE WHEN u.tenant_code = #{tenantCode} THEN 0 ELSE 1 END, u.id ASC
+            LIMIT 3
+            """)
+    List<Employee> selectOrganizationJoinCandidates(@Param("tenantCode") String tenantCode,
+                                                    @Param("phoneHash") String phoneHash,
+                                                    @Param("phone") String phone);
+
     @Update("""
             UPDATE `user`
             SET permission_version = COALESCE(permission_version, 1) + 1,
