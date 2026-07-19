@@ -1,7 +1,7 @@
 <template>
   <div class="function-page-shell h-full min-h-0">
     <div class="function-page-container space-y-4">
-      <header class="function-page-header">
+      <header class="customer-page-header function-page-header">
         <div>
           <div class="function-page-eyebrow">
             <span class="material-symbols-outlined">handshake</span>
@@ -13,7 +13,31 @@
           </p>
         </div>
 
-        <div v-filter-collapse class="function-filter-form">
+        <el-button
+          class="customer-create-action"
+          type="primary"
+          :disabled="!canCreateCustomer"
+          :class="permissionDisabledClass(!canCreateCustomer)"
+          :title="canCreateCustomer ? '新建客户' : '当前账号暂无新增客户权限'"
+          @click="openCreateDrawer"
+        >
+          <span class="material-symbols-outlined text-[20px]">domain_add</span>
+          新建客户
+        </el-button>
+      </header>
+
+      <section class="customer-summary-grid">
+        <div class="function-stat-card group relative overflow-hidden bg-primary-container">
+          <div class="absolute top-0 right-0 p-4 opacity-10 transition-transform group-hover:scale-110">
+            <span class="material-symbols-outlined text-[80px]">corporate_fare</span>
+          </div>
+          <p class="text-xs font-bold tracking-widest text-on-primary/80 uppercase">客户总数</p>
+          <h3 class="mt-2 text-2xl font-black text-white">{{ total }}</h3>
+        </div>
+      </section>
+
+      <section class="customer-list-panel function-list-panel relative shadow-sm border-outline-variant/20 bg-surface-container-lowest">
+        <div v-filter-collapse class="function-filter-form customer-filter-form">
           <el-input
             v-model.trim="filters.keyword"
             class="w-full sm:w-[260px]"
@@ -66,37 +90,14 @@
             @reset="resetCustomerTableColumns"
           />
           </div>
-          <el-button
-            type="primary"
-            :disabled="!canCreateCustomer"
-            :class="permissionDisabledClass(!canCreateCustomer)"
-            :title="canCreateCustomer ? '新建客户' : '当前账号暂无新增客户权限'"
-            @click="openCreateDrawer"
-          >
-            <span class="material-symbols-outlined text-[20px]">domain_add</span>
-            新建客户
-          </el-button>
         </div>
-      </header>
-
-      <section class="function-stats-grid grid-cols-1 md:grid-cols-4">
-        <div class="function-stat-card group relative overflow-hidden bg-primary-container">
-          <div class="absolute top-0 right-0 p-4 opacity-10 transition-transform group-hover:scale-110">
-            <span class="material-symbols-outlined text-[80px]">corporate_fare</span>
-          </div>
-          <p class="text-xs font-bold tracking-widest text-on-primary/80 uppercase">客户总数</p>
-          <h3 class="mt-2 text-2xl font-black text-white">{{ total }}</h3>
-        </div>
-      </section>
-
-      <section class="function-list-panel relative shadow-sm border-outline-variant/20 bg-surface-container-lowest">
         <el-result v-if="listError" :icon="listError.icon" :title="listError.title" :sub-title="listError.message">
           <template #extra>
             <el-button type="primary" @click="fetchCustomerList">重试</el-button>
           </template>
         </el-result>
         <template v-else>
-          <div class="function-table-scroll">
+          <div class="function-table-scroll responsive-table-wrap">
           <el-table
             :data="customerList"
             row-key="id"
@@ -129,7 +130,7 @@
               <template v-else>{{ customerColumnText(customer, field.key) }}</template>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="128" align="right">
+          <el-table-column label="操作" fixed="right" width="128" align="right">
             <template #default="{ row: customer }">
               <div class="flex justify-end gap-1">
                 <el-button
@@ -516,3 +517,38 @@ watch(
   }
 )
 </script>
+
+<style scoped>
+.customer-summary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 24rem);
+}
+
+.customer-filter-form {
+  grid-template-columns: minmax(16rem, 1.5fr) repeat(3, minmax(10rem, 1fr)) minmax(15rem, auto);
+  padding: 1rem;
+  border-bottom: 1px solid rgba(200, 211, 223, 0.64);
+}
+
+.customer-create-action {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+  .customer-filter-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .customer-summary-grid,
+  .customer-filter-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .customer-create-action,
+  .customer-filter-form .function-filter-actions {
+    width: 100%;
+  }
+}
+</style>

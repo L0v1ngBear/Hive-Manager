@@ -21,6 +21,22 @@ test("customer surfaces use Element Plus table dialog drawer and form", () => {
   }
 });
 
+test("customer list separates header actions from collapsible filters", () => {
+  const customer = read("../src/views/function/customer/customer.vue");
+  const header = customer.match(/<header class="customer-page-header[\s\S]*?<\/header>/)?.[0] || "";
+  const listPanel = customer.match(/<section class="customer-list-panel[\s\S]*?<CustomerCreateDrawer/)?.[0] || "";
+
+  assert.match(header, /@click="openCreateDrawer"/);
+  assert.doesNotMatch(header, /v-filter-collapse|class="function-filter-form/);
+  assert.match(listPanel, /v-filter-collapse class="function-filter-form customer-filter-form"/);
+  assert.match(listPanel, /class="function-table-scroll responsive-table-wrap"/);
+  assert.match(listPanel, /<el-table-column label="操作" fixed="right" width="128"/);
+  assert.match(customer, /class="customer-summary-grid"/);
+  assert.match(customer, /\.customer-filter-form\s*\{[\s\S]*grid-template-columns/);
+  assert.match(customer, /@media \(max-width: 900px\)[\s\S]*\.customer-filter-form/);
+  assert.match(customer, /@media \(max-width: 640px\)[\s\S]*\.customer-filter-form/);
+});
+
 test("document page uses Element Plus filters and data states", () => {
   const source = read("../src/views/function/document/document.vue");
   for (const tag of [
