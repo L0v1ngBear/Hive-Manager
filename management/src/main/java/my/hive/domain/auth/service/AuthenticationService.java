@@ -68,6 +68,7 @@ import org.springframework.util.StringUtils;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Collections;
@@ -95,6 +96,7 @@ public class AuthenticationService {
     private static final long ORGANIZATION_JOIN_SMS_INTERVAL_SECONDS = 60L;
     private static final long WECHAT_TENANT_SELECTION_EXPIRE_MINUTES = 5L;
     private static final long WECHAT_PHONE_PROOF_EXPIRE_MINUTES = 5L;
+    private static final Duration PUBLIC_RATE_LIMIT_WINDOW = Duration.ofMinutes(5);
     private static final String JOIN_CODE_KEY_PART = "organization-join-code";
     private static final String PLATFORM_TENANT_CODE = "super";
     private static final String PLATFORM_LOGIN_NAME = "super";
@@ -172,6 +174,9 @@ public class AuthenticationService {
     @Resource
     private WechatMiniProgramClient wechatMiniProgramClient;
 
+    @Resource
+    private PublicAuthRateLimiter publicAuthRateLimiter;
+
     @Value("${auth.login.max-fail-count:5}")
     private Long maxFailCount;
 
@@ -182,8 +187,14 @@ public class AuthenticationService {
     private Long lockMinutes;
 
     public void sendPasswordResetCode(PasswordResetCodeRequest request) {
+        sendPasswordResetCode(request, "unknown");
+    }
+
+    public void sendPasswordResetCode(PasswordResetCodeRequest request, String clientIp) {
         String phone = normalizeResetPhone(request.getPhone());
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
+        enforcePublicLimit("password-reset-sms-send", "ip", clientIp, 10);
+        enforcePublicLimit("password-reset-sms-send", "phone", phoneHash, 3);
         LoginUserRow loginUser = resolvePasswordResetUser(phone, phoneHash, request.getAccount());
 
         String sendLockKey = passwordResetSendLockKey(phoneHash);
@@ -209,8 +220,14 @@ public class AuthenticationService {
     }
 
     public void sendOrganizationJoinCode(OrganizationJoinCodeSendRequest request) {
+        sendOrganizationJoinCode(request, "unknown");
+    }
+
+    public void sendOrganizationJoinCode(OrganizationJoinCodeSendRequest request, String clientIp) {
         String phone = normalizeResetPhone(request.getPhone());
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
+        enforcePublicLimit("organization-join-sms-send", "ip", clientIp, 10);
+        enforcePublicLimit("organization-join-sms-send", "phone", phoneHash, 3);
         String sendLockKey = organizationJoinSmsSendLockKey(phoneHash);
         if (Boolean.TRUE.equals(stringRedisTemplate.hasKey(sendLockKey))) {
             throw new BusinessException(429, "验证码发送过于频繁，请稍后再试");
@@ -233,6 +250,11 @@ public class AuthenticationService {
 
     @Transactional(rollbackFor = Exception.class)
     public LoginVO joinOrganization(OrganizationJoinRequest request) {
+        return joinOrganization(request, "unknown");
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public LoginVO joinOrganization(OrganizationJoinRequest request, String clientIp) {
         String name = normalizeJoinName(request.getName());
         String phone = normalizeResetPhone(request.getPhone());
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
@@ -247,7 +269,7 @@ public class AuthenticationService {
         if (hasWechatPhoneProof) {
             validateAndConsumeWechatPhoneProof(request.getPhoneVerificationTicket(), phoneHash);
         } else {
-            validateOrganizationJoinSmsCode(phoneHash, request.getSmsCode());
+            validateOrganizationJoinSmsCode(phoneHash, request.getSmsCode(), clientIp);
         }
         validateNewPassword(request.getPassword(), request.getConfirmPassword(), phone);
 
@@ -265,6 +287,10 @@ public class AuthenticationService {
     }
 
     public void resetPasswordBySmsCode(PasswordResetRequest request) {
+        resetPasswordBySmsCode(request, "unknown");
+    }
+
+    public void resetPasswordBySmsCode(PasswordResetRequest request, String clientIp) {
         String phone = normalizeResetPhone(request.getPhone());
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
         validateNewPassword(request.getNewPassword(), request.getConfirmPassword(), phone);
@@ -274,6 +300,7 @@ public class AuthenticationService {
         ensurePasswordResetNotLocked(phoneHash);
         String storedValue = stringRedisTemplate.opsForValue().get(passwordResetCodeKey(phoneHash));
         if (storedValue == null || storedValue.isBlank()) {
+            recordPublicSmsFailure("password-reset-sms-fail", clientIp, phoneHash);
             recordPasswordResetFail(phoneHash);
             throw new BusinessException(400, "验证码已过期，请重新获取");
         }
@@ -281,6 +308,7 @@ public class AuthenticationService {
         String expectedPrefix = loginUser.getUserId() + ":";
         String expectedCode = storedValue.startsWith(expectedPrefix) ? storedValue.substring(expectedPrefix.length()) : "";
         if (!Objects.equals(expectedCode, request.getCode().trim())) {
+            recordPublicSmsFailure("password-reset-sms-fail", clientIp, phoneHash);
             recordPasswordResetFail(phoneHash);
             throw new BusinessException(400, "验证码错误");
         }
@@ -360,8 +388,14 @@ public class AuthenticationService {
     }
 
     public MiniWechatLoginVO wechatLogin(WechatLoginRequest request) {
+        return wechatLogin(request, "unknown");
+    }
+
+    public MiniWechatLoginVO wechatLogin(WechatLoginRequest request, String clientIp) {
+        enforcePublicLimit("wechat-login", "ip", clientIp, 30);
         String phone = wechatMiniProgramClient.getPhoneNumber(request.getPhoneCode());
         String phoneHash = privacyProtectionUtil.hashPhone(phone);
+        enforcePublicLimit("wechat-login", "phone", phoneHash, 10);
         String tenantCode = StringUtils.hasText(request.getTenantCode()) ? request.getTenantCode().trim() : null;
         if (tenantCode != null && !boundedTenantProperties.isTenantAllowed(tenantCode)) {
             throw tenantUnavailable();
@@ -437,8 +471,14 @@ public class AuthenticationService {
     }
 
     public LoginVO selectWechatTenant(WechatTenantSelectRequest request) {
+        return selectWechatTenant(request, "unknown");
+    }
+
+    public LoginVO selectWechatTenant(WechatTenantSelectRequest request, String clientIp) {
         String selectionTicket = request.getSelectionTicket().trim();
         String tenantCode = request.getTenantCode().trim();
+        enforcePublicLimit("tenant-selection", "ip", clientIp, 20);
+        enforcePublicLimit("tenant-selection", "ticket", selectionTicket, 5);
         WechatTenantSelectionPayload payload = consumeWechatTenantSelectionPayload(selectionTicket);
         if (payload == null
                 || !StringUtils.hasText(payload.getPhoneHash())
@@ -727,18 +767,33 @@ public class AuthenticationService {
         }
     }
 
-    private void validateOrganizationJoinSmsCode(String phoneHash, String smsCode) {
+    private void validateOrganizationJoinSmsCode(String phoneHash, String smsCode, String clientIp) {
         String code = smsCode == null ? "" : smsCode.trim();
         if (!code.matches("^\\d{6}$")) {
+            recordPublicSmsFailure("organization-join-sms-fail", clientIp, phoneHash);
             throw new BusinessException(400, "请输入6位短信验证码");
         }
         String expected = stringRedisTemplate.opsForValue().get(organizationJoinSmsCodeKey(phoneHash));
         if (expected == null || expected.isBlank()) {
+            recordPublicSmsFailure("organization-join-sms-fail", clientIp, phoneHash);
             throw new BusinessException(400, "验证码已过期，请重新获取");
         }
         if (!Objects.equals(expected, code)) {
+            recordPublicSmsFailure("organization-join-sms-fail", clientIp, phoneHash);
             throw new BusinessException(400, "验证码错误");
         }
+    }
+
+    private void recordPublicSmsFailure(String flow, String clientIp, String phoneHash) {
+        enforcePublicLimit(flow, "ip", clientIp, 20);
+        enforcePublicLimit(flow, "phone", phoneHash, 5);
+    }
+
+    private void enforcePublicLimit(String flow,
+                                    String dimension,
+                                    String subject,
+                                    int limit) {
+        publicAuthRateLimiter.check(flow, dimension, subject, limit, PUBLIC_RATE_LIMIT_WINDOW);
     }
 
     private String normalizeJoinName(String name) {

@@ -94,6 +94,7 @@ class AuthenticationServiceTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final AuthenticationService service = new AuthenticationService();
     private final TenantContext context = mock(TenantContext.class);
+    private final PublicAuthRateLimiter publicAuthRateLimiter = mock(PublicAuthRateLimiter.class);
 
     @BeforeEach
     void setUp() {
@@ -119,6 +120,7 @@ class AuthenticationServiceTest {
         ReflectionTestUtils.setField(service, "sysUserRoleMapper", sysUserRoleMapper);
         ReflectionTestUtils.setField(service, "builtInRoleProvisionService", builtInRoleProvisionService);
         ReflectionTestUtils.setField(service, "codeGeneratorUtil", codeGeneratorUtil);
+        ReflectionTestUtils.setField(service, "publicAuthRateLimiter", publicAuthRateLimiter);
 
         when(tenants.allowedTenantCodes()).thenReturn(List.of("a", "b"));
         when(tenants.isTenantAllowed(anyString())).thenReturn(true);

@@ -6,6 +6,7 @@ import my.hive.shared.config.WebMvcConfig;
 import my.hive.shared.interceptor.PlatformScopeInterceptor;
 import my.hive.shared.interceptor.TenantContextFilter;
 import my.hive.shared.utils.ResponseEncryptUtil;
+import my.hive.shared.web.TrustedClientIpResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -44,12 +45,16 @@ class WechatTenantSelectionPublicPathIntegrationTest {
     @MockBean
     ResponseEncryptUtil responseEncryptUtil;
 
+    @MockBean
+    TrustedClientIpResolver trustedClientIpResolver;
+
     @Test
     void selectionRouteReachesControllerWithoutSessionInterceptors() throws Exception {
         LoginVO login = new LoginVO();
         login.setUserId(7L);
         login.setTenantCode("tenant-a");
-        when(authenticationService.selectWechatTenant(any())).thenReturn(login);
+        when(trustedClientIpResolver.resolve(any())).thenReturn("203.0.113.9");
+        when(authenticationService.selectWechatTenant(any(), org.mockito.ArgumentMatchers.eq("203.0.113.9"))).thenReturn(login);
 
         mvc.perform(post("/auth/mini/wechat-login/select")
                         .contentType(MediaType.APPLICATION_JSON)

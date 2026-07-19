@@ -5,8 +5,10 @@ import my.hive.domain.auth.model.vo.MiniWechatLoginVO;
 import my.hive.shared.utils.ResponseEncryptUtil;
 import my.hive.shared.interceptor.PlatformScopeInterceptor;
 import my.hive.shared.interceptor.TenantContextFilter;
+import my.hive.shared.web.TrustedClientIpResolver;
 import my.hive.domain.auth.model.vo.LoginVO;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -21,6 +23,7 @@ import java.nio.file.Path;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -38,6 +41,12 @@ class UnifiedAuthenticationIntegrationTest {
     @MockBean ResponseEncryptUtil responseEncryptUtil;
     @MockBean TenantContextFilter tenantContextFilter;
     @MockBean PlatformScopeInterceptor platformScopeInterceptor;
+    @MockBean TrustedClientIpResolver trustedClientIpResolver;
+
+    @BeforeEach
+    void setUpClientIp() {
+        when(trustedClientIpResolver.resolve(any())).thenReturn("127.0.0.1");
+    }
 
     @Test void exposesSeparateAdminAndMiniLoginAdaptersWithOneResponseShape() throws Exception {
         LoginVO login = new LoginVO();
@@ -76,8 +85,9 @@ class UnifiedAuthenticationIntegrationTest {
         MiniWechatLoginVO wechatLogin = new MiniWechatLoginVO();
         wechatLogin.setFlowStatus("LOGGED_IN");
         wechatLogin.setLoginInfo(principal);
-        when(authenticationService.wechatLogin(any())).thenReturn(wechatLogin);
-        when(authenticationService.selectWechatTenant(any())).thenReturn(principal);
+        when(trustedClientIpResolver.resolve(any())).thenReturn("203.0.113.9");
+        when(authenticationService.wechatLogin(any(), anyString())).thenReturn(wechatLogin);
+        when(authenticationService.selectWechatTenant(any(), anyString())).thenReturn(principal);
         mvc.perform(post("/auth/mini/wechat-login").contentType(MediaType.APPLICATION_JSON).content("{\"phoneCode\":\"wx\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.flowStatus").value("LOGGED_IN"))
@@ -86,8 +96,8 @@ class UnifiedAuthenticationIntegrationTest {
                         .content("{\"selectionTicket\":\"ticket\",\"tenantCode\":\"tenant-a\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.userId").value(7));
-        verify(authenticationService).wechatLogin(any());
-        verify(authenticationService).selectWechatTenant(any());
+        verify(authenticationService).wechatLogin(any(), eq("203.0.113.9"));
+        verify(authenticationService).selectWechatTenant(any(), eq("203.0.113.9"));
     }
 
     @Test void exposesScanConfirmMeAndLogoutThroughSharedService() throws Exception {
