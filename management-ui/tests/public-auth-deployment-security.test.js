@@ -24,7 +24,7 @@ test('Compose uses one shared internal subnet for proxy trust and hive-net IPAM'
   assert.match(envExample, /^HIVE_DOCKER_SUBNET=172\.30\.0\.0\/24$/m)
   assert.match(
     compose,
-    /hive-net:\r?\n\s+name: hive-net\r?\n\s+ipam:\r?\n\s+config:\r?\n\s+- subnet: \$\{HIVE_DOCKER_SUBNET:-172\.30\.0\.0\/24\}/
+    /hive-net:\r?\n\s+name: hive-net\r?\n\s+labels:\r?\n\s+com\.hive\.network\.config-hash: ["']hive-net-v1:\$\{HIVE_DOCKER_SUBNET:-172\.30\.0\.0\/24\}["']\r?\n\s+ipam:\r?\n\s+config:\r?\n\s+- subnet: \$\{HIVE_DOCKER_SUBNET:-172\.30\.0\.0\/24\}/
   )
 
   const backend = serviceBlock('backend', 'nginx')

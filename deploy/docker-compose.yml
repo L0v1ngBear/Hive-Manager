@@ -295,6 +295,8 @@ services:
 networks:
   hive-net:
     name: hive-net
+    labels:
+      com.hive.network.config-hash: "hive-net-v1:${HIVE_DOCKER_SUBNET:-172.30.0.0/24}"
     ipam:
       config:
         - subnet: ${HIVE_DOCKER_SUBNET:-172.30.0.0/24}

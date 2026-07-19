@@ -315,3 +315,53 @@ path absence, and source/delivery configuration equality.
 
 Append RED/GREEN and release evidence to the final remediation report and
 commit only the report/metadata with `build: refresh proxy-hardened release`.
+
+### Task 8: Existing Docker network upgrade path
+
+**Files:**
+- Create: `management-ui/tests/deploy-network-migration.test.js`
+- Modify: `deploy/scripts/restart.sh`
+- Modify: `deploy/docker-compose.yml`
+- Modify: `docs/deployment/unified-backend-deployment.md`
+- Modify: `.superpowers/sdd/final-remediation-report.md`
+- Modify: `RELEASE_BUILD_INFO.txt`
+
+**Interfaces:**
+- Resolve the effective Compose project/network from rendered Compose config.
+- Compare existing network subnet and the Hive network configuration label
+  against `HIVE_DOCKER_SUBNET`.
+- Return one preflight action: `absent`, `matching`, or `migrate`.
+
+- [x] **Step 1: Write the mocked Docker/Compose behavior tests**
+
+Cover absent and exact-match limited restart, mismatched and legacy-label full
+project migration, foreign-container rejection, no `down -v`, and a failing
+post-up subnet mismatch.
+
+- [x] **Step 2: Run RED**
+
+Run: `node --test tests/deploy-network-migration.test.js`.
+
+Expected: FAIL because `restart.sh` has no network preflight, full migration,
+foreign attachment check, or postcondition assertion.
+
+- [x] **Step 3: Implement the guarded migration**
+
+Add a subnet-derived network configuration label to Compose. Before the normal
+restart, inspect the effective network and attached-container project labels.
+On mismatch/legacy, run `docker compose down --remove-orphans` without volumes,
+then `docker compose up -d` with current profiles and no service filter. Preserve
+the limited `backend nginx` path for absent/matching networks. Assert the actual
+subnet after either path before health checks.
+
+- [x] **Step 4: Run GREEN and focused deployment suites**
+
+Run the Step 2 command plus deployment topology, portability, runtime-safety,
+and proxy security tests. Commit script/test/Compose/docs with
+`fix: migrate legacy compose network safely`.
+
+- [ ] **Step 5: Run full UI tests/build and refresh release**
+
+Run `npm test` and `npm run build`, update release metadata/report, mirror the
+corrected source-owned files to the fixed desktop directory, and verify hashes,
+one desktop JAR, no forbidden paths, and no repository staging JAR.
