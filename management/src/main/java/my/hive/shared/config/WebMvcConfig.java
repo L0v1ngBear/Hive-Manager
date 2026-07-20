@@ -32,6 +32,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
             "/auth/mini/login",
             "/auth/mini/wechat-login",
             "/auth/mini/wechat-login/select",
+            "/wechat/subscriptions/config",
             "/v3/api-docs",
             "/v3/api-docs/**",
             "/swagger-ui.html",
