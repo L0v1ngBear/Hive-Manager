@@ -30,16 +30,24 @@ public class OssStorageProperties {
     private long maxFileSizeMb = 20;
 
     private List<String> allowedExtensions = new ArrayList<>(Arrays.asList(
-            "jpg", "jpeg", "png", "pdf", "doc", "docx", "xls", "xlsx"
+            "jpg", "jpeg", "png", "webp", "pdf", "doc", "docx", "xls", "xlsx", "csv",
+            "txt", "zip", "rar", "7z", "ppt", "pptx"
     ));
 
     private List<String> allowedContentTypes = new ArrayList<>(Arrays.asList(
             "image/jpeg",
             "image/png",
+            "image/webp",
             "application/pdf",
             "application/msword",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "text/csv",
+            "text/plain",
+            "application/zip",
+            "application/x-rar-compressed",
+            "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     ));
 }

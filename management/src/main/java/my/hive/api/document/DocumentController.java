@@ -11,6 +11,10 @@ import my.hive.domain.document.model.dto.DocumentAddRequest;
 import my.hive.domain.document.model.entity.Document;
 import my.hive.domain.document.model.vo.DocumentVO;
 import my.hive.domain.document.service.DocumentService;
+import my.hive.infrastructure.storage.FileDownloadResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.beans.BeanUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,8 +26,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.stream.Collectors;
 /**
  * DocumentController 是管理端后端请求入口控制类，负责接收请求并调用对应服务。
@@ -66,6 +73,26 @@ public class DocumentController {
     public Result<DocumentVO> uploadFile(@RequestParam("file") MultipartFile file,
                                          @RequestParam(value = "parentId", required = false, defaultValue = "0") Long parentId) {
         return Result.success(documentService.uploadFile(file, parentId));
+    }
+
+    @GetMapping("/file/download")
+    @RequirePermission(value = PermissionCatalogV3.CODE_DOCUMENT_FILE_DOWNLOAD, message = "当前账号没有下载文档权限")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadFile(@RequestParam Long documentId) {
+        FileDownloadResource download = documentService.loadFile(documentId);
+        String filename = StringUtils.hasText(download.filename()) ? download.filename() : "document";
+        String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
+        MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        if (StringUtils.hasText(download.contentType())) {
+            try {
+                mediaType = MediaType.parseMediaType(download.contentType());
+            } catch (IllegalArgumentException ignored) {
+                // Keep the safe binary fallback for malformed historic MIME metadata.
+            }
+        }
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFilename)
+                .body(download.resource());
     }
 
     @PutMapping("/rename")

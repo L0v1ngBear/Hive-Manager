@@ -41,4 +41,31 @@ class InternalUploadUrlValidatorTest {
     void optionalFinanceAttachmentCanBeBlank() {
         assertNull(InternalUploadUrlValidator.normalizeOptionalFinanceAttachment(" ", "TENANT_001"));
     }
+
+    @Test
+    void acceptsPrivateOssReferencesOnlyForCurrentTenantAndModule() {
+        String reference = InternalStorageReference.privateOssReference(
+                "/api",
+                "hive/TENANT_001/sales-order/2026/07/22/a.pdf"
+        );
+
+        assertEquals(reference, InternalUploadUrlValidator.normalizeStoredUploadUrl(
+                reference,
+                "/api",
+                "TENANT_001",
+                "sales-order"
+        ));
+        assertThrows(BusinessException.class, () -> InternalUploadUrlValidator.normalizeStoredUploadUrl(
+                reference,
+                "/api",
+                "TENANT_002",
+                "sales-order"
+        ));
+        assertThrows(BusinessException.class, () -> InternalUploadUrlValidator.normalizeStoredUploadUrl(
+                reference,
+                "/api",
+                "TENANT_001",
+                "finance"
+        ));
+    }
 }

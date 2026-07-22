@@ -40,6 +40,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
             "/swagger-resources/**",
             "/webjars/**",
             "/uploads/tenant-logo/**",
+            "/storage/public/tenant-logo/**",
             "/favicon.ico",
             "/error"
     };

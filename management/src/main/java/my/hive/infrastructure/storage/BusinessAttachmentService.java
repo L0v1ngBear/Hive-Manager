@@ -1,49 +1,55 @@
 package my.hive.infrastructure.storage;
 
+import jakarta.annotation.Resource;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
-import my.hive.shared.security.InternalUploadUrlValidator;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Set;
-import java.util.UUID;
 
 @Service
 public class BusinessAttachmentService {
 
     private static final long MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024L;
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final Set<String> ALLOWED_MODULES = Set.of("sales-order", "bad-product", "finance", "inventory-recognition", "tenant-logo", "installation-task");
+    private static final Set<String> ALLOWED_MODULES = Set.of(
+            "sales-order",
+            "bad-product",
+            "finance",
+            "inventory-recognition",
+            "tenant-logo",
+            "installation-task"
+    );
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             "pdf", "png", "jpg", "jpeg", "webp",
             "doc", "docx", "xls", "xlsx", "csv",
             "txt", "zip", "rar", "7z"
     );
 
-    @Value("${app.upload.root:uploads}")
-    private String uploadRoot;
-
-    @Value("${server.servlet.context-path:}")
-    private String contextPath;
+    @Resource
+    private FileStorageProviderRouter storageRouter;
 
     public BusinessAttachmentVO upload(MultipartFile file, String module) {
         String normalizedModule = normalizeModule(module);
-        if (file == null || file.isEmpty()) {
+        validateFile(file);
+        FileUploadResult uploadResult = storageRouter.upload(file, requireTenantCode(), normalizedModule);
+
+        BusinessAttachmentVO vo = new BusinessAttachmentVO();
+        vo.setFileName(uploadResult.getOriginalName());
+        vo.setFileSize(uploadResult.getFileSize());
+        vo.setFileUrl(uploadResult.getUrl());
+        return vo;
+    }
+
+    public org.springframework.core.io.Resource load(String attachmentUrl, String module) {
+        return storageRouter.load(attachmentUrl, requireTenantCode(), normalizeModule(module));
+    }
+
+    private void validateFile(MultipartFile file) {
+        if (file == null || file.isEmpty() || file.getSize() <= 0) {
             throw new BusinessException("请选择需要上传的附件");
-        }
-        if (file.getSize() <= 0) {
-            throw new BusinessException("附件内容为空，无法上传");
         }
         if (file.getSize() > MAX_ATTACHMENT_SIZE) {
             throw new BusinessException("附件大小不能超过 10MB");
@@ -55,54 +61,6 @@ public class BusinessAttachmentService {
         if (!ALLOWED_EXTENSIONS.contains(normalizedExtension)) {
             throw new BusinessException("仅支持 PDF、图片、Word、Excel、文本或压缩包附件");
         }
-
-        String tenantFolder = safeTenantFolder();
-        String dateFolder = LocalDate.now().format(DATE_FORMATTER);
-        Path rootPath = Paths.get(uploadRoot).toAbsolutePath().normalize();
-        Path targetDir = rootPath.resolve(normalizedModule).resolve(tenantFolder).resolve(dateFolder).normalize();
-        if (!targetDir.startsWith(rootPath)) {
-            throw new BusinessException("附件存储路径不合法");
-        }
-
-        String storedFilename = UUID.randomUUID().toString().replace("-", "") + "." + normalizedExtension;
-        Path targetPath = targetDir.resolve(storedFilename).normalize();
-        if (!targetPath.startsWith(rootPath)) {
-            throw new BusinessException("附件存储路径不合法");
-        }
-
-        try {
-            Files.createDirectories(targetDir);
-            file.transferTo(targetPath);
-        } catch (IOException e) {
-            throw new BusinessException("附件上传失败，请稍后重试");
-        }
-
-        BusinessAttachmentVO vo = new BusinessAttachmentVO();
-        vo.setFileName(originalFilename);
-        vo.setFileSize(file.getSize());
-        vo.setFileUrl(resolveContextPath() + "/uploads/" + normalizedModule + "/" + tenantFolder + "/" + dateFolder + "/" + storedFilename);
-        return vo;
-    }
-
-    public org.springframework.core.io.Resource load(String attachmentUrl, String module) {
-        String normalizedModule = normalizeModule(module);
-        String relativePath = InternalUploadUrlValidator.normalizeRelativeUploadPath(
-                attachmentUrl,
-                resolveContextPath(),
-                TenantPermissionContext.getTenantCode(),
-                normalizedModule
-        );
-        if (!StringUtils.hasText(relativePath)) {
-            throw new BusinessException("附件地址不能为空");
-        }
-
-        Path rootPath = Paths.get(uploadRoot).toAbsolutePath().normalize();
-        Path moduleRoot = rootPath.resolve(normalizedModule).normalize();
-        Path targetPath = rootPath.resolve(relativePath).normalize();
-        if (!targetPath.startsWith(moduleRoot) || !Files.exists(targetPath) || !Files.isRegularFile(targetPath)) {
-            throw new BusinessException("附件不存在或已被移除");
-        }
-        return new FileSystemResource(targetPath);
     }
 
     private String normalizeModule(String module) {
@@ -132,22 +90,11 @@ public class BusinessAttachmentService {
         return originalName;
     }
 
-    private String safeTenantFolder() {
+    private String requireTenantCode() {
         String tenantCode = TenantPermissionContext.getTenantCode();
         if (!StringUtils.hasText(tenantCode)) {
-            throw new BusinessException("组织信息缺失，无法上传附件");
+            throw new BusinessException("组织信息缺失，无法访问附件");
         }
-        String normalized = tenantCode.trim().replaceAll("[^A-Za-z0-9_-]", "_");
-        if (!StringUtils.hasText(normalized)) {
-            throw new BusinessException("组织信息不合法，无法上传附件");
-        }
-        return normalized;
-    }
-
-    private String resolveContextPath() {
-        if (!StringUtils.hasText(contextPath) || "/".equals(contextPath.trim())) {
-            return "";
-        }
-        return contextPath.trim();
+        return tenantCode.trim();
     }
 }

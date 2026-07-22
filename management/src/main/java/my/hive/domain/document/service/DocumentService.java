@@ -6,7 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
 import my.hive.infrastructure.storage.FileUploadResult;
-import my.hive.infrastructure.storage.LocalFileStorageService;
+import my.hive.infrastructure.storage.FileDownloadResource;
+import my.hive.infrastructure.storage.FileStorageProviderRouter;
 import my.hive.domain.document.DocumentTypeEnum;
 import my.hive.domain.document.mapper.DocumentMapper;
 import my.hive.domain.document.model.enums.DocumentUploadStatusEnum;
@@ -36,7 +37,7 @@ public class DocumentService {
     private DocumentMapper documentMapper;
 
     @Resource
-    private LocalFileStorageService localFileStorageService;
+    private FileStorageProviderRouter storageRouter;
 
     @Resource
     private TenantMapper tenantMapper;
@@ -83,7 +84,7 @@ public class DocumentService {
         ensureNameNotExists(tenantCode, normalizedParentId, displayName, null);
         ensureStorageQuota(tenantCode, file.getSize());
 
-        FileUploadResult uploadResult = localFileStorageService.upload(file, tenantCode, "document");
+        FileUploadResult uploadResult = storageRouter.upload(file, tenantCode, "document");
         Document document = new Document();
         document.setTenantCode(tenantCode);
         document.setParentId(normalizedParentId);
@@ -106,10 +107,27 @@ public class DocumentService {
             documentMapper.insert(document);
             return toVO(document);
         } catch (RuntimeException e) {
-            localFileStorageService.deleteQuietly(uploadResult.getObjectKey());
-            log.error("save document after local upload failed, tenantCode={}, objectKey={}", tenantCode, uploadResult.getObjectKey(), e);
+            storageRouter.deleteQuietly(uploadResult.getObjectKey());
+            log.error("save document after storage upload failed, tenantCode={}, objectKey={}", tenantCode, uploadResult.getObjectKey(), e);
             throw e;
         }
+    }
+
+    public FileDownloadResource loadFile(Long documentId) {
+        Document document = requireDocument(documentId);
+        if (!DocumentTypeEnum.FILE.getType().equals(document.getType())
+                || !StringUtils.hasText(document.getFileUrl())) {
+            throw new BusinessException("当前文档不是可下载文件");
+        }
+        org.springframework.core.io.Resource resource = storageRouter.load(
+                document.getFileUrl(),
+                document.getTenantCode(),
+                "document"
+        );
+        String filename = StringUtils.hasText(document.getOriginalName())
+                ? document.getOriginalName()
+                : document.getName();
+        return new FileDownloadResource(resource, filename, document.getMimeType());
     }
 
     public void renameDocument(Long documentId, String newName) {

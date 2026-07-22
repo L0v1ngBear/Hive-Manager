@@ -2,6 +2,9 @@ package my.hive.infrastructure.storage;
 
 import lombok.extern.slf4j.Slf4j;
 import my.hive.shared.exception.BusinessException;
+import my.hive.shared.security.InternalUploadUrlValidator;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -80,6 +83,38 @@ public class LocalFileStorageService implements FileStorageProvider {
                 .fileHash(fileHash)
                 .etag(fileHash)
                 .build();
+    }
+
+    @Override
+    public boolean supportsReference(String reference) {
+        if (!StringUtils.hasText(reference)) {
+            return false;
+        }
+        String normalized = reference.trim().replace('\\', '/');
+        String context = resolveContextPath();
+        return normalized.startsWith("/uploads/")
+                || normalized.startsWith("uploads/")
+                || (StringUtils.hasText(context) && normalized.startsWith(context + "/uploads/"));
+    }
+
+    @Override
+    public Resource load(String reference, String tenantCode, String module) {
+        String relativePath = InternalUploadUrlValidator.normalizeRelativeUploadPath(
+                reference,
+                resolveContextPath(),
+                tenantCode,
+                module
+        );
+        if (!StringUtils.hasText(relativePath)) {
+            throw new BusinessException("文件地址不能为空");
+        }
+        Path rootPath = Paths.get(uploadRoot).toAbsolutePath().normalize();
+        Path moduleRoot = rootPath.resolve(module).normalize();
+        Path targetPath = rootPath.resolve(relativePath).normalize();
+        if (!targetPath.startsWith(moduleRoot) || !Files.exists(targetPath) || !Files.isRegularFile(targetPath)) {
+            throw new BusinessException("文件不存在或已被删除");
+        }
+        return new FileSystemResource(targetPath);
     }
 
     @Override

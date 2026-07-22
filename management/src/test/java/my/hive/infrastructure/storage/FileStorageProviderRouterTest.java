@@ -3,6 +3,8 @@ package my.hive.infrastructure.storage;
 import my.hive.shared.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -44,6 +46,19 @@ class FileStorageProviderRouterTest {
     }
 
     @Test
+    void readsLegacyLocalAndPrivateOssReferencesWithTheirOwningProvider() {
+        RecordingProvider local = new RecordingProvider("local");
+        RecordingProvider oss = new RecordingProvider("aliyun-oss");
+        FileStorageProviderRouter router = new FileStorageProviderRouter(List.of(local, oss), "aliyun-oss");
+
+        router.load("/api/uploads/document/tenant-a/file.pdf", "tenant-a", "document");
+        router.load("/api/storage/private/aliyun-oss/reference", "tenant-a", "document");
+
+        assertThat(local.loadCount).isEqualTo(1);
+        assertThat(oss.loadCount).isEqualTo(1);
+    }
+
+    @Test
     void duplicateNormalizedProviderCodesAreRejected() {
         assertThatThrownBy(() -> new FileStorageProviderRouter(List.of(
                 new RecordingProvider("local"),
@@ -69,6 +84,7 @@ class FileStorageProviderRouterTest {
         private final String providerCode;
         private int uploadCount;
         private int deleteCount;
+        private int loadCount;
 
         private RecordingProvider(String providerCode) {
             this.providerCode = providerCode;
@@ -88,6 +104,20 @@ class FileStorageProviderRouterTest {
         @Override
         public void deleteQuietly(String objectKey) {
             deleteCount++;
+        }
+
+        @Override
+        public boolean supportsReference(String reference) {
+            String code = providerCode.trim().toLowerCase();
+            return "local".equals(code)
+                    ? reference.contains("/uploads/")
+                    : reference.contains("/storage/private/aliyun-oss/");
+        }
+
+        @Override
+        public Resource load(String reference, String tenantCode, String module) {
+            loadCount++;
+            return new ByteArrayResource(providerCode.getBytes());
         }
     }
 }

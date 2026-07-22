@@ -5,21 +5,24 @@ import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.OSSException;
 import com.aliyun.oss.model.ObjectMetadata;
+import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.PutObjectResult;
 import lombok.extern.slf4j.Slf4j;
 import my.hive.shared.external.ExternalApiGuardService;
 import my.hive.shared.exception.BusinessException;
+import my.hive.shared.security.InternalStorageReference;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.FilterInputStream;
 import java.io.InputStream;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -46,6 +49,9 @@ public class OssStorageService implements FileStorageProvider {
 
     @Value("${external-api.guard.oss.upload-window-seconds:3600}")
     private Integer ossUploadWindowSeconds;
+
+    @Value("${server.servlet.context-path:}")
+    private String contextPath;
 
     @Autowired
     public OssStorageService(OssStorageProperties properties, ExternalApiGuardService externalApiGuardService) {
@@ -98,7 +104,7 @@ public class OssStorageService implements FileStorageProvider {
                     .storageProvider(STORAGE_PROVIDER)
                     .bucketName(properties.getBucketName())
                     .objectKey(objectKey)
-                    .url(buildPublicUrl(objectKey))
+                    .url(buildStoredReference(objectKey, candidate.module()))
                     .fileSize(candidate.fileSize())
                     .fileExt(candidate.fileExt())
                     .mimeType(candidate.mimeType())
@@ -119,6 +125,28 @@ public class OssStorageService implements FileStorageProvider {
 
     public boolean isEnabled() {
         return properties.isEnabled();
+    }
+
+    @Override
+    public boolean supportsReference(String reference) {
+        return InternalStorageReference.isPrivateOssReference(reference, contextPath);
+    }
+
+    @Override
+    public Resource load(String reference, String tenantCode, String module) {
+        String objectKey = InternalStorageReference.requirePrivateOssObjectKey(
+                reference,
+                contextPath,
+                tenantCode,
+                Set.of(module)
+        );
+        return loadObject(objectKey);
+    }
+
+    public Resource loadPublicTenantLogo(String referenceToken) {
+        String reference = InternalStorageReference.publicTenantLogoPathFromToken(referenceToken);
+        String objectKey = InternalStorageReference.requirePublicTenantLogoObjectKey(reference, "");
+        return loadObject(objectKey);
     }
 
     @Override
@@ -231,12 +259,63 @@ public class OssStorageService implements FileStorageProvider {
                 + UUID.randomUUID() + "." + fileExt;
     }
 
-    private String buildPublicUrl(String objectKey) {
-        if (StringUtils.hasText(properties.getPublicBaseUrl())) {
-            return trimTrailingSlash(properties.getPublicBaseUrl()) + "/" + encodeObjectKey(objectKey);
+    private String buildStoredReference(String objectKey, String module) {
+        if ("tenant-logo".equals(module)) {
+            return InternalStorageReference.publicTenantLogoReference(contextPath, objectKey);
         }
-        String endpoint = properties.getEndpoint().replaceFirst("^https?://", "");
-        return "https://" + properties.getBucketName() + "." + endpoint + "/" + encodeObjectKey(objectKey);
+        return InternalStorageReference.privateOssReference(contextPath, objectKey);
+    }
+
+    private Resource loadObject(String objectKey) {
+        validateConfig();
+        OSS ossClient = clientSupplier.get();
+        try {
+            OSSObject ossObject = ossClient.getObject(properties.getBucketName(), objectKey);
+            if (ossObject == null || ossObject.getObjectContent() == null) {
+                ossClient.shutdown();
+                throw new BusinessException("文件不存在或已被删除");
+            }
+            long contentLength = ossObject.getObjectMetadata() == null
+                    ? -1L
+                    : ossObject.getObjectMetadata().getContentLength();
+            String filename = objectKey.substring(objectKey.lastIndexOf('/') + 1);
+            InputStream managedStream = new FilterInputStream(ossObject.getObjectContent()) {
+                private boolean closed;
+
+                @Override
+                public void close() throws IOException {
+                    if (closed) {
+                        return;
+                    }
+                    closed = true;
+                    try {
+                        super.close();
+                        ossObject.close();
+                    } finally {
+                        ossClient.shutdown();
+                    }
+                }
+            };
+            return new InputStreamResource(managedStream) {
+                @Override
+                public String getFilename() {
+                    return filename;
+                }
+
+                @Override
+                public long contentLength() {
+                    return contentLength;
+                }
+            };
+        } catch (OSSException | ClientException exception) {
+            ossClient.shutdown();
+            log.warn("read aliyun oss object failed, objectKey={}, errorCode={}",
+                    objectKey,
+                    exception instanceof OSSException ossException
+                            ? ossException.getErrorCode()
+                            : exception.getMessage());
+            throw new BusinessException("文件不存在或暂时无法读取");
+        }
     }
 
     private String sha256(MultipartFile file) {
@@ -286,16 +365,6 @@ public class OssStorageService implements FileStorageProvider {
 
     private String safeMetadataValue(String value) {
         return value == null ? "" : value.replaceAll("[\\r\\n]", " ");
-    }
-
-    private String trimTrailingSlash(String value) {
-        return value.replaceAll("/+$", "");
-    }
-
-    private String encodeObjectKey(String objectKey) {
-        return java.util.Arrays.stream(objectKey.split("/"))
-                .map(segment -> URLEncoder.encode(segment, StandardCharsets.UTF_8).replace("+", "%20"))
-                .collect(Collectors.joining("/"));
     }
 
     private record FileCandidate(

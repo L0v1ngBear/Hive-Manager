@@ -4,6 +4,7 @@ import my.hive.shared.exception.BusinessException;
 import org.springframework.util.StringUtils;
 
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Validates upload URLs that are stored in business tables.
@@ -28,6 +29,14 @@ public final class InternalUploadUrlValidator {
     }
 
     public static String normalizeStoredUploadUrl(String value, String contextPath, String tenantCode, String module) {
+        if (InternalStorageReference.isPrivateOssReference(value, contextPath)) {
+            return InternalStorageReference.normalizePrivateOssReference(
+                    value,
+                    contextPath,
+                    tenantCode,
+                    Set.of(module)
+            );
+        }
         String path = normalizeRelativeUploadPath(value, contextPath, tenantCode, module);
         if (path == null) {
             return null;
@@ -41,6 +50,14 @@ public final class InternalUploadUrlValidator {
     }
 
     public static String normalizeOptionalFinanceAttachment(String value, String tenantCode, String contextPath) {
+        if (InternalStorageReference.isPrivateOssReference(value, contextPath)) {
+            return InternalStorageReference.normalizePrivateOssReference(
+                    value,
+                    contextPath,
+                    tenantCode,
+                    Set.of("finance", "sales-order")
+            );
+        }
         String path = normalize(value, contextPath);
         if (path == null) {
             return null;

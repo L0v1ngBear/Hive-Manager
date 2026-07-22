@@ -12,6 +12,8 @@ import my.hive.shared.order.OrderFlowCodeUtil;
 import my.hive.domain.print.PrintTaskService;
 import my.hive.shared.enums.BinaryFlagEnum;
 import my.hive.shared.security.InternalUploadUrlValidator;
+import my.hive.infrastructure.storage.BusinessAttachmentService;
+import my.hive.infrastructure.storage.BusinessAttachmentVO;
 import my.hive.shared.utils.CodeGeneratorUtil;
 import my.hive.domain.customer.mapper.CustomerContactMapper;
 import my.hive.domain.customer.mapper.CustomerMapper;
@@ -65,19 +67,14 @@ import my.hive.shared.dto.PageResult;
 import my.hive.domain.order.model.vo.SalesOrderStatusLogVO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.BeanUtils;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -87,11 +84,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -101,8 +96,6 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final DateTimeFormatter ATTACHMENT_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
-    private static final long MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024L;
     private static final long DEFAULT_PAGE_SIZE = 10L;
     private static final long MAX_PAGE_SIZE = 200L;
     private static final List<String> SALES_STATUS_CODES = List.of(
@@ -140,9 +133,6 @@ public class OrderService {
     );
     private static final List<String> SALES_BUDGET_FORWARD_STATUS_CODES = List.of(
             "budgeting", "budget_completed"
-    );
-    private static final Set<String> ALLOWED_ATTACHMENT_EXTENSIONS = Set.of(
-            "pdf", "png", "jpg", "jpeg", "webp", "doc", "docx", "xls", "xlsx", "txt", "zip", "rar"
     );
     @Resource
     private SalesOrderMapper salesOrderMapper;
@@ -201,8 +191,8 @@ public class OrderService {
     @Resource
     private JdbcTemplate jdbcTemplate;
 
-    @Value("${app.upload.root:uploads}")
-    private String uploadRoot;
+    @Resource
+    private BusinessAttachmentService businessAttachmentService;
 
     @Value("${ORDER_FLOW_CODE_SECRET:${AUTH_TOKEN_SECRET:hive-local-order-flow-secret}}")
     private String orderFlowCodeSecret;
@@ -248,71 +238,16 @@ public class OrderService {
     private String contextPath;
 
     public SalesOrderAttachmentVO uploadSalesAttachment(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new BusinessException("请选择要上传的订单附件");
-        }
-        if (file.getSize() <= 0) {
-            throw new BusinessException("订单附件内容为空，无法上传");
-        }
-        if (file.getSize() > MAX_ATTACHMENT_SIZE) {
-            throw new BusinessException("订单附件不能超过 10MB");
-        }
-
-        String originalFilename = file.getOriginalFilename() == null ? "attachment" : StringUtils.cleanPath(file.getOriginalFilename());
-        if (originalFilename.contains("..") || originalFilename.contains("/") || originalFilename.contains("\\")) {
-            throw new BusinessException("附件文件名不合法");
-        }
-
-        String extension = StringUtils.getFilenameExtension(originalFilename);
-        String normalizedExtension = extension == null ? "" : extension.toLowerCase(Locale.ROOT);
-        if (!ALLOWED_ATTACHMENT_EXTENSIONS.contains(normalizedExtension)) {
-            throw new BusinessException("仅支持 PDF、图片、Word、Excel、文本或压缩包附件");
-        }
-
-        String tenantFolder = safePathSegment(TenantPermissionContext.getTenantCode());
-        String dateFolder = LocalDate.now().format(ATTACHMENT_DATE_FORMATTER);
-        Path rootPath = Paths.get(uploadRoot).toAbsolutePath().normalize();
-        Path targetDir = rootPath.resolve("sales-order").resolve(tenantFolder).resolve(dateFolder).normalize();
-        if (!targetDir.startsWith(rootPath)) {
-            throw new BusinessException("附件存储路径不合法");
-        }
-
-        String storedFilename = UUID.randomUUID().toString().replace("-", "") + "." + normalizedExtension;
-        Path targetPath = targetDir.resolve(storedFilename).normalize();
-        if (!targetPath.startsWith(rootPath)) {
-            throw new BusinessException("附件存储路径不合法");
-        }
-
-        try {
-            Files.createDirectories(targetDir);
-            file.transferTo(targetPath);
-        } catch (IOException e) {
-            throw new BusinessException("订单附件上传失败，请稍后重试");
-        }
-
+        BusinessAttachmentVO attachment = businessAttachmentService.upload(file, "sales-order");
         SalesOrderAttachmentVO vo = new SalesOrderAttachmentVO();
-        vo.setFileName(originalFilename);
-        vo.setFileSize(file.getSize());
-        vo.setFileUrl(resolveContextPath() + "/uploads/sales-order/" + tenantFolder + "/" + dateFolder + "/" + storedFilename);
+        vo.setFileName(attachment.getFileName());
+        vo.setFileSize(attachment.getFileSize());
+        vo.setFileUrl(attachment.getFileUrl());
         return vo;
     }
 
     public org.springframework.core.io.Resource loadSalesAttachment(String attachmentUrl) {
-        String relativePath = normalizeAttachmentPath(attachmentUrl);
-        String currentTenantFolder = safePathSegment(TenantPermissionContext.getTenantCode());
-        String currentTenantPrefix = "sales-order/" + currentTenantFolder + "/";
-        if (!relativePath.startsWith(currentTenantPrefix)) {
-            throw new BusinessException("订单附件不存在或无权访问");
-        }
-
-        Path rootPath = Paths.get(uploadRoot).toAbsolutePath().normalize();
-        Path salesOrderRoot = rootPath.resolve("sales-order").normalize();
-        Path targetPath = rootPath.resolve(relativePath).normalize();
-
-        if (!targetPath.startsWith(salesOrderRoot) || !Files.exists(targetPath) || !Files.isRegularFile(targetPath)) {
-            throw new BusinessException("订单附件不存在或已被移除");
-        }
-        return new FileSystemResource(targetPath);
+        return businessAttachmentService.load(attachmentUrl, "sales-order");
     }
 
     public Page<SalesOrderPageVO> pageSalesOrders(SalesOrderPageRequest request) {
@@ -2770,11 +2705,6 @@ public class OrderService {
         return StringUtils.hasText(value) ? value.trim() : null;
     }
 
-    private String safePathSegment(String value) {
-        String text = StringUtils.hasText(value) ? value.trim() : "public";
-        return text.replaceAll("[^a-zA-Z0-9_-]", "_");
-    }
-
     private String normalizeSalesOrderAttachmentUrlForStorage(String attachmentUrl) {
         return InternalUploadUrlValidator.normalizeStoredUploadUrl(
                 attachmentUrl,
@@ -2782,19 +2712,6 @@ public class OrderService {
                 TenantPermissionContext.getTenantCode(),
                 "sales-order"
         );
-    }
-
-    private String normalizeAttachmentPath(String attachmentUrl) {
-        String path = InternalUploadUrlValidator.normalizeRelativeUploadPath(
-                attachmentUrl,
-                resolveContextPath(),
-                TenantPermissionContext.getTenantCode(),
-                "sales-order"
-        );
-        if (!StringUtils.hasText(path)) {
-            throw new BusinessException("附件地址不能为空");
-        }
-        return path;
     }
 
     private String resolveContextPath() {

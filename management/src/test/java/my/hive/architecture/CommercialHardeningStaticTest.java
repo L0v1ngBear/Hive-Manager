@@ -320,26 +320,30 @@ class CommercialHardeningStaticTest {
 
     @Test
     void orderAttachmentFilenameValidationShouldRejectPathSeparators() throws IOException {
-        Path file = MAIN_SOURCE.resolve("my/hive/domain/order/service/OrderService.java");
-        String content = Files.readString(file, StandardCharsets.UTF_8);
-        assertTrue(content.contains("originalFilename.contains(\"..\")")
-                        && content.contains("originalFilename.contains(\"/\")")
-                        && content.contains("originalFilename.contains(\"\\\\\")"),
-                "Order attachment upload must reject traversal and path separators: " + file);
+        Path attachmentService = MAIN_SOURCE.resolve("my/hive/infrastructure/storage/BusinessAttachmentService.java");
+        String attachmentContent = Files.readString(attachmentService, StandardCharsets.UTF_8);
+        assertTrue(attachmentContent.contains("originalName.contains(\"..\")")
+                        && attachmentContent.contains("originalName.contains(\"/\")")
+                        && attachmentContent.contains("originalName.contains(\"\\\\\")"),
+                "Unified attachment upload must reject traversal and path separators: " + attachmentService);
+
+        Path orderService = MAIN_SOURCE.resolve("my/hive/domain/order/service/OrderService.java");
+        String orderContent = Files.readString(orderService, StandardCharsets.UTF_8);
+        assertTrue(orderContent.contains("businessAttachmentService.upload(file, \"sales-order\")"),
+                "Order attachments must delegate to the validated unified attachment service: " + orderService);
     }
 
     @Test
     void businessAttachmentUploadsShouldRejectZeroByteFiles() throws IOException {
-        Map<String, String> uploadServices = Map.of(
-                "my/hive/infrastructure/storage/BusinessAttachmentService.java", "Business attachment upload",
-                "my/hive/domain/order/service/OrderService.java", "Order attachment upload"
-        );
-        for (Map.Entry<String, String> entry : uploadServices.entrySet()) {
-            Path file = MAIN_SOURCE.resolve(entry.getKey());
-            String content = Files.readString(file, StandardCharsets.UTF_8);
-            assertTrue(content.contains("file.getSize() <= 0"),
-                    entry.getValue() + " must explicitly reject zero-byte files before storing: " + file);
-        }
+        Path attachmentService = MAIN_SOURCE.resolve("my/hive/infrastructure/storage/BusinessAttachmentService.java");
+        String attachmentContent = Files.readString(attachmentService, StandardCharsets.UTF_8);
+        assertTrue(attachmentContent.contains("file.getSize() <= 0"),
+                "Unified attachment upload must explicitly reject zero-byte files before storing: " + attachmentService);
+
+        Path orderService = MAIN_SOURCE.resolve("my/hive/domain/order/service/OrderService.java");
+        String orderContent = Files.readString(orderService, StandardCharsets.UTF_8);
+        assertTrue(orderContent.contains("businessAttachmentService.upload(file, \"sales-order\")"),
+                "Order attachments must delegate to the validated unified attachment service: " + orderService);
     }
 
     @Test

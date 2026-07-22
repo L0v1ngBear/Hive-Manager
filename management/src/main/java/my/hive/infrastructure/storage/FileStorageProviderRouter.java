@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.Resource;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,11 +15,12 @@ import java.util.Map;
 @Service
 public class FileStorageProviderRouter {
 
+    private final Map<String, FileStorageProvider> providersByCode;
     private final FileStorageProvider selectedProvider;
 
     public FileStorageProviderRouter(List<FileStorageProvider> providers,
                                      @Value("${storage.provider:local}") String configuredProvider) {
-        Map<String, FileStorageProvider> providersByCode = new LinkedHashMap<>();
+        providersByCode = new LinkedHashMap<>();
         for (FileStorageProvider provider : providers) {
             String providerCode = normalizeProviderCode(provider.providerCode());
             if (providersByCode.putIfAbsent(providerCode, provider) != null) {
@@ -39,6 +41,23 @@ public class FileStorageProviderRouter {
 
     public void deleteQuietly(String objectKey) {
         selectedProvider.deleteQuietly(objectKey);
+    }
+
+    public Resource load(String reference, String tenantCode, String module) {
+        FileStorageProvider matchedProvider = null;
+        for (FileStorageProvider provider : providersByCode.values()) {
+            if (!provider.supportsReference(reference)) {
+                continue;
+            }
+            if (matchedProvider != null) {
+                throw new BusinessException("文件存储地址匹配到多个供应商");
+            }
+            matchedProvider = provider;
+        }
+        if (matchedProvider == null) {
+            throw new BusinessException("文件存储地址不受支持");
+        }
+        return matchedProvider.load(reference, tenantCode, module);
     }
 
     private String normalizeProviderCode(String providerCode) {

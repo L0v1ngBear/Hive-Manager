@@ -30,6 +30,7 @@ class UnifiedDocumentServiceTest {
         assertMethod("selectDocumentByParentId", Long.class);
         assertMethod("addFolder", DocumentAddRequest.class);
         assertMethod("uploadFile", MultipartFile.class, Long.class);
+        assertMethod("loadFile", Long.class);
         assertMethod("renameDocument", Long.class, String.class);
         assertMethod("moveDocument", Long.class, Long.class);
         assertMethod("getBreadcrumbs", Long.class);

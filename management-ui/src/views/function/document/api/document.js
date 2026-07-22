@@ -26,6 +26,15 @@ export function uploadDocumentFile(data) {
   })
 }
 
+export function downloadDocumentFile(documentId) {
+  return request({
+    url: '/document/file/download',
+    method: 'get',
+    params: { documentId },
+    responseType: 'blob'
+  })
+}
+
 export function getBreadcrumbs(documentId) {
   return request({
     url: '/document/breadcrumbs',

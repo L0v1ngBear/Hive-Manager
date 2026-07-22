@@ -201,7 +201,7 @@ import {
   ElTable,
   ElTableColumn
 } from 'element-plus'
-import { createFolder, getBreadcrumbs, getDocumentList, uploadDocumentFile } from './api/document.js'
+import { createFolder, downloadDocumentFile, getBreadcrumbs, getDocumentList, uploadDocumentFile } from './api/document.js'
 import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
@@ -291,19 +291,19 @@ const documentCellClass = (key) => {
   return 'text-on-surface-variant'
 }
 
-const openDocumentUrl = (fileUrl) => {
+const openDocumentFile = async (doc) => {
   try {
-    const targetUrl = new URL(fileUrl, window.location.origin)
-    if (!['http:', 'https:'].includes(targetUrl.protocol)) {
-      ElMessage.warning('文件链接格式不合法')
-      return
-    }
-    const opened = window.open(targetUrl.href, '_blank', 'noopener,noreferrer')
-    if (opened) {
-      opened.opener = null
-    }
+    const blob = await downloadDocumentFile(doc.id)
+    const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = doc.originalName || doc.name || 'document'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(objectUrl)
   } catch (error) {
-    ElMessage.warning('文件链接格式不合法')
+    ElMessage.error('文件下载失败，请稍后重试')
   }
 }
 
@@ -313,7 +313,7 @@ const handleDoubleClick = async (doc) => {
     return
   }
   if (doc.fileUrl) {
-    openDocumentUrl(doc.fileUrl)
+    await openDocumentFile(doc)
   } else {
     ElMessage.info('当前文件还没有可访问链接')
   }

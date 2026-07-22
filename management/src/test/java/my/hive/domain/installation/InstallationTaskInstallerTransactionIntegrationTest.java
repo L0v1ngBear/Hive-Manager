@@ -8,6 +8,7 @@ import my.hive.domain.installation.model.entity.InstallationTask;
 import my.hive.domain.installation.model.entity.InstallationTaskInstaller;
 import my.hive.domain.installation.service.InstallationTaskService;
 import my.hive.infrastructure.storage.BusinessAttachmentService;
+import my.hive.infrastructure.storage.FileStorageProviderRouter;
 import my.hive.shared.context.TenantPermissionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -173,6 +174,11 @@ class InstallationTaskInstallerTransactionIntegrationTest {
         @Bean
         BusinessAttachmentService businessAttachmentService() {
             return Mockito.mock(BusinessAttachmentService.class);
+        }
+
+        @Bean
+        FileStorageProviderRouter fileStorageProviderRouter() {
+            return Mockito.mock(FileStorageProviderRouter.class);
         }
 
         @Bean
