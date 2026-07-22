@@ -3,6 +3,7 @@ package my.hive.infrastructure.storage;
 import jakarta.annotation.Resource;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -13,7 +14,6 @@ import java.util.Set;
 @Service
 public class BusinessAttachmentService {
 
-    private static final long MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024L;
     private static final Set<String> ALLOWED_MODULES = Set.of(
             "sales-order",
             "bad-product",
@@ -25,8 +25,12 @@ public class BusinessAttachmentService {
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             "pdf", "png", "jpg", "jpeg", "webp",
             "doc", "docx", "xls", "xlsx", "csv",
-            "txt", "zip", "rar", "7z"
+            "txt", "zip", "rar", "7z", "ppt", "pptx",
+            "mp4", "mov", "m4v", "avi", "mkv", "webm", "3gp"
     );
+
+    @Value("${app.upload.max-file-size-mb:200}")
+    private long maxFileSizeMb;
 
     @Resource
     private FileStorageProviderRouter storageRouter;
@@ -51,15 +55,16 @@ public class BusinessAttachmentService {
         if (file == null || file.isEmpty() || file.getSize() <= 0) {
             throw new BusinessException("请选择需要上传的附件");
         }
-        if (file.getSize() > MAX_ATTACHMENT_SIZE) {
-            throw new BusinessException("附件大小不能超过 10MB");
+        long configuredMaxMb = Math.max(1, maxFileSizeMb);
+        if (file.getSize() > configuredMaxMb * 1024L * 1024L) {
+            throw new BusinessException("附件大小不能超过 " + configuredMaxMb + "MB");
         }
 
         String originalFilename = normalizeFilename(file.getOriginalFilename());
         String extension = StringUtils.getFilenameExtension(originalFilename);
         String normalizedExtension = extension == null ? "" : extension.toLowerCase(Locale.ROOT);
         if (!ALLOWED_EXTENSIONS.contains(normalizedExtension)) {
-            throw new BusinessException("仅支持 PDF、图片、Word、Excel、文本或压缩包附件");
+            throw new BusinessException("仅支持图片、视频、PDF、Word、Excel、PPT、文本或压缩包附件");
         }
     }
 

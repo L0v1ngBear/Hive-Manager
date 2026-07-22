@@ -71,6 +71,27 @@ class OssStorageServiceContractTest {
     }
 
     @Test
+    void commonMp4VideoCanBeUploaded() {
+        OssStorageProperties properties = configuredProperties();
+        OSS ossClient = mock(OSS.class);
+        when(ossClient.putObject(anyString(), anyString(), any(InputStream.class), any(ObjectMetadata.class)))
+                .thenReturn(mock(PutObjectResult.class));
+        OssStorageService service = new OssStorageService(properties, mock(ExternalApiGuardService.class), () -> ossClient);
+        MockMultipartFile video = new MockMultipartFile(
+                "file",
+                "site-video.mp4",
+                "video/mp4",
+                "video-content".getBytes()
+        );
+
+        FileUploadResult result = service.upload(video, "tenant-a", "bad-product");
+
+        assertThat(result.getFileExt()).isEqualTo("mp4");
+        assertThat(result.getMimeType()).isEqualTo("video/mp4");
+        verify(ossClient).putObject(anyString(), anyString(), any(InputStream.class), any(ObjectMetadata.class));
+    }
+
+    @Test
     void disabledConfigurationFailsBeforeConstructingClientAndDoesNotExposeSecret() {
         OssStorageProperties properties = configuredProperties();
         properties.setEnabled(false);

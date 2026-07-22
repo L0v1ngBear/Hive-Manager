@@ -22,7 +22,8 @@ export function uploadDocumentFile(data) {
     data,
     headers: {
       'Content-Type': 'multipart/form-data'
-    }
+    },
+    timeout: 600000
   })
 }
 
@@ -31,7 +32,8 @@ export function downloadDocumentFile(documentId) {
     url: '/document/file/download',
     method: 'get',
     params: { documentId },
-    responseType: 'blob'
+    responseType: 'blob',
+    timeout: 600000
   })
 }
 

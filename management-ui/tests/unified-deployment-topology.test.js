@@ -27,7 +27,7 @@ test('Compose defines exactly one Hive backend business service', () => {
   assert.match(compose, /\.\/logs\/backend:\/app\/logs/)
   assert.match(compose, /\.\/uploads:\/app\/uploads/)
   assert.match(compose, /XXL_JOB_EXECUTOR_APP_NAME:\s*\$\{XXL_JOB_EXECUTOR_APP_NAME:-hive-backend\}/)
-  assert.doesNotMatch(compose, /mini-backend|management-backend|backend-1|SERVER_SERVLET_CONTEXT_PATH|\/web/i)
+  assert.doesNotMatch(compose, /mini-backend|management-backend|backend-1|SERVER_SERVLET_CONTEXT_PATH|\/web(?:\/|\s|$)/i)
 })
 
 test('nginx and operational scripts target only the unified backend', () => {

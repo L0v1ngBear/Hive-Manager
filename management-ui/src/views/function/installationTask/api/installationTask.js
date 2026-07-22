@@ -21,7 +21,7 @@ export function uploadInstallationTaskAttachment(data) {
     url: '/installation-tasks/attachment/upload',
     method: 'post',
     data,
-    timeout: 30000
+    timeout: 600000
   })
 }
 
@@ -31,6 +31,6 @@ export function downloadInstallationTaskAttachment(params) {
     method: 'get',
     params,
     responseType: 'blob',
-    timeout: 30000
+    timeout: 600000
   })
 }

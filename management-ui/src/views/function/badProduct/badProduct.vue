@@ -315,7 +315,7 @@ Output:
         <el-form-item label="附件凭证">
           <DragAttachmentUpload
             title="上传图片、PDF、Word、Excel、文本或压缩包"
-            helper-text="支持拖拽上传，单个文件不超过 10MB"
+            helper-text="支持图片、视频和文档，单个文件不超过 200MB"
             :uploading="attachmentUploading"
             :file-name="form.attachmentName"
             :file-url="form.attachmentUrl"
@@ -771,8 +771,8 @@ async function handleAttachmentFile(file) {
   if (!file) {
     return
   }
-  if (file.size > 10 * 1024 * 1024) {
-    ElMessage.warning('附件不能超过 10MB')
+  if (file.size > 200 * 1024 * 1024) {
+    ElMessage.warning('附件不能超过 200MB')
     return
   }
 

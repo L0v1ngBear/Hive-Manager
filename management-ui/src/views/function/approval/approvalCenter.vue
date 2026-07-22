@@ -433,7 +433,7 @@
         <el-form-item label="附件凭证">
           <DragAttachmentUpload
             title="上传发票、收据、合同或付款截图"
-            helper-text="支持拖拽上传，单个文件不超过 10MB"
+            helper-text="支持图片、视频和文档，单个文件不超过 200MB"
             :uploading="financeAttachmentUploading"
             :file-name="financeForm.attachmentName"
             :file-url="financeForm.attachmentUrl"
@@ -1353,8 +1353,8 @@ async function handleFinanceAttachmentFile(file) {
   if (!file) {
     return
   }
-  if (file.size > 10 * 1024 * 1024) {
-    ElMessage.warning('附件不能超过 10MB')
+  if (file.size > 200 * 1024 * 1024) {
+    ElMessage.warning('附件不能超过 200MB')
     return
   }
 

@@ -33,13 +33,14 @@ public class LocalFileStorageService implements FileStorageProvider {
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             "pdf", "png", "jpg", "jpeg", "webp",
             "doc", "docx", "xls", "xlsx", "csv",
-            "txt", "zip", "rar", "7z", "ppt", "pptx"
+            "txt", "zip", "rar", "7z", "ppt", "pptx",
+            "mp4", "mov", "m4v", "avi", "mkv", "webm", "3gp"
     );
 
     @Value("${app.upload.root:uploads}")
     private String uploadRoot;
 
-    @Value("${app.upload.max-file-size-mb:20}")
+    @Value("${app.upload.max-file-size-mb:200}")
     private long maxFileSizeMb;
 
     @Value("${server.servlet.context-path:}")

@@ -956,7 +956,7 @@
                 <DragAttachmentUpload
                   v-if="canEditCurrentOrderForm"
                   title="上传合同、客户需求或沟通截图"
-                  helper-text="支持拖拽上传，单个文件不超过 10MB"
+                  helper-text="支持图片、视频和文档，单个文件不超过 200MB"
                   :uploading="orderAttachmentUploading"
                   :file-name="orderForm.attachmentName"
                   :file-url="orderForm.attachmentUrl"
@@ -2186,8 +2186,8 @@ async function handleOrderAttachmentFile(file) {
   if (!file) {
     return
   }
-  if (file.size > 10 * 1024 * 1024) {
-    ElMessage.warning('订单附件不能超过 10MB')
+  if (file.size > 200 * 1024 * 1024) {
+    ElMessage.warning('订单附件不能超过 200MB')
     return
   }
 

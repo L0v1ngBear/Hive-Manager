@@ -648,8 +648,8 @@ async function submitEditor() {
 async function uploadAttachment(file) {
   if (!canAttach.value) return
   if (!file) return
-  if (file.size > 10 * 1024 * 1024) {
-    ElMessage.warning('附件不能超过 10MB')
+  if (file.size > 200 * 1024 * 1024) {
+    ElMessage.warning('附件不能超过 200MB')
     return
   }
   attachmentUploading.value = true

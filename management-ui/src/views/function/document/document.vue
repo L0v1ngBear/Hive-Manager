@@ -102,8 +102,8 @@
         <DragAttachmentUpload
           class="mb-3"
           title="点击或拖拽文件上传到当前目录"
-          helper-text="支持图片、PDF、Word、Excel、PPT、文本或压缩包"
-          accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.rar,.7z"
+          helper-text="支持图片、视频、PDF、Word、Excel、PPT、文本或压缩包，不超过 200MB"
+          accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.rar,.7z,.mp4,.mov,.m4v,.avi,.mkv,.webm,.3gp"
           :uploading="documentUploading"
           :downloadable="false"
           :disabled="!canUploadDocument"
@@ -357,9 +357,9 @@ const createFolderFromDialog = async () => {
 const handleDocumentUpload = async (file) => {
   if (!canUploadDocument.value) return
   if (!file) return
-  const maxBytes = 20 * 1024 * 1024
+  const maxBytes = 200 * 1024 * 1024
   if (file.size > maxBytes) {
-    ElMessage.warning('文档文件不能超过 20MB')
+    ElMessage.warning('文档或视频文件不能超过 200MB')
     return
   }
   const formData = new FormData()

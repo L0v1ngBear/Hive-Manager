@@ -60,11 +60,11 @@ const props = defineProps({
   },
   helperText: {
     type: String,
-    default: '支持图片、PDF、Word、Excel、文本或压缩包'
+    default: '支持图片、视频和文档，单个文件不超过 200MB'
   },
   accept: {
     type: String,
-    default: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.rar,.7z'
+    default: '.pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.rar,.7z,.mp4,.mov,.m4v,.avi,.mkv,.webm,.3gp'
   },
   icon: {
     type: String,

@@ -87,7 +87,7 @@ export function uploadFinanceApprovalAttachment(data) {
     url: '/approval/finance/attachment',
     method: 'post',
     data,
-    timeout: 30000,
+    timeout: 600000,
   })
 }
 
@@ -97,7 +97,7 @@ export function downloadFinanceApprovalAttachment(params) {
     method: 'get',
     params,
     responseType: 'blob',
-    timeout: 30000,
+    timeout: 600000,
   })
 }
 

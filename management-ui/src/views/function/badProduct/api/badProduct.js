@@ -21,7 +21,7 @@ export function uploadBadProductAttachment(data) {
     url: '/quality/attachment/upload',
     method: 'post',
     data,
-    timeout: 30000
+    timeout: 600000
   })
 }
 
@@ -31,7 +31,7 @@ export function downloadBadProductAttachment(params) {
     method: 'get',
     params,
     responseType: 'blob',
-    timeout: 30000
+    timeout: 600000
   })
 }
 
