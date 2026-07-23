@@ -1,4 +1,5 @@
 import request from '@/utils/request.js'
+import { uploadAttachmentWithVideoChunks } from '@/utils/chunkedVideoUpload.js'
 
 export function getInstallationTaskPage(params) {
   return request({
@@ -17,12 +18,13 @@ export function updateInstallationTaskStatus(data) {
 }
 
 export function uploadInstallationTaskAttachment(data) {
-  return request({
+  const file = data?.get?.('file')
+  return uploadAttachmentWithVideoChunks(file, () => request({
     url: '/installation-tasks/attachment/upload',
     method: 'post',
     data,
     timeout: 600000
-  })
+  }), 'installation-task')
 }
 
 export function downloadInstallationTaskAttachment(params) {
