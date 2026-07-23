@@ -27,6 +27,7 @@ import my.hive.domain.auth.model.dto.OrganizationJoinCodeSendRequest;
 import my.hive.domain.auth.model.dto.OrganizationJoinRequest;
 import my.hive.domain.auth.model.dto.PasswordResetCodeRequest;
 import my.hive.domain.auth.model.dto.PasswordResetRequest;
+import my.hive.domain.auth.model.dto.PasswordChangeRequest;
 import my.hive.domain.auth.model.dto.WebScanConfirmRequest;
 import my.hive.domain.auth.model.dto.WechatTenantSelectRequest;
 import my.hive.domain.auth.model.vo.LoginUserRow;
@@ -333,6 +334,14 @@ public class AuthenticationService {
     }
 
     public void changeInitialPassword(InitialPasswordChangeRequest request) {
+        changeAuthenticatedPassword(request, true);
+    }
+
+    public void changePassword(PasswordChangeRequest request) {
+        changeAuthenticatedPassword(request, false);
+    }
+
+    private void changeAuthenticatedPassword(PasswordChangeRequest request, boolean clearInitialPasswordFlag) {
         Long userId = tenantContext.userId();
         String tenantCode = tenantContext.tenantCode();
         if (userId == null || tenantCode == null || tenantCode.isBlank()) {
@@ -355,11 +364,10 @@ public class AuthenticationService {
             throw new BusinessException(400, "新密码不能与原密码相同");
         }
 
-        int updated = authMapper.updatePasswordByUserIdAndTenantCode(
-                userId,
-                tenantCode,
-                encryptUtil.encode(newPassword)
-        );
+        String encodedPassword = encryptUtil.encode(newPassword);
+        int updated = clearInitialPasswordFlag
+                ? authMapper.updatePasswordByUserIdAndTenantCode(userId, tenantCode, encodedPassword)
+                : authMapper.updatePasswordAndAuthVersionByUserIdAndTenantCode(userId, tenantCode, encodedPassword);
         if (updated <= 0) {
             throw new BusinessException(500, "密码修改失败，请稍后重试");
         }

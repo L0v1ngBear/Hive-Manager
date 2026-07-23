@@ -15,6 +15,7 @@ public class PlatformScopeInterceptor implements HandlerInterceptor {
     private static final String PLATFORM_TENANT_CODE = "super";
     private static final String PLATFORM_PATH_PREFIX = "/platform/";
     private static final String INITIAL_PASSWORD_PATH = "/auth/admin/initial-password";
+    private static final String PASSWORD_CHANGE_PATH = "/auth/admin/password";
     private static final String UPLOAD_PATH_PREFIX = "/uploads/";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -44,6 +45,7 @@ public class PlatformScopeInterceptor implements HandlerInterceptor {
     private boolean isPlatformAllowedPath(String path) {
         return path.startsWith(PLATFORM_PATH_PREFIX)
                 || INITIAL_PASSWORD_PATH.equals(path)
+                || PASSWORD_CHANGE_PATH.equals(path)
                 || path.startsWith(UPLOAD_PATH_PREFIX);
     }
 

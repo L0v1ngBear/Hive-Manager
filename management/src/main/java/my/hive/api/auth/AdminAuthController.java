@@ -44,4 +44,7 @@ public class AdminAuthController {
     @PostMapping("/initial-password")
     @CollectLog(module = "auth", action = "initial_password_change", bizType = "authentication", description = "修改初始密码", recordArgs = false)
     public Result<Void> initialPassword(@Valid @RequestBody InitialPasswordChangeRequest r) { authentication.changeInitialPassword(r); return Result.success(null); }
+    @PostMapping("/password")
+    @CollectLog(module = "auth", action = "password_change", bizType = "authentication", description = "修改登录密码", recordArgs = false)
+    public Result<Void> password(@Valid @RequestBody PasswordChangeRequest r) { authentication.changePassword(r); return Result.success(null); }
 }

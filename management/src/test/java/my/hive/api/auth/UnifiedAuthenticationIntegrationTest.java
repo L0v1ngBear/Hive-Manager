@@ -73,6 +73,15 @@ class UnifiedAuthenticationIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test void exposesAuthenticatedPasswordChangeRoute() throws Exception {
+        mvc.perform(post("/auth/admin/password").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"oldPassword":"OldPass1","newPassword":"NewPass2","confirmPassword":"NewPass2"}
+                                """))
+                .andExpect(status().isOk());
+        verify(authenticationService).changePassword(any());
+    }
+
     @Test void legacyAuthenticationServiceImplementationIsRemoved() {
         Path legacy = Path.of("src/main/java/my/management/module/auth/service/AuthService.java");
         Path canonical = Path.of("src/main/java/my/hive/domain/auth/service/AuthenticationService.java");

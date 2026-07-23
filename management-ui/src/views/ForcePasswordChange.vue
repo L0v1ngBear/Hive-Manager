@@ -13,7 +13,7 @@
               <p class="text-sm font-bold uppercase tracking-[0.32em] text-primary-container">Security Check</p>
               <h1 class="mt-4 text-3xl font-black leading-tight">首次登录需要修改密码</h1>
               <p class="mt-4 text-sm leading-7 text-slate-300">
-                为了避免默认密码长期使用，请先设置一个只有你知道的新密码。修改完成后会自动进入系统。
+                为了避免默认密码长期使用，请先设置一个只有你知道的新密码。修改完成后请使用新密码重新登录。
               </p>
             </div>
             <div class="mt-10 rounded-2xl border border-white/10 bg-white/5 p-4 text-xs leading-6 text-slate-300">
@@ -73,7 +73,7 @@
                   :loading="submitting"
                   class="flex-1"
                 >
-                  {{ submitting ? '提交中...' : '确认修改并进入系统' }}
+                  {{ submitting ? '提交中...' : '确认修改' }}
                 </el-button>
                 <el-button
                   size="large"
@@ -92,13 +92,11 @@
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { ElButton, ElForm, ElFormItem, ElInput, ElMessage } from 'element-plus'
 import { changeInitialPassword } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
-import { normalizeLoginRedirect } from '@/utils/redirect'
 
-const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
@@ -133,11 +131,6 @@ function validateForm() {
   return ''
 }
 
-function resolveTargetPath() {
-  const target = normalizeLoginRedirect(route.query.redirect, '/dashboard')
-  return target === '/force-password-change' ? '/dashboard' : target
-}
-
 async function handleSubmit() {
   if (submitting.value) {
     return
@@ -156,8 +149,9 @@ async function handleSubmit() {
       confirmPassword: form.confirmPassword.trim()
     })
     userStore.markPasswordChanged()
-    ElMessage.success('密码修改成功')
-    await router.replace(resolveTargetPath())
+    userStore.logout()
+    ElMessage.success('密码修改成功，请使用新密码重新登录')
+    await router.replace('/login')
   } catch (error) {
     ElMessage.error(error?.msg || error?.message || '密码修改失败，请稍后重试')
   } finally {

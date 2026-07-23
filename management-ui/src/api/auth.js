@@ -44,7 +44,17 @@ export function changeInitialPassword(data) {
   return request({
     url: '/auth/admin/initial-password',
     method: 'post',
-    data
+    data,
+    silent: true
+  })
+}
+
+export function changePassword(data) {
+  return request({
+    url: '/auth/admin/password',
+    method: 'post',
+    data,
+    silent: true
   })
 }
 

@@ -6,6 +6,7 @@ import my.hive.domain.auth.mapper.AuthMapper;
 import my.hive.domain.auth.model.AuthReason;
 import my.hive.domain.auth.model.WechatLoginRequest;
 import my.hive.domain.auth.model.dto.OrganizationJoinRequest;
+import my.hive.domain.auth.model.dto.PasswordChangeRequest;
 import my.hive.domain.auth.model.dto.WechatTenantSelectRequest;
 import my.hive.domain.auth.model.vo.LoginVO;
 import my.hive.domain.auth.model.vo.LoginUserRow;
@@ -620,6 +621,44 @@ class AuthenticationServiceTest {
     }
 
     @Test
+    void changesAuthenticatedPasswordAndRevokesExistingSessions() {
+        when(context.userId()).thenReturn(9L);
+        when(context.tenantCode()).thenReturn("a");
+        LoginUserRow loginUser = user(9L, "a", 1);
+        loginUser.setPassword("encoded-old");
+        when(mapper.selectLoginUserByUserIdAndTenantCode(9L, "a")).thenReturn(loginUser);
+        when(encryptUtil.matches("OldPass1", "encoded-old")).thenReturn(true);
+        when(encryptUtil.matches("NewPass2", "encoded-old")).thenReturn(false);
+        when(mapper.updatePasswordAndAuthVersionByUserIdAndTenantCode(9L, "a", "encoded-password"))
+                .thenReturn(1);
+
+        service.changePassword(passwordChangeRequest("OldPass1", "NewPass2", "NewPass2"));
+
+        verify(mapper).updatePasswordAndAuthVersionByUserIdAndTenantCode(9L, "a", "encoded-password");
+        verify(mapper, never()).updatePasswordByUserIdAndTenantCode(anyLong(), anyString(), anyString());
+        verify(permissionCacheUtil).evict("a", 9L);
+    }
+
+    @Test
+    void rejectsAuthenticatedPasswordChangeWhenOldPasswordIsWrong() {
+        when(context.userId()).thenReturn(9L);
+        when(context.tenantCode()).thenReturn("a");
+        LoginUserRow loginUser = user(9L, "a", 1);
+        loginUser.setPassword("encoded-old");
+        when(mapper.selectLoginUserByUserIdAndTenantCode(9L, "a")).thenReturn(loginUser);
+        when(encryptUtil.matches("WrongPass1", "encoded-old")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.changePassword(
+                passwordChangeRequest("WrongPass1", "NewPass2", "NewPass2")))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code", "msg")
+                .containsExactly(400, "原密码不正确");
+
+        verify(mapper, never()).updatePasswordAndAuthVersionByUserIdAndTenantCode(
+                anyLong(), anyString(), anyString());
+    }
+
+    @Test
     void logoutWithoutSessionReturnsChineseAuthenticationMessage() {
         when(context.userId()).thenReturn(null);
         when(context.tenantCode()).thenReturn(null);
@@ -764,6 +803,16 @@ class AuthenticationServiceTest {
         WechatTenantSelectRequest request = new WechatTenantSelectRequest();
         request.setSelectionTicket(ticket);
         request.setTenantCode(tenantCode);
+        return request;
+    }
+
+    private PasswordChangeRequest passwordChangeRequest(String oldPassword,
+                                                        String newPassword,
+                                                        String confirmPassword) {
+        PasswordChangeRequest request = new PasswordChangeRequest();
+        request.setOldPassword(oldPassword);
+        request.setNewPassword(newPassword);
+        request.setConfirmPassword(confirmPassword);
         return request;
     }
 

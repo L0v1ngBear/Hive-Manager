@@ -165,7 +165,10 @@
             <el-dropdown-item v-if="canAccessSearchTarget('/manual')" :disabled="isSearchTargetDisabled('/manual')" @click="goSearchTarget('/manual')">
               <span class="material-symbols-outlined">menu_book</span>使用手册
             </el-dropdown-item>
-            <el-dropdown-item divided class="text-error" @click="handleLogout">
+            <el-dropdown-item divided @click="openPasswordDialog">
+              <span class="material-symbols-outlined">password</span>修改密码
+            </el-dropdown-item>
+            <el-dropdown-item class="text-error" @click="handleLogout">
               <span class="material-symbols-outlined">logout</span>退出登录
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -208,17 +211,73 @@
         </div>
       </div>
     </div>
+
+    <el-dialog
+      v-model="passwordDialogVisible"
+      title="修改登录密码"
+      width="min(92vw, 460px)"
+      append-to-body
+      :close-on-click-modal="!passwordSubmitting"
+      :close-on-press-escape="!passwordSubmitting"
+      :show-close="!passwordSubmitting"
+      @closed="resetPasswordForm"
+    >
+      <div class="mb-5 rounded-2xl bg-primary-container/70 px-4 py-3 text-sm leading-6 text-on-surface-variant">
+        修改成功后，当前登录状态会安全退出，请使用新密码重新登录。
+      </div>
+      <el-form :model="passwordForm" label-position="top" @submit.prevent="submitPasswordChange">
+        <el-form-item label="当前密码">
+          <el-input
+            v-model="passwordForm.oldPassword"
+            type="password"
+            autocomplete="current-password"
+            show-password
+            maxlength="64"
+            placeholder="请输入当前登录密码"
+          />
+        </el-form-item>
+        <el-form-item label="新密码">
+          <el-input
+            v-model="passwordForm.newPassword"
+            type="password"
+            autocomplete="new-password"
+            show-password
+            maxlength="64"
+            placeholder="8-64位，同时包含字母和数字"
+          />
+        </el-form-item>
+        <el-form-item label="确认新密码">
+          <el-input
+            v-model="passwordForm.confirmPassword"
+            type="password"
+            autocomplete="new-password"
+            show-password
+            maxlength="64"
+            placeholder="请再次输入新密码"
+          />
+        </el-form-item>
+        <div class="flex justify-end gap-3 pt-2">
+          <el-button :disabled="passwordSubmitting" @click="passwordDialogVisible = false">取消</el-button>
+          <el-button native-type="submit" type="primary" :loading="passwordSubmitting">
+            确认修改
+          </el-button>
+        </div>
+      </el-form>
+    </el-dialog>
   </header>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import {
   ElBadge,
   ElButton,
+  ElDialog,
   ElDropdown,
   ElDropdownItem,
   ElDropdownMenu,
+  ElForm,
+  ElFormItem,
   ElInput,
   ElMessage,
   ElMessageBox,
@@ -226,6 +285,7 @@ import {
 } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { changePassword } from '@/api/auth.js'
 import { closeNotificationTask, getUnreadNotifications, markNotificationRead, syncNotifications } from '@/api/notification.js'
 import {decorateAccessItems, resolveAccessState} from '@/utils/access'
 import {brandConfig} from '@/config/brand'
@@ -267,6 +327,13 @@ const mobileSearchOpen = ref(false)
 const notificationOpen = ref(false)
 const userMenuOpen = ref(false)
 const pendingNotifications = ref([])
+const passwordDialogVisible = ref(false)
+const passwordSubmitting = ref(false)
+const passwordForm = reactive({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
 
 // 动态获取路由元信息中的中文标题
 const pageTitle = computed(() => route.meta.title || '高管总览大盘')
@@ -538,6 +605,75 @@ async function handleLogout() {
     router.replace('/login')
   } catch {
     // 用户取消退出时不做提示，避免打断操作。
+  }
+}
+
+function openPasswordDialog() {
+  userMenuOpen.value = false
+  resetPasswordForm()
+  passwordDialogVisible.value = true
+}
+
+function resetPasswordForm() {
+  passwordForm.oldPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+}
+
+function validatePasswordForm() {
+  const oldPassword = String(passwordForm.oldPassword || '').trim()
+  const newPassword = String(passwordForm.newPassword || '').trim()
+  const confirmPassword = String(passwordForm.confirmPassword || '').trim()
+  if (!oldPassword) {
+    return '请输入当前密码'
+  }
+  if (newPassword.length < 8 || newPassword.length > 64) {
+    return '新密码长度需要为8-64位'
+  }
+  if (!/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+    return '新密码需要同时包含字母和数字'
+  }
+  if (newPassword !== confirmPassword) {
+    return '两次输入的新密码不一致'
+  }
+  if (oldPassword === newPassword) {
+    return '新密码不能与当前密码相同'
+  }
+  return ''
+}
+
+function passwordErrorMessage(error) {
+  return error?.msg
+    || error?.response?.data?.msg
+    || error?.message
+    || '密码修改失败，请稍后重试'
+}
+
+async function submitPasswordChange() {
+  if (passwordSubmitting.value) {
+    return
+  }
+  const validationError = validatePasswordForm()
+  if (validationError) {
+    ElMessage.warning(validationError)
+    return
+  }
+
+  passwordSubmitting.value = true
+  try {
+    await changePassword({
+      oldPassword: passwordForm.oldPassword.trim(),
+      newPassword: passwordForm.newPassword.trim(),
+      confirmPassword: passwordForm.confirmPassword.trim()
+    })
+    passwordDialogVisible.value = false
+    userStore.logout()
+    ElMessage.success('密码修改成功，请使用新密码重新登录')
+    await router.replace('/login')
+  } catch (error) {
+    ElMessage.error(passwordErrorMessage(error))
+  } finally {
+    passwordSubmitting.value = false
   }
 }
 

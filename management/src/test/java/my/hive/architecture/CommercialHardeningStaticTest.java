@@ -87,7 +87,7 @@ class CommercialHardeningStaticTest {
     @Test
     void criticalWriteEndpointsShouldHaveOperationAudit() throws IOException {
         Map<String, List<String>> criticalMappings = Map.ofEntries(
-                Map.entry("my/hive/api/auth/AdminAuthController.java", List.of("/login", "/password-reset", "/initial-password", "/scan-login/confirm")),
+                Map.entry("my/hive/api/auth/AdminAuthController.java", List.of("/login", "/password-reset", "/initial-password", "/password", "/scan-login/confirm")),
                 Map.entry("my/hive/api/approval/ApprovalController.java", List.of("/leave/audit", "/finance/audit", "/finance", "/resignation", "/resignation/audit")),
                 Map.entry("my/hive/api/employee/EmployeeController.java", List.of("/create", "/update", "/change-status", "/batch-update", "/import")),
                 Map.entry("my/hive/api/order/OrderController.java", List.of("", "/{orderId}", "/{orderId}/status")),
@@ -270,6 +270,7 @@ class CommercialHardeningStaticTest {
                 "action = \"join_organization_code\"",
                 "action = \"join_organization\"",
                 "action = \"initial_password_change\"",
+                "action = \"password_change\"",
                 "action = \"scan_login_confirm\""
         );
         List<String> violations = sensitiveActions.stream()
