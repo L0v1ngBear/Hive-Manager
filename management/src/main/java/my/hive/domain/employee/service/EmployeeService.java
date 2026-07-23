@@ -286,6 +286,8 @@ public class EmployeeService {
     public void update(@Valid EmployeeUpdateRequest request) {
         Employee employee = requireEmployee(request.getId());
         EmployeeDetailVO before = detail(request.getId());
+        Integer beforeStatus = employee.getStatus();
+        String beforeLoginName = employee.getLoginName();
         Department department = requireDepartment(request.getDepartmentId());
         Position position = requirePosition(request.getPositionId());
         assertPositionBelongsToDepartment(position, department);
@@ -318,7 +320,12 @@ public class EmployeeService {
         employee.setStatus(request.getStatus());
         employee.setAttendanceRequired(normalizeAttendanceRequired(request.getAttendanceRequired()));
         employeeMapper.updateById(employee);
-        rotateAuthVersion(employee.getId());
+        boolean authenticationIdentityChanged = !keepExistingPhone
+                || !Objects.equals(beforeStatus, employee.getStatus())
+                || !Objects.equals(beforeLoginName, employee.getLoginName());
+        if (authenticationIdentityChanged) {
+            rotateAuthVersion(employee.getId());
+        }
 
         ext.setEmail(request.getEmail());
         // Preserve the stored type on update when the caller omits the field.

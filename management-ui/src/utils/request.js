@@ -51,7 +51,9 @@ service.interceptors.request.use(
         config.params = cleanValue(config.params) || undefined
         config.data = cleanValue(config.data)
         if (userStore.token) {
-            config.headers.Authorization = `Bearer ${userStore.token}`
+            config.__authToken = userStore.token
+            config.__responseKey = userStore.responseKey
+            config.headers.Authorization = `Bearer ${config.__authToken}`
         }
         startGlobalLoading(config)
         return config
@@ -72,15 +74,10 @@ service.interceptors.response.use(
         const res = response.data
 
         try {
-            res.data = await decryptPayload(userStore.responseKey, res.data)
+            const responseKey = response.config?.__responseKey || userStore.responseKey
+            res.data = await decryptPayload(responseKey, res.data)
         } catch (error) {
             ElMessage.error('响应解密失败，请稍后重试')
-            if (userStore.token) {
-                userStore.logout()
-                if (!isLoginPath(router.currentRoute.value.fullPath)) {
-                    router.push('/login')
-                }
-            }
             return Promise.reject(error)
         }
 
@@ -321,6 +318,10 @@ function applyRenewedSession(response, userStore) {
     const renewedToken = getResponseHeader(response.headers, 'X-Auth-Renewed-Token')
     const renewedResponseKey = getResponseHeader(response.headers, 'X-Auth-Renewed-Response-Key')
     const renewedExpireAt = getResponseHeader(response.headers, 'X-Auth-Renewed-Expire-At')
+    const requestToken = response.config?.__authToken
+    if (requestToken && userStore.token && requestToken !== userStore.token) {
+        return
+    }
     userStore.renewSession({
         token: renewedToken,
         responseKey: renewedResponseKey,
