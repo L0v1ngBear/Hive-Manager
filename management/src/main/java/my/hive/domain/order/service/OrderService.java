@@ -2528,8 +2528,8 @@ public class OrderService {
                             + "SELECT CAST(scope_user.id AS CHAR) FROM `user` scope_user "
                             + "WHERE scope_user.tenant_code = {0} "
                             + "AND scope_user.department_name = ("
-                            + "SELECT current_user.department_name FROM `user` current_user "
-                            + "WHERE current_user.tenant_code = {0} AND current_user.id = {1} LIMIT 1))",
+                            + "SELECT active_scope_user.department_name FROM `user` active_scope_user "
+                            + "WHERE active_scope_user.tenant_code = {0} AND active_scope_user.id = {1} LIMIT 1))",
                     TenantPermissionContext.getTenantCode(), userId);
             return;
         }

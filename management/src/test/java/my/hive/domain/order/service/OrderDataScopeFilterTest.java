@@ -52,6 +52,20 @@ class OrderDataScopeFilterTest {
     }
 
     @Test
+    void departmentScopeAvoidsMysqlCurrentUserReservedAlias() {
+        TenantPermissionContext.init("TENANT_001", 27L, Set.of("order:scope:sales:department"));
+
+        LambdaQueryWrapper<SalesOrder> wrapper = scopedWrapper();
+        String sql = wrapper.getCustomSqlSegment();
+
+        assertThat(sql)
+                .contains("scope_user", "active_scope_user")
+                .doesNotContain(" current_user");
+        assertThat(wrapper.getParamNameValuePairs())
+                .containsValues("TENANT_001", 27L);
+    }
+
+    @Test
     void directOrderAccessUsesTheSameSalesOwnershipScope() {
         SalesOrder ownOrder = order("27");
         TenantPermissionContext.init("TENANT_001", 27L, Set.of("order:scope:sales:self"));
