@@ -104,14 +104,17 @@
                 <span v-if="!isLoading" class="material-symbols-outlined text-lg ml-1">arrow_forward</span>
               </el-button>
 
-              <el-button
-                  class="login-join-button"
-                  size="large"
-                  @click="goJoinOrganization"
-              >
-                <span class="material-symbols-outlined text-lg text-primary">group_add</span>
-                <span>使用组织码加入组织</span>
-              </el-button>
+              <div class="login-join-row">
+                <span>还没有加入组织？</span>
+                <el-button
+                    text
+                    class="login-join-button"
+                    @click="goJoinOrganization"
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">group_add</span>
+                  <span>使用组织码加入</span>
+                </el-button>
+              </div>
             </div>
           </el-form>
         </div>
@@ -983,8 +986,7 @@ onUnmounted(() => {
   padding-top: 0.65rem;
 }
 
-.login-submit-button,
-.login-join-button {
+.login-submit-button {
   width: 100%;
   min-height: 2.75rem;
   margin-left: 0 !important;
@@ -995,16 +997,31 @@ onUnmounted(() => {
   box-shadow: 0 8px 20px rgba(15, 118, 110, 0.18);
 }
 
-.login-join-button {
-  border-color: transparent;
+.login-join-row {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
   color: #52657b;
-  background: transparent;
+  font-size: 0.74rem;
+}
+
+.login-join-button {
+  height: 2.25rem;
+  margin-left: 0 !important;
+  padding: 0 0.4rem;
+  color: #0f766e;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.login-join-button .material-symbols-outlined {
+  font-size: 1rem;
 }
 
 .login-join-button:hover {
-  border-color: transparent;
-  color: #0f766e;
-  background: #f5faf9;
+  color: #0b5f58;
 }
 
 .login-scan-panel {

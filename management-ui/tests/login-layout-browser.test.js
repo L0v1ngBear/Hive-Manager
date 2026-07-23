@@ -144,7 +144,7 @@ const assertModeState = (state, mode) => {
 
 const browserTest = browserTestRequested ? test : test.skip
 
-browserTest('login layout works in Chrome across viewports and modes', { timeout: 60_000 }, async (t) => {
+browserTest('public authentication layouts work in Chrome across viewports and modes', { timeout: 60_000 }, async (t) => {
   let server
   let browser
   const measurements = {}
@@ -187,9 +187,21 @@ browserTest('login layout works in Chrome across viewports and modes', { timeout
       await page.keyboard.press('Home')
       assertModeState(await assertLoginMode(page, 'account'), 'account')
 
-      await page.locator('#login-scan-tab').click()
-      assertModeState(await assertLoginMode(page, 'scan'), 'scan')
-      measurements[width] = geometry
+      await page.getByRole('button', { name: '使用组织码加入', exact: true }).click()
+      await page.waitForURL('**/join-organization')
+      const joinGeometry = await page.evaluate(() => ({
+        viewport: window.innerWidth,
+        documentScrollWidth: document.documentElement.scrollWidth,
+        bodyScrollWidth: document.body.scrollWidth,
+        brandDisplay: getComputedStyle(document.querySelector('.join-brand-panel')).display,
+        formColumns: getComputedStyle(document.querySelector('.join-form-grid')).gridTemplateColumns
+      }))
+      assert.ok(joinGeometry.documentScrollWidth <= width, `${width}px join page document overflowed horizontally`)
+      assert.ok(joinGeometry.bodyScrollWidth <= width, `${width}px join page body overflowed horizontally`)
+      assert.equal(joinGeometry.brandDisplay, width <= 900 ? 'none' : 'flex')
+      await page.getByRole('button', { name: '返回登录', exact: true }).click()
+      await page.waitForURL('**/login')
+      measurements[width] = { login: geometry, join: joinGeometry }
       await context.close()
     }
     t.diagnostic(JSON.stringify(measurements))

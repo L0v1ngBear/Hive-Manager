@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 const source = readFileSync(new URL('../src/views/Login.vue', import.meta.url), 'utf8')
+const joinSource = readFileSync(new URL('../src/views/JoinOrganization.vue', import.meta.url), 'utf8')
 
 test('login uses the approved split layout and preserves both login modes', () => {
   assert.match(source, /class="login-shell"/)
@@ -16,6 +17,7 @@ test('login uses the approved split layout and preserves both login modes', () =
   assert.match(source, /class="login-scan-panel"/)
   assert.match(source, /@submit\.prevent="handleLogin"/)
   assert.match(source, /@click="goJoinOrganization"/)
+  assert.match(source, /class="login-join-row"[\s\S]*还没有加入组织？[\s\S]*使用组织码加入/)
   assert.match(source, /class="login-reset-link"[\s\S]*>忘记密码？<\/a>/)
   assert.doesNotMatch(source, /首次登录/)
   assert.match(source, /scanSession\.qrCodeDataUrl/)
@@ -38,7 +40,24 @@ test('public login identifies Hive and its developer without exposing tenant bra
   assert.match(site, /companyName: '杭州毫端科技有限公司'/)
   assert.match(site, /© 2026 杭州毫端科技有限公司/)
   assert.match(index, /<title>蜂巢 Hive \| 企业信息管理<\/title>/)
-  assert.doesNotMatch(`${source}\n${site}\n${index}`, /北京北方新青人窗帘有限公司/)
+  assert.match(joinSource, /src="\/logo\.png"/)
+  assert.match(joinSource, /siteConfig\.companyName/)
+  assert.doesNotMatch(joinSource, /brandConfig/)
+  assert.doesNotMatch(`${source}\n${joinSource}\n${site}\n${index}`, /北京北方新青人窗帘有限公司/)
+})
+
+test('organization join page matches the public split layout and preserves its workflow', () => {
+  assert.match(joinSource, /class="join-shell"/)
+  assert.match(joinSource, /class="join-brand-panel"/)
+  assert.match(joinSource, /class="join-form-panel"/)
+  assert.match(joinSource, /\.join-shell\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.25fr\)\s+minmax\(36rem,\s*1fr\)/)
+  assert.match(joinSource, /@media \(max-width: 900px\)[\s\S]*\.join-brand-panel\s*\{[\s\S]*display:\s*none/)
+  assert.match(joinSource, /@media \(max-width: 640px\)[\s\S]*\.join-mobile-lockup\s*\{[\s\S]*display:\s*flex/)
+  assert.match(joinSource, /@submit\.prevent="handleJoin"/)
+  assert.match(joinSource, /@click="handleSendCode"/)
+  assert.match(joinSource, /@click="goLogin"/)
+  assert.match(joinSource, /joinOrganization\(\{/)
+  assert.match(joinSource, /sendOrganizationJoinCode\(\{ phone \}\)/)
 })
 
 test('login mode tabs expose linked panels and roving keyboard navigation', () => {

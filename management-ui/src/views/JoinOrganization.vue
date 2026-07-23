@@ -1,142 +1,143 @@
 <template>
-  <main class="min-h-full bg-[#f7f9fc] text-slate-900">
-    <section class="relative min-h-full overflow-hidden px-4 py-10 sm:px-6 lg:px-8">
-      <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_8%,rgba(15,118,110,0.16),transparent_32%),linear-gradient(180deg,#ffffff_0%,#f2f6fb_100%)]"></div>
-
-      <div class="relative mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center">
-        <div class="grid w-full gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-          <aside class="rounded-[2rem] border border-white/70 bg-white/70 p-8 shadow-[0_28px_80px_rgba(15,118,110,0.12)] backdrop-blur-xl lg:p-10">
-            <el-button
-              class="mb-10"
-              round
-              @click="goLogin"
-            >
-              <span class="material-symbols-outlined text-lg">arrow_back</span>
-              返回登录
-            </el-button>
-
-            <div class="mb-8 inline-flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-100">
-              <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="brand-logo-image h-11 w-28 rounded-xl object-cover" />
-              <div>
-                <p class="text-sm font-black uppercase tracking-[0.28em] text-slate-400">{{ brandConfig.productName }}</p>
-                <p class="text-lg font-extrabold text-slate-900">组织加入</p>
-              </div>
-            </div>
-
-            <h1 class="text-4xl font-black leading-tight tracking-tight text-slate-950 lg:text-5xl">
-              填写姓名和组织码，
-              <span class="text-primary">加入企业</span>
-            </h1>
-            <p class="mt-5 max-w-md text-base leading-8 text-slate-600">
-              企业负责人在员工管理页生成 15 分钟有效的组织码。新成员提交姓名、手机号和验证码后，会自动创建普通员工账号，岗位和权限由企业负责人统一维护。
-            </p>
-
-            <div class="mt-10 grid gap-3 text-sm text-slate-600">
-              <div class="flex items-center gap-3 rounded-2xl bg-white/80 p-4 ring-1 ring-slate-100">
-                <span class="material-symbols-outlined text-primary">verified_user</span>
-                <span>组织码短时有效，避免外部人员随意加入。</span>
-              </div>
-              <div class="flex items-center gap-3 rounded-2xl bg-white/80 p-4 ring-1 ring-slate-100">
-                <span class="material-symbols-outlined text-primary">badge</span>
-                <span>姓名会同步到员工档案和小程序首页展示。</span>
-              </div>
-            </div>
-          </aside>
-
-          <section class="rounded-[2rem] border border-white bg-white p-8 shadow-[0_28px_80px_rgba(15,118,110,0.12)] lg:p-10">
-            <div class="mb-8">
-              <p class="text-sm font-black uppercase tracking-[0.24em] text-primary">Join Organization</p>
-              <h2 class="mt-2 text-3xl font-black text-slate-950">创建并加入账号</h2>
-              <p class="mt-2 text-sm text-slate-500">手机号将作为网页登录账号，密码用于账号密码登录。</p>
-            </div>
-
-            <el-form :model="form" label-position="top" @submit.prevent="handleJoin">
-              <el-form-item label="姓名">
-                <el-input
-                  v-model.trim="form.name"
-                  maxlength="30"
-                  placeholder="请输入真实姓名"
-                  size="large"
-                />
-              </el-form-item>
-
-              <el-form-item label="组织码">
-                <el-input
-                  v-model.trim="form.organizationCode"
-                  maxlength="32"
-                  placeholder="请输入管理员提供的组织码"
-                  size="large"
-                />
-              </el-form-item>
-
-              <el-form-item label="手机号">
-                <el-input
-                  v-model.trim="form.phone"
-                  maxlength="11"
-                  placeholder="请输入手机号"
-                  size="large"
-                />
-              </el-form-item>
-
-              <el-form-item label="短信验证码">
-                <div class="flex gap-3">
-                  <el-input
-                    v-model.trim="form.smsCode"
-                    maxlength="6"
-                    placeholder="6位验证码"
-                    class="min-w-0 flex-1"
-                    size="large"
-                  />
-                  <el-button
-                    class="w-36"
-                    size="large"
-                    :disabled="codeSending || codeCountdown > 0"
-                    :loading="codeSending"
-                    @click="handleSendCode"
-                  >
-                    {{ codeButtonText }}
-                  </el-button>
-                </div>
-              </el-form-item>
-
-              <div class="grid gap-4 sm:grid-cols-2">
-                <el-form-item label="登录密码">
-                  <el-input
-                    v-model="form.password"
-                    type="password"
-                    show-password
-                    maxlength="64"
-                    placeholder="至少8位，含字母数字"
-                    size="large"
-                  />
-                </el-form-item>
-
-                <el-form-item label="确认密码">
-                  <el-input
-                    v-model="form.confirmPassword"
-                    type="password"
-                    show-password
-                    maxlength="64"
-                    placeholder="再次输入密码"
-                    size="large"
-                  />
-                </el-form-item>
-              </div>
-
-              <el-button
-                native-type="submit"
-                type="primary"
-                size="large"
-                class="mt-4 w-full"
-                :disabled="submitting"
-                :loading="submitting"
-              >
-                {{ submitting ? '正在加入...' : '确认加入组织' }}
-              </el-button>
-            </el-form>
-          </section>
+  <main class="join-stage">
+    <section class="join-shell">
+      <aside class="join-brand-panel">
+        <div class="join-brand-lockup">
+          <span class="join-product-logo">
+            <img src="/logo.png" :alt="`${siteConfig.productName} Logo`" />
+          </span>
+          <span class="join-brand-title">
+            <small>HIVE WORKSPACE</small>
+            <strong>蜂巢 Hive</strong>
+          </span>
         </div>
-      </div>
+
+        <div class="join-brand-copy">
+          <span class="join-brand-badge">企业成员接入</span>
+          <h1>加入企业组织</h1>
+          <p>使用管理员提供的组织码创建员工账号，加入后由企业负责人统一维护岗位和权限。</p>
+          <ul class="join-feature-list" aria-label="组织加入说明">
+            <li><span class="material-symbols-outlined" aria-hidden="true">verified_user</span>组织码仅在有效期内可用</li>
+            <li><span class="material-symbols-outlined" aria-hidden="true">badge</span>姓名同步到员工档案</li>
+            <li><span class="material-symbols-outlined" aria-hidden="true">admin_panel_settings</span>岗位与权限由管理员分配</li>
+          </ul>
+        </div>
+
+        <div class="join-provider">
+          <span>开发与技术服务</span>
+          <strong>{{ siteConfig.companyName }}</strong>
+        </div>
+      </aside>
+
+      <section class="join-form-panel">
+        <div class="join-mobile-lockup">
+          <span class="join-mobile-logo">
+            <img src="/logo.png" :alt="`${siteConfig.productName} Logo`" />
+          </span>
+          <strong>蜂巢 Hive</strong>
+          <span>企业信息管理平台</span>
+        </div>
+
+        <button type="button" class="join-back-link" @click="goLogin">
+          <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+          返回登录
+        </button>
+
+        <div class="join-heading">
+          <h2>加入组织</h2>
+          <p>填写成员信息并使用组织码创建账号</p>
+        </div>
+
+        <el-form :model="form" label-position="top" class="join-form" @submit.prevent="handleJoin">
+          <div class="join-form-grid">
+            <el-form-item label="姓名">
+              <el-input
+                v-model.trim="form.name"
+                maxlength="30"
+                placeholder="请输入真实姓名"
+                size="large"
+              />
+            </el-form-item>
+
+            <el-form-item label="组织码">
+              <el-input
+                v-model.trim="form.organizationCode"
+                maxlength="32"
+                placeholder="请输入管理员提供的组织码"
+                size="large"
+              />
+            </el-form-item>
+          </div>
+
+          <el-form-item label="手机号">
+            <el-input
+              v-model.trim="form.phone"
+              maxlength="11"
+              placeholder="请输入手机号"
+              size="large"
+            />
+          </el-form-item>
+
+          <el-form-item label="短信验证码">
+            <div class="join-code-row">
+              <el-input
+                v-model.trim="form.smsCode"
+                maxlength="6"
+                placeholder="6位验证码"
+                class="min-w-0 flex-1"
+                size="large"
+              />
+              <el-button
+                class="join-code-button"
+                size="large"
+                :disabled="codeSending || codeCountdown > 0"
+                :loading="codeSending"
+                @click="handleSendCode"
+              >
+                {{ codeButtonText }}
+              </el-button>
+            </div>
+          </el-form-item>
+
+          <div class="join-form-grid">
+            <el-form-item label="登录密码">
+              <el-input
+                v-model="form.password"
+                type="password"
+                show-password
+                maxlength="64"
+                placeholder="至少8位，含字母数字"
+                size="large"
+              />
+            </el-form-item>
+
+            <el-form-item label="确认密码">
+              <el-input
+                v-model="form.confirmPassword"
+                type="password"
+                show-password
+                maxlength="64"
+                placeholder="再次输入密码"
+                size="large"
+              />
+            </el-form-item>
+          </div>
+
+          <p class="join-account-note">手机号将作为网页登录账号，请妥善保管登录密码。</p>
+
+          <el-button
+            native-type="submit"
+            type="primary"
+            size="large"
+            class="join-submit-button"
+            :disabled="submitting"
+            :loading="submitting"
+          >
+            {{ submitting ? '正在加入...' : '确认加入组织' }}
+            <span v-if="!submitting" class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+          </el-button>
+        </el-form>
+      </section>
     </section>
   </main>
 </template>
@@ -147,7 +148,7 @@ import { useRouter } from 'vue-router'
 import { ElButton, ElForm, ElFormItem, ElInput, ElMessage } from 'element-plus'
 import { joinOrganization, sendOrganizationJoinCode } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
-import { brandConfig } from '@/config/brand'
+import { siteConfig } from '@/config/site'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -288,3 +289,353 @@ onUnmounted(() => {
   stopCodeCountdown()
 })
 </script>
+
+<style scoped>
+.join-stage {
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.join-shell {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(36rem, 1fr);
+  background: #ffffff;
+}
+
+.join-brand-panel {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: clamp(2.5rem, 4vw, 3.5rem);
+  color: #ffffff;
+  background:
+    radial-gradient(70% 60% at 86% 8%, rgba(33, 155, 145, 0.25), transparent 68%),
+    radial-gradient(70% 60% at 16% 100%, rgba(15, 118, 110, 0.2), transparent 70%),
+    linear-gradient(145deg, #07162f 0%, #0a2340 56%, #06142a 100%);
+}
+
+.join-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.join-product-logo {
+  display: inline-flex;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 30px rgba(2, 12, 28, 0.24);
+}
+
+.join-product-logo img,
+.join-mobile-logo img {
+  width: 88%;
+  height: 88%;
+  object-fit: contain;
+}
+
+.join-brand-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.join-brand-title small {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.join-brand-title strong {
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.join-brand-copy {
+  margin-top: auto;
+  margin-bottom: clamp(3.5rem, 8vh, 6.5rem);
+}
+
+.join-brand-badge {
+  display: block;
+  width: fit-content;
+  margin-bottom: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.48);
+  padding-top: 1.4rem;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.join-brand-copy h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 4vw, 3.4rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.join-brand-copy > p {
+  max-width: 28rem;
+  margin: 1.1rem 0 0;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.84rem;
+  line-height: 1.85;
+}
+
+.join-feature-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1.4rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.join-feature-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.join-feature-list .material-symbols-outlined {
+  color: #5eead4;
+  font-size: 1rem;
+}
+
+.join-provider {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.join-provider strong {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.join-form-panel {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(2.5rem, 5vw, 4.5rem);
+  background: #ffffff;
+}
+
+.join-form-panel > * {
+  width: min(100%, 32rem);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.join-mobile-lockup {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.join-mobile-logo {
+  display: inline-flex;
+  width: 3.15rem;
+  height: 3.15rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 0.8rem;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+}
+
+.join-mobile-lockup strong {
+  margin-top: 0.5rem;
+  color: #07162f;
+  font-size: 1.5rem;
+  font-weight: 850;
+}
+
+.join-mobile-lockup > span:last-child {
+  margin-top: 0.1rem;
+  color: #7b8798;
+  font-size: 0.75rem;
+}
+
+.join-back-link {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  border: 0;
+  padding: 0.25rem 0;
+  color: #52657b;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: transparent;
+  cursor: pointer;
+}
+
+.join-back-link:hover {
+  color: #0f766e;
+}
+
+.join-back-link .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+.join-heading {
+  margin-bottom: 1.3rem;
+}
+
+.join-heading h2 {
+  margin: 0;
+  color: #07162f;
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.join-heading p {
+  margin: 0.45rem 0 0;
+  color: #7b8798;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.join-form {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.join-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.join-form :deep(.el-form-item) {
+  margin-bottom: 0.75rem;
+}
+
+.join-form :deep(.el-form-item__label) {
+  height: auto;
+  margin-bottom: 0.4rem;
+  padding: 0;
+  color: #30445f;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.join-form :deep(.el-input__wrapper) {
+  min-height: 2.65rem;
+  border-radius: 0.35rem;
+  padding: 0 0.8rem;
+  box-shadow: 0 0 0 1px #d7dee7 inset;
+  transition: box-shadow 160ms ease;
+}
+
+.join-form :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #9cabbc inset;
+}
+
+.join-form :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #0f766e inset, 0 0 0 3px rgba(15, 118, 110, 0.1);
+}
+
+.join-form :deep(.el-input__inner) {
+  font-size: 0.8rem;
+}
+
+.join-code-row {
+  display: flex;
+  width: 100%;
+  gap: 0.75rem;
+}
+
+.join-code-button {
+  width: 8rem;
+  flex: 0 0 auto;
+  min-height: 2.65rem;
+  border-radius: 0.35rem;
+}
+
+.join-account-note {
+  margin: 0.1rem 0 0.8rem;
+  color: #98a2b3;
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.join-submit-button {
+  width: 100%;
+  min-height: 2.75rem;
+  margin-left: 0 !important;
+  border-radius: 0.35rem;
+  box-shadow: 0 8px 20px rgba(15, 118, 110, 0.18);
+}
+
+.join-submit-button .material-symbols-outlined {
+  margin-left: 0.3rem;
+  font-size: 1.05rem;
+}
+
+@media (max-width: 900px) {
+  .join-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .join-brand-panel {
+    display: none;
+  }
+
+  .join-form-panel {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}
+
+@media (max-width: 640px) {
+  .join-form-panel {
+    justify-content: flex-start;
+    padding: 3.25rem 1.25rem 2rem;
+  }
+
+  .join-mobile-lockup {
+    display: flex;
+    margin-bottom: 2rem;
+  }
+
+  .join-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .join-code-button {
+    width: 7.25rem;
+  }
+}
+</style>
