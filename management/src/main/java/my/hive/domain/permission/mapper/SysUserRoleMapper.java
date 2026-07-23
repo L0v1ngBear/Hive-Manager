@@ -5,6 +5,7 @@ import my.hive.domain.permission.model.entity.SysUserRole;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.Collection;
 import java.util.List;
@@ -14,6 +15,15 @@ import java.util.Map;
  */
 @Mapper
 public interface SysUserRoleMapper extends BaseMapper<SysUserRole> {
+
+    @Update({
+            "UPDATE sys_user_role ",
+            "SET is_deleted = 1 ",
+            "WHERE tenant_code = #{tenantCode} ",
+            "AND user_id = #{userId} ",
+            "AND IFNULL(is_deleted, 0) = 0"
+    })
+    int markActiveRolesDeleted(@Param("tenantCode") String tenantCode, @Param("userId") Long userId);
 
     @Select({
             "<script>",

@@ -845,14 +845,9 @@ public class EmployeeService {
         List<Long> normalizedRoleIds = normalizeRoleIds(roleIds);
         validateAssignableRoles(tenantCode, normalizedRoleIds);
 
-        List<SysUserRole> existed = sysUserRoleMapper.selectList(new LambdaQueryWrapper<SysUserRole>()
-                .eq(SysUserRole::getUserId, userId)
-                .eq(SysUserRole::getTenantCode, tenantCode)
-                .eq(SysUserRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
-        for (SysUserRole item : existed) {
-            item.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
-            sysUserRoleMapper.updateById(item);
-        }
+        // 使用明确的 SQL 统一停用旧关联。不能依赖 @TableLogic 实体更新来修改逻辑删除字段，
+        // 否则“全部取消角色”可能没有真正落库，重新打开员工时旧角色仍会被查询出来。
+        sysUserRoleMapper.markActiveRolesDeleted(tenantCode, userId);
 
         if (!normalizedRoleIds.isEmpty()) {
             for (Long roleId : normalizedRoleIds) {
@@ -894,15 +889,8 @@ public class EmployeeService {
         if (userId == null) {
             return;
         }
-        List<SysUserRole> existed = sysUserRoleMapper.selectList(new LambdaQueryWrapper<SysUserRole>()
-                .eq(SysUserRole::getUserId, userId)
-                .eq(SysUserRole::getTenantCode, TenantPermissionContext.getTenantCode())
-                .eq(SysUserRole::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
-        for (SysUserRole item : existed) {
-            item.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
-            sysUserRoleMapper.updateById(item);
-        }
-        if (!existed.isEmpty()) {
+        int revoked = sysUserRoleMapper.markActiveRolesDeleted(TenantPermissionContext.getTenantCode(), userId);
+        if (revoked > 0) {
             rotatePermissionVersion(userId);
         }
     }
