@@ -124,7 +124,7 @@ const assertLoginMode = async (page, expected) => page.evaluate((mode) => {
     scanPanelHidden: scanPanel?.hidden,
     accountControls: accountTab?.getAttribute('aria-controls'),
     scanControls: scanTab?.getAttribute('aria-controls'),
-    accountPromptVisible: !accountPanel?.hidden && accountPanel?.textContent.includes('欢迎回来，请输入账号信息'),
+    commonPromptVisible: document.querySelector('.login-account-heading')?.textContent.includes('登录您的 Hive 账户以继续'),
     scanLiveRegion: scanPanel?.querySelector('[role="status"][aria-live="polite"][aria-atomic="true"]')?.id || ''
   }
 }, expected)
@@ -138,7 +138,7 @@ const assertModeState = (state, mode) => {
   assert.equal(state.scanSelected, mode === 'scan' ? 'true' : 'false')
   assert.equal(state.accountPanelHidden, mode !== 'account')
   assert.equal(state.scanPanelHidden, mode !== 'scan')
-  assert.equal(state.accountPromptVisible, mode === 'account')
+  assert.equal(state.commonPromptVisible, true)
   assert.equal(state.scanLiveRegion, 'login-scan-status')
 }
 

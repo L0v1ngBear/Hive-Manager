@@ -2,11 +2,6 @@
   <main class="login-stage">
     <section class="login-shell">
       <aside class="login-brand-panel">
-        <div class="login-watermark" aria-hidden="true">
-          <span>HIVE</span>
-        </div>
-        <div class="login-brand-orb login-brand-orb--top" aria-hidden="true"></div>
-        <div class="login-brand-orb login-brand-orb--bottom" aria-hidden="true"></div>
         <div class="login-brand-lockup">
           <span class="login-product-logo">
             <img src="/logo.png" :alt="`${siteConfig.productName} Logo`" />
@@ -33,23 +28,29 @@
       </aside>
 
       <section class="login-auth-panel">
-        <div class="login-auth-intro">
-          <span class="login-auth-kicker">WELCOME BACK</span>
-          <span class="login-security-note">
-            <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
-            安全登录
+        <div class="login-mobile-lockup">
+          <span class="login-mobile-logo">
+            <img src="/logo.png" :alt="`${siteConfig.productName} Logo`" />
           </span>
+          <strong>蜂巢 Hive</strong>
+          <span>企业信息管理平台</span>
+        </div>
+        <div class="login-account-heading">
+          <h3>欢迎回来</h3>
+          <p>登录您的 Hive 账户以继续</p>
         </div>
         <div class="login-mode-tabs" role="tablist" aria-label="登录方式">
-          <button id="login-account-tab" ref="accountLoginTab" type="button" role="tab" :aria-selected="loginMode === 'account'" :tabindex="loginMode === 'account' ? 0 : -1" aria-controls="login-account-panel" @click="loginMode = 'account'" @keydown="handleLoginModeKeydown($event, 'account')">账号登录</button>
-          <button id="login-scan-tab" ref="scanLoginTab" type="button" role="tab" :aria-selected="loginMode === 'scan'" :tabindex="loginMode === 'scan' ? 0 : -1" aria-controls="login-scan-panel" @click="loginMode = 'scan'" @keydown="handleLoginModeKeydown($event, 'scan')">扫码登录</button>
+          <button id="login-account-tab" ref="accountLoginTab" type="button" role="tab" :aria-selected="loginMode === 'account'" :tabindex="loginMode === 'account' ? 0 : -1" aria-controls="login-account-panel" @click="loginMode = 'account'" @keydown="handleLoginModeKeydown($event, 'account')">
+            <span class="material-symbols-outlined" aria-hidden="true">lock</span>
+            账号登录
+          </button>
+          <button id="login-scan-tab" ref="scanLoginTab" type="button" role="tab" :aria-selected="loginMode === 'scan'" :tabindex="loginMode === 'scan' ? 0 : -1" aria-controls="login-scan-panel" @click="loginMode = 'scan'" @keydown="handleLoginModeKeydown($event, 'scan')">
+            <span class="material-symbols-outlined" aria-hidden="true">qr_code_scanner</span>
+            扫码登录
+          </button>
         </div>
         <div id="login-account-panel" role="tabpanel" aria-labelledby="login-account-tab" :hidden="loginMode !== 'account'">
-          <div class="login-account-heading">
-            <h3>账号登录</h3>
-            <p>欢迎回来，请输入账号信息</p>
-          </div>
-          <el-form :model="loginForm" label-position="top" class="space-y-2" @submit.prevent="handleLogin">
+          <el-form :model="loginForm" label-position="top" class="login-form" @submit.prevent="handleLogin">
             <el-form-item label="账号">
                 <el-input
                     id="username"
@@ -64,10 +65,7 @@
 
             <el-form-item>
               <template #label>
-              <div class="flex justify-between items-center">
                 <span>密码</span>
-                <a href="#" class="text-sm font-semibold text-primary hover:text-on-primary-container transition-colors" @click.prevent="openResetPasswordDialog">首次登录 / 忘记密码</a>
-              </div>
               </template>
                 <el-input
                     id="password"
@@ -82,12 +80,13 @@
                 </el-input>
             </el-form-item>
 
-            <div class="flex flex-col gap-2 rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="login-remember-row">
               <el-checkbox v-model="rememberLogin">记住账号</el-checkbox>
-              <span class="text-xs font-medium text-slate-500">仅保存账号，不保存密码和登录密钥</span>
+              <a href="#" class="login-reset-link" @click.prevent="openResetPasswordDialog">忘记密码？</a>
             </div>
+            <span class="login-memory-note">仅保存账号，不保存密码和登录密钥</span>
 
-            <div class="pt-4 space-y-4">
+            <div class="login-submit-actions">
               <div v-show="isError" class="flex items-center gap-2 text-error text-sm font-medium bg-error/10 p-3 rounded-lg animate-fade-in">
                 <span class="material-symbols-outlined text-base">error</span>
                 {{ errorMessage }}
@@ -97,7 +96,7 @@
                   native-type="submit"
                   type="primary"
                   size="large"
-                  class="w-full"
+                  class="login-submit-button"
                   :loading="isLoading"
                   :disabled="isLoading"
               >
@@ -106,7 +105,7 @@
               </el-button>
 
               <el-button
-                  class="w-full"
+                  class="login-join-button"
                   size="large"
                   @click="goJoinOrganization"
               >
@@ -151,10 +150,10 @@
       </section>
     </section>
 
-    <el-dialog v-model="resetDialogVisible" title="首次登录 / 忘记密码" width="440px" destroy-on-close @closed="closeResetPasswordDialog">
+    <el-dialog v-model="resetDialogVisible" title="忘记密码" width="440px" destroy-on-close @closed="closeResetPasswordDialog">
         <div class="mb-6">
           <div>
-            <p class="mt-2 text-sm text-slate-500">首次登录或忘记密码时，通过绑定手机号接收短信验证码后设置登录密码。</p>
+            <p class="mt-2 text-sm text-slate-500">通过绑定手机号接收短信验证码后重新设置登录密码。</p>
           </div>
         </div>
 
@@ -647,27 +646,21 @@ onUnmounted(() => {
 }
 
 .login-stage {
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
-  place-items: center;
   overflow-x: hidden;
-  padding: clamp(1rem, 4vw, 3rem);
-  background:
-    radial-gradient(circle at 12% 12%, rgba(13, 148, 136, 0.16), transparent 32%),
-    radial-gradient(circle at 88% 78%, rgba(245, 158, 11, 0.10), transparent 28%),
-    linear-gradient(135deg, #f8fafc 0%, #eef5f4 52%, #f8fafc 100%);
+  background: #ffffff;
 }
 
 .login-shell {
-  width: min(100%, 70rem);
-  min-height: 40rem;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(36rem, 1fr);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.92);
-  border-radius: 2rem;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 34px 90px rgba(15, 23, 42, 0.16);
+  background: #ffffff;
 }
 
 .login-brand-panel {
@@ -675,48 +668,13 @@ onUnmounted(() => {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  justify-content: space-between;
   overflow: hidden;
-  padding: clamp(2rem, 4.5vw, 3.5rem);
+  padding: clamp(2.5rem, 4vw, 3.5rem);
   color: white;
   background:
-    linear-gradient(150deg, rgba(15, 118, 110, 0.98), rgba(15, 76, 72, 0.99)),
-    #0f766e;
-}
-
-.login-watermark {
-  position: absolute;
-  top: 0.5rem;
-  left: 1rem;
-  color: rgba(255, 255, 255, 0.045);
-  font-size: clamp(6rem, 14vw, 11rem);
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: 0.1em;
-  pointer-events: none;
-  user-select: none;
-}
-
-.login-brand-orb {
-  position: absolute;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.045);
-  pointer-events: none;
-}
-
-.login-brand-orb--top {
-  top: -5rem;
-  right: -7rem;
-  width: 18rem;
-  height: 18rem;
-}
-
-.login-brand-orb--bottom {
-  right: 3rem;
-  bottom: -8rem;
-  width: 20rem;
-  height: 20rem;
+    radial-gradient(70% 60% at 86% 8%, rgba(33, 155, 145, 0.25), transparent 68%),
+    radial-gradient(70% 60% at 16% 100%, rgba(15, 118, 110, 0.2), transparent 70%),
+    linear-gradient(145deg, #07162f 0%, #0a2340 56%, #06142a 100%);
 }
 
 .login-brand-lockup,
@@ -730,8 +688,14 @@ onUnmounted(() => {
   display: flex;
   min-width: 0;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: clamp(2rem, 5vw, 4.25rem);
+  padding: clamp(3rem, 6vw, 5rem);
+  background: #ffffff;
+}
+
+.login-auth-panel > * {
+  width: min(100%, 30rem);
 }
 
 .login-brand-lockup {
@@ -742,15 +706,15 @@ onUnmounted(() => {
 
 .login-product-logo {
   display: inline-flex;
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 3rem;
+  height: 3rem;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 12px 30px rgba(3, 28, 26, 0.22);
+  box-shadow: 0 12px 30px rgba(2, 12, 28, 0.24);
 }
 
 .login-product-logo img {
@@ -766,49 +730,54 @@ onUnmounted(() => {
 }
 
 .login-brand-title small {
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.58);
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.18em;
 }
 
 .login-brand-title strong {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: 0.01em;
 }
 
+.login-brand-copy {
+  margin-top: auto;
+  margin-bottom: clamp(3.5rem, 8vh, 6.5rem);
+}
+
 .login-brand-badge {
-  display: inline-flex;
-  margin-bottom: 1.1rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  padding: 0.42rem 0.78rem;
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 0.72rem;
+  display: block;
+  width: fit-content;
+  margin-bottom: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.48);
+  padding-top: 1.4rem;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  background: rgba(255, 255, 255, 0.08);
+  letter-spacing: 0.04em;
 }
 
 .login-brand-copy h1 {
   margin: 0;
-  font-size: clamp(2.25rem, 4vw, 3.15rem);
-  line-height: 1.12;
-  letter-spacing: -0.04em;
+  font-size: clamp(2.5rem, 4vw, 3.4rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
 }
 
 .login-brand-copy > p {
-  max-width: 30rem;
-  margin-top: 1rem;
-  line-height: 1.75;
-  opacity: 0.78;
+  max-width: 28rem;
+  margin-top: 1.1rem;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.84rem;
+  line-height: 1.85;
 }
 
 .login-feature-list {
   display: grid;
-  gap: 0.65rem;
-  margin: 1.6rem 0 0;
+  gap: 0.55rem;
+  margin: 1.4rem 0 0;
   padding: 0;
   list-style: none;
 }
@@ -817,14 +786,14 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 0.86rem;
-  font-weight: 650;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .login-feature-list .material-symbols-outlined {
-  color: #fbbf24;
-  font-size: 1.05rem;
+  color: #5eead4;
+  font-size: 1rem;
 }
 
 .login-provider {
@@ -837,81 +806,205 @@ onUnmounted(() => {
 }
 
 .login-provider strong {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0;
 }
 
-.login-auth-intro {
-  display: flex;
+.login-mobile-lockup {
+  display: none;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  text-align: center;
 }
 
-.login-auth-kicker {
-  color: #0f766e;
-  font-size: 0.68rem;
-  font-weight: 850;
-  letter-spacing: 0.16em;
-}
-
-.login-security-note {
+.login-mobile-logo {
   display: inline-flex;
+  width: 3.5rem;
+  height: 3.5rem;
   align-items: center;
-  gap: 0.3rem;
-  color: #64748b;
-  font-size: 0.72rem;
-  font-weight: 650;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 0.9rem;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
 }
 
-.login-security-note .material-symbols-outlined {
-  color: #0f766e;
-  font-size: 1rem;
+.login-mobile-logo img {
+  width: 88%;
+  height: 88%;
+  object-fit: contain;
+}
+
+.login-mobile-lockup strong {
+  margin-top: 0.65rem;
+  color: #07162f;
+  font-size: 1.65rem;
+  font-weight: 850;
+}
+
+.login-mobile-lockup > span:last-child {
+  margin-top: 0.1rem;
+  color: #7b8798;
+  font-size: 0.75rem;
 }
 
 .login-account-heading {
-  margin-bottom: 1.65rem;
+  margin-bottom: 1.4rem;
 }
 
 .login-account-heading h3 {
   margin: 0;
-  color: #0f172a;
-  font-size: 2rem;
+  color: #07162f;
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .login-account-heading p {
-  line-height: 1.75;
-  opacity: 0.82;
-  color: #64748b;
+  margin: 0.45rem 0 0;
+  color: #7b8798;
+  font-size: 0.8rem;
+  line-height: 1.6;
 }
 
 .login-mode-tabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin-bottom: 1.75rem;
+  gap: 0;
+  margin-bottom: 1.45rem;
   padding: 0.25rem;
-  border-radius: 0.75rem;
-  background: #f1f5f9;
+  border-radius: 0.3rem;
+  background: #f2f4f7;
 }
 
 .login-mode-tabs button {
-  padding: 0.7rem 0.75rem;
+  display: inline-flex;
+  min-height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.75rem;
   border: 0;
-  border-radius: 0.5rem;
-  color: #475569;
+  border-radius: 0.25rem;
+  color: #6b778c;
+  font-size: 0.8rem;
+  font-weight: 600;
   background: transparent;
   cursor: pointer;
 }
 
+.login-mode-tabs .material-symbols-outlined {
+  font-size: 1rem;
+}
+
 .login-mode-tabs button[aria-selected='true'] {
-  color: #0f766e;
+  color: #17304f;
   font-weight: 700;
   background: white;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 1px 5px rgba(15, 23, 42, 0.13);
+}
+
+.login-form {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.login-form :deep(.el-form-item) {
+  margin-bottom: 1rem;
+}
+
+.login-form :deep(.el-form-item__label) {
+  height: auto;
+  margin-bottom: 0.45rem;
+  padding: 0;
+  color: #30445f;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.login-form :deep(.el-input__wrapper) {
+  min-height: 2.75rem;
+  border-radius: 0.35rem;
+  padding: 0 0.8rem;
+  box-shadow: 0 0 0 1px #d7dee7 inset;
+  transition: box-shadow 160ms ease;
+}
+
+.login-form :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #9cabbc inset;
+}
+
+.login-form :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #0f766e inset, 0 0 0 3px rgba(15, 118, 110, 0.1);
+}
+
+.login-form :deep(.el-input__inner) {
+  font-size: 0.8rem;
+}
+
+.login-remember-row {
+  display: flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: -0.1rem;
+}
+
+.login-remember-row :deep(.el-checkbox__label) {
+  color: #455b75;
+  font-size: 0.76rem;
+}
+
+.login-reset-link {
+  color: #0f766e;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.login-reset-link:hover {
+  color: #0b5f58;
+}
+
+.login-memory-note {
+  margin-top: -0.2rem;
+  color: #98a2b3;
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.login-submit-actions {
+  display: grid;
+  gap: 0.85rem;
+  padding-top: 0.65rem;
+}
+
+.login-submit-button,
+.login-join-button {
+  width: 100%;
+  min-height: 2.75rem;
+  margin-left: 0 !important;
+  border-radius: 0.35rem;
+}
+
+.login-submit-button {
+  box-shadow: 0 8px 20px rgba(15, 118, 110, 0.18);
+}
+
+.login-join-button {
+  border-color: transparent;
+  color: #52657b;
+  background: transparent;
+}
+
+.login-join-button:hover {
+  border-color: transparent;
+  color: #0f766e;
+  background: #f5faf9;
 }
 
 .login-scan-panel {
@@ -950,53 +1043,70 @@ onUnmounted(() => {
   }
 
   .login-brand-panel {
-    min-height: 17rem;
+    display: none;
   }
 
-  .login-feature-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.75rem;
-  }
-
-  .login-provider {
-    margin-top: 1.5rem;
+  .login-auth-panel {
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 }
 
 @media (max-width: 640px) {
-  .login-stage {
-    place-items: start center;
-    padding: 0;
-  }
-
   .login-shell {
     min-height: 100vh;
-    border: 0;
-    border-radius: 0;
-  }
-
-  .login-brand-panel {
-    min-height: 13rem;
-    padding: 1.5rem;
-  }
-
-  .login-brand-copy {
-    margin-top: 1.5rem;
-  }
-
-  .login-brand-badge,
-  .login-feature-list,
-  .login-provider,
-  .login-brand-copy > p {
-    display: none;
-  }
-
-  .login-brand-copy h1 {
-    font-size: 2rem;
   }
 
   .login-auth-panel {
-    padding: 2rem 1.5rem 2.5rem;
+    justify-content: flex-start;
+    padding: 4.25rem 1.25rem 1.5rem;
+  }
+
+  .login-mobile-lockup {
+    display: flex;
+    margin-bottom: 2.75rem;
+  }
+
+  .login-mobile-logo {
+    width: 3.15rem;
+    height: 3.15rem;
+  }
+
+  .login-mobile-lockup strong {
+    margin-top: 0.5rem;
+    font-size: 1.5rem;
+  }
+
+  .login-account-heading {
+    margin-bottom: 1.2rem;
+  }
+
+  .login-account-heading h3 {
+    font-size: 1.65rem;
+  }
+
+  .login-mode-tabs {
+    margin-bottom: 1.35rem;
+  }
+
+  .login-mode-tabs button {
+    min-height: 2.5rem;
+  }
+
+  .login-form :deep(.el-form-item) {
+    margin-bottom: 0.75rem;
+  }
+
+  .login-form :deep(.el-input__wrapper) {
+    min-height: 2.4rem;
+  }
+
+  .login-memory-note {
+    display: none;
+  }
+
+  .login-submit-actions {
+    padding-top: 0.5rem;
   }
 }
 </style>

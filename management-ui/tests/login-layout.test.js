@@ -16,14 +16,16 @@ test('login uses the approved split layout and preserves both login modes', () =
   assert.match(source, /class="login-scan-panel"/)
   assert.match(source, /@submit\.prevent="handleLogin"/)
   assert.match(source, /@click="goJoinOrganization"/)
-  assert.match(source, /首次登录 \/ 忘记密码/)
+  assert.match(source, /class="login-reset-link"[\s\S]*>忘记密码？<\/a>/)
+  assert.doesNotMatch(source, /首次登录/)
   assert.match(source, /scanSession\.qrCodeDataUrl/)
 })
 
 test('login split layout collapses to one column on narrow screens', () => {
-  assert.match(source, /\.login-shell\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*0\.9fr\)\s+minmax\(0,\s*1\.1fr\)/)
+  assert.match(source, /\.login-shell\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.25fr\)\s+minmax\(36rem,\s*1fr\)/)
   assert.match(source, /@media \(max-width: 900px\)[\s\S]*\.login-shell\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)/)
-  assert.match(source, /@media \(max-width: 640px\)[\s\S]*\.login-stage/)
+  assert.match(source, /@media \(max-width: 900px\)[\s\S]*\.login-brand-panel\s*\{[\s\S]*display:\s*none/)
+  assert.match(source, /@media \(max-width: 640px\)[\s\S]*\.login-mobile-lockup\s*\{[\s\S]*display:\s*flex/)
 })
 
 test('public login identifies Hive and its developer without exposing tenant branding', () => {
@@ -65,7 +67,8 @@ test('login preserves baseline copy and keeps linked panels live for every mode'
     '快捷登录',
     '使用 Hive 移动端小程序扫码',
     '账号登录',
-    '欢迎回来，请输入账号信息'
+    '欢迎回来',
+    '登录您的 Hive 账户以继续'
   ]) {
     assert.match(source, new RegExp(copy))
   }

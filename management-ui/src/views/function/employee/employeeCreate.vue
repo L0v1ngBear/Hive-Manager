@@ -604,7 +604,7 @@ function showEmployeeActivationGuide(createResult) {
     h('div', { class: 'space-y-2 text-sm leading-6 text-slate-700' }, [
       h('p', [h('span', { class: 'font-semibold' }, '登录工号：'), createResult.empNo || '--']),
       h('p', [h('span', { class: 'font-semibold' }, '绑定手机号：'), createResult.phoneMask || '--']),
-      h('p', { class: 'pt-2 text-slate-500' }, '请员工在登录页选择“首次登录 / 忘记密码”，验证手机号后设置密码。')
+      h('p', { class: 'pt-2 text-slate-500' }, '请员工在登录页点击“忘记密码？”，验证手机号后设置密码。')
     ]),
     '员工档案创建成功',
     {
