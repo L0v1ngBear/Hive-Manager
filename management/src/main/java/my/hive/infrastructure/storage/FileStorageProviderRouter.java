@@ -17,9 +17,12 @@ public class FileStorageProviderRouter {
 
     private final Map<String, FileStorageProvider> providersByCode;
     private final FileStorageProvider selectedProvider;
+    private final MediaUploadPreprocessor mediaUploadPreprocessor;
 
     public FileStorageProviderRouter(List<FileStorageProvider> providers,
-                                     @Value("${storage.provider:local}") String configuredProvider) {
+                                     @Value("${storage.provider:local}") String configuredProvider,
+                                     MediaUploadPreprocessor mediaUploadPreprocessor) {
+        this.mediaUploadPreprocessor = mediaUploadPreprocessor;
         providersByCode = new LinkedHashMap<>();
         for (FileStorageProvider provider : providers) {
             String providerCode = normalizeProviderCode(provider.providerCode());
@@ -36,7 +39,7 @@ public class FileStorageProviderRouter {
     }
 
     public FileUploadResult upload(MultipartFile file, String tenantCode, String module) {
-        return selectedProvider.upload(file, tenantCode, module);
+        return selectedProvider.upload(mediaUploadPreprocessor.prepare(file), tenantCode, module);
     }
 
     public void deleteQuietly(String objectKey) {

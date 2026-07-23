@@ -16,6 +16,12 @@ spring:
 app:
   upload:
     max-file-size-mb: ${APP_UPLOAD_MAX_FILE_SIZE_MB:200}
+    image-compression:
+      enabled: ${APP_UPLOAD_IMAGE_COMPRESSION_ENABLED:true}
+      min-file-size-kb: ${APP_UPLOAD_IMAGE_COMPRESSION_MIN_FILE_SIZE_KB:250}
+      max-dimension: ${APP_UPLOAD_IMAGE_COMPRESSION_MAX_DIMENSION:2560}
+      max-pixels: ${APP_UPLOAD_IMAGE_COMPRESSION_MAX_PIXELS:40000000}
+      jpeg-quality: ${APP_UPLOAD_IMAGE_COMPRESSION_JPEG_QUALITY:0.82}
 
 tenant:
   isolation:

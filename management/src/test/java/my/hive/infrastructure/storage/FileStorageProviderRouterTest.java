@@ -18,7 +18,7 @@ class FileStorageProviderRouterTest {
     void localConfigurationSelectsOnlyTheLocalProvider() {
         RecordingProvider local = new RecordingProvider(" LOCAL ");
         RecordingProvider oss = new RecordingProvider("aliyun-oss");
-        FileStorageProviderRouter router = new FileStorageProviderRouter(List.of(local, oss), " local ");
+        FileStorageProviderRouter router = router(List.of(local, oss), " local ");
 
         FileUploadResult result = router.upload(file(), "tenant-a", "document");
         router.deleteQuietly("document/tenant-a/file.pdf");
@@ -34,7 +34,7 @@ class FileStorageProviderRouterTest {
     void aliyunOssConfigurationSelectsOnlyTheOssProvider() {
         RecordingProvider local = new RecordingProvider("local");
         RecordingProvider oss = new RecordingProvider(" ALIYUN-OSS ");
-        FileStorageProviderRouter router = new FileStorageProviderRouter(List.of(local, oss), "aliyun-oss");
+        FileStorageProviderRouter router = router(List.of(local, oss), "aliyun-oss");
 
         router.upload(file(), "tenant-a", "document");
         router.deleteQuietly("document/tenant-a/file.pdf");
@@ -49,7 +49,7 @@ class FileStorageProviderRouterTest {
     void readsLegacyLocalAndPrivateOssReferencesWithTheirOwningProvider() {
         RecordingProvider local = new RecordingProvider("local");
         RecordingProvider oss = new RecordingProvider("aliyun-oss");
-        FileStorageProviderRouter router = new FileStorageProviderRouter(List.of(local, oss), "aliyun-oss");
+        FileStorageProviderRouter router = router(List.of(local, oss), "aliyun-oss");
 
         router.load("/api/uploads/document/tenant-a/file.pdf", "tenant-a", "document");
         router.load("/api/storage/private/aliyun-oss/reference", "tenant-a", "document");
@@ -60,7 +60,7 @@ class FileStorageProviderRouterTest {
 
     @Test
     void duplicateNormalizedProviderCodesAreRejected() {
-        assertThatThrownBy(() -> new FileStorageProviderRouter(List.of(
+        assertThatThrownBy(() -> router(List.of(
                 new RecordingProvider("local"),
                 new RecordingProvider(" LOCAL ")
         ), "local"))
@@ -69,7 +69,7 @@ class FileStorageProviderRouterTest {
 
     @Test
     void unknownConfiguredProviderFailsWithoutFallback() {
-        assertThatThrownBy(() -> new FileStorageProviderRouter(List.of(
+        assertThatThrownBy(() -> router(List.of(
                 new RecordingProvider("local")
         ), "aliyun-oss"))
                 .isInstanceOf(BusinessException.class);
@@ -77,6 +77,11 @@ class FileStorageProviderRouterTest {
 
     private MultipartFile file() {
         return new MockMultipartFile("file", "document.pdf", "application/pdf", "content".getBytes());
+    }
+
+    private FileStorageProviderRouter router(List<FileStorageProvider> providers, String configuredProvider) {
+        return new FileStorageProviderRouter(providers, configuredProvider,
+                new MediaUploadPreprocessor(new MediaUploadProperties()));
     }
 
     private static class RecordingProvider implements FileStorageProvider {
