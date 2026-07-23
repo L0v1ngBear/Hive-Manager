@@ -1,4 +1,5 @@
 import request from '@/utils/request.js'
+import { uploadAttachmentWithVideoChunks } from '@/utils/chunkedVideoUpload.js'
 
 export function getBadProductPage(params) {
   return request({
@@ -17,12 +18,13 @@ export function saveBadProduct(data) {
 }
 
 export function uploadBadProductAttachment(data) {
-  return request({
+  const file = data?.get?.('file')
+  return uploadAttachmentWithVideoChunks(file, () => request({
     url: '/quality/attachment/upload',
     method: 'post',
     data,
     timeout: 600000
-  })
+  }), 'bad-product')
 }
 
 export function downloadBadProductAttachment(params) {

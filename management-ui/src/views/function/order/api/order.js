@@ -1,4 +1,5 @@
 import request from '@/utils/request.js'
+import { uploadAttachmentWithVideoChunks } from '@/utils/chunkedVideoUpload.js'
 
 export function getOrderPage(params) {
   return request({ url: '/orders', method: 'get', params })
@@ -33,12 +34,13 @@ export function createOrder(data) {
 }
 
 export function uploadOrderAttachment(data) {
-  return request({
+  const file = data?.get?.('file')
+  return uploadAttachmentWithVideoChunks(file, () => request({
     url: '/orders/attachment',
     method: 'post',
     data,
     timeout: 600000
-  })
+  }), 'sales-order')
 }
 
 export function downloadOrderAttachment(params) {

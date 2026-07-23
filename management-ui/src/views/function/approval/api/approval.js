@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { uploadAttachmentWithVideoChunks } from '@/utils/chunkedVideoUpload.js'
 
 export function getApprovalSummary() {
   return request({
@@ -83,12 +84,13 @@ export function submitFinanceApproval(data) {
 }
 
 export function uploadFinanceApprovalAttachment(data) {
-  return request({
+  const file = data?.get?.('file')
+  return uploadAttachmentWithVideoChunks(file, () => request({
     url: '/approval/finance/attachment',
     method: 'post',
     data,
     timeout: 600000,
-  })
+  }), 'finance')
 }
 
 export function downloadFinanceApprovalAttachment(params) {
