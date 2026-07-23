@@ -312,17 +312,18 @@ Output:
                 center
               >
                 <template #default="{ node }">
-                  <div class="org-chart-card" :class="{ root: node.$$data?.isOrganizationRoot }">
+                  <div class="org-chart-card" :class="{ root: node.$$data?.isOrganizationRoot || node.$$data?.isVirtualRoot }">
                     <div class="org-chart-icon">
-                      <span class="material-symbols-outlined">{{ node.children?.length ? 'supervisor_account' : 'person' }}</span>
+                      <span class="material-symbols-outlined">{{ node.$$data?.isVirtualRoot ? 'account_tree' : node.children?.length ? 'supervisor_account' : 'person' }}</span>
                     </div>
                     <div class="org-chart-content">
                       <p class="org-chart-name">{{ node.label }}</p>
-                      <p class="org-chart-meta">
+                      <p v-if="!node.$$data?.isVirtualRoot" class="org-chart-meta">
                         {{ node.$$data?.departmentName || '未分配部门' }} · {{ node.$$data?.positionName || '未设置职位' }}
                       </p>
+                      <p v-else class="org-chart-meta">上级在上、直属下级在下</p>
                     </div>
-                    <span :class="['org-chart-status', Number(node.$$data?.status) === 1 ? 'enabled' : 'inactive']">
+                    <span v-if="!node.$$data?.isVirtualRoot" :class="['org-chart-status', Number(node.$$data?.status) === 1 ? 'enabled' : 'inactive']">
                       {{ employeeStatusLabel(node.$$data?.status) }}
                     </span>
                   </div>

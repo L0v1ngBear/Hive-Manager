@@ -1,31 +1,3 @@
-const BOSS_KEYWORDS = ['老板', '董事长', '总经理', '首席执行官', 'CEO']
-
-const normalizedEmployeeText = (employee) =>
-  `${employee?.name || ''} ${employee?.positionName || ''}`.trim().toLocaleUpperCase()
-
-const hasBossKeyword = (employee) => {
-  const text = normalizedEmployeeText(employee)
-  return BOSS_KEYWORDS.some((keyword) => text.includes(keyword.toLocaleUpperCase()))
-}
-
-const descendantCount = (employee) => (employee?.children || []).reduce(
-  (total, child) => total + 1 + descendantCount(child),
-  0
-)
-
-const selectOrganizationRoot = (roots) => roots
-  .map((employee, index) => ({
-    employee,
-    index,
-    bossKeyword: hasBossKeyword(employee) ? 1 : 0,
-    descendants: descendantCount(employee)
-  }))
-  .sort((left, right) =>
-    right.bossKeyword - left.bossKeyword ||
-    right.descendants - left.descendants ||
-    left.index - right.index
-  )[0]?.employee
-
 const toOrganizationNode = (employee, parentId = null, isOrganizationRoot = false) => {
   const id = String(employee.id)
   return {
@@ -68,16 +40,24 @@ export const buildOrganizationChart = (roots = []) => {
     }
   }
 
-  const organizationRoot = selectOrganizationRoot(roots)
-  const otherRoots = roots.filter((item) => item !== organizationRoot)
-  const displayRoot = {
-    ...organizationRoot,
-    children: [...(organizationRoot.children || []), ...otherRoots]
+  if (roots.length === 1) {
+    return {
+      data: toOrganizationNode(roots[0], null, true),
+      topLevelCount: 1,
+      unassignedCount: 0
+    }
   }
 
   return {
-    data: toOrganizationNode(displayRoot, null, true),
-    topLevelCount: 1,
-    unassignedCount: otherRoots.length
+    data: {
+      id: 'organization-root',
+      pid: null,
+      label: '组织架构',
+      expand: true,
+      isVirtualRoot: true,
+      children: roots.map((employee) => toOrganizationNode(employee, 'organization-root', false))
+    },
+    topLevelCount: roots.length,
+    unassignedCount: roots.length
   }
 }

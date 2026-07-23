@@ -455,9 +455,13 @@ onBeforeUnmount(() => {
 })
 
 function toggleRole(roleId) {
-  const index = form.roleIds.indexOf(roleId)
+  const id = Number(roleId)
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return
+  }
+  const index = form.roleIds.indexOf(id)
   if (index === -1) {
-    form.roleIds.push(roleId)
+    form.roleIds.push(id)
     return
   }
   form.roleIds.splice(index, 1)
@@ -480,7 +484,9 @@ async function loadOptions() {
   const data = await getEmployeeFormOptions()
   departments.value = data.departments || []
   positions.value = data.positions || []
-  roles.value = data.roles || []
+  roles.value = (data.roles || [])
+      .map((role) => ({ ...role, id: Number(role.id) }))
+      .filter((role) => Number.isSafeInteger(role.id) && role.id > 0)
   attendanceLocations.value = data.attendanceLocations || []
 
   // 强制防呆：只有当后端明确返回了包含中文字符的 label 时，才使用后端的数据
@@ -526,7 +532,7 @@ async function loadEmployeeDetail() {
   form.attendanceRequired = Number(detail.attendanceRequired ?? 1)
   form.remark = detail.remark || ''
   form.attendanceLocationIds = Array.isArray(detail.attendanceLocationIds) ? detail.attendanceLocationIds.map((id) => Number(id)) : []
-  form.roleIds = Array.isArray(detail.roleIds) ? detail.roleIds.map((id) => Number(id)) : []
+  form.roleIds = normalizeIdList(detail.roleIds)
 
   if (detail.leaderName) {
     leaderKeyword.value = detail.leaderName
@@ -574,7 +580,7 @@ async function submit() {
       status: Number(form.status),
       attendanceRequired: Number(form.attendanceRequired ?? 1),
       attendanceLocationIds: Number(form.attendanceRequired ?? 1) === 1 ? (form.attendanceLocationIds || []).map((id) => Number(id)) : [],
-      roleIds: (form.roleIds || []).map((id) => Number(id))
+      roleIds: normalizeIdList(form.roleIds)
     }
 
     if (isEditMode.value) {
@@ -593,6 +599,15 @@ async function submit() {
   } finally {
     submitting.value = false
   }
+}
+
+function normalizeIdList(ids) {
+  if (!Array.isArray(ids)) {
+    return []
+  }
+  return [...new Set(ids
+      .map((id) => Number(id))
+      .filter((id) => Number.isSafeInteger(id) && id > 0))]
 }
 
 function showEmployeeActivationGuide(createResult) {
