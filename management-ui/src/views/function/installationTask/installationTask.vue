@@ -182,7 +182,7 @@
               <span v-else class="installation-empty-attachment">暂无附件</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="100" align="right">
+          <el-table-column label="操作" width="120" align="center" fixed="right">
             <template #default="{ row }">
               <el-tooltip :disabled="canUpdate" content="暂无 installation:update 权限"><span><el-button link type="primary" :disabled="!canUpdate" @click="openEditor(row)">处理</el-button></span></el-tooltip>
             </template>
@@ -952,12 +952,14 @@ function formatDateTime(value) {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
+  min-height: 132px;
 }
 
 .installation-summary-card {
   --summary-color: var(--ys-primary);
   --summary-bg: rgb(var(--ys-primary-rgb) / 0.08);
   display: flex;
+  height: 132px;
   min-height: 132px;
   align-items: flex-start;
   gap: 14px;
@@ -1043,6 +1045,9 @@ function formatDateTime(value) {
 }
 
 .installation-panel {
+  position: relative;
+  z-index: 0;
+  margin-top: 24px !important;
   border-radius: 18px;
   box-shadow: 0 18px 44px rgba(15, 23, 42, 0.07);
 }
