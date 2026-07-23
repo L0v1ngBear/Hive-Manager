@@ -177,6 +177,12 @@ hive:
   redis:
     namespace: ${HIVE_REDIS_NAMESPACE:hive}
     environment: ${HIVE_REDIS_ENV:${spring.profiles.active:dev}}
+  service-operation-log:
+    enabled: ${SERVICE_OPERATION_LOG_ENABLED:true}
+    include-start: ${SERVICE_OPERATION_LOG_INCLUDE_START:false}
+    slow-threshold-ms: ${SERVICE_OPERATION_LOG_SLOW_THRESHOLD_MS:1000}
+    include-exception-message: ${SERVICE_OPERATION_LOG_INCLUDE_EXCEPTION_MESSAGE:true}
+    max-exception-message-length: ${SERVICE_OPERATION_LOG_MAX_EXCEPTION_MESSAGE_LENGTH:500}
   system-event:
     enabled: ${SYSTEM_EVENT_ENABLED:true}
     source-app: ${SYSTEM_EVENT_SOURCE_APP:hive-backend}
