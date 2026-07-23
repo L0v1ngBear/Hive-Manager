@@ -214,11 +214,13 @@ Output:
                 <span v-else>{{ employeeColumnText(employee, field.key) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="124" align="center" fixed="right">
+            <el-table-column label="操作" width="196" align="center" fixed="right" class-name="employee-operation-column">
               <template #default="{ row: employee }">
-                <el-button :disabled="!canViewEmployeeDetail" :title="detailPermissionTitle" text type="primary" @click.stop="showEmployeeDetail(employee.id)">查看</el-button>
-                <el-button :disabled="!canEditEmployee" :title="editPermissionTitle" text type="primary" @click.stop="openEditDrawer(employee.id)">编辑</el-button>
-                <el-button :disabled="!canManageEmployeePermissions" :title="permissionManagementTitle" text type="primary" @click.stop="openPermissionDrawer(employee)">权限</el-button>
+                <div class="employee-operation-actions">
+                  <el-button :disabled="!canViewEmployeeDetail" :title="detailPermissionTitle" text type="primary" @click.stop="showEmployeeDetail(employee.id)">查看</el-button>
+                  <el-button :disabled="!canEditEmployee" :title="editPermissionTitle" text type="primary" @click.stop="openEditDrawer(employee.id)">编辑</el-button>
+                  <el-button :disabled="!canManageEmployeePermissions" :title="permissionManagementTitle" text type="primary" @click.stop="openPermissionDrawer(employee)">权限</el-button>
+                </div>
               </template>
             </el-table-column>
             <template #empty>
@@ -759,6 +761,21 @@ watch(
 </script>
 
 <style scoped>
+.employee-operation-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.employee-operation-actions .el-button {
+  min-width: 3.5rem;
+  min-height: 2rem;
+  margin: 0;
+  padding-inline: 0.5rem;
+}
+
 .org-stat-card {
   border: 1px solid rgba(148, 163, 184, .18);
   border-radius: 1rem;
