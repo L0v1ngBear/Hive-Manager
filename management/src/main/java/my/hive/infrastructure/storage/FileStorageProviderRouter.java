@@ -67,6 +67,8 @@ public class FileStorageProviderRouter {
         if (!StringUtils.hasText(providerCode)) {
             throw new BusinessException("文件存储供应商编码不能为空");
         }
-        return providerCode.trim().toLowerCase(Locale.ROOT);
+        String normalized = providerCode.trim().toLowerCase(Locale.ROOT);
+        // Existing production .env files commonly use the concise OSS name.
+        return "oss".equals(normalized) ? "aliyun-oss" : normalized;
     }
 }
