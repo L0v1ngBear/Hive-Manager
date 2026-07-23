@@ -49,11 +49,6 @@ const printThemeFiles = new Set([
 const oldThemePattern = /#1f3f5f|#0b1f33|rgba\(31,\s*63,\s*95|rgba\(30,\s*64,\s*104/i
 const alphaPrimaryForegroundAllowlist = [
   {
-    relativePath: 'views/Login.vue',
-    token: 'text-primary/5',
-    rationale: 'Oversized, pointer-events-none HIVE watermark behind the login content.'
-  },
-  {
     relativePath: 'views/function/approval/approvalCenter.vue',
     token: 'text-primary/5',
     rationale: 'Absolutely positioned dataset watermark behind the approval summary card.'

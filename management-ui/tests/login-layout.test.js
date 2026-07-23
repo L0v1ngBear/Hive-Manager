@@ -21,9 +21,22 @@ test('login uses the approved split layout and preserves both login modes', () =
 })
 
 test('login split layout collapses to one column on narrow screens', () => {
-  assert.match(source, /\.login-shell\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.04fr\)\s+minmax\(0,\s*0\.96fr\)/)
+  assert.match(source, /\.login-shell\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*0\.9fr\)\s+minmax\(0,\s*1\.1fr\)/)
   assert.match(source, /@media \(max-width: 900px\)[\s\S]*\.login-shell\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)/)
   assert.match(source, /@media \(max-width: 640px\)[\s\S]*\.login-stage/)
+})
+
+test('public login identifies Hive and its developer without exposing tenant branding', () => {
+  const site = readFileSync(new URL('../src/config/site.js', import.meta.url), 'utf8')
+  const index = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
+
+  assert.match(source, /src="\/logo\.png"/)
+  assert.match(source, /开发与技术服务/)
+  assert.match(source, /siteConfig\.companyName/)
+  assert.match(site, /companyName: '杭州毫端科技有限公司'/)
+  assert.match(site, /© 2026 杭州毫端科技有限公司/)
+  assert.match(index, /<title>蜂巢 Hive \| 企业信息管理<\/title>/)
+  assert.doesNotMatch(`${source}\n${site}\n${index}`, /北京北方新青人窗帘有限公司/)
 })
 
 test('login mode tabs expose linked panels and roving keyboard navigation', () => {

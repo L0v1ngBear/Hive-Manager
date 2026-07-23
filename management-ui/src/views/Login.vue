@@ -3,19 +3,43 @@
     <section class="login-shell">
       <aside class="login-brand-panel">
         <div class="login-watermark" aria-hidden="true">
-          <span class="text-primary/5">HIVE</span>
+          <span>HIVE</span>
         </div>
+        <div class="login-brand-orb login-brand-orb--top" aria-hidden="true"></div>
+        <div class="login-brand-orb login-brand-orb--bottom" aria-hidden="true"></div>
         <div class="login-brand-lockup">
-          <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="brand-logo-image" />
-          <span>{{ brandConfig.productName }}</span>
+          <span class="login-product-logo">
+            <img src="/logo.png" :alt="`${siteConfig.productName} Logo`" />
+          </span>
+          <span class="login-brand-title">
+            <small>HIVE WORKSPACE</small>
+            <strong>蜂巢 Hive</strong>
+          </span>
         </div>
         <div class="login-brand-copy">
+          <span class="login-brand-badge">数字化工厂管理系统</span>
           <h1>企业信息管理</h1>
           <p>专业、高效、可靠、价值，协同工业生产效率。<br />把经验和流程变成可追踪、可复盘、可优化的数据资产。</p>
+          <ul class="login-feature-list" aria-label="系统能力">
+            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>订单与生产协同</li>
+            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>库存全过程追踪</li>
+            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>数据权限分级</li>
+          </ul>
+        </div>
+        <div class="login-provider">
+          <span>开发与技术服务</span>
+          <strong>{{ siteConfig.companyName }}</strong>
         </div>
       </aside>
 
       <section class="login-auth-panel">
+        <div class="login-auth-intro">
+          <span class="login-auth-kicker">WELCOME BACK</span>
+          <span class="login-security-note">
+            <span class="material-symbols-outlined" aria-hidden="true">verified_user</span>
+            安全登录
+          </span>
+        </div>
         <div class="login-mode-tabs" role="tablist" aria-label="登录方式">
           <button id="login-account-tab" ref="accountLoginTab" type="button" role="tab" :aria-selected="loginMode === 'account'" :tabindex="loginMode === 'account' ? 0 : -1" aria-controls="login-account-panel" @click="loginMode = 'account'" @keydown="handleLoginModeKeydown($event, 'account')">账号登录</button>
           <button id="login-scan-tab" ref="scanLoginTab" type="button" role="tab" :aria-selected="loginMode === 'scan'" :tabindex="loginMode === 'scan' ? 0 : -1" aria-controls="login-scan-panel" @click="loginMode = 'scan'" @keydown="handleLoginModeKeydown($event, 'scan')">扫码登录</button>
@@ -213,7 +237,7 @@ import { useUserStore } from '@/stores/user'
 import { normalizeLoginRedirect } from '@/utils/redirect'
 import { readLoginMemory, saveLoginMemory } from '@/utils/loginMemory'
 import { ElButton, ElCheckbox, ElDialog, ElForm, ElFormItem, ElInput, ElMessage } from 'element-plus'
-import { brandConfig } from '@/config/brand'
+import { siteConfig } from '@/config/site'
 
 const router = useRouter()
 const route = useRoute()
@@ -628,19 +652,22 @@ onUnmounted(() => {
   place-items: center;
   overflow-x: hidden;
   padding: clamp(1rem, 4vw, 3rem);
-  background: radial-gradient(circle at 12% 12%, rgba(15, 118, 110, 0.16), transparent 34%), #f5f7fb;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(13, 148, 136, 0.16), transparent 32%),
+    radial-gradient(circle at 88% 78%, rgba(245, 158, 11, 0.10), transparent 28%),
+    linear-gradient(135deg, #f8fafc 0%, #eef5f4 52%, #f8fafc 100%);
 }
 
 .login-shell {
-  width: min(100%, 68rem);
-  min-height: 42rem;
+  width: min(100%, 70rem);
+  min-height: 40rem;
   display: grid;
-  grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: 1.75rem;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 32px 72px rgba(15, 23, 42, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 2rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 34px 90px rgba(15, 23, 42, 0.16);
 }
 
 .login-brand-panel {
@@ -650,16 +677,19 @@ onUnmounted(() => {
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
-  padding: clamp(2rem, 5vw, 4rem);
+  padding: clamp(2rem, 4.5vw, 3.5rem);
   color: white;
-  background: linear-gradient(145deg, #0f766e, #134e4a);
+  background:
+    linear-gradient(150deg, rgba(15, 118, 110, 0.98), rgba(15, 76, 72, 0.99)),
+    #0f766e;
 }
 
 .login-watermark {
   position: absolute;
-  top: 1rem;
-  left: 1.5rem;
-  font-size: clamp(6rem, 16vw, 12rem);
+  top: 0.5rem;
+  left: 1rem;
+  color: rgba(255, 255, 255, 0.045);
+  font-size: clamp(6rem, 14vw, 11rem);
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0.1em;
@@ -667,8 +697,31 @@ onUnmounted(() => {
   user-select: none;
 }
 
+.login-brand-orb {
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  pointer-events: none;
+}
+
+.login-brand-orb--top {
+  top: -5rem;
+  right: -7rem;
+  width: 18rem;
+  height: 18rem;
+}
+
+.login-brand-orb--bottom {
+  right: 3rem;
+  bottom: -8rem;
+  width: 20rem;
+  height: 20rem;
+}
+
 .login-brand-lockup,
-.login-brand-copy {
+.login-brand-copy,
+.login-provider {
   position: relative;
   z-index: 1;
 }
@@ -678,37 +731,149 @@ onUnmounted(() => {
   min-width: 0;
   flex-direction: column;
   justify-content: center;
-  padding: clamp(2rem, 5vw, 4rem);
+  padding: clamp(2rem, 5vw, 4.25rem);
 }
 
 .login-brand-lockup {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  font-size: 1.25rem;
-  font-weight: 700;
+  gap: 0.9rem;
 }
 
-.brand-logo-image {
-  width: 6rem;
-  height: 2.5rem;
-  border-radius: 0.75rem;
-  object-fit: cover;
+.login-product-logo {
+  display: inline-flex;
+  width: 3.25rem;
+  height: 3.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 30px rgba(3, 28, 26, 0.22);
+}
+
+.login-product-logo img {
+  width: 88%;
+  height: 88%;
+  object-fit: contain;
+}
+
+.login-brand-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.login-brand-title small {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.login-brand-title strong {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.login-brand-badge {
+  display: inline-flex;
+  margin-bottom: 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 0.42rem 0.78rem;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .login-brand-copy h1 {
   margin: 0;
-  font-size: clamp(2rem, 4vw, 3rem);
-  line-height: 1.2;
+  font-size: clamp(2.25rem, 4vw, 3.15rem);
+  line-height: 1.12;
+  letter-spacing: -0.04em;
 }
 
-.login-brand-copy > p:last-child {
+.login-brand-copy > p {
+  max-width: 30rem;
+  margin-top: 1rem;
   line-height: 1.75;
-  opacity: 0.82;
+  opacity: 0.78;
+}
+
+.login-feature-list {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.login-feature-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.login-feature-list .material-symbols-outlined {
+  color: #fbbf24;
+  font-size: 1.05rem;
+}
+
+.login-provider {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.login-provider strong {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.login-auth-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.login-auth-kicker {
+  color: #0f766e;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.16em;
+}
+
+.login-security-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.login-security-note .material-symbols-outlined {
+  color: #0f766e;
+  font-size: 1rem;
 }
 
 .login-account-heading {
-  margin-bottom: 2rem;
+  margin-bottom: 1.65rem;
 }
 
 .login-account-heading h3 {
@@ -727,14 +892,14 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
   padding: 0.25rem;
   border-radius: 0.75rem;
   background: #f1f5f9;
 }
 
 .login-mode-tabs button {
-  padding: 0.625rem 0.75rem;
+  padding: 0.7rem 0.75rem;
   border: 0;
   border-radius: 0.5rem;
   color: #475569;
@@ -785,7 +950,16 @@ onUnmounted(() => {
   }
 
   .login-brand-panel {
-    min-height: 18rem;
+    min-height: 17rem;
+  }
+
+  .login-feature-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .login-provider {
+    margin-top: 1.5rem;
   }
 }
 
@@ -799,6 +973,30 @@ onUnmounted(() => {
     min-height: 100vh;
     border: 0;
     border-radius: 0;
+  }
+
+  .login-brand-panel {
+    min-height: 13rem;
+    padding: 1.5rem;
+  }
+
+  .login-brand-copy {
+    margin-top: 1.5rem;
+  }
+
+  .login-brand-badge,
+  .login-feature-list,
+  .login-provider,
+  .login-brand-copy > p {
+    display: none;
+  }
+
+  .login-brand-copy h1 {
+    font-size: 2rem;
+  }
+
+  .login-auth-panel {
+    padding: 2rem 1.5rem 2.5rem;
   }
 }
 </style>
