@@ -734,22 +734,24 @@
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="relative">
                   <label class="field-label">客户名称 *</label>
-                  <el-input v-model.trim="orderForm.customerName" data-field="order.customerName" class="box-input pr-10"
-                         placeholder="输入或选择客户"
-                         autocomplete="off"
-                         @focus="handleOrderCustomerFocus"
-                         @input="handleOrderCustomerInput"
-                         @blur="handleOrderCustomerBlur" />
-                  <span class="material-symbols-outlined combo-arrow">expand_more</span>
-                  <div v-if="showCustomerOptions" class="combo-panel">
-                    <button v-for="option in customerOptions" :key="option.id" type="button" class="combo-option"
-                            @mousedown.prevent="chooseCustomer(option)">
-                      <span class="font-bold text-on-surface">{{ option.customerName }}</span>
-                      <span class="text-xs text-on-surface-variant">{{ option.contactPhone || '未维护电话' }}</span>
-                      <span v-if="option.projectNames?.length" class="text-[11px] text-primary">
-                        项目：{{ option.projectNames.slice(0, 2).join('、') }}
-                      </span>
-                    </button>
+                  <div class="combo-input-shell">
+                    <el-input v-model.trim="orderForm.customerName" data-field="order.customerName" class="box-input pr-10"
+                           placeholder="输入或选择客户"
+                           autocomplete="off"
+                           @focus="handleOrderCustomerFocus"
+                           @input="handleOrderCustomerInput"
+                           @blur="handleOrderCustomerBlur" />
+                    <span class="combo-arrow" aria-hidden="true"></span>
+                    <div v-if="showCustomerOptions" class="combo-panel">
+                      <button v-for="option in customerOptions" :key="option.id" type="button" class="combo-option"
+                              @mousedown.prevent="chooseCustomer(option)">
+                        <span class="font-bold text-on-surface">{{ option.customerName }}</span>
+                        <span class="text-xs text-on-surface-variant">{{ option.contactPhone || '未维护电话' }}</span>
+                        <span v-if="option.projectNames?.length" class="text-[11px] text-primary">
+                          项目：{{ option.projectNames.slice(0, 2).join('、') }}
+                        </span>
+                      </button>
+                    </div>
                   </div>
                   <p v-if="customerCreateHintVisible" class="mt-1 text-[11px] text-on-surface-variant">
                     未匹配到客户，保存后会自动归档到客户管理。
@@ -761,18 +763,20 @@
                 </div>
                 <div class="relative">
                   <label class="field-label">项目名称 *</label>
-                  <el-input v-model.trim="orderForm.projectName" data-field="order.projectName" class="box-input pr-10"
-                         placeholder="选择客户后自动带出，也可输入新项目"
-                         autocomplete="off"
-                         @focus="handleProjectFocus"
-                         @input="handleProjectInput"
-                         @blur="handleProjectBlur" />
-                  <span class="material-symbols-outlined combo-arrow">expand_more</span>
-                  <div v-if="showProjectOptions" class="combo-panel">
-                    <button v-for="projectName in selectedCustomerProjects" :key="projectName" type="button"
-                            class="combo-option" @mousedown.prevent="chooseProject(projectName)">
-                      <span class="font-bold text-on-surface">{{ projectName }}</span>
-                    </button>
+                  <div class="combo-input-shell">
+                    <el-input v-model.trim="orderForm.projectName" data-field="order.projectName" class="box-input pr-10"
+                           placeholder="选择客户后自动带出，也可输入新项目"
+                           autocomplete="off"
+                           @focus="handleProjectFocus"
+                           @input="handleProjectInput"
+                           @blur="handleProjectBlur" />
+                    <span class="combo-arrow" aria-hidden="true"></span>
+                    <div v-if="showProjectOptions" class="combo-panel">
+                      <button v-for="projectName in selectedCustomerProjects" :key="projectName" type="button"
+                              class="combo-option" @mousedown.prevent="chooseProject(projectName)">
+                        <span class="font-bold text-on-surface">{{ projectName }}</span>
+                      </button>
+                    </div>
                   </div>
                   <p v-if="projectCreateHintVisible" class="mt-1 text-[11px] text-on-surface-variant">
                     新项目保存后会归档到该客户。
@@ -2734,13 +2738,20 @@ function fulfillmentProcessText(row = {}) {
   box-shadow: 0 0 0 2px rgb(var(--ys-primary-rgb) / .2)
 }
 
+.combo-input-shell {
+  position: relative;
+}
+
 .combo-arrow {
   pointer-events: none;
   position: absolute;
   right: .75rem;
-  top: 2.15rem;
-  font-size: 1.1rem;
-  color: rgb(var(--on-surface-variant))
+  top: 50%;
+  width: .5rem;
+  height: .5rem;
+  border-right: 1.5px solid rgb(var(--on-surface-variant));
+  border-bottom: 1.5px solid rgb(var(--on-surface-variant));
+  transform: translateY(-70%) rotate(45deg);
 }
 
 .combo-panel {

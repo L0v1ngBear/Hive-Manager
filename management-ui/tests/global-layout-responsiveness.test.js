@@ -94,6 +94,32 @@ test('shared list layouts expose stable stats filters and horizontal tables', ()
   assert.match(equipment, /class="function-filter-form/)
 })
 
+test('collapsed filter bars never grow along a page panel flex axis', () => {
+  const collapseBar = cssRule(style, '.function-filter-collapse-bar')
+
+  assert.match(collapseBar.declarations, /flex\s*:\s*0\s+0\s+auto/)
+  assert.match(collapseBar.declarations, /align-self\s*:\s*stretch/)
+  assert.doesNotMatch(collapseBar.declarations, /flex\s*:\s*1\s+0\s+100%/)
+})
+
+test('global styles do not override every Element Plus button layout', () => {
+  assert.doesNotMatch(style, /(?:^|\n)\.el-button\s*>\s*span\s*\{/)
+  assert.doesNotMatch(style, /\[class\*="-actions"\]/)
+  assert.doesNotMatch(style, /\.function-page-header\s*>\s*:last-child\s*>/)
+})
+
+test('order customer and project arrows are scoped to their input shells', () => {
+  const comboShell = cssRule(order, '.combo-input-shell')
+  const comboArrow = cssRule(order, '.combo-arrow')
+
+  assert.match(comboShell.declarations, /position\s*:\s*relative/)
+  assert.equal((order.match(/class="combo-input-shell"/g) || []).length, 2)
+  assert.equal((order.match(/class="combo-arrow" aria-hidden="true"/g) || []).length, 2)
+  assert.match(comboArrow.declarations, /top\s*:\s*50%/)
+  assert.match(comboArrow.declarations, /transform\s*:\s*translateY\(-70%\)\s+rotate\(45deg\)/)
+  assert.doesNotMatch(comboArrow.declarations, /top\s*:\s*2\.15rem/)
+})
+
 const responsiveTableWrap = () => cssRule(style, '.function-page-shell .responsive-table-wrap')
 const blockCardLayout = /\.responsive-data-table\s*,[\s\S]*\.responsive-data-table td\s*$/
 const tableHeader = /\.responsive-data-table thead\s*$/
