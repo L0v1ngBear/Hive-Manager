@@ -150,7 +150,7 @@ const props = defineProps({
 
 const route = useRoute()
 const userStore = useUserStore()
-const isCollapsed = ref(false)
+const isCollapsed = ref(!props.mobile)
 const approvalPendingCount = ref(0)
 const brandTitle = computed(() => brandConfig.productName)
 const brandSubtitle = computed(() => '业务协同系统')
