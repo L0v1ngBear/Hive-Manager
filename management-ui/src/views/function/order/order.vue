@@ -735,13 +735,16 @@
                 <div class="relative">
                   <label class="field-label">客户名称 *</label>
                   <div class="combo-input-shell">
-                    <el-input v-model.trim="orderForm.customerName" data-field="order.customerName" class="box-input pr-10"
+                    <el-input v-model.trim="orderForm.customerName" data-field="order.customerName" class="box-input"
                            placeholder="输入或选择客户"
                            autocomplete="off"
                            @focus="handleOrderCustomerFocus"
                            @input="handleOrderCustomerInput"
-                           @blur="handleOrderCustomerBlur" />
-                    <span class="combo-arrow" aria-hidden="true"></span>
+                           @blur="handleOrderCustomerBlur">
+                      <template #suffix>
+                        <span class="combo-arrow" aria-hidden="true"></span>
+                      </template>
+                    </el-input>
                     <div v-if="showCustomerOptions" class="combo-panel">
                       <button v-for="option in customerOptions" :key="option.id" type="button" class="combo-option"
                               @mousedown.prevent="chooseCustomer(option)">
@@ -764,13 +767,16 @@
                 <div class="relative">
                   <label class="field-label">项目名称 *</label>
                   <div class="combo-input-shell">
-                    <el-input v-model.trim="orderForm.projectName" data-field="order.projectName" class="box-input pr-10"
+                    <el-input v-model.trim="orderForm.projectName" data-field="order.projectName" class="box-input"
                            placeholder="选择客户后自动带出，也可输入新项目"
                            autocomplete="off"
                            @focus="handleProjectFocus"
                            @input="handleProjectInput"
-                           @blur="handleProjectBlur" />
-                    <span class="combo-arrow" aria-hidden="true"></span>
+                           @blur="handleProjectBlur">
+                      <template #suffix>
+                        <span class="combo-arrow" aria-hidden="true"></span>
+                      </template>
+                    </el-input>
                     <div v-if="showProjectOptions" class="combo-panel">
                       <button v-for="projectName in selectedCustomerProjects" :key="projectName" type="button"
                               class="combo-option" @mousedown.prevent="chooseProject(projectName)">
@@ -2744,14 +2750,12 @@ function fulfillmentProcessText(row = {}) {
 
 .combo-arrow {
   pointer-events: none;
-  position: absolute;
-  right: .75rem;
-  top: 50%;
+  display: block;
   width: .5rem;
   height: .5rem;
   border-right: 1.5px solid rgb(var(--on-surface-variant));
   border-bottom: 1.5px solid rgb(var(--on-surface-variant));
-  transform: translateY(-70%) rotate(45deg);
+  transform: translateY(-20%) rotate(45deg);
 }
 
 .combo-panel {
