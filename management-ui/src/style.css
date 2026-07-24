@@ -228,50 +228,6 @@ button[aria-disabled="true"],
   backdrop-filter: blur(18px);
 }
 
-/* ==========================================
-   统一按钮排版
-   保证各业务页、弹窗和筛选区的按钮高度、图文对齐与换行行为一致。
-   ========================================== */
-.el-button {
-  box-sizing: border-box;
-  min-width: 0;
-  max-width: 100%;
-  line-height: 1.25;
-  vertical-align: middle;
-  white-space: nowrap;
-}
-
-.el-button:not(.is-link):not(.is-text) {
-  min-height: var(--ys-control-height);
-  padding-inline: 0.875rem;
-}
-
-.el-button > span {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-}
-
-.el-button .material-symbols-outlined {
-  flex: 0 0 auto;
-}
-
-:where(.function-page-shell, .responsive-page-frame) :is(.function-filter-actions, [class*="-actions"], [class*="button-row"]) {
-  min-width: 0;
-}
-
-:where(.function-page-shell, .responsive-page-frame) :is(.function-filter-actions, [class*="-actions"], [class*="button-row"]) > :is(.el-button, .el-tooltip, .el-upload, span) {
-  min-width: 0;
-}
-
-:where(.function-page-shell, .responsive-page-frame) :is(.function-filter-actions, [class*="-actions"], [class*="button-row"]) .el-button + .el-button,
-.el-dialog__footer .el-button + .el-button,
-.el-drawer__footer .el-button + .el-button {
-  margin-left: 0;
-}
-
 /* Material Symbols 图标字体改为本地 npm 依赖，避免 Google Fonts 被网络或 VPN 影响。 */
 .material-symbols-outlined {
   font-family: "Material Symbols Outlined";
@@ -644,7 +600,8 @@ button[aria-disabled="true"],
   display: flex;
   width: 100%;
   min-width: 0;
-  flex: 1 0 100%;
+  flex: 0 0 auto;
+  align-self: stretch;
   grid-column: 1 / -1;
   align-items: center;
   justify-content: space-between;
@@ -954,24 +911,6 @@ button[aria-disabled="true"],
   .function-page-header .function-action-primary,
   .function-page-header .function-action-secondary,
   .function-page-header .function-action-dark {
-    width: 100%;
-  }
-
-  .function-page-header > :last-child,
-  .function-filter-actions,
-  .el-dialog__footer,
-  .el-drawer__footer {
-    align-items: stretch;
-  }
-
-  .function-page-header > :last-child > :is(.el-button, .el-tooltip, .el-upload, span),
-  .function-filter-actions > :is(.el-button, .el-tooltip, .el-upload, span) {
-    flex: 1 1 10rem;
-    min-width: 0;
-  }
-
-  .function-page-header > :last-child > :is(.el-tooltip, span) .el-button,
-  .function-filter-actions > :is(.el-tooltip, span) .el-button {
     width: 100%;
   }
 
