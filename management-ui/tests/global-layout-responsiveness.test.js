@@ -114,9 +114,13 @@ test('order customer and project arrows are scoped to their input shells', () =>
 
   assert.match(comboShell.declarations, /position\s*:\s*relative/)
   assert.equal((order.match(/class="combo-input-shell"/g) || []).length, 2)
+  assert.equal((order.match(/<template #suffix>/g) || []).length, 2)
   assert.equal((order.match(/class="combo-arrow" aria-hidden="true"/g) || []).length, 2)
-  assert.match(comboArrow.declarations, /top\s*:\s*50%/)
-  assert.match(comboArrow.declarations, /transform\s*:\s*translateY\(-70%\)\s+rotate\(45deg\)/)
+  assert.match(comboArrow.declarations, /display\s*:\s*block/)
+  assert.match(comboArrow.declarations, /transform\s*:\s*translateY\(-20%\)\s+rotate\(45deg\)/)
+  assert.doesNotMatch(comboArrow.declarations, /position\s*:\s*absolute/)
+  assert.doesNotMatch(comboArrow.declarations, /(?:^|\n)\s*right\s*:/)
+  assert.doesNotMatch(comboArrow.declarations, /(?:^|\n)\s*top\s*:/)
   assert.doesNotMatch(comboArrow.declarations, /top\s*:\s*2\.15rem/)
 })
 
