@@ -23,12 +23,15 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.FilterInputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.Base64;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -39,6 +42,8 @@ import java.util.stream.Collectors;
 public class OssStorageService implements FileStorageProvider {
 
     private static final String STORAGE_PROVIDER = "ALIYUN_OSS";
+    private static final String ORIGINAL_NAME_METADATA_KEY = "original-name-b64";
+    private static final String LEGACY_ORIGINAL_NAME_METADATA_KEY = "original-name";
 
     private final OssStorageProperties properties;
     private final ExternalApiGuardService externalApiGuardService;
@@ -95,7 +100,7 @@ public class OssStorageService implements FileStorageProvider {
             metadata.setContentLength(candidate.fileSize());
             metadata.setContentType(candidate.mimeType());
             metadata.addUserMetadata("tenant-code", candidate.tenantCode());
-            metadata.addUserMetadata("original-name", safeMetadataValue(candidate.originalName()));
+            metadata.addUserMetadata(ORIGINAL_NAME_METADATA_KEY, encodeMetadataValue(candidate.originalName()));
             metadata.addUserMetadata("sha256", fileHash);
 
             PutObjectResult result = ossClient.putObject(properties.getBucketName(), objectKey, inputStream, metadata);
@@ -111,9 +116,13 @@ public class OssStorageService implements FileStorageProvider {
                     .fileHash(fileHash)
                     .etag(result == null ? null : result.getETag())
                     .build();
-        } catch (OSSException | ClientException e) {
-            log.error("aliyun oss upload failed, tenantCode={}, objectKey={}, errorCode={}",
-                    candidate.tenantCode(), objectKey, e instanceof OSSException ossEx ? ossEx.getErrorCode() : e.getMessage(), e);
+        } catch (OSSException e) {
+            log.error("aliyun oss upload failed, tenantCode={}, objectKey={}, errorCode={}, requestId={}",
+                    candidate.tenantCode(), objectKey, e.getErrorCode(), e.getRequestId());
+            throw new BusinessException("文件上传失败，请稍后重试");
+        } catch (ClientException e) {
+            log.error("aliyun oss client upload failed, tenantCode={}, objectKey={}, exceptionType={}",
+                    candidate.tenantCode(), objectKey, e.getClass().getSimpleName());
             throw new BusinessException("文件上传失败，请稍后重试");
         } catch (IOException e) {
             log.error("read upload file failed, tenantCode={}, originalName={}", candidate.tenantCode(), candidate.originalName(), e);
@@ -275,10 +284,12 @@ public class OssStorageService implements FileStorageProvider {
                 ossClient.shutdown();
                 throw new BusinessException("文件不存在或已被删除");
             }
-            long contentLength = ossObject.getObjectMetadata() == null
+            ObjectMetadata objectMetadata = ossObject.getObjectMetadata();
+            long contentLength = objectMetadata == null
                     ? -1L
-                    : ossObject.getObjectMetadata().getContentLength();
-            String filename = objectKey.substring(objectKey.lastIndexOf('/') + 1);
+                    : objectMetadata.getContentLength();
+            String objectFilename = objectKey.substring(objectKey.lastIndexOf('/') + 1);
+            String filename = resolveOriginalFilename(objectMetadata, objectFilename);
             InputStream managedStream = new FilterInputStream(ossObject.getObjectContent()) {
                 private boolean closed;
 
@@ -363,8 +374,46 @@ public class OssStorageService implements FileStorageProvider {
         return StringUtils.hasText(normalized) ? normalized : "tenant";
     }
 
-    private String safeMetadataValue(String value) {
-        return value == null ? "" : value.replaceAll("[\\r\\n]", " ");
+    private String encodeMetadataValue(String value) {
+        String sanitized = value == null ? "" : value.replaceAll("[\\r\\n]", " ");
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(sanitized.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String resolveOriginalFilename(ObjectMetadata metadata, String fallbackFilename) {
+        Map<String, String> userMetadata = metadata == null ? null : metadata.getUserMetadata();
+        if (CollectionUtils.isEmpty(userMetadata)) {
+            return fallbackFilename;
+        }
+
+        String encodedName = userMetadata.get(ORIGINAL_NAME_METADATA_KEY);
+        if (StringUtils.hasText(encodedName)) {
+            try {
+                String decodedName = new String(
+                        Base64.getUrlDecoder().decode(encodedName),
+                        StandardCharsets.UTF_8
+                );
+                if (isSafeOriginalFilename(decodedName)) {
+                    return decodedName;
+                }
+            } catch (IllegalArgumentException exception) {
+                log.warn("ignore malformed oss original filename metadata");
+            }
+        }
+
+        String legacyName = userMetadata.get(LEGACY_ORIGINAL_NAME_METADATA_KEY);
+        return isSafeOriginalFilename(legacyName) ? legacyName : fallbackFilename;
+    }
+
+    private boolean isSafeOriginalFilename(String filename) {
+        return StringUtils.hasText(filename)
+                && filename.length() <= 180
+                && !filename.contains("..")
+                && !filename.contains("/")
+                && !filename.contains("\\")
+                && !filename.contains("\r")
+                && !filename.contains("\n");
     }
 
     private record FileCandidate(

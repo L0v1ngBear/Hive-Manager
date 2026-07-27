@@ -97,6 +97,18 @@ class BuiltInRoleCatalogTest {
             Set<String> permissions = catalog.require(code).permissions();
             assertTrue(permissions.stream().noneMatch(permission -> permission.startsWith("order:scope:production:")), code);
             assertFalse(permissions.contains("order:scope:tenant"), code);
+            for (String status : Set.of(
+                    "budgeting",
+                    "pending-confirm",
+                    "pending-pay",
+                    "pending-material",
+                    "producing",
+                    "pending-ship",
+                    "shipped"
+            )) {
+                assertTrue(permissions.contains("order:status:" + status + ":advance"),
+                        code + " should advance its scoped orders from " + status);
+            }
             assertTrue(permissions.contains("order:status:completed:view"), code + " should track its orders end-to-end");
         }
         for (String code : Set.of("PRODUCTION_STAFF", "PRODUCTION_MANAGER", "INSTALLATION_STAFF", "INSTALLATION_MANAGER")) {

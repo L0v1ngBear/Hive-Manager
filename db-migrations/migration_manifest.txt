@@ -83,3 +83,4 @@ migrations/V20260715_002_installation_task_installer.sql
 migrations/V20260716_001_operation_log_table.sql
 migrations/V20260717_001_order_multi_shipment.sql
 migrations/V20260718_001_unified_employee_login.sql
+migrations/V20260727_001_sales_order_advance_permissions.sql

@@ -8,12 +8,15 @@ import my.hive.shared.exception.BusinessException;
 import my.hive.shared.external.ExternalApiGuardService;
 import my.hive.shared.security.InternalStorageReference;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.InputStream;
 import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.Base64;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -92,6 +95,32 @@ class OssStorageServiceContractTest {
     }
 
     @Test
+    void unicodeOriginalFilenameIsStoredAsAsciiSafeMetadata() {
+        OssStorageProperties properties = configuredProperties();
+        OSS ossClient = mock(OSS.class);
+        when(ossClient.putObject(anyString(), anyString(), any(InputStream.class), any(ObjectMetadata.class)))
+                .thenReturn(mock(PutObjectResult.class));
+        OssStorageService service = new OssStorageService(properties, mock(ExternalApiGuardService.class), () -> ossClient);
+        String originalFilename = "北京客户报价单.pdf";
+        MockMultipartFile upload = new MockMultipartFile(
+                "file",
+                originalFilename,
+                "application/pdf",
+                "content".getBytes(StandardCharsets.UTF_8)
+        );
+
+        service.upload(upload, "tenant-a", "document");
+
+        ArgumentCaptor<ObjectMetadata> metadataCaptor = ArgumentCaptor.forClass(ObjectMetadata.class);
+        verify(ossClient).putObject(anyString(), anyString(), any(InputStream.class), metadataCaptor.capture());
+        String encodedName = metadataCaptor.getValue().getUserMetadata().get("original-name-b64");
+        assertThat(encodedName).matches("[A-Za-z0-9_-]+");
+        assertThat(metadataCaptor.getValue().getUserMetadata()).doesNotContainKey("original-name");
+        assertThat(new String(Base64.getUrlDecoder().decode(encodedName), StandardCharsets.UTF_8))
+                .isEqualTo(originalFilename);
+    }
+
+    @Test
     void disabledConfigurationFailsBeforeConstructingClientAndDoesNotExposeSecret() {
         OssStorageProperties properties = configuredProperties();
         properties.setEnabled(false);
@@ -128,6 +157,12 @@ class OssStorageServiceContractTest {
         ossObject.setObjectContent(new ByteArrayInputStream("content".getBytes()));
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentLength(7L);
+        metadata.addUserMetadata(
+                "original-name-b64",
+                Base64.getUrlEncoder()
+                        .withoutPadding()
+                        .encodeToString("客户附件.pdf".getBytes(StandardCharsets.UTF_8))
+        );
         ossObject.setObjectMetadata(metadata);
         when(ossClient.getObject(properties.getBucketName(), objectKey)).thenReturn(ossObject);
         OssStorageService service = new OssStorageService(properties, mock(ExternalApiGuardService.class), () -> ossClient);
@@ -139,6 +174,7 @@ class OssStorageServiceContractTest {
         );
 
         try (InputStream inputStream = resource.getInputStream()) {
+            assertThat(resource.getFilename()).isEqualTo("客户附件.pdf");
             assertThat(inputStream.readAllBytes()).isEqualTo("content".getBytes());
         }
         verify(ossClient).getObject(properties.getBucketName(), objectKey);
