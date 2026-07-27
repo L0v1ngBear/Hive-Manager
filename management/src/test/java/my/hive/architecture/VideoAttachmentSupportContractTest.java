@@ -25,6 +25,8 @@ class VideoAttachmentSupportContractTest {
         }
         assertTrue(application.contains("APP_UPLOAD_MAX_FILE_SIZE:200MB"));
         assertTrue(application.contains("APP_UPLOAD_MAX_REQUEST_SIZE:210MB"));
+        assertTrue(application.contains("APP_UPLOAD_MAX_FILE_SIZE_MB:800"));
+        assertTrue(application.contains("ALIYUN_OSS_MAX_FILE_SIZE_MB:800"));
     }
 
     private String read(String relativePath) throws IOException {

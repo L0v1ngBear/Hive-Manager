@@ -100,12 +100,17 @@ test('successful and failed hover queries are both throttled locally', async () 
   assert.ok(failureState.retryAfter > Date.now())
 })
 
-test('tracking popover renders loading, error, cache and trace states without exposing credentials', () => {
+test('tracking popover renders loading, error and reference-aligned trace states without exposing credentials', () => {
   assert.match(orderSource, /物流轨迹加载中/)
   assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.errorMessage/)
   assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.data\.latestContext/)
   assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.data\.traces/)
-  assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.data\.cached/)
+  assert.match(orderSource, /class="order-logistics-timeline-title"/)
+  assert.match(orderSource, /物流跟踪/)
+  assert.match(orderSource, /function logisticsTrackingRoute\(data = \{\}\)/)
+  assert.match(orderSource, /function copyTrackingNumber\(shipment = \{\}\)/)
+  assert.match(orderSource, /aria-label="复制运单号"/)
+  assert.doesNotMatch(orderSource, /缓存结果，30分钟内不重复查询|刚刚查询，结果已缓存30分钟/)
   assert.doesNotMatch(orderSource, /KUAIDI100_(?:KEY|CUSTOMER)|secret-key|customer-code/)
 })
 

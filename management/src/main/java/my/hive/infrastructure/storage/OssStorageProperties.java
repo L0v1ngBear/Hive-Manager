@@ -27,7 +27,7 @@ public class OssStorageProperties {
 
     private String pathPrefix = "hive";
 
-    private long maxFileSizeMb = 200;
+    private long maxFileSizeMb = 800;
 
     private List<String> allowedExtensions = new ArrayList<>(Arrays.asList(
             "jpg", "jpeg", "png", "webp", "pdf", "doc", "docx", "xls", "xlsx", "csv",
@@ -48,6 +48,8 @@ public class OssStorageProperties {
             "text/plain",
             "application/zip",
             "application/x-rar-compressed",
+            "application/vnd.rar",
+            "application/x-7z-compressed",
             "application/vnd.ms-powerpoint",
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "video/mp4",

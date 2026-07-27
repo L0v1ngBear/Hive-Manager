@@ -15,7 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/storage/chunked-video")
+@RequestMapping({"/storage/chunked-attachment", "/storage/chunked-video"})
 public class ChunkedVideoUploadController {
     private static final Map<String, String> PERMISSIONS = Map.of(
             "sales-order", PermissionCatalogV3.CODE_ORDER_CREATE,
@@ -30,5 +30,5 @@ public class ChunkedVideoUploadController {
     public Result<Void> part(@PathVariable String module, @PathVariable String uploadId, @PathVariable int partNumber, @RequestParam("file") MultipartFile file) { requirePermission(module); chunkedVideoUploadService.uploadPart(module, uploadId, partNumber, file); return Result.success(null); }
     @PostMapping("/{module}/{uploadId}/complete")
     public Result<BusinessAttachmentVO> complete(@PathVariable String module, @PathVariable String uploadId) { requirePermission(module); return Result.success(chunkedVideoUploadService.complete(module, uploadId)); }
-    private void requirePermission(String module) { String permission = PERMISSIONS.get(module); if (permission == null || !TenantPermissionContext.hasPermission(permission)) throw new BusinessException("当前账号没有上传该视频附件的权限"); }
+    private void requirePermission(String module) { String permission = PERMISSIONS.get(module); if (permission == null || !TenantPermissionContext.hasPermission(permission)) throw new BusinessException("当前账号没有上传该附件的权限"); }
 }

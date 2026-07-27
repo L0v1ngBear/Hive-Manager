@@ -7,7 +7,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
+import java.lang.reflect.Array;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.Collections;
@@ -50,6 +53,58 @@ public class SensitiveDataSanitizer {
     }
 
     public JsonNode toSafeTree(Object value) {
+        if (value == null) {
+            return objectMapper.getNodeFactory().nullNode();
+        }
+        if (value instanceof MultipartFile file) {
+            ObjectNode summary = objectMapper.getNodeFactory().objectNode();
+            summary.put("type", "multipart-file");
+            summary.put("fieldName", file.getName());
+            summary.put("contentType", file.getContentType());
+            summary.put("size", file.getSize());
+            summary.put("empty", file.isEmpty());
+            return summary;
+        }
+        if (value instanceof byte[] bytes) {
+            return objectMapper.getNodeFactory().textNode("[binary " + bytes.length + " bytes omitted]");
+        }
+        if (value instanceof InputStream) {
+            return objectMapper.getNodeFactory().textNode("[stream omitted]");
+        }
+        if (value instanceof Object[] values) {
+            ArrayNode arrayNode = objectMapper.getNodeFactory().arrayNode();
+            for (Object item : values) {
+                arrayNode.add(toSafeTree(item));
+            }
+            return arrayNode;
+        }
+        if (value instanceof Iterable<?> values) {
+            ArrayNode arrayNode = objectMapper.getNodeFactory().arrayNode();
+            for (Object item : values) {
+                arrayNode.add(toSafeTree(item));
+            }
+            return arrayNode;
+        }
+        if (value instanceof Map<?, ?> values) {
+            ObjectNode objectNode = objectMapper.getNodeFactory().objectNode();
+            values.forEach((key, item) -> {
+                String fieldName = String.valueOf(key);
+                if (isSensitive(fieldName)) {
+                    objectNode.put(fieldName, MASK);
+                } else {
+                    objectNode.set(fieldName, toSafeTree(item));
+                }
+            });
+            return objectNode;
+        }
+        if (value.getClass().isArray()) {
+            ArrayNode arrayNode = objectMapper.getNodeFactory().arrayNode();
+            int length = Array.getLength(value);
+            for (int index = 0; index < length; index += 1) {
+                arrayNode.add(toSafeTree(Array.get(value, index)));
+            }
+            return arrayNode;
+        }
         JsonNode node = objectMapper.valueToTree(value);
         return sanitizeNode(node);
     }

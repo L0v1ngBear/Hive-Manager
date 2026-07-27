@@ -2,12 +2,16 @@ package my.hive.shared.log;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class SensitiveDataSanitizerTest {
 
@@ -43,5 +47,32 @@ class SensitiveDataSanitizerTest {
                 .doesNotContain("SF123")
                 .contains(SensitiveDataSanitizer.DATA_CONSTRAINT_MESSAGE)
                 .contains("Order is already closed");
+    }
+
+    @Test
+    void summarizesMultipartFilesWithoutReadingOrSerializingTheirBytes() throws Exception {
+        MultipartFile file = mock(MultipartFile.class);
+        when(file.getName()).thenReturn("file");
+        when(file.getContentType()).thenReturn("video/mp4");
+        when(file.getSize()).thenReturn(178_257_920L);
+        when(file.isEmpty()).thenReturn(false);
+
+        String safeJson = sanitizer.toSafeJson(new Object[]{file, "TENANT_001"});
+
+        assertThat(safeJson)
+                .contains("\"type\":\"multipart-file\"")
+                .contains("\"fieldName\":\"file\"")
+                .contains("\"contentType\":\"video/mp4\"")
+                .contains("\"size\":178257920")
+                .doesNotContain("originalFilename")
+                .doesNotContain("bytes");
+        verify(file, never()).getBytes();
+        verify(file, never()).getInputStream();
+    }
+
+    @Test
+    void replacesRawBinaryValuesWithTheirLengthOnly() {
+        assertThat(sanitizer.toSafeJson(new byte[1024]))
+                .isEqualTo("\"[binary 1024 bytes omitted]\"");
     }
 }

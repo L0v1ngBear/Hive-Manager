@@ -332,9 +332,13 @@
                       </template>
                       <section class="order-logistics-card" aria-live="polite">
                       <header class="order-logistics-header">
-                        <div>
-                          <div class="order-logistics-company">{{ shipment.logisticsCompany || '物流信息' }}</div>
-                          <div class="order-logistics-number">单号 {{ shipment.trackingNo }}</div>
+                        <div class="order-logistics-heading">
+                          <span class="order-logistics-heading-icon material-symbols-outlined" aria-hidden="true">
+                            local_shipping
+                          </span>
+                          <div>
+                            <div class="order-logistics-company">{{ shipment.logisticsCompany || '物流信息' }}</div>
+                          </div>
                         </div>
                         <span
                             v-if="logisticsTrackingState(row, shipment).data"
@@ -343,6 +347,18 @@
                           {{ logisticsTrackingState(row, shipment).data.stateLabel || '物流状态已更新' }}
                         </span>
                       </header>
+                      <div class="order-logistics-waybill">
+                        <span>单号</span>
+                        <strong>{{ shipment.trackingNo }}</strong>
+                        <button
+                            type="button"
+                            class="order-logistics-copy"
+                            aria-label="复制运单号"
+                            @click.stop="copyTrackingNumber(shipment)"
+                        >
+                          <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
+                        </button>
+                      </div>
 
                       <div v-if="logisticsTrackingState(row, shipment).loading" class="order-logistics-feedback">
                         <span class="order-logistics-spinner" aria-hidden="true"></span>
@@ -356,17 +372,26 @@
                         <span>{{ logisticsTrackingState(row, shipment).errorMessage }}</span>
                       </div>
                       <template v-else-if="logisticsTrackingState(row, shipment).data">
-                        <div class="order-logistics-latest">
-                          <span class="material-symbols-outlined" aria-hidden="true">route</span>
-                          <div>
-                            <strong>{{ logisticsTrackingState(row, shipment).data.latestContext || '暂未返回物流轨迹' }}</strong>
-                            <span>{{ logisticsTrackingState(row, shipment).data.latestTime || '更新时间未知' }}</span>
-                          </div>
+                        <div
+                            v-if="logisticsTrackingRoute(logisticsTrackingState(row, shipment).data)"
+                            class="order-logistics-route"
+                        >
+                          <span class="material-symbols-outlined" aria-hidden="true">trip_origin</span>
+                          <span>{{ logisticsTrackingRoute(logisticsTrackingState(row, shipment).data).origin }}</span>
+                          <span class="material-symbols-outlined order-logistics-route-arrow" aria-hidden="true">
+                            arrow_forward
+                          </span>
+                          <span class="material-symbols-outlined" aria-hidden="true">location_on</span>
+                          <span>{{ logisticsTrackingRoute(logisticsTrackingState(row, shipment).data).destination }}</span>
                         </div>
                         <div
                             v-if="logisticsTrackingState(row, shipment).data.traces?.length"
                             class="order-logistics-timeline"
                         >
+                          <div class="order-logistics-timeline-title">
+                            <span>物流跟踪</span>
+                            <span>共 {{ logisticsTrackingState(row, shipment).data.traces.length }} 条</span>
+                          </div>
                           <div
                               v-for="(trace, traceIndex) in logisticsTrackingState(row, shipment).data.traces"
                               :key="`${trace.time || 'trace'}-${traceIndex}`"
@@ -381,10 +406,9 @@
                             </div>
                           </div>
                         </div>
-                        <div v-else class="order-logistics-feedback">暂未返回物流路径</div>
-                        <footer class="order-logistics-footer">
-                          {{ logisticsTrackingState(row, shipment).data.cached ? '缓存结果，30分钟内不重复查询' : '刚刚查询，结果已缓存30分钟' }}
-                        </footer>
+                        <div v-else class="order-logistics-feedback">
+                          {{ logisticsTrackingState(row, shipment).data.latestContext || '暂未返回物流路径' }}
+                        </div>
                       </template>
                       </section>
                     </el-popover>
@@ -966,7 +990,7 @@
                 <DragAttachmentUpload
                   v-if="canEditCurrentOrderForm"
                   title="上传合同、客户需求或沟通截图"
-                  helper-text="支持图片、视频和文档，单个文件不超过 200MB"
+                  helper-text="支持图片、视频、文档和压缩包，单个文件不超过 800MB；大文件自动分片上传"
                   :uploading="orderAttachmentUploading"
                   :file-name="orderForm.attachmentName"
                   :file-url="orderForm.attachmentUrl"
@@ -1895,6 +1919,27 @@ function logisticsTrackingCacheValid(data) {
   return Number.isFinite(expiresAt) && expiresAt > Date.now()
 }
 
+function logisticsTrackingRoute(data = {}) {
+  const locations = (Array.isArray(data?.traces) ? data.traces : [])
+    .map(trace => String(trace?.location || '').trim())
+    .filter(Boolean)
+  if (locations.length < 2) return null
+  const origin = locations[locations.length - 1]
+  const destination = locations[0]
+  return origin === destination ? null : {origin, destination}
+}
+
+async function copyTrackingNumber(shipment = {}) {
+  const trackingNo = String(shipment?.trackingNo || '').trim()
+  if (!trackingNo) return
+  try {
+    await navigator.clipboard.writeText(trackingNo)
+    ElMessage.success('运单号已复制')
+  } catch {
+    ElMessage.warning('复制失败，请手动复制运单号')
+  }
+}
+
 async function loadLogisticsTracking(row, shipment) {
   if (!canViewOrderDetail(row) || !row?.orderId || !shipment?.id) return
   const tracking = logisticsTrackingState(row, shipment)
@@ -2202,8 +2247,8 @@ async function handleOrderAttachmentFile(file) {
   if (!file) {
     return
   }
-  if (file.size > 200 * 1024 * 1024) {
-    ElMessage.warning('订单附件不能超过 200MB')
+  if (file.size > 800 * 1024 * 1024) {
+    ElMessage.warning('订单附件不能超过 800MB')
     return
   }
 
@@ -4142,44 +4187,105 @@ function fulfillmentProcessText(row = {}) {
 }
 
 :global(.order-logistics-popover.el-popper) {
-  border: 1px solid rgb(var(--outline-variant) / .55);
-  border-radius: .5rem;
+  border: 1px solid var(--ys-line);
+  border-radius: .75rem;
   padding: 0;
   overflow: hidden;
-  box-shadow: 0 14px 34px rgb(15 49 73 / .2);
+  box-shadow: 0 18px 46px rgb(15 49 73 / .18);
 }
 
 .order-logistics-card {
-  background: rgb(var(--surface));
+  background: rgb(var(--primary) / .05);
   color: rgb(var(--on-surface));
 }
 
 .order-logistics-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: .9rem 1rem;
-  border-bottom: 1px solid rgb(var(--outline-variant) / .35);
-  background: rgb(var(--surface-container-low));
+  padding: .48rem 1rem;
+  border-bottom: 1px solid rgb(var(--on-surface-variant) / .14);
+  background: rgb(var(--primary) / .08);
+}
+
+.order-logistics-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: .7rem;
+}
+
+.order-logistics-heading-icon {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: .45rem;
+  background: rgb(var(--primary));
+  color: rgb(var(--on-primary));
+  font-size: 1.15rem;
 }
 
 .order-logistics-company {
-  font-size: .92rem;
+  overflow: hidden;
+  font-size: .95rem;
   font-weight: 900;
-}
-
-.order-logistics-number {
-  margin-top: .2rem;
-  color: rgb(var(--on-surface-variant));
-  font-size: .76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .order-logistics-state {
   flex: 0 0 auto;
-  color: rgb(var(--secondary));
+  color: var(--ys-primary-dark);
   font-size: .76rem;
   font-weight: 900;
+  padding: .28rem .5rem;
+  border-radius: 999px;
+  background: rgb(var(--primary) / .12);
+}
+
+.order-logistics-waybill {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .5rem;
+  margin: .32rem 1rem 0;
+  padding: .24rem .5rem;
+  border: 1px solid rgb(var(--on-surface-variant) / .16);
+  border-radius: .4rem;
+  background: rgb(var(--surface-container-lowest));
+  color: rgb(var(--on-surface-variant));
+  font-size: .74rem;
+}
+
+.order-logistics-waybill strong {
+  color: rgb(var(--primary));
+  font-size: .82rem;
+  overflow-wrap: anywhere;
+}
+
+.order-logistics-copy {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border: 0;
+  border-radius: .35rem;
+  background: transparent;
+  color: var(--ys-on-surface-variant);
+  cursor: pointer;
+}
+
+.order-logistics-copy:hover,
+.order-logistics-copy:focus-visible {
+  background: rgb(var(--surface-container-high));
+  color: rgb(var(--primary));
+}
+
+.order-logistics-copy .material-symbols-outlined {
+  font-size: 1rem;
 }
 
 .order-logistics-feedback {
@@ -4194,48 +4300,65 @@ function fulfillmentProcessText(row = {}) {
 }
 
 .order-logistics-feedback-error {
-  color: rgb(var(--error));
+  color: #ba1a1a;
 }
 
 .order-logistics-spinner {
   width: 1rem;
   height: 1rem;
-  border: 2px solid rgb(var(--outline-variant));
+  border: 2px solid var(--ys-line);
   border-top-color: rgb(var(--primary));
   border-radius: 50%;
   animation: order-logistics-spin .8s linear infinite;
 }
 
-.order-logistics-latest {
+.order-logistics-route {
   display: flex;
-  gap: .6rem;
-  padding: .85rem 1rem;
-  background: rgb(var(--primary-container) / .55);
-}
-
-.order-logistics-latest .material-symbols-outlined {
-  color: rgb(var(--primary));
-  font-size: 1.2rem;
-}
-
-.order-logistics-latest div {
-  display: grid;
-  gap: .2rem;
-}
-
-.order-logistics-latest strong {
-  line-height: 1.45;
-}
-
-.order-logistics-latest span {
+  min-width: 0;
+  align-items: center;
+  gap: .35rem;
+  padding: .36rem 1rem;
+  border-bottom: 1px solid rgb(var(--on-surface-variant) / .14);
   color: rgb(var(--on-surface-variant));
-  font-size: .75rem;
+  font-size: .74rem;
+  overflow-wrap: anywhere;
+}
+
+.order-logistics-route > .material-symbols-outlined {
+  flex: 0 0 auto;
+  color: rgb(var(--primary));
+  font-size: .95rem;
+}
+
+.order-logistics-route > .order-logistics-route-arrow {
+  color: rgb(var(--on-surface-variant) / .55);
+  font-size: .8rem;
 }
 
 .order-logistics-timeline {
   max-height: 17rem;
   overflow-y: auto;
-  padding: .85rem 1rem .35rem;
+  padding: .5rem 1rem .2rem;
+  background: rgb(var(--surface-container-lowest));
+  scrollbar-color: var(--ys-line) transparent;
+  scrollbar-width: thin;
+}
+
+.order-logistics-timeline-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .5rem;
+  padding-bottom: .3rem;
+  border-bottom: 1px solid rgb(var(--on-surface-variant) / .14);
+  color: rgb(var(--on-surface-variant));
+  font-size: .72rem;
+}
+
+.order-logistics-timeline-title span:first-child {
+  color: rgb(var(--on-surface));
+  font-size: .78rem;
+  font-weight: 900;
 }
 
 .order-logistics-trace {
@@ -4243,7 +4366,7 @@ function fulfillmentProcessText(row = {}) {
   display: grid;
   grid-template-columns: .75rem minmax(0, 1fr);
   gap: .55rem;
-  padding-bottom: .85rem;
+  padding-bottom: .48rem;
 }
 
 .order-logistics-trace::before {
@@ -4253,7 +4376,7 @@ function fulfillmentProcessText(row = {}) {
   top: .7rem;
   bottom: 0;
   width: 1px;
-  background: rgb(var(--outline-variant));
+  background: rgb(var(--on-surface-variant) / .28);
 }
 
 .order-logistics-trace:last-child::before {
@@ -4266,15 +4389,20 @@ function fulfillmentProcessText(row = {}) {
   width: .62rem;
   height: .62rem;
   margin-top: .25rem;
-  border: 2px solid rgb(var(--surface));
+  border: 2px solid rgb(var(--surface-container-lowest));
   border-radius: 50%;
-  background: rgb(var(--outline));
-  box-shadow: 0 0 0 1px rgb(var(--outline-variant));
+  background: rgb(var(--on-surface-variant) / .45);
+  box-shadow: 0 0 0 1px rgb(var(--on-surface-variant) / .18);
 }
 
 .order-logistics-trace.is-latest .order-logistics-trace-dot {
-  background: rgb(var(--secondary));
-  box-shadow: 0 0 0 2px rgb(var(--secondary-container));
+  background: rgb(var(--primary));
+  box-shadow: 0 0 0 2px rgb(var(--primary) / .14);
+}
+
+.order-logistics-trace.is-latest p {
+  color: rgb(var(--on-surface));
+  font-weight: 800;
 }
 
 .order-logistics-trace time {
@@ -4283,8 +4411,9 @@ function fulfillmentProcessText(row = {}) {
 }
 
 .order-logistics-trace p {
-  margin: .18rem 0 0;
-  line-height: 1.5;
+  margin: .12rem 0 0;
+  font-size: .78rem;
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
@@ -4292,14 +4421,6 @@ function fulfillmentProcessText(row = {}) {
   display: block;
   margin-top: .18rem;
   color: rgb(var(--on-surface-variant));
-}
-
-.order-logistics-footer {
-  padding: .55rem 1rem;
-  border-top: 1px solid rgb(var(--outline-variant) / .35);
-  color: rgb(var(--on-surface-variant));
-  font-size: .7rem;
-  text-align: right;
 }
 
 @keyframes order-logistics-spin {

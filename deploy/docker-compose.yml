@@ -190,7 +190,7 @@ services:
       FILE_STORAGE_PROVIDER: ${FILE_STORAGE_PROVIDER:-local}
       APP_UPLOAD_MAX_FILE_SIZE: ${APP_UPLOAD_MAX_FILE_SIZE:-200MB}
       APP_UPLOAD_MAX_REQUEST_SIZE: ${APP_UPLOAD_MAX_REQUEST_SIZE:-210MB}
-      APP_UPLOAD_MAX_FILE_SIZE_MB: ${APP_UPLOAD_MAX_FILE_SIZE_MB:-200}
+      APP_UPLOAD_MAX_FILE_SIZE_MB: ${APP_UPLOAD_MAX_FILE_SIZE_MB:-800}
       ALIYUN_OSS_ENABLED: ${ALIYUN_OSS_ENABLED:-false}
       ALIYUN_OSS_ENDPOINT: ${ALIYUN_OSS_ENDPOINT:-}
       ALIYUN_OSS_BUCKET: ${ALIYUN_OSS_BUCKET:-}
@@ -198,9 +198,9 @@ services:
       ALIYUN_OSS_ACCESS_KEY_SECRET: ${ALIYUN_OSS_ACCESS_KEY_SECRET:-}
       ALIYUN_OSS_PUBLIC_BASE_URL: ${ALIYUN_OSS_PUBLIC_BASE_URL:-}
       ALIYUN_OSS_PATH_PREFIX: ${ALIYUN_OSS_PATH_PREFIX:-hive}
-      ALIYUN_OSS_MAX_FILE_SIZE_MB: ${ALIYUN_OSS_MAX_FILE_SIZE_MB:-200}
+      ALIYUN_OSS_MAX_FILE_SIZE_MB: ${ALIYUN_OSS_MAX_FILE_SIZE_MB:-800}
       ALIYUN_OSS_ALLOWED_EXTENSIONS: ${ALIYUN_OSS_ALLOWED_EXTENSIONS:-jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,csv,txt,zip,rar,7z,ppt,pptx,mp4,mov,m4v,avi,mkv,webm,3gp}
-      ALIYUN_OSS_ALLOWED_CONTENT_TYPES: ${ALIYUN_OSS_ALLOWED_CONTENT_TYPES:-image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain,application/zip,application/x-rar-compressed,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,video/mp4,video/quicktime,video/x-m4v,video/x-msvideo,video/x-matroska,video/webm,video/3gpp}
+      ALIYUN_OSS_ALLOWED_CONTENT_TYPES: ${ALIYUN_OSS_ALLOWED_CONTENT_TYPES:-image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain,application/zip,application/x-rar-compressed,application/vnd.rar,application/x-7z-compressed,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,video/mp4,video/quicktime,video/x-m4v,video/x-msvideo,video/x-matroska,video/webm,video/3gpp}
       DB_MAINTENANCE_ENABLED: ${DB_MAINTENANCE_ENABLED:-true}
       DB_MAINTENANCE_CLEANUP_ENABLED: ${DB_MAINTENANCE_CLEANUP_ENABLED:-true}
       DB_CLEANUP_BATCH_SIZE: ${DB_CLEANUP_BATCH_SIZE:-5000}

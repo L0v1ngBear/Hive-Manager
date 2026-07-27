@@ -15,7 +15,7 @@ spring:
 
 app:
   upload:
-    max-file-size-mb: ${APP_UPLOAD_MAX_FILE_SIZE_MB:200}
+    max-file-size-mb: ${APP_UPLOAD_MAX_FILE_SIZE_MB:800}
     image-compression:
       enabled: ${APP_UPLOAD_IMAGE_COMPRESSION_ENABLED:true}
       min-file-size-kb: ${APP_UPLOAD_IMAGE_COMPRESSION_MIN_FILE_SIZE_KB:250}
@@ -23,7 +23,7 @@ app:
       max-pixels: ${APP_UPLOAD_IMAGE_COMPRESSION_MAX_PIXELS:40000000}
       jpeg-quality: ${APP_UPLOAD_IMAGE_COMPRESSION_JPEG_QUALITY:0.82}
     chunked-video:
-      chunk-size-mb: ${APP_UPLOAD_CHUNKED_VIDEO_CHUNK_SIZE_MB:5}
+      chunk-size-mb: ${APP_UPLOAD_CHUNKED_VIDEO_CHUNK_SIZE_MB:10}
       expire-hours: ${APP_UPLOAD_CHUNKED_VIDEO_EXPIRE_HOURS:24}
 
 tenant:
@@ -85,9 +85,9 @@ storage:
     access-key-secret: ${ALIYUN_OSS_ACCESS_KEY_SECRET:}
     public-base-url: ${ALIYUN_OSS_PUBLIC_BASE_URL:}
     path-prefix: ${ALIYUN_OSS_PATH_PREFIX:hive}
-    max-file-size-mb: ${ALIYUN_OSS_MAX_FILE_SIZE_MB:200}
+    max-file-size-mb: ${ALIYUN_OSS_MAX_FILE_SIZE_MB:800}
     allowed-extensions: ${ALIYUN_OSS_ALLOWED_EXTENSIONS:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,csv,txt,zip,rar,7z,ppt,pptx,mp4,mov,m4v,avi,mkv,webm,3gp}
-    allowed-content-types: ${ALIYUN_OSS_ALLOWED_CONTENT_TYPES:image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain,application/zip,application/x-rar-compressed,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,video/mp4,video/quicktime,video/x-m4v,video/x-msvideo,video/x-matroska,video/webm,video/3gpp}
+    allowed-content-types: ${ALIYUN_OSS_ALLOWED_CONTENT_TYPES:image/jpeg,image/png,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain,application/zip,application/x-rar-compressed,application/vnd.rar,application/x-7z-compressed,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,video/mp4,video/quicktime,video/x-m4v,video/x-msvideo,video/x-matroska,video/webm,video/3gpp}
 
 notification:
   sms:

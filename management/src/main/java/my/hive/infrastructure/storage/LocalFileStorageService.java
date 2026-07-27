@@ -40,7 +40,7 @@ public class LocalFileStorageService implements FileStorageProvider {
     @Value("${app.upload.root:uploads}")
     private String uploadRoot;
 
-    @Value("${app.upload.max-file-size-mb:200}")
+    @Value("${app.upload.max-file-size-mb:800}")
     private long maxFileSizeMb;
 
     @Value("${server.servlet.context-path:}")

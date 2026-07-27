@@ -1,18 +1,18 @@
 import request from '@/utils/request.js'
 
-const VIDEO_EXTENSIONS = ['mp4', 'mov', 'm4v', 'avi', 'mkv', 'webm', '3gp']
-const STORAGE_KEY_PREFIX = 'hive:chunked-video:'
+const LARGE_FILE_THRESHOLD = 20 * 1024 * 1024
+const STORAGE_KEY_PREFIX = 'hive:chunked-attachment:'
 
-export function uploadAttachmentWithVideoChunks(file, fallbackUpload, module) {
-  if (!isVideo(file)) return fallbackUpload()
-  return uploadVideoInChunks(file, module)
+export function uploadAttachmentWithChunks(file, fallbackUpload, module) {
+  if (!shouldUseChunks(file)) return fallbackUpload()
+  return uploadFileInChunks(file, module)
 }
 
-async function uploadVideoInChunks(file, module) {
+async function uploadFileInChunks(file, module) {
   const key = `${STORAGE_KEY_PREFIX}${module}:${file.name}:${file.size}:${file.lastModified}`
   const storedId = safeStorageGet(key)
   const init = await request({
-    url: `/storage/chunked-video/${module}/init`, method: 'post',
+    url: `/storage/chunked-attachment/${module}/init`, method: 'post',
     data: { uploadId: storedId || undefined, fileName: file.name, contentType: file.type, fileSize: file.size },
     timeout: 30000, showGlobalLoading: false
   })
@@ -26,13 +26,13 @@ async function uploadVideoInChunks(file, module) {
       const formData = new FormData()
       formData.append('file', file.slice(start, Math.min(start + init.chunkSize, file.size)), file.name)
       await request({
-        url: `/storage/chunked-video/${module}/${init.uploadId}/part/${partNumber}`,
+        url: `/storage/chunked-attachment/${module}/${init.uploadId}/part/${partNumber}`,
         method: 'post', data: formData, timeout: 120000, showGlobalLoading: false
       })
     }
     const result = await request({
-      url: `/storage/chunked-video/${module}/${init.uploadId}/complete`, method: 'post',
-      timeout: 600000, showGlobalLoading: false
+      url: `/storage/chunked-attachment/${module}/${init.uploadId}/complete`, method: 'post',
+      timeout: 1800000, showGlobalLoading: false
     })
     completed = true
     return result
@@ -41,11 +41,8 @@ async function uploadVideoInChunks(file, module) {
   }
 }
 
-function isVideo(file) {
-  if (!file) return false
-  if (String(file.type || '').toLowerCase().startsWith('video/')) return true
-  const extension = String(file.name || '').split('.').pop().toLowerCase()
-  return VIDEO_EXTENSIONS.includes(extension)
+function shouldUseChunks(file) {
+  return Number(file?.size || 0) > LARGE_FILE_THRESHOLD
 }
 function safeStorageGet(key) { try { return sessionStorage.getItem(key) } catch { return null } }
 function safeStorageSet(key, value) { try { sessionStorage.setItem(key, value) } catch { /* browser storage unavailable */ } }

@@ -29,7 +29,7 @@ public class BusinessAttachmentService {
             "mp4", "mov", "m4v", "avi", "mkv", "webm", "3gp"
     );
 
-    @Value("${app.upload.max-file-size-mb:200}")
+    @Value("${app.upload.max-file-size-mb:800}")
     private long maxFileSizeMb;
 
     @Resource

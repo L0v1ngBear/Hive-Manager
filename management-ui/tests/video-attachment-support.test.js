@@ -41,3 +41,18 @@ test('video attachment requests and reverse proxy allow slow large uploads', () 
   assert.match(nginx, /proxy_send_timeout\s+600s/)
   assert.match(nginx, /proxy_read_timeout\s+600s/)
 })
+
+test('order archives up to 800MB use resumable generic chunk uploads', () => {
+  const chunkedUpload = read('src/utils/chunkedAttachmentUpload.js')
+  const orderPage = read('src/views/function/order/order.vue')
+  const orderApi = read('src/views/function/order/api/order.js')
+
+  assert.match(chunkedUpload, /LARGE_FILE_THRESHOLD\s*=\s*20\s*\*\s*1024\s*\*\s*1024/)
+  assert.match(chunkedUpload, /Number\(file\?\.size \|\| 0\) > LARGE_FILE_THRESHOLD/)
+  assert.match(chunkedUpload, /\/storage\/chunked-attachment\/\$\{module\}\/init/)
+  assert.match(chunkedUpload, /\/storage\/chunked-attachment\/\$\{module\}\/\$\{init\.uploadId\}\/part/)
+  assert.match(chunkedUpload, /\/storage\/chunked-attachment\/\$\{module\}\/\$\{init\.uploadId\}\/complete/)
+  assert.match(orderApi, /uploadAttachmentWithChunks/)
+  assert.match(orderPage, /800 \* 1024 \* 1024/)
+  assert.match(orderPage, /大文件自动分片上传/)
+})
