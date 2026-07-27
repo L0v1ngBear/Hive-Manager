@@ -43,12 +43,12 @@ test('unified employee login migration guards duplicates before adding the tenan
   assert.doesNotMatch(sql, /INSERT\s+INTO\s+`?user`?/i);
 });
 
-test('unified employee login migration is appended to the manifest with its checksum', () => {
+test('unified employee login migration remains registered with its checksum', () => {
   const manifest = fs.readFileSync(manifestPath, 'utf8').trim().split(/\r?\n/).filter(Boolean);
   const checksums = fs.readFileSync(checksumPath, 'utf8');
   const migrationChecksum = createHash('sha256').update(fs.readFileSync(migrationPath)).digest('hex');
 
-  assert.equal(manifest.at(-1), relativeMigration);
+  assert.equal(manifest.filter((entry) => entry === relativeMigration).length, 1);
   assert.match(checksums, new RegExp(`^${migrationChecksum}  ${relativeMigration.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'));
 });
 

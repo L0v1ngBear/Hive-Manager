@@ -1143,6 +1143,7 @@ const filters = reactive({
 })
 const orderState = reactive({rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false, requestState: 'ready', errorMessage: ''})
 const logisticsTrackingStates = reactive({})
+const LOGISTICS_TRACKING_FAILURE_RETRY_MS = 30 * 1000
 let orderRequestId = 0
 const orderSummary = reactive({total: 0})
 const orderWarningSetting = reactive({
@@ -1882,7 +1883,8 @@ function logisticsTrackingState(row = {}, shipment = {}) {
     logisticsTrackingStates[key] = {
       loading: false,
       data: null,
-      errorMessage: ''
+      errorMessage: '',
+      retryAfter: 0
     }
   }
   return logisticsTrackingStates[key]
@@ -1896,14 +1898,18 @@ function logisticsTrackingCacheValid(data) {
 async function loadLogisticsTracking(row, shipment) {
   if (!canViewOrderDetail(row) || !row?.orderId || !shipment?.id) return
   const tracking = logisticsTrackingState(row, shipment)
-  if (tracking.loading || logisticsTrackingCacheValid(tracking.data)) return
+  if (tracking.loading
+    || logisticsTrackingCacheValid(tracking.data)
+    || tracking.retryAfter > Date.now()) return
 
   tracking.loading = true
   tracking.errorMessage = ''
   try {
-    tracking.data = await getOrderLogisticsTracking(row.orderId, shipment.id)
+    tracking.data = await getOrderLogisticsTracking(row.orderId, shipment.id, shipment.version)
+    tracking.retryAfter = 0
   } catch (error) {
     tracking.data = null
+    tracking.retryAfter = Date.now() + LOGISTICS_TRACKING_FAILURE_RETRY_MS
     tracking.errorMessage = error?.message
       || error?.msg
       || error?.response?.data?.msg

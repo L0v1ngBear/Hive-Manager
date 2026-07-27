@@ -21,11 +21,13 @@ export function getOrderOperationLogs(orderId, params = {}) {
   })
 }
 
-export function getOrderLogisticsTracking(orderId, shipmentId) {
+export function getOrderLogisticsTracking(orderId, shipmentId, shipmentVersion) {
   return request({
     url: `/orders/${encodeURIComponent(orderId)}/shipments/${encodeURIComponent(shipmentId)}/logistics-tracking`,
     method: 'get',
-    silent: true
+    params: { shipmentVersion },
+    silent: true,
+    cacheTtl: 30 * 60 * 1000
   })
 }
 

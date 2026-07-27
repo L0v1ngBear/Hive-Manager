@@ -28,6 +28,7 @@ public class OrderLogisticsTrackingService {
     private static final String FAILURE_ACTION = "realtime-query-error";
     private static final Duration CACHE_TTL = Duration.ofMinutes(30);
     private static final Duration FAILURE_CACHE_TTL = Duration.ofSeconds(30);
+    private static final int LOCAL_CACHE_MAX_ENTRIES = 10_000;
     private static final Pattern DIRECT_COMPANY_CODE = Pattern.compile("^[A-Z][A-Z0-9_-]{1,31}$");
     private static final Map<String, String> COMPANY_CODES = Map.ofEntries(
             Map.entry("顺丰", "SF"),
@@ -60,6 +61,7 @@ public class OrderLogisticsTrackingService {
     private final LogisticsTrackingGateway logisticsTrackingGateway;
     private final ExternalApiGuardService externalApiGuardService;
     private final ConcurrentHashMap<String, Object> queryLocks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, LocalCacheEntry> localResponseCache = new ConcurrentHashMap<>();
 
     public OrderLogisticsTrackingVO getTracking(String orderId, Long shipmentId) {
         if (orderId == null || orderId.isBlank()) {
@@ -122,11 +124,14 @@ public class OrderLogisticsTrackingService {
             }
             result.setCacheExpiresAt(result.getQueriedAt().plus(CACHE_TTL));
             externalApiGuardService.evictCachedResponse(provider, FAILURE_ACTION, cacheKey);
+            evictLocalResponse(FAILURE_ACTION, cacheKey);
+            String responseBody = JSON.toJSONString(result);
+            cacheLocalResponse(ACTION, cacheKey, responseBody, CACHE_TTL);
             externalApiGuardService.cacheResponse(
                     provider,
                     ACTION,
                     cacheKey,
-                    JSON.toJSONString(result),
+                    responseBody,
                     CACHE_TTL);
             externalApiGuardService.recordCallEvent(
                     provider,
@@ -147,7 +152,7 @@ public class OrderLogisticsTrackingService {
                     provider,
                     FAILURE_ACTION,
                     cacheKey,
-                    JSON.toJSONString(Map.of("code", failureCode, "message", failureMessage)),
+                    cacheFailureLocally(cacheKey, failureCode, failureMessage),
                     FAILURE_CACHE_TTL);
             externalApiGuardService.recordCallEvent(
                     provider,
@@ -163,25 +168,41 @@ public class OrderLogisticsTrackingService {
     }
 
     private OrderLogisticsTrackingVO readCachedTracking(String provider, String cacheKey) {
-        String cached = externalApiGuardService.getCachedResponse(provider, ACTION, cacheKey);
+        String cached = getLocalResponse(ACTION, cacheKey);
+        if (cached == null) {
+            cached = externalApiGuardService.getCachedResponse(provider, ACTION, cacheKey);
+        }
         if (cached == null || cached.isBlank()) {
             return null;
         }
         try {
             OrderLogisticsTrackingVO result = JSON.parseObject(cached, OrderLogisticsTrackingVO.class);
             if (result != null) {
+                Instant now = Instant.now();
+                if (result.getCacheExpiresAt() == null || !result.getCacheExpiresAt().isAfter(now)) {
+                    result.setCacheExpiresAt(now.plus(CACHE_TTL));
+                }
                 result.setCached(true);
+                cacheLocalResponse(ACTION, cacheKey, JSON.toJSONString(result),
+                        Duration.between(now, result.getCacheExpiresAt()));
                 return result;
             }
         } catch (Exception ignored) {
             // Invalid cache entries are discarded and refreshed from the provider.
         }
         externalApiGuardService.evictCachedResponse(provider, ACTION, cacheKey);
+        evictLocalResponse(ACTION, cacheKey);
         return null;
     }
 
     private void throwCachedFailure(String provider, String cacheKey) {
-        String cached = externalApiGuardService.getCachedResponse(provider, FAILURE_ACTION, cacheKey);
+        String cached = getLocalResponse(FAILURE_ACTION, cacheKey);
+        if (cached == null) {
+            cached = externalApiGuardService.getCachedResponse(provider, FAILURE_ACTION, cacheKey);
+            if (cached != null && !cached.isBlank()) {
+                cacheLocalResponse(FAILURE_ACTION, cacheKey, cached, FAILURE_CACHE_TTL);
+            }
+        }
         if (cached == null || cached.isBlank()) {
             return;
         }
@@ -198,6 +219,54 @@ public class OrderLogisticsTrackingService {
             // Invalid cooldown entries should not block a fresh provider request.
         }
         externalApiGuardService.evictCachedResponse(provider, FAILURE_ACTION, cacheKey);
+        evictLocalResponse(FAILURE_ACTION, cacheKey);
+    }
+
+    private String cacheFailureLocally(String cacheKey, int code, String message) {
+        String responseBody = JSON.toJSONString(Map.of("code", code, "message", message));
+        cacheLocalResponse(FAILURE_ACTION, cacheKey, responseBody, FAILURE_CACHE_TTL);
+        return responseBody;
+    }
+
+    private String getLocalResponse(String action, String cacheKey) {
+        String key = localCacheKey(action, cacheKey);
+        LocalCacheEntry entry = localResponseCache.get(key);
+        if (entry == null) {
+            return null;
+        }
+        if (!entry.expiresAt().isAfter(Instant.now())) {
+            localResponseCache.remove(key, entry);
+            return null;
+        }
+        return entry.responseBody();
+    }
+
+    private void cacheLocalResponse(String action, String cacheKey, String responseBody, Duration ttl) {
+        if (responseBody == null || responseBody.isBlank() || ttl == null || ttl.isZero() || ttl.isNegative()) {
+            return;
+        }
+        pruneLocalResponseCache();
+        localResponseCache.put(localCacheKey(action, cacheKey),
+                new LocalCacheEntry(responseBody, Instant.now().plus(ttl)));
+    }
+
+    private void evictLocalResponse(String action, String cacheKey) {
+        localResponseCache.remove(localCacheKey(action, cacheKey));
+    }
+
+    private void pruneLocalResponseCache() {
+        if (localResponseCache.size() < LOCAL_CACHE_MAX_ENTRIES) {
+            return;
+        }
+        Instant now = Instant.now();
+        localResponseCache.entrySet().removeIf(entry -> !entry.getValue().expiresAt().isAfter(now));
+        if (localResponseCache.size() >= LOCAL_CACHE_MAX_ENTRIES) {
+            localResponseCache.keySet().stream().findFirst().ifPresent(localResponseCache::remove);
+        }
+    }
+
+    private String localCacheKey(String action, String cacheKey) {
+        return action + ":" + cacheKey;
     }
 
     static String resolveCompanyCode(String company) {
@@ -230,5 +299,8 @@ public class OrderLogisticsTrackingService {
 
     private static long elapsedMillis(long startedAt) {
         return Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
+    }
+
+    private record LocalCacheEntry(String responseBody, Instant expiresAt) {
     }
 }

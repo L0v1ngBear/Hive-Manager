@@ -45,16 +45,59 @@ test('each shipment logistics query is triggered only when its popover opens', (
   )
   assert.match(orderSource, /function logisticsTrackingState\(row = \{\}, shipment = \{\}\)/)
   assert.match(orderSource, /function loadLogisticsTracking\(row, shipment\)/)
-  assert.match(orderSource, /getOrderLogisticsTracking\(row\.orderId, shipment\.id\)/)
+  assert.match(orderSource, /getOrderLogisticsTracking\(row\.orderId, shipment\.id, shipment\.version\)/)
   assert.doesNotMatch(loadOrdersSource, /getOrderLogisticsTracking/)
   assert.doesNotMatch(orderSource, /@(mouseenter|mouseover)="loadLogisticsTracking/)
 })
 
 test('management UI calls only the canonical order tracking endpoint', () => {
-  assert.match(apiSource, /export function getOrderLogisticsTracking\(orderId, shipmentId\)/)
+  assert.match(apiSource, /export function getOrderLogisticsTracking\(orderId, shipmentId, shipmentVersion\)/)
   assert.match(apiSource, /`\/orders\/\$\{encodeURIComponent\(orderId\)\}\/shipments\/\$\{encodeURIComponent\(shipmentId\)\}\/logistics-tracking`/)
+  assert.match(apiSource, /params:\s*\{\s*shipmentVersion\s*\}/)
+  assert.match(apiSource, /cacheTtl:\s*30\s*\*\s*60\s*\*\s*1000/)
   assert.doesNotMatch(apiSource, /`\/orders\/\$\{encodeURIComponent\(orderId\)\}\/logistics-tracking`/)
   assert.doesNotMatch(apiSource, /kuaidi100\.com|poll\/query\.do|legacy|fallback/i)
+})
+
+test('successful and failed hover queries are both throttled locally', async () => {
+  const loadSource = functionSource(orderSource, 'loadLogisticsTracking', 'resolveOrderListFailure').trim()
+  const createLoader = (tracking, query) => Function(
+    'canViewOrderDetail',
+    'logisticsTrackingState',
+    'logisticsTrackingCacheValid',
+    'getOrderLogisticsTracking',
+    'LOGISTICS_TRACKING_FAILURE_RETRY_MS',
+    `return (${loadSource})`
+  )(
+    () => true,
+    () => tracking,
+    (data) => Date.parse(data?.cacheExpiresAt || '') > Date.now(),
+    query,
+    30_000
+  )
+  const row = { orderId: 'SO-001', status: 'shipped' }
+  const shipment = { id: 7, trackingNo: 'SF123456' }
+
+  let successCalls = 0
+  const successState = { loading: false, data: null, errorMessage: '', retryAfter: 0 }
+  const successLoader = createLoader(successState, async () => {
+    successCalls += 1
+    return { cacheExpiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() }
+  })
+  await successLoader(row, shipment)
+  await successLoader(row, shipment)
+  assert.equal(successCalls, 1)
+
+  let failureCalls = 0
+  const failureState = { loading: false, data: null, errorMessage: '', retryAfter: 0 }
+  const failureLoader = createLoader(failureState, async () => {
+    failureCalls += 1
+    throw new Error('provider unavailable')
+  })
+  await failureLoader(row, shipment)
+  await failureLoader(row, shipment)
+  assert.equal(failureCalls, 1)
+  assert.ok(failureState.retryAfter > Date.now())
 })
 
 test('tracking popover renders loading, error, cache and trace states without exposing credentials', () => {

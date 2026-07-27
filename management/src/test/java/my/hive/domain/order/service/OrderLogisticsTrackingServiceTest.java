@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -132,6 +133,39 @@ class OrderLogisticsTrackingServiceTest {
 
         assertThat(result.isCached()).isTrue();
         verify(gateway, never()).query(any(LogisticsTrackingQuery.class));
+    }
+
+    @Test
+    void localFallbackCachePreventsRepeatedProviderCallsWhenRedisCacheMisses() {
+        OrderService orderService = mock(OrderService.class);
+        OrderShipmentService shipmentService = mock(OrderShipmentService.class);
+        LogisticsTrackingGateway gateway = mock(LogisticsTrackingGateway.class);
+        ExternalApiGuardService guard = mock(ExternalApiGuardService.class);
+        when(orderService.getSalesOrderForLogisticsTracking("SO-001")).thenReturn(order());
+        when(shipmentService.requireShipment("TENANT_001", "SO-001", 7L))
+                .thenReturn(shipment(7L, "顺丰速运", "SF123456"));
+        when(guard.fingerprint("TENANT_001|SO-001|7|顺丰速运|SF123456")).thenReturn("cache-fingerprint");
+        when(guard.fingerprint("SF123456")).thenReturn("tracking-fingerprint");
+        when(gateway.providerCode()).thenReturn("apispace");
+        when(guard.getCachedResponse("apispace-logistics", "realtime-query", "cache-fingerprint"))
+                .thenReturn(null);
+        when(gateway.query(new LogisticsTrackingQuery("SF", "SF123456", "0000")))
+                .thenReturn(new OrderLogisticsTrackingVO());
+        OrderLogisticsTrackingService service = new OrderLogisticsTrackingService(
+                orderService, shipmentService, gateway, guard);
+
+        OrderLogisticsTrackingVO first = service.getTracking("SO-001", 7L);
+        verify(gateway, times(1)).query(new LogisticsTrackingQuery("SF", "SF123456", "0000"));
+        clearInvocations(gateway, guard);
+
+        OrderLogisticsTrackingVO second = service.getTracking("SO-001", 7L);
+
+        assertThat(first.isCached()).isFalse();
+        assertThat(second.isCached()).isTrue();
+        assertThat(second.getCacheExpiresAt()).isAfter(Instant.now().plus(Duration.ofMinutes(29)));
+        verify(gateway, never()).query(any(LogisticsTrackingQuery.class));
+        verify(guard, never())
+                .getCachedResponse("apispace-logistics", "realtime-query", "cache-fingerprint");
     }
 
     @Test
