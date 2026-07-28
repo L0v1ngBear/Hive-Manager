@@ -7,11 +7,14 @@ import my.hive.domain.auth.model.AuthReason;
 import my.hive.domain.auth.model.WechatLoginRequest;
 import my.hive.domain.auth.model.dto.OrganizationJoinRequest;
 import my.hive.domain.auth.model.dto.PasswordChangeRequest;
+import my.hive.domain.auth.model.dto.WebWechatBindRequest;
+import my.hive.domain.auth.model.dto.WebWechatCompleteRequest;
 import my.hive.domain.auth.model.dto.WechatTenantSelectRequest;
 import my.hive.domain.auth.model.vo.LoginVO;
 import my.hive.domain.auth.model.vo.LoginUserRow;
 import my.hive.domain.auth.model.vo.MiniWechatLoginVO;
 import my.hive.domain.auth.model.vo.WechatTenantOptionVO;
+import my.hive.domain.auth.model.vo.WebWechatLoginVO;
 import my.hive.domain.employee.mapper.DepartmentMapper;
 import my.hive.domain.employee.mapper.EmployeeExtMapper;
 import my.hive.domain.employee.mapper.EmployeeMapper;
@@ -28,6 +31,7 @@ import my.hive.domain.tenant.mapper.TenantMapper;
 import my.hive.domain.tenant.model.entity.Tenant;
 import my.hive.domain.tenant.service.TenantLicenseService;
 import my.hive.infrastructure.wechat.WechatMiniProgramClient;
+import my.hive.infrastructure.wechat.WechatWebLoginClient;
 import my.hive.shared.auth.TokenService;
 import my.hive.shared.context.TenantContext;
 import my.hive.shared.exception.BusinessException;
@@ -74,6 +78,7 @@ class AuthenticationServiceTest {
 
     private final AuthMapper mapper = mock(AuthMapper.class);
     private final WechatMiniProgramClient wechat = mock(WechatMiniProgramClient.class);
+    private final WechatWebLoginClient webWechat = mock(WechatWebLoginClient.class);
     private final PrivacyProtectionUtil privacy = mock(PrivacyProtectionUtil.class);
     private final TenantLicenseService license = mock(TenantLicenseService.class);
     private final BoundedTenantProperties tenants = mock(BoundedTenantProperties.class);
@@ -104,6 +109,7 @@ class AuthenticationServiceTest {
     void setUp() {
         ReflectionTestUtils.setField(service, "authMapper", mapper);
         ReflectionTestUtils.setField(service, "wechatMiniProgramClient", wechat);
+        ReflectionTestUtils.setField(service, "wechatWebLoginClient", webWechat);
         ReflectionTestUtils.setField(service, "privacyProtectionUtil", privacy);
         ReflectionTestUtils.setField(service, "tenantLicenseService", license);
         ReflectionTestUtils.setField(service, "boundedTenantProperties", tenants);
@@ -158,6 +164,72 @@ class AuthenticationServiceTest {
         when(license.enabledFeatureKeys(anyString())).thenReturn(List.of());
         when(mapper.backfillWechatPhoneHashAndMask(anyLong(), anyString(), eq(PHONE), eq(HASH), eq(MASK)))
                 .thenReturn(1);
+    }
+
+    @Test
+    void completesBoundWebWechatIdentityThroughExistingLoginTokenFlow() throws Exception {
+        WebWechatIdentityPayload payload = new WebWechatIdentityPayload();
+        payload.setSubjectHash("wechat-subject-hash");
+        payload.setExpireAt(System.currentTimeMillis() + 60_000);
+        when(values.getAndDelete("auth:web-wechat:login:login-ticket"))
+                .thenReturn(objectMapper.writeValueAsString(payload));
+        LoginUserRow loginUser = user(7L, "a", 1);
+        when(mapper.selectWebWechatLoginUsersBySubjectHashInTenants(
+                "wechat-subject-hash", List.of("a", "b"))).thenReturn(List.of(loginUser));
+        WebWechatCompleteRequest request = new WebWechatCompleteRequest();
+        request.setLoginTicket("login-ticket");
+
+        WebWechatLoginVO result = service.completeWebWechatLogin(request, "203.0.113.7");
+
+        assertThat(result.getFlowStatus()).isEqualTo("LOGGED_IN");
+        assertThat(result.getLoginInfo().getToken()).isEqualTo("login-token");
+        verify(mapper).selectWebWechatLoginUsersBySubjectHashInTenants(
+                "wechat-subject-hash", List.of("a", "b"));
+    }
+
+    @Test
+    void firstWebWechatLoginRequiresOneTimeExistingAccountBinding() throws Exception {
+        WebWechatIdentityPayload payload = new WebWechatIdentityPayload();
+        payload.setSubjectHash("wechat-subject-hash");
+        payload.setExpireAt(System.currentTimeMillis() + 60_000);
+        when(values.getAndDelete("auth:web-wechat:login:login-ticket"))
+                .thenReturn(objectMapper.writeValueAsString(payload));
+        when(mapper.selectWebWechatLoginUsersBySubjectHashInTenants(
+                "wechat-subject-hash", List.of("a", "b"))).thenReturn(List.of());
+        WebWechatCompleteRequest request = new WebWechatCompleteRequest();
+        request.setLoginTicket("login-ticket");
+
+        WebWechatLoginVO result = service.completeWebWechatLogin(request, "203.0.113.7");
+
+        assertThat(result.getFlowStatus()).isEqualTo("BIND_REQUIRED");
+        assertThat(result.getBindingTicket()).isNotBlank();
+        verify(tokenService, never()).create(any(), anyString(), any());
+    }
+
+    @Test
+    void bindsVerifiedAccountWithoutPersistingRawWechatIdentity() throws Exception {
+        WebWechatIdentityPayload payload = new WebWechatIdentityPayload();
+        payload.setSubjectHash("wechat-subject-hash");
+        payload.setExpireAt(System.currentTimeMillis() + 60_000);
+        when(values.get("auth:web-wechat:binding:binding-ticket"))
+                .thenReturn(objectMapper.writeValueAsString(payload));
+        LoginUserRow loginUser = user(7L, "a", 1);
+        loginUser.setPassword("encoded-password");
+        when(mapper.selectLoginUsers("alice", null, List.of("a", "b"))).thenReturn(List.of(loginUser));
+        when(encryptUtil.matches("Password1", "encoded-password")).thenReturn(true);
+        when(mapper.selectWebWechatIdentityUserId("wechat-subject-hash", "a")).thenReturn(null);
+        when(mapper.selectWebWechatIdentitySubjectHash(7L, "a")).thenReturn(null);
+        when(mapper.insertWebWechatIdentity("a", 7L, "wechat-subject-hash")).thenReturn(1);
+        WebWechatBindRequest request = new WebWechatBindRequest();
+        request.setBindingTicket("binding-ticket");
+        request.setUsername("alice");
+        request.setPassword("Password1");
+
+        WebWechatLoginVO result = service.bindWebWechatLogin(request, "203.0.113.7");
+
+        assertThat(result.getFlowStatus()).isEqualTo("LOGGED_IN");
+        verify(mapper).insertWebWechatIdentity("a", 7L, "wechat-subject-hash");
+        verify(redis).delete("auth:web-wechat:binding:binding-ticket");
     }
 
     @Test

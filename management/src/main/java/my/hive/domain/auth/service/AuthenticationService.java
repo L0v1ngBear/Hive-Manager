@@ -20,6 +20,8 @@ import my.hive.shared.context.TenantContext;
 import my.hive.domain.auth.model.AuthReason;
 import my.hive.domain.auth.model.WechatLoginRequest;
 import my.hive.infrastructure.wechat.WechatMiniProgramClient;
+import my.hive.infrastructure.wechat.WechatWebIdentity;
+import my.hive.infrastructure.wechat.WechatWebLoginClient;
 import my.hive.domain.auth.mapper.AuthMapper;
 import my.hive.domain.auth.model.dto.InitialPasswordChangeRequest;
 import my.hive.domain.auth.model.dto.LoginRequest;
@@ -29,6 +31,9 @@ import my.hive.domain.auth.model.dto.PasswordResetCodeRequest;
 import my.hive.domain.auth.model.dto.PasswordResetRequest;
 import my.hive.domain.auth.model.dto.PasswordChangeRequest;
 import my.hive.domain.auth.model.dto.WebScanConfirmRequest;
+import my.hive.domain.auth.model.dto.WebWechatBindRequest;
+import my.hive.domain.auth.model.dto.WebWechatCompleteRequest;
+import my.hive.domain.auth.model.dto.WebWechatTenantSelectRequest;
 import my.hive.domain.auth.model.dto.WechatTenantSelectRequest;
 import my.hive.domain.auth.model.vo.LoginUserRow;
 import my.hive.domain.auth.model.vo.LoginVO;
@@ -36,6 +41,9 @@ import my.hive.domain.auth.model.vo.MiniWechatLoginVO;
 import my.hive.domain.auth.model.vo.WechatTenantOptionVO;
 import my.hive.domain.auth.model.vo.WebScanSessionVO;
 import my.hive.domain.auth.model.vo.WebScanStatusVO;
+import my.hive.domain.auth.model.vo.WebWechatConfigVO;
+import my.hive.domain.auth.model.vo.WebWechatLoginVO;
+import my.hive.domain.auth.model.vo.WebWechatSessionVO;
 import my.hive.domain.auth.service.WebScanLoginRedisPayload;
 import my.hive.shared.enums.CommonStatusEnum;
 import my.hive.shared.enums.DeleteFlagEnum;
@@ -63,12 +71,15 @@ import my.hive.domain.tenant.mapper.TenantMapper;
 import my.hive.domain.tenant.model.entity.Tenant;
 import my.hive.domain.tenant.service.TenantLicenseService;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.io.ByteArrayOutputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Duration;
@@ -76,6 +87,7 @@ import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -98,6 +110,7 @@ public class AuthenticationService {
     private static final long ORGANIZATION_JOIN_SMS_INTERVAL_SECONDS = 60L;
     private static final long WECHAT_TENANT_SELECTION_EXPIRE_MINUTES = 5L;
     private static final long WECHAT_PHONE_PROOF_EXPIRE_MINUTES = 5L;
+    private static final long WEB_WECHAT_LOGIN_EXPIRE_MINUTES = 5L;
     private static final Duration PUBLIC_RATE_LIMIT_WINDOW = Duration.ofMinutes(5);
     private static final String PLATFORM_TENANT_CODE = "super";
     private static final String PLATFORM_LOGIN_NAME = "super";
@@ -174,6 +187,9 @@ public class AuthenticationService {
 
     @Resource
     private WechatMiniProgramClient wechatMiniProgramClient;
+
+    @Resource
+    private WechatWebLoginClient wechatWebLoginClient;
 
     @Resource
     private PublicAuthRateLimiter publicAuthRateLimiter;
@@ -513,6 +529,145 @@ public class AuthenticationService {
             );
         }
         LoginUserRow loginUser = candidates.get(0);
+        validateLoginEligibility(loginUser);
+        return buildLoginVO(loginUser, null);
+    }
+
+    public WebWechatConfigVO webWechatLoginConfig() {
+        return new WebWechatConfigVO(wechatWebLoginClient.isEnabled());
+    }
+
+    public WebWechatSessionVO createWebWechatLoginSession(String clientIp) {
+        enforcePublicLimit("web-wechat-session", "ip", clientIp, 20);
+        String state = UUID.randomUUID().toString().replace("-", "");
+        String authorizationUrl = wechatWebLoginClient.authorizationUrl(state);
+        stringRedisTemplate.opsForValue().set(
+                webWechatStateKey(state),
+                "1",
+                WEB_WECHAT_LOGIN_EXPIRE_MINUTES,
+                TimeUnit.MINUTES
+        );
+        WebWechatSessionVO result = new WebWechatSessionVO();
+        result.setAuthorizationUrl(authorizationUrl);
+        result.setExpiresInSeconds(TimeUnit.MINUTES.toSeconds(WEB_WECHAT_LOGIN_EXPIRE_MINUTES));
+        return result;
+    }
+
+    public String completeWebWechatCallback(String code, String state) {
+        String normalizedState = state == null ? "" : state.trim();
+        if (normalizedState.isEmpty()
+                || stringRedisTemplate.opsForValue().getAndDelete(webWechatStateKey(normalizedState)) == null) {
+            throw new BusinessException(400, "微信登录状态无效或已过期，请重新扫码");
+        }
+        WechatWebIdentity identity = wechatWebLoginClient.exchangeCode(code);
+        String subjectHash = privacyProtectionUtil.hashWechatIdentity(
+                identity.appId(), identity.openId(), identity.unionId());
+        String loginTicket = UUID.randomUUID().toString();
+        saveWebWechatIdentityPayload(webWechatLoginTicketKey(loginTicket), subjectHash);
+        return wechatWebLoginClient.frontendLoginPath()
+                + "?wechatLoginTicket=" + URLEncoder.encode(loginTicket, StandardCharsets.UTF_8);
+    }
+
+    public String webWechatFailureRedirect() {
+        return wechatWebLoginClient.frontendLoginPath() + "?wechatLoginError=authorization_failed";
+    }
+
+    public WebWechatLoginVO completeWebWechatLogin(WebWechatCompleteRequest request, String clientIp) {
+        String ticket = request.getLoginTicket().trim();
+        enforcePublicLimit("web-wechat-complete", "ip", clientIp, 30);
+        enforcePublicLimit("web-wechat-complete", "ticket", ticket, 5);
+        WebWechatIdentityPayload payload = consumeWebWechatIdentityPayload(webWechatLoginTicketKey(ticket));
+        validateWebWechatIdentityPayload(payload);
+
+        List<LoginUserRow> candidates = authMapper.selectWebWechatLoginUsersBySubjectHashInTenants(
+                payload.getSubjectHash(), allowedTenantCodes());
+        if (candidates == null || candidates.isEmpty()) {
+            String bindingTicket = UUID.randomUUID().toString();
+            saveWebWechatIdentityPayload(webWechatBindingTicketKey(bindingTicket), payload.getSubjectHash());
+            WebWechatLoginVO result = new WebWechatLoginVO();
+            result.setFlowStatus("BIND_REQUIRED");
+            result.setBindingTicket(bindingTicket);
+            return result;
+        }
+        if (candidates.size() == 1) {
+            LoginUserRow loginUser = candidates.get(0);
+            validateLoginEligibility(loginUser);
+            return loggedInWebWechatResult(loginUser);
+        }
+        return createWebWechatSelection(payload.getSubjectHash(), candidates, false);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public WebWechatLoginVO bindWebWechatLogin(WebWechatBindRequest request, String clientIp) {
+        String bindingTicket = request.getBindingTicket().trim();
+        enforcePublicLimit("web-wechat-bind", "ip", clientIp, 20);
+        enforcePublicLimit("web-wechat-bind", "ticket", bindingTicket, 5);
+        WebWechatIdentityPayload payload = getWebWechatIdentityPayload(webWechatBindingTicketKey(bindingTicket));
+        validateWebWechatIdentityPayload(payload);
+
+        String username = request.getUsername().trim();
+        String phoneHash = privacyProtectionUtil.mayBePhoneKeyword(username)
+                ? privacyProtectionUtil.hashPhone(username)
+                : null;
+        List<LoginUserRow> accountCandidates = authMapper.selectLoginUsers(
+                username, phoneHash, loginTenantCodes(username));
+        List<LoginUserRow> verifiedCandidates = accountCandidates == null
+                ? List.of()
+                : accountCandidates.stream()
+                        .filter(Objects::nonNull)
+                        .filter(user -> isUsableEmployeeStatus(user.getUserStatus()))
+                        .filter(user -> encryptUtil.matches(request.getPassword(), user.getPassword()))
+                        .toList();
+        if (verifiedCandidates.isEmpty()) {
+            throw new BusinessException(401, "账号或密码错误，无法绑定微信");
+        }
+        if (verifiedCandidates.size() == 1) {
+            LoginUserRow loginUser = verifiedCandidates.get(0);
+            validateLoginEligibility(loginUser);
+            bindWebWechatIdentity(payload.getSubjectHash(), loginUser);
+            stringRedisTemplate.delete(webWechatBindingTicketKey(bindingTicket));
+            return loggedInWebWechatResult(loginUser);
+        }
+
+        WebWechatLoginVO result = createWebWechatSelection(payload.getSubjectHash(), verifiedCandidates, true);
+        stringRedisTemplate.delete(webWechatBindingTicketKey(bindingTicket));
+        return result;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public LoginVO selectWebWechatTenant(WebWechatTenantSelectRequest request, String clientIp) {
+        String selectionTicket = request.getSelectionTicket().trim();
+        String tenantCode = request.getTenantCode().trim();
+        enforcePublicLimit("web-wechat-select", "ip", clientIp, 20);
+        enforcePublicLimit("web-wechat-select", "ticket", selectionTicket, 5);
+        WebWechatSelectionPayload payload = consumeWebWechatSelectionPayload(selectionTicket);
+        if (payload == null
+                || payload.getExpireAt() == null
+                || payload.getExpireAt() < System.currentTimeMillis()
+                || !StringUtils.hasText(payload.getSubjectHash())
+                || payload.getTenantCodes() == null
+                || !payload.getTenantCodes().contains(tenantCode)) {
+            throw new BusinessException(400, "企业选择凭证无效或已过期，请重新微信登录");
+        }
+
+        LoginUserRow loginUser;
+        if (payload.isBindOnSelect()) {
+            Long userId = payload.getVerifiedUserIds() == null
+                    ? null
+                    : payload.getVerifiedUserIds().get(tenantCode);
+            loginUser = userId == null
+                    ? null
+                    : authMapper.selectLoginUserByUserIdAndTenantCode(userId, tenantCode);
+            if (loginUser != null) {
+                bindWebWechatIdentity(payload.getSubjectHash(), loginUser);
+            }
+        } else {
+            loginUser = authMapper.selectWebWechatLoginUserBySubjectHashAndTenant(
+                    payload.getSubjectHash(), tenantCode);
+        }
+        if (loginUser == null) {
+            throw new BusinessException(404, "微信绑定的员工账号不存在，请联系管理员");
+        }
         validateLoginEligibility(loginUser);
         return buildLoginVO(loginUser, null);
     }
@@ -1155,6 +1310,157 @@ public class AuthenticationService {
         );
     }
 
+    private WebWechatLoginVO loggedInWebWechatResult(LoginUserRow loginUser) {
+        WebWechatLoginVO result = new WebWechatLoginVO();
+        result.setFlowStatus("LOGGED_IN");
+        result.setLoginInfo(buildLoginVO(loginUser, null));
+        return result;
+    }
+
+    private WebWechatLoginVO createWebWechatSelection(String subjectHash,
+                                                       List<LoginUserRow> candidates,
+                                                       boolean bindOnSelect) {
+        LinkedHashMap<String, LoginUserRow> candidatesByTenant = new LinkedHashMap<>();
+        for (LoginUserRow candidate : candidates) {
+            if (candidate == null || !StringUtils.hasText(candidate.getTenantCode())) {
+                continue;
+            }
+            LoginUserRow previous = candidatesByTenant.putIfAbsent(candidate.getTenantCode(), candidate);
+            if (previous != null && !Objects.equals(previous.getUserId(), candidate.getUserId())) {
+                throw new BusinessException(409, "同一企业存在多个匹配账号，无法安全绑定微信");
+            }
+        }
+        if (candidatesByTenant.isEmpty()) {
+            throw new BusinessException(404, "微信绑定的员工账号不存在，请联系管理员");
+        }
+
+        String selectionTicket = UUID.randomUUID().toString();
+        WebWechatSelectionPayload payload = new WebWechatSelectionPayload();
+        payload.setSubjectHash(subjectHash);
+        payload.setTenantCodes(List.copyOf(candidatesByTenant.keySet()));
+        payload.setBindOnSelect(bindOnSelect);
+        payload.setExpireAt(System.currentTimeMillis()
+                + TimeUnit.MINUTES.toMillis(WEB_WECHAT_LOGIN_EXPIRE_MINUTES));
+        if (bindOnSelect) {
+            LinkedHashMap<String, Long> verifiedUserIds = new LinkedHashMap<>();
+            candidatesByTenant.forEach((tenantCode, user) -> verifiedUserIds.put(tenantCode, user.getUserId()));
+            payload.setVerifiedUserIds(verifiedUserIds);
+        }
+        saveWebWechatSelectionPayload(selectionTicket, payload);
+
+        WebWechatLoginVO result = new WebWechatLoginVO();
+        result.setFlowStatus(AuthReason.TENANT_SELECTION_REQUIRED);
+        result.setSelectionTicket(selectionTicket);
+        candidatesByTenant.values().forEach(candidate -> {
+            WechatTenantOptionVO option = new WechatTenantOptionVO();
+            option.setTenantCode(candidate.getTenantCode());
+            option.setTenantName(candidate.getTenantName());
+            option.setTenantLogoUrl(candidate.getTenantLogoUrl());
+            result.getTenants().add(option);
+        });
+        return result;
+    }
+
+    private void bindWebWechatIdentity(String subjectHash, LoginUserRow loginUser) {
+        Long subjectUserId = authMapper.selectWebWechatIdentityUserId(subjectHash, loginUser.getTenantCode());
+        if (subjectUserId != null && !Objects.equals(subjectUserId, loginUser.getUserId())) {
+            throw new BusinessException(409, "该微信已绑定本企业的其他账号");
+        }
+        String userSubjectHash = authMapper.selectWebWechatIdentitySubjectHash(
+                loginUser.getUserId(), loginUser.getTenantCode());
+        if (StringUtils.hasText(userSubjectHash) && !Objects.equals(userSubjectHash, subjectHash)) {
+            throw new BusinessException(409, "该账号已绑定其他微信");
+        }
+        if (subjectUserId != null) {
+            return;
+        }
+        try {
+            if (authMapper.insertWebWechatIdentity(
+                    loginUser.getTenantCode(), loginUser.getUserId(), subjectHash) <= 0) {
+                throw new BusinessException(500, "微信绑定失败，请稍后重试");
+            }
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(409, "微信或账号已被绑定，请刷新后重试");
+        }
+    }
+
+    private void saveWebWechatIdentityPayload(String key, String subjectHash) {
+        WebWechatIdentityPayload payload = new WebWechatIdentityPayload();
+        payload.setSubjectHash(subjectHash);
+        payload.setExpireAt(System.currentTimeMillis()
+                + TimeUnit.MINUTES.toMillis(WEB_WECHAT_LOGIN_EXPIRE_MINUTES));
+        try {
+            stringRedisTemplate.opsForValue().set(
+                    key,
+                    objectMapper.writeValueAsString(payload),
+                    WEB_WECHAT_LOGIN_EXPIRE_MINUTES,
+                    TimeUnit.MINUTES
+            );
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(500, "微信登录凭证生成失败，请稍后重试");
+        }
+    }
+
+    private WebWechatIdentityPayload getWebWechatIdentityPayload(String key) {
+        String payloadJson = stringRedisTemplate.opsForValue().get(key);
+        if (!StringUtils.hasText(payloadJson)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(payloadJson, WebWechatIdentityPayload.class);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(500, "微信登录凭证解析失败");
+        }
+    }
+
+    private WebWechatIdentityPayload consumeWebWechatIdentityPayload(String key) {
+        String payloadJson = stringRedisTemplate.opsForValue().getAndDelete(key);
+        if (!StringUtils.hasText(payloadJson)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(payloadJson, WebWechatIdentityPayload.class);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(500, "微信登录凭证解析失败");
+        }
+    }
+
+    private void validateWebWechatIdentityPayload(WebWechatIdentityPayload payload) {
+        if (payload == null
+                || !StringUtils.hasText(payload.getSubjectHash())
+                || payload.getExpireAt() == null
+                || payload.getExpireAt() < System.currentTimeMillis()) {
+            throw new BusinessException(400, "微信登录凭证无效或已过期，请重新扫码");
+        }
+    }
+
+    private void saveWebWechatSelectionPayload(String selectionTicket,
+                                                WebWechatSelectionPayload payload) {
+        try {
+            stringRedisTemplate.opsForValue().set(
+                    webWechatSelectionTicketKey(selectionTicket),
+                    objectMapper.writeValueAsString(payload),
+                    WEB_WECHAT_LOGIN_EXPIRE_MINUTES,
+                    TimeUnit.MINUTES
+            );
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(500, "企业选择凭证生成失败，请稍后重试");
+        }
+    }
+
+    private WebWechatSelectionPayload consumeWebWechatSelectionPayload(String selectionTicket) {
+        String payloadJson = stringRedisTemplate.opsForValue()
+                .getAndDelete(webWechatSelectionTicketKey(selectionTicket));
+        if (!StringUtils.hasText(payloadJson)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(payloadJson, WebWechatSelectionPayload.class);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(500, "企业选择凭证解析失败");
+        }
+    }
+
     private WebScanLoginRedisPayload getWebScanPayload(String sceneKey) {
         String payloadJson = stringRedisTemplate.opsForValue().get(webScanLoginKey(sceneKey));
         if (payloadJson == null || payloadJson.isBlank()) {
@@ -1195,6 +1501,22 @@ public class AuthenticationService {
 
     private String webScanLoginKey(String sceneKey) {
         return redisKeyBuilder.cache("auth", "web-scan-login", sceneKey);
+    }
+
+    private String webWechatStateKey(String state) {
+        return redisKeyBuilder.cache("auth", "web-wechat", "state", state);
+    }
+
+    private String webWechatLoginTicketKey(String ticket) {
+        return redisKeyBuilder.cache("auth", "web-wechat", "login", ticket);
+    }
+
+    private String webWechatBindingTicketKey(String ticket) {
+        return redisKeyBuilder.cache("auth", "web-wechat", "binding", ticket);
+    }
+
+    private String webWechatSelectionTicketKey(String ticket) {
+        return redisKeyBuilder.cache("auth", "web-wechat", "selection", ticket);
     }
 
     private String wechatTenantSelectionKey(String selectionTicket) {

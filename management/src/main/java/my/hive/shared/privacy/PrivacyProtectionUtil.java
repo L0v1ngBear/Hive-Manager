@@ -20,6 +20,7 @@ public class PrivacyProtectionUtil {
 
     private static final String HMAC_ALGORITHM = "HmacSHA256";
     private static final String PHONE_HASH_SCOPE = "phone:";
+    private static final String WECHAT_IDENTITY_HASH_SCOPE = "wechat-web:";
 
     @Value("${security.privacy.hash-secret:${auth.token.secret:hive-dev-privacy-secret}}")
     private String hashSecret;
@@ -49,6 +50,25 @@ public class PrivacyProtectionUtil {
             return null;
         }
         return hmacSha256(PHONE_HASH_SCOPE + normalizedPhone);
+    }
+
+    /**
+     * Hashes a WeChat website identity without persisting openid/unionid.
+     * UnionID is preferred when WeChat returns it; otherwise the website
+     * application id scopes the OpenID so identities from different apps do
+     * not collide.
+     */
+    public String hashWechatIdentity(String appId, String openId, String unionId) {
+        String normalizedUnionId = clean(unionId);
+        if (normalizedUnionId != null) {
+            return hmacSha256(WECHAT_IDENTITY_HASH_SCOPE + "unionid:" + normalizedUnionId);
+        }
+        String normalizedAppId = clean(appId);
+        String normalizedOpenId = clean(openId);
+        if (normalizedAppId == null || normalizedOpenId == null) {
+            throw new IllegalArgumentException("WeChat appId and openId are required");
+        }
+        return hmacSha256(WECHAT_IDENTITY_HASH_SCOPE + "openid:" + normalizedAppId + ":" + normalizedOpenId);
     }
 
     /**

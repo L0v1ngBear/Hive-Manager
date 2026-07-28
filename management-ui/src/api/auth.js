@@ -72,3 +72,46 @@ export function getScanLoginStatus(params) {
     params
   })
 }
+
+export function getWebWechatLoginConfig() {
+  return request({
+    url: '/auth/admin/wechat-login/config',
+    method: 'get',
+    showGlobalLoading: false
+  })
+}
+
+export function createWebWechatLoginSession() {
+  return request({
+    url: '/auth/admin/wechat-login/session',
+    method: 'post',
+    showGlobalLoading: false
+  })
+}
+
+export function completeWebWechatLogin(data) {
+  return request({
+    url: '/auth/admin/wechat-login/complete',
+    method: 'post',
+    data,
+    showGlobalLoading: false
+  })
+}
+
+export function bindWebWechatLogin(data) {
+  return request({
+    url: '/auth/admin/wechat-login/bind',
+    method: 'post',
+    data,
+    showGlobalLoading: false
+  })
+}
+
+export function selectWebWechatTenant(data) {
+  return request({
+    url: '/auth/admin/wechat-login/select',
+    method: 'post',
+    data,
+    showGlobalLoading: false
+  })
+}

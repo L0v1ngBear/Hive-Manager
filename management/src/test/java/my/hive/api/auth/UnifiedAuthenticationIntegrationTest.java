@@ -2,6 +2,9 @@ package my.hive.api.auth;
 
 import my.hive.domain.auth.service.AuthenticationService;
 import my.hive.domain.auth.model.vo.MiniWechatLoginVO;
+import my.hive.domain.auth.model.vo.WebWechatConfigVO;
+import my.hive.domain.auth.model.vo.WebWechatLoginVO;
+import my.hive.domain.auth.model.vo.WebWechatSessionVO;
 import my.hive.shared.utils.ResponseEncryptUtil;
 import my.hive.shared.interceptor.PlatformScopeInterceptor;
 import my.hive.shared.interceptor.TenantContextFilter;
@@ -107,6 +110,42 @@ class UnifiedAuthenticationIntegrationTest {
                 .andExpect(jsonPath("$.data.userId").value(7));
         verify(authenticationService).wechatLogin(any(), eq("203.0.113.9"));
         verify(authenticationService).selectWechatTenant(any(), eq("203.0.113.9"));
+    }
+
+    @Test void exposesWebWechatLoginSessionCompletionBindingAndSelectionRoutes() throws Exception {
+        LoginVO principal = new LoginVO();
+        principal.setToken("token");
+        principal.setUserId(7L);
+        principal.setTenantCode("tenant-a");
+        WebWechatSessionVO session = new WebWechatSessionVO();
+        session.setAuthorizationUrl("https://open.weixin.qq.com/connect/qrconnect?state=state");
+        WebWechatLoginVO flow = new WebWechatLoginVO();
+        flow.setFlowStatus("LOGGED_IN");
+        flow.setLoginInfo(principal);
+        when(authenticationService.webWechatLoginConfig()).thenReturn(new WebWechatConfigVO(true));
+        when(authenticationService.createWebWechatLoginSession(anyString())).thenReturn(session);
+        when(authenticationService.completeWebWechatLogin(any(), anyString())).thenReturn(flow);
+        when(authenticationService.bindWebWechatLogin(any(), anyString())).thenReturn(flow);
+        when(authenticationService.selectWebWechatTenant(any(), anyString())).thenReturn(principal);
+
+        mvc.perform(get("/auth/admin/wechat-login/config"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.enabled").value(true));
+        mvc.perform(post("/auth/admin/wechat-login/session"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.authorizationUrl").value(session.getAuthorizationUrl()));
+        mvc.perform(post("/auth/admin/wechat-login/complete").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginTicket\":\"ticket\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.loginInfo.token").value("token"));
+        mvc.perform(post("/auth/admin/wechat-login/bind").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bindingTicket\":\"bind\",\"username\":\"alice\",\"password\":\"Password1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.flowStatus").value("LOGGED_IN"));
+        mvc.perform(post("/auth/admin/wechat-login/select").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"selectionTicket\":\"select\",\"tenantCode\":\"tenant-a\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tenantCode").value("tenant-a"));
     }
 
     @Test void exposesScanConfirmMeAndLogoutThroughSharedService() throws Exception {

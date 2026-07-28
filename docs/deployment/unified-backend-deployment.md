@@ -98,6 +98,8 @@ Do not use file-only rollback, partial business-data reset, edited historical mi
 
 WeChat, APISpace logistics, OSS, SMS, RabbitMQ and XXL-JOB remain disabled by default. Logistics uses `LOGISTICS_PROVIDER=apispace`, with `APISPACE_LOGISTICS_ENABLED=false` and a blank `APISPACE_LOGISTICS_TOKEN` in `.env.example`. Set the token only in the server-owned `.env`; the deployment package and source configuration must contain only environment-variable mappings.
 
+For website WeChat quick login, create and approve a website application in WeChat Open Platform, enable website login, and configure its callback to the exact HTTPS address `https://<public-domain>/api/auth/admin/wechat-login/callback`. Then set only the server-owned `.env` values `WECHAT_WEB_LOGIN_ENABLED=true`, `WECHAT_WEB_LOGIN_APP_ID`, `WECHAT_WEB_LOGIN_APP_SECRET`, and `WECHAT_WEB_LOGIN_CALLBACK_URI`. The website application credentials are separate from the mini-program credentials. Keep `WECHAT_WEB_LOGIN_FRONTEND_PATH=/login` unless the public login route changes.
+
 File storage uses `FILE_STORAGE_PROVIDER=local` by default, so existing local uploads remain unchanged. To select `aliyun-oss`, set `ALIYUN_OSS_ENABLED=true` and provide the endpoint, bucket, access key ID and access key secret. The deployment health check rejects an enabled APISpace integration without its token and rejects an OSS provider without all required OSS settings. Optional services must not create a second Hive backend process.
 
 ## Acceptance

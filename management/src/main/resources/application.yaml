@@ -110,6 +110,12 @@ wechat:
       todo-title-key: ${WECHAT_SUBSCRIBE_TODO_TITLE_KEY:thing1}
       todo-content-key: ${WECHAT_SUBSCRIBE_TODO_CONTENT_KEY:thing2}
       todo-time-key: ${WECHAT_SUBSCRIBE_TODO_TIME_KEY:time3}
+  web-login:
+    enabled: ${WECHAT_WEB_LOGIN_ENABLED:false}
+    app-id: ${WECHAT_WEB_LOGIN_APP_ID:}
+    app-secret: ${WECHAT_WEB_LOGIN_APP_SECRET:}
+    callback-uri: ${WECHAT_WEB_LOGIN_CALLBACK_URI:}
+    frontend-login-path: ${WECHAT_WEB_LOGIN_FRONTEND_PATH:/login}
 
 xxl:
   job:

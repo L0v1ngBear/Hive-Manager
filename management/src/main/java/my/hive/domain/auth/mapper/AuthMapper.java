@@ -2,6 +2,7 @@ package my.hive.domain.auth.mapper;
 
 import my.hive.domain.auth.model.vo.LoginUserRow;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
@@ -113,6 +114,49 @@ public interface AuthMapper {
     List<LoginUserRow> selectWechatLoginUsersByPhoneInTenants(@Param("phone") String phone,
                                                               @Param("phoneHash") String phoneHash,
                                                               @Param("tenantCodes") List<String> tenantCodes);
+
+    @Select({
+            "<script>",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
+            "FROM user_wechat_identity wi ",
+            "JOIN user u ON u.id = wi.user_id AND u.tenant_code = wi.tenant_code ",
+            "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
+            "WHERE wi.subject_hash = #{subjectHash} AND IFNULL(wi.deleted, 0) = 0 ",
+            "AND u.tenant_code IN ",
+            "<foreach collection='tenantCodes' item='tenantCode' open='(' separator=',' close=')'>#{tenantCode}</foreach> ",
+            "ORDER BY u.tenant_code ASC, u.id ASC",
+            "</script>"
+    })
+    List<LoginUserRow> selectWebWechatLoginUsersBySubjectHashInTenants(
+            @Param("subjectHash") String subjectHash,
+            @Param("tenantCodes") List<String> tenantCodes);
+
+    @Select({
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
+            "FROM user_wechat_identity wi ",
+            "JOIN user u ON u.id = wi.user_id AND u.tenant_code = wi.tenant_code ",
+            "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
+            "WHERE wi.subject_hash = #{subjectHash} AND wi.tenant_code = #{tenantCode} AND IFNULL(wi.deleted, 0) = 0 ",
+            "LIMIT 1"
+    })
+    LoginUserRow selectWebWechatLoginUserBySubjectHashAndTenant(
+            @Param("subjectHash") String subjectHash,
+            @Param("tenantCode") String tenantCode);
+
+    @Select("SELECT user_id FROM user_wechat_identity WHERE subject_hash = #{subjectHash} AND tenant_code = #{tenantCode} AND IFNULL(deleted, 0) = 0 LIMIT 1")
+    Long selectWebWechatIdentityUserId(@Param("subjectHash") String subjectHash,
+                                       @Param("tenantCode") String tenantCode);
+
+    @Select("SELECT subject_hash FROM user_wechat_identity WHERE user_id = #{userId} AND tenant_code = #{tenantCode} AND IFNULL(deleted, 0) = 0 LIMIT 1")
+    String selectWebWechatIdentitySubjectHash(@Param("userId") Long userId,
+                                              @Param("tenantCode") String tenantCode);
+
+    @Insert("INSERT INTO user_wechat_identity (tenant_code, user_id, subject_hash, created_at, updated_at, deleted) VALUES (#{tenantCode}, #{userId}, #{subjectHash}, NOW(), NOW(), 0)")
+    int insertWebWechatIdentity(@Param("tenantCode") String tenantCode,
+                                @Param("userId") Long userId,
+                                @Param("subjectHash") String subjectHash);
 
     @Update({
             "UPDATE user SET phone_hash = #{phoneHash}, ",

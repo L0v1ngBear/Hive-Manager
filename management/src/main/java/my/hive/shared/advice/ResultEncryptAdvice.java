@@ -88,7 +88,8 @@ public class ResultEncryptAdvice implements ResponseBodyAdvice<Object> {
                 || path.endsWith("/auth/mini/login")
                 || path.endsWith("/auth/mini/wechat-login")
                 || path.endsWith("/auth/mini/wechat-login/select")
-                || path.contains("/auth/admin/scan-login/");
+                || path.contains("/auth/admin/scan-login/")
+                || path.contains("/auth/admin/wechat-login/");
     }
 
     private String extractBearerToken(HttpServletRequest request) {

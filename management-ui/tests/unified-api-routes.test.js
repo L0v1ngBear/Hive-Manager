@@ -38,7 +38,12 @@ test('authentication, orders, approvals, quality and installation use canonical 
       '/auth/admin/join-organization',
       '/auth/admin/initial-password',
       '/auth/admin/scan-login/session',
-      '/auth/admin/scan-login/status'
+      '/auth/admin/scan-login/status',
+      '/auth/admin/wechat-login/config',
+      '/auth/admin/wechat-login/session',
+      '/auth/admin/wechat-login/complete',
+      '/auth/admin/wechat-login/bind',
+      '/auth/admin/wechat-login/select'
     ]],
     ['src/views/function/order/api/order.js', [
       "url: '/orders'",

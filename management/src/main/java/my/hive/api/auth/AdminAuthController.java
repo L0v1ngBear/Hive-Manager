@@ -9,6 +9,7 @@ import my.hive.domain.auth.model.dto.*;
 import my.hive.domain.auth.model.vo.*;
 import my.hive.shared.web.TrustedClientIpResolver;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.view.RedirectView;
 
 @RestController
 @RequestMapping("/auth/admin")
@@ -29,6 +30,42 @@ public class AdminAuthController {
     @PostMapping("/scan-login/confirm")
     @CollectLog(module = "auth", action = "scan_login_confirm", bizType = "authentication", description = "确认扫码登录", recordArgs = false)
     public Result<Void> scanConfirm(@Valid @RequestBody WebScanConfirmRequest r) { authentication.confirmWebScanLogin(r); return Result.success(null); }
+    @GetMapping("/wechat-login/config")
+    public Result<WebWechatConfigVO> webWechatConfig() {
+        return Result.success(authentication.webWechatLoginConfig());
+    }
+    @PostMapping("/wechat-login/session")
+    @CollectLog(module = "auth", action = "web_wechat_login_session", bizType = "authentication", description = "创建网页微信登录会话", recordArgs = false)
+    public Result<WebWechatSessionVO> webWechatSession(HttpServletRequest request) {
+        return Result.success(authentication.createWebWechatLoginSession(trustedClientIpResolver.resolve(request)));
+    }
+    @GetMapping("/wechat-login/callback")
+    public RedirectView webWechatCallback(@RequestParam(required = false) String code,
+                                          @RequestParam(required = false) String state) {
+        try {
+            return new RedirectView(authentication.completeWebWechatCallback(code, state));
+        } catch (RuntimeException exception) {
+            return new RedirectView(authentication.webWechatFailureRedirect());
+        }
+    }
+    @PostMapping("/wechat-login/complete")
+    @CollectLog(module = "auth", action = "web_wechat_login_complete", bizType = "authentication", description = "完成网页微信登录", recordArgs = false)
+    public Result<WebWechatLoginVO> webWechatComplete(@Valid @RequestBody WebWechatCompleteRequest body,
+                                                       HttpServletRequest request) {
+        return Result.success(authentication.completeWebWechatLogin(body, trustedClientIpResolver.resolve(request)));
+    }
+    @PostMapping("/wechat-login/bind")
+    @CollectLog(module = "auth", action = "web_wechat_login_bind", bizType = "authentication", description = "绑定网页微信身份", recordArgs = false)
+    public Result<WebWechatLoginVO> webWechatBind(@Valid @RequestBody WebWechatBindRequest body,
+                                                   HttpServletRequest request) {
+        return Result.success(authentication.bindWebWechatLogin(body, trustedClientIpResolver.resolve(request)));
+    }
+    @PostMapping("/wechat-login/select")
+    @CollectLog(module = "auth", action = "web_wechat_login_select", bizType = "authentication", description = "选择网页微信登录企业", recordArgs = false)
+    public Result<LoginVO> webWechatSelect(@Valid @RequestBody WebWechatTenantSelectRequest body,
+                                           HttpServletRequest request) {
+        return Result.success(authentication.selectWebWechatTenant(body, trustedClientIpResolver.resolve(request)));
+    }
     @PostMapping("/password-reset/code")
     @CollectLog(module = "auth", action = "password_reset_code", bizType = "authentication", description = "发送密码重置验证码", recordArgs = false)
     public Result<Void> resetCode(@Valid @RequestBody PasswordResetCodeRequest r, HttpServletRequest req) { authentication.sendPasswordResetCode(r, trustedClientIpResolver.resolve(req)); return Result.success(null); }

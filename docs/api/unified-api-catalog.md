@@ -12,7 +12,9 @@ All public business routes use `/api/**`; no `/web/**` compatibility route remai
 | permission | COMPLETE |
 | auth | COMPLETE |
 
-Authentication routes are `POST /api/auth/admin/login`, `POST /api/auth/admin/scan-login/session`, `GET /api/auth/admin/scan-login/status`, `POST /api/auth/admin/scan-login/confirm`, `POST /api/auth/mini/login`, `POST /api/auth/mini/wechat-login`, `GET /api/auth/me`, and `POST /api/auth/logout`. Reset, initial-password, and organization-join routes are retained only below `/api/auth/admin/**`; `/api/auth/login` does not exist.
+Authentication routes are `POST /api/auth/admin/login`, the existing `/api/auth/admin/scan-login/*` mini-program confirmation flow, the website WeChat OAuth routes under `/api/auth/admin/wechat-login/*`, `POST /api/auth/mini/login`, `POST /api/auth/mini/wechat-login`, `GET /api/auth/me`, and `POST /api/auth/logout`. Reset, initial-password, and organization-join routes are retained only below `/api/auth/admin/**`; `/api/auth/login` does not exist.
+
+Website WeChat login uses an approved WeChat Open Platform website application. The callback exchanges the OAuth code only on the server and sends the browser back to `/login` with a short-lived one-time ticket. First use requires binding an existing Hive account; subsequent logins resolve the keyed WeChat subject hash to the tenant user. Raw openid, unionid, access tokens, refresh tokens, application secrets, and Hive login tokens are never placed in the callback URL or identity table.
 
 WeChat login resolves phone matches only inside the bounded tenant set. A phone matching multiple tenants is rejected unless the request supplies an explicit allowed `tenantCode`; the server never selects an unordered tenant candidate.
 | order | COMPLETE |

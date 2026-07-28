@@ -104,6 +104,21 @@
                 <span v-if="!isLoading" class="material-symbols-outlined text-lg ml-1">arrow_forward</span>
               </el-button>
 
+              <div v-if="webWechat.enabled" class="login-wechat-entry">
+                <span class="login-wechat-divider">或</span>
+                <el-button
+                    size="large"
+                    class="login-wechat-button"
+                    :loading="webWechat.processing"
+                    :disabled="webWechat.processing || isLoading"
+                    @click="startWebWechatLogin"
+                >
+                  <span class="login-wechat-mark" aria-hidden="true">微</span>
+                  <span>{{ webWechat.processing ? '正在连接微信...' : '微信快捷登录' }}</span>
+                </el-button>
+                <small>首次使用需验证并绑定现有 Hive 账号</small>
+              </div>
+
               <div class="login-join-row">
                 <span>还没有加入组织？</span>
                 <el-button
@@ -152,6 +167,72 @@
         </div>
       </section>
     </section>
+
+    <el-dialog
+        v-model="wechatBindDialogVisible"
+        title="绑定现有 Hive 账号"
+        width="440px"
+        destroy-on-close
+        :close-on-click-modal="false"
+        @closed="resetWechatBindForm"
+    >
+      <p class="login-wechat-dialog-copy">微信授权成功。首次使用需要验证一次现有账号，绑定后即可直接微信登录。</p>
+      <el-form :model="wechatBindForm" label-position="top" @submit.prevent="submitWechatBinding">
+        <el-form-item label="现有账号">
+          <el-input
+              v-model.trim="wechatBindForm.username"
+              autocomplete="username"
+              maxlength="64"
+              placeholder="工号、手机号或登录账号"
+          />
+        </el-form-item>
+        <el-form-item label="登录密码">
+          <el-input
+              v-model="wechatBindForm.password"
+              type="password"
+              autocomplete="current-password"
+              show-password
+              maxlength="64"
+              placeholder="请输入当前登录密码"
+          />
+        </el-form-item>
+        <el-button
+            native-type="submit"
+            type="primary"
+            class="w-full"
+            :loading="wechatBindSubmitting"
+            :disabled="wechatBindSubmitting"
+        >
+          验证并绑定
+        </el-button>
+      </el-form>
+    </el-dialog>
+
+    <el-dialog
+        v-model="wechatTenantDialogVisible"
+        title="选择登录企业"
+        width="440px"
+        :close-on-click-modal="false"
+    >
+      <p class="login-wechat-dialog-copy">该账号可访问多个企业，请选择本次需要进入的企业。</p>
+      <div class="login-wechat-tenant-list">
+        <el-button
+            v-for="tenant in webWechat.tenants"
+            :key="tenant.tenantCode"
+            class="login-wechat-tenant-button"
+            :loading="wechatTenantSubmitting === tenant.tenantCode"
+            :disabled="Boolean(wechatTenantSubmitting)"
+            @click="submitWechatTenant(tenant.tenantCode)"
+        >
+          <img v-if="tenant.tenantLogoUrl" :src="tenant.tenantLogoUrl" alt="" />
+          <span>
+            <strong>{{ tenant.tenantName || tenant.tenantCode }}</strong>
+            <small>{{ tenant.tenantCode }}</small>
+          </span>
+          <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+        </el-button>
+      </div>
+    </el-dialog>
 
     <el-dialog v-model="resetDialogVisible" title="忘记密码" width="440px" destroy-on-close @closed="closeResetPasswordDialog">
         <div class="mb-6">
@@ -234,7 +315,18 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { createScanLoginSession, getScanLoginStatus, login, resetPassword, sendPasswordResetCode } from '@/api/auth'
+import {
+  bindWebWechatLogin,
+  completeWebWechatLogin,
+  createScanLoginSession,
+  createWebWechatLoginSession,
+  getScanLoginStatus,
+  getWebWechatLoginConfig,
+  login,
+  resetPassword,
+  selectWebWechatTenant,
+  sendPasswordResetCode
+} from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 import { normalizeLoginRedirect } from '@/utils/redirect'
 import { readLoginMemory, saveLoginMemory } from '@/utils/loginMemory'
@@ -266,8 +358,25 @@ const scanSession = reactive({
   expireAt: 0
 })
 
+const webWechat = reactive({
+  enabled: false,
+  processing: false,
+  bindingTicket: '',
+  selectionTicket: '',
+  tenants: []
+})
+
+const wechatBindForm = reactive({
+  username: '',
+  password: ''
+})
+
 const isLoading = ref(false)
 const resetDialogVisible = ref(false)
+const wechatBindDialogVisible = ref(false)
+const wechatTenantDialogVisible = ref(false)
+const wechatBindSubmitting = ref(false)
+const wechatTenantSubmitting = ref('')
 const codeSending = ref(false)
 const resetSubmitting = ref(false)
 const codeCountdown = ref(0)
@@ -358,6 +467,123 @@ function openResetPasswordDialog() {
 function goJoinOrganization() {
   clearPolling()
   router.push('/join-organization')
+}
+
+async function loadWebWechatConfig() {
+  try {
+    const config = await getWebWechatLoginConfig()
+    webWechat.enabled = Boolean(config?.enabled)
+  } catch {
+    webWechat.enabled = false
+  }
+}
+
+async function startWebWechatLogin() {
+  if (!webWechat.enabled || webWechat.processing) return
+  webWechat.processing = true
+  try {
+    const session = await createWebWechatLoginSession()
+    const authorizationUrl = new URL(String(session?.authorizationUrl || ''))
+    if (authorizationUrl.protocol !== 'https:' || authorizationUrl.hostname !== 'open.weixin.qq.com') {
+      throw new Error('微信授权地址无效')
+    }
+    window.location.assign(authorizationUrl.toString())
+  } catch (error) {
+    webWechat.processing = false
+    ElMessage.error(error?.msg || error?.message || '微信快捷登录暂不可用')
+  }
+}
+
+async function finishWebWechatCallback(loginTicket) {
+  if (!loginTicket || webWechat.processing) return
+  webWechat.processing = true
+  removeWechatLoginQuery()
+  try {
+    const result = await completeWebWechatLogin({loginTicket})
+    handleWebWechatFlow(result)
+  } catch (error) {
+    ElMessage.error(error?.msg || error?.message || '微信登录失败，请重新扫码')
+  } finally {
+    webWechat.processing = false
+  }
+}
+
+function handleWebWechatFlow(result = {}) {
+  if (result.flowStatus === 'LOGGED_IN' && result.loginInfo?.token) {
+    wechatBindDialogVisible.value = false
+    wechatTenantDialogVisible.value = false
+    finishLogin(result.loginInfo)
+    return
+  }
+  if (result.flowStatus === 'BIND_REQUIRED' && result.bindingTicket) {
+    webWechat.bindingTicket = result.bindingTicket
+    wechatBindForm.username = loginForm.username || ''
+    wechatBindDialogVisible.value = true
+    return
+  }
+  if (result.flowStatus === 'TENANT_SELECTION_REQUIRED'
+      && result.selectionTicket
+      && Array.isArray(result.tenants)
+      && result.tenants.length) {
+    webWechat.selectionTicket = result.selectionTicket
+    webWechat.tenants = result.tenants
+    wechatBindDialogVisible.value = false
+    wechatTenantDialogVisible.value = true
+    return
+  }
+  throw new Error('微信登录状态无效，请重新扫码')
+}
+
+async function submitWechatBinding() {
+  if (wechatBindSubmitting.value) return
+  const username = String(wechatBindForm.username || '').trim()
+  const password = String(wechatBindForm.password || '')
+  if (!username || !password) {
+    ElMessage.warning('请输入现有账号和登录密码')
+    return
+  }
+  wechatBindSubmitting.value = true
+  try {
+    const result = await bindWebWechatLogin({
+      bindingTicket: webWechat.bindingTicket,
+      username,
+      password
+    })
+    handleWebWechatFlow(result)
+  } catch (error) {
+    ElMessage.error(error?.msg || error?.message || '微信绑定失败')
+  } finally {
+    wechatBindSubmitting.value = false
+  }
+}
+
+async function submitWechatTenant(tenantCode) {
+  if (!tenantCode || wechatTenantSubmitting.value) return
+  wechatTenantSubmitting.value = tenantCode
+  try {
+    const loginData = await selectWebWechatTenant({
+      selectionTicket: webWechat.selectionTicket,
+      tenantCode
+    })
+    wechatTenantDialogVisible.value = false
+    finishLogin(loginData)
+  } catch (error) {
+    ElMessage.error(error?.msg || error?.message || '企业选择失败，请重新微信登录')
+  } finally {
+    wechatTenantSubmitting.value = ''
+  }
+}
+
+function resetWechatBindForm() {
+  wechatBindForm.username = ''
+  wechatBindForm.password = ''
+}
+
+function removeWechatLoginQuery() {
+  const url = new URL(window.location.href)
+  url.searchParams.delete('wechatLoginTicket')
+  url.searchParams.delete('wechatLoginError')
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
 }
 
 function closeResetPasswordDialog() {
@@ -626,6 +852,19 @@ onMounted(async () => {
   if (userStore.token) {
     await router.replace(resolveLoginRedirect())
     return
+  }
+  const wechatLoginError = String(route.query.wechatLoginError || '')
+  const wechatLoginTicket = String(route.query.wechatLoginTicket || '')
+  if (wechatLoginError || wechatLoginTicket) {
+    removeWechatLoginQuery()
+  }
+  await loadWebWechatConfig()
+  if (wechatLoginError) {
+    ElMessage.error('微信授权失败，请重新扫码或使用账号密码登录')
+  }
+  if (wechatLoginTicket) {
+    await finishWebWechatCallback(wechatLoginTicket)
+    if (userStore.token) return
   }
   refreshScanSession()
 })
@@ -995,6 +1234,118 @@ onUnmounted(() => {
 
 .login-submit-button {
   box-shadow: 0 8px 20px rgba(15, 118, 110, 0.18);
+}
+
+.login-wechat-entry {
+  display: grid;
+  gap: 0.55rem;
+  text-align: center;
+}
+
+.login-wechat-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: #98a2b3;
+  font-size: 0.68rem;
+}
+
+.login-wechat-divider::before,
+.login-wechat-divider::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: #e4e8ee;
+}
+
+.login-wechat-button {
+  width: 100%;
+  min-height: 2.75rem;
+  margin-left: 0 !important;
+  border-color: #b8dec9;
+  border-radius: 0.35rem;
+  color: #08783e;
+  font-weight: 750;
+  background: #f3fbf6;
+}
+
+.login-wechat-button:hover,
+.login-wechat-button:focus-visible {
+  border-color: #07a04e;
+  color: #067238;
+  background: #ecf9f1;
+}
+
+.login-wechat-mark {
+  display: inline-grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 900;
+  background: #07c160;
+}
+
+.login-wechat-entry small {
+  color: #8b98a9;
+  font-size: 0.67rem;
+}
+
+.login-wechat-dialog-copy {
+  margin: 0 0 1rem;
+  color: #64748b;
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+
+.login-wechat-tenant-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.login-wechat-tenant-button {
+  width: 100%;
+  height: auto;
+  min-height: 4rem;
+  justify-content: flex-start;
+  margin-left: 0 !important;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.55rem;
+}
+
+.login-wechat-tenant-button img {
+  width: 2.3rem;
+  height: 2.3rem;
+  flex: 0 0 auto;
+  border-radius: 0.45rem;
+  object-fit: cover;
+}
+
+.login-wechat-tenant-button > span:nth-of-type(1) {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 0.15rem;
+  text-align: left;
+}
+
+.login-wechat-tenant-button strong,
+.login-wechat-tenant-button small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.login-wechat-tenant-button small {
+  color: #8b98a9;
+  font-size: 0.68rem;
+}
+
+.login-wechat-tenant-button .material-symbols-outlined {
+  color: #0f766e;
+  font-size: 1.1rem;
 }
 
 .login-join-row {
