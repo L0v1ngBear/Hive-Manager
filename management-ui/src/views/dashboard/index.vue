@@ -75,9 +75,9 @@
       </article>
     </section>
 
-    <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.2fr)_minmax(350px,1fr)] gap-5">
-      <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 xl:col-span-2">
-        <div class="flex items-center justify-between mb-4">
+    <section class="dashboard-content-grid">
+      <article class="dashboard-panel dashboard-announcement-overview rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5">
+        <div class="dashboard-panel-header mb-4">
           <div>
             <h2 class="text-lg font-black text-on-surface leading-tight">企业通知公告</h2>
             <p class="text-xs text-on-surface-variant mt-1">展示少量普通公告和紧急公告，帮助团队快速同步日常安排。</p>
@@ -95,15 +95,15 @@
           </div>
         </div>
 
-        <div class="grid min-h-32 grid-cols-1 gap-4 lg:grid-cols-2">
-          <div v-if="announcementLoading" v-loading="true" class="min-h-32 lg:col-span-2" element-loading-text="正在同步企业通知公告"></div>
-          <div v-else-if="announcementLoadError" class="flex min-h-32 flex-col items-center justify-center px-4 text-center lg:col-span-2">
+        <div class="dashboard-announcement-grid min-h-32">
+          <div v-if="announcementLoading" v-loading="true" class="dashboard-announcement-grid__full min-h-32" element-loading-text="正在同步企业通知公告"></div>
+          <div v-else-if="announcementLoadError" class="dashboard-announcement-grid__full flex min-h-32 flex-col items-center justify-center px-4 text-center">
             <span class="material-symbols-outlined text-4xl text-error/70">{{ announcementLoadError.kind === 'permission' ? 'lock' : 'cloud_off' }}</span>
             <p class="mt-2 text-sm font-black text-on-surface">{{ announcementLoadError.title }}</p>
             <p class="mt-1 text-xs leading-5 text-on-surface-variant">{{ announcementLoadError.message }}</p>
             <el-button class="mt-3" size="small" type="primary" plain @click="fetchAnnouncements">重试</el-button>
           </div>
-          <el-empty v-else-if="announcementsLoaded && !announcements.length" class="lg:col-span-2" description="暂无企业通知公告" />
+          <el-empty v-else-if="announcementsLoaded && !announcements.length" class="dashboard-announcement-grid__full" description="暂无企业通知公告" />
           <template v-else>
             <div
               v-for="item in announcements"
@@ -132,8 +132,8 @@
         </div>
       </article>
 
-      <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 flex flex-col">
-        <div class="flex items-center justify-between gap-3 mb-4">
+      <article class="dashboard-panel rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 flex flex-col">
+        <div class="dashboard-panel-header mb-4">
           <div>
             <h2 class="text-lg font-black text-on-surface leading-tight">重要公告</h2>
             <p class="text-xs text-on-surface-variant mt-1">集中展示更多需要重点关注的公告。</p>
@@ -176,9 +176,9 @@
         </div>
       </article>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-1 gap-5">
-        <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 flex flex-col">
-          <div class="flex items-center justify-between mb-4">
+      <div class="dashboard-side-grid">
+        <article class="dashboard-panel rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 flex flex-col">
+          <div class="dashboard-panel-header mb-4">
             <h2 class="text-lg font-black text-on-surface">业务提醒</h2>
             <span class="px-2.5 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary">
               {{ businessAlerts.length }} 条
@@ -204,8 +204,8 @@
           </div>
         </article>
 
-        <article class="rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 flex flex-col">
-          <div class="flex items-center justify-between mb-4">
+        <article class="dashboard-panel rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 p-5 flex flex-col">
+          <div class="dashboard-panel-header mb-4">
             <h2 class="text-lg font-black text-on-surface">今日考勤异常</h2>
             <span :class="attendanceBadgeClass" class="px-2.5 py-1 rounded-md text-xs font-bold">
               {{ attendanceSummary.abnormalCount || 0 }} 人
@@ -533,6 +533,12 @@ onMounted(fetchOverview)
   min-width: 0;
   margin-inline: auto;
   gap: 1rem;
+  container-name: dashboard;
+  container-type: inline-size;
+}
+
+.dashboard-overview > * {
+  min-width: 0;
 }
 
 .dashboard-hero {
@@ -548,14 +554,12 @@ onMounted(fetchOverview)
 
 .dashboard-greeting {
   max-inline-size: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .dashboard-quick-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
   width: 100%;
   min-width: 0;
@@ -637,14 +641,15 @@ onMounted(fetchOverview)
 
 .dashboard-summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 }
 
 .dashboard-summary-card {
   box-sizing: border-box;
-  block-size: 6.5rem;
+  min-block-size: 6.5rem;
   padding: 0.625rem 1rem;
+  min-width: 0;
 }
 
 .dashboard-summary-icon {
@@ -660,25 +665,95 @@ onMounted(fetchOverview)
   margin-top: 0.25rem;
 }
 
-@media (min-width: 1321px) {
-  .dashboard-hero {
-    grid-template-columns: minmax(20rem, 0.85fr) minmax(32rem, 1.15fr);
+.dashboard-content-grid,
+.dashboard-side-grid,
+.dashboard-announcement-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.dashboard-panel {
+  min-width: 0;
+}
+
+.dashboard-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  min-width: 0;
+}
+
+.dashboard-panel-header > :first-child {
+  min-width: min(100%, 14rem);
+  flex: 1 1 14rem;
+}
+
+.dashboard-panel-header > :last-child {
+  max-width: 100%;
+}
+
+.dashboard-announcement-grid__full {
+  grid-column: 1 / -1;
+}
+
+@container dashboard (min-width: 30rem) {
+  .dashboard-quick-grid,
+  .dashboard-summary-grid,
+  .dashboard-side-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 1320px) {
-  .dashboard-quick-grid {
+@container dashboard (min-width: 48rem) {
+  .dashboard-quick-grid,
+  .dashboard-summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dashboard-announcement-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container dashboard (min-width: 68rem) {
+  .dashboard-content-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(20rem, 1fr);
+  }
+
+  .dashboard-announcement-overview {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-side-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container dashboard (min-width: 72rem) {
+  .dashboard-hero {
+    grid-template-columns: minmax(20rem, 0.85fr) minmax(32rem, 1.15fr);
+  }
+
+  .dashboard-quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 640px) {
-  .dashboard-quick-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .dashboard-overview {
+    gap: 0.75rem;
   }
 
-  .dashboard-summary-grid {
-    grid-template-columns: 1fr;
+  .dashboard-quick-action {
+    min-height: 3.75rem;
+  }
+
+  .dashboard-panel {
+    padding: 1rem;
   }
 }
 
