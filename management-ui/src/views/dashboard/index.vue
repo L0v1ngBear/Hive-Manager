@@ -1,5 +1,5 @@
 <template>
-  <div v-loading="loading" class="dashboard-overview min-h-fit max-w-7xl mx-auto">
+  <div v-loading="loading" class="dashboard-overview min-h-fit">
     <el-result v-if="overviewLoadError" :icon="overviewLoadError.kind === 'permission' ? 'warning' : 'error'" :title="overviewLoadError.title" :sub-title="overviewLoadError.message"><template #extra><el-button type="primary" @click="fetchOverview">重试</el-button></template></el-result>
     <template v-else>
     <section class="dashboard-hero">
@@ -103,7 +103,12 @@
             <p class="mt-1 text-xs leading-5 text-on-surface-variant">{{ announcementLoadError.message }}</p>
             <el-button class="mt-3" size="small" type="primary" plain @click="fetchAnnouncements">重试</el-button>
           </div>
-          <el-empty v-else-if="announcementsLoaded && !announcements.length" class="dashboard-announcement-grid__full" description="暂无企业通知公告" />
+          <el-empty
+            v-else-if="announcementsLoaded && !announcements.length"
+            class="dashboard-announcement-grid__full dashboard-empty"
+            :image-size="72"
+            description="暂无企业通知公告"
+          />
           <template v-else>
             <div
               v-for="item in announcements"
@@ -150,7 +155,12 @@
           <p class="mt-1 text-xs leading-5 text-on-surface-variant">{{ importantAnnouncementLoadError.message }}</p>
           <el-button class="mt-3" size="small" type="primary" plain @click="fetchAnnouncements">重试</el-button>
         </div>
-        <el-empty v-else-if="importantAnnouncementsLoaded && !importantAnnouncements.length" class="min-h-44" description="暂无重要公告" />
+        <el-empty
+          v-else-if="importantAnnouncementsLoaded && !importantAnnouncements.length"
+          class="dashboard-empty min-h-44"
+          :image-size="72"
+          description="暂无重要公告"
+        />
         <div v-else class="space-y-3 flex-1 overflow-y-auto pr-1 no-scrollbar max-h-[260px]">
           <div
               v-for="item in importantAnnouncements"
@@ -529,9 +539,9 @@ onMounted(fetchOverview)
 <style scoped>
 .dashboard-overview {
   display: grid;
-  width: min(100%, 80rem);
+  width: 100%;
   min-width: 0;
-  margin-inline: auto;
+  margin-inline: 0;
   gap: 1rem;
   container-name: dashboard;
   container-type: inline-size;
@@ -700,6 +710,10 @@ onMounted(fetchOverview)
   grid-column: 1 / -1;
 }
 
+.dashboard-empty {
+  --el-empty-padding: 1rem 0;
+}
+
 @container dashboard (min-width: 30rem) {
   .dashboard-quick-grid,
   .dashboard-summary-grid,
@@ -725,11 +739,12 @@ onMounted(fetchOverview)
   }
 
   .dashboard-announcement-overview {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 
   .dashboard-side-grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -740,6 +755,16 @@ onMounted(fetchOverview)
 
   .dashboard-quick-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container dashboard (min-width: 88rem) {
+  .dashboard-hero {
+    grid-template-columns: minmax(22rem, 0.75fr) minmax(48rem, 1.25fr);
+  }
+
+  .dashboard-quick-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

@@ -54,5 +54,6 @@ test('order archives up to 800MB use resumable generic chunk uploads', () => {
   assert.match(chunkedUpload, /\/storage\/chunked-attachment\/\$\{module\}\/\$\{init\.uploadId\}\/complete/)
   assert.match(orderApi, /uploadAttachmentWithChunks/)
   assert.match(orderPage, /800 \* 1024 \* 1024/)
-  assert.match(orderPage, /大文件自动分片上传/)
+  assert.match(orderPage, /单个不超过 800MB；已添加/)
+  assert.doesNotMatch(orderPage, /大文件自动分片上传/)
 })

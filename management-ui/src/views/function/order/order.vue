@@ -1016,7 +1016,7 @@
                   </div>
                   <DragAttachmentUpload
                     title="点击或拖拽添加订单附件"
-                    :helper-text="`支持图片、视频、文档和压缩包，单个不超过 800MB，大文件自动分片上传；已添加 ${orderForm.attachments.length}/20 个`"
+                    :helper-text="`支持图片、视频、文档和压缩包，单个不超过 800MB；已添加 ${orderForm.attachments.length}/20 个`"
                     :uploading="orderAttachmentUploading"
                     :multiple="true"
                     :disabled="orderForm.attachments.length >= 20"
