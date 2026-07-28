@@ -44,6 +44,8 @@ public class SalesOrderDetailVO {
 
     private Long attachmentSize;
 
+    private List<SalesOrderAttachmentVO> attachments;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

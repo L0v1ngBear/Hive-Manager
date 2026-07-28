@@ -19,6 +19,7 @@
       class="hidden"
       type="file"
       :accept="accept"
+      :multiple="multiple"
       :disabled="disabled || uploading"
       @change="onFileChange"
     >
@@ -99,10 +100,14 @@ const props = defineProps({
     default: ''
   },
   downloadDisabled: { type: Boolean, default: false },
-  removeDisabled: { type: Boolean, default: false }
+  removeDisabled: { type: Boolean, default: false },
+  multiple: {
+    type: Boolean,
+    default: false
+  }
 })
 
-const emit = defineEmits(['select', 'download', 'remove'])
+const emit = defineEmits(['select', 'select-files', 'download', 'remove'])
 const inputRef = ref(null)
 const dragging = ref(false)
 
@@ -125,8 +130,8 @@ function openPicker() {
 }
 
 function onFileChange(event) {
-  const file = event.target.files?.[0]
-  if (!props.disabled && !props.uploading) emitFile(file)
+  const files = [...(event.target.files || [])]
+  if (!props.disabled && !props.uploading) emitFiles(files)
   event.target.value = ''
 }
 
@@ -152,16 +157,22 @@ function onDragLeave(event) {
 function onDrop(event) {
   dragging.value = false
   if (props.disabled || props.uploading) return
-  emitFile(event.dataTransfer?.files?.[0])
+  emitFiles([...(event.dataTransfer?.files || [])])
 }
 
-function emitFile(file) {
-  if (!file) return
-  if (!fileMatchesAccept(file)) {
+function emitFiles(files) {
+  const selected = files.filter(Boolean)
+  if (!selected.length) return
+  const supported = selected.filter(fileMatchesAccept)
+  if (supported.length !== selected.length) {
     ElMessage.warning('所选文件类型不受支持')
-    return
   }
-  emit('select', file)
+  if (!supported.length) return
+  if (props.multiple) {
+    emit('select-files', supported)
+  } else {
+    emit('select', supported[0])
+  }
 }
 
 function fileMatchesAccept(file) {

@@ -1,5 +1,6 @@
 package my.hive.domain.order.service;
 
+import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
@@ -39,6 +40,7 @@ import my.hive.domain.order.model.dto.OrderFlowPrintTaskRequest;
 import my.hive.domain.order.model.dto.OrderStatusLogTimeCorrectionRequest;
 import my.hive.domain.order.model.dto.OrderWarningSettingUpdateRequest;
 import my.hive.domain.order.model.dto.SalesOrderPageRequest;
+import my.hive.domain.order.model.dto.SalesOrderAttachmentSaveRequest;
 import my.hive.domain.order.model.dto.SalesOrderSaveRequest;
 import my.hive.domain.order.model.dto.SalesOrderUpdateRequest;
 import my.hive.domain.order.model.entity.ProductionOrder;
@@ -128,6 +130,8 @@ public class OrderService {
     private static final String ORDER_TYPE_SALES = "sales";
     private static final String ORDER_TYPE_PRODUCTION = "production";
     private static final int MAX_PARALLEL_APPROVERS = 8;
+    private static final int MAX_SALES_ORDER_ATTACHMENTS = 20;
+    private static final long MAX_SALES_ORDER_ATTACHMENT_BYTES = 800L * 1024L * 1024L;
     private static final List<String> SALES_FORWARD_STATUS_CODES = List.of(
             "pending_confirm", "pending_pay", "pending_material", "producing", "pending_ship", "shipped", "completed"
     );
@@ -309,6 +313,7 @@ public class OrderService {
             vo.setDetailCount(details.size());
             vo.setItems(details.stream().map(this::toSalesOrderPageItem).toList());
             vo.setShipments(shipmentMap.getOrDefault(order.getOrderId(), Collections.emptyList()));
+            vo.setAttachments(resolveSalesOrderAttachments(order));
             applyFulfillmentView(vo, fulfillmentMap.getOrDefault(order.getOrderId(), Collections.emptyList()), order.getStatus());
             markSalesStaleWarning(vo, order, orderSettingService.staleWarningDays(tenantCode, order.getOrderCategory()));
             markInvoiceWarning(vo, order);
@@ -381,6 +386,7 @@ public class OrderService {
         SalesOrderDetailVO vo = new SalesOrderDetailVO();
         BeanUtils.copyProperties(order, vo);
         vo.setShipments(orderShipmentService.listShipments(order.getTenantCode(), orderId));
+        vo.setAttachments(resolveSalesOrderAttachments(order));
         Map<String, List<ProductionOrder>> fulfillmentMap = buildFulfillmentMap(List.of(order));
         applyFulfillmentView(vo, fulfillmentMap.getOrDefault(order.getOrderId(), Collections.emptyList()), order.getStatus());
         vo.setItems(details.stream().map(detail -> {
@@ -1289,9 +1295,12 @@ public class OrderService {
         order.setOrderCategory(orderCategory);
         order.setInformationChannel(resolveSalesInformationChannel(orderCategory, request.getInformationChannel()));
         order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
-        order.setAttachmentName(blankToNull(request.getAttachmentName()));
-        order.setAttachmentUrl(normalizeSalesOrderAttachmentUrlForStorage(request.getAttachmentUrl()));
-        order.setAttachmentSize(request.getAttachmentSize());
+        List<SalesOrderAttachmentVO> attachments = normalizeSalesOrderAttachments(request);
+        SalesOrderAttachmentVO firstAttachment = attachments.isEmpty() ? null : attachments.get(0);
+        order.setAttachmentName(firstAttachment == null ? null : firstAttachment.getFileName());
+        order.setAttachmentUrl(firstAttachment == null ? null : firstAttachment.getFileUrl());
+        order.setAttachmentSize(firstAttachment == null ? null : firstAttachment.getFileSize());
+        order.setAttachmentsJson(attachments.isEmpty() ? null : JSON.toJSONString(attachments));
         order.setStatus(resolveSalesStatusForCategory(orderCategory, request.getStatus(), order.getStatus(), createMode));
         ensureCustomerProjectExists(order.getCustomerName(), order.getCustomerPhone(), order.getProjectName());
         order.setGoodsDesc(buildSalesGoodsDesc(request.getItems()));
@@ -2649,7 +2658,8 @@ public class OrderService {
                 || !Objects.equals(before.getIsInvoice(), after.getIsInvoice())
                 || !sameText(before.getAttachmentName(), after.getAttachmentName())
                 || !sameText(before.getAttachmentUrl(), after.getAttachmentUrl())
-                || !Objects.equals(before.getAttachmentSize(), after.getAttachmentSize());
+                || !Objects.equals(before.getAttachmentSize(), after.getAttachmentSize())
+                || !sameText(before.getAttachmentsJson(), after.getAttachmentsJson());
     }
 
     private boolean productionOrderContentChanged(ProductionOrder before, ProductionOrder after) {
@@ -2712,6 +2722,82 @@ public class OrderService {
                 TenantPermissionContext.getTenantCode(),
                 "sales-order"
         );
+    }
+
+    private List<SalesOrderAttachmentVO> normalizeSalesOrderAttachments(SalesOrderSaveRequest request) {
+        List<SalesOrderAttachmentSaveRequest> requested = request.getAttachments();
+        if (requested == null) {
+            if (!StringUtils.hasText(request.getAttachmentUrl())) {
+                return Collections.emptyList();
+            }
+            SalesOrderAttachmentSaveRequest legacy = new SalesOrderAttachmentSaveRequest();
+            legacy.setFileName(StringUtils.hasText(request.getAttachmentName())
+                    ? request.getAttachmentName().trim()
+                    : "订单附件");
+            legacy.setFileUrl(request.getAttachmentUrl());
+            legacy.setFileSize(request.getAttachmentSize());
+            requested = List.of(legacy);
+        }
+        if (requested.size() > MAX_SALES_ORDER_ATTACHMENTS) {
+            throw new BusinessException("每个订单最多添加20个附件");
+        }
+
+        Map<String, SalesOrderAttachmentVO> uniqueAttachments = new LinkedHashMap<>();
+        for (SalesOrderAttachmentSaveRequest attachment : requested) {
+            if (attachment == null) {
+                throw new BusinessException("订单附件信息不能为空");
+            }
+            String fileName = requireText(attachment.getFileName(), "附件名称不能为空");
+            if (fileName.length() > 255) {
+                throw new BusinessException("附件名称不能超过255个字符");
+            }
+            String fileUrl = normalizeSalesOrderAttachmentUrlForStorage(
+                    requireText(attachment.getFileUrl(), "附件地址不能为空"));
+            Long fileSize = attachment.getFileSize();
+            if (fileSize != null && (fileSize < 0 || fileSize > MAX_SALES_ORDER_ATTACHMENT_BYTES)) {
+                throw new BusinessException("单个订单附件不能超过800MB");
+            }
+            if (uniqueAttachments.containsKey(fileUrl)) {
+                throw new BusinessException("同一附件不能重复添加");
+            }
+            SalesOrderAttachmentVO normalized = new SalesOrderAttachmentVO();
+            normalized.setFileName(fileName);
+            normalized.setFileUrl(fileUrl);
+            normalized.setFileSize(fileSize);
+            uniqueAttachments.put(fileUrl, normalized);
+        }
+        return new ArrayList<>(uniqueAttachments.values());
+    }
+
+    private List<SalesOrderAttachmentVO> resolveSalesOrderAttachments(SalesOrder order) {
+        if (StringUtils.hasText(order.getAttachmentsJson())) {
+            try {
+                List<SalesOrderAttachmentVO> attachments = JSON.parseArray(
+                        order.getAttachmentsJson(), SalesOrderAttachmentVO.class);
+                if (attachments != null) {
+                    List<SalesOrderAttachmentVO> valid = attachments.stream()
+                            .filter(Objects::nonNull)
+                            .filter(attachment -> StringUtils.hasText(attachment.getFileUrl()))
+                            .limit(MAX_SALES_ORDER_ATTACHMENTS)
+                            .toList();
+                    if (!valid.isEmpty()) {
+                        return valid;
+                    }
+                }
+            } catch (RuntimeException ignored) {
+                // Fall through to the original scalar fields for online-data compatibility.
+            }
+        }
+        if (!StringUtils.hasText(order.getAttachmentUrl())) {
+            return Collections.emptyList();
+        }
+        SalesOrderAttachmentVO legacy = new SalesOrderAttachmentVO();
+        legacy.setFileName(StringUtils.hasText(order.getAttachmentName())
+                ? order.getAttachmentName().trim()
+                : "订单附件");
+        legacy.setFileUrl(order.getAttachmentUrl().trim());
+        legacy.setFileSize(order.getAttachmentSize());
+        return List.of(legacy);
     }
 
     private String resolveContextPath() {

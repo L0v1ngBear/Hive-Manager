@@ -57,6 +57,13 @@ public class SalesOrderSaveRequest {
      */
     private Long attachmentSize;
 
+    /**
+     * 新版多附件契约。为 null 时兼容读取上面的旧单附件字段；空数组表示移除全部附件。
+     */
+    @Valid
+    @Size(max = 20, message = "每个订单最多添加20个附件")
+    private List<SalesOrderAttachmentSaveRequest> attachments;
+
     private String status;
 
     private Integer createProductionOrder;

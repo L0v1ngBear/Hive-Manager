@@ -73,6 +73,12 @@ public class SalesOrder {
     @TableField("attachment_size")
     private Long attachmentSize;
 
+    /**
+     * 多附件元数据 JSON；旧的三个单附件字段继续镜像第一项用于版本回退兼容。
+     */
+    @TableField("attachments_json")
+    private String attachmentsJson;
+
     @TableField("create_time")
     private LocalDateTime createTime;
 

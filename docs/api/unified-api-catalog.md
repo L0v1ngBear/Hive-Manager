@@ -77,6 +77,10 @@ The canonical collection is `/api/orders/**`. `PermissionCatalogV3` constants be
 | POST | admin `/order/create`; mini `/orders/add` | `/api/orders` | `order:create` | `SalesOrderSaveRequest` | `String` order id | `createSalesOrder` | MERGED |
 | POST | admin `/order/attachment/upload` | `/api/orders/attachment` | `order:create` | multipart `file` | `SalesOrderAttachmentVO` | `uploadSalesAttachment` | RENAMED |
 | GET | admin `/order/attachment/download` | `/api/orders/attachment` | `order:detail` | query `url,name` | resource | `loadSalesAttachment` | RENAMED |
+
+订单创建和完整保存请求支持最多 20 项 `attachments[{fileName,fileUrl,fileSize}]`。旧的
+`attachmentName/attachmentUrl/attachmentSize` 继续作为第一项兼容镜像；历史单附件数据由
+`V20260728_002_order_multi_attachments.sql` 自动回填。
 | PUT | admin `/order/save/{orderId}`; mini detail save | `/api/orders/{orderId}` | `order:update` | `SalesOrderSaveRequest` | void | `saveSalesOrder` | MERGED; old save alias removed |
 | POST | admin `/order/update/{orderId}`; mini `/orders/{orderId}/status` | `/api/orders/{orderId}/status` | `order:update` | `SalesOrderUpdateRequest` | void | `updateSalesOrder` | MERGED |
 | POST | mini production progress and exception updates | `/api/orders/{orderId}/process` | `order:update` plus current status `advance` permission for process changes | `ProductionOrderUpdateRequest` | void | `updateSalesOrderProcess` | MERGED |

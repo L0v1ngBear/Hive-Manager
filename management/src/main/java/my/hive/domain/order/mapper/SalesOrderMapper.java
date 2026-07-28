@@ -31,6 +31,7 @@ public interface SalesOrderMapper extends BaseMapper<SalesOrder> {
                    attachment_name AS attachmentName,
                    attachment_url AS attachmentUrl,
                    attachment_size AS attachmentSize,
+                   attachments_json AS attachmentsJson,
                    create_time AS createTime,
                    update_time AS updateTime
             FROM sales_order

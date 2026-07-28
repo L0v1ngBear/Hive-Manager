@@ -20,9 +20,9 @@
 - 按状态、小项、开票、关键字、客户、品牌、创建时间、交付时间和预警筛选。
 - 开票状态分为未开票、已开票、其他类型；未开票订单从创建时间起满 7 个完整自然日后标红预警，已开票和其他类型统一使用灰色已处理样式。
 - 查看分页订单表；点击行或“查看”图标打开订单详情。
-- 查看订单明细、附件、多条物流、开票、流转码和状态流转日志。
+- 查看订单明细、多个附件、多条物流、开票、流转码和状态流转日志。
 - 新建订单；客户与项目可从客户选项联动，也允许录入新值。
-- 编辑订单主体、明细、状态、物流子表、开票、业务时间和附件。
+- 编辑订单主体、明细、状态、物流子表、开票、业务时间和附件集合。
 - 订单备注使用独立多记录：可新增、可修改，不允许删除；每条显示最后修改人和最后修改时间。
 - 按当前订单阶段权限执行推进、回退审批和流转码补打。
 - 配置分订单小项的未更新预警天数，并支持全量或单条重新计算。
@@ -40,7 +40,7 @@
 | getOrderOperationLogs      | GET  | /orders/{orderId}/operation-logs  | 分页读取订单操作日志           |
 | getOrderLogisticsTracking  | GET  | /orders/{orderId}/shipments/{shipmentId}/logistics-tracking | 查询指定物流记录的轨迹 |
 | createOrder                | POST | /orders                           | 新建订单并保存备注           |
-| uploadOrderAttachment      | POST | /orders/attachment                | 上传订单附件，30 秒超时      |
+| uploadOrderAttachment      | POST | /orders/attachment                | 上传单个订单附件；可重复或批量选择，最大 800MB，大文件分片上传 |
 | downloadOrderAttachment    | GET  | /orders/attachment                | 下载附件 Blob，30 秒超时     |
 | saveOrder                  | PUT  | /orders/{orderId}                 | 保存订单及新增/修改备注      |
 | advanceOrderNextStage      | POST | /orders/{orderId}/advance         | 推进到下一阶段或提交关键审批 |
@@ -78,7 +78,7 @@
 - 备注内容按 `order:note:view` 控制可见；新增要求 `order:note:create`，修改要求 `order:note:update`，并同时要求 `order:update`。无查看权限时前端不渲染内容，后端也不返回备注。
 - 下划线状态会转为连字符权限码，例如 pending_confirm 对应 order:status:pending-confirm。
 - 预警设置按钮使用 v-permission=order:warning:setting。
-- 后端详情要求 order:detail；附件上传要求 order:create；附件下载要求 order:detail。
+- 后端详情要求 order:detail；附件上传要求 order:create；附件下载要求 order:detail。每个订单最多保存 20 个附件。
 - 后端保存、推进、回退、日志修正和流转码任务入口要求 order:list，服务层继续校验阶段权限。
 - 预警阈值读写要求 order:warning:setting；预警摘要与刷新要求 order:list。
 - 不得在控件迁移中弱化禁用态、提示文案、按钮 stop 传播或服务端二次校验。
@@ -125,7 +125,8 @@
 - 状态标签可用 ElTag，但文字、颜色和阶段含义必须保持。
 - 明确保留：订单状态权限计算、两套状态流、审批分支、行点击与按钮 stop。
 - 明确保留：动态列顺序、localStorage key、当前列驱动的当前页/全部导出。
-- 明确保留：附件下载 Blob 流、10MB 限制、业务时间修正和客户/项目联动。
+- 明确保留：附件下载 Blob 流、单附件 800MB 限制、业务时间修正和客户/项目联动。
+- `attachments` 是新版多附件集合；原 `attachmentName/attachmentUrl/attachmentSize` 继续镜像第一项，兼容旧页面、旧数据和版本回退。
 
 ## 已发现风险
 
@@ -141,7 +142,7 @@
 - [ ] 新建待收款无审批，推进备料才生成 `order:audit:material` 审批候选。
 - [ ] 普通流程、图纸预算、特殊订单、推进审批和回退审批不变。
 - [ ] shipment 新增、修改、未保存行放弃、已保存行不可删除和 409 乐观锁冲突均通过。
-- [ ] shipped 的多物流校验与“先保存再推进”、附件上传下载及日志时间修正通过。
+- [ ] shipped 的多物流校验与“先保存再推进”、多附件追加/移除/下载及日志时间修正通过。
 - [ ] shipment-specific 轨迹只在 hover 时查询；30 分钟成功缓存、30 秒失败短缓存及 company-aware 身份均通过。
 - [ ] list-only 用户的物流单号置灰且不会创建 popover 或触发 tracking API；有 `order:detail` 才按 `@show` 查询。
 - [ ] `add_order_shipment` / `update_order_shipment` 操作日志在事务提交后生成且不泄露明文单号。

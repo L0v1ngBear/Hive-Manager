@@ -50,6 +50,8 @@ public class SalesOrderPageVO {
 
     private Long attachmentSize;
 
+    private List<SalesOrderAttachmentVO> attachments;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

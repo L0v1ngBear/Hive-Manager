@@ -198,6 +198,7 @@ WITH expected_columns AS (
   SELECT 'installation_task_installer', 'update_time' UNION ALL
   SELECT 'sales_order', 'information_channel' UNION ALL
   SELECT 'sales_order', 'cancel_reason' UNION ALL
+  SELECT 'sales_order', 'attachments_json' UNION ALL
   SELECT 'production_order', 'information_channel' UNION ALL
   SELECT 'installation_task', 'information_channel' UNION ALL
   SELECT 'sys_permission', 'module_code' UNION ALL
@@ -280,6 +281,18 @@ EOSQL
 if [ -n "${invalid_order_columns}" ]; then
   echo "${invalid_order_columns}"
   fail "Invalid order column definitions"
+fi
+
+invalid_order_attachment_json="$(mysql_root_db "${DATABASE_NAME}" -N -B -e "
+SELECT COUNT(*)
+FROM information_schema.columns
+WHERE table_schema = DATABASE()
+  AND table_name = 'sales_order'
+  AND column_name = 'attachments_json'
+  AND (data_type <> 'json' OR is_nullable <> 'YES');
+")"
+if [ "${invalid_order_attachment_json}" != "0" ]; then
+  fail "Invalid sales_order.attachments_json definition"
 fi
 
 legacy_delivery_date_columns="$(mysql_root_db "${DATABASE_NAME}" -N -B <<'EOSQL'

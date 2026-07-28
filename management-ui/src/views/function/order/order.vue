@@ -616,12 +616,21 @@
               <div class="mt-4">
                 <div class="info-card">
                   <div class="info-label">订单附件</div>
-                  <template v-if="orderDetail.attachmentUrl">
-                    <el-button text class="mt-2 text-left font-bold text-primary" @click="openAttachmentUrl(orderDetail.attachmentUrl, orderDetail.attachmentName)">
-                      {{ orderDetail.attachmentName || '查看附件' }}
-                    </el-button>
-                    <div class="mt-1 text-xs text-on-surface-variant">{{ formatFileSize(orderDetail.attachmentSize) }}</div>
-                  </template>
+                  <div v-if="detailOrderAttachments.length" class="order-detail-attachment-list">
+                    <div
+                      v-for="(attachment, index) in detailOrderAttachments"
+                      :key="attachment.fileUrl || `${attachment.fileName}-${index}`"
+                      class="order-detail-attachment-item"
+                    >
+                      <span class="material-symbols-outlined">attach_file</span>
+                      <div class="min-w-0 flex-1">
+                        <el-button text class="order-attachment-name" @click="openAttachmentUrl(attachment.fileUrl, attachment.fileName)">
+                          {{ attachment.fileName || `订单附件 ${index + 1}` }}
+                        </el-button>
+                        <div class="text-xs text-on-surface-variant">{{ formatFileSize(attachment.fileSize) }}</div>
+                      </div>
+                    </div>
+                  </div>
                   <div v-else class="mt-2 text-sm text-on-surface-variant">暂无附件</div>
                 </div>
               </div>
@@ -987,18 +996,35 @@
               </div>
               <div>
                 <label class="field-label">订单附件</label>
-                <DragAttachmentUpload
-                  v-if="canEditCurrentOrderForm"
-                  title="上传合同、客户需求或沟通截图"
-                  helper-text="支持图片、视频、文档和压缩包，单个文件不超过 800MB；大文件自动分片上传"
-                  :uploading="orderAttachmentUploading"
-                  :file-name="orderForm.attachmentName"
-                  :file-url="orderForm.attachmentUrl"
-                  :file-size="orderForm.attachmentSize"
-                  @select="handleOrderAttachmentFile"
-                  @download="openOrderAttachment"
-                  @remove="removeOrderAttachment"
-                />
+                <template v-if="canEditCurrentOrderForm">
+                  <div v-if="orderForm.attachments.length" class="order-attachment-list">
+                    <div
+                      v-for="(attachment, index) in orderForm.attachments"
+                      :key="attachment.fileUrl || `${attachment.fileName}-${index}`"
+                      class="order-attachment-item"
+                    >
+                      <span class="material-symbols-outlined order-attachment-icon">attach_file</span>
+                      <div class="min-w-0 flex-1">
+                        <div class="order-attachment-title">{{ attachment.fileName }}</div>
+                        <div class="order-attachment-size">{{ formatFileSize(attachment.fileSize) }}</div>
+                      </div>
+                      <div class="order-attachment-actions">
+                        <el-button size="small" plain type="primary" @click="openOrderAttachment(attachment)">查看</el-button>
+                        <el-button size="small" plain type="danger" @click="removeOrderAttachment(index)">移除</el-button>
+                      </div>
+                    </div>
+                  </div>
+                  <DragAttachmentUpload
+                    title="点击或拖拽添加订单附件"
+                    :helper-text="`支持图片、视频、文档和压缩包，单个不超过 800MB，大文件自动分片上传；已添加 ${orderForm.attachments.length}/20 个`"
+                    :uploading="orderAttachmentUploading"
+                    :multiple="true"
+                    :disabled="orderForm.attachments.length >= 20"
+                    disabled-reason="每个订单最多添加20个附件"
+                    @select="handleOrderAttachmentFile"
+                    @select-files="handleOrderAttachmentFiles"
+                  />
+                </template>
                 <div
                   v-else
                   class="rounded-2xl border border-dashed border-outline-variant/30 bg-surface-container-low px-4 py-6 text-sm font-bold text-on-surface-variant/60 grayscale"
@@ -1197,6 +1223,7 @@ const detailErrorMessage = ref('')
 const detailOrderId = ref('')
 let detailRequestId = 0
 const orderDetail = ref(null)
+const detailOrderAttachments = computed(() => normalizeOrderAttachments(orderDetail.value || {}))
 const orderOperationLogs = ref([])
 const statusLogTimeEdits = reactive({})
 const statusLogSavingKey = ref('')
@@ -1524,6 +1551,23 @@ function discardUnsavedOrderNote(index) {
   if (!orderForm.notes[index]?.id) orderForm.notes.splice(index, 1)
 }
 
+function normalizeOrderAttachment(attachment = {}) {
+  return {
+    fileName: String(attachment.fileName || attachment.attachmentName || '订单附件').trim(),
+    fileUrl: String(attachment.fileUrl || attachment.attachmentUrl || '').trim(),
+    fileSize: attachment.fileSize ?? attachment.attachmentSize ?? null
+  }
+}
+
+function normalizeOrderAttachments(source = {}) {
+  const attachments = Array.isArray(source.attachments)
+    ? source.attachments.map(normalizeOrderAttachment).filter(item => item.fileUrl)
+    : []
+  if (attachments.length) return attachments.slice(0, 20)
+  if (!source.attachmentUrl) return []
+  return [normalizeOrderAttachment(source)]
+}
+
 function defaultOrderForm() {
   return {
     customerName: '',
@@ -1536,9 +1580,7 @@ function defaultOrderForm() {
     shipments: [],
     isInvoice: 0,
     notes: [],
-    attachmentName: '',
-    attachmentUrl: '',
-    attachmentSize: null,
+    attachments: [],
     status: 'pending_confirm',
     items: []
   }
@@ -2201,9 +2243,7 @@ async function openEdit(orderId, row = {}, intent = null) {
     orderForm.notes = canViewOrderNotes.value
         ? (detail.notes || []).map(normalizeOrderNote)
         : []
-    orderForm.attachmentName = detail.attachmentName || ''
-    orderForm.attachmentUrl = detail.attachmentUrl || ''
-    orderForm.attachmentSize = detail.attachmentSize || null
+    orderForm.attachments = normalizeOrderAttachments(detail)
     orderForm.status = detail.status || 'pending_confirm'
     editingOrderStatus.value = orderForm.status
     orderForm.items = (detail.items || []).length
@@ -2240,40 +2280,63 @@ function removeOrderItem(index) {
 }
 
 async function handleOrderAttachmentFile(file) {
+  await handleOrderAttachmentFiles(file ? [file] : [])
+}
+
+async function handleOrderAttachmentFiles(files) {
   if (!canEditCurrentOrderForm.value) {
     warnNoOrderStagePermission()
     return
   }
-  if (!file) {
+  const selectedFiles = Array.isArray(files) ? files.filter(Boolean) : []
+  if (!selectedFiles.length) {
     return
   }
-  if (file.size > 800 * 1024 * 1024) {
+  if (selectedFiles.some(file => file.size > 800 * 1024 * 1024)) {
     ElMessage.warning('订单附件不能超过 800MB')
     return
   }
+  const remaining = 20 - orderForm.attachments.length
+  if (remaining <= 0) {
+    ElMessage.warning('每个订单最多添加20个附件')
+    return
+  }
+  const uploadFiles = selectedFiles.slice(0, remaining)
+  if (uploadFiles.length < selectedFiles.length) {
+    ElMessage.warning(`本次仅上传前 ${remaining} 个文件，每个订单最多20个附件`)
+  }
 
-  const formData = new FormData()
-  formData.append('file', file)
   orderAttachmentUploading.value = true
   try {
-    const result = await uploadOrderAttachment(formData)
-    orderForm.attachmentName = result.fileName || file.name
-    orderForm.attachmentUrl = result.fileUrl || ''
-    orderForm.attachmentSize = result.fileSize || file.size
-    ElMessage.success('订单附件上传成功')
+    let uploadedCount = 0
+    for (const file of uploadFiles) {
+      const formData = new FormData()
+      formData.append('file', file)
+      const result = await uploadOrderAttachment(formData)
+      const attachment = normalizeOrderAttachment({
+        fileName: result.fileName || file.name,
+        fileUrl: result.fileUrl || '',
+        fileSize: result.fileSize || file.size
+      })
+      if (attachment.fileUrl && !orderForm.attachments.some(item => item.fileUrl === attachment.fileUrl)) {
+        orderForm.attachments.push(attachment)
+        uploadedCount += 1
+      }
+    }
+    if (uploadedCount) {
+      ElMessage.success(`成功添加 ${uploadedCount} 个订单附件`)
+    }
   } finally {
     orderAttachmentUploading.value = false
   }
 }
 
-function removeOrderAttachment() {
-  orderForm.attachmentName = ''
-  orderForm.attachmentUrl = ''
-  orderForm.attachmentSize = null
+function removeOrderAttachment(index) {
+  orderForm.attachments.splice(index, 1)
 }
 
-function openOrderAttachment() {
-  openAttachmentUrl(orderForm.attachmentUrl, orderForm.attachmentName)
+function openOrderAttachment(attachment) {
+  openAttachmentUrl(attachment?.fileUrl, attachment?.fileName)
 }
 
 async function openAttachmentUrl(url, name) {
@@ -2366,6 +2429,14 @@ function validateOrderForm() {
     if (!content) fail('备注内容不能为空', `order.notes.${index}.content`)
     if (content.length > 1000) fail('单条备注不能超过1000字', `order.notes.${index}.content`)
   })
+  if (orderForm.attachments.length > 20) fail('每个订单最多添加20个附件', 'order.attachments')
+  const attachmentUrls = new Set()
+  orderForm.attachments.forEach((attachment, index) => {
+    if (!String(attachment.fileName || '').trim()) fail('附件名称不能为空', `order.attachments.${index}.fileName`)
+    if (!String(attachment.fileUrl || '').trim()) fail('附件地址不能为空', `order.attachments.${index}.fileUrl`)
+    if (attachmentUrls.has(attachment.fileUrl)) fail('同一附件不能重复添加', `order.attachments.${index}.fileUrl`)
+    attachmentUrls.add(attachment.fileUrl)
+  })
 }
 
 function buildOrderPayload() {
@@ -2378,6 +2449,12 @@ function buildOrderPayload() {
         weight: blank(item.weight),
         spec: optionalNumber(item.spec)
       }))
+  const attachments = orderForm.attachments.map(attachment => ({
+    fileName: attachment.fileName.trim(),
+    fileUrl: attachment.fileUrl,
+    fileSize: attachment.fileSize || null
+  }))
+  const firstAttachment = attachments[0] || null
   return {
     customerName: orderForm.customerName.trim(),
     customerPhone: blank(orderForm.customerPhone),
@@ -2394,9 +2471,10 @@ function buildOrderPayload() {
     })),
     isInvoice: Number(orderForm.isInvoice || 0),
     notes: orderForm.notes.map(({ id, content, version }) => ({ id, content: content.trim(), version })),
-    attachmentName: blank(orderForm.attachmentName),
-    attachmentUrl: blank(orderForm.attachmentUrl),
-    attachmentSize: orderForm.attachmentSize || null,
+    attachments,
+    attachmentName: firstAttachment?.fileName || null,
+    attachmentUrl: firstAttachment?.fileUrl || null,
+    attachmentSize: firstAttachment?.fileSize || null,
     status: orderForm.status,
     items: normalizedItems
   }
@@ -4650,6 +4728,81 @@ function fulfillmentProcessText(row = {}) {
   font-size: .75rem;
   font-weight: 700;
   color: rgb(var(--primary))
+}
+
+.order-detail-attachment-list,
+.order-attachment-list {
+  display: grid;
+  gap: .65rem;
+  margin-top: .75rem;
+  margin-bottom: .75rem;
+}
+
+.order-detail-attachment-item,
+.order-attachment-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: .75rem;
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: .8rem;
+  background: rgb(var(--surface-container-lowest));
+  padding: .75rem .9rem;
+}
+
+.order-detail-attachment-item > .material-symbols-outlined,
+.order-attachment-icon {
+  flex: 0 0 auto;
+  color: rgb(var(--primary));
+}
+
+.order-attachment-name {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-weight: 800;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-attachment-title {
+  overflow: hidden;
+  font-size: .86rem;
+  font-weight: 800;
+  color: rgb(var(--on-surface));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-attachment-size {
+  margin-top: .2rem;
+  font-size: .75rem;
+  color: rgb(var(--on-surface-variant));
+}
+
+.order-attachment-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: .4rem;
+}
+
+@media (max-width: 640px) {
+  .order-attachment-item {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .order-attachment-actions {
+    width: 100%;
+    padding-left: 2rem;
+    justify-content: flex-start;
+  }
 }
 
 .status-timeline {
