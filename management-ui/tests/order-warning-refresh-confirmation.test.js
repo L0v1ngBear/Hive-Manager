@@ -7,9 +7,11 @@ const orderPage = readFileSync(
   'utf8',
 )
 
-const confirmationHandler = orderPage.match(
-  /async function confirmRefreshOrderWarnings\(\) \{([\s\S]*?)\n\}\n\nasync function refreshOrderWarnings/,
-)?.[1] || ''
+const confirmationStart = orderPage.indexOf('async function confirmRefreshOrderWarnings()')
+const confirmationEnd = orderPage.indexOf('async function refreshOrderWarnings(', confirmationStart)
+const confirmationHandler = confirmationStart >= 0 && confirmationEnd > confirmationStart
+  ? orderPage.slice(confirmationStart, confirmationEnd)
+  : ''
 
 test('full order warning refresh is wired through a confirmation handler', () => {
   assert.match(

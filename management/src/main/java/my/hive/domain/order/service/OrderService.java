@@ -132,6 +132,7 @@ public class OrderService {
     private static final int MAX_PARALLEL_APPROVERS = 8;
     private static final int MAX_SALES_ORDER_ATTACHMENTS = 20;
     private static final long MAX_SALES_ORDER_ATTACHMENT_BYTES = 800L * 1024L * 1024L;
+    private static final Set<String> SALES_PRODUCTION_LOCATIONS = Set.of("北京", "海宁分公司");
     private static final List<String> SALES_FORWARD_STATUS_CODES = List.of(
             "pending_confirm", "pending_pay", "pending_material", "producing", "pending_ship", "shipped", "completed"
     );
@@ -1294,6 +1295,7 @@ public class OrderService {
         String orderCategory = OrderCategoryEnum.normalize(request.getOrderCategory());
         order.setOrderCategory(orderCategory);
         order.setInformationChannel(resolveSalesInformationChannel(orderCategory, request.getInformationChannel()));
+        order.setProductionLocation(normalizeSalesProductionLocation(request.getProductionLocation()));
         order.setIsInvoice(normalizeInvoiceFlag(request.getIsInvoice()));
         List<SalesOrderAttachmentVO> attachments = normalizeSalesOrderAttachments(request);
         SalesOrderAttachmentVO firstAttachment = attachments.isEmpty() ? null : attachments.get(0);
@@ -1312,6 +1314,17 @@ public class OrderService {
             return blankToNull(informationChannel);
         }
         return requireText(informationChannel, "销售订单信息渠道不能为空");
+    }
+
+    private String normalizeSalesProductionLocation(String productionLocation) {
+        String normalized = blankToNull(productionLocation);
+        if (normalized == null) {
+            return null;
+        }
+        if (!SALES_PRODUCTION_LOCATIONS.contains(normalized)) {
+            throw new BusinessException("生产地点仅支持北京或海宁分公司");
+        }
+        return normalized;
     }
 
     private boolean canAutoCreateProductionOrder(String orderCategory) {
@@ -2655,6 +2668,7 @@ public class OrderService {
                 || !sameText(before.getGoodsDesc(), after.getGoodsDesc())
                 || !Objects.equals(before.getTotalQuantity(), after.getTotalQuantity())
                 || !sameText(before.getInformationChannel(), after.getInformationChannel())
+                || !sameText(before.getProductionLocation(), after.getProductionLocation())
                 || !Objects.equals(before.getIsInvoice(), after.getIsInvoice())
                 || !sameText(before.getAttachmentName(), after.getAttachmentName())
                 || !sameText(before.getAttachmentUrl(), after.getAttachmentUrl())

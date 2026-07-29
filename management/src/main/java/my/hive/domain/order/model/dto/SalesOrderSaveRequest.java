@@ -2,6 +2,7 @@ package my.hive.domain.order.model.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -27,6 +28,9 @@ public class SalesOrderSaveRequest {
     private String orderCategory;
 
     private String informationChannel;
+
+    @Pattern(regexp = "北京|海宁分公司", message = "生产地点仅支持北京或海宁分公司")
+    private String productionLocation;
 
     /**
      * 业务录单时间。允许成熟客户补录历史订单时手动指定，不传时使用服务端当前时间。

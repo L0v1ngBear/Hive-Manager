@@ -587,6 +587,10 @@
                   <div class="info-value">{{ orderDetail.informationChannel || '未填写信息渠道' }}</div>
                 </div>
                 <div class="info-card">
+                  <div class="info-label">生产地点</div>
+                  <div class="info-value">{{ orderDetail.productionLocation || '未设置' }}</div>
+                </div>
+                <div class="info-card">
                   <div class="info-label">物流信息</div>
                   <div v-if="orderDetail.shipments?.length" class="order-detail-shipment-list">
                     <div v-for="shipment in orderDetail.shipments" :key="shipment.id || shipment.trackingNo" class="order-detail-shipment">
@@ -815,6 +819,23 @@
                 <div>
                   <label class="field-label">{{ orderForm.orderCategory === 'drawing_budget' ? '信息渠道' : '信息渠道 *' }}</label>
                   <el-input v-model.trim="orderForm.informationChannel" data-field="order.informationChannel" class="box-input" type="text" />
+                </div>
+                <div>
+                  <label class="field-label">生产地点</label>
+                  <el-select
+                    v-model="orderForm.productionLocation"
+                    data-field="order.productionLocation"
+                    class="box-input"
+                    placeholder="请选择生产地点"
+                    clearable
+                  >
+                    <el-option
+                      v-for="option in productionLocationOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
                 </div>
                 <div>
                   <label class="field-label">品牌</label>
@@ -1152,6 +1173,11 @@ const orderCategoryOptions = [
   {value: 'special_order', label: '特殊订单'}
 ]
 
+const productionLocationOptions = [
+  {value: '北京', label: '北京'},
+  {value: '海宁分公司', label: '海宁分公司'}
+]
+
 const productCategoryOptions = [
   '窗帘面布',
   '窗帘里布',
@@ -1269,6 +1295,9 @@ const canSubmitCurrentForm = computed(() => {
 })
 const canEditCurrentOrderForm = canSubmitCurrentForm
 const requiresShippingDetails = computed(() => orderForm.status === 'shipped' || advanceIntent.value?.targetStatus === 'shipped')
+const requiresProductionLocationConfirmation = computed(() => formMode.value !== 'create'
+  && editingOrderStatus.value === 'pending_confirm'
+  && advanceIntent.value?.targetStatus === 'pending_pay')
 
 function canViewOrder(row = {}) {
   return hasOrderViewPermission(userStore.permissions, row)
@@ -1565,6 +1594,7 @@ function defaultOrderForm() {
     brandName: '',
     orderCategory: 'bulk',
     informationChannel: '',
+    productionLocation: '',
     createTime: '',
     shipments: [],
     isInvoice: 0,
@@ -2247,6 +2277,7 @@ async function openEdit(orderId, row = {}, intent = null) {
     orderForm.brandName = detail.brandName || ''
     orderForm.orderCategory = normalizeOrderCategory(detail.orderCategory)
     orderForm.informationChannel = detail.informationChannel || ''
+    orderForm.productionLocation = detail.productionLocation || ''
     orderForm.createTime = toDateTimeLocal(detail.createTime)
     orderForm.shipments = (detail.shipments || []).map(normalizeOrderShipment)
     orderForm.isInvoice = Number(detail.isInvoice || 0)
@@ -2364,6 +2395,31 @@ async function openAttachmentUrl(url, name) {
   URL.revokeObjectURL(objectUrl)
 }
 
+async function confirmOrderProductionLocation() {
+  const productionLocation = normalizeText(orderForm.productionLocation)
+  if (!productionLocation) {
+    warnAndFocusField('请先选择生产地点，再确认订单', 'order.productionLocation')
+    return false
+  }
+  try {
+    await ElMessageBox.confirm(
+        `本订单生产地点为“${productionLocation}”，请确认选择无误。`,
+        '确认生产地点',
+        {
+          confirmButtonText: '确认并推进',
+          cancelButtonText: '返回修改',
+          type: 'warning'
+        }
+    )
+    return true
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') {
+      return false
+    }
+    throw error
+  }
+}
+
 async function submitForm() {
   if (submitting.value || editLoading.value || editErrorMessage.value) return
   if (!canSubmitCurrentForm.value) {
@@ -2373,6 +2429,9 @@ async function submitForm() {
   submitting.value = true
   try {
     validateOrderForm()
+    if (requiresProductionLocationConfirmation.value && !(await confirmOrderProductionLocation())) {
+      return
+    }
     const basePayload = buildOrderPayload()
     const advancePlan = advanceIntent.value
         ? createOrderAdvancePlan(basePayload, editingOrderStatus.value, advanceIntent.value.targetStatus)
@@ -2472,6 +2531,7 @@ function buildOrderPayload() {
     brandName: blank(orderForm.brandName),
     orderCategory,
     informationChannel: blank(orderForm.informationChannel),
+    productionLocation: blank(orderForm.productionLocation),
     createTime: blank(formatCreateTimePayload(orderForm.createTime)),
     shipments: orderForm.shipments.map(({ id, logisticsCompany, trackingNo, version }) => ({
       id,

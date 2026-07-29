@@ -38,6 +38,8 @@ The routine entry also calls `check-order-multi-shipment-clean-launch.sh` before
 
 The general routine below applies only to releases whose migrations support retained data. It must not be used to carry legacy business data across the `V20260717_001` clean-launch boundary.
 
+`V20260729_001_sales_order_production_location.sql` is an additive, retained-data-compatible migration. It adds nullable `sales_order.production_location` without backfilling or rewriting existing orders. New API writes accept only `北京` or `海宁分公司`; existing `NULL` values remain valid and are displayed as unset.
+
 Before migration:
 
 1. Stop backend writes.

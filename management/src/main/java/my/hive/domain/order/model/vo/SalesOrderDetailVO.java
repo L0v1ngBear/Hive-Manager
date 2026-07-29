@@ -32,6 +32,8 @@ public class SalesOrderDetailVO {
 
     private String informationChannel;
 
+    private String productionLocation;
+
     private List<SalesOrderShipmentVO> shipments;
 
     private Integer isInvoice;
