@@ -94,7 +94,7 @@
 - 创建或保存 `pending_pay` 不创建审批。只有用户执行 `pending_pay -> pending_material` 推进时才创建备料审批候选；审批通过后进入备料中，拒绝后保持待收款。
 - 回退动作提交审批；特殊订单创建固定从 pending_confirm 进入审核语义。
 - 推进到 shipped 前要求至少一条完整的 shipment；管理端按“先保存、再推进”的顺序执行，后端对 `/advance` 请求启用嵌套 DTO 校验并以已持久化 shipment 做状态校验。
-- 动态列默认 8 列：编号、客户/项目、订单信息、信息渠道、物流单号列表、状态、进度、时间。
+- 动态列默认 6 列：编号、客户/项目、信息渠道、物流单号列表、状态、进度；订单列表不再显示“订单信息”和“时间”列。
 - 列顺序以 hive.table.columns.order.list.commercial.v5 存在 localStorage；当前实现只排序，不隐藏列。
 - 当前页导出通过 `exportCell(row, column)` 回调读取结构化订单数据；全部导出按当前筛选重新请求，最多 2000 条，两者都使用 `formatOrderExportCell(row, column.key)` 并严格遵循当前动态列顺序。
 

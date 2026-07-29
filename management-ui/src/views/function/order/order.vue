@@ -260,7 +260,7 @@
                 :key="column.key"
                 :data-label="column.label"
                 class="td-cell"
-                :class="[orderColumnClass(column.key), column.key === 'time' ? 'text-sm text-on-surface-variant' : '']"
+                :class="orderColumnClass(column.key)"
             >
               <template v-if="column.key === 'orderNo'">
                 <div class="font-bold text-primary">{{ row.orderId }}</div>
@@ -298,12 +298,6 @@
               <template v-else-if="column.key === 'brand'">
                 <div class="font-bold text-primary">{{ row.brandName || '未填写品牌' }}</div>
                 <div class="mt-1 text-xs text-on-surface-variant">订单品牌</div>
-              </template>
-              <template v-else-if="column.key === 'core'">
-                <div class="max-w-[320px] truncate font-bold text-primary">{{ orderCoreTitle(row) }}</div>
-                <div class="mt-1 text-xs text-on-surface-variant">
-                  {{ orderCoreMeta(row) }}
-                </div>
               </template>
               <template v-else-if="column.key === 'shipments'">
                 <div v-if="row.shipments?.length" class="order-shipment-list">
@@ -476,9 +470,6 @@
                     </div>
                   </div>
                 </div>
-              </template>
-              <template v-else-if="column.key === 'time'">
-                {{ formatDateTime(row.createTime) }}
               </template>
             </td>
             <td class="td-cell" data-label="操作">
@@ -1115,12 +1106,10 @@ const warningFields = [{ key: 'sampleRoomStaleWarningDays', label: '样板间' }
 const defaultOrderTableColumns = [
   {key: 'orderNo', label: '编号'},
   {key: 'customer', label: '客户 / 项目'},
-  {key: 'core', label: '订单信息'},
   {key: 'informationChannel', label: '信息渠道'},
   {key: 'shipments', label: '物流单号'},
   {key: 'status', label: '状态'},
-  {key: 'progress', label: '进度'},
-  {key: 'time', label: '时间'}
+  {key: 'progress', label: '进度'}
 ]
 const {
   orderedColumns: orderTableColumns,
@@ -2045,7 +2034,6 @@ function formatOrderExportCell(row, key) {
   if (key === 'category') return orderCategoryLabel(row.orderCategory)
   if (key === 'customer') return [row.customerName, row.projectName].filter(Boolean).join(' / ')
   if (key === 'brand') return row.brandName || ''
-  if (key === 'core') return orderCoreExportText(row)
   if (key === 'informationChannel') return row.informationChannel || ''
   if (key === 'shipments') return (row.shipments || [])
       .map(shipment => shipment.trackingNo)
@@ -2057,7 +2045,6 @@ function formatOrderExportCell(row, key) {
     const progress = orderProgress(row)
     return `${progress.label} ${progress.percent}%`
   }
-  if (key === 'time') return formatDateTime(row.createTime)
   return ''
 }
 
@@ -2652,53 +2639,6 @@ function optionalNumber(value) {
   }
   const number = Number(value)
   return Number.isFinite(number) ? number : null
-}
-
-function isOrderItemMeaningful(item = {}) {
-  return Boolean(
-      normalizeText(item.modelCode)
-      || item.quantity !== null && item.quantity !== undefined && item.quantity !== ''
-      || item.weight !== null && item.weight !== undefined && item.weight !== ''
-      || item.spec !== null && item.spec !== undefined && item.spec !== ''
-  )
-}
-
-function orderRowItems(row = {}) {
-  return Array.isArray(row.items) ? row.items.filter(isOrderItemMeaningful) : []
-}
-
-function orderItemText(item = {}) {
-  const model = normalizeText(item.modelCode) || '未填写型号'
-  const category = normalizeText(item.weight)
-  const spec = formatNumber(item.spec) || normalizeText(item.spec)
-  const quantity = formatNumber(item.quantity) || '未填写数量'
-  return `${model} / ${category || '未填写类别'} / ${spec ? `${spec}规格` : '未填写规格'} × ${quantity}`
-}
-
-function orderCoreTitle(row = {}) {
-  const items = orderRowItems(row)
-  if (items.length) {
-    return orderItemText(items[0])
-  }
-  return '未填写订单明细'
-}
-
-function orderCoreMeta(row = {}) {
-  const items = orderRowItems(row)
-  if (!items.length) {
-    return '订单明细 0 项'
-  }
-  const totalQuantity = items.reduce((sum, item) => sum + (optionalNumber(item.quantity) || 0), 0)
-  const suffix = items.length > 1 ? ` / 共 ${items.length} 项` : ''
-  return `总数量 ${formatNumber(totalQuantity) || 0}${suffix}`
-}
-
-function orderCoreExportText(row = {}) {
-  const items = orderRowItems(row)
-  if (items.length) {
-    return `${items.map(orderItemText).join('；')}；${orderCoreMeta(row)}`
-  }
-  return orderCoreMeta(row)
 }
 
 function formatDateTime(value) {
@@ -4141,11 +4081,6 @@ function fulfillmentProcessText(row = {}) {
   min-width: 13rem;
 }
 
-.order-column-core {
-  width: 15rem;
-  min-width: 13rem;
-}
-
 .order-column-informationChannel {
   width: 12rem;
   min-width: 11rem;
@@ -4166,14 +4101,8 @@ function fulfillmentProcessText(row = {}) {
   min-width: 10rem;
 }
 
-.order-column-time {
-  width: 10rem;
-  min-width: 8rem;
-}
-
 .order-column-orderNo,
 .order-column-customer,
-.order-column-core,
 .order-column-informationChannel,
 .order-column-shipments {
   overflow: hidden;
@@ -4181,15 +4110,13 @@ function fulfillmentProcessText(row = {}) {
 
 .order-column-orderNo > *,
 .order-column-customer > *,
-.order-column-core > *,
 .order-column-informationChannel > *,
 .order-column-shipments > * {
   min-width: 0;
 }
 
 .order-column-orderNo .font-bold,
-.order-column-customer .font-bold,
-.order-column-core .font-bold {
+.order-column-customer .font-bold {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4554,10 +4481,6 @@ function fulfillmentProcessText(row = {}) {
   border: 1px dashed rgba(148, 163, 184, .35);
   border-radius: .5rem;
   padding: .85rem 1rem;
-}
-
-.order-column-time {
-  white-space: nowrap;
 }
 
 .order-status-pill-sm {
