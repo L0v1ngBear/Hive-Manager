@@ -184,11 +184,9 @@ const menuFeatureMap = {
   '/manual': 'module.manual'
 }
 
-const platformTenantMenu = {name: '企业授权', path: '/function/tenant', icon: 'domain', developerOnly: true}
-
 const primaryMenus = computed(() => {
   if (userStore.isPlatformTenant) {
-    return [platformTenantMenu]
+    return []
   }
   return resolveMenus([
   {name: '总览大盘', path: '/dashboard', icon: 'dashboard'},
@@ -229,7 +227,6 @@ const secondaryMenus = computed(() => {
   {name: '员工管理', path: '/function/employee', icon: 'people', permissions: ['employee:list']},
   {name: '组织管理', path: '/function/organization', icon: 'account_tree', permissions: ['organization:view']},
   {name: '角色管理', path: '/function/role', icon: 'settings_accessibility', permissions: ['role:list']},
-  {name: '企业授权', path: '/function/tenant', icon: 'domain', developerOnly: true},
   {name: '标签模板', path: '/function/label', icon: 'sell', permissions: ['print:label:list']},
   {name: '文档管理', path: '/function/document', icon: 'folder_open', permissions: ['document:list']},
   {name: '使用手册', path: '/manual', icon: 'menu_book'},

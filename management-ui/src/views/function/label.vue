@@ -141,8 +141,10 @@
               :class="{ active: selectedEquipmentKey === equipmentKey(equipment) }"
               @click="selectEquipment(equipment)"
             >
-              <span class="task-name">{{ equipment.equipmentName || equipment.equipmentCode || '设备' }}</span>
-              <span class="task-meta">{{ equipment.equipmentCode || '--' }} · {{ equipment.location || equipment.areaName || '未设置位置' }}</span>
+              <span class="task-card-content">
+                <span class="task-name">{{ equipment.equipmentName || equipment.equipmentCode || '设备' }}</span>
+                <span class="task-meta">{{ equipment.equipmentCode || '--' }} · {{ equipment.location || equipment.areaName || '未设置位置' }}</span>
+              </span>
             </el-button>
             <el-empty v-if="!loading && !loadError && equipmentList.length === 0" description="暂无设备数据" />
           </div>
@@ -158,9 +160,11 @@
               :class="{ active: selectedTaskNo === task.taskNo }"
               @click="selectTask(task)"
             >
-              <span class="task-name">{{ taskTitle(task) }}</span>
-              <span class="task-meta">{{ taskSubtitle(task) }}</span>
-              <span v-if="task.retryCount" class="retry-badge">重试 {{ task.retryCount }}</span>
+              <span class="task-card-content">
+                <span class="task-name">{{ taskTitle(task) }}</span>
+                <span class="task-meta">{{ taskSubtitle(task) }}</span>
+                <span v-if="task.retryCount" class="retry-badge">重试 {{ task.retryCount }}</span>
+              </span>
             </el-button>
             <el-empty v-if="!loading && !loadError && pendingTasks.length === 0" description="暂无待打印任务" />
           </div>
@@ -1667,14 +1671,31 @@ function formatDate(value) {
 .task-card {
   position: relative;
   width: 100%;
+  height: auto;
+  min-height: 72px;
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 18px;
-  display: grid;
-  gap: 6px;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
   margin-bottom: 12px;
   padding: 16px;
   color: #475569;
   background: #fff;
+  text-align: left;
+  white-space: normal;
+}
+
+.task-list > .task-card + .task-card {
+  margin-left: 0;
+}
+
+.task-card-content {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 6px;
   text-align: left;
 }
 

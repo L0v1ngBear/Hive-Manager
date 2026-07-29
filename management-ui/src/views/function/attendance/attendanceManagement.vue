@@ -70,44 +70,44 @@
 
       <section class="function-list-panel shadow-sm border-slate-200">
         <div v-filter-collapse class="function-filter-form border-b border-slate-100 bg-slate-50/50 p-4">
-            <label class="block">
+            <label class="attendance-filter-field">
               <span class="block text-xs text-slate-500 font-bold mb-1.5">日期</span>
               <el-date-picker
                   v-model="query.date"
                   type="date"
                   value-format="YYYY-MM-DD"
-                  class="w-44 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500 bg-white"
+                  class="attendance-filter-control"
                   @change="handleFilter"
               />
             </label>
-            <label class="block flex-1 min-w-[220px] max-w-sm">
+            <label class="attendance-filter-field">
               <span class="block text-xs text-slate-500 font-bold mb-1.5">员工搜索</span>
               <div class="relative">
                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
                 <el-input
                     v-model.trim="query.keyword"
-                    class="w-full pl-10 pr-4 py-2.5 bg-white rounded-xl border border-slate-200 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500"
+                    class="attendance-filter-control attendance-filter-keyword-control"
                     placeholder="姓名、手机号或工号"
                     @keyup.enter="handleFilter"
                 />
               </div>
             </label>
-            <label class="block">
+            <label class="attendance-filter-field">
               <span class="block text-xs text-slate-500 font-bold mb-1.5">部门</span>
               <el-select
                   v-model="query.departmentName"
-                  class="w-44 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500 bg-white"
+                  class="attendance-filter-control"
                   @change="handleFilter"
               >
                 <el-option label="全部部门" value="" />
                 <el-option v-for="item in departments" :key="item.name" :label="item.name" :value="item.name" />
               </el-select>
             </label>
-            <label class="block">
+            <label class="attendance-filter-field">
               <span class="block text-xs text-slate-500 font-bold mb-1.5">状态</span>
               <el-select
                   v-model="query.status"
-                  class="w-36 rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:ring-4 focus:ring-blue-600/10 focus:border-blue-500 bg-white"
+                  class="attendance-filter-control"
                   @change="handleFilter"
               >
                 <el-option label="全部状态" value="" />
@@ -179,7 +179,7 @@
         v-model="ruleDrawerVisible"
         size="480px"
         :with-header="false"
-        class="!bg-transparent"
+        class="attendance-rule-drawer !bg-transparent"
     >
       <div class="flex flex-col h-full bg-white/90 backdrop-blur-2xl border-t-[4px] border-blue-600 shadow-[-20px_0px_40px_rgba(0,32,69,0.06)] font-sans">
 
@@ -801,14 +801,29 @@ function formatDateTime(value) {
 }
 </script>
 
-<style>
-/* 针对 el-drawer 的全局样式覆盖，使其实现玻璃态无边框设计 */
-.el-drawer {
+<style scoped>
+.attendance-filter-field {
+  display: block;
+  min-width: 0;
+}
+
+.attendance-filter-control {
+  width: 100%;
+}
+
+.attendance-filter-control :deep(.el-input__wrapper),
+.attendance-filter-control :deep(.el-select__wrapper) {
+  min-height: 42px;
+  box-sizing: border-box;
+  border-radius: 0.75rem;
+}
+
+.attendance-filter-keyword-control :deep(.el-input__wrapper) {
+  padding-left: 2.5rem;
+}
+
+:global(.attendance-rule-drawer.el-drawer) {
   background-color: transparent !important;
   box-shadow: none !important;
-}
-.el-overlay {
-  background-color: rgba(15, 23, 42, 0.4) !important;
-  backdrop-filter: blur(2px);
 }
 </style>

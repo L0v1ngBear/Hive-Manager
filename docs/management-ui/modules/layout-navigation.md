@@ -83,7 +83,7 @@ Navbar 通过 `management-ui/src/api/notification.js` 调用：
 6. 被拒绝时显示 `ElMessage.warning`，跳到 `/no-permission?from=...`。
 
 - 菜单不隐藏无权限普通项，而是装饰为 disabled 并显示原因。
-- 平台租户菜单只保留企业授权。
+- 左侧导航不展示“企业授权”；平台租户仍由路由守卫进入 `/function/tenant`，企业授权页面、顶部应用入口及接口能力保持不变。
 - 退出使用 `ElMessageBox.confirm`，确认后清会话并替换到 `/login`。
 
 ## UI 状态流

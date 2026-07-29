@@ -82,6 +82,13 @@ test('label hides unauthorized content and exposes retryable latest-request stat
   assert.match(label, /v-if="[^"]*canListEquipment[^"]*"/)
 })
 
+test('label task cards keep separate rows and consistent spacing', () => {
+  assert.equal((label.match(/class="task-card-content"/g) || []).length, 2)
+  assert.match(label, /\.task-card\s*\{[\s\S]*?height:\s*auto;[\s\S]*?min-height:\s*72px;/)
+  assert.match(label, /\.task-list\s*>\s*\.task-card\s*\+\s*\.task-card\s*\{[\s\S]*?margin-left:\s*0;/)
+  assert.match(label, /\.task-card-content\s*\{[\s\S]*?display:\s*grid;[\s\S]*?width:\s*100%;[\s\S]*?gap:\s*6px;/)
+})
+
 test('equipment overview never requests protected equipment data without equipment:list', async () => {
   const { loadEquipmentOverviewCount } = await import('../src/views/function/label/labelOverviewAccess.js')
   let calls = 0

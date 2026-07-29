@@ -71,6 +71,11 @@ test('migrates quality controls to Element Plus without losing process dependenc
   assert.match(quality, /import BusinessTimeCorrectionPanel from /)
 })
 
+test('quality drawers keep an opaque page-local surface', () => {
+  assert.equal((quality.match(/class="quality-drawer"/g) || []).length, 3)
+  assert.match(quality, /:global\(\.quality-drawer\.el-drawer\)\s*\{[\s\S]*?background:\s*#fff\s*!important;/)
+})
+
 test('retains Chinese production copy without English placeholders or mojibake', () => {
   assertChineseProductionCopy(
     installationTask,

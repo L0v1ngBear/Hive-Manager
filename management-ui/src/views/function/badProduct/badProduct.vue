@@ -202,7 +202,7 @@ Output:
       </section>
     </div>
 
-    <el-drawer v-model="detailVisible" :title="scopeMeta.detailTitle" size="460px" append-to-body>
+    <el-drawer v-model="detailVisible" :title="scopeMeta.detailTitle" size="460px" append-to-body class="quality-drawer">
       <template v-if="detailRecord">
         <div class="grid grid-cols-2 gap-4">
           <div class="bg-surface-container-low p-4">
@@ -256,6 +256,7 @@ Output:
       :title="editingRecord ? scopeMeta.editTitle : scopeMeta.createTitle"
       size="520px"
       append-to-body
+      class="quality-drawer"
       :before-close="beforeCloseForm"
     >
       <el-form :model="form" label-position="top">
@@ -345,6 +346,7 @@ Output:
       :title="scopeMeta.processTitle"
       size="520px"
       append-to-body
+      class="quality-drawer"
       :before-close="beforeCloseProcess"
     >
       <div v-if="processingRecord" class="mb-5 bg-surface-container-low p-4 text-sm">
@@ -1020,6 +1022,10 @@ function normalizeTypeForScope(value) {
 </script>
 
 <style scoped>
+:global(.quality-drawer.el-drawer) {
+  background: #fff !important;
+}
+
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;

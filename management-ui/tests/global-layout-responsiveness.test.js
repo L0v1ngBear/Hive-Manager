@@ -188,6 +188,11 @@ test('desktop sidebar starts collapsed while mobile navigation stays expanded', 
   assert.match(approvalBadge, /:class="isCollapsed \? 'absolute right-1\.5 top-1\.5' : 'ml-auto'"/)
 })
 
+test('sidebar omits the enterprise authorization entry', () => {
+  assert.match(sidebar, /if \(userStore\.isPlatformTenant\)\s*\{\s*return \[\]\s*\}/)
+  assert.doesNotMatch(sidebar, /\{name:\s*'企业授权'[^}]*path:\s*'\/function\/tenant'/)
+})
+
 test('Hive branding is consistent', () => {
   assert.doesNotMatch(`${brand}\n${sidebar}`, /\u8f7b\u5de2 Hive/)
   assert.match(brand, /productName: '蜂巢 Hive'/)

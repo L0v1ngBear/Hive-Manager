@@ -46,6 +46,21 @@ test('migrates attendance controls to Element Plus', () => {
   assertUsesComponents(attendance, ['el-table', 'el-pagination', 'el-date-picker', 'el-time-picker', 'el-input-number'])
 })
 
+test('attendance filter controls share one aligned field height', () => {
+  assert.equal((attendance.match(/class="attendance-filter-field"/g) || []).length, 4)
+  assert.match(attendance, /<el-date-picker\b[\s\S]*?class="attendance-filter-control"/)
+  assert.match(attendance, /\.attendance-filter-control :deep\(\.el-input__wrapper\),[\s\S]*?min-height:\s*42px;/)
+  assert.match(attendance, /\.attendance-filter-control :deep\(\.el-select__wrapper\)/)
+  assert.match(attendance, /\.attendance-filter-keyword-control :deep\(\.el-input__wrapper\)\s*\{[\s\S]*?padding-left:\s*2\.5rem;/)
+})
+
+test('attendance drawer styling is local and cannot make other drawers transparent', () => {
+  assert.match(attendance, /class="attendance-rule-drawer !bg-transparent"/)
+  assert.match(attendance, /:global\(\.attendance-rule-drawer\.el-drawer\)/)
+  assert.doesNotMatch(attendance, /(?:^|\n)\.el-drawer\s*\{/)
+  assert.doesNotMatch(attendance, /(?:^|\n)\.el-overlay\s*\{/)
+})
+
 test('uses Element Plus options inside employee radio and attendance checkbox groups', () => {
   assertExplicitImports(employeeEditor, ['ElRadio', 'ElRadioGroup'])
   const radioGroups = [...employeeEditor.matchAll(/<el-radio-group\b[\s\S]*?<\/el-radio-group>/g)].map((match) => match[0])
