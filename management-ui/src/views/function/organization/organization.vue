@@ -35,7 +35,7 @@
             <el-result v-if="overviewFailure" :icon="overviewFailure.kind === 'forbidden' ? 'warning' : 'error'" :title="overviewFailure.title" :sub-title="overviewFailure.message">
               <template #extra><el-button type="primary" :loading="loading" @click="fetchOverview">重试</el-button></template>
             </el-result>
-            <div v-else-if="departments.length" class="space-y-3">
+            <div v-else-if="departments.length" class="organization-tree" aria-label="部门层级">
               <DepartmentNode
                 v-for="node in departments"
                 :key="node.id"
@@ -123,7 +123,7 @@
       </section>
     </div>
 
-    <el-drawer v-model="drawerVisible" :title="form.id ? '编辑部门' : '新增部门'" size="460px" destroy-on-close>
+    <el-drawer v-model="drawerVisible" :title="form.id ? '编辑部门' : '新增部门'" size="460px" destroy-on-close class="organization-editor-drawer">
       <el-form label-position="top">
         <el-form-item label="部门名称" required>
           <el-input v-model.trim="form.deptName" data-field="organization.deptName" maxlength="64" placeholder="例如：销售部、仓储部" />
@@ -155,7 +155,7 @@
       </template>
     </el-drawer>
 
-    <el-drawer v-model="positionDrawerVisible" :title="positionForm.id ? '编辑职位' : '新增职位'" size="460px" destroy-on-close>
+    <el-drawer v-model="positionDrawerVisible" :title="positionForm.id ? '编辑职位' : '新增职位'" size="460px" destroy-on-close class="organization-editor-drawer">
       <el-form label-position="top">
         <el-form-item label="所属部门" required>
           <el-select v-model="positionForm.departmentId" class="w-full" placeholder="请选择部门">
@@ -201,31 +201,67 @@ const DepartmentNode = defineComponent({
   },
   emits: ['select', 'create-child', 'edit'],
   setup(props, { emit }) {
-    return () => h('div', { class: 'org-node-wrap' }, [
+    return () => h('div', {
+      class: 'org-node-wrap',
+      'data-level': props.level
+    }, [
       h('div', {
         class: ['org-node', props.activeId === props.node.id ? 'active' : ''],
-        style: { marginLeft: `${props.level * 24}px` },
-        onClick: () => emit('select', props.node)
+        style: { '--org-node-level': props.level },
+        role: 'button',
+        tabindex: 0,
+        'aria-current': props.activeId === props.node.id ? 'true' : undefined,
+        onClick: () => emit('select', props.node),
+        onKeydown: (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          event.preventDefault()
+          emit('select', props.node)
+        }
       }, [
-        h('div', { class: 'min-w-0 flex-1' }, [
-          h('p', { class: 'truncate font-bold text-primary' }, props.node.deptName || '未命名部门'),
-          h('p', { class: 'mt-1 truncate text-xs text-on-surface-variant' }, `负责人：${props.node.leaderName || '未设置'} / 员工 ${props.node.employeeCount || 0} 人 / 职位 ${props.node.positionCount || 0} 个`)
+        h('span', {
+          class: 'org-node__level-icon material-symbols-outlined',
+          'aria-hidden': 'true'
+        }, props.level === 0 ? 'account_tree' : 'subdirectory_arrow_right'),
+        h('div', { class: 'org-node__content' }, [
+          h('div', { class: 'org-node__heading' }, [
+            h('p', { class: 'org-node__name' }, props.node.deptName || '未命名部门'),
+            h(ElTag, {
+              type: Number(props.node.status) === 1 ? 'success' : 'info',
+              size: 'small',
+              effect: 'light'
+            }, () => Number(props.node.status) === 1 ? '启用' : '停用')
+          ]),
+          h('div', { class: 'org-node__meta' }, [
+            h('span', [
+              h('span', { class: 'material-symbols-outlined', 'aria-hidden': 'true' }, 'person'),
+              `负责人：${props.node.leaderName || '未设置'}`
+            ]),
+            h('span', [
+              h('span', { class: 'material-symbols-outlined', 'aria-hidden': 'true' }, 'group'),
+              `员工 ${props.node.employeeCount || 0} 人`
+            ]),
+            h('span', [
+              h('span', { class: 'material-symbols-outlined', 'aria-hidden': 'true' }, 'badge'),
+              `职位 ${props.node.positionCount || 0} 个`
+            ])
+          ])
         ]),
-        h('div', { class: 'flex shrink-0 items-center gap-2' }, [
-          h(ElTag, { type: Number(props.node.status) === 1 ? 'success' : 'info', size: 'small' }, () => Number(props.node.status) === 1 ? '启用' : '停用'),
+        h('div', { class: 'org-node__actions' }, [
           h(ElTooltip, { disabled: props.canUpdate, content: '暂无 organization:department:manage 权限' }, () => h('span', [h(ElButton, { size: 'small', disabled: !props.canUpdate, onClick: (event) => { event.stopPropagation(); emit('create-child', props.node) } }, () => '新增下级')])),
           h(ElTooltip, { disabled: props.canUpdate, content: '暂无 organization:department:manage 权限' }, () => h('span', [h(ElButton, { size: 'small', type: 'primary', plain: true, disabled: !props.canUpdate, onClick: (event) => { event.stopPropagation(); emit('edit', props.node) } }, () => '编辑')]))
         ])
       ]),
-      ...(props.node.children || []).map(child => h(DepartmentNode, {
-        node: child,
-        activeId: props.activeId,
-        level: props.level + 1,
-        canUpdate: props.canUpdate,
-        onSelect: node => emit('select', node),
-        onCreateChild: node => emit('create-child', node),
-        onEdit: node => emit('edit', node)
-      }))
+      props.node.children?.length
+        ? h('div', { class: 'org-node-children' }, props.node.children.map(child => h(DepartmentNode, {
+          node: child,
+          activeId: props.activeId,
+          level: props.level + 1,
+          canUpdate: props.canUpdate,
+          onSelect: node => emit('select', node),
+          onCreateChild: node => emit('create-child', node),
+          onEdit: node => emit('edit', node)
+        })))
+        : null
     ])
   }
 })
@@ -522,6 +558,13 @@ function resolveOverviewFailure(error) {
 </script>
 
 <style scoped>
+:global(.organization-editor-drawer.el-drawer) {
+  --el-bg-color: #fff;
+  --el-dialog-bg-color: #fff;
+  background: #fff !important;
+  backdrop-filter: none;
+}
+
 .panel-card { overflow: hidden; border: 1px solid rgb(148 163 184 / 0.18); border-radius: 8px; background: rgb(var(--surface-container-lowest)); }
 .panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; border-bottom: 1px solid rgb(148 163 184 / 0.16); padding: 1.25rem 1.5rem; }
 .panel-header h2 { font-size: 1rem; font-weight: 800; color: rgb(var(--on-surface)); }
@@ -536,10 +579,90 @@ function resolveOverviewFailure(error) {
 .position-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: .75rem; }
 .position-toolbar p { font-size: .75rem; color: rgb(var(--on-surface-variant)); }
 .position-table-wrap { min-height: 360px; }
-.org-node { display: flex; align-items: center; gap: 1rem; border: 1px solid rgb(148 163 184 / 0.18); border-radius: 8px; background: rgb(var(--surface-container-lowest)); padding: 1rem; cursor: pointer; }
-.org-node.active { border-color: rgb(var(--primary)); background: rgb(var(--primary) / 0.05); }
+.organization-tree { display: grid; gap: .75rem; }
+.organization-tree :deep(.org-node-wrap) { position: relative; min-width: 0; }
+.organization-tree :deep(.org-node) {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .75rem;
+  min-height: 5.25rem;
+  margin-left: calc(var(--org-node-level) * 1.25rem);
+  border: 1px solid rgb(148 163 184 / 0.24);
+  border-radius: 12px;
+  background: #fff;
+  padding: .85rem 1rem;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgb(15 23 42 / 0.035);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.organization-tree :deep(.org-node:hover) { border-color: rgb(var(--primary) / .38); box-shadow: 0 8px 20px rgb(15 23 42 / .07); }
+.organization-tree :deep(.org-node:focus-visible) { outline: 3px solid rgb(var(--primary) / .2); outline-offset: 2px; }
+.organization-tree :deep(.org-node.active) {
+  border-color: rgb(var(--primary));
+  background: linear-gradient(90deg, rgb(var(--primary) / .09), #fff 58%);
+  box-shadow: 0 8px 22px rgb(var(--primary) / .11);
+}
+.organization-tree :deep(.org-node.active::before) {
+  position: absolute;
+  inset: .75rem auto .75rem 0;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: rgb(var(--primary));
+  content: '';
+}
+.organization-tree :deep(.org-node__level-icon) {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgb(var(--primary) / .09);
+  color: rgb(var(--primary));
+  font-size: 1.15rem;
+}
+.organization-tree :deep(.org-node__content) { min-width: 0; }
+.organization-tree :deep(.org-node__heading) { display: flex; min-width: 0; align-items: center; gap: .55rem; }
+.organization-tree :deep(.org-node__name) {
+  min-width: 0;
+  overflow: hidden;
+  color: rgb(var(--on-surface));
+  font-size: .95rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.organization-tree :deep(.org-node__meta) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem 1rem;
+  margin-top: .5rem;
+  color: rgb(var(--on-surface-variant));
+  font-size: .75rem;
+}
+.organization-tree :deep(.org-node__meta > span) { display: inline-flex; align-items: center; gap: .25rem; white-space: nowrap; }
+.organization-tree :deep(.org-node__meta .material-symbols-outlined) { color: rgb(var(--primary)); font-size: .9rem; }
+.organization-tree :deep(.org-node__actions) { display: flex; flex: 0 0 auto; align-items: center; gap: .5rem; }
+.organization-tree :deep(.org-node-children) { position: relative; display: grid; gap: .75rem; margin-top: .75rem; }
+.organization-tree :deep(.org-node-children::before) {
+  position: absolute;
+  top: -.75rem;
+  bottom: .75rem;
+  left: .62rem;
+  border-left: 1px dashed rgb(var(--primary) / .3);
+  content: '';
+}
 :deep(.organization-tabs > .el-tabs__header) { margin-bottom: 1rem; }
+@media (max-width: 900px) {
+  .organization-tree :deep(.org-node) { grid-template-columns: auto minmax(0, 1fr); margin-left: calc(var(--org-node-level) * .75rem); }
+  .organization-tree :deep(.org-node__actions) { grid-column: 2; justify-content: flex-start; }
+}
 @media (max-width: 640px) {
   .position-toolbar { align-items: flex-start; flex-direction: column; }
+  .organization-tree :deep(.org-node) { margin-left: 0; }
+  .organization-tree :deep(.org-node__meta) { align-items: flex-start; flex-direction: column; }
+  .organization-tree :deep(.org-node-children) { padding-left: .75rem; }
 }
 </style>

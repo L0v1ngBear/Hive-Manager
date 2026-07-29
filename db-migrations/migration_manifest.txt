@@ -87,3 +87,4 @@ migrations/V20260727_001_sales_order_advance_permissions.sql
 migrations/V20260728_001_web_wechat_login.sql
 migrations/V20260728_002_order_multi_attachments.sql
 migrations/V20260729_001_sales_order_production_location.sql
+migrations/V20260729_002_enterprise_announcement_attachment.sql

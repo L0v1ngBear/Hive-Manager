@@ -74,6 +74,17 @@
             </el-tag>
           </div>
           <p class="mt-2 whitespace-pre-wrap text-sm leading-7 opacity-90">{{ item.content }}</p>
+          <div v-if="item.attachmentUrl" class="mt-3">
+            <el-button
+                type="primary"
+                plain
+                :loading="downloadingAttachmentId === item.id"
+                @click="openAttachment(item)"
+            >
+              <span class="material-symbols-outlined text-[18px]">attachment</span>
+              {{ item.attachmentName || '查看公告附件' }}
+            </el-button>
+          </div>
           <div class="mt-3 rounded-lg border border-white/70 bg-white/55 p-3">
             <div class="flex flex-wrap items-center gap-2 text-xs font-black">
               <el-tag class="rounded-full bg-emerald-100 px-3 py-1 text-emerald-700" type="success" effect="light">
@@ -125,7 +136,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElEmpty, ElMessage, ElSkeleton, ElTag } from 'element-plus'
-import { getAnnouncements } from '@/api/notification.js'
+import { downloadAnnouncementAttachment, getAnnouncements } from '@/api/notification.js'
 import { useUserStore } from '@/stores/user.js'
 import { createLatestRequestGuard } from './latestRequestGuard.js'
 
@@ -139,6 +150,7 @@ const loading = ref(false)
 const announcementLoadError = ref('')
 const activeLevel = ref('all')
 const announcements = ref([])
+const downloadingAttachmentId = ref(null)
 const announcementRequestGuard = createLatestRequestGuard()
 const canPublishAnnouncement = computed(() => userStore.hasPermission(ANNOUNCEMENT_PUBLISH_PERMISSION))
 const canReadAnnouncements = computed(() => userStore.hasPermission(ANNOUNCEMENT_LIST_PERMISSION))
@@ -197,6 +209,27 @@ function goPublish() {
     return
   }
   router.push('/function/announcement/publish')
+}
+
+async function openAttachment(item) {
+  if (!item?.attachmentUrl || downloadingAttachmentId.value !== null) return
+  downloadingAttachmentId.value = item.id
+  try {
+    const blob = await downloadAnnouncementAttachment({
+      url: item.attachmentUrl,
+      name: item.attachmentName || undefined
+    })
+    const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = item.attachmentName || '公告附件'
+    link.click()
+    URL.revokeObjectURL(objectUrl)
+  } catch (error) {
+    ElMessage.error(error?.msg || error?.message || '公告附件下载失败')
+  } finally {
+    downloadingAttachmentId.value = null
+  }
 }
 
 const announcementCardClass = (level) => {

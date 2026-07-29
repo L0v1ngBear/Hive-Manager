@@ -10,8 +10,11 @@ import my.hive.domain.notification.model.dto.AnnouncementPublishRequest;
 import my.hive.domain.notification.model.entity.EnterpriseAnnouncement;
 import my.hive.domain.notification.model.vo.NotificationReceiverVO;
 import my.hive.domain.notification.model.vo.NotificationVO;
+import my.hive.infrastructure.storage.BusinessAttachmentService;
+import my.hive.infrastructure.storage.BusinessAttachmentVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Set;
@@ -28,10 +31,14 @@ public class EnterpriseAnnouncementService {
     private static final String ANNOUNCEMENT_ROUTE = "/dashboard";
     private static final int ANNOUNCEMENT_TITLE_LIMIT = 80;
     private static final int ANNOUNCEMENT_CONTENT_LIMIT = 1000;
+    private static final int ANNOUNCEMENT_ATTACHMENT_NAME_LIMIT = 180;
     private static final Set<String> ANNOUNCEMENT_LEVELS = Set.of("normal", "urgent", "important");
 
     @Resource
     private EnterpriseAnnouncementMapper enterpriseAnnouncementMapper;
+
+    @Resource
+    private BusinessAttachmentService businessAttachmentService;
 
     public List<NotificationVO> announcements(Integer limit, String levels) {
         int safeLimit = Math.min(Math.max(limit == null ? 5 : limit, 1), 50);
@@ -64,6 +71,16 @@ public class EnterpriseAnnouncementService {
         announcement.setRoute(ANNOUNCEMENT_ROUTE);
         announcement.setStatus(CommonStatusEnum.ENABLED.getCode());
         announcement.setPublisherUserId(TenantPermissionContext.getUserId());
+        String attachmentUrl = normalizeText(request == null ? null : request.getAttachmentUrl());
+        if (attachmentUrl != null) {
+            String attachmentName = normalizeText(request.getAttachmentName());
+            announcement.setAttachmentName(limit(
+                    attachmentName == null ? "公告附件" : attachmentName,
+                    ANNOUNCEMENT_ATTACHMENT_NAME_LIMIT));
+            announcement.setAttachmentUrl(attachmentUrl);
+            Long attachmentSize = request.getAttachmentSize();
+            announcement.setAttachmentSize(attachmentSize != null && attachmentSize > 0 ? attachmentSize : null);
+        }
         enterpriseAnnouncementMapper.insertAnnouncement(announcement);
         createReceiverRows(announcement);
         return toVO(announcement);
@@ -118,6 +135,9 @@ public class EnterpriseAnnouncementService {
         vo.setChannel("IN_APP");
         vo.setRoute(announcement.getRoute());
         vo.setSourceType(ANNOUNCEMENT_SOURCE);
+        vo.setAttachmentName(announcement.getAttachmentName());
+        vo.setAttachmentUrl(announcement.getAttachmentUrl());
+        vo.setAttachmentSize(announcement.getAttachmentSize());
         vo.setUpdateTime(announcement.getUpdateTime() == null ? announcement.getCreateTime() : announcement.getUpdateTime());
 
         List<NotificationReceiverVO> receivers = announcement.getId() == null
@@ -131,6 +151,14 @@ public class EnterpriseAnnouncementService {
         Long currentUserId = TenantPermissionContext.getUserId();
         vo.setReadFlag(readCurrentUser(receivers, currentUserId) ? BinaryFlagEnum.YES.getCode() : BinaryFlagEnum.NO.getCode());
         return vo;
+    }
+
+    public BusinessAttachmentVO uploadAttachment(MultipartFile file) {
+        return businessAttachmentService.upload(file, "announcement");
+    }
+
+    public org.springframework.core.io.Resource loadAttachment(String attachmentUrl) {
+        return businessAttachmentService.load(attachmentUrl, "announcement");
     }
 
     private boolean readCurrentUser(List<NotificationReceiverVO> receivers, Long currentUserId) {

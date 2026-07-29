@@ -1,37 +1,53 @@
-# Logistics Popover Design QA
+# Organization clarity and navbar visibility QA
 
-- Source visual truth: `docs/quality/logistics-popover-reference.png`
-- Implementation capture: `docs/quality/logistics-popover-implementation.png`
-- Side-by-side comparison: `docs/quality/logistics-popover-comparison.png`
-- Comparison viewport: 1400 × 800
-- Implementation capture viewport: 1024 × 768
-- Browser scale: 100%
-- Component state: populated logistics result with carrier, waybill number, status, route summary, and three tracking events
+- Source visual truth:
+  - `C:\Users\HUAWEI\AppData\Local\Temp\codex-clipboard-412af0f7-90e0-4a9b-9b13-a9a57e2d12e4.png`
+  - `C:\Users\HUAWEI\AppData\Local\Temp\codex-clipboard-a4b0bc9c-1ebf-47e6-a293-55e3a1bcd111.png`
+- Browser-rendered implementation: `D:\HiveManager\.codex-org-implementation-final.png`
+- Combined comparison evidence: `D:\HiveManager\.codex-organization-comparison-side.png`
+- Focused navbar evidence: `D:\HiveManager\.codex-navbar-implementation.png`
+- Viewport: organization `1770 × 920` CSS px; navbar responsive checks at `1770`, `1100`, `900`, `768`, and `390` CSS px.
+- Pixel dimensions: organization source `1772 × 983`; implementation capture `1671 × 915`; side-by-side comparison `1216 × 333`.
+- Density normalization: source and implementation were proportionally downsampled to separate 600 px comparison columns without cropping.
+- State: authenticated local QA session with representative organization data; “上海分公司” selected; desktop sidebar collapsed.
 
-## Evidence
+## Full-view comparison evidence
 
-The full popover is the focused region for this task, so the side-by-side artifact contains both the full-view and focused-region evidence. The 668 × 493 reference was normalized to 390 px wide beside the 390 × 307 implementation card.
+The source showed recursively indented text with status and actions compressed into the same small area. The implementation preserves the same organization content and right-side member/position region, while each department now has a bounded card, a distinct status, grouped metadata, aligned actions, indentation, connector lines, and an explicit selected state.
 
-## Iteration history
+## Focused region comparison evidence
 
-1. Initial implementation was too tall, visually split the header from the waybill, and used several theme variables that were not defined in the current design system.
-2. Replaced undefined variables with existing Hive tokens, joined the header and waybill into one visual surface, strengthened the timeline line and dots, and reduced vertical padding.
-3. Compressed the final card to 390 × 307 and repeated the side-by-side comparison.
+- Organization hierarchy: department name, status, leader, employee count, position count, and actions remain readable as separate groups. Nested levels stay within the left panel at desktop, tablet, and compact widths.
+- Navbar: bounding-box checks at all five widths showed the left/search region ending before the action region starts. The tenant chip shrinks and truncates internally; notification and account controls retain their own width. At mobile width the navbar grows to two rows instead of clipping content.
+- A separate crop was not required for the organization cards because the 600 px comparison column keeps labels, state, and indentation legible. The navbar was checked independently because its source visual is a narrow horizontal crop.
+
+## Comparison history
+
+1. Initial render: **P1** — recursive department nodes were visibly unstyled because the parent SFC scoped selector did not reach the runtime child component.
+   - Fix: scoped every tree rule through `.organization-tree :deep(...)`; no global selector was added.
+   - Post-fix evidence: cards, active border, icons, metadata groups, actions, indentation, and connector lines are visible in `.codex-org-implementation-final.png`.
+2. Responsive verification: no P0/P1/P2 overlap or clipping remained at the checked widths. No further visual fix was required.
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing Hive font stack and hierarchy retained; department names use a stronger local weight and metadata stays subordinate.
+- Spacing and layout rhythm: tree nodes now have consistent padding, vertical gaps, alignment, and responsive action wrapping.
+- Colors and tokens: existing primary and surface tokens retained; semantic enabled/disabled tags are unchanged.
+- Image quality and assets: existing tenant logo and Material Symbols assets retained; no raster placeholders or custom SVG/CSS icons were introduced.
+- Copy and content: all existing business labels, counts, permission messages, and actions are preserved.
+
+## Primary interactions and console
+
+- Selected “上海分公司” from the hierarchy; exactly one node moved to `aria-current="true"` and the department detail context updated.
+- Verified the header at desktop, tablet, and mobile breakpoints.
+- Browser console warnings/errors after loading and interaction: none.
 
 ## Findings
 
-- P0: none
-- P1: none
-- P2: none
-- P3: the implementation is 19 px taller after width normalization. This preserves clearer current-product typography and is within the accepted density target.
-- Intentional difference: the implementation uses the product's existing teal primary color instead of the reference image's blue.
-- Intentional difference: route origin and destination are only rendered when the API returns at least two real locations; the UI does not invent missing route data.
+No actionable P0/P1/P2 findings remain.
 
-## Interaction and runtime checks
+## Follow-up polish
 
-- The existing hover trigger still opens the popover.
-- The copy-waybill control is keyboard focusable and has hover/focus styling.
-- Copy handling is wired to the Clipboard API with success and failure feedback.
-- No browser console errors were observed in the visual fixture.
+- P3: very deep future department trees may benefit from collapse/expand controls if the tenant grows far beyond the current data volume.
 
 final result: passed

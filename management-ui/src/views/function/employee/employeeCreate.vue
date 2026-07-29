@@ -18,6 +18,7 @@
       :model-value="visible"
       :with-header="false"
       size="560px"
+      class="employee-editor-drawer"
       @update:model-value="(value) => !value && emit('close')"
   >
     <el-form :model="form" class="flex h-full flex-col" @submit.prevent="submit">
@@ -629,3 +630,12 @@ function showEmployeeActivationGuide(createResult) {
   ).catch(() => {})
 }
 </script>
+
+<style scoped>
+:global(.employee-editor-drawer.el-drawer) {
+  --el-bg-color: #fff;
+  --el-dialog-bg-color: #fff;
+  background: #fff !important;
+  backdrop-filter: none;
+}
+</style>

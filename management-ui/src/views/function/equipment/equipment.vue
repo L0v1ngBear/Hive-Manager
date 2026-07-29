@@ -81,7 +81,7 @@
       </section>
     </div>
 
-    <el-drawer v-model="editorVisible" :title="editingId ? '编辑设备' : '新增设备'" size="720px" destroy-on-close>
+    <el-drawer v-model="editorVisible" :title="editingId ? '编辑设备' : '新增设备'" size="720px" destroy-on-close class="equipment-editor-drawer">
       <el-form label-position="top">
         <el-form-item label="设备名称" required><el-input v-model.trim="form.equipmentName" placeholder="例如：定型机01" /></el-form-item>
         <el-form-item label="设备编码">
@@ -368,6 +368,13 @@ fetchDevices()
 </script>
 
 <style scoped>
+:global(.equipment-editor-drawer.el-drawer) {
+  --el-bg-color: #fff;
+  --el-dialog-bg-color: #fff;
+  background: #fff !important;
+  backdrop-filter: none;
+}
+
 .stat-card { border: 1px solid rgb(148 163 184 / 0.18); border-radius: 8px; background: rgb(var(--surface-container-lowest)); padding: 1.25rem; }
 .stat-card p { font-size: .875rem; color: rgb(var(--on-surface-variant)); }
 .stat-card strong { display: block; margin-top: .5rem; font-size: 1.5rem; color: rgb(var(--on-surface)); }

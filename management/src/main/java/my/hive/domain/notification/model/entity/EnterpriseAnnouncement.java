@@ -30,6 +30,12 @@ public class EnterpriseAnnouncement {
 
     private String publisherName;
 
+    private String attachmentName;
+
+    private String attachmentUrl;
+
+    private Long attachmentSize;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

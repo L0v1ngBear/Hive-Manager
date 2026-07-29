@@ -1,5 +1,11 @@
 # 共享基础维护档案
 
+## Drawer appearance isolation (2026-07-29)
+
+- `src/style.css` 不再为所有 `ElDrawer` 设置半透明背景或毛玻璃效果。
+- 响应式抽屉宽度规则继续保留；需要透明或特殊背景的页面必须使用自己的抽屉类显式声明。
+- 库存、质量、价格、设备、组织和员工编辑抽屉各自拥有局部不透明样式，后续不得重新增加无边界的全局抽屉外观覆盖。
+
 ## Global Teal Theme Contract (2026-07-15)
 
 **Migration status:** The management UI global teal migration is complete at the

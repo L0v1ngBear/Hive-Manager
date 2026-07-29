@@ -1,5 +1,5 @@
 <template>
-  <header ref="navbarRef" class="ys-navbar min-h-16 md:h-20 bg-surface flex flex-wrap md:flex-nowrap items-center justify-between gap-3 px-3 py-3 md:px-8 md:py-0 shrink-0 relative z-30 isolate overflow-visible">
+  <header ref="navbarRef" class="ys-navbar min-h-16 md:min-h-20 bg-surface flex flex-wrap md:flex-nowrap items-center justify-between gap-3 px-3 py-3 md:px-8 shrink-0 relative z-30 isolate overflow-visible">
     <el-button
       class="md:hidden p-2 text-on-surface-variant rounded-full hover:bg-surface-container-highest"
       text
@@ -9,10 +9,10 @@
       <span class="material-symbols-outlined">menu</span>
     </el-button>
 
-    <div class="flex min-w-0 flex-1 items-center gap-3 md:gap-6 max-w-2xl md:ml-0">
-      <h2 class="text-xl font-bold text-on-surface hidden lg:block">{{ pageTitle }}</h2>
+    <div class="navbar-main flex min-w-0 flex-1 items-center gap-3 md:gap-6 max-w-2xl md:ml-0">
+      <h2 class="navbar-page-title text-xl font-bold text-on-surface hidden lg:block">{{ pageTitle }}</h2>
 
-      <div v-if="!userStore.isPlatformTenant" class="relative flex-1 group max-w-md hidden md:block">
+      <div v-if="!userStore.isPlatformTenant" class="navbar-search relative min-w-0 flex-1 group max-w-md hidden md:block">
         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">search</span>
         <el-input
           v-model.trim="keyword"
@@ -47,7 +47,7 @@
       </div>
     </div>
 
-    <div class="flex items-center gap-2 md:gap-4">
+    <div class="navbar-actions flex min-w-0 items-center gap-2 md:gap-4">
       <div class="tenant-chip tenant-chip--branded" :title="brandConfig.companyName">
         <span class="tenant-chip__logo-frame">
           <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="tenant-chip__logo brand-logo-image">
@@ -714,6 +714,28 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid rgba(200, 211, 223, 0.58);
 }
 
+.navbar-main {
+  flex-basis: 26rem;
+}
+
+.navbar-page-title {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.navbar-search {
+  flex-basis: 14rem;
+}
+
+.navbar-actions {
+  flex: 0 1 auto;
+  justify-content: flex-end;
+}
+
+.navbar-actions > :not(.tenant-chip) {
+  flex: 0 0 auto;
+}
+
 .navbar-menu-item {
   display: flex;
   width: 100%;
@@ -761,7 +783,9 @@ onBeforeUnmount(() => {
 
 .tenant-chip {
   display: inline-flex;
+  min-width: 8.5rem;
   max-width: min(24rem, 38vw);
+  flex: 0 1 auto;
   align-items: center;
   gap: 0.68rem;
   overflow: hidden;
@@ -855,8 +879,43 @@ onBeforeUnmount(() => {
   font-size: 1.25rem;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1100px) {
+  .navbar-main {
+    flex-basis: 16rem;
+  }
+
+  .navbar-search {
+    max-width: 18rem;
+  }
+
   .tenant-chip {
+    min-width: 6.5rem;
+    max-width: 14rem;
+  }
+
+  .tenant-chip__logo-frame,
+  .tenant-chip__fallback-icon {
+    width: 3.2rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .navbar-actions {
+    flex: 1 1 auto;
+  }
+
+  .tenant-chip {
+    max-width: min(18rem, 46vw);
+  }
+}
+
+@media (max-width: 767px) {
+  .ys-navbar {
+    align-content: center;
+  }
+
+  .tenant-chip {
+    min-width: 0;
     max-width: calc(100vw - 12rem);
     padding: 0.4rem 0.55rem;
     gap: 0.45rem;

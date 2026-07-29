@@ -35,6 +35,12 @@ public class NotificationVO {
 
     private String sourceType;
 
+    private String attachmentName;
+
+    private String attachmentUrl;
+
+    private Long attachmentSize;
+
     private Long readCount;
 
     private Long unreadCount;

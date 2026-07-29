@@ -7,6 +7,7 @@
 - 共享依赖：`BusinessTimeCorrectionPanel.vue`、`DragAttachmentUpload.vue`、`TableColumnSettings.vue`。
 - 路由：`/function/bad-product`，路由名 `BadProduct`，功能开关 `module.badProduct`。
 - 迁移批次：Batch 2；状态为 `Element Plus migrated`。
+- 详情、登记/编辑和处理抽屉使用 `quality-drawer` 页面类，显式关闭透明背景与毛玻璃效果。
 
 ## 用户功能
 

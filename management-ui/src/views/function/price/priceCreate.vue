@@ -1,5 +1,5 @@
 <template>
-  <el-drawer :model-value="isVisible" :title="form.id ? '调整价格矩阵' : '新增价格矩阵'" size="640px" @update:model-value="(visible) => !visible && close()">
+  <el-drawer :model-value="isVisible" :title="form.id ? '调整价格矩阵' : '新增价格矩阵'" size="640px" class="price-editor-drawer" @update:model-value="(visible) => !visible && close()">
     <el-result v-if="requestError" :icon="requestError.icon" :title="requestError.title" :sub-title="requestError.message"><template #extra><el-button @click="retry">重试</el-button></template></el-result>
     <el-form v-else v-loading="loading" :model="form" label-position="top">
       <el-row :gutter="16"><el-col :span="12"><el-form-item label="面料型号"><el-select v-model="form.modelCode" filterable allow-create default-first-option><el-option v-for="item in modelOptions" :key="item.modelCode" :label="`${item.modelCode} ${item.spec || ''}`" :value="item.modelCode" /></el-select></el-form-item></el-col><el-col :span="12"><el-form-item label="批号"><el-input v-model.trim="form.batchNo" /></el-form-item></el-col></el-row>
@@ -204,6 +204,13 @@ async function submit() {
 </script>
 
 <style scoped>
+:global(.price-editor-drawer.el-drawer) {
+  --el-bg-color: #fff;
+  --el-dialog-bg-color: #fff;
+  background: #fff !important;
+  backdrop-filter: none;
+}
+
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .slide-enter-active, .slide-leave-active { transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }

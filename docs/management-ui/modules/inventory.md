@@ -7,6 +7,7 @@
 - 路由：`/function/inventory`，路由名 `Inventory`，功能开关 `module.inventory`。
 - 共享组件：`DateFilterInput`、`BusinessTimeCorrectionPanel`、`DragAttachmentUpload`、`TableColumnSettings`。
 - 迁移批次：Batch 3；状态为“Element Plus 已迁移，动态响应式表格为受保护自定义界面”。
+- 库存预警、型号详情、入库、图片识别和出库抽屉使用 `inventory-opaque-drawer` 页面类，背景固定为不透明白色；不依赖全局 `ElDrawer` 外观覆盖。
 
 ## 功能与接口
 

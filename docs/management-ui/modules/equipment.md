@@ -6,6 +6,7 @@
 - API：`management-ui/src/views/function/equipment/api/equipment.js`
 - 路由：`/function/equipment`，路由名 `Equipment`，功能开关 `module.equipment`。
 - 迁移批次：Batch 1；状态为 `Element Plus migrated`。
+- 设备新增/编辑抽屉使用 `equipment-editor-drawer` 页面级不透明背景；设备详情与巡检的数据、权限和请求流程不变。
 
 ### 迁移结果（2026-07-13）
 

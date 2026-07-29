@@ -3,6 +3,7 @@
 ## Element Plus 迁移
 
 - 列表筛选、数据表格、分页、详情抽屉和导入命令统一使用 Element Plus 控件；价格编辑器使用 `ElDrawer` 与 `ElForm`。
+- 价格新增/调整编辑器使用 `price-editor-drawer` 局部不透明背景，不读取共享抽屉视觉样式。
 - 金额输入仍以数字载荷提交，模型和客户选择仍保留原始值类型与端点。
 - 生效日期控件显式使用 `value-format="YYYY-MM-DD"`；新建默认值按本地日期格式化，避免 UTC 跨日偏移。
 

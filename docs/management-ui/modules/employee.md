@@ -12,6 +12,8 @@
 - 个人权限生效证据：`management/src/main/java/my/management/module/auth/mapper/AuthMapper.java`、`management/src/main/resources/sql/user_permission_overrides.sql`。
 - 路由：`/function/employee`；入口权限 `employee:list`；feature 为 `module.employee`。
 - 迁移批次：Batch 2；当前状态为 Element Plus migrated（已完成 Element Plus 迁移）。
+- 员工新增/编辑抽屉使用 `employee-editor-drawer` 页面级不透明背景。
+- 员工分页、详情和导出的职位关联必须同时匹配职位名称与部门 ID；不同分公司的同名职位不得把同一员工展开为多行。
 
 ## 功能
 

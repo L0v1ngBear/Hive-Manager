@@ -88,7 +88,7 @@ public interface EmployeeMapper extends BaseMapper<Employee> {
             "FROM user u ",
             "LEFT JOIN emp_employee_ext ext ON ext.user_id = u.id AND ext.tenant_code = u.tenant_code AND ext.is_deleted = 0 ",
             "LEFT JOIN emp_department d ON d.dept_name = u.department_name AND d.tenant_code = u.tenant_code AND d.is_deleted = 0 ",
-            "LEFT JOIN emp_position p ON p.position_name = u.position AND p.tenant_code = u.tenant_code AND p.is_deleted = 0 ",
+            "LEFT JOIN emp_position p ON p.position_name = u.position AND p.department_id = d.id AND p.tenant_code = u.tenant_code AND p.is_deleted = 0 ",
             "WHERE u.tenant_code = #{tenantCode} ",
             "<if test='keyword != null and keyword != \"\"'>",
             "  AND (u.name LIKE CONCAT('%', #{keyword}, '%') ",
@@ -122,7 +122,7 @@ public interface EmployeeMapper extends BaseMapper<Employee> {
             "FROM user u ",
             "LEFT JOIN emp_employee_ext ext ON ext.user_id = u.id AND ext.tenant_code = u.tenant_code AND ext.is_deleted = 0 ",
             "LEFT JOIN emp_department d ON d.dept_name = u.department_name AND d.tenant_code = u.tenant_code AND d.is_deleted = 0 ",
-            "LEFT JOIN emp_position p ON p.position_name = u.position AND p.tenant_code = u.tenant_code AND p.is_deleted = 0 ",
+            "LEFT JOIN emp_position p ON p.position_name = u.position AND p.department_id = d.id AND p.tenant_code = u.tenant_code AND p.is_deleted = 0 ",
             "WHERE u.tenant_code = #{tenantCode} AND u.id = #{id} LIMIT 1"
     })
     EmployeeDetailVO selectEmployeeDetail(@Param("tenantCode") String tenantCode, @Param("id") Long id);
@@ -136,7 +136,7 @@ public interface EmployeeMapper extends BaseMapper<Employee> {
             "FROM user u ",
             "LEFT JOIN emp_employee_ext ext ON ext.user_id = u.id AND ext.tenant_code = u.tenant_code AND ext.is_deleted = 0 ",
             "LEFT JOIN emp_department d ON d.dept_name = u.department_name AND d.tenant_code = u.tenant_code AND d.is_deleted = 0 ",
-            "LEFT JOIN emp_position p ON p.position_name = u.position AND p.tenant_code = u.tenant_code AND p.is_deleted = 0 ",
+            "LEFT JOIN emp_position p ON p.position_name = u.position AND p.department_id = d.id AND p.tenant_code = u.tenant_code AND p.is_deleted = 0 ",
             "WHERE u.tenant_code = #{tenantCode} ",
             "AND (ext.id IS NULL OR ext.is_deleted = 0) ",
             "<if test='keyword != null and keyword != \"\"'>",

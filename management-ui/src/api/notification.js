@@ -1,4 +1,5 @@
 import request from '@/utils/request.js'
+import { uploadAttachmentWithChunks } from '@/utils/chunkedAttachmentUpload.js'
 
 export function getUnreadNotifications() {
   return request({
@@ -27,6 +28,26 @@ export function publishAnnouncement(data) {
     url: '/notifications/announcements',
     method: 'post',
     data
+  })
+}
+
+export function uploadAnnouncementAttachment(data) {
+  const file = data?.get?.('file')
+  return uploadAttachmentWithChunks(file, () => request({
+    url: '/notifications/announcements/attachment/upload',
+    method: 'post',
+    data,
+    timeout: 600000
+  }), 'announcement')
+}
+
+export function downloadAnnouncementAttachment(params) {
+  return request({
+    url: '/notifications/announcements/attachment/download',
+    method: 'get',
+    params,
+    responseType: 'blob',
+    timeout: 600000
   })
 }
 

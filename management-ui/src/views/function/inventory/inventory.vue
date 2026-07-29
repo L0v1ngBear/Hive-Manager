@@ -305,7 +305,7 @@
       <div v-if="detailVisible || inVisible || outVisible || imageRecognitionVisible" class="fixed inset-0 z-[90] bg-slate-900/40 backdrop-blur-sm transition-opacity" @click="closePanels"></div>
     </transition>
 
-    <el-drawer v-model="warningSettingVisible" title="库存预警设置" size="min(92vw, 420px)" destroy-on-close>
+    <el-drawer v-model="warningSettingVisible" title="库存预警设置" size="min(92vw, 420px)" destroy-on-close class="inventory-opaque-drawer">
       <el-form :model="warningSettingForm" label-position="top">
         <el-form-item label="低库存预警阈值（米）" required>
           <el-input-number v-model="warningSettingForm.threshold" :min="0" :max="999999999.99" :step="0.01" :precision="2" class="w-full" />
@@ -320,7 +320,7 @@
 
     <input ref="importInputRef" type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="handleImportChange" />
 
-    <el-drawer v-model="detailVisible" title="库存型号详情" size="min(92vw, 520px)" destroy-on-close>
+    <el-drawer v-model="detailVisible" title="库存型号详情" size="min(92vw, 520px)" destroy-on-close class="inventory-opaque-drawer">
       <div class="h-1.5 w-full bg-blue-600"></div>
       <div class="flex items-start justify-between gap-3 border-b border-slate-100 bg-slate-50/50 p-6">
         <div>
@@ -391,7 +391,7 @@
       </div>
     </el-drawer>
 
-    <el-drawer v-model="inVisible" title="新增入库" size="min(92vw, 520px)" destroy-on-close @closed="closeInDrawer">
+    <el-drawer v-model="inVisible" title="新增入库" size="min(92vw, 520px)" destroy-on-close class="inventory-opaque-drawer" @closed="closeInDrawer">
       <el-form :model="inForm" label-position="top">
       <div class="h-1.5 w-full bg-emerald-500"></div>
       <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
@@ -484,7 +484,7 @@
       </el-form>
     </el-drawer>
 
-    <el-drawer v-model="imageRecognitionVisible" title="图片识别入库" size="min(96vw, 620px)" destroy-on-close>
+    <el-drawer v-model="imageRecognitionVisible" title="图片识别入库" size="min(96vw, 620px)" destroy-on-close class="inventory-opaque-drawer">
       <el-form label-position="top">
       <div class="h-1.5 w-full bg-blue-500"></div>
       <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
@@ -609,7 +609,7 @@
       </el-form>
     </el-drawer>
 
-    <el-drawer v-model="outVisible" title="扫码出库" size="min(92vw, 480px)" destroy-on-close>
+    <el-drawer v-model="outVisible" title="扫码出库" size="min(92vw, 480px)" destroy-on-close class="inventory-opaque-drawer">
       <el-form :model="outForm" label-position="top">
       <div class="h-1.5 w-full bg-slate-800"></div>
       <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
@@ -1404,6 +1404,13 @@ function getUnit(value, defaultUnit = '米') {
 </script>
 
 <style scoped>
+:global(.inventory-opaque-drawer.el-drawer) {
+  --el-bg-color: #fff;
+  --el-dialog-bg-color: #fff;
+  background: #fff !important;
+  backdrop-filter: none;
+}
+
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;

@@ -11,7 +11,11 @@ import my.hive.domain.notification.model.dto.NotificationTaskCloseRequest;
 import my.hive.domain.notification.model.vo.NotificationVO;
 import my.hive.domain.notification.service.EnterpriseAnnouncementService;
 import my.hive.domain.notification.service.NotificationService;
+import my.hive.infrastructure.storage.BusinessAttachmentVO;
 import my.hive.shared.permission.PermissionCatalogV3;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +23,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -62,6 +69,30 @@ public class NotificationController {
     @CollectLog(module = "notification", action = "publish_announcement", bizType = "announcement", description = "发布企业通知公告")
     public Result<NotificationVO> publishAnnouncement(@RequestBody AnnouncementPublishRequest request) {
         return Result.success(enterpriseAnnouncementService.publishAnnouncement(request));
+    }
+
+    @PostMapping("/announcements/attachment/upload")
+    @RequirePermission(value = PermissionCatalogV3.CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH, message = "您没有权限上传公告附件")
+    @CollectLog(module = "notification", action = "upload_announcement_attachment", bizType = "announcement_attachment", description = "上传企业公告附件")
+    public Result<BusinessAttachmentVO> uploadAnnouncementAttachment(@RequestParam("file") MultipartFile file) {
+        return Result.success(enterpriseAnnouncementService.uploadAttachment(file));
+    }
+
+    @GetMapping("/announcements/attachment/download")
+    @RequirePermission(value = PermissionCatalogV3.CODE_NOTIFICATION_ANNOUNCEMENT_LIST, message = "您没有权限下载公告附件")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadAnnouncementAttachment(
+            @RequestParam String url,
+            @RequestParam(required = false) String name) {
+        org.springframework.core.io.Resource resource = enterpriseAnnouncementService.loadAttachment(url);
+        String filename = name != null && !name.isBlank() ? name.trim() : resource.getFilename();
+        String encodedFilename = URLEncoder.encode(
+                        filename == null ? "announcement-attachment" : filename,
+                        StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFilename)
+                .body(resource);
     }
 
     @PostMapping("/{id}/read")

@@ -146,7 +146,7 @@
       </section>
     </div>
 
-    <el-drawer v-model="outVisible" title="扫码出库" size="min(92vw, 480px)" destroy-on-close>
+    <el-drawer v-model="outVisible" title="扫码出库" size="min(92vw, 480px)" destroy-on-close class="inventory-opaque-drawer">
       <el-form :model="outForm" label-position="top">
       <div class="h-1.5 w-full bg-slate-800"></div>
       <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
@@ -191,7 +191,7 @@
       </el-form>
     </el-drawer>
 
-    <el-drawer v-model="detailVisible" title="单匹布详情" size="min(92vw, 560px)" destroy-on-close @closed="closeClothDetail">
+    <el-drawer v-model="detailVisible" title="单匹布详情" size="min(92vw, 560px)" destroy-on-close class="inventory-opaque-drawer" @closed="closeClothDetail">
       <div class="h-1.5 w-full bg-slate-800"></div>
       <div class="flex items-start justify-between border-b border-slate-100 bg-slate-50/50 p-6">
         <div>
@@ -535,6 +535,13 @@ function meter(value) {
 </script>
 
 <style scoped>
+:global(.inventory-opaque-drawer.el-drawer) {
+  --el-bg-color: #fff;
+  --el-dialog-bg-color: #fff;
+  background: #fff !important;
+  backdrop-filter: none;
+}
+
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;

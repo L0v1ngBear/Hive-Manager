@@ -6,6 +6,7 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 const style = process.env.GLOBAL_LAYOUT_STYLE ?? read('src/style.css')
 const brand = read('src/config/brand.js')
 const sidebar = read('src/layout/components/Sidebar.vue')
+const navbar = read('src/layout/components/Navbar.vue')
 const price = read('src/views/function/price/price.vue')
 const equipment = read('src/views/function/equipment/equipment.vue')
 const order = read('src/views/function/order/order.vue')
@@ -191,6 +192,16 @@ test('desktop sidebar starts collapsed while mobile navigation stays expanded', 
 test('sidebar omits the enterprise authorization entry', () => {
   assert.match(sidebar, /if \(userStore\.isPlatformTenant\)\s*\{\s*return \[\]\s*\}/)
   assert.doesNotMatch(sidebar, /\{name:\s*'企业授权'[^}]*path:\s*'\/function\/tenant'/)
+})
+
+test('navbar grows with its information and shrinks long tenant content without overlap', () => {
+  assert.match(navbar, /class="ys-navbar[^"]*\bmd:min-h-20\b/)
+  assert.doesNotMatch(navbar, /class="ys-navbar[^"]*\bmd:h-20\b/)
+  assert.match(navbar, /class="navbar-main[^"]*\bmin-w-0\b/)
+  assert.match(navbar, /class="navbar-actions[^"]*\bmin-w-0\b/)
+  assert.match(navbar, /\.navbar-actions\s*>\s*:not\(\.tenant-chip\)\s*\{[\s\S]*?flex\s*:\s*0\s+0\s+auto/)
+  assert.match(navbar, /\.tenant-chip\s*\{[\s\S]*?min-width\s*:\s*8\.5rem[\s\S]*?flex\s*:\s*0\s+1\s+auto/)
+  assert.match(navbar, /@media \(max-width: 1100px\)[\s\S]*?\.tenant-chip\s*\{[\s\S]*?max-width\s*:\s*14rem/)
 })
 
 test('Hive branding is consistent', () => {

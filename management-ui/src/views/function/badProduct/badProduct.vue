@@ -1023,7 +1023,10 @@ function normalizeTypeForScope(value) {
 
 <style scoped>
 :global(.quality-drawer.el-drawer) {
+  --el-bg-color: #fff;
+  --el-dialog-bg-color: #fff;
   background: #fff !important;
+  backdrop-filter: none;
 }
 
 .fade-enter-active,

@@ -49,6 +49,20 @@
               placeholder="请写清楚公告事项、时间、责任人和需要员工完成的动作。"
           />
         </el-form-item>
+
+        <el-form-item label="附件（可选）">
+          <DragAttachmentUpload
+              :uploading="attachmentUploading"
+              :file-name="form.attachmentName"
+              :file-url="form.attachmentUrl"
+              :file-size="form.attachmentSize"
+              title="点击或拖拽上传公告附件"
+              helper-text="支持图片、视频、PDF、Office 文档、文本和压缩包，单个文件不超过 800MB"
+              @select="uploadAttachment"
+              @download="openAttachment"
+              @remove="removeAttachment"
+          />
+        </el-form-item>
       </el-form>
 
       <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
@@ -59,6 +73,7 @@
             type="primary"
             class="rounded-2xl bg-primary px-7 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:cursor-not-allowed"
             :loading="publishing"
+            :disabled="attachmentUploading"
             @click="handlePublish"
         >
           {{ publishing ? '发布中...' : '发布公告' }}
@@ -72,22 +87,32 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElButton, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
-import { publishAnnouncement } from '@/api/notification.js'
+import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
+import {
+  downloadAnnouncementAttachment,
+  publishAnnouncement,
+  uploadAnnouncementAttachment
+} from '@/api/notification.js'
 
 defineOptions({ name: 'AnnouncementPublish' })
 
 const router = useRouter()
 const publishing = ref(false)
+const attachmentUploading = ref(false)
 const form = reactive({
   level: 'normal',
   title: '',
-  content: ''
+  content: '',
+  attachmentName: '',
+  attachmentUrl: '',
+  attachmentSize: null
 })
 
 function resetForm() {
   form.level = 'normal'
   form.title = ''
   form.content = ''
+  removeAttachment()
 }
 
 function goList() {
@@ -103,12 +128,19 @@ async function handlePublish() {
     ElMessage.warning('请填写公告内容')
     return
   }
+  if (attachmentUploading.value) {
+    ElMessage.warning('附件仍在上传，请稍后再发布')
+    return
+  }
   publishing.value = true
   try {
     await publishAnnouncement({
       level: form.level,
       title: form.title,
-      content: form.content
+      content: form.content,
+      attachmentName: form.attachmentUrl ? form.attachmentName : undefined,
+      attachmentUrl: form.attachmentUrl || undefined,
+      attachmentSize: form.attachmentUrl ? form.attachmentSize : undefined
     })
     ElMessage.success('公告已发布')
     resetForm()
@@ -118,5 +150,51 @@ async function handlePublish() {
   } finally {
     publishing.value = false
   }
+}
+
+async function uploadAttachment(file) {
+  if (!file || attachmentUploading.value) return
+  attachmentUploading.value = true
+  try {
+    const data = new FormData()
+    data.append('file', file)
+    const result = await uploadAnnouncementAttachment(data)
+    form.attachmentName = result.fileName || file.name || '公告附件'
+    form.attachmentUrl = result.fileUrl || ''
+    form.attachmentSize = Number(result.fileSize || file.size || 0) || null
+    ElMessage.success('公告附件上传成功')
+  } catch (error) {
+    ElMessage.error(error?.msg || error?.message || '公告附件上传失败')
+  } finally {
+    attachmentUploading.value = false
+  }
+}
+
+function removeAttachment() {
+  form.attachmentName = ''
+  form.attachmentUrl = ''
+  form.attachmentSize = null
+}
+
+async function openAttachment() {
+  if (!form.attachmentUrl) return
+  try {
+    const blob = await downloadAnnouncementAttachment({
+      url: form.attachmentUrl,
+      name: form.attachmentName || undefined
+    })
+    downloadBlob(blob, form.attachmentName || '公告附件')
+  } catch (error) {
+    ElMessage.error(error?.msg || error?.message || '公告附件下载失败')
+  }
+}
+
+function downloadBlob(blob, fileName) {
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(objectUrl)
 }
 </script>

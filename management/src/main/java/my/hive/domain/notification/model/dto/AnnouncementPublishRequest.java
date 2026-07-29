@@ -13,4 +13,10 @@ public class AnnouncementPublishRequest {
     private String content;
 
     private String level;
+
+    private String attachmentName;
+
+    private String attachmentUrl;
+
+    private Long attachmentSize;
 }

@@ -38,6 +38,22 @@ test("organization clears an Element Plus parent selector back to the root value
   assert.match(source, /:value-on-clear="''"/);
 });
 
+test("organization hierarchy separates level, metadata, actions and active state", () => {
+  const source = read("../src/views/function/organization/organization.vue");
+
+  assert.match(source, /class="organization-tree" aria-label="部门层级"/);
+  assert.match(source, /style:\s*\{\s*'--org-node-level': props\.level\s*\}/);
+  assert.match(source, /class:\s*'org-node__heading'/);
+  assert.match(source, /class:\s*'org-node__meta'/);
+  assert.match(source, /class:\s*'org-node__actions'/);
+  assert.match(source, /class:\s*'org-node-children'/);
+  assert.match(source, /:deep\(\.org-node\.active::before\)\s*\{/);
+  assert.match(source, /:deep\(\.org-node-children::before\)\s*\{/);
+  assert.match(source, /\.organization-tree :deep\(\.org-node\)\s*\{/);
+  assert.match(source, /'aria-current': props\.activeId === props\.node\.id/);
+  assert.doesNotMatch(source, /marginLeft:\s*`\$\{props\.level \* 24\}px`/);
+});
+
 test("equipment uses Element Plus table pagination and drawers", () => {
   const source = read("../src/views/function/equipment/equipment.vue");
   for (const tag of [

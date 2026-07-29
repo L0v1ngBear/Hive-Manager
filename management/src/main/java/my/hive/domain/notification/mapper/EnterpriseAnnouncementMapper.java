@@ -22,17 +22,20 @@ public interface EnterpriseAnnouncementMapper {
     String ANNOUNCEMENT_COLUMNS = """
             id, tenant_code AS tenantCode, announcement_code AS announcementCode, title, content,
             level, route, status, publisher_user_id AS publisherUserId, publisher_name AS publisherName,
+            attachment_name AS attachmentName, attachment_url AS attachmentUrl, attachment_size AS attachmentSize,
             create_time AS createTime, update_time AS updateTime
             """;
 
     @Insert("""
             INSERT INTO enterprise_announcement (
                 tenant_code, announcement_code, title, content, level, route,
-                status, publisher_user_id, publisher_name, create_time, update_time
+                status, publisher_user_id, publisher_name,
+                attachment_name, attachment_url, attachment_size, create_time, update_time
             ) VALUES (
                 #{item.tenantCode}, #{item.announcementCode}, #{item.title}, #{item.content},
                 #{item.level}, #{item.route}, #{item.status}, #{item.publisherUserId},
-                #{item.publisherName}, NOW(), NOW()
+                #{item.publisherName}, #{item.attachmentName}, #{item.attachmentUrl},
+                #{item.attachmentSize}, NOW(), NOW()
             )
             """)
     @Options(useGeneratedKeys = true, keyProperty = "item.id", keyColumn = "id")

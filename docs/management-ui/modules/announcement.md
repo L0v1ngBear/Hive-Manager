@@ -10,6 +10,9 @@
 - 路由：`/function/announcement`、`/function/announcement/publish`。
 - 前端 feature：两条路由均为 `module.dashboard`。
 - 迁移批次：Batch 1；当前状态为 Element Plus migrated。
+- 公告可选上传一个附件；小文件走公告专用上传接口，大文件沿用通用分片上传，发布请求只保存附件名称、内部存储引用和字节数。
+- 公告列表通过 `notification:announcement:list` 权限下载附件，发布与上传继续使用 `notification:announcement:publish`，不借用质量、订单或安装附件权限。
+- `V20260729_002_enterprise_announcement_attachment.sql` 仅新增三个可空字段，历史公告无需回填并继续按无附件展示。
 
 ## 功能
 
