@@ -1464,14 +1464,14 @@ const currentOrderFlowCode = computed(() => {
 })
 
 onMounted(async () => {
-  applyRouteSearch()
+  applyRouteFilters()
   await Promise.all([refreshOrders(), loadOrderSummaries(), loadCustomerOptions()])
 })
 
 watch(
-  () => [route.query.keyword, route.query.q],
+  () => [route.query.keyword, route.query.q, route.query.createStart, route.query.createEnd, route.query.staleOnly],
   async () => {
-    applyRouteSearch()
+    applyRouteFilters()
     await refreshOrders()
   }
 )
@@ -1496,12 +1496,21 @@ watch(
   }
 )
 
-function applyRouteSearch() {
+function applyRouteFilters() {
   const routeKeyword = String(route.query.keyword || route.query.q || '').trim()
-  if (routeKeyword !== filters.keyword) {
-    filters.keyword = routeKeyword
-    orderState.page = 1
+  const routeCreateStart = String(route.query.createStart || '').trim()
+  const routeCreateEnd = String(route.query.createEnd || '').trim()
+  const routeStaleOnly = ['1', 'true'].includes(String(route.query.staleOnly || '').trim().toLowerCase())
+
+  filters.keyword = routeKeyword
+  filters.createStart = routeCreateStart
+  filters.createEnd = routeCreateEnd
+  filters.staleOnly = routeStaleOnly
+  if (routeStaleOnly) {
+    filters.status = ''
+    filters.invoiceStatus = ''
   }
+  orderState.page = 1
 }
 
 function defaultOrderItem() {

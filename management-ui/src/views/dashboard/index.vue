@@ -37,18 +37,28 @@
     </section>
 
     <section class="dashboard-summary-grid">
-      <article class="dashboard-summary-card rounded-2xl bg-primary text-white shadow-md shadow-primary/20 overflow-hidden relative flex flex-col justify-between">
-        <div class="absolute -right-2 -top-2 text-white/10">
+      <button
+        type="button"
+        class="dashboard-summary-card dashboard-summary-card--link rounded-2xl bg-white shadow-sm ring-1 ring-outline-variant/20 overflow-hidden relative flex flex-col justify-between"
+        aria-label="查看本月新增订单"
+        @click="openOrderSummary('month')"
+      >
+        <div class="absolute -right-2 -top-2 text-primary/10">
           <span class="material-symbols-outlined text-[90px]">receipt_long</span>
         </div>
-        <p class="text-xs font-bold tracking-widest uppercase text-white/80 z-10">本月新增订单</p>
+        <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant z-10">本月新增订单</p>
         <div class="mt-auto z-10">
-          <p class="dashboard-summary-value font-black leading-none">{{ summary.monthOrderCount }}</p>
-          <p class="text-xs text-white/70 mt-1.5 truncate">本月创建的订单总数</p>
+          <p class="dashboard-summary-value font-black text-on-surface leading-none">{{ summary.monthOrderCount }}</p>
+          <p class="text-xs text-on-surface-variant mt-1.5 truncate">本月创建的订单总数</p>
         </div>
-      </article>
+      </button>
 
-      <article class="dashboard-summary-card rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between">
+      <button
+        type="button"
+        class="dashboard-summary-card dashboard-summary-card--link rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between"
+        aria-label="查看预警订单"
+        @click="openOrderSummary('warning')"
+      >
         <div class="flex items-center justify-between mb-2">
           <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant">预警订单</p>
           <div class="dashboard-summary-icon w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -59,7 +69,7 @@
           <p class="dashboard-summary-value font-black text-on-surface leading-none">{{ summary.orderWarningCount }}</p>
           <p class="text-xs text-on-surface-variant mt-1.5 truncate">超过预警天数未更新</p>
         </div>
-      </article>
+      </button>
 
       <article class="dashboard-summary-card rounded-2xl bg-surface-container-lowest shadow-sm ring-1 ring-outline-variant/20 flex flex-col justify-between">
         <div class="flex items-center justify-between mb-2">
@@ -271,6 +281,7 @@ import { ElButton, ElEmpty, ElResult } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getDashboardOverview } from './api/dashboard.js'
+import { buildOrderSummaryRoute } from './dashboardNavigation.js'
 import { getAnnouncements } from '@/api/notification.js'
 
 defineOptions({ name: 'DashboardOverview' })
@@ -482,6 +493,10 @@ function openQuickAction(action) {
   router.push(action.route)
 }
 
+function openOrderSummary(type) {
+  router.push(buildOrderSummaryRoute(type))
+}
+
 function openAnnouncementCenter() {
   router.push('/function/announcement')
 }
@@ -660,6 +675,24 @@ onMounted(fetchOverview)
   min-block-size: 6.5rem;
   padding: 0.625rem 1rem;
   min-width: 0;
+}
+
+.dashboard-summary-card--link {
+  border: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.dashboard-summary-card--link:hover {
+  box-shadow: 0 10px 24px rgb(15 23 42 / 0.09);
+  transform: translateY(-1px);
+}
+
+.dashboard-summary-card--link:focus-visible {
+  outline: none;
+  box-shadow: var(--ys-focus-ring);
 }
 
 .dashboard-summary-icon {
