@@ -29,7 +29,7 @@
           <el-button
               class="order-warning-refresh-btn"
               :disabled="warningRefreshing"
-              @click="refreshOrderWarnings(true)"
+              @click="confirmRefreshOrderWarnings"
           >
             <span class="material-symbols-outlined text-[20px]" :class="warningRefreshing ? 'animate-spin' : ''">sync</span>
             重新更新预警
@@ -1824,6 +1824,29 @@ async function openOrderWarningSetting() {
   warningDialogVisible.value = true
 }
 async function saveOrderWarningSetting() { if (!canManageWarningSetting.value) return; if (warningSaving.value) return; warningSaving.value = true; const next = { ...warningForm, staleWarningDays: warningForm.bulkStaleWarningDays }; try { const setting = await updateOrderWarningSetting(next); assignWarningSetting(orderWarningSetting, setting, next); warningDialogVisible.value = false; ElMessage.success('订单预警设置已保存'); await Promise.all([loadOrderSummaries(), refreshOrders()]) } finally { warningSaving.value = false } }
+
+async function confirmRefreshOrderWarnings() {
+  if (warningRefreshing.value) {
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+        '将重新计算全部订单的未更新预警，可能需要一些时间。是否继续？',
+        '重新更新预警',
+        {
+          confirmButtonText: '确认更新',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+    )
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') {
+      return
+    }
+    throw error
+  }
+  await refreshOrderWarnings(true)
+}
 
 async function refreshOrderWarnings(showToast = false) {
   if (warningRefreshing.value) {
