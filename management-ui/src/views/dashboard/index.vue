@@ -43,7 +43,7 @@
         aria-label="查看本月新增订单"
         @click="openOrderSummary('month')"
       >
-        <div class="absolute -right-2 -top-2 text-primary/10">
+        <div class="dashboard-summary-watermark absolute -right-2 -top-2">
           <span class="material-symbols-outlined text-[90px]">receipt_long</span>
         </div>
         <p class="text-xs font-bold tracking-widest uppercase text-on-surface-variant z-10">本月新增订单</p>
@@ -706,6 +706,10 @@ onMounted(fetchOverview)
 
 .dashboard-summary-card .mt-auto > p + p {
   margin-top: 0.25rem;
+}
+
+.dashboard-summary-watermark {
+  color: #e6f5f3;
 }
 
 .dashboard-content-grid,
