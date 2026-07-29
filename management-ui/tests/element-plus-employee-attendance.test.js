@@ -158,6 +158,17 @@ test('wires latest-request guards into employee and attendance data surfaces', (
   assert.match(attendance, /const ruleSubmitGuard = createSubmitGuard\(\)/)
 })
 
+test('organization drawer closes without relying on individual translate CSS support', () => {
+  const drawer = employeeList.match(/<aside\b[\s\S]*?<\/aside>/)?.[0] || ''
+  const closeHandler = employeeList.match(/const closeOrganizationDrawer = \(\) => \{[\s\S]*?\n\}/)?.[0] || ''
+
+  assert.match(drawer, /v-if=["']isOrganizationDrawerOpen["']/)
+  assert.doesNotMatch(drawer, /translate-x-(?:0|full)/)
+  assert.match(closeHandler, /isOrganizationDrawerOpen\.value = false/)
+  assert.match(closeHandler, /organizationRequest\.begin\(\)/)
+  assert.match(closeHandler, /organizationLoading\.value = false/)
+})
+
 test('keeps employee commands visible but guards their real permission combinations', () => {
   assert.match(employeeList, /hasPermission\(['"]employee:detail['"]\)/)
   assert.match(employeeList, /hasPermission\(['"]employee:update['"]\).*canViewEmployeeDetail\.value/)

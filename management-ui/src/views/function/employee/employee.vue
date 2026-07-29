@@ -256,8 +256,8 @@ Output:
       ></div>
     </transition>
     <aside
+      v-if="isOrganizationDrawerOpen"
       class="fixed top-0 right-0 z-50 h-full w-full max-w-[1180px] overflow-hidden border-l border-outline-variant/30 bg-surface shadow-2xl transition-transform duration-300"
-      :class="isOrganizationDrawerOpen ? 'translate-x-0' : 'translate-x-full'"
     >
       <div class="flex h-full flex-col">
         <div class="flex items-start justify-between border-b border-outline-variant/20 bg-white/95 px-6 py-4 backdrop-blur">
@@ -632,8 +632,10 @@ const openOrganizationDrawer = async () => {
   await fetchOrganizationTree()
 }
 
-const closeOrganizationDrawer = async () => {
+const closeOrganizationDrawer = () => {
   isOrganizationDrawerOpen.value = false
+  organizationRequest.begin()
+  organizationLoading.value = false
 }
 
 const fetchOrganizationTree = async () => {
