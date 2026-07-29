@@ -323,11 +323,12 @@ class OrderMultiShipmentLifecycleTest {
                 "getExpressCompany", "setExpressCompany", "getExpressNo", "setExpressNo");
 
         String installationSource = readSource("my/hive/domain/installation/service/InstallationTaskService.java");
-        int copyStart = installationSource.indexOf("private void copyOrderFields");
-        int copyEnd = installationSource.indexOf("private InstallationTaskVO toVO", copyStart);
-        assertThat(installationSource.substring(copyStart, copyEnd)).doesNotContain(
-                "order.getExpressCompany", "order.getExpressNo", "getShipments");
+        assertThat(installationSource).doesNotContain(
+                "order.getExpressCompany", "order.getExpressNo");
         assertThat(installationSource).contains(
+                "orderShipmentService.listShipments",
+                "primaryShipment.getLogisticsCompany()",
+                "primaryShipment.getTrackingNo()",
                 "request.getExpressCompany()", "request.getExpressNo()");
     }
 

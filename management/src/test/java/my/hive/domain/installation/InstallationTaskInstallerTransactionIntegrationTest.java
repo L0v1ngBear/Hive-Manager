@@ -7,6 +7,7 @@ import my.hive.domain.installation.model.dto.InstallationTaskStatusUpdateRequest
 import my.hive.domain.installation.model.entity.InstallationTask;
 import my.hive.domain.installation.model.entity.InstallationTaskInstaller;
 import my.hive.domain.installation.service.InstallationTaskService;
+import my.hive.domain.order.service.OrderShipmentService;
 import my.hive.infrastructure.storage.BusinessAttachmentService;
 import my.hive.infrastructure.storage.FileStorageProviderRouter;
 import my.hive.shared.context.TenantPermissionContext;
@@ -174,6 +175,11 @@ class InstallationTaskInstallerTransactionIntegrationTest {
         @Bean
         BusinessAttachmentService businessAttachmentService() {
             return Mockito.mock(BusinessAttachmentService.class);
+        }
+
+        @Bean
+        OrderShipmentService orderShipmentService() {
+            return Mockito.mock(OrderShipmentService.class);
         }
 
         @Bean

@@ -20,6 +20,8 @@ import my.hive.domain.installation.model.vo.InstallationTaskInstallerVO;
 import my.hive.domain.installation.model.vo.InstallationTaskVO;
 import my.hive.domain.order.model.entity.SalesOrder;
 import my.hive.domain.order.model.enums.OrderStatusEnum;
+import my.hive.domain.order.model.vo.SalesOrderShipmentVO;
+import my.hive.domain.order.service.OrderShipmentService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +49,9 @@ public class InstallationTaskService {
 
     @Resource
     private InstallationTaskInstallerMapper installationTaskInstallerMapper;
+
+    @Resource
+    private OrderShipmentService orderShipmentService;
 
     @Resource
     private BusinessAttachmentService businessAttachmentService;
@@ -117,6 +122,7 @@ public class InstallationTaskService {
             task.setOrderCompletedTime(now);
         }
         copyOrderFields(order, task);
+        copyPrimaryOrderShipment(order, task);
         task.setUpdateTime(now);
         if (create) {
             installationTaskMapper.insert(task);
@@ -220,6 +226,25 @@ public class InstallationTaskService {
         task.setOrderAttachmentName(order.getAttachmentName());
         task.setOrderAttachmentUrl(order.getAttachmentUrl());
         task.setOrderAttachmentSize(order.getAttachmentSize());
+    }
+
+    private void copyPrimaryOrderShipment(SalesOrder order, InstallationTask task) {
+        List<SalesOrderShipmentVO> shipments = orderShipmentService.listShipments(
+                order.getTenantCode(), order.getOrderId());
+        if (shipments == null || shipments.isEmpty()) {
+            return;
+        }
+        SalesOrderShipmentVO primaryShipment = shipments.stream()
+                .filter(shipment -> shipment != null
+                        && StringUtils.hasText(shipment.getLogisticsCompany())
+                        && StringUtils.hasText(shipment.getTrackingNo()))
+                .findFirst()
+                .orElse(null);
+        if (primaryShipment == null) {
+            return;
+        }
+        task.setExpressCompany(primaryShipment.getLogisticsCompany().trim());
+        task.setExpressNo(primaryShipment.getTrackingNo().trim());
     }
 
     private InstallationTaskVO toVO(InstallationTask task, List<InstallationTaskInstaller> installers) {

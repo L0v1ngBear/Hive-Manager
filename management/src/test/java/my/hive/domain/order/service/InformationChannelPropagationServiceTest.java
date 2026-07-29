@@ -19,6 +19,7 @@ import my.hive.domain.order.model.dto.SalesOrderSaveRequest;
 import my.hive.domain.order.model.entity.ProductionOrder;
 import my.hive.domain.order.model.entity.SalesOrder;
 import my.hive.domain.order.model.vo.OrderFlowPrintTaskVO;
+import my.hive.domain.order.model.vo.SalesOrderShipmentVO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -141,7 +142,12 @@ class InformationChannelPropagationServiceTest {
     void pendingShipmentOrderCreatesInstallationTask() {
         InstallationTaskService installationTaskService = new InstallationTaskService();
         ReflectionTestUtils.setField(installationTaskService, "installationTaskMapper", installationTaskMapper);
+        ReflectionTestUtils.setField(installationTaskService, "orderShipmentService", orderShipmentService);
         SalesOrder order = salesOrder("pending_ship");
+        when(orderShipmentService.listShipments("tenant-a", "SO-100")).thenReturn(List.of(
+                shipment("顺丰速运", "SF100"),
+                shipment("京东物流", "JD200")
+        ));
 
         installationTaskService.createOrSyncFromInstallationReadyOrder(order);
 
@@ -151,6 +157,8 @@ class InformationChannelPropagationServiceTest {
         assertEquals("SO-100", captor.getValue().getOrderId());
         assertEquals(INFORMATION_CHANNEL, captor.getValue().getInformationChannel());
         assertEquals("production_completed", captor.getValue().getInstallationStatus());
+        assertEquals("顺丰速运", captor.getValue().getExpressCompany());
+        assertEquals("SF100", captor.getValue().getExpressNo());
         assertNull(captor.getValue().getOrderCompletedTime());
     }
 
@@ -158,9 +166,11 @@ class InformationChannelPropagationServiceTest {
     void producingOrderDoesNotCreateInstallationTask() {
         InstallationTaskService installationTaskService = new InstallationTaskService();
         ReflectionTestUtils.setField(installationTaskService, "installationTaskMapper", installationTaskMapper);
+        ReflectionTestUtils.setField(installationTaskService, "orderShipmentService", orderShipmentService);
 
         installationTaskService.createOrSyncFromInstallationReadyOrder(salesOrder("producing"));
 
+        verify(orderShipmentService, never()).listShipments(anyString(), anyString());
         verify(installationTaskMapper, never()).insert(any());
         verify(installationTaskMapper, never()).updateById(any());
     }
@@ -169,18 +179,31 @@ class InformationChannelPropagationServiceTest {
     void completedOrderPreservesInstallationProgressAndRecordsCompletionTime() {
         InstallationTaskService installationTaskService = new InstallationTaskService();
         ReflectionTestUtils.setField(installationTaskService, "installationTaskMapper", installationTaskMapper);
+        ReflectionTestUtils.setField(installationTaskService, "orderShipmentService", orderShipmentService);
         InstallationTask existing = new InstallationTask();
         existing.setTenantCode("tenant-a");
         existing.setOrderId("SO-100");
         existing.setInstallationStatus("shipped_pending_install");
+        existing.setExpressCompany("手工物流");
+        existing.setExpressNo("MANUAL-100");
         when(installationTaskMapper.selectOne(any())).thenReturn(existing);
+        when(orderShipmentService.listShipments("tenant-a", "SO-100")).thenReturn(List.of());
 
         installationTaskService.createOrSyncFromInstallationReadyOrder(salesOrder("completed"));
 
         ArgumentCaptor<InstallationTask> captor = ArgumentCaptor.forClass(InstallationTask.class);
         verify(installationTaskMapper).updateById(captor.capture());
         assertEquals("shipped_pending_install", captor.getValue().getInstallationStatus());
+        assertEquals("手工物流", captor.getValue().getExpressCompany());
+        assertEquals("MANUAL-100", captor.getValue().getExpressNo());
         assertNotNull(captor.getValue().getOrderCompletedTime());
+    }
+
+    private SalesOrderShipmentVO shipment(String company, String trackingNo) {
+        SalesOrderShipmentVO shipment = new SalesOrderShipmentVO();
+        shipment.setLogisticsCompany(company);
+        shipment.setTrackingNo(trackingNo);
+        return shipment;
     }
 
     @Test

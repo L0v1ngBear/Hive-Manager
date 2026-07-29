@@ -62,6 +62,7 @@
 - 新增行在首次保存前可以放弃；服务端已经保存并取得 `id` 的行不可删除，只能修改。保存请求必须回传全部已保存行，遗漏任一行会被后端拒绝为“已保存的物流记录不允许删除”。
 - 已保存行以 `version` 做乐观锁校验。版本缺失、过期或并发更新失败返回 409，前端不得覆盖他人修改，应重新加载详情后再编辑。
 - 保存为 `shipped` 或从 `pending_ship` 推进到 `shipped` 前，至少要有一条物流公司和物流单号均完整的已保存记录；推进服务以数据库中的 shipment 为准。
+- 订单处于待发货、已发货或已完成并同步安装任务时，安装任务的单组物流字段取订单当前第一条完整 shipment；订单尚无 shipment 时保留安装任务已有手工物流值，不做清空。
 - 编辑后推进必须先调用 `PUT /orders/{orderId}` 保存完整订单和 shipment 子表，保存成功后才调用 `POST /orders/{orderId}/advance`；保存失败时不得继续推进。
 - 单条轨迹只使用 shipment-specific 路径 `GET /orders/{orderId}/shipments/{shipmentId}/logistics-tracking`，响应单号字段为 `trackingNo`，不保留订单级或旧字段兼容合同。
 - 物流供应商查询仅在用户 hover 打开对应物流单号 popover 时触发；列表加载、详情加载和普通鼠标移动不得预查询供应商。
