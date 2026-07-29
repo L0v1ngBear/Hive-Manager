@@ -2641,6 +2641,15 @@ function optionalNumber(value) {
   return Number.isFinite(number) ? number : null
 }
 
+function isOrderItemMeaningful(item = {}) {
+  return Boolean(
+      normalizeText(item.modelCode)
+      || item.quantity !== null && item.quantity !== undefined && item.quantity !== ''
+      || item.weight !== null && item.weight !== undefined && item.weight !== ''
+      || item.spec !== null && item.spec !== undefined && item.spec !== ''
+  )
+}
+
 function formatDateTime(value) {
   if (!value) return '未记录'
   return String(value).replace('T', ' ').slice(0, 19)
