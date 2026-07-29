@@ -140,10 +140,10 @@
       </el-popover>
 
       <el-dropdown class="pl-2 md:pl-4 border-l border-outline-variant/30" trigger="click" @visible-change="userMenuOpen = $event">
-        <el-button text class="h-auto px-2 py-1">
-          <div class="hidden md:block text-right">
-            <p class="text-sm font-bold text-on-surface">{{ displayName }}</p>
-            <p class="text-xs text-on-surface-variant">{{ roleLabel }}</p>
+        <el-button text class="navbar-user-trigger h-auto px-2 py-1">
+          <div class="navbar-user-meta hidden min-w-0 text-right md:block">
+            <p class="truncate text-sm font-bold text-on-surface">{{ displayName }}</p>
+            <p class="truncate text-xs text-on-surface-variant">{{ roleLabel }}</p>
           </div>
           <span class="local-avatar">{{ avatarText }}</span>
         </el-button>
@@ -771,6 +771,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   width: 2.5rem;
   height: 2.5rem;
+  flex: 0 0 2.5rem;
   align-items: center;
   justify-content: center;
   border-radius: 0.75rem;
@@ -779,6 +780,11 @@ onBeforeUnmount(() => {
   font-size: 1rem;
   font-weight: 900;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+}
+
+.navbar-user-meta {
+  max-width: 8rem;
+  margin-right: 0.875rem;
 }
 
 .tenant-chip {

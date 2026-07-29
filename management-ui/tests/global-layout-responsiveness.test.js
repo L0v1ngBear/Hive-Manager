@@ -202,6 +202,8 @@ test('navbar grows with its information and shrinks long tenant content without 
   assert.match(navbar, /\.navbar-actions\s*>\s*:not\(\.tenant-chip\)\s*\{[\s\S]*?flex\s*:\s*0\s+0\s+auto/)
   assert.match(navbar, /\.tenant-chip\s*\{[\s\S]*?min-width\s*:\s*8\.5rem[\s\S]*?flex\s*:\s*0\s+1\s+auto/)
   assert.match(navbar, /@media \(max-width: 1100px\)[\s\S]*?\.tenant-chip\s*\{[\s\S]*?max-width\s*:\s*14rem/)
+  assert.match(navbar, /\.navbar-user-meta\s*\{[\s\S]*?margin-right\s*:\s*0\.875rem/)
+  assert.match(navbar, /\.local-avatar\s*\{[\s\S]*?flex\s*:\s*0\s+0\s+2\.5rem/)
 })
 
 test('Hive branding is consistent', () => {
