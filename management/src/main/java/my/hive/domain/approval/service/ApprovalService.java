@@ -951,6 +951,7 @@ public class ApprovalService {
         vo.setOrderId(order.getOrderId());
         vo.setCustomerName(order.getCustomerName());
         vo.setProjectName(order.getProjectName());
+        vo.setProductionLocation(order.getProductionLocation());
         String fallbackSummary = specialCreateApproval
                 ? "特殊订单创建审核"
                 : (payToProductionApproval ? "待审批转备料中销售订单" : "待确认销售订单");

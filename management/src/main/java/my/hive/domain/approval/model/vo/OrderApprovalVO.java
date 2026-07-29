@@ -20,6 +20,8 @@ public class OrderApprovalVO {
 
     private String projectName;
 
+    private String productionLocation;
+
     private String summary;
 
     private String status;

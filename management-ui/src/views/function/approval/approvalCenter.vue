@@ -519,6 +519,7 @@ import {
   ElInput,
   ElInputNumber,
   ElMessage,
+  ElMessageBox,
   ElOption,
   ElOptionGroup,
   ElPagination,
@@ -1032,6 +1033,7 @@ const fetchList = async () => {
         orderType: item.orderType,
         orderTypeText: item.orderTypeText,
         orderStatus: item.status,
+        productionLocation: item.productionLocation || '',
         code: item.orderId,
         applicantName: item.customerName || '未填写客户',
         departmentName: item.projectName || '未填写项目',
@@ -1181,6 +1183,7 @@ const loadDetail = async (item, requestId) => {
       orderType: detail.orderType,
       orderTypeText: detail.orderTypeText || '订单',
       orderStatus: detail.status,
+      productionLocation: detail.productionLocation || '',
       applicantName: detail.customerName || '未填写客户',
       category: detail.projectName || '未填写项目',
       reason: detail.summary || '待确认订单',
@@ -1215,9 +1218,42 @@ const openDetail = async (item) => {
 
 function retryDetail() { if (selectedDetailItem.value) openDetail(selectedDetailItem.value) }
 
+const confirmSalesOrderProductionLocation = async (item, action) => {
+  const orderType = item?.orderType || item?.raw?.orderType
+  const orderStatus = item?.orderStatus || item?.raw?.status
+  if (Number(action) !== 1 || item?.type !== 'order' || orderType !== 'sales' || orderStatus !== 'pending_confirm') {
+    return true
+  }
+  const productionLocation = item?.productionLocation || item?.raw?.productionLocation
+  if (!productionLocation) {
+    ElMessage.warning('该订单尚未设置生产地点，请先到订单管理中设置后再确认')
+    return false
+  }
+  try {
+    await ElMessageBox.confirm(
+      `本订单生产地点为“${productionLocation}”，请确认选择无误。`,
+      '确认生产地点',
+      {
+        confirmButtonText: '确认订单',
+        cancelButtonText: '返回检查',
+        type: 'warning'
+      }
+    )
+    return true
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') {
+      return false
+    }
+    throw error
+  }
+}
+
 const quickAudit = async (item, action) => {
   if (!canAuditAction(item)) {
     ElMessage.warning('当前账号暂无审批该记录权限')
+    return
+  }
+  if (!(await confirmSalesOrderProductionLocation(item, action))) {
     return
   }
   if (item.type === 'leave') {
@@ -1260,6 +1296,9 @@ const submitAudit = async (action) => {
   if (!detailData.value) return
   if (!canAuditDetail.value) {
     ElMessage.warning('当前账号暂无审批该记录权限')
+    return
+  }
+  if (!(await confirmSalesOrderProductionLocation(detailData.value, action))) {
     return
   }
   if (detailData.value.type === 'leave') {
