@@ -62,7 +62,11 @@ test('announcement attachment endpoints keep publish and list permissions separa
 })
 
 test('announcement attachment migration is append-only and checksum registered', () => {
-  assert.equal(manifest.trim().split(/\r?\n/).at(-1), `migrations/V20260729_002_enterprise_announcement_attachment.sql`)
+  const entries = manifest.trim().split(/\r?\n/)
+  const migrationEntry = 'migrations/V20260729_002_enterprise_announcement_attachment.sql'
+  const previousEntry = 'migrations/V20260729_001_sales_order_production_location.sql'
+  assert.equal(entries.filter((entry) => entry === migrationEntry).length, 1)
+  assert.ok(entries.indexOf(migrationEntry) > entries.indexOf(previousEntry))
   const digest = crypto.createHash('sha256').update(migration).digest('hex')
   assert.match(checksums, new RegExp(`^${digest}  migrations/V20260729_002_enterprise_announcement_attachment\\.sql$`, 'm'))
 })

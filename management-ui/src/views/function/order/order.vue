@@ -1561,7 +1561,7 @@ function defaultOrderNote() {
 function normalizeOrderNote(note = {}) {
   return {
     ...defaultOrderNote(),
-    id: note.id ?? null,
+    id: note.id == null ? null : String(note.id),
     content: String(note.content || ''),
     version: note.version ?? null,
     updaterName: note.updaterName || '',
