@@ -24,24 +24,24 @@
         />
         <div
           v-if="searchPanelOpen && filteredMenus.length"
-          class="absolute left-0 right-0 top-[calc(100%+10px)] z-[1200] overflow-hidden rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/10"
+          class="navbar-search-panel absolute left-0 right-0 top-[calc(100%+10px)] z-[1200] rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/10"
         >
           <el-button
             v-for="item in filteredMenus"
             :key="`${item.path}-${item.label || item.name}`"
             text
-            class="flex h-auto w-full justify-start gap-3 px-4 py-3 text-left text-sm transition-colors"
+            class="navbar-search-result h-auto w-full px-4 py-3 text-left text-sm transition-colors"
             :class="searchItemClass(item)"
             :disabled="item.disabled"
             :title="item.disabled ? item.disabledReason : item.desc"
             @click="handleSearchItemClick(item)"
           >
-            <span class="material-symbols-outlined text-[20px]" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-primary'">{{ item.icon }}</span>
-            <span class="min-w-0 flex-1">
+            <span class="navbar-search-result__icon material-symbols-outlined text-[20px]" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-primary'">{{ item.icon }}</span>
+            <span class="navbar-search-result__copy min-w-0">
               <strong class="block truncate" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-on-surface'">{{ item.label || item.name }}</strong>
               <small class="block truncate" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-on-surface-variant'">{{ item.disabled ? item.disabledReason : item.desc }}</small>
             </span>
-            <span class="material-symbols-outlined text-on-surface-variant text-[18px]">arrow_forward</span>
+            <span class="navbar-search-result__arrow material-symbols-outlined text-on-surface-variant text-[18px]">arrow_forward</span>
           </el-button>
         </div>
       </div>
@@ -189,24 +189,24 @@
         />
         <div
           v-if="searchPanelOpen && filteredMenus.length"
-          class="absolute left-0 right-0 top-[calc(100%+10px)] z-[1200] max-h-[60vh] overflow-y-auto rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/10"
+          class="navbar-search-panel absolute left-0 right-0 top-[calc(100%+10px)] z-[1200] rounded-2xl border border-outline-variant/40 bg-white shadow-2xl shadow-primary/10"
         >
           <el-button
             v-for="item in filteredMenus"
             :key="`mobile-${item.path}-${item.label || item.name}`"
             text
-            class="flex h-auto w-full justify-start gap-3 px-4 py-3 text-left text-sm transition-colors"
+            class="navbar-search-result h-auto w-full px-4 py-3 text-left text-sm transition-colors"
             :class="searchItemClass(item)"
             :disabled="item.disabled"
             :title="item.disabled ? item.disabledReason : item.desc"
             @click="handleSearchItemClick(item)"
           >
-            <span class="material-symbols-outlined text-[20px]" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-primary'">{{ item.icon }}</span>
-            <span class="min-w-0 flex-1">
+            <span class="navbar-search-result__icon material-symbols-outlined text-[20px]" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-primary'">{{ item.icon }}</span>
+            <span class="navbar-search-result__copy min-w-0">
               <strong class="block truncate" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-on-surface'">{{ item.label || item.name }}</strong>
               <small class="block truncate" :class="item.disabled ? 'text-[var(--ys-disabled-text)]' : 'text-on-surface-variant'">{{ item.disabled ? item.disabledReason : item.desc }}</small>
             </span>
-            <span class="material-symbols-outlined text-on-surface-variant text-[18px]">arrow_forward</span>
+            <span class="navbar-search-result__arrow material-symbols-outlined text-on-surface-variant text-[18px]">arrow_forward</span>
           </el-button>
         </div>
       </div>
@@ -725,6 +725,58 @@ onBeforeUnmount(() => {
 
 .navbar-search {
   flex-basis: 14rem;
+}
+
+.navbar-search-panel {
+  max-height: min(60vh, 32rem);
+  overflow-y: auto;
+}
+
+.navbar-search-result {
+  min-height: 4rem;
+  margin: 0;
+  border-radius: 0;
+}
+
+.navbar-search-result + .navbar-search-result {
+  margin-left: 0;
+  border-top: 1px solid rgba(200, 211, 223, 0.55);
+}
+
+.navbar-search-result:not(:disabled):hover {
+  background: var(--ys-primary-container);
+}
+
+:deep(.navbar-search-result > span) {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 1.5rem minmax(0, 1fr) 1.25rem;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.navbar-search-result__copy {
+  display: grid;
+  gap: 0.2rem;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.navbar-search-result__copy strong {
+  line-height: 1.25rem;
+}
+
+.navbar-search-result__copy small {
+  line-height: 1rem;
+}
+
+.navbar-search-result__icon {
+  justify-self: center;
+}
+
+.navbar-search-result__arrow {
+  justify-self: end;
 }
 
 .navbar-actions {

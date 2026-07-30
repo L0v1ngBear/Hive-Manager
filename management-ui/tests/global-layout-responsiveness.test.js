@@ -206,6 +206,16 @@ test('navbar grows with its information and shrinks long tenant content without 
   assert.match(navbar, /\.local-avatar\s*\{[\s\S]*?flex\s*:\s*0\s+0\s+2\.5rem/)
 })
 
+test('navbar search results keep independent rows and aligned content columns', () => {
+  assert.equal((navbar.match(/class="navbar-search-result h-auto/g) || []).length, 2)
+  assert.match(navbar, /\.navbar-search-result\s*\{[\s\S]*?min-height\s*:\s*4rem/)
+  assert.match(navbar, /\.navbar-search-result\s*\+\s*\.navbar-search-result\s*\{[\s\S]*?border-top/)
+  assert.match(
+    navbar,
+    /:deep\(\.navbar-search-result\s*>\s*span\)\s*\{[\s\S]*?grid-template-columns\s*:\s*1\.5rem minmax\(0,\s*1fr\) 1\.25rem/
+  )
+})
+
 test('Hive branding is consistent', () => {
   assert.doesNotMatch(`${brand}\n${sidebar}`, /\u8f7b\u5de2 Hive/)
   assert.match(brand, /productName: '蜂巢 Hive'/)
