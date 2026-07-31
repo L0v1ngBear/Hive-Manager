@@ -1377,8 +1377,14 @@ function buildReceiptTemplateContent(config) {
   margin-bottom: 0;
 }
 
+.receipt-print-profile-controls :deep(.el-input-number) {
+  width: 100%;
+  min-width: 0;
+}
+
 .receipt-print-profile-actions {
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   align-items: end;
   gap: .5rem;

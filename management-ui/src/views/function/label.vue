@@ -195,7 +195,12 @@
             <div class="label-business-title">{{ labelTitle }}</div>
             <div class="label-main-grid">
               <div class="label-info-list">
-                <div v-for="row in businessRows" :key="row.label" class="label-info-row">
+                <div
+                  v-for="row in businessRows"
+                  :key="row.label"
+                  class="label-info-row"
+                  :class="{ 'label-info-row--model': row.key === 'modelCode' || row.key === 'model' }"
+                >
                   <span>{{ row.label }}</span>
                   <strong>{{ row.value }}</strong>
                 </div>
@@ -1167,6 +1172,15 @@ function labelPrintCss(profile) {
       -webkit-box-orient: vertical;
       -webkit-line-clamp: ${hasQr ? 2 : 1};
     }
+    .label-info-row--model {
+      grid-template-columns: ${hasQr ? 9 : 10}mm minmax(0, 1fr);
+      align-items: start;
+    }
+    .label-info-row--model strong {
+      font-size: ${hasQr ? 2.15 : 2.55}mm;
+      line-height: 1.05;
+      -webkit-line-clamp: 2;
+    }
     .qr-box {
       display: ${hasQr ? 'grid' : 'none'};
       gap: 0.5mm;
@@ -1842,8 +1856,27 @@ function formatDate(value) {
   -webkit-line-clamp: 1;
 }
 
+.label-info-row--model {
+  grid-template-columns: 10mm minmax(0, 1fr);
+  align-items: start;
+}
+
+.label-info-row--model strong {
+  font-size: 2.7mm;
+  line-height: 1.05;
+  -webkit-line-clamp: 2;
+}
+
 .thermal-label--qr .label-info-row strong {
   -webkit-line-clamp: 2;
+}
+
+.thermal-label--qr .label-info-row--model {
+  grid-template-columns: 9mm minmax(0, 1fr);
+}
+
+.thermal-label--qr .label-info-row--model strong {
+  font-size: 2.15mm;
 }
 
 .qr-box {

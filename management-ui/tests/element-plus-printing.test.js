@@ -24,6 +24,17 @@ test('receipt migrates only peripheral controls and preserves native print outpu
   assert.match(receipt, /page-break-after/)
 })
 
+test('receipt print profile inputs stay inside their responsive grid tracks', () => {
+  assert.match(
+    receipt,
+    /\.receipt-print-profile-controls\s+:deep\(\.el-input-number\)\s*\{[\s\S]*?width:\s*100%;[\s\S]*?min-width:\s*0;/
+  )
+  assert.match(
+    receipt,
+    /\.receipt-print-profile-actions\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?flex-wrap:\s*wrap;/
+  )
+})
+
 test('receipt exposes real permissions and mutually exclusive latest-request states', () => {
   assert.match(receipt, /useUserStore/)
   for (const permission of ['print:receipt:detail', 'print:receipt:execute', 'print:receipt:update', 'print:receipt:cancel']) assert.match(receipt, new RegExp(permission.replaceAll(':', '\\:')))
@@ -87,6 +98,19 @@ test('label task cards keep separate rows and consistent spacing', () => {
   assert.match(label, /\.task-card\s*\{[\s\S]*?height:\s*auto;[\s\S]*?min-height:\s*72px;/)
   assert.match(label, /\.task-list\s*>\s*\.task-card\s*\+\s*\.task-card\s*\{[\s\S]*?margin-left:\s*0;/)
   assert.match(label, /\.task-card-content\s*\{[\s\S]*?display:\s*grid;[\s\S]*?width:\s*100%;[\s\S]*?gap:\s*6px;/)
+})
+
+test('cloth label model values use a dedicated two-line layout in preview and print', () => {
+  assert.match(label, /'label-info-row--model': row\.key === 'modelCode' \|\| row\.key === 'model'/)
+  assert.match(
+    label,
+    /\.label-info-row--model\s*\{[\s\S]*?grid-template-columns:\s*10mm minmax\(0,\s*1fr\);[\s\S]*?align-items:\s*start;/
+  )
+  assert.match(
+    label,
+    /\.label-info-row--model strong\s*\{[\s\S]*?font-size:\s*2\.7mm;[\s\S]*?-webkit-line-clamp:\s*2;/
+  )
+  assert.match(label, /grid-template-columns:\s*\$\{hasQr \? 9 : 10\}mm minmax\(0,\s*1fr\)/)
 })
 
 test('equipment overview never requests protected equipment data without equipment:list', async () => {
