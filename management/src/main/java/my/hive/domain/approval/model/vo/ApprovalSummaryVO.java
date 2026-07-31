@@ -19,4 +19,8 @@ public class ApprovalSummaryVO {
     private long qualityPending;
 
     private long totalPending;
+
+    private long mineTotal;
+
+    private long approvedTotal;
 }

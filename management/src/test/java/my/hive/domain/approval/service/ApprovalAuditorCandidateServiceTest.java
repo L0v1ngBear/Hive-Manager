@@ -149,6 +149,23 @@ class ApprovalAuditorCandidateServiceTest {
         verify(mapper, never()).selectApprovalForUpdate("tenant-a", "ORDER", "sales:SO-100");
     }
 
+    @Test
+    void relatedApprovalCodesRetainClosedHistoryAndRemoveDuplicates() {
+        ApprovalAuditorCandidate closed = candidate(4L, "tenant-a", 11L, 2, 1);
+        closed.setApprovalType("LEAVE");
+        closed.setApprovalCode("LV-100");
+        ApprovalAuditorCandidate activeDuplicate = candidate(5L, "tenant-a", 11L, 1, 0);
+        activeDuplicate.setApprovalType("LEAVE");
+        activeDuplicate.setApprovalCode("LV-100");
+        ApprovalAuditorCandidate rejected = candidate(6L, "tenant-a", 11L, 2, 2);
+        rejected.setApprovalType("LEAVE");
+        rejected.setApprovalCode("LV-101");
+        when(mapper.selectList(any())).thenReturn(List.of(closed, activeDuplicate, rejected));
+
+        assertEquals(List.of("LV-100", "LV-101"),
+                subject.findRelatedApprovalCodes("tenant-a", "LEAVE", 11L));
+    }
+
     private ApprovalAuditorCandidate candidate(Long id,
                                                 String tenantCode,
                                                 Long auditorId,

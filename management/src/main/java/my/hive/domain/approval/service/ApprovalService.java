@@ -168,6 +168,26 @@ public class ApprovalService {
         long orderPending = countPendingOrderApprovals(tenantCode, userId);
         long qualityPending = approvalAuditorCandidateService.countPendingAudits(tenantCode, APPROVAL_TYPE_QUALITY, userId);
 
+        long mineTotal = safeCount(leaveMapper.selectCount(new LambdaQueryWrapper<UserLeave>()
+                .eq(UserLeave::getApplyUserId, userId)))
+                + safeCount(financeApprovalMapper.selectCount(new LambdaQueryWrapper<FinanceApproval>()
+                .eq(FinanceApproval::getApplyUserId, userId)))
+                + safeCount(resignationApprovalMapper.selectCount(new LambdaQueryWrapper<ResignationApproval>()
+                .eq(ResignationApproval::getApplyUserId, userId)));
+
+        LambdaQueryWrapper<UserLeave> approvedLeaveWrapper = new LambdaQueryWrapper<UserLeave>()
+                .eq(UserLeave::getStatus, ApprovalStatusEnum.APPROVED.getCode());
+        appendLeaveRelatedFilter(approvedLeaveWrapper, userId);
+        LambdaQueryWrapper<FinanceApproval> approvedFinanceWrapper = new LambdaQueryWrapper<FinanceApproval>()
+                .eq(FinanceApproval::getStatus, ApprovalStatusEnum.APPROVED.getCode());
+        appendFinanceRelatedFilter(approvedFinanceWrapper, userId);
+        LambdaQueryWrapper<ResignationApproval> approvedResignationWrapper = new LambdaQueryWrapper<ResignationApproval>()
+                .eq(ResignationApproval::getStatus, ApprovalStatusEnum.APPROVED.getCode());
+        appendResignationRelatedFilter(approvedResignationWrapper, userId);
+        long approvedTotal = safeCount(leaveMapper.selectCount(approvedLeaveWrapper))
+                + safeCount(financeApprovalMapper.selectCount(approvedFinanceWrapper))
+                + safeCount(resignationApprovalMapper.selectCount(approvedResignationWrapper));
+
         ApprovalSummaryVO vo = new ApprovalSummaryVO();
         vo.setLeavePending(leavePending);
         vo.setFinancePending(financePending);
@@ -175,6 +195,8 @@ public class ApprovalService {
         vo.setOrderPending(orderPending);
         vo.setQualityPending(qualityPending);
         vo.setTotalPending(leavePending + financePending + resignationPending + orderPending + qualityPending);
+        vo.setMineTotal(mineTotal);
+        vo.setApprovedTotal(approvedTotal);
         return vo;
     }
 
@@ -1215,7 +1237,7 @@ public class ApprovalService {
         }
         String normalized = scope.trim().toLowerCase(Locale.ROOT);
         return switch (normalized) {
-            case "mine", "pending", "self_pending", "others_pending", "all" -> normalized;
+            case "mine", "related", "pending", "self_pending", "others_pending", "all" -> normalized;
             default -> "pending";
         };
     }
@@ -1229,7 +1251,7 @@ public class ApprovalService {
         boolean canCreate = TenantPermissionContext.hasPermission(submitPermission);
         boolean canList = TenantPermissionContext.hasPermission(listPermission);
         boolean canAudit = TenantPermissionContext.hasPermission(auditPermission);
-        if ("mine".equals(normalizedScope)) {
+        if ("mine".equals(normalizedScope) || "related".equals(normalizedScope)) {
             if (canCreate || canList || canAudit) {
                 return normalizedScope;
             }
@@ -1250,6 +1272,8 @@ public class ApprovalService {
     private void applyLeaveScope(LambdaQueryWrapper<UserLeave> wrapper, String scope, Long userId) {
         if ("mine".equals(scope)) {
             wrapper.eq(UserLeave::getApplyUserId, userId);
+        } else if ("related".equals(scope)) {
+            appendLeaveRelatedFilter(wrapper, userId);
         } else if ("self_pending".equals(scope)) {
             wrapper.eq(UserLeave::getApplyUserId, userId)
                     .eq(UserLeave::getStatus, ApprovalStatusEnum.PENDING.getCode());
@@ -1266,6 +1290,8 @@ public class ApprovalService {
     private void applyFinanceScope(LambdaQueryWrapper<FinanceApproval> wrapper, String scope, Long userId) {
         if ("mine".equals(scope)) {
             wrapper.eq(FinanceApproval::getApplyUserId, userId);
+        } else if ("related".equals(scope)) {
+            appendFinanceRelatedFilter(wrapper, userId);
         } else if ("self_pending".equals(scope)) {
             wrapper.eq(FinanceApproval::getApplyUserId, userId)
                     .eq(FinanceApproval::getStatus, ApprovalStatusEnum.PENDING.getCode());
@@ -1282,6 +1308,8 @@ public class ApprovalService {
     private void applyResignationScope(LambdaQueryWrapper<ResignationApproval> wrapper, String scope, Long userId) {
         if ("mine".equals(scope)) {
             wrapper.eq(ResignationApproval::getApplyUserId, userId);
+        } else if ("related".equals(scope)) {
+            appendResignationRelatedFilter(wrapper, userId);
         } else if ("self_pending".equals(scope)) {
             wrapper.eq(ResignationApproval::getApplyUserId, userId)
                     .eq(ResignationApproval::getStatus, ApprovalStatusEnum.PENDING.getCode());
@@ -1293,6 +1321,63 @@ public class ApprovalService {
         } else if (!"all".equals(scope)) {
             appendResignationAuditorFilter(wrapper, userId);
         }
+    }
+
+    private void appendLeaveRelatedFilter(LambdaQueryWrapper<UserLeave> wrapper, Long userId) {
+        if (userId == null) {
+            wrapper.apply("1 = 0");
+            return;
+        }
+        List<String> relatedCodes = approvalAuditorCandidateService.findRelatedApprovalCodes(
+                TenantPermissionContext.getTenantCode(), APPROVAL_TYPE_LEAVE, userId);
+        wrapper.and(q -> {
+            q.eq(UserLeave::getApplyUserId, userId)
+                    .or()
+                    .eq(UserLeave::getAuditorId, userId)
+                    .or()
+                    .apply("FIND_IN_SET({0}, auditor_ids) > 0", String.valueOf(userId));
+            if (!relatedCodes.isEmpty()) {
+                q.or().in(UserLeave::getLeaveCode, relatedCodes);
+            }
+        });
+    }
+
+    private void appendFinanceRelatedFilter(LambdaQueryWrapper<FinanceApproval> wrapper, Long userId) {
+        if (userId == null) {
+            wrapper.apply("1 = 0");
+            return;
+        }
+        List<String> relatedCodes = approvalAuditorCandidateService.findRelatedApprovalCodes(
+                TenantPermissionContext.getTenantCode(), APPROVAL_TYPE_FINANCE, userId);
+        wrapper.and(q -> {
+            q.eq(FinanceApproval::getApplyUserId, userId)
+                    .or()
+                    .eq(FinanceApproval::getAuditorId, userId)
+                    .or()
+                    .apply("FIND_IN_SET({0}, auditor_ids) > 0", String.valueOf(userId));
+            if (!relatedCodes.isEmpty()) {
+                q.or().in(FinanceApproval::getApprovalCode, relatedCodes);
+            }
+        });
+    }
+
+    private void appendResignationRelatedFilter(LambdaQueryWrapper<ResignationApproval> wrapper, Long userId) {
+        if (userId == null) {
+            wrapper.apply("1 = 0");
+            return;
+        }
+        List<String> relatedCodes = approvalAuditorCandidateService.findRelatedApprovalCodes(
+                TenantPermissionContext.getTenantCode(), APPROVAL_TYPE_RESIGNATION, userId);
+        wrapper.and(q -> {
+            q.eq(ResignationApproval::getApplyUserId, userId)
+                    .or()
+                    .eq(ResignationApproval::getAuditorId, userId)
+                    .or()
+                    .apply("FIND_IN_SET({0}, auditor_ids) > 0", String.valueOf(userId));
+            if (!relatedCodes.isEmpty()) {
+                q.or().in(ResignationApproval::getResignationCode, relatedCodes);
+            }
+        });
     }
 
     private void assignLeaveAuditors(UserLeave approval, Long primaryAuditorId) {

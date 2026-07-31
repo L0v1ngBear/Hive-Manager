@@ -532,11 +532,12 @@ import {
   ElResult,
   ElTag
 } from 'element-plus'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
+import { notifyApprovalChanged } from '@/utils/approvalRefresh'
 import {
   auditFinanceApproval,
   auditOrderApproval,
@@ -643,8 +644,13 @@ const approvalSummary = ref({
   resignationPending: 0,
   orderPending: 0,
   qualityPending: 0,
-  totalPending: 0
+  totalPending: 0,
+  mineTotal: 0,
+  approvedTotal: 0
 })
+let summaryRequestId = 0
+let summaryRefreshTimer = null
+const relatedApprovalParams = Object.freeze({ scope: 'related', limit: 500 })
 
 const currentUserId = computed(() => Number(userStore.userInfo?.userId || 0))
 
@@ -829,8 +835,8 @@ const loadAuditorOptions = async (type) => {
 
 const stats = computed(() => ({
   pendingForMe: approvalSummary.value.totalPending || rows.value.filter((item) => item.status === 1 && item.canAudit).length,
-  mine: rows.value.filter((item) => item.isMine).length,
-  approved: rows.value.filter((item) => item.status === 2).length
+  mine: Number(approvalSummary.value.mineTotal || 0),
+  approved: Number(approvalSummary.value.approvedTotal || 0)
 }))
 
 const filteredRows = computed(() => {
@@ -862,8 +868,10 @@ const tabPendingCount = (tab) => {
 }
 
 const fetchSummary = async () => {
+  const requestId = ++summaryRequestId
   try {
     const data = await getApprovalSummary()
+    if (requestId !== summaryRequestId) return
     approvalSummary.value = {
       leavePending: 0,
       financePending: 0,
@@ -871,16 +879,21 @@ const fetchSummary = async () => {
       orderPending: 0,
       qualityPending: 0,
       totalPending: 0,
+      mineTotal: 0,
+      approvedTotal: 0,
       ...data
     }
   } catch (error) {
+    if (requestId !== summaryRequestId) return
     approvalSummary.value = {
       leavePending: 0,
       financePending: 0,
       resignationPending: 0,
       orderPending: 0,
       qualityPending: 0,
-      totalPending: 0
+      totalPending: 0,
+      mineTotal: 0,
+      approvedTotal: 0
     }
   }
 }
@@ -888,6 +901,25 @@ const fetchSummary = async () => {
 const refreshAll = async () => {
   await Promise.all([fetchSummary(), fetchList()])
 }
+
+const refreshSummaryWhenVisible = () => {
+  if (document.visibilityState === 'visible') {
+    fetchSummary()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('focus', refreshSummaryWhenVisible)
+  summaryRefreshTimer = window.setInterval(refreshSummaryWhenVisible, 30000)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', refreshSummaryWhenVisible)
+  if (summaryRefreshTimer) {
+    window.clearInterval(summaryRefreshTimer)
+    summaryRefreshTimer = null
+  }
+})
 
 function resolveLoadFailure(error, resourceLabel) {
   const status = Number(error?.response?.status || error?.status || error?.code || 0)
@@ -946,7 +978,7 @@ const fetchList = async () => {
   let nextRows = []
   try {
     if (requestedTab === 'leave') {
-      const data = await listLeaveApprovals()
+      const data = await listLeaveApprovals(relatedApprovalParams)
       nextRows = (data || []).map((item) => ({
         type: 'leave',
         typeLabel: '请假审批',
@@ -966,7 +998,7 @@ const fetchList = async () => {
         raw: item
       }))
     } else if (requestedTab === 'finance') {
-      const data = await listFinanceApprovals()
+      const data = await listFinanceApprovals(relatedApprovalParams)
       nextRows = (data || []).map((item) => ({
         type: 'finance',
         typeLabel: '财务审批',
@@ -986,7 +1018,7 @@ const fetchList = async () => {
         raw: item
       }))
     } else if (requestedTab === 'resignation') {
-      const data = await listResignationApprovals()
+      const data = await listResignationApprovals(relatedApprovalParams)
       nextRows = (data || []).map((item) => ({
         type: 'resignation',
         typeLabel: '离职审批',
@@ -1289,7 +1321,8 @@ const quickAudit = async (item, action) => {
     })
   }
   ElMessage.success(item.type === 'order' ? orderAuditSuccessText(item) : (item.type === 'quality' ? (action === 1 ? '质量审核已通过' : '质量审核已驳回') : (action === 1 ? '审批已通过' : '审批已拒绝')))
-  refreshAll()
+  notifyApprovalChanged()
+  await refreshAll()
 }
 
 const submitAudit = async (action) => {
@@ -1335,7 +1368,8 @@ const submitAudit = async (action) => {
   }
   ElMessage.success(detailData.value.type === 'order' ? orderAuditSuccessText(detailData.value) : (detailData.value.type === 'quality' ? (action === 1 ? '质量审核已通过' : '质量审核已驳回') : (action === 1 ? '审批已提交' : '已驳回申请')))
   detailVisible.value = false
-  refreshAll()
+  notifyApprovalChanged()
+  await refreshAll()
 }
 
 const orderAuditActionText = (item) => {
@@ -1455,7 +1489,8 @@ const submitFinance = async () => {
   resetFinanceForm()
   financeDialogVisible.value = false
   activeTab.value = 'finance'
-  fetchList()
+  notifyApprovalChanged()
+  await refreshAll()
 }
 
 const submitResignation = async () => {
@@ -1477,7 +1512,8 @@ const submitResignation = async () => {
   resetResignationForm()
   resignationDialogVisible.value = false
   activeTab.value = 'resignation'
-  fetchList()
+  notifyApprovalChanged()
+  await refreshAll()
 }
 
 const statusClass = (status) => {

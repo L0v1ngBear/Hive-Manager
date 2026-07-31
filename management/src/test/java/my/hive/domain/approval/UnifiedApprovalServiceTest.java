@@ -84,6 +84,16 @@ class UnifiedApprovalServiceTest {
         });
     }
 
+    @Test
+    void approvalRelatedScopeIsCanonicalAndPreserved() throws Exception {
+        ApprovalService service = new ApprovalService();
+        Method method = ApprovalService.class.getDeclaredMethod("normalizeApprovalScope", String.class);
+        method.setAccessible(true);
+
+        assertEquals("related", method.invoke(service, "related"));
+        assertEquals("related", method.invoke(service, " RELATED "));
+    }
+
     private void assertApprovalListContract(String methodName) throws Exception {
         Method controllerMethod = ApprovalController.class.getMethod(methodName, String.class, Integer.class, Integer.class);
         assertArrayEquals(new String[]{"/" + methodName.replace("list", "").replace("Approvals", "").toLowerCase()},

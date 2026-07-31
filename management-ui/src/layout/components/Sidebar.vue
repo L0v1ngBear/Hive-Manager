@@ -131,11 +131,12 @@
 </template>
 
 <script setup>
-import {computed, ref, watch} from 'vue'
+import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useRoute} from 'vue-router'
 import {ElBadge, ElButton, ElTooltip} from 'element-plus'
 import {useUserStore} from '@/stores/user'
 import {getApprovalSummary} from '@/views/function/approval/api/approval'
+import {listenApprovalChanged} from '@/utils/approvalRefresh'
 import {decorateAccessItems} from '@/utils/access'
 import {brandConfig} from '@/config/brand'
 
@@ -152,6 +153,9 @@ const route = useRoute()
 const userStore = useUserStore()
 const isCollapsed = ref(!props.mobile)
 const approvalPendingCount = ref(0)
+let approvalPendingRequestId = 0
+let approvalRefreshTimer = null
+let stopApprovalChangedListener = () => {}
 const brandTitle = computed(() => brandConfig.productName)
 const brandSubtitle = computed(() => '业务协同系统')
 const ANNOUNCEMENT_PERMISSIONS = [
@@ -278,19 +282,35 @@ const toggleMore = () => {
 }
 
 const refreshApprovalPendingCount = async () => {
+  const requestId = ++approvalPendingRequestId
   if (userStore.isPlatformTenant) {
     approvalPendingCount.value = 0
     return
   }
   if (!userStore.hasAnyFeature(['module.approval']) ||
-      !userStore.hasAnyPermission(['approval:leave:list', 'approval:finance:list', 'approval:resignation:list', 'order:list'])) {
+      !userStore.hasAnyPermission([
+        'approval:list',
+        'approval:leave:submit',
+        'approval:leave:list',
+        'approval:leave:audit',
+        'approval:finance:submit',
+        'approval:finance:list',
+        'approval:finance:audit',
+        'approval:resignation:submit',
+        'approval:resignation:list',
+        'approval:resignation:audit',
+        'quality:audit',
+        'order:list'
+      ])) {
     approvalPendingCount.value = 0
     return
   }
   try {
     const data = await getApprovalSummary()
+    if (requestId !== approvalPendingRequestId) return
     approvalPendingCount.value = Number(data?.totalPending || 0)
   } catch (error) {
+    if (requestId !== approvalPendingRequestId) return
     approvalPendingCount.value = 0
   }
 }
@@ -300,6 +320,26 @@ watch(
     () => refreshApprovalPendingCount(),
     {immediate: true, deep: true}
 )
+
+watch(
+    () => route.path,
+    () => refreshApprovalPendingCount()
+)
+
+onMounted(() => {
+  stopApprovalChangedListener = listenApprovalChanged(refreshApprovalPendingCount)
+  window.addEventListener('focus', refreshApprovalPendingCount)
+  approvalRefreshTimer = window.setInterval(refreshApprovalPendingCount, 30000)
+})
+
+onBeforeUnmount(() => {
+  stopApprovalChangedListener()
+  window.removeEventListener('focus', refreshApprovalPendingCount)
+  if (approvalRefreshTimer) {
+    window.clearInterval(approvalRefreshTimer)
+    approvalRefreshTimer = null
+  }
+})
 
 const linkClass = (item) => {
   const active = route.path.startsWith(item.path)

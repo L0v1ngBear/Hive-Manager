@@ -133,6 +133,28 @@ public class ApprovalAuditorCandidateService {
         return new ArrayList<>(codes);
     }
 
+    public List<String> findRelatedApprovalCodes(String tenantCode, String approvalType, Long auditorId) {
+        if (!StringUtils.hasText(tenantCode) || !StringUtils.hasText(approvalType) || auditorId == null || auditorId <= 0) {
+            return List.of();
+        }
+        List<ApprovalAuditorCandidate> rows = approvalAuditorCandidateMapper.selectList(
+                new LambdaQueryWrapper<ApprovalAuditorCandidate>()
+                        .eq(ApprovalAuditorCandidate::getTenantCode, tenantCode)
+                        .eq(ApprovalAuditorCandidate::getApprovalType, approvalType)
+                        .eq(ApprovalAuditorCandidate::getAuditorId, auditorId)
+                        .orderByDesc(ApprovalAuditorCandidate::getId));
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<String> codes = new LinkedHashSet<>();
+        for (ApprovalAuditorCandidate row : rows) {
+            if (StringUtils.hasText(row.getApprovalCode())) {
+                codes.add(row.getApprovalCode());
+            }
+        }
+        return new ArrayList<>(codes);
+    }
+
     public boolean hasPendingAuditors(String tenantCode, String approvalType, String approvalCode) {
         return !findPendingAuditorIds(tenantCode, approvalType, approvalCode).isEmpty();
     }

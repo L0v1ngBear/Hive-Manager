@@ -31,10 +31,11 @@ export function saveApprovalDefaultAuditor(data) {
   })
 }
 
-export function listLeaveApprovals() {
+export function listLeaveApprovals(params) {
   return request({
     url: '/approval/leave',
     method: 'get',
+    params,
   })
 }
 
@@ -53,10 +54,11 @@ export function auditLeaveApproval(data) {
   })
 }
 
-export function listFinanceApprovals() {
+export function listFinanceApprovals(params) {
   return request({
     url: '/approval/finance',
     method: 'get',
+    params,
   })
 }
 
@@ -103,10 +105,11 @@ export function downloadFinanceApprovalAttachment(params) {
   })
 }
 
-export function listResignationApprovals() {
+export function listResignationApprovals(params) {
   return request({
     url: '/approval/resignation',
     method: 'get',
+    params,
   })
 }
 
