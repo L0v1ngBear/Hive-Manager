@@ -3,12 +3,12 @@ import request from '@/utils/request.js'
 const LARGE_FILE_THRESHOLD = 20 * 1024 * 1024
 const STORAGE_KEY_PREFIX = 'hive:chunked-attachment:'
 
-export function uploadAttachmentWithChunks(file, fallbackUpload, module) {
+export function uploadAttachmentWithChunks(file, fallbackUpload, module, options = {}) {
   if (!shouldUseChunks(file)) return fallbackUpload()
-  return uploadFileInChunks(file, module)
+  return uploadFileInChunks(file, module, options)
 }
 
-async function uploadFileInChunks(file, module) {
+async function uploadFileInChunks(file, module, options) {
   const key = `${STORAGE_KEY_PREFIX}${module}:${file.name}:${file.size}:${file.lastModified}`
   const storedId = safeStorageGet(key)
   const init = await request({
@@ -30,10 +30,12 @@ async function uploadFileInChunks(file, module) {
         method: 'post', data: formData, timeout: 120000, showGlobalLoading: false
       })
     }
-    const result = await request({
-      url: `/storage/chunked-attachment/${module}/${init.uploadId}/complete`, method: 'post',
-      timeout: 1800000, showGlobalLoading: false
-    })
+    const result = typeof options.complete === 'function'
+      ? await options.complete(init.uploadId)
+      : await request({
+          url: `/storage/chunked-attachment/${module}/${init.uploadId}/complete`, method: 'post',
+          timeout: 1800000, showGlobalLoading: false
+        })
     completed = true
     return result
   } finally {

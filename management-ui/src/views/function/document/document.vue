@@ -102,7 +102,7 @@
         <DragAttachmentUpload
           class="mb-3"
           title="点击或拖拽文件上传到当前目录"
-          helper-text="支持图片、视频、PDF、Word、Excel、PPT、文本或压缩包，不超过 200MB"
+          helper-text="支持图片、视频、PDF、Word、Excel、PPT/PPTX、文本及 ZIP/RAR/7Z，不超过 200MB"
           accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.rar,.7z,.mp4,.mov,.m4v,.avi,.mkv,.webm,.3gp"
           :uploading="documentUploading"
           :downloadable="false"
@@ -152,6 +152,34 @@
                 <template v-else-if="column.key === 'size'">{{ isFolder(doc) ? '--' : formatBytes(doc.fileSize) }}</template>
               </template>
             </el-table-column>
+            <el-table-column
+              v-if="canMoveDocument || canDeleteDocument"
+              label="操作"
+              fixed="right"
+              width="150"
+              align="center"
+            >
+              <template #default="{ row: doc }">
+                <el-button
+                  v-if="canMoveDocument"
+                  link
+                  type="primary"
+                  :disabled="documentActionLoading"
+                  @click.stop="openMoveDialog(doc)"
+                >
+                  移动
+                </el-button>
+                <el-button
+                  v-if="canDeleteDocument"
+                  link
+                  type="danger"
+                  :disabled="documentActionLoading"
+                  @click.stop="confirmDeleteDocument(doc)"
+                >
+                  删除
+                </el-button>
+              </template>
+            </el-table-column>
             <template #empty>
               <el-empty v-if="!loading" :description="documentEmptyDescription" />
             </template>
@@ -181,6 +209,35 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="moveDialogVisible" title="移动文档" width="min(460px, calc(100vw - 2rem))" destroy-on-close>
+      <el-form label-position="top" @submit.prevent="confirmMoveDocument">
+        <el-form-item label="文档">
+          <el-input :model-value="movingDocument?.name || ''" disabled />
+        </el-form-item>
+        <el-form-item label="目标文件夹">
+          <el-select v-model="moveTargetParentId" class="w-full" placeholder="请选择目标文件夹" filterable>
+            <el-option
+              v-for="folder in moveFolderOptions"
+              :key="folder.value"
+              :label="folder.label"
+              :value="folder.value"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button :disabled="documentActionLoading" @click="moveDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="documentActionLoading"
+          :disabled="moveTargetParentId === null"
+          @click="confirmMoveDocument"
+        >
+          确认移动
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
   </div>
 </template>
@@ -195,18 +252,30 @@ import {
   ElFormItem,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElOption,
   ElResult,
   ElSelect,
   ElTable,
   ElTableColumn
 } from 'element-plus'
-import { createFolder, downloadDocumentFile, getBreadcrumbs, getDocumentList, uploadDocumentFile } from './api/document.js'
+import {
+  completeChunkedDocumentUpload,
+  createFolder,
+  deleteDocument,
+  downloadDocumentFile,
+  getBreadcrumbs,
+  getDocumentFolders,
+  getDocumentList,
+  moveDocument,
+  uploadDocumentFile
+} from './api/document.js'
 import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useUserStore } from '@/stores/user'
 import { createDocumentNavigator } from './documentNavigation'
+import { uploadAttachmentWithChunks } from '@/utils/chunkedAttachmentUpload.js'
 
 const defaultDocumentTableColumns = [
   { key: 'name', label: '名称', widthClass: 'w-1/2' },
@@ -224,7 +293,12 @@ const loading = ref(false)
 const documentUploading = ref(false)
 const creatingFolder = ref(false)
 const folderDialogVisible = ref(false)
+const moveDialogVisible = ref(false)
 const folderName = ref('')
+const movingDocument = ref(null)
+const moveTargetParentId = ref(null)
+const moveFolderOptions = ref([])
+const documentActionLoading = ref(false)
 const currentParentId = ref(0)
 const documentList = ref([])
 const documentError = ref(null)
@@ -236,6 +310,8 @@ const canCreateFolder = computed(() => userStore.hasPermission('document:folder:
 const canUploadDocument = computed(() => userStore.hasPermission('document:file:upload'))
 const canExportTable = computed(() => userStore.hasPermission('document:export'))
 const canBrowseDocuments = computed(() => userStore.hasPermission('document:list'))
+const canMoveDocument = computed(() => userStore.hasPermission('document:move'))
+const canDeleteDocument = computed(() => userStore.hasPermission('document:delete'))
 const breadcrumbPermissionReason = '当前账号暂无文档目录导航权限'
 const currentFolderName = computed(() => breadcrumbs.value.at(-1)?.name || '根目录')
 const hasDocumentFilters = computed(() => Boolean(filters.keyword || filters.type))
@@ -362,17 +438,114 @@ const handleDocumentUpload = async (file) => {
     ElMessage.warning('文档或视频文件不能超过 200MB')
     return
   }
+  const uploadParentId = currentParentId.value || 0
   const formData = new FormData()
   formData.append('file', file)
-  formData.append('parentId', String(currentParentId.value || 0))
+  formData.append('parentId', String(uploadParentId))
   documentUploading.value = true
   try {
-    await uploadDocumentFile(formData)
+    await uploadAttachmentWithChunks(file, () => uploadDocumentFile(formData), 'document', {
+      complete: (uploadId) => completeChunkedDocumentUpload(uploadId, uploadParentId)
+    })
     ElMessage.success('文件上传成功')
     await fetchDocuments(currentParentId.value)
   } finally {
     documentUploading.value = false
   }
+}
+
+const openMoveDialog = async (document) => {
+  if (!canMoveDocument.value || documentActionLoading.value) return
+  documentActionLoading.value = true
+  try {
+    const folders = await getDocumentFolders()
+    movingDocument.value = document
+    moveFolderOptions.value = buildMoveFolderOptions(Array.isArray(folders) ? folders : [], document)
+    moveTargetParentId.value = Number(document.parentId || 0)
+    moveDialogVisible.value = true
+  } finally {
+    documentActionLoading.value = false
+  }
+}
+
+const confirmMoveDocument = async () => {
+  if (!canMoveDocument.value || !movingDocument.value || moveTargetParentId.value === null) return
+  if (Number(movingDocument.value.parentId || 0) === Number(moveTargetParentId.value)) {
+    ElMessage.info('文档已在该文件夹中')
+    return
+  }
+  documentActionLoading.value = true
+  try {
+    await moveDocument(movingDocument.value.id, moveTargetParentId.value)
+    ElMessage.success('文档移动成功')
+    moveDialogVisible.value = false
+    await fetchDocuments(currentParentId.value)
+  } finally {
+    documentActionLoading.value = false
+  }
+}
+
+const confirmDeleteDocument = async (document) => {
+  if (!canDeleteDocument.value || documentActionLoading.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确定删除“${document.name}”吗？${isFolder(document) ? '非空文件夹不能删除。' : '删除后无法恢复。'}`,
+      '删除确认',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+  } catch {
+    return
+  }
+  documentActionLoading.value = true
+  try {
+    await deleteDocument(document.id)
+    ElMessage.success('删除成功')
+    await fetchDocuments(currentParentId.value)
+  } finally {
+    documentActionLoading.value = false
+  }
+}
+
+const buildMoveFolderOptions = (folders, document) => {
+  const byId = new Map(folders.map((folder) => [Number(folder.id), folder]))
+  const excluded = new Set()
+  if (isFolder(document)) {
+    excluded.add(Number(document.id))
+    let changed = true
+    while (changed) {
+      changed = false
+      folders.forEach((folder) => {
+        if (excluded.has(Number(folder.parentId)) && !excluded.has(Number(folder.id))) {
+          excluded.add(Number(folder.id))
+          changed = true
+        }
+      })
+    }
+  }
+  const resolvePath = (folder) => {
+    const names = [folder.name]
+    const visited = new Set([Number(folder.id)])
+    let parentId = Number(folder.parentId || 0)
+    while (parentId > 0 && byId.has(parentId) && !visited.has(parentId)) {
+      visited.add(parentId)
+      const parent = byId.get(parentId)
+      names.unshift(parent.name)
+      parentId = Number(parent.parentId || 0)
+    }
+    return names.join(' / ')
+  }
+  return [
+    { value: 0, label: '根目录' },
+    ...folders
+      .filter((folder) => !excluded.has(Number(folder.id)))
+      .map((folder) => ({ value: Number(folder.id), label: resolvePath(folder) }))
+      .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
+  ]
 }
 
 const formatTime = (value) => {

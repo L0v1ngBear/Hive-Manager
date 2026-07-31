@@ -148,9 +148,10 @@ public class LocalFileStorageService implements FileStorageProvider {
         if (size <= 0) {
             throw new BusinessException("文件内容为空，无法上传");
         }
-        long maxBytes = Math.max(1, maxFileSizeMb) * 1024L * 1024L;
+        long effectiveMaxMb = "document".equalsIgnoreCase(module) ? 200L : Math.max(1, maxFileSizeMb);
+        long maxBytes = effectiveMaxMb * 1024L * 1024L;
         if (size > maxBytes) {
-            throw new BusinessException("文件大小不能超过 " + Math.max(1, maxFileSizeMb) + "MB");
+            throw new BusinessException("文件大小不能超过 " + effectiveMaxMb + "MB");
         }
 
         String originalName = normalizeOriginalName(file.getOriginalFilename());

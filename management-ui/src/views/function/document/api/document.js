@@ -27,6 +27,16 @@ export function uploadDocumentFile(data) {
   })
 }
 
+export function completeChunkedDocumentUpload(uploadId, parentId) {
+  return request({
+    url: `/document/file/chunked/${uploadId}/complete`,
+    method: 'post',
+    params: { parentId },
+    timeout: 1800000,
+    showGlobalLoading: false
+  })
+}
+
 export function downloadDocumentFile(documentId) {
   return request({
     url: '/document/file/download',
@@ -42,5 +52,27 @@ export function getBreadcrumbs(documentId) {
     url: '/document/breadcrumbs',
     method: 'get',
     params: { documentId }
+  })
+}
+
+export function getDocumentFolders() {
+  return request({
+    url: '/document/folders',
+    method: 'get'
+  })
+}
+
+export function moveDocument(documentId, newParentId) {
+  return request({
+    url: '/document/move',
+    method: 'put',
+    params: { documentId, newParentId }
+  })
+}
+
+export function deleteDocument(documentId) {
+  return request({
+    url: `/document/${documentId}`,
+    method: 'delete'
   })
 }

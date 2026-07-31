@@ -22,7 +22,8 @@ public class ChunkedVideoUploadController {
             "bad-product", PermissionCatalogV3.CODE_QUALITY_ATTACHMENT_UPLOAD,
             "finance", PermissionCatalogV3.CODE_APPROVAL_FINANCE_SUBMIT,
             "installation-task", PermissionCatalogV3.CODE_INSTALLATION_ATTACHMENT_UPLOAD,
-            "announcement", PermissionCatalogV3.CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH);
+            "announcement", PermissionCatalogV3.CODE_NOTIFICATION_ANNOUNCEMENT_PUBLISH,
+            "document", PermissionCatalogV3.CODE_DOCUMENT_FILE_UPLOAD);
     @Resource private ChunkedVideoUploadService chunkedVideoUploadService;
 
     @PostMapping("/{module}/init")

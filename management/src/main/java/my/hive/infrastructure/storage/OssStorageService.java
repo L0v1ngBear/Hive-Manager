@@ -44,6 +44,12 @@ public class OssStorageService implements FileStorageProvider {
     private static final String STORAGE_PROVIDER = "ALIYUN_OSS";
     private static final String ORIGINAL_NAME_METADATA_KEY = "original-name-b64";
     private static final String LEGACY_ORIGINAL_NAME_METADATA_KEY = "original-name";
+    private static final Set<String> DOCUMENT_EXTENSIONS = Set.of(
+            "pdf", "png", "jpg", "jpeg", "webp",
+            "doc", "docx", "xls", "xlsx", "csv",
+            "txt", "zip", "rar", "7z", "ppt", "pptx",
+            "mp4", "mov", "m4v", "avi", "mkv", "webm", "3gp"
+    );
 
     private final OssStorageProperties properties;
     private final ExternalApiGuardService externalApiGuardService;
@@ -205,15 +211,19 @@ public class OssStorageService implements FileStorageProvider {
         if (size <= 0) {
             throw new BusinessException("文件内容为空，无法上传");
         }
-        long maxBytes = properties.getMaxFileSizeMb() * 1024L * 1024L;
+        boolean documentModule = "document".equalsIgnoreCase(module);
+        long effectiveMaxMb = documentModule ? 200L : properties.getMaxFileSizeMb();
+        long maxBytes = effectiveMaxMb * 1024L * 1024L;
         if (size > maxBytes) {
-            throw new BusinessException("文件大小不能超过 " + properties.getMaxFileSizeMb() + "MB");
+            throw new BusinessException("文件大小不能超过 " + effectiveMaxMb + "MB");
         }
 
         String originalName = normalizeOriginalName(file.getOriginalFilename());
         String fileExt = extractExtension(originalName);
         Set<String> allowedExtensions = normalizeSet(properties.getAllowedExtensions());
-        if (!allowedExtensions.isEmpty() && !allowedExtensions.contains(fileExt)) {
+        if (!allowedExtensions.isEmpty()
+                && !allowedExtensions.contains(fileExt)
+                && !(documentModule && DOCUMENT_EXTENSIONS.contains(fileExt))) {
             throw new BusinessException("不支持的文件类型：" + fileExt);
         }
 
@@ -222,6 +232,7 @@ public class OssStorageService implements FileStorageProvider {
                 : "application/octet-stream";
         Set<String> allowedContentTypes = normalizeSet(properties.getAllowedContentTypes());
         if (!"application/octet-stream".equals(mimeType)
+                && !documentModule
                 && !allowedContentTypes.isEmpty()
                 && !allowedContentTypes.contains(mimeType)) {
             throw new BusinessException("不支持的文件内容类型：" + mimeType);

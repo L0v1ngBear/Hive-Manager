@@ -909,6 +909,21 @@ onBeforeUnmount(() => {
   font-weight: 950;
 }
 
+@media (min-width: 1280px) {
+  .tenant-chip {
+    width: max-content;
+    max-width: none;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .tenant-chip__name {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+  }
+}
+
 .user-menu-brand {
   display: flex;
   align-items: center;

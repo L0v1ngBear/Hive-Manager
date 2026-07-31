@@ -152,7 +152,7 @@ test("customer and document commands keep visible disabled permission tooltips",
   assert.match(customer, /当前账号暂无查看客户详情权限/);
   assert.match(customer, /当前账号暂无表格导出权限/);
 
-  for (const permission of ["document:folder:create", "document:file:upload", "document:export"]) {
+  for (const permission of ["document:folder:create", "document:file:upload", "document:export", "document:move", "document:delete"]) {
     assert.match(document, new RegExp(permission));
   }
   assert.match(document, /:disabled="!canCreateFolder"/);
@@ -202,4 +202,23 @@ test("document navigation keeps breadcrumb permission commands visible and disab
   assert.equal((document.match(/:disabled="!canBrowseDocuments"/g) || []).length, 3);
   assert.equal((document.match(/:title="canBrowseDocuments \?/g) || []).length, 4);
   assert.match(document, /documentNavigator\.goRoot\(\)/);
+});
+
+test("document center supports 200MB chunk completion, office archives, move and delete", () => {
+  const document = read("../src/views/function/document/document.vue");
+  const api = read("../src/views/function/document/api/document.js");
+  const chunkedUpload = read("../src/utils/chunkedAttachmentUpload.js");
+
+  for (const extension of [".ppt", ".pptx", ".rar"]) {
+    assert.ok(document.includes(extension), `document picker must accept ${extension}`);
+  }
+  assert.match(document, /uploadAttachmentWithChunks\(file,[\s\S]*?'document'/);
+  assert.match(document, /completeChunkedDocumentUpload\(uploadId, uploadParentId\)/);
+  assert.match(chunkedUpload, /typeof options\.complete === 'function'/);
+  assert.match(api, /\/document\/file\/chunked\/\$\{uploadId\}\/complete/);
+  assert.match(api, /url: '\/document\/move'/);
+  assert.match(api, /url: `\/document\/\$\{documentId\}`[\s\S]*?method: 'delete'/);
+  assert.match(document, /label="操作"[\s\S]*?>[\s\S]*?移动[\s\S]*?删除/);
+  assert.match(document, /ElMessageBox\.confirm/);
+  assert.match(document, /buildMoveFolderOptions/);
 });

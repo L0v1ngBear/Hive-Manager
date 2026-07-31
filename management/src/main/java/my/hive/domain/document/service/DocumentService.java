@@ -54,6 +54,16 @@ public class DocumentService {
         return documentMapper.selectList(queryWrapper);
     }
 
+    public List<Document> selectFolders() {
+        String tenantCode = requireTenantCode();
+        LambdaQueryWrapper<Document> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Document::getTenantCode, tenantCode);
+        queryWrapper.eq(Document::getType, DocumentTypeEnum.FOLDER.getType());
+        queryWrapper.eq(Document::getIsDeleted, 0);
+        queryWrapper.orderByAsc(Document::getCreateTime);
+        return documentMapper.selectList(queryWrapper);
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public void addFolder(DocumentAddRequest request) {
         if (request == null) {
@@ -85,32 +95,27 @@ public class DocumentService {
         ensureStorageQuota(tenantCode, file.getSize());
 
         FileUploadResult uploadResult = storageRouter.upload(file, tenantCode, "document");
-        Document document = new Document();
-        document.setTenantCode(tenantCode);
-        document.setParentId(normalizedParentId);
-        document.setName(displayName);
-        document.setOriginalName(uploadResult.getOriginalName());
-        document.setType(DocumentTypeEnum.FILE.getType());
-        document.setFileUrl(uploadResult.getUrl());
-        document.setStorageProvider(uploadResult.getStorageProvider());
-        document.setStorageBucket(uploadResult.getBucketName());
-        document.setStorageObjectKey(uploadResult.getObjectKey());
-        document.setFileSize(uploadResult.getFileSize());
-        document.setFileExt(uploadResult.getFileExt());
-        document.setMimeType(uploadResult.getMimeType());
-        document.setFileHash(uploadResult.getFileHash());
-        document.setEtag(uploadResult.getEtag());
-        document.setUploadStatus(DocumentUploadStatusEnum.UPLOADED.getCode());
-        document.setCreatorId(TenantPermissionContext.getUserId());
+        return persistUploadedFile(uploadResult, tenantCode, normalizedParentId, displayName);
+    }
 
-        try {
-            documentMapper.insert(document);
-            return toVO(document);
-        } catch (RuntimeException e) {
-            storageRouter.deleteQuietly(uploadResult.getObjectKey());
-            log.error("save document after storage upload failed, tenantCode={}, objectKey={}", tenantCode, uploadResult.getObjectKey(), e);
-            throw e;
+    public DocumentVO saveUploadedFile(FileUploadResult uploadResult, Long parentId) {
+        if (uploadResult == null || !StringUtils.hasText(uploadResult.getUrl())) {
+            throw new BusinessException("上传文件结果无效");
         }
+        String tenantCode = requireTenantCode();
+        Long normalizedParentId;
+        String displayName;
+        try {
+            normalizedParentId = normalizeParentId(parentId);
+            ensureParentFolder(normalizedParentId);
+            displayName = normalizeName(uploadResult.getOriginalName(), "文件名");
+            ensureNameNotExists(tenantCode, normalizedParentId, displayName, null);
+            ensureStorageQuota(tenantCode, uploadResult.getFileSize() == null ? 0L : uploadResult.getFileSize());
+        } catch (RuntimeException exception) {
+            storageRouter.deleteQuietly(uploadResult.getStorageProvider(), uploadResult.getObjectKey());
+            throw exception;
+        }
+        return persistUploadedFile(uploadResult, tenantCode, normalizedParentId, displayName);
     }
 
     public FileDownloadResource loadFile(Long documentId) {
@@ -165,6 +170,24 @@ public class DocumentService {
         documentMapper.updateById(currentDoc);
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteDocument(Long documentId) {
+        Document document = requireDocument(documentId);
+        if (DocumentTypeEnum.FOLDER.getType().equals(document.getType())) {
+            LambdaQueryWrapper<Document> childQuery = new LambdaQueryWrapper<>();
+            childQuery.eq(Document::getTenantCode, document.getTenantCode());
+            childQuery.eq(Document::getParentId, document.getId());
+            childQuery.eq(Document::getIsDeleted, 0);
+            if (documentMapper.selectCount(childQuery) > 0) {
+                throw new BusinessException("请先清空文件夹后再删除");
+            }
+        }
+        documentMapper.deleteById(document.getId());
+        if (DocumentTypeEnum.FILE.getType().equals(document.getType())) {
+            storageRouter.deleteQuietly(document.getStorageProvider(), document.getStorageObjectKey());
+        }
+    }
+
     public List<DocumentVO> getBreadcrumbs(Long documentId) {
         if (documentId == null || documentId <= 0) {
             return Collections.emptyList();
@@ -196,6 +219,39 @@ public class DocumentService {
         DocumentVO vo = new DocumentVO();
         BeanUtils.copyProperties(document, vo);
         return vo;
+    }
+
+    private DocumentVO persistUploadedFile(FileUploadResult uploadResult,
+                                           String tenantCode,
+                                           Long parentId,
+                                           String displayName) {
+        Document document = new Document();
+        document.setTenantCode(tenantCode);
+        document.setParentId(parentId);
+        document.setName(displayName);
+        document.setOriginalName(uploadResult.getOriginalName());
+        document.setType(DocumentTypeEnum.FILE.getType());
+        document.setFileUrl(uploadResult.getUrl());
+        document.setStorageProvider(uploadResult.getStorageProvider());
+        document.setStorageBucket(uploadResult.getBucketName());
+        document.setStorageObjectKey(uploadResult.getObjectKey());
+        document.setFileSize(uploadResult.getFileSize());
+        document.setFileExt(uploadResult.getFileExt());
+        document.setMimeType(uploadResult.getMimeType());
+        document.setFileHash(uploadResult.getFileHash());
+        document.setEtag(uploadResult.getEtag());
+        document.setUploadStatus(DocumentUploadStatusEnum.UPLOADED.getCode());
+        document.setCreatorId(TenantPermissionContext.getUserId());
+
+        try {
+            documentMapper.insert(document);
+            return toVO(document);
+        } catch (RuntimeException exception) {
+            storageRouter.deleteQuietly(uploadResult.getStorageProvider(), uploadResult.getObjectKey());
+            log.error("save document after storage upload failed, tenantCode={}, objectKey={}",
+                    tenantCode, uploadResult.getObjectKey(), exception);
+            throw exception;
+        }
     }
 
     private void ensureParentFolder(Long parentId) {

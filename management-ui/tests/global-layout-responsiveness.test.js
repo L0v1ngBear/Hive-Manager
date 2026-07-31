@@ -204,6 +204,8 @@ test('navbar grows with its information and shrinks long tenant content without 
   assert.match(navbar, /@media \(max-width: 1100px\)[\s\S]*?\.tenant-chip\s*\{[\s\S]*?max-width\s*:\s*14rem/)
   assert.match(navbar, /\.navbar-user-meta\s*\{[\s\S]*?margin-right\s*:\s*0\.875rem/)
   assert.match(navbar, /\.local-avatar\s*\{[\s\S]*?flex\s*:\s*0\s+0\s+2\.5rem/)
+  assert.match(navbar, /@media \(min-width: 1280px\)[\s\S]*?\.tenant-chip\s*\{[\s\S]*?width\s*:\s*max-content[\s\S]*?max-width\s*:\s*none/)
+  assert.match(navbar, /@media \(min-width: 1280px\)[\s\S]*?\.tenant-chip__name\s*\{[\s\S]*?max-width\s*:\s*none[\s\S]*?text-overflow\s*:\s*clip/)
 })
 
 test('navbar search results keep independent rows and aligned content columns', () => {

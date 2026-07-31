@@ -59,6 +59,18 @@ class FileStorageProviderRouterTest {
     }
 
     @Test
+    void deletesUsingTheProviderStoredWithTheDocument() {
+        RecordingProvider local = new RecordingProvider("local");
+        RecordingProvider oss = new RecordingProvider("aliyun-oss");
+        FileStorageProviderRouter router = router(List.of(local, oss), "local");
+
+        router.deleteQuietly("ALIYUN_OSS", "hive/tenant-a/document/file.pdf");
+
+        assertThat(local.deleteCount).isZero();
+        assertThat(oss.deleteCount).isEqualTo(1);
+    }
+
+    @Test
     void duplicateNormalizedProviderCodesAreRejected() {
         assertThatThrownBy(() -> router(List.of(
                 new RecordingProvider("local"),

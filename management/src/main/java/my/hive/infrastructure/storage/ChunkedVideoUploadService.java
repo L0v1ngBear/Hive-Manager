@@ -38,7 +38,7 @@ public class ChunkedVideoUploadService {
             "doc", "docx", "xls", "xlsx", "csv",
             "txt", "zip", "rar", "7z", "ppt", "pptx",
             "mp4", "mov", "m4v", "avi", "mkv", "webm", "3gp");
-    private static final Set<String> MODULES = Set.of("sales-order", "bad-product", "finance", "installation-task");
+    private static final Set<String> MODULES = Set.of("sales-order", "bad-product", "finance", "installation-task", "document");
 
     private final BusinessAttachmentService businessAttachmentService;
 
@@ -58,7 +58,7 @@ public class ChunkedVideoUploadService {
     public ChunkedVideoUploadInitVO init(String module, ChunkedVideoUploadInitRequest request) {
         String normalizedModule = requireModule(module);
         String tenantCode = requireTenantCode();
-        validateRequest(request);
+        validateRequest(normalizedModule, request);
         cleanupExpiredSessions();
         String requestedId = request.getUploadId();
         if (isSafeUploadId(requestedId)) {
@@ -110,6 +110,15 @@ public class ChunkedVideoUploadService {
     }
 
     public BusinessAttachmentVO complete(String module, String uploadId) {
+        FileUploadResult uploadResult = completeStored(module, uploadId);
+        BusinessAttachmentVO result = new BusinessAttachmentVO();
+        result.setFileName(uploadResult.getOriginalName());
+        result.setFileSize(uploadResult.getFileSize());
+        result.setFileUrl(uploadResult.getUrl());
+        return result;
+    }
+
+    public FileUploadResult completeStored(String module, String uploadId) {
         Path session = requireSession(module, uploadId);
         Properties metadata = readMetadata(session);
         int totalParts = integer(metadata, "totalParts");
@@ -118,7 +127,7 @@ public class ChunkedVideoUploadService {
             if (!completedFileMatches(merged, metadata)) {
                 mergeParts(session, metadata, totalParts, merged);
             }
-            BusinessAttachmentVO result = businessAttachmentService.upload(new FileBackedMultipartFile(
+            FileUploadResult result = businessAttachmentService.uploadResult(new FileBackedMultipartFile(
                     merged, "file", metadata.getProperty("fileName"), metadata.getProperty("contentType")), requireModule(module));
             deleteRecursively(session);
             return result;
@@ -202,14 +211,15 @@ public class ChunkedVideoUploadService {
                 .totalParts(totalParts).uploadedParts(uploadedParts).build();
     }
 
-    private void validateRequest(ChunkedVideoUploadInitRequest request) {
+    private void validateRequest(String module, ChunkedVideoUploadInitRequest request) {
         if (request == null || !StringUtils.hasText(request.getFileName()) || request.getFileSize() == null || request.getFileSize() <= 0) {
             throw new BusinessException("附件上传参数不完整");
         }
         String extension = extensionOf(request.getFileName());
         if (!ALLOWED_EXTENSIONS.contains(extension)) throw new BusinessException("该附件格式不支持分片上传");
-        long max = Math.max(1, maxFileSizeMb) * 1024L * 1024L;
-        if (request.getFileSize() > max) throw new BusinessException("附件大小不能超过 " + Math.max(1, maxFileSizeMb) + "MB");
+        long configuredMaxMb = "document".equals(module) ? 200L : Math.max(1, maxFileSizeMb);
+        long max = configuredMaxMb * 1024L * 1024L;
+        if (request.getFileSize() > max) throw new BusinessException("附件大小不能超过 " + configuredMaxMb + "MB");
     }
 
     private List<Path> orderedParts(Path session, int totalParts) {

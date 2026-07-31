@@ -21,7 +21,8 @@ public class BusinessAttachmentService {
             "inventory-recognition",
             "tenant-logo",
             "installation-task",
-            "announcement"
+            "announcement",
+            "document"
     );
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             "pdf", "png", "jpg", "jpeg", "webp",
@@ -37,9 +38,7 @@ public class BusinessAttachmentService {
     private FileStorageProviderRouter storageRouter;
 
     public BusinessAttachmentVO upload(MultipartFile file, String module) {
-        String normalizedModule = normalizeModule(module);
-        validateFile(file);
-        FileUploadResult uploadResult = storageRouter.upload(file, requireTenantCode(), normalizedModule);
+        FileUploadResult uploadResult = uploadResult(file, module);
 
         BusinessAttachmentVO vo = new BusinessAttachmentVO();
         vo.setFileName(uploadResult.getOriginalName());
@@ -48,15 +47,21 @@ public class BusinessAttachmentService {
         return vo;
     }
 
+    public FileUploadResult uploadResult(MultipartFile file, String module) {
+        String normalizedModule = normalizeModule(module);
+        validateFile(file, normalizedModule);
+        return storageRouter.upload(file, requireTenantCode(), normalizedModule);
+    }
+
     public org.springframework.core.io.Resource load(String attachmentUrl, String module) {
         return storageRouter.load(attachmentUrl, requireTenantCode(), normalizeModule(module));
     }
 
-    private void validateFile(MultipartFile file) {
+    private void validateFile(MultipartFile file, String module) {
         if (file == null || file.isEmpty() || file.getSize() <= 0) {
             throw new BusinessException("请选择需要上传的附件");
         }
-        long configuredMaxMb = Math.max(1, maxFileSizeMb);
+        long configuredMaxMb = "document".equals(module) ? 200L : Math.max(1, maxFileSizeMb);
         if (file.getSize() > configuredMaxMb * 1024L * 1024L) {
             throw new BusinessException("附件大小不能超过 " + configuredMaxMb + "MB");
         }

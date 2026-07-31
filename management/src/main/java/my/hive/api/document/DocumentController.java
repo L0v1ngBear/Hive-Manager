@@ -12,12 +12,15 @@ import my.hive.domain.document.model.entity.Document;
 import my.hive.domain.document.model.vo.DocumentVO;
 import my.hive.domain.document.service.DocumentService;
 import my.hive.infrastructure.storage.FileDownloadResource;
+import my.hive.infrastructure.storage.FileUploadResult;
+import my.hive.infrastructure.storage.ChunkedVideoUploadService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.BeanUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -47,6 +50,9 @@ public class DocumentController {
     @Resource
     private DocumentService documentService;
 
+    @Resource
+    private ChunkedVideoUploadService chunkedVideoUploadService;
+
     @GetMapping("/list/{parentId}")
     @RequirePermission(value = PermissionCatalogV3.CODE_DOCUMENT_LIST, message = "您没有权限查看文档列表")
     public Result<List<DocumentVO>> list(@PathVariable Long parentId) {
@@ -57,6 +63,17 @@ public class DocumentController {
             return documentVO;
         }).collect(Collectors.toList());
         return Result.success(documentVOList);
+    }
+
+    @GetMapping("/folders")
+    @RequirePermission(value = PermissionCatalogV3.CODE_DOCUMENT_LIST, message = "您没有权限查看文档目录")
+    public Result<List<DocumentVO>> folders() {
+        List<DocumentVO> folders = documentService.selectFolders().stream().map(document -> {
+            DocumentVO vo = new DocumentVO();
+            BeanUtils.copyProperties(document, vo);
+            return vo;
+        }).collect(Collectors.toList());
+        return Result.success(folders);
     }
 
     @PostMapping("/folder/create")
@@ -73,6 +90,15 @@ public class DocumentController {
     public Result<DocumentVO> uploadFile(@RequestParam("file") MultipartFile file,
                                          @RequestParam(value = "parentId", required = false, defaultValue = "0") Long parentId) {
         return Result.success(documentService.uploadFile(file, parentId));
+    }
+
+    @PostMapping("/file/chunked/{uploadId}/complete")
+    @RequirePermission(value = PermissionCatalogV3.CODE_DOCUMENT_FILE_UPLOAD, message = "您没有权限上传文件")
+    @CollectLog(module = "document", action = "upload_file", bizType = "document", description = "管理端完成文档分片上传")
+    public Result<DocumentVO> completeChunkedUpload(@PathVariable String uploadId,
+                                                    @RequestParam(value = "parentId", required = false, defaultValue = "0") Long parentId) {
+        FileUploadResult uploadResult = chunkedVideoUploadService.completeStored("document", uploadId);
+        return Result.success(documentService.saveUploadedFile(uploadResult, parentId));
     }
 
     @GetMapping("/file/download")
@@ -108,6 +134,14 @@ public class DocumentController {
     @CollectLog(module = "document", action = "move", bizType = "document", bizNo = "#documentId", description = "管理端移动文档")
     public Result<Void> moveDocument(@RequestParam Long documentId, @RequestParam Long newParentId) {
         documentService.moveDocument(documentId, newParentId);
+        return Result.success(null);
+    }
+
+    @DeleteMapping("/{documentId}")
+    @RequirePermission(value = PermissionCatalogV3.CODE_DOCUMENT_DELETE, message = "您没有权限删除文档")
+    @CollectLog(module = "document", action = "delete", bizType = "document", bizNo = "#documentId", description = "管理端删除文档")
+    public Result<Void> deleteDocument(@PathVariable Long documentId) {
+        documentService.deleteDocument(documentId);
         return Result.success(null);
     }
 

@@ -17,6 +17,7 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Base64;
+import java.util.List;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,6 +92,29 @@ class OssStorageServiceContractTest {
 
         assertThat(result.getFileExt()).isEqualTo("mp4");
         assertThat(result.getMimeType()).isEqualTo("video/mp4");
+        verify(ossClient).putObject(anyString(), anyString(), any(InputStream.class), any(ObjectMetadata.class));
+    }
+
+    @Test
+    void documentRarUploadIsNotBlockedByStaleOssAllowLists() {
+        OssStorageProperties properties = configuredProperties();
+        properties.setMaxFileSizeMb(20L);
+        properties.setAllowedExtensions(List.of("pdf"));
+        properties.setAllowedContentTypes(List.of("application/pdf"));
+        OSS ossClient = mock(OSS.class);
+        when(ossClient.putObject(anyString(), anyString(), any(InputStream.class), any(ObjectMetadata.class)))
+                .thenReturn(mock(PutObjectResult.class));
+        OssStorageService service = new OssStorageService(properties, mock(ExternalApiGuardService.class), () -> ossClient);
+        MockMultipartFile archive = new MockMultipartFile(
+                "file",
+                "product-materials.rar",
+                "application/x-compressed",
+                "archive-content".getBytes(StandardCharsets.UTF_8)
+        );
+
+        FileUploadResult result = service.upload(archive, "tenant-a", "document");
+
+        assertThat(result.getFileExt()).isEqualTo("rar");
         verify(ossClient).putObject(anyString(), anyString(), any(InputStream.class), any(ObjectMetadata.class));
     }
 

@@ -46,6 +46,18 @@ public class FileStorageProviderRouter {
         selectedProvider.deleteQuietly(objectKey);
     }
 
+    public void deleteQuietly(String providerCode, String objectKey) {
+        if (!StringUtils.hasText(objectKey)) {
+            return;
+        }
+        FileStorageProvider provider = StringUtils.hasText(providerCode)
+                ? providersByCode.get(normalizeProviderCode(providerCode))
+                : selectedProvider;
+        if (provider != null) {
+            provider.deleteQuietly(objectKey);
+        }
+    }
+
     public Resource load(String reference, String tenantCode, String module) {
         FileStorageProvider matchedProvider = null;
         for (FileStorageProvider provider : providersByCode.values()) {
@@ -69,6 +81,9 @@ public class FileStorageProviderRouter {
         }
         String normalized = providerCode.trim().toLowerCase(Locale.ROOT);
         // Existing production .env files commonly use the concise OSS name.
-        return "oss".equals(normalized) ? "aliyun-oss" : normalized;
+        if ("oss".equals(normalized) || "aliyun_oss".equals(normalized)) {
+            return "aliyun-oss";
+        }
+        return normalized;
     }
 }

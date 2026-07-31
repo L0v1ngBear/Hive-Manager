@@ -2,6 +2,7 @@ package my.hive.domain.document;
 
 import my.hive.domain.document.model.dto.DocumentAddRequest;
 import my.hive.domain.document.service.DocumentService;
+import my.hive.infrastructure.storage.FileUploadResult;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,9 +31,12 @@ class UnifiedDocumentServiceTest {
         assertMethod("selectDocumentByParentId", Long.class);
         assertMethod("addFolder", DocumentAddRequest.class);
         assertMethod("uploadFile", MultipartFile.class, Long.class);
+        assertMethod("saveUploadedFile", FileUploadResult.class, Long.class);
         assertMethod("loadFile", Long.class);
+        assertMethod("selectFolders");
         assertMethod("renameDocument", Long.class, String.class);
         assertMethod("moveDocument", Long.class, Long.class);
+        assertMethod("deleteDocument", Long.class);
         assertMethod("getBreadcrumbs", Long.class);
     }
 

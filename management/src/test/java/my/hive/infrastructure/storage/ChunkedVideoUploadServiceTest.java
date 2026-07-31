@@ -74,9 +74,12 @@ class ChunkedVideoUploadServiceTest {
                 new MockMultipartFile("file", "part-1", "application/octet-stream", first));
         service.uploadPart("sales-order", init.getUploadId(), 2,
                 new MockMultipartFile("file", "part-2", "application/octet-stream", second));
-        BusinessAttachmentVO expected = new BusinessAttachmentVO();
-        expected.setFileName("drawing-package.zip");
-        when(businessAttachmentService.upload(any(), eq("sales-order"))).thenAnswer(invocation -> {
+        FileUploadResult expected = FileUploadResult.builder()
+                .originalName("drawing-package.zip")
+                .fileSize((long) first.length + second.length)
+                .url("/uploads/sales-order/TENANT_001/drawing-package.zip")
+                .build();
+        when(businessAttachmentService.uploadResult(any(), eq("sales-order"))).thenAnswer(invocation -> {
             FileBackedMultipartFile merged = invocation.getArgument(0);
             assertThat(merged.getSize()).isEqualTo(first.length + second.length);
             byte[] mergedBytes = merged.getInputStream().readAllBytes();
@@ -88,7 +91,20 @@ class ChunkedVideoUploadServiceTest {
 
         BusinessAttachmentVO result = service.complete("sales-order", init.getUploadId());
 
-        assertThat(result).isSameAs(expected);
+        assertThat(result.getFileName()).isEqualTo(expected.getOriginalName());
+        assertThat(result.getFileSize()).isEqualTo(expected.getFileSize());
+        assertThat(result.getFileUrl()).isEqualTo(expected.getUrl());
+    }
+
+    @Test
+    void documentUploadsUseTheDocumentSpecificTwoHundredMegabyteLimit() {
+        ChunkedVideoUploadInitRequest accepted = request("company-deck.pptx", 200L * 1024 * 1024);
+        ChunkedVideoUploadInitRequest rejected = request("company-archive.rar", 201L * 1024 * 1024);
+
+        assertThat(service.init("document", accepted).getTotalParts()).isEqualTo(200);
+        assertThatThrownBy(() -> service.init("document", rejected))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("200MB");
     }
 
     private ChunkedVideoUploadInitRequest request(String fileName, long fileSize) {
