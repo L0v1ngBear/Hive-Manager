@@ -83,11 +83,12 @@ class OrganizationPositionServiceTest {
         request.setPositionName("高级销售专员");
         request.setPositionCode("POS-1");
         request.setSortNo(1);
-        request.setStatus(1);
+        request.setStatus(0);
 
         service.savePosition(request);
 
         verify(positionMapper).updateById(position);
+        org.assertj.core.api.Assertions.assertThat(position.getStatus()).isEqualTo(1);
         verify(organizationMapper).updateEmployeePositionName(
                 "TENANT_001", "销售部", "销售专员", "高级销售专员");
     }

@@ -17,7 +17,7 @@
 
       <section v-if="!loading && !overviewFailure" class="function-stats-grid">
         <article class="function-stat-card stat-card"><p>部门总数</p><strong>{{ stats.departmentCount }}</strong></article>
-        <article class="function-stat-card stat-card"><p>启用部门</p><strong>{{ stats.enabledDepartmentCount }}</strong></article>
+        <article class="function-stat-card stat-card"><p>有成员部门</p><strong>{{ Math.max(0, Number(stats.departmentCount || 0) - Number(stats.emptyDepartmentCount || 0)) }}</strong></article>
         <article class="function-stat-card stat-card"><p>员工总数</p><strong>{{ stats.employeeCount }}</strong></article>
         <article class="function-stat-card stat-card stat-card--warning"><p>空部门</p><strong>{{ stats.emptyDepartmentCount }}</strong></article>
       </section>
@@ -42,9 +42,11 @@
                 :node="node"
                 :active-id="activeDepartment?.id"
                 :can-update="canDepartmentManage"
+                :can-delete="canDepartmentDelete"
                 @select="selectDepartment"
                 @create-child="openCreate"
                 @edit="openEdit"
+                @delete="handleDepartmentDelete"
               />
             </div>
             <el-empty v-else-if="!loading" description="还没有部门">
@@ -102,9 +104,6 @@
                     <template #default="{ row }">{{ row.positionCode || '-' }}</template>
                   </el-table-column>
                   <el-table-column prop="employeeCount" label="员工" width="72" align="center" />
-                  <el-table-column label="状态" width="78" align="center">
-                    <template #default="{ row }"><el-tag :type="Number(row.status) === 1 ? 'success' : 'info'" size="small">{{ Number(row.status) === 1 ? '启用' : '停用' }}</el-tag></template>
-                  </el-table-column>
                   <el-table-column label="操作" width="132" align="right">
                     <template #default="{ row }">
                       <el-tooltip :disabled="canPositionManage" content="暂无 organization:position:manage 权限">
@@ -139,16 +138,13 @@
         <el-form-item label="负责人">
           <el-input v-model.trim="form.leaderName" maxlength="50" placeholder="请输入负责人姓名" />
         </el-form-item>
-        <div class="grid grid-cols-2 gap-4">
-          <el-form-item label="排序"><el-input-number v-model="form.sortNo" :min="0" :precision="0" class="w-full" /></el-form-item>
-          <el-form-item label="状态"><el-switch v-model="form.status" :active-value="1" :inactive-value="0" active-text="启用" inactive-text="停用" /></el-form-item>
-        </div>
+        <el-form-item label="排序"><el-input-number v-model="form.sortNo" :min="0" :precision="0" class="w-full" /></el-form-item>
       </el-form>
       <template #footer>
         <div class="flex justify-between gap-3">
           <el-button @click="closeDrawer">取消</el-button>
           <div class="flex gap-3">
-            <el-tooltip v-if="form.id" :disabled="canDepartmentDelete" content="暂无 organization:department:delete 权限"><span><el-button type="danger" plain :disabled="!canDepartmentDelete" @click="handleDelete">删除</el-button></span></el-tooltip>
+            <el-tooltip v-if="form.id" :disabled="canDepartmentDelete" content="暂无 organization:department:delete 权限"><span><el-button type="danger" plain :disabled="!canDepartmentDelete" @click="handleDepartmentDelete(form)">删除</el-button></span></el-tooltip>
             <el-tooltip :disabled="canDepartmentManage" content="暂无 organization:department:manage 权限"><span><el-button type="primary" :loading="departmentSaving" :disabled="!canDepartmentManage" @click="submitDepartment">保存</el-button></span></el-tooltip>
           </div>
         </div>
@@ -168,15 +164,18 @@
         <el-form-item label="职位编码">
           <el-input v-model.trim="positionForm.positionCode" maxlength="64" placeholder="不填则自动生成" />
         </el-form-item>
-        <div class="grid grid-cols-2 gap-4">
-          <el-form-item label="排序"><el-input-number v-model="positionForm.sortNo" :min="0" :precision="0" class="w-full" /></el-form-item>
-          <el-form-item label="状态"><el-switch v-model="positionForm.status" :active-value="1" :inactive-value="0" active-text="启用" inactive-text="停用" /></el-form-item>
-        </div>
+        <el-form-item label="排序"><el-input-number v-model="positionForm.sortNo" :min="0" :precision="0" class="w-full" /></el-form-item>
       </el-form>
       <template #footer>
-        <div class="flex justify-end gap-3">
+        <div class="flex justify-between gap-3">
+          <el-tooltip v-if="positionForm.id" :disabled="canPositionDelete" content="暂无 organization:position:delete 权限">
+            <span><el-button type="danger" plain :disabled="!canPositionDelete" @click="handlePositionDelete(positionForm)">删除</el-button></span>
+          </el-tooltip>
+          <span v-else></span>
+          <div class="flex gap-3">
           <el-button @click="positionDrawerVisible = false">取消</el-button>
           <el-tooltip :disabled="canPositionManage" content="暂无 organization:position:manage 权限"><span><el-button type="primary" :loading="positionSaving" :disabled="!canPositionManage" @click="submitPosition">保存</el-button></span></el-tooltip>
+          </div>
         </div>
       </template>
     </el-drawer>
@@ -185,7 +184,7 @@
 
 <script setup>
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
-import { ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElResult, ElSelect, ElSwitch, ElTabPane, ElTable, ElTableColumn, ElTabs, ElTag, ElTooltip } from 'element-plus'
+import { ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElResult, ElSelect, ElTabPane, ElTable, ElTableColumn, ElTabs, ElTag, ElTooltip } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { warnAndFocusField } from '@/utils/formFocus'
 import { deleteDepartment, deletePosition, getDepartmentEmployees, getDepartmentPositions, getOrganizationOverview, saveDepartment, savePosition } from './api/organization.js'
@@ -197,9 +196,10 @@ const DepartmentNode = defineComponent({
     node: { type: Object, required: true },
     activeId: { type: Number, default: null },
     level: { type: Number, default: 0 },
-    canUpdate: { type: Boolean, default: false }
+    canUpdate: { type: Boolean, default: false },
+    canDelete: { type: Boolean, default: false }
   },
-  emits: ['select', 'create-child', 'edit'],
+  emits: ['select', 'create-child', 'edit', 'delete'],
   setup(props, { emit }) {
     return () => h('div', {
       class: 'org-node-wrap',
@@ -224,12 +224,7 @@ const DepartmentNode = defineComponent({
         }, props.level === 0 ? 'account_tree' : 'subdirectory_arrow_right'),
         h('div', { class: 'org-node__content' }, [
           h('div', { class: 'org-node__heading' }, [
-            h('p', { class: 'org-node__name' }, props.node.deptName || '未命名部门'),
-            h(ElTag, {
-              type: Number(props.node.status) === 1 ? 'success' : 'info',
-              size: 'small',
-              effect: 'light'
-            }, () => Number(props.node.status) === 1 ? '启用' : '停用')
+            h('p', { class: 'org-node__name' }, props.node.deptName || '未命名部门')
           ]),
           h('div', { class: 'org-node__meta' }, [
             h('span', [
@@ -248,7 +243,8 @@ const DepartmentNode = defineComponent({
         ]),
         h('div', { class: 'org-node__actions' }, [
           h(ElTooltip, { disabled: props.canUpdate, content: '暂无 organization:department:manage 权限' }, () => h('span', [h(ElButton, { size: 'small', disabled: !props.canUpdate, onClick: (event) => { event.stopPropagation(); emit('create-child', props.node) } }, () => '新增下级')])),
-          h(ElTooltip, { disabled: props.canUpdate, content: '暂无 organization:department:manage 权限' }, () => h('span', [h(ElButton, { size: 'small', type: 'primary', plain: true, disabled: !props.canUpdate, onClick: (event) => { event.stopPropagation(); emit('edit', props.node) } }, () => '编辑')]))
+          h(ElTooltip, { disabled: props.canUpdate, content: '暂无 organization:department:manage 权限' }, () => h('span', [h(ElButton, { size: 'small', type: 'primary', plain: true, disabled: !props.canUpdate, onClick: (event) => { event.stopPropagation(); emit('edit', props.node) } }, () => '编辑')])),
+          h(ElTooltip, { disabled: props.canDelete, content: '暂无 organization:department:delete 权限' }, () => h('span', [h(ElButton, { size: 'small', type: 'danger', plain: true, disabled: !props.canDelete, onClick: (event) => { event.stopPropagation(); emit('delete', props.node) } }, () => '删除')]))
         ])
       ]),
       props.node.children?.length
@@ -257,9 +253,11 @@ const DepartmentNode = defineComponent({
           activeId: props.activeId,
           level: props.level + 1,
           canUpdate: props.canUpdate,
+          canDelete: props.canDelete,
           onSelect: node => emit('select', node),
           onCreateChild: node => emit('create-child', node),
-          onEdit: node => emit('edit', node)
+          onEdit: node => emit('edit', node),
+          onDelete: node => emit('delete', node)
         })))
         : null
     ])
@@ -269,9 +267,9 @@ const DepartmentNode = defineComponent({
 const loading = ref(false)
 const userStore = useUserStore()
 const canDepartmentManage = computed(() => userStore.hasPermission('organization:department:manage'))
-const canDepartmentDelete = computed(() => userStore.hasPermission('organization:department:delete'))
+const canDepartmentDelete = computed(() => userStore.hasPermission('organization:department:delete') || userStore.hasPermission('organization:department:manage'))
 const canPositionManage = computed(() => userStore.hasPermission('organization:position:manage'))
-const canPositionDelete = computed(() => userStore.hasPermission('organization:position:delete'))
+const canPositionDelete = computed(() => userStore.hasPermission('organization:position:delete') || userStore.hasPermission('organization:position:manage'))
 const overviewFailure = ref(null)
 const memberLoading = ref(false)
 const memberFailure = ref(null)
@@ -396,7 +394,6 @@ function openEdit(node) {
     deptCode: node.deptCode || '',
     leaderName: node.leaderName || '',
     sortNo: node.sortNo ?? 99,
-    status: node.status ?? 1
   })
   drawerVisible.value = true
 }
@@ -414,7 +411,7 @@ async function submitDepartment() {
   }
   departmentSaving.value = true
   try {
-    await saveDepartment({ ...form, deptName, parentId: form.parentId === '' ? null : Number(form.parentId), sortNo: Number(form.sortNo ?? 99), status: Number(form.status ?? 1) })
+    await saveDepartment({ ...form, deptName, parentId: form.parentId === '' ? null : Number(form.parentId), sortNo: Number(form.sortNo ?? 99) })
     ElMessage.success('部门已保存')
     closeDrawer()
     await fetchOverview()
@@ -423,12 +420,20 @@ async function submitDepartment() {
   }
 }
 
-async function handleDelete() {
-  if (!canDepartmentDelete.value || !form.id) return
-  await ElMessageBox.confirm('仅空部门可以删除。请先处理下级部门、员工和职位。', '删除部门', { type: 'warning' })
-  await deleteDepartment(form.id)
+async function handleDepartmentDelete(department) {
+  if (!canDepartmentDelete.value || !department?.id) return
+  try {
+    await ElMessageBox.confirm(
+      `确定删除部门“${department.deptName || ''}”吗？仅没有下级部门、员工和职位的空部门可以删除。`,
+      '删除部门',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+  await deleteDepartment(department.id)
   ElMessage.success('部门已删除')
-  closeDrawer()
+  if (drawerVisible.value && Number(form.id) === Number(department.id)) closeDrawer()
   await fetchOverview()
 }
 
@@ -446,7 +451,6 @@ function openPositionEdit(row) {
     positionName: row.positionName || '',
     positionCode: row.positionCode || '',
     sortNo: row.sortNo ?? 99,
-    status: row.status ?? 1
   })
   positionDrawerVisible.value = true
 }
@@ -464,7 +468,7 @@ async function submitPosition() {
   }
   positionSaving.value = true
   try {
-    await savePosition({ ...positionForm, departmentId: Number(positionForm.departmentId), positionName, sortNo: Number(positionForm.sortNo ?? 99), status: Number(positionForm.status ?? 1) })
+    await savePosition({ ...positionForm, departmentId: Number(positionForm.departmentId), positionName, sortNo: Number(positionForm.sortNo ?? 99) })
     ElMessage.success('职位已保存')
     positionDrawerVisible.value = false
     await fetchOverview()
@@ -475,18 +479,27 @@ async function submitPosition() {
 
 async function handlePositionDelete(row) {
   if (!canPositionDelete.value || Number(row.employeeCount || 0) > 0) return
-  await ElMessageBox.confirm(`确定删除职位“${row.positionName}”吗？`, '删除职位', { type: 'warning' })
+  try {
+    await ElMessageBox.confirm(`确定删除职位“${row.positionName}”吗？`, '删除职位', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
+    })
+  } catch {
+    return
+  }
   await deletePosition(row.id)
   ElMessage.success('职位已删除')
+  if (positionDrawerVisible.value && Number(positionForm.id) === Number(row.id)) positionDrawerVisible.value = false
   await fetchOverview()
 }
 
 function createEmptyForm() {
-  return { id: null, parentId: '', deptName: '', deptCode: '', leaderName: '', sortNo: 99, status: 1 }
+  return { id: null, parentId: '', deptName: '', deptCode: '', leaderName: '', sortNo: 99 }
 }
 
 function createEmptyPositionForm() {
-  return { id: null, departmentId: null, positionName: '', positionCode: '', sortNo: 99, status: 1 }
+  return { id: null, departmentId: null, positionName: '', positionCode: '', sortNo: 99 }
 }
 
 function flattenDepartments(nodes, level = 0) {

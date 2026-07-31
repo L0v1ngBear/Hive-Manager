@@ -63,7 +63,13 @@ public class OrganizationController {
     }
 
     @DeleteMapping("/department/{departmentId}")
-    @RequirePermission(value = PermissionCatalogV3.CODE_ORGANIZATION_DEPARTMENT_DELETE, message = "您没有权限删除部门")
+    @RequirePermission(
+            value = {
+                    PermissionCatalogV3.CODE_ORGANIZATION_DEPARTMENT_DELETE,
+                    PermissionCatalogV3.CODE_ORGANIZATION_DEPARTMENT_MANAGE
+            },
+            message = "您没有权限删除部门"
+    )
     @CollectLog(module = "organization", action = "delete_department", bizType = "department", bizNo = "#departmentId", description = "管理端删除部门")
     public Result<Void> deleteDepartment(@PathVariable Long departmentId) {
         organizationService.delete(departmentId);
@@ -84,7 +90,13 @@ public class OrganizationController {
     }
 
     @DeleteMapping("/position/{positionId}")
-    @RequirePermission(value = PermissionCatalogV3.CODE_ORGANIZATION_POSITION_DELETE, message = "您没有权限删除职位")
+    @RequirePermission(
+            value = {
+                    PermissionCatalogV3.CODE_ORGANIZATION_POSITION_DELETE,
+                    PermissionCatalogV3.CODE_ORGANIZATION_POSITION_MANAGE
+            },
+            message = "您没有权限删除职位"
+    )
     @CollectLog(module = "organization", action = "delete_position", bizType = "position", bizNo = "#positionId", description = "管理端删除职位")
     public Result<Void> deletePosition(@PathVariable Long positionId) {
         organizationService.deletePosition(positionId);

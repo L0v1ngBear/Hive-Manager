@@ -122,7 +122,7 @@ public class OrganizationService {
         department.setDeptName(request.getDeptName().trim());
         department.setLeaderName(blankToNull(request.getLeaderName()));
         department.setSortNo(request.getSortNo() == null ? 99 : request.getSortNo());
-        department.setStatus(request.getStatus() == null ? 1 : request.getStatus());
+        department.setStatus(CommonStatusEnum.ENABLED.getCode());
         ensureNameUnique(department);
 
         if (department.getId() == null) {
@@ -187,7 +187,7 @@ public class OrganizationService {
         position.setDepartmentId(department.getId());
         position.setPositionName(request.getPositionName().trim());
         position.setSortNo(request.getSortNo() == null ? 99 : request.getSortNo());
-        position.setStatus(request.getStatus() == null ? CommonStatusEnum.ENABLED.getCode() : request.getStatus());
+        position.setStatus(CommonStatusEnum.ENABLED.getCode());
         ensurePositionNameUnique(position);
 
         if (position.getId() == null) {
