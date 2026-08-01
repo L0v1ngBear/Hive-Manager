@@ -120,12 +120,13 @@
             description="暂无企业通知公告"
           />
           <template v-else>
-            <div
+            <button
               v-for="item in announcements"
               :key="item.id || `${item.title}-${item.updateTime}`"
-              class="rounded-2xl p-4 border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
+              type="button"
+              class="w-full rounded-2xl p-4 border cursor-pointer text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
               :class="announcementCardClass(item.level)"
-              @click="openAnnouncementCenter"
+              @click="openAnnouncementDetail(item)"
             >
               <div class="flex items-start gap-3">
                 <div class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" :class="announcementIconClass(item.level)">
@@ -142,7 +143,7 @@
                   <p class="mt-3 text-xs leading-6 font-medium opacity-70">{{ formatAnnouncementTime(item.updateTime) }}</p>
                 </div>
               </div>
-            </div>
+            </button>
           </template>
         </div>
       </article>
@@ -172,12 +173,13 @@
           description="暂无重要公告"
         />
         <div v-else class="space-y-3 flex-1 overflow-y-auto pr-1 no-scrollbar max-h-[260px]">
-          <div
+          <button
               v-for="item in importantAnnouncements"
               :key="item.id || `${item.title}-${item.updateTime}`"
-              class="rounded-2xl p-4 border cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
+              type="button"
+              class="w-full rounded-2xl p-4 border cursor-pointer text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
               :class="announcementCardClass(item.level)"
-              @click="openAnnouncementCenter"
+              @click="openAnnouncementDetail(item)"
           >
             <div class="flex items-start gap-3">
               <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" :class="announcementIconClass(item.level)">
@@ -192,7 +194,7 @@
                 <p class="mt-3 text-xs leading-6 font-medium opacity-70">{{ formatAnnouncementTime(item.updateTime) }}</p>
               </div>
             </div>
-          </div>
+          </button>
         </div>
       </article>
 
@@ -262,6 +264,50 @@
       </div>
     </section>
 
+    <el-dialog
+      v-model="announcementDetailVisible"
+      title="公告详情"
+      width="min(640px, calc(100vw - 2rem))"
+      append-to-body
+      destroy-on-close
+      @closed="clearAnnouncementDetail"
+    >
+      <article v-if="selectedAnnouncement" class="space-y-5">
+        <div class="flex flex-wrap items-center gap-2">
+          <span
+            class="rounded-full px-3 py-1 text-xs font-black"
+            :class="announcementIconClass(selectedAnnouncement.level)"
+          >
+            {{ announcementLevelText(selectedAnnouncement.level) }}
+          </span>
+          <span class="text-xs font-medium text-on-surface-variant">
+            {{ formatAnnouncementTime(selectedAnnouncement.updateTime) }}
+          </span>
+        </div>
+        <div>
+          <h3 class="break-words text-xl font-black leading-8 text-on-surface">
+            {{ selectedAnnouncement.title }}
+          </h3>
+          <p class="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-on-surface-variant">
+            {{ selectedAnnouncement.content }}
+          </p>
+        </div>
+        <div
+          v-if="selectedAnnouncement.attachmentName"
+          class="flex items-center gap-2 rounded-xl border border-outline-variant/50 bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant"
+        >
+          <span class="material-symbols-outlined text-[20px] text-primary">attachment</span>
+          <span class="min-w-0 flex-1 truncate">{{ selectedAnnouncement.attachmentName }}</span>
+        </div>
+      </article>
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <el-button @click="announcementDetailVisible = false">关闭</el-button>
+          <el-button type="primary" @click="openAnnouncementCenter">查看全部公告</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <div
         v-if="loading"
         class="fixed inset-0 bg-white/45 backdrop-blur-sm z-50 flex items-center justify-center"
@@ -277,7 +323,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ElButton, ElEmpty, ElResult } from 'element-plus'
+import { ElButton, ElDialog, ElEmpty, ElResult } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getDashboardOverview } from './api/dashboard.js'
@@ -325,6 +371,8 @@ const attendanceSummary = ref({
 const quickActions = ref([])
 const announcements = ref([])
 const importantAnnouncements = ref([])
+const announcementDetailVisible = ref(false)
+const selectedAnnouncement = ref(null)
 const canReadAnnouncements = computed(() => userStore.hasPermission('notification:announcement:list'))
 
 const userName = computed(() => userStore.userInfo?.userName || '当前用户')
@@ -498,7 +546,18 @@ function openOrderSummary(type) {
 }
 
 function openAnnouncementCenter() {
+  announcementDetailVisible.value = false
   router.push('/function/announcement')
+}
+
+function openAnnouncementDetail(item) {
+  if (!item) return
+  selectedAnnouncement.value = item
+  announcementDetailVisible.value = true
+}
+
+function clearAnnouncementDetail() {
+  selectedAnnouncement.value = null
 }
 
 function openAnnouncementPublish() {
