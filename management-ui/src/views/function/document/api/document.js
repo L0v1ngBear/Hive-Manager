@@ -62,6 +62,14 @@ export function getDocumentFolders() {
   })
 }
 
+export function renameDocument(documentId, newName) {
+  return request({
+    url: '/document/rename',
+    method: 'put',
+    params: { documentId, newName }
+  })
+}
+
 export function moveDocument(documentId, newParentId) {
   return request({
     url: '/document/move',
