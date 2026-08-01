@@ -26,3 +26,16 @@ test('order export follows the remaining visible columns', () => {
   assert.match(orderPage, /headers:\s*orderTableColumns\.value\.map/)
   assert.match(orderPage, /formatOrderExportCell\(row,\s*column\.key\)/)
 })
+
+test('order list and export show project before customer', () => {
+  assert.match(defaultColumnsSource, /key:\s*'customer',\s*label:\s*'项目 \/ 客户'/)
+
+  const customerCellSource = orderPage.match(
+    /<template v-else-if="column\.key === 'customer'">([\s\S]*?)<\/template>/,
+  )?.[1] || ''
+  assert.ok(customerCellSource.indexOf('row.projectName') < customerCellSource.indexOf('row.customerName'))
+  assert.match(
+    orderPage,
+    /if \(key === 'customer'\) return \[row\.projectName, row\.customerName\]/,
+  )
+})

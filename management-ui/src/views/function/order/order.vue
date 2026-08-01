@@ -291,8 +291,8 @@
                 <span class="order-category-pill">{{ orderCategoryLabel(row.orderCategory) }}</span>
               </template>
               <template v-else-if="column.key === 'customer'">
-                <div class="font-bold text-primary">{{ row.customerName || '未填写客户' }}</div>
-                <div class="mt-1 text-xs text-on-surface-variant">{{ row.projectName || '未填写项目' }}</div>
+                <div class="font-bold text-primary">{{ row.projectName || '未填写项目' }}</div>
+                <div class="mt-1 text-xs text-on-surface-variant">{{ row.customerName || '未填写客户' }}</div>
                 <div class="mt-1 text-xs text-on-surface-variant">品牌：{{ row.brandName || '未填写' }}</div>
               </template>
               <template v-else-if="column.key === 'brand'">
@@ -1126,7 +1126,7 @@ const warningForm = reactive({ sampleRoomStaleWarningDays: 3, bulkStaleWarningDa
 const warningFields = [{ key: 'sampleRoomStaleWarningDays', label: '样板间' }, { key: 'bulkStaleWarningDays', label: '大货' }, { key: 'replenishmentStaleWarningDays', label: '增补' }, { key: 'drawingBudgetStaleWarningDays', label: '图纸预算' }]
 const defaultOrderTableColumns = [
   {key: 'orderNo', label: '编号'},
-  {key: 'customer', label: '客户 / 项目'},
+  {key: 'customer', label: '项目 / 客户'},
   {key: 'informationChannel', label: '信息渠道'},
   {key: 'shipments', label: '物流单号'},
   {key: 'status', label: '状态'},
@@ -2094,7 +2094,7 @@ function formatOrderExportCell(row, key) {
   if (!row) return ''
   if (key === 'orderNo') return row.orderId || ''
   if (key === 'category') return orderCategoryLabel(row.orderCategory)
-  if (key === 'customer') return [row.customerName, row.projectName].filter(Boolean).join(' / ')
+  if (key === 'customer') return [row.projectName, row.customerName].filter(Boolean).join(' / ')
   if (key === 'brand') return row.brandName || ''
   if (key === 'informationChannel') return row.informationChannel || ''
   if (key === 'shipments') return (row.shipments || [])
