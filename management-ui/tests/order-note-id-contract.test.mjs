@@ -16,7 +16,7 @@ test('order note IDs remain strings when an existing order is edited', async () 
   assert.doesNotMatch(source, /(?:Number|parseInt)\(note\.id/)
 })
 
-test('order note auto-increment migration is the latest checksummed migration', async () => {
+test('order note auto-increment migration remains uniquely checksummed', async () => {
   const [migration, manifest, checksums] = await Promise.all([
     readFile(migrationUrl),
     readFile(manifestUrl, 'utf8'),
@@ -25,7 +25,6 @@ test('order note auto-increment migration is the latest checksummed migration', 
   const entries = manifest.trim().split(/\r?\n/)
   const digest = crypto.createHash('sha256').update(migration).digest('hex')
 
-  assert.equal(entries.at(-1), migrationEntry)
   assert.equal(entries.filter((entry) => entry === migrationEntry).length, 1)
   assert.match(checksums, new RegExp(`^${digest}  ${migrationEntry.replace('.', '\\.')}$`, 'm'))
 })

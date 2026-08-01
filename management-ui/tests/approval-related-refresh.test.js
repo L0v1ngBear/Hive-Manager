@@ -39,7 +39,7 @@ test('approval dashboard uses server-wide totals and mutations refresh all count
 })
 
 test('sidebar refreshes pending badges on approval changes, focus, navigation and fallback polling', () => {
-  assert.match(refresh, /hive:approval-changed/)
+  assert.match(refresh, /hive-approval-changed/)
   assert.match(sidebar, /listenApprovalChanged\(refreshApprovalPendingCount\)/)
   assert.match(sidebar, /window\.addEventListener\('focus', refreshApprovalPendingCount\)/)
   assert.match(sidebar, /window\.setInterval\(refreshApprovalPendingCount, 30000\)/)

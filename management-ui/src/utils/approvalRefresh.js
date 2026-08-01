@@ -1,4 +1,4 @@
-export const APPROVAL_CHANGED_EVENT = 'hive:approval-changed'
+export const APPROVAL_CHANGED_EVENT = 'hive-approval-changed'
 
 export function notifyApprovalChanged() {
   if (typeof window === 'undefined') return
