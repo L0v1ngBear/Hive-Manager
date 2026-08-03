@@ -4,6 +4,7 @@ import test from 'node:test'
 
 import {
   buildDocumentFolderTree,
+  canMoveDocumentToFolder,
   pushExplorerLocation,
   stepExplorerLocation
 } from '../src/views/function/document/documentExplorer.js'
@@ -32,6 +33,9 @@ test('document explorer renders Windows-style navigation, command, content and s
   assert.match(page, /@row-dblclick="handleDoubleClick"/)
   assert.match(page, /@row-contextmenu="handleTableContextMenu"/)
   assert.match(page, /@contextmenu\.prevent\.stop="showContextMenu\(doc, \$event\)"/)
+  assert.match(page, /:draggable="canDragDocument"/)
+  assert.match(page, /@drop\.stop="handleDocumentFolderDrop\(doc, \$event\)"/)
+  assert.doesNotMatch(page, /<el-table-column[\s\S]*?label="操作"/)
   assert.match(page, /setViewMode\('list'\)/)
   assert.match(page, /setViewMode\('grid'\)/)
 })
@@ -59,8 +63,24 @@ test('document explorer keeps uploads, rename, move, delete and download permiss
   assert.match(api, /url: '\/document\/rename'[\s\S]*?method: 'put'/)
   assert.match(page, /await renameDocument\(document\.id, name\)/)
   assert.match(page, /await moveDocument\(movingDocument\.value\.id, moveTargetParentId\.value\)/)
+  assert.match(page, /await moveDocument\(document\.id, targetParentId\)/)
   assert.match(page, /await deleteDocument\(document\.id\)/)
   assert.match(page, /downloadDocumentFile\(doc\.id\)/)
+})
+
+test('drag move rejects the current folder, itself and descendant folders', () => {
+  const folders = [
+    { id: 10, parentId: 0 },
+    { id: 11, parentId: 10 },
+    { id: 12, parentId: 11 },
+    { id: 20, parentId: 0 }
+  ]
+
+  assert.equal(canMoveDocumentToFolder({ id: 30, parentId: 10, type: 1 }, 10, folders), false)
+  assert.equal(canMoveDocumentToFolder({ id: 10, parentId: 0, type: 0 }, 10, folders), false)
+  assert.equal(canMoveDocumentToFolder({ id: 10, parentId: 0, type: 0 }, 12, folders), false)
+  assert.equal(canMoveDocumentToFolder({ id: 10, parentId: 0, type: 0 }, 20, folders), true)
+  assert.equal(canMoveDocumentToFolder({ id: 30, parentId: 10, type: 1 }, 0, folders), true)
 })
 
 test('folder tree preserves nesting and safely promotes orphaned or cyclic folders', () => {

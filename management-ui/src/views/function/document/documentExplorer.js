@@ -46,6 +46,29 @@ export function buildDocumentFolderTree(folders = []) {
   return sortNodes(roots)
 }
 
+export function canMoveDocumentToFolder(document, targetParentId, folders = []) {
+  const documentId = normalizeDocumentId(document?.id)
+  const currentParentId = normalizeDocumentId(document?.parentId)
+  const targetId = normalizeDocumentId(targetParentId)
+  if (!documentId || currentParentId === targetId) return false
+  if (Number(document?.type) !== 0) return true
+
+  const parentById = new Map()
+  folders.forEach((folder) => {
+    const id = normalizeDocumentId(folder?.id)
+    if (id) parentById.set(id, normalizeDocumentId(folder?.parentId))
+  })
+
+  const visited = new Set()
+  let cursor = targetId
+  while (cursor > 0 && !visited.has(cursor)) {
+    if (cursor === documentId) return false
+    visited.add(cursor)
+    cursor = parentById.get(cursor) || 0
+  }
+  return true
+}
+
 export function pushExplorerLocation(history = [0], currentIndex = 0, targetId = 0) {
   const normalizedTarget = normalizeDocumentId(targetId)
   const normalizedHistory = history.length ? history.map(normalizeDocumentId) : [0]

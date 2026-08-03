@@ -3,8 +3,8 @@
     <section
       class="document-explorer function-page-container"
       @click="closeContextMenu"
-      @dragenter.prevent="documentDragActive = true"
-      @dragover.prevent="documentDragActive = true"
+      @dragenter.prevent="handleExplorerDragEnter"
+      @dragover.prevent="handleExplorerDragOver"
       @dragleave="handleDocumentDragLeave"
       @drop.prevent="handleDocumentDrop"
     >
@@ -22,10 +22,13 @@
           <button
             type="button"
             class="document-nav-entry"
-            :class="{ 'is-active': currentParentId === 0 }"
+            :class="{ 'is-active': currentParentId === 0, 'is-drop-target': dragOverFolderId === 0 }"
             :disabled="!canBrowseDocuments"
             :title="canBrowseDocuments ? '返回根目录' : breadcrumbPermissionReason"
             @click="goRoot"
+            @dragover.stop="handleDocumentFolderDragOver(0, $event)"
+            @dragleave.stop="handleDocumentFolderDragLeave(0, $event)"
+            @drop.stop="handleDocumentFolderDrop(0, $event)"
           >
             <span class="material-symbols-outlined">home</span>
             <span>根目录</span>
@@ -59,7 +62,14 @@
             @node-click="handleFolderTreeClick"
           >
             <template #default="{ data }">
-              <span class="document-tree-node" :title="data.label">
+              <span
+                class="document-tree-node"
+                :class="{ 'is-drop-target': dragOverFolderId === Number(data.id) }"
+                :title="data.label"
+                @dragover.stop="handleDocumentFolderDragOver(data, $event)"
+                @dragleave.stop="handleDocumentFolderDragLeave(data, $event)"
+                @drop.stop="handleDocumentFolderDrop(data, $event)"
+              >
                 <span class="material-symbols-outlined">folder</span>
                 <span>{{ data.label }}</span>
               </span>
@@ -292,7 +302,16 @@
               >
                 <template #default="{ row: doc }">
                   <template v-if="column.key === 'name'">
-                    <div class="document-name-cell">
+                    <div
+                      class="document-name-cell"
+                      :class="{ 'is-dragging': draggedDocument?.id === doc.id, 'is-drop-target': isFolder(doc) && dragOverFolderId === Number(doc.id) }"
+                      :draggable="canDragDocument"
+                      @dragstart.stop="handleDocumentDragStart(doc, $event)"
+                      @dragend.stop="handleDocumentDragEnd"
+                      @dragover.stop="handleDocumentFolderDragOver(doc, $event)"
+                      @dragleave.stop="handleDocumentFolderDragLeave(doc, $event)"
+                      @drop.stop="handleDocumentFolderDrop(doc, $event)"
+                    >
                       <span v-if="isFolder(doc)" class="document-folder-icon material-symbols-outlined">folder</span>
                       <span v-else class="document-file-icon" :class="getFileIconColor(doc.fileExt)">
                         {{ (doc.fileExt || 'FILE').toUpperCase() }}
@@ -309,27 +328,6 @@
                   <template v-else-if="column.key === 'size'">{{ isFolder(doc) ? '--' : formatBytes(doc.fileSize) }}</template>
                 </template>
               </el-table-column>
-              <el-table-column
-                v-if="canRenameDocument || canMoveDocument || canDeleteDocument"
-                label="操作"
-                class-name="document-operation-column"
-                label-class-name="document-operation-column"
-                fixed="right"
-                width="188"
-                align="center"
-              >
-                <template #default="{ row: doc }">
-                  <el-button v-if="canRenameDocument" link type="primary" :disabled="documentActionLoading" @click.stop="openRenameDialog(doc)">
-                    重命名
-                  </el-button>
-                  <el-button v-if="canMoveDocument" link type="primary" :disabled="documentActionLoading" @click.stop="openMoveDialog(doc)">
-                    移动
-                  </el-button>
-                  <el-button v-if="canDeleteDocument" link type="danger" :disabled="documentActionLoading" @click.stop="confirmDeleteDocument(doc)">
-                    删除
-                  </el-button>
-                </template>
-              </el-table-column>
               <template #empty>
                 <el-empty v-if="!loading" :description="documentEmptyDescription" />
               </template>
@@ -342,11 +340,17 @@
               :key="doc.id"
               type="button"
               class="document-grid-item"
-              :class="{ 'is-selected': selectedDocument?.id === doc.id }"
+              :class="{ 'is-selected': selectedDocument?.id === doc.id, 'is-dragging': draggedDocument?.id === doc.id, 'is-drop-target': isFolder(doc) && dragOverFolderId === Number(doc.id) }"
+              :draggable="canDragDocument"
               :title="doc.name"
               @click.stop="selectDocument(doc)"
               @dblclick.stop="handleDoubleClick(doc)"
               @contextmenu.prevent.stop="showContextMenu(doc, $event)"
+              @dragstart.stop="handleDocumentDragStart(doc, $event)"
+              @dragend.stop="handleDocumentDragEnd"
+              @dragover.stop="handleDocumentFolderDragOver(doc, $event)"
+              @dragleave.stop="handleDocumentFolderDragLeave(doc, $event)"
+              @drop.stop="handleDocumentFolderDrop(doc, $event)"
             >
               <span v-if="isFolder(doc)" class="document-grid-folder material-symbols-outlined">folder</span>
               <span v-else class="document-grid-file" :class="getFileIconColor(doc.fileExt)">
@@ -363,7 +367,7 @@
         <footer class="document-statusbar">
           <span>{{ filteredDocumentList.length }} 个项目</span>
           <span v-if="selectedDocument">已选择 1 个项目 · {{ selectedDocument.name }}</span>
-          <span v-else>双击打开，右键查看更多操作</span>
+          <span v-else>双击打开，拖动到文件夹可移动，右键查看更多操作</span>
         </footer>
       </main>
 
@@ -488,7 +492,7 @@ import {
   renameDocument,
   uploadDocumentFile
 } from './api/document.js'
-import { buildDocumentFolderTree, pushExplorerLocation, stepExplorerLocation } from './documentExplorer.js'
+import { buildDocumentFolderTree, canMoveDocumentToFolder, pushExplorerLocation, stepExplorerLocation } from './documentExplorer.js'
 import { createDocumentNavigator } from './documentNavigation.js'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
@@ -513,6 +517,8 @@ const loading = ref(false)
 const folderTreeLoading = ref(false)
 const documentUploading = ref(false)
 const documentDragActive = ref(false)
+const draggedDocument = ref(null)
+const dragOverFolderId = ref(null)
 const creatingFolder = ref(false)
 const documentActionLoading = ref(false)
 const folderDialogVisible = ref(false)
@@ -547,6 +553,7 @@ const canExportTable = computed(() => userStore.hasPermission('document:export')
 const canBrowseDocuments = computed(() => userStore.hasPermission('document:list'))
 const canMoveDocument = computed(() => userStore.hasPermission('document:move'))
 const canDeleteDocument = computed(() => userStore.hasPermission('document:delete'))
+const canDragDocument = computed(() => canMoveDocument.value && !documentActionLoading.value)
 const breadcrumbPermissionReason = '当前账号暂无文档目录导航权限'
 const currentFolderName = computed(() => breadcrumbs.value.at(-1)?.name || '根目录')
 const currentPathLabel = computed(() => ['企业文档', ...breadcrumbs.value.map((crumb) => crumb.name)].join(' > '))
@@ -577,6 +584,15 @@ const canOpenSelected = computed(() => {
 const canOpenContextDocument = computed(() => {
   if (!contextMenu.document) return false
   return isFolder(contextMenu.document) ? canBrowseDocuments.value : canDownloadDocument.value
+})
+const folderRecords = computed(() => {
+  const records = []
+  const visit = (nodes) => nodes.forEach((node) => {
+    records.push({ id: Number(node.id), parentId: Number(node.parentId || 0) })
+    visit(node.children || [])
+  })
+  visit(folderTree.value)
+  return records
 })
 
 const fetchDocuments = async (parentId = 0, options = {}) => {
@@ -767,8 +783,23 @@ const uploadDocumentFiles = async (files) => {
   }
 }
 
+const isExternalDocumentFileDrag = (event) => {
+  const types = Array.from(event?.dataTransfer?.types || [])
+  return !draggedDocument.value && types.includes('Files')
+}
+
+const handleExplorerDragEnter = (event) => {
+  if (isExternalDocumentFileDrag(event)) documentDragActive.value = true
+}
+
+const handleExplorerDragOver = (event) => {
+  if (isExternalDocumentFileDrag(event)) documentDragActive.value = true
+}
+
 const handleDocumentDrop = async (event) => {
+  const isExternalFileDrop = isExternalDocumentFileDrag(event)
   documentDragActive.value = false
+  if (!isExternalFileDrop) return
   if (!canUploadDocument.value) {
     ElMessage.warning('当前账号暂无上传文档权限')
     return
@@ -778,6 +809,66 @@ const handleDocumentDrop = async (event) => {
 
 const handleDocumentDragLeave = (event) => {
   if (!event.relatedTarget || !event.currentTarget.contains(event.relatedTarget)) documentDragActive.value = false
+}
+
+const targetFolderId = (target) => Number(target?.id ?? target ?? 0)
+
+const canDropDocumentOnTarget = (document, target) => {
+  if (!document || !canDragDocument.value) return false
+  if (target && typeof target === 'object' && 'type' in target && !isFolder(target)) return false
+  return canMoveDocumentToFolder(document, targetFolderId(target), folderRecords.value)
+}
+
+const handleDocumentDragStart = (document, event) => {
+  if (!canMoveDocument.value || documentActionLoading.value) {
+    event?.preventDefault?.()
+    return
+  }
+  selectDocument(document)
+  closeContextMenu()
+  documentDragActive.value = false
+  draggedDocument.value = document
+  if (event?.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('application/x-hive-document', String(document.id))
+  }
+}
+
+const handleDocumentDragEnd = () => {
+  draggedDocument.value = null
+  dragOverFolderId.value = null
+  documentDragActive.value = false
+}
+
+const handleDocumentFolderDragOver = (target, event) => {
+  if (!canDropDocumentOnTarget(draggedDocument.value, target)) return
+  event?.preventDefault?.()
+  if (event?.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dragOverFolderId.value = targetFolderId(target)
+}
+
+const handleDocumentFolderDragLeave = (target, event) => {
+  const targetId = targetFolderId(target)
+  if (dragOverFolderId.value !== targetId) return
+  if (!event?.relatedTarget || !event.currentTarget?.contains(event.relatedTarget)) dragOverFolderId.value = null
+}
+
+const handleDocumentFolderDrop = async (target, event) => {
+  event?.preventDefault?.()
+  const document = draggedDocument.value
+  const targetParentId = targetFolderId(target)
+  const allowed = canDropDocumentOnTarget(document, target)
+  handleDocumentDragEnd()
+  if (!allowed || documentActionLoading.value) return
+
+  documentActionLoading.value = true
+  try {
+    await moveDocument(document.id, targetParentId)
+    ElMessage.success(`已将“${document.name}”移动到目标文件夹`)
+    await Promise.all([fetchDocuments(currentParentId.value, { recordHistory: false }), loadFolderTree()])
+  } finally {
+    documentActionLoading.value = false
+  }
 }
 
 const openRenameDialog = (document) => {
@@ -1141,8 +1232,20 @@ onBeforeUnmount(() => {
 .document-tree-node {
   display: flex;
   min-width: 0;
+  min-height: 30px;
+  flex: 1;
   align-items: center;
   gap: 7px;
+  padding: 0 5px;
+  border-radius: 6px;
+}
+
+.document-nav-entry.is-drop-target,
+.document-tree-node.is-drop-target {
+  color: #075e56;
+  background: #ccebe6;
+  outline: 2px solid #45aa9d;
+  outline-offset: -2px;
 }
 
 .document-tree-node > span:last-child {
@@ -1436,6 +1539,24 @@ onBeforeUnmount(() => {
   min-width: 0;
   align-items: center;
   gap: 10px;
+  padding: 3px 6px;
+  border-radius: 7px;
+}
+
+.document-name-cell[draggable='true'],
+.document-grid-item[draggable='true'] {
+  cursor: grab;
+}
+
+.document-name-cell.is-dragging,
+.document-grid-item.is-dragging {
+  opacity: 0.48;
+}
+
+.document-name-cell.is-drop-target {
+  background: #ccebe6;
+  outline: 2px solid #45aa9d;
+  outline-offset: -2px;
 }
 
 .document-folder-icon {
@@ -1506,6 +1627,12 @@ onBeforeUnmount(() => {
 .document-grid-item.is-selected {
   background: var(--document-selected);
   border-color: #91bdeb;
+}
+
+.document-grid-item.is-drop-target {
+  background: #ccebe6;
+  border-color: #45aa9d;
+  box-shadow: inset 0 0 0 1px #45aa9d;
 }
 
 .document-grid-folder {

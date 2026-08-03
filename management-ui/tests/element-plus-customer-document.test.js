@@ -218,7 +218,9 @@ test("document center supports 200MB chunk completion, office archives, move and
   assert.match(api, /\/document\/file\/chunked\/\$\{uploadId\}\/complete/);
   assert.match(api, /url: '\/document\/move'/);
   assert.match(api, /url: `\/document\/\$\{documentId\}`[\s\S]*?method: 'delete'/);
-  assert.match(document, /label="操作"[\s\S]*?>[\s\S]*?移动[\s\S]*?删除/);
+  assert.doesNotMatch(document, /<el-table-column[\s\S]*?label="操作"/);
+  assert.match(document, /document-context-menu[\s\S]*?移动到[\s\S]*?删除/);
+  assert.match(document, /handleDocumentFolderDrop/);
   assert.match(document, /ElMessageBox\.confirm/);
   assert.match(document, /buildMoveFolderOptions/);
 });
