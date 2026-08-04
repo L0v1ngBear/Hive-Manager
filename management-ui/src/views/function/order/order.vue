@@ -1079,6 +1079,7 @@ import DragAttachmentUpload from '@/components/DragAttachmentUpload.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useTimeCorrectionMode } from '@/composables/useTimeCorrectionMode'
 import { exportRowsToExcel } from '@/utils/tableExport'
+import { notifyOrderWarningChanged } from '@/utils/orderWarningRefresh'
 import {
   createOrderAdvancePlan,
   isDrawingBudgetTerminal,
@@ -1826,6 +1827,7 @@ function applyOrderWarningSummary(summary = {}) {
   orderWarningSummary.bulkCount = Number(summary?.bulkCount || 0)
   orderWarningSummary.replenishmentCount = Number(summary?.replenishmentCount || 0)
   orderWarningSummary.drawingBudgetCount = Number(summary?.drawingBudgetCount || 0)
+  notifyOrderWarningChanged(orderWarningSummary.totalCount)
 }
 
 function assignWarningSetting(target, source = {}, fallback = {}) {

@@ -60,6 +60,13 @@
                   class="approval-menu-badge"
                   :class="isCollapsed ? 'absolute right-1.5 top-1.5' : 'ml-auto'"
               />
+              <el-badge
+                  v-if="item.path === '/function/order' && orderWarningCount > 0"
+                  :value="orderWarningCount"
+                  :max="99"
+                  class="order-warning-menu-badge"
+                  :class="isCollapsed ? 'absolute right-1.5 top-1.5' : 'ml-auto'"
+              />
             </el-button>
           </el-tooltip>
         </router-link>
@@ -136,7 +143,9 @@ import {useRoute} from 'vue-router'
 import {ElBadge, ElButton, ElTooltip} from 'element-plus'
 import {useUserStore} from '@/stores/user'
 import {getApprovalSummary} from '@/views/function/approval/api/approval'
+import {getOrderWarningSummary} from '@/views/function/order/api/order'
 import {listenApprovalChanged} from '@/utils/approvalRefresh'
+import {listenOrderWarningChanged} from '@/utils/orderWarningRefresh'
 import {decorateAccessItems} from '@/utils/access'
 import {brandConfig} from '@/config/brand'
 
@@ -153,9 +162,13 @@ const route = useRoute()
 const userStore = useUserStore()
 const isCollapsed = ref(!props.mobile)
 const approvalPendingCount = ref(0)
+const orderWarningCount = ref(0)
 let approvalPendingRequestId = 0
+let orderWarningRequestId = 0
 let approvalRefreshTimer = null
+let orderWarningRefreshTimer = null
 let stopApprovalChangedListener = () => {}
+let stopOrderWarningChangedListener = () => {}
 const brandTitle = computed(() => brandConfig.productName)
 const brandSubtitle = computed(() => '业务协同系统')
 const ANNOUNCEMENT_PERMISSIONS = [
@@ -315,9 +328,30 @@ const refreshApprovalPendingCount = async () => {
   }
 }
 
+const refreshOrderWarningCount = async () => {
+  const requestId = ++orderWarningRequestId
+  if (userStore.isPlatformTenant ||
+      !userStore.hasAnyFeature(['module.order']) ||
+      !userStore.hasPermission('order:warning:list')) {
+    orderWarningCount.value = 0
+    return
+  }
+  try {
+    const data = await getOrderWarningSummary()
+    if (requestId !== orderWarningRequestId) return
+    orderWarningCount.value = Number(data?.totalCount || 0)
+  } catch (error) {
+    if (requestId !== orderWarningRequestId) return
+    orderWarningCount.value = 0
+  }
+}
+
 watch(
     () => [userStore.permissions, userStore.features],
-    () => refreshApprovalPendingCount(),
+    () => {
+      refreshApprovalPendingCount()
+      refreshOrderWarningCount()
+    },
     {immediate: true, deep: true}
 )
 
@@ -326,18 +360,32 @@ watch(
     () => refreshApprovalPendingCount()
 )
 
+watch(
+    () => route.path,
+    () => refreshOrderWarningCount()
+)
+
 onMounted(() => {
   stopApprovalChangedListener = listenApprovalChanged(refreshApprovalPendingCount)
+  stopOrderWarningChangedListener = listenOrderWarningChanged(refreshOrderWarningCount)
   window.addEventListener('focus', refreshApprovalPendingCount)
+  window.addEventListener('focus', refreshOrderWarningCount)
   approvalRefreshTimer = window.setInterval(refreshApprovalPendingCount, 30000)
+  orderWarningRefreshTimer = window.setInterval(refreshOrderWarningCount, 30000)
 })
 
 onBeforeUnmount(() => {
   stopApprovalChangedListener()
+  stopOrderWarningChangedListener()
   window.removeEventListener('focus', refreshApprovalPendingCount)
+  window.removeEventListener('focus', refreshOrderWarningCount)
   if (approvalRefreshTimer) {
     window.clearInterval(approvalRefreshTimer)
     approvalRefreshTimer = null
+  }
+  if (orderWarningRefreshTimer) {
+    window.clearInterval(orderWarningRefreshTimer)
+    orderWarningRefreshTimer = null
   }
 })
 
