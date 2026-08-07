@@ -155,8 +155,10 @@ public class OrganizationService {
         if (positionCount != null && positionCount > 0) {
             throw new BusinessException("该部门下仍有职位，请先删除职位后再删除部门");
         }
-        department.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
-        departmentMapper.updateById(department);
+        int deletedRows = departmentMapper.deleteById(department.getId());
+        if (deletedRows != 1) {
+            throw new BusinessException("部门删除失败，请刷新后重试");
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -210,8 +212,10 @@ public class OrganizationService {
         if (countEmployeesByPosition(department, position) > 0) {
             throw new BusinessException("该职位仍有员工，请先调整员工职位后再删除");
         }
-        position.setIsDeleted(DeleteFlagEnum.DELETED.getCode());
-        positionMapper.updateById(position);
+        int deletedRows = positionMapper.deleteById(position.getId());
+        if (deletedRows != 1) {
+            throw new BusinessException("职位删除失败，请刷新后重试");
+        }
     }
 
     private List<Department> listTenantDepartments() {

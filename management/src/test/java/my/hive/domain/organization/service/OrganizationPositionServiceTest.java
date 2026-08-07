@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -59,7 +60,51 @@ class OrganizationPositionServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("职位");
 
+        verify(departmentMapper, never()).deleteById(any(Long.class));
+    }
+
+    @Test
+    void emptyDepartmentUsesLogicDeleteAndVerifiesAffectedRow() {
+        Department department = department(10L, "销售部");
+        when(departmentMapper.selectOne(any())).thenReturn(department);
+        when(departmentMapper.selectCount(any())).thenReturn(0L);
+        when(organizationMapper.selectDepartmentEmployeeCounts("TENANT_001")).thenReturn(List.of());
+        when(positionMapper.selectCount(any())).thenReturn(0L);
+        when(departmentMapper.deleteById(10L)).thenReturn(1);
+
+        assertThatCode(() -> service.delete(10L)).doesNotThrowAnyException();
+
+        verify(departmentMapper).deleteById(10L);
         verify(departmentMapper, never()).updateById(any());
+    }
+
+    @Test
+    void departmentDeleteFailsWhenLogicDeleteUpdatesNoRow() {
+        Department department = department(10L, "销售部");
+        when(departmentMapper.selectOne(any())).thenReturn(department);
+        when(departmentMapper.selectCount(any())).thenReturn(0L);
+        when(organizationMapper.selectDepartmentEmployeeCounts("TENANT_001")).thenReturn(List.of());
+        when(positionMapper.selectCount(any())).thenReturn(0L);
+        when(departmentMapper.deleteById(10L)).thenReturn(0);
+
+        assertThatThrownBy(() -> service.delete(10L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("删除失败");
+    }
+
+    @Test
+    void emptyPositionUsesLogicDeleteAndVerifiesAffectedRow() {
+        Department department = department(10L, "销售部");
+        Position position = position(20L, 10L, "销售专员");
+        when(positionMapper.selectOne(any())).thenReturn(position);
+        when(departmentMapper.selectOne(any())).thenReturn(department);
+        when(organizationMapper.countEmployeesByPosition("TENANT_001", "销售部", "销售专员")).thenReturn(0L);
+        when(positionMapper.deleteById(20L)).thenReturn(1);
+
+        assertThatCode(() -> service.deletePosition(20L)).doesNotThrowAnyException();
+
+        verify(positionMapper).deleteById(20L);
+        verify(positionMapper, never()).updateById(any());
     }
 
     @Test
@@ -101,5 +146,16 @@ class OrganizationPositionServiceTest {
         department.setStatus(1);
         department.setIsDeleted(0);
         return department;
+    }
+
+    private Position position(Long id, Long departmentId, String name) {
+        Position position = new Position();
+        position.setId(id);
+        position.setTenantCode("TENANT_001");
+        position.setDepartmentId(departmentId);
+        position.setPositionName(name);
+        position.setStatus(1);
+        position.setIsDeleted(0);
+        return position;
     }
 }

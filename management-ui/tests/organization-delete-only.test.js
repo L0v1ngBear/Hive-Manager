@@ -32,6 +32,11 @@ test('organization saves always reactivate records and delete accepts manage per
     controller,
     /CODE_ORGANIZATION_POSITION_DELETE,[\s\S]*?CODE_ORGANIZATION_POSITION_MANAGE/
   )
+  assert.match(service, /departmentMapper\.deleteById\(department\.getId\(\)\)/)
+  assert.match(service, /positionMapper\.deleteById\(position\.getId\(\)\)/)
+  assert.doesNotMatch(service, /setIsDeleted\(DeleteFlagEnum\.DELETED\.getCode\(\)\)/)
+  assert.match(service, /部门删除失败，请刷新后重试/)
+  assert.match(service, /职位删除失败，请刷新后重试/)
 })
 
 test('migration reactivates historic non-deleted organization records', () => {
