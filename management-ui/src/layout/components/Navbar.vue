@@ -72,8 +72,9 @@
         v-model:visible="notificationOpen"
         placement="bottom-end"
         trigger="click"
-        :width="320"
+        :width="380"
         :teleported="false"
+        :popper-style="{ padding: '0', borderRadius: '18px', overflow: 'hidden' }"
         popper-class="navbar-notification-popover"
         @show="handleNotificationShow"
       >
@@ -84,35 +85,54 @@
             </el-button>
           </el-badge>
         </template>
-        <div class="overflow-hidden">
-          <div class="flex items-center justify-between border-b border-outline-variant/30 px-4 py-3">
-            <div>
-              <p class="text-sm font-black text-on-surface">待办通知</p>
-              <p class="text-xs text-on-surface-variant">{{ pendingNotifications.length ? `有 ${pendingNotifications.length} 条需要处理` : '当前没有新的待办' }}</p>
+        <div class="notification-panel" :aria-busy="notificationsLoading">
+          <div class="notification-panel__header">
+            <div class="notification-panel__heading">
+              <span class="notification-panel__icon material-symbols-outlined">notifications_active</span>
+              <div class="min-w-0">
+                <div class="notification-panel__title-row">
+                  <p class="notification-panel__title">待办通知</p>
+                  <span v-if="pendingNotifications.length" class="notification-panel__count">
+                    {{ pendingNotifications.length }} 条
+                  </span>
+                </div>
+                <p class="notification-panel__subtitle">
+                  {{ pendingNotifications.length ? '需要您及时跟进处理' : '当前没有新的待办' }}
+                </p>
+              </div>
             </div>
             <el-button
               v-permission="'notification:announcement:publish'"
-              link
-              type="primary"
-              @click="refreshNotifications(true)"
+              class="notification-panel__refresh"
+              text
+              circle
+              :loading="notificationsLoading"
+              aria-label="立即更新待办通知"
+              title="立即更新"
+              @click="refreshNotifications(true, true)"
             >
-              刷新
+              <span class="material-symbols-outlined">refresh</span>
             </el-button>
           </div>
-          <div class="max-h-[360px] overflow-y-auto p-2">
-            <div
+          <div class="notification-panel__list">
+            <article
               v-for="item in pendingNotifications"
               :key="item.key"
-              class="rounded-xl px-3 py-3 transition-colors hover:bg-primary-container"
+              class="notification-item"
+              :class="`notification-item--${item.level || 'info'}`"
             >
-              <el-button text class="h-auto w-full justify-start p-0 text-left" @click="openNotification(item)">
-                <div class="flex items-center justify-between gap-3">
-                  <strong class="text-sm text-on-surface">{{ item.title }}</strong>
-                  <span class="rounded-full bg-primary-container px-2 py-0.5 text-[10px] font-bold text-primary">{{ item.type }}</span>
+              <button type="button" class="notification-item__main" @click="openNotification(item)">
+                <div class="notification-item__heading">
+                  <strong class="notification-item__title">{{ item.title }}</strong>
+                  <span class="notification-item__type">{{ item.type }}</span>
                 </div>
-                <p class="mt-1 line-clamp-4 text-xs leading-5 text-on-surface-variant">{{ item.desc }}</p>
-              </el-button>
-              <div class="mt-2 flex items-center gap-2">
+                <p class="notification-item__description">{{ item.desc }}</p>
+                <span class="notification-item__link">
+                  查看详情
+                  <span class="material-symbols-outlined">arrow_forward</span>
+                </span>
+              </button>
+              <div class="notification-item__actions">
                 <el-button
                   type="primary"
                   size="small"
@@ -129,11 +149,16 @@
                   跳过
                 </el-button>
               </div>
+            </article>
+            <div v-if="notificationsLoading && !pendingNotifications.length" class="notification-panel__empty">
+              <span class="notification-panel__loading material-symbols-outlined">progress_activity</span>
+              <p class="notification-panel__empty-title">正在更新待办</p>
+              <p class="notification-panel__empty-copy">请稍候，最新业务提醒马上呈现。</p>
             </div>
-            <div v-if="!pendingNotifications.length" class="px-4 py-8 text-center">
-              <span class="material-symbols-outlined text-4xl text-primary">task_alt</span>
-              <p class="mt-2 text-sm font-bold text-on-surface">待办已清空</p>
-              <p class="text-xs text-on-surface-variant">审批和业务提醒会展示在这里。</p>
+            <div v-else-if="!pendingNotifications.length" class="notification-panel__empty">
+              <span class="notification-panel__empty-icon material-symbols-outlined">task_alt</span>
+              <p class="notification-panel__empty-title">待办已清空</p>
+              <p class="notification-panel__empty-copy">审批和业务提醒会自动展示在这里。</p>
             </div>
           </div>
         </div>
@@ -268,7 +293,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
   ElBadge,
   ElButton,
@@ -288,6 +313,8 @@ import { useUserStore } from '@/stores/user'
 import { changePassword } from '@/api/auth.js'
 import { closeNotificationTask, getUnreadNotifications, markNotificationRead, syncNotifications } from '@/api/notification.js'
 import {decorateAccessItems, resolveAccessState} from '@/utils/access'
+import { listenApprovalChanged } from '@/utils/approvalRefresh.js'
+import { listenOrderWarningChanged } from '@/utils/orderWarningRefresh.js'
 import {brandConfig} from '@/config/brand'
 
 defineOptions({ name: 'Navbar' });
@@ -327,8 +354,12 @@ const mobileSearchOpen = ref(false)
 const notificationOpen = ref(false)
 const userMenuOpen = ref(false)
 const pendingNotifications = ref([])
+const notificationsLoading = ref(false)
 const passwordDialogVisible = ref(false)
 const passwordSubmitting = ref(false)
+let notificationRefreshTimer = null
+let stopApprovalChangedListener = () => {}
+let stopOrderWarningChangedListener = () => {}
 const passwordForm = reactive({
   oldPassword: '',
   newPassword: '',
@@ -542,17 +573,26 @@ async function handleNotificationShow() {
   userMenuOpen.value = false
   searchPanelOpen.value = false
   mobileSearchOpen.value = false
-  await refreshNotifications()
+  await refreshNotifications(true, false)
 }
 
-async function refreshNotifications(sync = false) {
+async function refreshNotifications(sync = false, notifyOnError = true) {
   if (userStore.isPlatformTenant) {
     pendingNotifications.value = []
     return
   }
+  if (notificationsLoading.value) {
+    return
+  }
+  notificationsLoading.value = true
   try {
+    let syncFailed = false
     if (sync && canSyncNotifications.value) {
-      await syncNotifications()
+      try {
+        await syncNotifications()
+      } catch {
+        syncFailed = true
+      }
     }
     const list = await getUnreadNotifications()
     pendingNotifications.value = (list || []).slice(0, 8).map((item) => ({
@@ -565,9 +605,24 @@ async function refreshNotifications(sync = false) {
       level: item.level,
       taskStatus: item.taskStatus || 'PENDING'
     }))
+    if (syncFailed && notifyOnError) {
+      ElMessage.warning('最新业务预警同步失败，已显示当前已有待办')
+    }
   } catch (error) {
-    ElMessage.warning('通知加载失败，请稍后再试')
+    if (notifyOnError) {
+      ElMessage.warning('通知加载失败，请稍后再试')
+    }
+  } finally {
+    notificationsLoading.value = false
   }
+}
+
+function refreshNotificationsInBackground() {
+  return refreshNotifications(true, false)
+}
+
+function refreshNotificationListInBackground() {
+  return refreshNotifications(false, false)
 }
 
 async function openNotification(item) {
@@ -577,7 +632,7 @@ async function openNotification(item) {
     // 已读失败不阻断跳转，避免提醒入口不可用。
   }
   goRoute(item.route || '/dashboard')
-  await refreshNotifications()
+  await refreshNotifications(false, false)
 }
 
 async function closeNotification(item, taskStatus) {
@@ -587,7 +642,7 @@ async function closeNotification(item, taskStatus) {
       : '已在待办入口标记跳过，系统会减少类似提醒。'
     await closeNotificationTask(item.id, { taskStatus, closeNote })
     ElMessage.success(taskStatus === 'DONE' ? '已完成，系统会同步记录处理结果' : '已跳过，系统会减少类似提醒')
-    await refreshNotifications()
+    await refreshNotifications(false, false)
   } catch (error) {
     ElMessage.warning('待办处理失败，请稍后再试')
   }
@@ -697,13 +752,29 @@ function handleClickOutside(event) {
   }
 }
 
+watch(
+  () => [userStore.currentTenantCode, userStore.permissions],
+  () => refreshNotifications(true, false),
+  { immediate: true, deep: true }
+)
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
-  refreshNotifications()
+  stopApprovalChangedListener = listenApprovalChanged(refreshNotificationsInBackground)
+  stopOrderWarningChangedListener = listenOrderWarningChanged(refreshNotificationsInBackground)
+  window.addEventListener('focus', refreshNotificationsInBackground)
+  notificationRefreshTimer = window.setInterval(refreshNotificationListInBackground, 30000)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  stopApprovalChangedListener()
+  stopOrderWarningChangedListener()
+  window.removeEventListener('focus', refreshNotificationsInBackground)
+  if (notificationRefreshTimer) {
+    window.clearInterval(notificationRefreshTimer)
+    notificationRefreshTimer = null
+  }
 })
 </script>
 
@@ -786,6 +857,229 @@ onBeforeUnmount(() => {
 
 .navbar-actions > :not(.tenant-chip) {
   flex: 0 0 auto;
+}
+
+.notification-panel {
+  overflow: hidden;
+  background: #ffffff;
+  color: var(--ys-on-surface);
+}
+
+.notification-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(200, 211, 223, 0.62);
+  background: linear-gradient(135deg, rgba(236, 253, 250, 0.94), rgba(255, 255, 255, 0.98));
+  padding: 1rem 1.125rem;
+}
+
+.notification-panel__heading,
+.notification-panel__title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.notification-panel__heading {
+  gap: 0.75rem;
+}
+
+.notification-panel__title-row {
+  gap: 0.5rem;
+}
+
+.notification-panel__icon {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.8rem;
+  background: var(--ys-primary);
+  color: #ffffff;
+  font-size: 1.25rem;
+  box-shadow: 0 9px 20px rgb(var(--ys-primary-rgb) / 0.2);
+}
+
+.notification-panel__title {
+  font-size: 1rem;
+  font-weight: 950;
+  line-height: 1.25;
+}
+
+.notification-panel__count {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgb(var(--ys-primary-rgb) / 0.12);
+  padding: 0.18rem 0.5rem;
+  color: var(--ys-primary-dark);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.notification-panel__subtitle {
+  margin-top: 0.2rem;
+  color: var(--ys-on-surface-variant);
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+}
+
+.notification-panel__refresh {
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 2.25rem;
+  color: var(--ys-primary);
+}
+
+.notification-panel__list {
+  display: grid;
+  max-height: min(28rem, 62vh);
+  gap: 0.625rem;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.notification-item {
+  overflow: hidden;
+  border: 1px solid rgba(200, 211, 223, 0.66);
+  border-left: 3px solid var(--ys-primary);
+  border-radius: 0.875rem;
+  background: #ffffff;
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.notification-item--warning {
+  border-left-color: #f59e0b;
+}
+
+.notification-item--critical {
+  border-left-color: #ef4444;
+}
+
+.notification-item:hover {
+  border-color: rgb(var(--ys-primary-rgb) / 0.34);
+  box-shadow: 0 10px 24px rgb(var(--ys-primary-rgb) / 0.1);
+  transform: translateY(-1px);
+}
+
+.notification-item__main {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0.875rem 0.875rem 0.625rem;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.notification-item__main:focus-visible {
+  outline: 2px solid var(--ys-primary);
+  outline-offset: -2px;
+}
+
+.notification-item__heading {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.notification-item__title {
+  min-width: 0;
+  color: var(--ys-on-surface);
+  font-size: 0.875rem;
+  font-weight: 900;
+  line-height: 1.35rem;
+  overflow-wrap: anywhere;
+}
+
+.notification-item__type {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--ys-primary-container);
+  padding: 0.18rem 0.5rem;
+  color: var(--ys-primary-dark);
+  font-size: 0.65rem;
+  font-weight: 900;
+  line-height: 1rem;
+}
+
+.notification-item__description {
+  display: -webkit-box;
+  margin-top: 0.4rem;
+  overflow: hidden;
+  color: var(--ys-on-surface-variant);
+  font-size: 0.78rem;
+  line-height: 1.25rem;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.notification-item__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-top: 0.5rem;
+  color: var(--ys-primary-dark);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.notification-item__link .material-symbols-outlined {
+  font-size: 0.95rem;
+}
+
+.notification-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-top: 1px solid rgba(200, 211, 223, 0.48);
+  background: rgba(248, 250, 252, 0.72);
+  padding: 0.55rem 0.875rem 0.625rem;
+}
+
+.notification-panel__empty {
+  padding: 2.25rem 1rem;
+  text-align: center;
+}
+
+.notification-panel__empty-icon,
+.notification-panel__loading {
+  color: var(--ys-primary);
+  font-size: 2.5rem;
+}
+
+.notification-panel__loading {
+  animation: notification-spin 0.9s linear infinite;
+}
+
+.notification-panel__empty-title {
+  margin-top: 0.55rem;
+  color: var(--ys-on-surface);
+  font-size: 0.875rem;
+  font-weight: 900;
+}
+
+.notification-panel__empty-copy {
+  margin-top: 0.2rem;
+  color: var(--ys-on-surface-variant);
+  font-size: 0.75rem;
+  line-height: 1.2rem;
+}
+
+@keyframes notification-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .navbar-menu-item {
