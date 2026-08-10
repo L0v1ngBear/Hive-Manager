@@ -230,6 +230,14 @@
 
       <div v-loading="orderState.loading" class="responsive-table-wrap">
         <table class="order-list-table responsive-data-table w-full text-left">
+          <colgroup>
+            <col
+                v-for="column in orderTableColumns"
+                :key="column.key"
+                :style="{ width: orderColumnWidth(column.key) }"
+            >
+            <col :style="{ width: orderActionColumnWidth }">
+          </colgroup>
           <thead class="bg-surface-container-low/50">
           <tr>
             <th
@@ -1133,6 +1141,15 @@ const defaultOrderTableColumns = [
   {key: 'status', label: '状态'},
   {key: 'progress', label: '进度'}
 ]
+const orderColumnWidths = Object.freeze({
+  orderNo: '14%',
+  customer: '25%',
+  informationChannel: '10%',
+  shipments: '15%',
+  status: '10%',
+  progress: '13%'
+})
+const orderActionColumnWidth = '13%'
 const {
   orderedColumns: orderTableColumns,
   moveColumn: moveOrderTableColumn,
@@ -1141,6 +1158,7 @@ const {
 const MAX_ORDER_EXPORT_ROWS = 2000
 const orderTableColumnCount = computed(() => orderTableColumns.value.length + 1)
 const orderColumnClass = (key) => `order-column-${key}`
+const orderColumnWidth = (key) => orderColumnWidths[key] || 'auto'
 const orderStatuses = [
   {value: 'pending_cancel', label: '取消审核中'},
   {value: 'budgeting', label: '预算中'},
@@ -4143,9 +4161,17 @@ function fulfillmentProcessText(row = {}) {
 }
 
 .function-page-shell .order-list-table.responsive-data-table {
-  width: max-content;
-  min-width: 100%;
-  table-layout: auto;
+  width: 100%;
+  min-width: 90rem !important;
+  table-layout: fixed;
+}
+
+.function-page-shell .order-list-table.responsive-data-table th,
+.function-page-shell .order-list-table.responsive-data-table td {
+  box-sizing: border-box;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .order-empty-state-cell {
@@ -4158,7 +4184,7 @@ function fulfillmentProcessText(row = {}) {
 
 .function-page-shell .order-list-table.responsive-data-table th:last-child,
 .function-page-shell .order-list-table.responsive-data-table td:last-child {
-  width: clamp(7.5rem, 8vw, 9.5rem);
+  width: 13%;
 }
 
 .th-cell {
@@ -4175,33 +4201,27 @@ function fulfillmentProcessText(row = {}) {
 }
 
 .order-column-orderNo {
-  width: 12rem;
-  min-width: 11rem;
+  width: 14%;
 }
 
 .order-column-customer {
-  width: 14rem;
-  min-width: 13rem;
+  width: 25%;
 }
 
 .order-column-informationChannel {
-  width: 12rem;
-  min-width: 11rem;
+  width: 10%;
 }
 
 .order-column-shipments {
-  width: 12rem;
-  min-width: 11rem;
+  width: 15%;
 }
 
 .order-column-status {
-  width: 9rem;
-  min-width: 8rem;
+  width: 10%;
 }
 
 .order-column-progress {
-  width: 12rem;
-  min-width: 10rem;
+  width: 13%;
 }
 
 .order-column-orderNo,
@@ -4221,9 +4241,19 @@ function fulfillmentProcessText(row = {}) {
 .order-column-orderNo .font-bold,
 .order-column-customer .font-bold {
   max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .function-page-shell .order-list-table.responsive-data-table {
+    min-width: 0 !important;
+    table-layout: auto;
+  }
+
+  .order-list-table colgroup {
+    display: none;
+  }
 }
 
 .order-express-number-cell {
@@ -4276,9 +4306,8 @@ function fulfillmentProcessText(row = {}) {
 
 .order-express-number-trigger span:last-child {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .order-express-number-trigger:not(.is-disabled):hover,

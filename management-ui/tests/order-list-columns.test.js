@@ -8,7 +8,7 @@ const orderPage = readFileSync(
 )
 
 const defaultColumnsSource = orderPage.match(
-  /const defaultOrderTableColumns = \[([\s\S]*?)\]\s*const \{/,
+  /const defaultOrderTableColumns = \[([\s\S]*?)\]\s*const orderColumnWidths/,
 )?.[1] || ''
 
 test('order list omits order information and time columns', () => {
