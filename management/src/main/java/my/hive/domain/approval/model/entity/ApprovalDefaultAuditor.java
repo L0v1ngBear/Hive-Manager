@@ -22,6 +22,8 @@ public class ApprovalDefaultAuditor {
 
     private String auditorIds;
 
+    private String approvalMode;
+
     private Integer status;
 
     private LocalDateTime createTime;

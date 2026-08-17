@@ -28,6 +28,7 @@ import my.hive.domain.approval.model.vo.ApprovalAuditorOptionVO;
 import my.hive.domain.approval.model.vo.FinanceApprovalVO;
 import my.hive.domain.approval.model.vo.LeaveApprovalListVO;
 import my.hive.domain.approval.model.vo.LeaveDetailVO;
+import my.hive.domain.approval.model.vo.ApprovalAuditResultVO;
 import my.hive.domain.approval.model.vo.OrderApprovalVO;
 import my.hive.domain.approval.model.vo.QualityApprovalVO;
 import my.hive.domain.approval.model.vo.ResignationApprovalVO;
@@ -279,7 +280,7 @@ public class ApprovalService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void auditLeave(LeaveAuditRequest request) {
+    public ApprovalAuditResultVO auditLeave(LeaveAuditRequest request) {
         Long currentUserId = TenantPermissionContext.getUserId();
         UserLeave userLeave = getLeaveByCode(request.getLeaveCode());
         if (!canCurrentUserAudit(currentUserId, userLeave.getAuditorId(), userLeave.getAuditorIds())) {
@@ -294,23 +295,23 @@ public class ApprovalService {
                 userLeave.getTenantCode(), APPROVAL_TYPE_LEAVE, userLeave.getLeaveCode(), currentUserId, approve, auditComment);
         if (decision.isCandidateFlow()) {
             userLeave.setAuditComment(auditComment);
-            if (!approve) {
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
+                leaveMapper.updateById(userLeave);
+                return pendingApprovalResult(userLeave.getTenantCode(), APPROVAL_TYPE_LEAVE, userLeave.getLeaveCode());
+            }
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.REJECTED) {
                 userLeave.setStatus(ApprovalStatusEnum.REJECTED.getCode());
                 approvalAuditorCandidateService.closeActiveCandidates(
                         userLeave.getTenantCode(), APPROVAL_TYPE_LEAVE, userLeave.getLeaveCode());
                 leaveMapper.updateById(userLeave);
-                return;
-            }
-            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
-                leaveMapper.updateById(userLeave);
-                return;
+                return ApprovalAuditResultVO.rejected("请假审批");
             }
             userLeave.setStatus(ApprovalStatusEnum.APPROVED.getCode());
             syncLeaveToAttendance(userLeave);
             approvalAuditorCandidateService.closeActiveCandidates(
                     userLeave.getTenantCode(), APPROVAL_TYPE_LEAVE, userLeave.getLeaveCode());
             leaveMapper.updateById(userLeave);
-            return;
+            return ApprovalAuditResultVO.approved("请假审批");
         }
         userLeave.setAuditComment(auditComment);
         if (approve) {
@@ -330,6 +331,12 @@ public class ApprovalService {
                     userLeave.getTenantCode(), APPROVAL_TYPE_LEAVE, userLeave.getLeaveCode());
         }
         leaveMapper.updateById(userLeave);
+        if (ApprovalStatusEnum.isPending(userLeave.getStatus())) {
+            return pendingApprovalResult(userLeave.getTenantCode(), APPROVAL_TYPE_LEAVE, userLeave.getLeaveCode());
+        }
+        return ApprovalStatusEnum.APPROVED.getCode().equals(userLeave.getStatus())
+                ? ApprovalAuditResultVO.approved("请假审批")
+                : ApprovalAuditResultVO.rejected("请假审批");
     }
 
     /**
@@ -488,7 +495,7 @@ public class ApprovalService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void auditQuality(QualityAuditRequest request) {
+    public ApprovalAuditResultVO auditQuality(QualityAuditRequest request) {
         BadProductRecord record = findQualityForApproval(request.getDefectiveId());
         String approvalCode = qualityService.qualityApprovalCode(record.getDefectiveId());
         Long currentUserId = TenantPermissionContext.getUserId();
@@ -500,18 +507,19 @@ public class ApprovalService {
         boolean approve = ApprovalActionEnum.isApprove(request.getAction());
         ApprovalAuditorCandidateService.ApprovalDecision decision = recordCandidateDecision(
                 record.getTenantCode(), APPROVAL_TYPE_QUALITY, approvalCode, currentUserId, approve, auditComment);
-        if (!approve) {
+        if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
+            return pendingApprovalResult(record.getTenantCode(), APPROVAL_TYPE_QUALITY, approvalCode);
+        }
+        if (decision == ApprovalAuditorCandidateService.ApprovalDecision.REJECTED) {
             qualityService.rejectProcessApproval(record.getDefectiveId());
             approvalAuditorCandidateService.closeActiveCandidates(
                     record.getTenantCode(), APPROVAL_TYPE_QUALITY, approvalCode);
-            return;
-        }
-        if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
-            return;
+            return ApprovalAuditResultVO.rejected("质量审核");
         }
         qualityService.approveProcess(record.getDefectiveId());
         approvalAuditorCandidateService.closeActiveCandidates(
                 record.getTenantCode(), APPROVAL_TYPE_QUALITY, approvalCode);
+        return ApprovalAuditResultVO.approved("质量审核");
     }
 
     public List<OrderApprovalVO> listOrderApprovals(Integer limit) {
@@ -579,7 +587,7 @@ public class ApprovalService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void auditOrder(OrderApprovalAuditRequest request) {
+    public ApprovalAuditResultVO auditOrder(OrderApprovalAuditRequest request) {
         String orderType = request.getOrderType() == null ? "" : request.getOrderType().trim().toLowerCase();
         String remark = StringUtils.hasText(request.getComment()) ? request.getComment().trim() : "审批中心确认订单";
 
@@ -592,46 +600,46 @@ public class ApprovalService {
             boolean approve = ApprovalActionEnum.isApprove(request.getAction());
             ApprovalAuditorCandidateService.ApprovalDecision decision = recordCandidateDecision(
                     salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode, TenantPermissionContext.getUserId(), approve, remark);
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
+                return pendingOrderApprovalResult(salesOrder.getTenantCode(), approvalCode);
+            }
             if (!ApprovalActionEnum.isApprove(request.getAction())) {
                 if (orderService.hasPendingSalesRollbackApproval(salesOrder.getOrderId())) {
                     approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-                    return;
+                    return ApprovalAuditResultVO.rejected("订单审批");
                 }
                 if (ORDER_STATUS_PENDING_CANCEL.equals(salesOrder.getStatus())) {
                     orderService.rejectPendingCancelSalesOrder(request.getOrderId(), remark);
                     approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-                    return;
+                    return ApprovalAuditResultVO.rejected("订单审批");
                 }
                 if (ORDER_STATUS_PENDING_PAY.equals(salesOrder.getStatus())
                         || ORDER_STATUS_PENDING_SHIP.equals(salesOrder.getStatus())) {
                     approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-                    return;
+                    return ApprovalAuditResultVO.rejected("订单审批");
                 }
                 throw new BusinessException("订单驳回/取消请到订单管理中处理，避免误改业务单据状态");
-            }
-            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
-                return;
             }
             if (orderService.hasPendingSalesRollbackApproval(salesOrder.getOrderId())) {
                 if (isCompletedDrawingBudgetOrder(salesOrder)) {
                     approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-                    return;
+                    return ApprovalAuditResultVO.approved("订单审批");
                 }
                 orderService.approveSalesOrderRollback(request.getOrderId(), remark);
                 approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-                return;
+                return ApprovalAuditResultVO.approved("订单审批");
             }
             if (ORDER_STATUS_PENDING_CANCEL.equals(salesOrder.getStatus()) && isDrawingBudgetOrder(salesOrder)) {
                 orderService.rejectPendingCancelSalesOrder(request.getOrderId(), remark);
                 approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-                return;
+                return ApprovalAuditResultVO.approved("订单审批");
             }
             SalesOrderUpdateRequest updateRequest = new SalesOrderUpdateRequest();
             updateRequest.setStatus(resolveSalesApprovalNextStatus(salesOrder));
             updateRequest.setRemark(remark);
             orderService.approveSalesOrderTransition(request.getOrderId(), updateRequest.getStatus(), updateRequest.getRemark());
             approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-            return;
+            return ApprovalAuditResultVO.approved("订单审批");
         }
         if (ORDER_TYPE_PRODUCTION.equals(orderType)) {
             ProductionOrder productionOrder = findProductionOrderForApproval(request.getOrderId());
@@ -642,27 +650,39 @@ public class ApprovalService {
             boolean approve = ApprovalActionEnum.isApprove(request.getAction());
             ApprovalAuditorCandidateService.ApprovalDecision decision = recordCandidateDecision(
                     productionOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode, TenantPermissionContext.getUserId(), approve, remark);
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
+                return pendingOrderApprovalResult(productionOrder.getTenantCode(), approvalCode);
+            }
             if (!approve) {
                 if (orderService.hasPendingProductionRollbackApproval(productionOrder.getOrderId())) {
                     approvalAuditorCandidateService.closeActiveCandidates(productionOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-                    return;
+                    return ApprovalAuditResultVO.rejected("订单审批");
                 }
                 throw new BusinessException("订单驳回/取消请到订单管理中处理，避免误改业务单据状态");
-            }
-            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
-                return;
             }
             if (orderService.hasPendingProductionRollbackApproval(productionOrder.getOrderId())) {
                 orderService.approveProductionOrderRollback(request.getOrderId(), remark);
                 approvalAuditorCandidateService.closeActiveCandidates(productionOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-                return;
+                return ApprovalAuditResultVO.approved("订单审批");
             }
             String targetStatus = resolveProductionApprovalNextStatus(productionOrder);
             orderService.approveProductionOrderTransition(request.getOrderId(), targetStatus, remark);
             approvalAuditorCandidateService.closeActiveCandidates(productionOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-            return;
+            return ApprovalAuditResultVO.approved("订单审批");
         }
         throw new BusinessException("订单审批类型不合法");
+    }
+
+    private ApprovalAuditResultVO pendingOrderApprovalResult(String tenantCode, String approvalCode) {
+        return pendingApprovalResult(tenantCode, APPROVAL_TYPE_ORDER, approvalCode);
+    }
+
+    private ApprovalAuditResultVO pendingApprovalResult(String tenantCode,
+                                                        String approvalType,
+                                                        String approvalCode) {
+        int remaining = approvalAuditorCandidateService.findPendingAuditorIds(
+                tenantCode, approvalType, approvalCode).size();
+        return ApprovalAuditResultVO.pending(remaining);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -691,7 +711,7 @@ public class ApprovalService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void auditResignation(ResignationAuditRequest request) {
+    public ApprovalAuditResultVO auditResignation(ResignationAuditRequest request) {
         Long currentUserId = TenantPermissionContext.getUserId();
         ResignationApproval approval = getResignationByCode(request.getResignationCode());
         if (!canCurrentUserAudit(currentUserId, approval.getAuditorId(), approval.getAuditorIds())) {
@@ -707,23 +727,23 @@ public class ApprovalService {
                 approval.getTenantCode(), APPROVAL_TYPE_RESIGNATION, approval.getResignationCode(), currentUserId, approve, auditComment);
         if (decision.isCandidateFlow()) {
             approval.setAuditComment(auditComment);
-            if (!approve) {
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
+                resignationApprovalMapper.updateById(approval);
+                return pendingApprovalResult(approval.getTenantCode(), APPROVAL_TYPE_RESIGNATION, approval.getResignationCode());
+            }
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.REJECTED) {
                 approval.setStatus(ApprovalStatusEnum.REJECTED.getCode());
                 approvalAuditorCandidateService.closeActiveCandidates(
                         approval.getTenantCode(), APPROVAL_TYPE_RESIGNATION, approval.getResignationCode());
                 resignationApprovalMapper.updateById(approval);
-                return;
-            }
-            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
-                resignationApprovalMapper.updateById(approval);
-                return;
+                return ApprovalAuditResultVO.rejected("离职审批");
             }
             approval.setStatus(ApprovalStatusEnum.APPROVED.getCode());
             employeeService.markResignedByApproval(approval.getApplyUserId(), approval.getReason());
             approvalAuditorCandidateService.closeActiveCandidates(
                     approval.getTenantCode(), APPROVAL_TYPE_RESIGNATION, approval.getResignationCode());
             resignationApprovalMapper.updateById(approval);
-            return;
+            return ApprovalAuditResultVO.approved("离职审批");
         }
         approval.setAuditComment(auditComment);
         if (approve) {
@@ -743,6 +763,12 @@ public class ApprovalService {
                     approval.getTenantCode(), APPROVAL_TYPE_RESIGNATION, approval.getResignationCode());
         }
         resignationApprovalMapper.updateById(approval);
+        if (ApprovalStatusEnum.isPending(approval.getStatus())) {
+            return pendingApprovalResult(approval.getTenantCode(), APPROVAL_TYPE_RESIGNATION, approval.getResignationCode());
+        }
+        return ApprovalStatusEnum.APPROVED.getCode().equals(approval.getStatus())
+                ? ApprovalAuditResultVO.approved("离职审批")
+                : ApprovalAuditResultVO.rejected("离职审批");
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -772,7 +798,7 @@ public class ApprovalService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void auditFinance(FinanceAuditRequest request) {
+    public ApprovalAuditResultVO auditFinance(FinanceAuditRequest request) {
         Long currentUserId = TenantPermissionContext.getUserId();
         FinanceApproval approval = getFinanceByCode(request.getApprovalCode());
         if (!canCurrentUserAudit(currentUserId, approval.getAuditorId(), approval.getAuditorIds())) {
@@ -788,22 +814,22 @@ public class ApprovalService {
                 approval.getTenantCode(), APPROVAL_TYPE_FINANCE, approval.getApprovalCode(), currentUserId, approve, auditComment);
         if (decision.isCandidateFlow()) {
             approval.setAuditComment(auditComment);
-            if (!approve) {
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
+                financeApprovalMapper.updateById(approval);
+                return pendingApprovalResult(approval.getTenantCode(), APPROVAL_TYPE_FINANCE, approval.getApprovalCode());
+            }
+            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.REJECTED) {
                 approval.setStatus(ApprovalStatusEnum.REJECTED.getCode());
                 approvalAuditorCandidateService.closeActiveCandidates(
                         approval.getTenantCode(), APPROVAL_TYPE_FINANCE, approval.getApprovalCode());
                 financeApprovalMapper.updateById(approval);
-                return;
-            }
-            if (decision == ApprovalAuditorCandidateService.ApprovalDecision.PENDING) {
-                financeApprovalMapper.updateById(approval);
-                return;
+                return ApprovalAuditResultVO.rejected("财务审批");
             }
             approval.setStatus(ApprovalStatusEnum.APPROVED.getCode());
             approvalAuditorCandidateService.closeActiveCandidates(
                     approval.getTenantCode(), APPROVAL_TYPE_FINANCE, approval.getApprovalCode());
             financeApprovalMapper.updateById(approval);
-            return;
+            return ApprovalAuditResultVO.approved("财务审批");
         }
         approval.setAuditComment(auditComment);
         if (approve) {
@@ -822,6 +848,12 @@ public class ApprovalService {
                     approval.getTenantCode(), APPROVAL_TYPE_FINANCE, approval.getApprovalCode());
         }
         financeApprovalMapper.updateById(approval);
+        if (ApprovalStatusEnum.isPending(approval.getStatus())) {
+            return pendingApprovalResult(approval.getTenantCode(), APPROVAL_TYPE_FINANCE, approval.getApprovalCode());
+        }
+        return ApprovalStatusEnum.APPROVED.getCode().equals(approval.getStatus())
+                ? ApprovalAuditResultVO.approved("财务审批")
+                : ApprovalAuditResultVO.rejected("财务审批");
     }
 
     private UserLeave getLeaveByCode(String leaveCode) {
@@ -1391,7 +1423,8 @@ public class ApprovalService {
         );
         applySingleAuditor(approval::setAuditorId, approval::setAuditorIds, auditorId);
         approvalAuditorCandidateService.replaceActiveCandidates(
-                approval.getTenantCode(), APPROVAL_TYPE_LEAVE, approval.getLeaveCode(), List.of(auditorId));
+                approval.getTenantCode(), APPROVAL_TYPE_LEAVE, approval.getLeaveCode(), List.of(auditorId),
+                approvalDefaultAuditorService.resolveApprovalMode(approval.getTenantCode(), APPROVAL_TYPE_LEAVE));
     }
 
     private void assignLeaveAuditors(UserLeave approval,
@@ -1409,7 +1442,8 @@ public class ApprovalService {
         );
         applyAuditors(approval::setAuditorId, approval::setAuditorIds, auditorIds);
         approvalAuditorCandidateService.replaceActiveCandidates(
-                approval.getTenantCode(), APPROVAL_TYPE_LEAVE, approval.getLeaveCode(), auditorIds);
+                approval.getTenantCode(), APPROVAL_TYPE_LEAVE, approval.getLeaveCode(), auditorIds,
+                approvalDefaultAuditorService.resolveApprovalMode(approval.getTenantCode(), APPROVAL_TYPE_LEAVE));
     }
 
     private void assignFinanceAuditors(FinanceApproval approval, Long primaryAuditorId) {
@@ -1435,7 +1469,8 @@ public class ApprovalService {
         );
         applyAuditors(approval::setAuditorId, approval::setAuditorIds, auditorIds);
         approvalAuditorCandidateService.replaceActiveCandidates(
-                approval.getTenantCode(), APPROVAL_TYPE_FINANCE, approval.getApprovalCode(), auditorIds);
+                approval.getTenantCode(), APPROVAL_TYPE_FINANCE, approval.getApprovalCode(), auditorIds,
+                approvalDefaultAuditorService.resolveApprovalMode(approval.getTenantCode(), APPROVAL_TYPE_FINANCE));
     }
 
     private void assignResignationAuditors(ResignationApproval approval, Long primaryAuditorId) {
@@ -1461,7 +1496,8 @@ public class ApprovalService {
         );
         applyAuditors(approval::setAuditorId, approval::setAuditorIds, auditorIds);
         approvalAuditorCandidateService.replaceActiveCandidates(
-                approval.getTenantCode(), APPROVAL_TYPE_RESIGNATION, approval.getResignationCode(), auditorIds);
+                approval.getTenantCode(), APPROVAL_TYPE_RESIGNATION, approval.getResignationCode(), auditorIds,
+                approvalDefaultAuditorService.resolveApprovalMode(approval.getTenantCode(), APPROVAL_TYPE_RESIGNATION));
     }
 
     private Long resolveSingleAuditorId(String tenantCode,

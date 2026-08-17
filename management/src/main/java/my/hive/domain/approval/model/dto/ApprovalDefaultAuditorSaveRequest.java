@@ -14,4 +14,6 @@ public class ApprovalDefaultAuditorSaveRequest {
     private Long auditorId;
 
     private List<Long> auditorIds;
+
+    private String approvalMode;
 }

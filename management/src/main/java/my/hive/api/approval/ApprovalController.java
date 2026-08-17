@@ -26,6 +26,7 @@ import my.hive.domain.approval.model.vo.ApprovalDefaultAuditorVO;
 import my.hive.domain.approval.model.vo.FinanceApprovalVO;
 import my.hive.domain.approval.model.vo.LeaveApprovalListVO;
 import my.hive.domain.approval.model.vo.LeaveDetailVO;
+import my.hive.domain.approval.model.vo.ApprovalAuditResultVO;
 import my.hive.domain.approval.model.vo.OrderApprovalVO;
 import my.hive.domain.approval.model.vo.QualityApprovalVO;
 import my.hive.domain.approval.model.vo.ResignationApprovalVO;
@@ -119,9 +120,8 @@ public class ApprovalController {
     @PostMapping("/leave/audit")
     @RequirePermission(value = PermissionCatalogV3.CODE_APPROVAL_LEAVE_AUDIT, message = "您没有权限审批请假单")
     @CollectLog(module = "approval", action = "audit_leave", bizType = "leave_approval", bizNo = "#request.leaveCode", description = "管理端审批请假单")
-    public Result<Void> auditLeave(@Valid @RequestBody LeaveAuditRequest request) {
-        approvalService.auditLeave(request);
-        return Result.success(null);
+    public Result<ApprovalAuditResultVO> auditLeave(@Valid @RequestBody LeaveAuditRequest request) {
+        return Result.success(approvalService.auditLeave(request));
     }
 
     @GetMapping("/finance")
@@ -145,9 +145,8 @@ public class ApprovalController {
     @PostMapping("/finance/audit")
     @RequirePermission(value = PermissionCatalogV3.CODE_APPROVAL_FINANCE_AUDIT, message = "您没有权限审批财务单")
     @CollectLog(module = "approval", action = "audit_finance", bizType = "finance_approval", bizNo = "#request.approvalCode", description = "管理端审批财务单")
-    public Result<Void> auditFinance(@Valid @RequestBody FinanceAuditRequest request) {
-        approvalService.auditFinance(request);
-        return Result.success(null);
+    public Result<ApprovalAuditResultVO> auditFinance(@Valid @RequestBody FinanceAuditRequest request) {
+        return Result.success(approvalService.auditFinance(request));
     }
 
     @PostMapping("/finance")
@@ -206,9 +205,8 @@ public class ApprovalController {
     @PostMapping("/resignation/audit")
     @RequirePermission(value = PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_AUDIT, message = "您没有权限审批离职单")
     @CollectLog(module = "approval", action = "audit_resignation", bizType = "resignation_approval", bizNo = "#request.resignationCode", description = "管理端审批离职单")
-    public Result<Void> auditResignation(@Valid @RequestBody ResignationAuditRequest request) {
-        approvalService.auditResignation(request);
-        return Result.success(null);
+    public Result<ApprovalAuditResultVO> auditResignation(@Valid @RequestBody ResignationAuditRequest request) {
+        return Result.success(approvalService.auditResignation(request));
     }
 
     @GetMapping("/quality")
@@ -226,9 +224,8 @@ public class ApprovalController {
     @PostMapping("/quality/audit")
     @RequirePermission(value = PermissionCatalogV3.CODE_QUALITY_AUDIT, message = "您没有权限处理质量审核")
     @CollectLog(module = "approval", action = "audit_quality", bizType = "quality_approval", bizNo = "#request.defectiveId", description = "管理端审核质量处理")
-    public Result<Void> auditQuality(@Valid @RequestBody QualityAuditRequest request) {
-        approvalService.auditQuality(request);
-        return Result.success(null);
+    public Result<ApprovalAuditResultVO> auditQuality(@Valid @RequestBody QualityAuditRequest request) {
+        return Result.success(approvalService.auditQuality(request));
     }
 
     @GetMapping("/order")
@@ -246,9 +243,8 @@ public class ApprovalController {
 
     @PostMapping("/order/audit")
     @RequirePermission(value = PermissionCatalogV3.CODE_APPROVAL_LIST, message = "您没有权限处理订单审批")
-    @CollectLog(module = "order", action = "audit_order", bizType = "order_approval", bizNo = "#request.orderId", description = "管理端确认待审批订单")
-    public Result<Void> auditOrder(@Valid @RequestBody OrderApprovalAuditRequest request) {
-        approvalService.auditOrder(request);
-        return Result.success(null);
+    @CollectLog(module = "order", action = "audit_order", bizType = "order_approval", bizNo = "#request.orderId", description = "管理端处理订单审批")
+    public Result<ApprovalAuditResultVO> auditOrder(@Valid @RequestBody OrderApprovalAuditRequest request) {
+        return Result.success(approvalService.auditOrder(request));
     }
 }

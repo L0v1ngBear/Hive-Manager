@@ -19,5 +19,9 @@ public class ApprovalDefaultAuditorVO {
 
     private String auditorName;
 
+    private String approvalMode;
+
+    private String approvalModeText;
+
     private Boolean configured;
 }

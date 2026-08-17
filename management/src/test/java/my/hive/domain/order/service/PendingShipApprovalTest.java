@@ -3,6 +3,7 @@ package my.hive.domain.order.service;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
 import my.hive.domain.approval.model.dto.OrderApprovalAuditRequest;
+import my.hive.domain.approval.model.vo.ApprovalAuditResultVO;
 import my.hive.domain.approval.service.ApprovalAuditorCandidateService;
 import my.hive.domain.approval.service.ApprovalDefaultAuditorService;
 import my.hive.domain.approval.service.ApprovalService;
@@ -85,6 +86,7 @@ class PendingShipApprovalTest {
         ReflectionTestUtils.setField(subject, "approvalAuditorCandidateService", approvalAuditorCandidateService);
         ReflectionTestUtils.setField(subject, "approvalDefaultAuditorService", approvalDefaultAuditorService);
         ReflectionTestUtils.setField(subject, "orderShipmentService", orderShipmentService);
+        lenient().when(approvalDefaultAuditorService.resolveApprovalMode(anyString(), anyString())).thenReturn("AND");
     }
 
     @AfterEach
@@ -107,7 +109,7 @@ class PendingShipApprovalTest {
         assertEquals("WeChat", order.getInformationChannel());
         verify(salesOrderMapper).updateById(order);
         verify(approvalAuditorCandidateService).replaceActiveCandidates(
-                "tenant-a", "ORDER", "sales:SO-100", List.of(2L));
+                "tenant-a", "ORDER", "sales:SO-100", List.of(2L), "AND");
         ArgumentCaptor<SalesOrderStatusLog> logCaptor = ArgumentCaptor.forClass(SalesOrderStatusLog.class);
         verify(salesOrderStatusLogMapper).insert(logCaptor.capture());
         assertEquals("pending_ship", logCaptor.getValue().getOldStatus());
@@ -132,7 +134,7 @@ class PendingShipApprovalTest {
         assertEquals(0, order.getIsInvoice());
         verify(salesOrderMapper, never()).updateById(order);
         verify(approvalAuditorCandidateService).replaceActiveCandidates(
-                "tenant-a", "ORDER", "sales:SO-100", List.of(2L));
+                "tenant-a", "ORDER", "sales:SO-100", List.of(2L), "AND");
         verify(employeeMapper).selectActiveApproverIdsByPermission("tenant-a", "order:audit:material");
         ArgumentCaptor<SalesOrderStatusLog> logCaptor = ArgumentCaptor.forClass(SalesOrderStatusLog.class);
         verify(salesOrderStatusLogMapper).insert(logCaptor.capture());
@@ -166,7 +168,7 @@ class PendingShipApprovalTest {
 
         assertEquals("pending_ship", order.getStatus());
         verify(salesOrderMapper, never()).updateById(any());
-        verify(approvalAuditorCandidateService, never()).replaceActiveCandidates(anyString(), anyString(), anyString(), any());
+        verify(approvalAuditorCandidateService, never()).replaceActiveCandidates(anyString(), anyString(), anyString(), any(), anyString());
         verify(salesOrderStatusLogMapper, never()).insert(any());
     }
 
@@ -181,7 +183,7 @@ class PendingShipApprovalTest {
 
         assertEquals("pending_ship", order.getStatus());
         verify(salesOrderMapper, never()).updateById(any());
-        verify(approvalAuditorCandidateService, never()).replaceActiveCandidates(anyString(), anyString(), anyString(), any());
+        verify(approvalAuditorCandidateService, never()).replaceActiveCandidates(anyString(), anyString(), anyString(), any(), anyString());
         verify(salesOrderStatusLogMapper, never()).insert(any());
     }
 
@@ -193,8 +195,11 @@ class PendingShipApprovalTest {
                 "tenant-a", "ORDER", "sales:SO-100", 1L, true, "approved"))
                 .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.APPROVED);
 
-        approvalService.auditOrder(orderAuditRequest(1));
+        ApprovalAuditResultVO result = approvalService.auditOrder(orderAuditRequest(1));
 
+        assertEquals("approved", result.getDecision());
+        assertEquals(Boolean.TRUE, result.getCompleted());
+        assertEquals(0, result.getRemainingAuditorCount());
         verify(orderService).approveSalesOrderTransition("SO-100", "shipped", "approved");
         verify(approvalAuditorCandidateService).closeActiveCandidates("tenant-a", "ORDER", "sales:SO-100");
     }
@@ -206,9 +211,36 @@ class PendingShipApprovalTest {
         when(approvalAuditorCandidateService.recordDecision(
                 "tenant-a", "ORDER", "sales:SO-100", 1L, true, "approved"))
                 .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.PENDING);
+        when(approvalAuditorCandidateService.findPendingAuditorIds(
+                "tenant-a", "ORDER", "sales:SO-100"))
+                .thenReturn(List.of(2L));
 
-        approvalService.auditOrder(orderAuditRequest(1));
+        ApprovalAuditResultVO result = approvalService.auditOrder(orderAuditRequest(1));
 
+        assertEquals("pending", result.getDecision());
+        assertEquals(Boolean.FALSE, result.getCompleted());
+        assertEquals(1, result.getRemainingAuditorCount());
+        assertEquals("本次审批已提交，仍有 1 位审批人待处理", result.getMessage());
+        assertEquals("pending_ship", order.getStatus());
+        verify(orderService, never()).approveSalesOrderTransition(anyString(), anyString(), anyString());
+        verify(approvalAuditorCandidateService, never()).closeActiveCandidates(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void rejectingOneOfMultipleOrCandidatesKeepsOrderWaitingForAnotherDecision() {
+        SalesOrder order = pendingShipOrder();
+        ApprovalService approvalService = approvalServiceFor(order);
+        when(approvalAuditorCandidateService.recordDecision(
+                "tenant-a", "ORDER", "sales:SO-100", 1L, false, "approved"))
+                .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.PENDING);
+        when(approvalAuditorCandidateService.findPendingAuditorIds(
+                "tenant-a", "ORDER", "sales:SO-100"))
+                .thenReturn(List.of(2L));
+
+        ApprovalAuditResultVO result = approvalService.auditOrder(orderAuditRequest(2));
+
+        assertEquals("pending", result.getDecision());
+        assertEquals(Boolean.FALSE, result.getCompleted());
         assertEquals("pending_ship", order.getStatus());
         verify(orderService, never()).approveSalesOrderTransition(anyString(), anyString(), anyString());
         verify(approvalAuditorCandidateService, never()).closeActiveCandidates(anyString(), anyString(), anyString());
@@ -222,8 +254,10 @@ class PendingShipApprovalTest {
                 "tenant-a", "ORDER", "sales:SO-100", 1L, false, "approved"))
                 .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.REJECTED);
 
-        approvalService.auditOrder(orderAuditRequest(2));
+        ApprovalAuditResultVO result = approvalService.auditOrder(orderAuditRequest(2));
 
+        assertEquals("rejected", result.getDecision());
+        assertEquals("订单审批已驳回", result.getMessage());
         assertEquals("pending_ship", order.getStatus());
         verify(orderService, never()).approveSalesOrderTransition(anyString(), anyString(), anyString());
         verify(approvalAuditorCandidateService).closeActiveCandidates("tenant-a", "ORDER", "sales:SO-100");
@@ -304,7 +338,7 @@ class PendingShipApprovalTest {
         assertThrows(BusinessException.class, () -> subject.submitSalesOrderRollbackApproval(order.getOrderId(), request));
 
         assertEquals("budget_completed", order.getStatus());
-        verify(approvalAuditorCandidateService, never()).replaceActiveCandidates(anyString(), anyString(), anyString(), any());
+        verify(approvalAuditorCandidateService, never()).replaceActiveCandidates(anyString(), anyString(), anyString(), any(), anyString());
     }
 
     @Test

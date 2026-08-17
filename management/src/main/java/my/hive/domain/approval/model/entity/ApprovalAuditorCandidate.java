@@ -22,6 +22,8 @@ public class ApprovalAuditorCandidate {
 
     private Long auditorId;
 
+    private String approvalMode;
+
     private Integer status;
 
     private Integer auditStatus;

@@ -697,7 +697,8 @@ public class OrderService {
             }
         }
         approvalAuditorCandidateService.replaceActiveCandidates(
-                order.getTenantCode(), APPROVAL_TYPE_ORDER, orderApprovalCode(ORDER_TYPE_SALES, order.getOrderId()), selectedAuditorIds);
+                order.getTenantCode(), APPROVAL_TYPE_ORDER, orderApprovalCode(ORDER_TYPE_SALES, order.getOrderId()), selectedAuditorIds,
+                approvalDefaultAuditorService.resolveApprovalMode(order.getTenantCode(), APPROVAL_TYPE_ORDER));
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -741,7 +742,8 @@ public class OrderService {
                         : "提交订单回退审批：" + orderStatusLabel(currentStatus) + " → " + orderStatusLabel(targetStatus),
                 LocalDateTime.now());
         approvalAuditorCandidateService.replaceActiveCandidates(
-                order.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode, auditorIds);
+                order.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode, auditorIds,
+                approvalDefaultAuditorService.resolveApprovalMode(order.getTenantCode(), APPROVAL_TYPE_ORDER));
     }
 
     private List<Long> normalizeApprovalAuditorIds(List<Long> auditorIds) {
@@ -1229,7 +1231,8 @@ public class OrderService {
                         ? remark
                         : "提交订单回退审批：" + orderStatusLabel(currentStatus) + " → " + orderStatusLabel(targetStatus));
         approvalAuditorCandidateService.replaceActiveCandidates(
-                order.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode, auditorIds);
+                order.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode, auditorIds,
+                approvalDefaultAuditorService.resolveApprovalMode(order.getTenantCode(), APPROVAL_TYPE_ORDER));
     }
 
     @Transactional(rollbackFor = Exception.class)

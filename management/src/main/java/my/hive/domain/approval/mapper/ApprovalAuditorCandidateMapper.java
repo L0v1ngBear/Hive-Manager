@@ -21,6 +21,7 @@ public interface ApprovalAuditorCandidateMapper extends BaseMapper<ApprovalAudit
                    approval_type AS approvalType,
                    approval_code AS approvalCode,
                    auditor_id AS auditorId,
+                   approval_mode AS approvalMode,
                    status,
                    audit_status AS auditStatus,
                    audit_comment AS auditComment,

@@ -201,6 +201,8 @@ WITH expected_columns AS (
   SELECT 'sales_order', 'attachments_json' UNION ALL
   SELECT 'production_order', 'information_channel' UNION ALL
   SELECT 'installation_task', 'information_channel' UNION ALL
+  SELECT 'approval_default_auditor', 'approval_mode' UNION ALL
+  SELECT 'approval_auditor_candidate', 'approval_mode' UNION ALL
   SELECT 'sys_permission', 'module_code' UNION ALL
   SELECT 'sys_permission', 'assignable' UNION ALL
   SELECT 'sys_permission', 'status' UNION ALL

@@ -31,6 +31,8 @@ public class ApprovalDefaultAuditorService {
     public static final String TYPE_RESIGNATION = "RESIGNATION";
     public static final String TYPE_ORDER = "ORDER";
     public static final String TYPE_QUALITY = "QUALITY";
+    public static final String MODE_AND = "AND";
+    public static final String MODE_OR = "OR";
     private static final int STATUS_ACTIVE = 1;
     private static final int STATUS_DISABLED = 0;
 
@@ -72,6 +74,7 @@ public class ApprovalDefaultAuditorService {
         }
         existing.setAuditorId(auditorIds.get(0));
         existing.setAuditorIds(auditorIds.size() > 1 ? joinAuditorIds(auditorIds) : null);
+        existing.setApprovalMode(validateApprovalMode(request.getApprovalMode()));
         existing.setStatus(STATUS_ACTIVE);
         existing.setUpdateTime(now);
         if (existing.getId() == null) {
@@ -170,12 +173,20 @@ public class ApprovalDefaultAuditorService {
         };
     }
 
+    public String resolveApprovalMode(String tenantCode, String approvalType) {
+        ApprovalDefaultAuditor entity = findActive(tenantCode, approvalType);
+        return normalizeApprovalMode(entity == null ? null : entity.getApprovalMode());
+    }
+
     private ApprovalDefaultAuditorVO toVO(String tenantCode, String type) {
         ApprovalDefaultAuditor entity = findActive(tenantCode, type);
         ApprovalDefaultAuditorVO vo = new ApprovalDefaultAuditorVO();
         vo.setApprovalType(type);
         vo.setApprovalTypeText(typeText(type));
         vo.setPermissionCode(permissionCode(type));
+        String approvalMode = normalizeApprovalMode(entity == null ? null : entity.getApprovalMode());
+        vo.setApprovalMode(approvalMode);
+        vo.setApprovalModeText(MODE_OR.equals(approvalMode) ? "一人通过即可" : "全部通过");
         vo.setConfigured(entity != null && entity.getAuditorId() != null);
         if (entity != null) {
             vo.setAuditorId(entity.getAuditorId());
@@ -235,6 +246,20 @@ public class ApprovalDefaultAuditorService {
 
     private Long normalizeAuditorId(Long auditorId) {
         return auditorId == null || auditorId <= 0 ? null : auditorId;
+    }
+
+    public String normalizeApprovalMode(String value) {
+        return MODE_OR.equalsIgnoreCase(value == null ? "" : value.trim()) ? MODE_OR : MODE_AND;
+    }
+
+    private String validateApprovalMode(String value) {
+        if (!StringUtils.hasText(value) || MODE_AND.equalsIgnoreCase(value.trim())) {
+            return MODE_AND;
+        }
+        if (MODE_OR.equalsIgnoreCase(value.trim())) {
+            return MODE_OR;
+        }
+        throw new BusinessException("审批通过规则不合法，只能选择全部通过或一人通过即可");
     }
 
     private List<Long> normalizeAuditorIds(List<Long> auditorIds, Long fallbackAuditorId) {

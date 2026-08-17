@@ -341,10 +341,10 @@
       <el-empty v-else description="暂无审批详情" />
     </el-dialog>
 
-    <el-dialog v-model="defaultAuditorDialogVisible" title="审批负责人设置" width="720px" class="atelier-dialog" destroy-on-close>
+    <el-dialog v-model="defaultAuditorDialogVisible" title="审批负责人设置" width="min(880px, calc(100vw - 32px))" class="atelier-dialog" destroy-on-close>
       <div class="space-y-4 py-2">
         <div class="rounded-2xl bg-primary/5 p-4 text-sm leading-relaxed text-on-surface-variant">
-          各审批类型可以设置多名默认负责人。员工提交审批时如未手动指定审批人，系统会自动流转给全部默认负责人；手动指定时优先按指定人流转。
+          各审批类型可以设置多名默认负责人，并分别选择“全部通过（AND）”或“一人通过即可（OR）”。规则会在提交审批时固化，之后修改配置不会影响已经在途的审批。
         </div>
         <div v-if="defaultAuditorLoading" class="flex items-center justify-center py-10 text-sm font-bold text-primary">
           <span class="material-symbols-outlined mr-2 animate-spin">progress_activity</span>
@@ -354,7 +354,7 @@
           <div
             v-for="row in defaultAuditorRows"
             :key="row.approvalType"
-            class="grid grid-cols-[150px_minmax(0,1fr)_120px] items-center gap-3 rounded-2xl bg-surface-container-lowest p-4 ring-1 ring-outline-variant/20"
+            class="grid grid-cols-1 items-center gap-3 rounded-2xl bg-surface-container-lowest p-4 ring-1 ring-outline-variant/20 md:grid-cols-[140px_minmax(0,1fr)_160px_100px]"
           >
             <div>
               <p class="text-sm font-black text-on-surface">{{ row.approvalTypeText }}</p>
@@ -376,6 +376,10 @@
                 :label="formatAuditorOption(item)"
                 :value="String(item.id)"
               />
+            </el-select>
+            <el-select v-model="row.approvalMode" aria-label="审批通过规则" class="w-full">
+              <el-option label="全部通过（AND）" value="AND" />
+              <el-option label="一人通过即可（OR）" value="OR" />
             </el-select>
             <el-button
               v-permission="'approval:auditor:setting'"
@@ -781,7 +785,8 @@ const loadDefaultAuditors = async () => {
       auditorId: row.auditorId ? String(row.auditorId) : '',
       auditorIds: parseAuditorIds(row.auditorIds).length
           ? parseAuditorIds(row.auditorIds).map((id) => String(id))
-          : (row.auditorId ? [String(row.auditorId)] : [])
+          : (row.auditorId ? [String(row.auditorId)] : []),
+      approvalMode: row.approvalMode === 'OR' ? 'OR' : 'AND'
     }))
     await Promise.all(defaultAuditorRows.value.map((row) => loadDefaultAuditorOptions(row.approvalType)))
   } finally {
@@ -811,7 +816,8 @@ const saveDefaultAuditorRow = async (row) => {
     await saveApprovalDefaultAuditor({
       approvalType: row.approvalType,
       auditorId: auditorIds[0],
-      auditorIds
+      auditorIds,
+      approvalMode: row.approvalMode === 'OR' ? 'OR' : 'AND'
     })
     ElMessage.success('审批负责人已更新')
     await loadDefaultAuditors()
@@ -1288,39 +1294,40 @@ const quickAudit = async (item, action) => {
   if (!(await confirmSalesOrderProductionLocation(item, action))) {
     return
   }
+  let auditResult = null
   if (item.type === 'leave') {
-    await auditLeaveApproval({
+    auditResult = await auditLeaveApproval({
       leaveCode: item.code,
       action,
       comment: action === 2 ? '审批中心快捷处理' : ''
     })
   } else if (item.type === 'finance') {
-    await auditFinanceApproval({
+    auditResult = await auditFinanceApproval({
       approvalCode: item.code,
       action,
       comment: action === 2 ? '审批中心快捷处理' : ''
     })
   } else if (item.type === 'resignation') {
-    await auditResignationApproval({
+    auditResult = await auditResignationApproval({
       resignationCode: item.code,
       action,
       comment: action === 2 ? '审批中心快捷处理' : ''
     })
   } else if (item.type === 'quality') {
-    await auditQualityApproval({
+    auditResult = await auditQualityApproval({
       defectiveId: item.code,
       action,
       comment: action === 2 ? '审批中心快捷驳回' : ''
     })
   } else {
-    await auditOrderApproval({
+    auditResult = await auditOrderApproval({
       orderType: item.orderType || item.raw?.orderType,
       orderId: item.code,
       action,
       comment: action === 1 ? orderAuditActionText(item) : ''
     })
   }
-  ElMessage.success(item.type === 'order' ? orderAuditSuccessText(item) : (item.type === 'quality' ? (action === 1 ? '质量审核已通过' : '质量审核已驳回') : (action === 1 ? '审批已通过' : '审批已拒绝')))
+  ElMessage.success(resolveAuditResultText(item, action, auditResult))
   notifyApprovalChanged()
   await refreshAll()
 }
@@ -1334,39 +1341,40 @@ const submitAudit = async (action) => {
   if (!(await confirmSalesOrderProductionLocation(detailData.value, action))) {
     return
   }
+  let auditResult = null
   if (detailData.value.type === 'leave') {
-    await auditLeaveApproval({
+    auditResult = await auditLeaveApproval({
       leaveCode: detailData.value.code,
       action,
       comment: auditComment.value
     })
   } else if (detailData.value.type === 'finance') {
-    await auditFinanceApproval({
+    auditResult = await auditFinanceApproval({
       approvalCode: detailData.value.code,
       action,
       comment: auditComment.value
     })
   } else if (detailData.value.type === 'resignation') {
-    await auditResignationApproval({
+    auditResult = await auditResignationApproval({
       resignationCode: detailData.value.code,
       action,
       comment: auditComment.value
     })
   } else if (detailData.value.type === 'quality') {
-    await auditQualityApproval({
+    auditResult = await auditQualityApproval({
       defectiveId: detailData.value.code,
       action,
       comment: auditComment.value
     })
   } else {
-    await auditOrderApproval({
+    auditResult = await auditOrderApproval({
       orderType: detailData.value.orderType,
       orderId: detailData.value.code,
       action,
       comment: auditComment.value
     })
   }
-  ElMessage.success(detailData.value.type === 'order' ? orderAuditSuccessText(detailData.value) : (detailData.value.type === 'quality' ? (action === 1 ? '质量审核已通过' : '质量审核已驳回') : (action === 1 ? '审批已提交' : '已驳回申请')))
+  ElMessage.success(resolveAuditResultText(detailData.value, action, auditResult))
   detailVisible.value = false
   notifyApprovalChanged()
   await refreshAll()
@@ -1380,6 +1388,17 @@ const orderAuditActionText = (item) => {
 const orderAuditSuccessText = (item) => {
   const text = item?.statusText || item?.raw?.statusText || ''
   return text.includes('生产') || text.includes('履约') ? '已通过流转审批' : '订单已确认'
+}
+
+const resolveAuditResultText = (item, action, result) => {
+  if (result?.message) return result.message
+  if (item?.type === 'order') {
+    return Number(action) === 1 ? orderAuditSuccessText(item) : '订单审批已驳回'
+  }
+  if (item?.type === 'quality') {
+    return Number(action) === 1 ? '质量审核已通过' : '质量审核已驳回'
+  }
+  return Number(action) === 1 ? '审批已通过' : '审批已拒绝'
 }
 
 const resetFinanceForm = () => {

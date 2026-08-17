@@ -79,6 +79,71 @@ class ApprovalAuditorCandidateServiceTest {
     }
 
     @Test
+    void orModeApprovesAsSoonAsOneAuditorApproves() {
+        ApprovalAuditorCandidate first = candidate(1L, "tenant-a", 11L, 1, 0);
+        ApprovalAuditorCandidate second = candidate(2L, "tenant-a", 12L, 1, 0);
+        first.setApprovalMode("OR");
+        second.setApprovalMode("OR");
+        ApprovalAuditorCandidate approved = candidate(1L, "tenant-a", 11L, 1, 1);
+        ApprovalAuditorCandidate pending = candidate(2L, "tenant-a", 12L, 1, 0);
+        approved.setApprovalMode("OR");
+        pending.setApprovalMode("OR");
+        when(mapper.selectApprovalForUpdate("tenant-a", "ORDER", "sales:SO-100"))
+                .thenReturn(List.of(first, second), List.of(approved, pending));
+        when(mapper.updatePendingDecision(
+                eq("tenant-a"), eq("ORDER"), eq("sales:SO-100"), eq(11L), eq(1), eq("ok"), any(LocalDateTime.class)))
+                .thenReturn(1);
+
+        ApprovalAuditorCandidateService.ApprovalDecision result = subject.recordDecision(
+                "tenant-a", "ORDER", "sales:SO-100", 11L, true, "ok");
+
+        assertEquals(ApprovalAuditorCandidateService.ApprovalDecision.APPROVED, result);
+    }
+
+    @Test
+    void orModeKeepsWaitingAfterOneAuditorRejects() {
+        ApprovalAuditorCandidate first = candidate(1L, "tenant-a", 11L, 1, 0);
+        ApprovalAuditorCandidate second = candidate(2L, "tenant-a", 12L, 1, 0);
+        first.setApprovalMode("OR");
+        second.setApprovalMode("OR");
+        ApprovalAuditorCandidate rejected = candidate(1L, "tenant-a", 11L, 1, 2);
+        ApprovalAuditorCandidate pending = candidate(2L, "tenant-a", 12L, 1, 0);
+        rejected.setApprovalMode("OR");
+        pending.setApprovalMode("OR");
+        when(mapper.selectApprovalForUpdate("tenant-a", "ORDER", "sales:SO-100"))
+                .thenReturn(List.of(first, second), List.of(rejected, pending));
+        when(mapper.updatePendingDecision(
+                eq("tenant-a"), eq("ORDER"), eq("sales:SO-100"), eq(11L), eq(2), eq("no"), any(LocalDateTime.class)))
+                .thenReturn(1);
+
+        ApprovalAuditorCandidateService.ApprovalDecision result = subject.recordDecision(
+                "tenant-a", "ORDER", "sales:SO-100", 11L, false, "no");
+
+        assertEquals(ApprovalAuditorCandidateService.ApprovalDecision.PENDING, result);
+    }
+
+    @Test
+    void orModeRejectsOnlyAfterAllAuditorsReject() {
+        ApprovalAuditorCandidate first = candidate(1L, "tenant-a", 11L, 1, 2);
+        ApprovalAuditorCandidate second = candidate(2L, "tenant-a", 12L, 1, 0);
+        ApprovalAuditorCandidate rejectedFirst = candidate(1L, "tenant-a", 11L, 1, 2);
+        ApprovalAuditorCandidate rejectedSecond = candidate(2L, "tenant-a", 12L, 1, 2);
+        for (ApprovalAuditorCandidate candidate : List.of(first, second, rejectedFirst, rejectedSecond)) {
+            candidate.setApprovalMode("OR");
+        }
+        when(mapper.selectApprovalForUpdate("tenant-a", "ORDER", "sales:SO-100"))
+                .thenReturn(List.of(first, second), List.of(rejectedFirst, rejectedSecond));
+        when(mapper.updatePendingDecision(
+                eq("tenant-a"), eq("ORDER"), eq("sales:SO-100"), eq(12L), eq(2), eq("no"), any(LocalDateTime.class)))
+                .thenReturn(1);
+
+        ApprovalAuditorCandidateService.ApprovalDecision result = subject.recordDecision(
+                "tenant-a", "ORDER", "sales:SO-100", 12L, false, "no");
+
+        assertEquals(ApprovalAuditorCandidateService.ApprovalDecision.REJECTED, result);
+    }
+
+    @Test
     void anyRejectedDecisionWinsOverPendingAndApproval() {
         when(mapper.selectApprovalForUpdate("tenant-a", "ORDER", "production:PO-100"))
                 .thenReturn(

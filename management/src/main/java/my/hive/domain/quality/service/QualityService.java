@@ -253,7 +253,8 @@ public class QualityService {
                 PermissionCatalogV3.CODE_QUALITY_AUDIT,
                 false);
         approvalAuditorCandidateService.replaceActiveCandidates(
-                entity.getTenantCode(), APPROVAL_TYPE_QUALITY, qualityApprovalCode(entity.getDefectiveId()), normalizeApprovalAuditorIds(auditorIds));
+                entity.getTenantCode(), APPROVAL_TYPE_QUALITY, qualityApprovalCode(entity.getDefectiveId()), normalizeApprovalAuditorIds(auditorIds),
+                approvalDefaultAuditorService.resolveApprovalMode(entity.getTenantCode(), APPROVAL_TYPE_QUALITY));
     }
 
     @Transactional(rollbackFor = Exception.class)

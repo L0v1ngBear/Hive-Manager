@@ -35,6 +35,8 @@ public class ApprovalAuditorCandidateService {
     public static final int AUDIT_STATUS_PENDING = 0;
     public static final int AUDIT_STATUS_APPROVED = 1;
     public static final int AUDIT_STATUS_REJECTED = 2;
+    public static final String APPROVAL_MODE_AND = "AND";
+    public static final String APPROVAL_MODE_OR = "OR";
 
     @Resource
     private ApprovalAuditorCandidateMapper approvalAuditorCandidateMapper;
@@ -204,14 +206,27 @@ public class ApprovalAuditorCandidateService {
         if (active.isEmpty()) {
             throw new BusinessException("审批流程已结束，不能继续处理");
         }
-        if (active.stream().anyMatch(candidate -> AUDIT_STATUS_REJECTED == valueOrDefault(candidate.getAuditStatus()))) {
-            return ApprovalDecision.REJECTED;
-        }
-        if (active.stream().anyMatch(candidate -> AUDIT_STATUS_PENDING == valueOrDefault(candidate.getAuditStatus()))) {
-            return ApprovalDecision.PENDING;
-        }
-        if (active.stream().allMatch(candidate -> AUDIT_STATUS_APPROVED == valueOrDefault(candidate.getAuditStatus()))) {
-            return ApprovalDecision.APPROVED;
+        String approvalMode = resolveApprovalMode(active);
+        if (APPROVAL_MODE_OR.equals(approvalMode)) {
+            if (active.stream().anyMatch(candidate -> AUDIT_STATUS_APPROVED == valueOrDefault(candidate.getAuditStatus()))) {
+                return ApprovalDecision.APPROVED;
+            }
+            if (active.stream().anyMatch(candidate -> AUDIT_STATUS_PENDING == valueOrDefault(candidate.getAuditStatus()))) {
+                return ApprovalDecision.PENDING;
+            }
+            if (active.stream().allMatch(candidate -> AUDIT_STATUS_REJECTED == valueOrDefault(candidate.getAuditStatus()))) {
+                return ApprovalDecision.REJECTED;
+            }
+        } else {
+            if (active.stream().anyMatch(candidate -> AUDIT_STATUS_REJECTED == valueOrDefault(candidate.getAuditStatus()))) {
+                return ApprovalDecision.REJECTED;
+            }
+            if (active.stream().anyMatch(candidate -> AUDIT_STATUS_PENDING == valueOrDefault(candidate.getAuditStatus()))) {
+                return ApprovalDecision.PENDING;
+            }
+            if (active.stream().allMatch(candidate -> AUDIT_STATUS_APPROVED == valueOrDefault(candidate.getAuditStatus()))) {
+                return ApprovalDecision.APPROVED;
+            }
         }
         throw new BusinessException("审批候选人状态不合法");
     }
@@ -244,6 +259,14 @@ public class ApprovalAuditorCandidateService {
     }
 
     public void replaceActiveCandidates(String tenantCode, String approvalType, String approvalCode, List<Long> auditorIds) {
+        replaceActiveCandidates(tenantCode, approvalType, approvalCode, auditorIds, APPROVAL_MODE_AND);
+    }
+
+    public void replaceActiveCandidates(String tenantCode,
+                                        String approvalType,
+                                        String approvalCode,
+                                        List<Long> auditorIds,
+                                        String approvalMode) {
         closeActiveCandidates(tenantCode, approvalType, approvalCode);
         if (!StringUtils.hasText(tenantCode) || !StringUtils.hasText(approvalType)
                 || !StringUtils.hasText(approvalCode) || auditorIds == null || auditorIds.isEmpty()) {
@@ -260,12 +283,28 @@ public class ApprovalAuditorCandidateService {
             candidate.setApprovalType(approvalType);
             candidate.setApprovalCode(approvalCode);
             candidate.setAuditorId(auditorId);
+            candidate.setApprovalMode(normalizeApprovalMode(approvalMode));
             candidate.setStatus(STATUS_ACTIVE);
             candidate.setAuditStatus(AUDIT_STATUS_PENDING);
             candidate.setCreateTime(now);
             candidate.setUpdateTime(now);
             approvalAuditorCandidateMapper.insert(candidate);
         }
+    }
+
+    private String resolveApprovalMode(List<ApprovalAuditorCandidate> active) {
+        return active.stream()
+                .map(ApprovalAuditorCandidate::getApprovalMode)
+                .filter(StringUtils::hasText)
+                .map(this::normalizeApprovalMode)
+                .findFirst()
+                .orElse(APPROVAL_MODE_AND);
+    }
+
+    private String normalizeApprovalMode(String approvalMode) {
+        return APPROVAL_MODE_OR.equalsIgnoreCase(approvalMode == null ? "" : approvalMode.trim())
+                ? APPROVAL_MODE_OR
+                : APPROVAL_MODE_AND;
     }
 
     public void closeActiveCandidates(String tenantCode, String approvalType, String approvalCode) {

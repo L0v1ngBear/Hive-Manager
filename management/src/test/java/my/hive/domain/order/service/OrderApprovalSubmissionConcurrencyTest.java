@@ -81,6 +81,7 @@ class OrderApprovalSubmissionConcurrencyTest {
         ReflectionTestUtils.setField(subject, "orderWarningCacheService", orderWarningCacheService);
         ReflectionTestUtils.setField(subject, "approvalAuditorCandidateService", approvalAuditorCandidateService);
         ReflectionTestUtils.setField(subject, "approvalDefaultAuditorService", approvalDefaultAuditorService);
+        lenient().when(approvalDefaultAuditorService.resolveApprovalMode(anyString(), anyString())).thenReturn("AND");
         ReflectionTestUtils.setField(subject, "orderShipmentService", orderShipmentService);
         lenient().when(orderShipmentService.listShipments(anyString(), eq("SO-100")))
                 .thenReturn(List.of(persistedShipment()));
@@ -118,7 +119,7 @@ class OrderApprovalSubmissionConcurrencyTest {
             approvalCreated.countDown();
             return null;
         }).when(approvalAuditorCandidateService).replaceActiveCandidates(
-                anyString(), eq("ORDER"), eq("sales:SO-100"), any());
+                anyString(), eq("ORDER"), eq("sales:SO-100"), any(), eq("AND"));
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
@@ -141,7 +142,7 @@ class OrderApprovalSubmissionConcurrencyTest {
             }
             verify(salesOrderMapper, times(1)).updateById(order);
             verify(approvalAuditorCandidateService, times(1)).replaceActiveCandidates(
-                    anyString(), eq("ORDER"), eq("sales:SO-100"), any());
+                    anyString(), eq("ORDER"), eq("sales:SO-100"), any(), eq("AND"));
         } finally {
             executor.shutdownNow();
         }
@@ -165,7 +166,7 @@ class OrderApprovalSubmissionConcurrencyTest {
             activeCandidates.put(approvalKey(invocation.getArgument(0)), invocation.getArgument(3));
             return null;
         }).when(approvalAuditorCandidateService).replaceActiveCandidates(
-                anyString(), eq("ORDER"), eq("sales:SO-100"), any());
+                anyString(), eq("ORDER"), eq("sales:SO-100"), any(), eq("AND"));
 
         assertNull(submit("tenant-a", shipmentRequest("A carrier", "A-1", 2L), new CountDownLatch(0)));
         assertNull(submit("tenant-b", shipmentRequest("B carrier", "B-1", 3L), new CountDownLatch(0)));
