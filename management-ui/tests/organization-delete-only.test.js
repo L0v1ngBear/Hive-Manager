@@ -42,6 +42,6 @@ test('organization saves always reactivate records and delete accepts manage per
 test('migration reactivates historic non-deleted organization records', () => {
   assert.match(migration, /UPDATE `emp_department`[\s\S]*?SET `status` = 1[\s\S]*?WHERE `is_deleted` = 0/)
   assert.match(migration, /UPDATE `emp_position`[\s\S]*?SET `status` = 1[\s\S]*?WHERE `is_deleted` = 0/)
-  assert.match(manifest, /migrations\/V20260731_001_organization_delete_only\.sql\s*$/)
+  assert.match(manifest, /^migrations\/V20260731_001_organization_delete_only\.sql$/m)
   assert.match(checksums, /194ed405d8887b177b5f5dea281fb1562d41b981999a1eaacae6ac3b50315bb6\s+migrations\/V20260731_001_organization_delete_only\.sql/)
 })
