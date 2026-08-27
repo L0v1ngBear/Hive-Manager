@@ -16,13 +16,12 @@ test('notification panel uses a wrapping card layout instead of an Element butto
   assert.doesNotMatch(navbar, /<el-button text class="h-auto w-full justify-start p-0 text-left"/)
 })
 
-test('notifications synchronize automatically on session readiness, popover open, focus and business changes', () => {
+test('notifications synchronize only on an explicit popover open or business changes without polling', () => {
   assert.match(navbar, /handleNotificationShow\(\)[\s\S]*?refreshNotifications\(true, false\)/)
   assert.match(navbar, /listenApprovalChanged\(refreshNotificationsInBackground\)/)
   assert.match(navbar, /listenOrderWarningChanged\(refreshNotificationsInBackground\)/)
-  assert.match(navbar, /window\.addEventListener\('focus', refreshNotificationsInBackground\)/)
-  assert.match(navbar, /window\.setInterval\(refreshNotificationListInBackground, 30000\)/)
-  assert.match(navbar, /\(\) => \[userStore\.currentTenantCode, userStore\.permissions\]/)
-  assert.match(navbar, /refreshNotifications\(true, false\)/)
+  assert.doesNotMatch(navbar, /window\.addEventListener\('focus', refreshNotificationsInBackground\)/)
+  assert.doesNotMatch(navbar, /window\.setInterval\(refreshNotificationListInBackground/)
+  assert.doesNotMatch(navbar, /\(\) => \[userStore\.currentTenantCode, userStore\.permissions\]/)
   assert.match(navbar, /const notificationsLoading = ref\(false\)/)
 })

@@ -110,6 +110,7 @@ public class PriceService {
         stats.setAveragePrice(nvl(stats.getAveragePrice()));
         stats.setPendingCount(nvl(stats.getPendingCount()));
         Long overrideCount = priceCustomerOverrideMapper.selectCount(new LambdaQueryWrapper<PriceCustomerOverride>()
+                .eq(PriceCustomerOverride::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(PriceCustomerOverride::getIsDeleted, 0));
         stats.setOverrideCount(nvl(overrideCount));
         return stats;
@@ -118,9 +119,13 @@ public class PriceService {
     @Transactional(rollbackFor = Exception.class)
     public Long publish(@Valid PricePublishRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
-        PriceSku sku = request.getId() == null ? null : priceSkuMapper.selectById(request.getId());
+        PriceSku sku = request.getId() == null ? null : priceSkuMapper.selectOne(new LambdaQueryWrapper<PriceSku>()
+                .eq(PriceSku::getTenantCode, tenantCode)
+                .eq(PriceSku::getId, request.getId())
+                .last("LIMIT 1"));
         if (sku == null) {
             sku = priceSkuMapper.selectOne(new LambdaQueryWrapper<PriceSku>()
+                    .eq(PriceSku::getTenantCode, tenantCode)
                     .eq(PriceSku::getModelCode, request.getModelCode())
                     .eq(PriceSku::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                     .last("LIMIT 1"));
@@ -165,6 +170,7 @@ public class PriceService {
         PriceDetailVO detail = new PriceDetailVO();
         BeanUtils.copyProperties(toSkuVO(sku), detail);
         detail.setTierPrices(priceTierPriceMapper.selectList(new LambdaQueryWrapper<PriceTierPrice>()
+                        .eq(PriceTierPrice::getTenantCode, sku.getTenantCode())
                         .eq(PriceTierPrice::getSkuId, id)
                         .eq(PriceTierPrice::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                         .orderByAsc(PriceTierPrice::getTierCode))
@@ -172,6 +178,7 @@ public class PriceService {
                 .map(item -> toTierVO(item, sku.getBasePrice()))
                 .toList());
         detail.setOverrides(priceCustomerOverrideMapper.selectList(new LambdaQueryWrapper<PriceCustomerOverride>()
+                        .eq(PriceCustomerOverride::getTenantCode, sku.getTenantCode())
                         .eq(PriceCustomerOverride::getSkuId, id)
                         .eq(PriceCustomerOverride::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                         .orderByDesc(PriceCustomerOverride::getId))
@@ -179,6 +186,7 @@ public class PriceService {
                 .map(this::toOverrideVO)
                 .toList());
         detail.setLogs(priceChangeLogMapper.selectList(new LambdaQueryWrapper<PriceChangeLog>()
+                        .eq(PriceChangeLog::getTenantCode, sku.getTenantCode())
                         .eq(PriceChangeLog::getSkuId, id)
                         .orderByDesc(PriceChangeLog::getCreateTime)
                         .last("LIMIT 20"))
@@ -197,6 +205,7 @@ public class PriceService {
 
     public List<CustomerOptionVO> customerOptions(String keyword) {
         LambdaQueryWrapper<Customer> wrapper = new LambdaQueryWrapper<Customer>()
+                .eq(Customer::getTenantCode, TenantPermissionContext.getTenantCode())
                 .orderByDesc(Customer::getId)
                 .last("LIMIT 50");
         if (StringUtils.hasText(keyword)) {
@@ -332,7 +341,13 @@ public class PriceService {
             if (row.getCustomerId() == null || row.getPrice() == null) {
                 continue;
             }
-            Customer customer = customerMapper.selectById(row.getCustomerId());
+            Customer customer = customerMapper.selectOne(new LambdaQueryWrapper<Customer>()
+                    .eq(Customer::getTenantCode, TenantPermissionContext.getTenantCode())
+                    .eq(Customer::getId, row.getCustomerId())
+                    .last("LIMIT 1"));
+            if (customer == null) {
+                throw new BusinessException("客户不存在");
+            }
             PriceCustomerOverride entity = new PriceCustomerOverride();
             entity.setTenantCode(TenantPermissionContext.getTenantCode());
             entity.setSkuId(skuId);
@@ -345,8 +360,13 @@ public class PriceService {
     }
 
     private void clearMatrix(Long skuId) {
-        priceTierPriceMapper.delete(new LambdaQueryWrapper<PriceTierPrice>().eq(PriceTierPrice::getSkuId, skuId));
-        priceCustomerOverrideMapper.delete(new LambdaQueryWrapper<PriceCustomerOverride>().eq(PriceCustomerOverride::getSkuId, skuId));
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        priceTierPriceMapper.delete(new LambdaQueryWrapper<PriceTierPrice>()
+                .eq(PriceTierPrice::getTenantCode, tenantCode)
+                .eq(PriceTierPrice::getSkuId, skuId));
+        priceCustomerOverrideMapper.delete(new LambdaQueryWrapper<PriceCustomerOverride>()
+                .eq(PriceCustomerOverride::getTenantCode, tenantCode)
+                .eq(PriceCustomerOverride::getSkuId, skuId));
     }
 
     private void insertLog(PriceSku sku, BigDecimal oldPrice, BigDecimal newPrice, String remark) {
@@ -362,7 +382,10 @@ public class PriceService {
     }
 
     private PriceSku requireSku(Long id) {
-        PriceSku sku = priceSkuMapper.selectById(id);
+        PriceSku sku = priceSkuMapper.selectOne(new LambdaQueryWrapper<PriceSku>()
+                .eq(PriceSku::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(PriceSku::getId, id)
+                .last("LIMIT 1"));
         if (sku == null || !Objects.equals(sku.getTenantCode(), TenantPermissionContext.getTenantCode()) || DeleteFlagEnum.isDeleted(sku.getIsDeleted())) {
             throw new BusinessException("价格记录不存在");
         }
@@ -445,7 +468,8 @@ public class PriceService {
             request = new PricePageRequest();
         }
         LambdaQueryWrapper<PriceSku> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PriceSku::getIsDeleted, 0)
+        wrapper.eq(PriceSku::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(PriceSku::getIsDeleted, 0)
                 .orderByDesc(PriceSku::getUpdateTime);
         // 分类字段已下线，这里只保留关键词和状态两个有效筛选入口。
         if (StringUtils.hasText(request.getKeyword())) {

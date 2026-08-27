@@ -209,6 +209,12 @@ export const constantRoutes = [
         meta: { title: '安装任务', permissions: ['installation:list'], features: ['module.order'] }
       },
       {
+        path: 'after-sales',
+        name: 'AfterSales',
+        component: () => import('@/views/function/afterSales/afterSales.vue'),
+        meta: { title: '售后管理', permissions: ['after_sales:list'], features: ['module.afterSales'] }
+      },
+      {
         path: 'bad-product',
         name: 'BadProduct',
         component: () => import('@/views/function/badProduct/badProduct.vue'),

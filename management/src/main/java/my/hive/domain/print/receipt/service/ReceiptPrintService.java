@@ -78,6 +78,7 @@ public class ReceiptPrintService {
     public OutboundPrintDetailVO detail(String orderNo) {
         OutboundOrder order = requireOrder(orderNo);
         List<OutboundItem> items = outboundItemMapper.selectList(new LambdaQueryWrapper<OutboundItem>()
+                .eq(OutboundItem::getTenantCode, order.getTenantCode())
                 .eq(OutboundItem::getOrderId, order.getId())
                 .orderByAsc(OutboundItem::getId));
 
@@ -120,6 +121,7 @@ public class ReceiptPrintService {
         }
         String tenantCode = TenantPermissionContext.getTenantCode();
         OutboundOrder order = outboundOrderMapper.selectOne(new LambdaQueryWrapper<OutboundOrder>()
+                .eq(OutboundOrder::getTenantCode, tenantCode)
                 .eq(OutboundOrder::getId, request.getId())
                 .eq(OutboundOrder::getOrderStatus, 1)
                 .eq(OutboundOrder::getPrintStatus, 0)
@@ -137,7 +139,10 @@ public class ReceiptPrintService {
                 throw new BusinessException("录单日期不能晚于当前日期");
             }
             order.setPrintDate(printDate);
-            outboundOrderMapper.updateById(order);
+            int updated = outboundOrderMapper.update(order, pendingPrintUpdateCondition(tenantCode, order));
+            if (updated != 1) {
+                throw new BusinessException("出库单已被打印或被其他操作更新，请刷新后重试");
+            }
             OperationLogSkipContext.skipCurrent();
             return detail(order.getOrderNo());
         }
@@ -154,9 +159,14 @@ public class ReceiptPrintService {
         order.setPrintOperatorName(optionalText("制单人", request.getOperator(), 64));
         order.setLogisticsCompany(optionalText("物流公司", request.getLogisticsCompany(), 64));
         order.setLogisticsNo(optionalText("物流单号", request.getLogisticsNo(), 128));
-        order.setPrintEditCount((order.getPrintEditCount() == null ? 0 : order.getPrintEditCount()) + 1);
+        int previousEditCount = order.getPrintEditCount() == null ? 0 : order.getPrintEditCount();
+        order.setPrintEditCount(previousEditCount + 1);
         order.setUpdateTime(LocalDateTime.now());
-        outboundOrderMapper.updateById(order);
+        LambdaUpdateWrapper<OutboundOrder> updateCondition = pendingPrintUpdateCondition(tenantCode, order)
+                .eq(OutboundOrder::getPrintEditCount, previousEditCount);
+        if (outboundOrderMapper.update(order, updateCondition) != 1) {
+            throw new BusinessException("出库单已被打印或被其他操作更新，请刷新后重试");
+        }
 
         savePrintItems(tenantCode, order.getId(), itemRequests);
         OutboundPrintDetailVO after = detail(order.getOrderNo());
@@ -185,6 +195,7 @@ public class ReceiptPrintService {
 
     private void updateStatus(String orderNo, Integer orderStatus, Integer printStatus, String errorMsg) {
         LambdaUpdateWrapper<OutboundOrder> wrapper = new LambdaUpdateWrapper<OutboundOrder>()
+                .eq(OutboundOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(OutboundOrder::getOrderNo, orderNo)
                 .eq(OutboundOrder::getOrderStatus, 1)
                 .eq(OutboundOrder::getPrintStatus, 0)
@@ -197,8 +208,17 @@ public class ReceiptPrintService {
         }
     }
 
+    private LambdaUpdateWrapper<OutboundOrder> pendingPrintUpdateCondition(String tenantCode, OutboundOrder order) {
+        return new LambdaUpdateWrapper<OutboundOrder>()
+                .eq(OutboundOrder::getTenantCode, tenantCode)
+                .eq(OutboundOrder::getId, order.getId())
+                .eq(OutboundOrder::getOrderStatus, 1)
+                .eq(OutboundOrder::getPrintStatus, 0);
+    }
+
     private OutboundOrder requireOrder(String orderNo) {
         OutboundOrder order = outboundOrderMapper.selectOne(new LambdaQueryWrapper<OutboundOrder>()
+                .eq(OutboundOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(OutboundOrder::getOrderNo, orderNo)
                 .eq(OutboundOrder::getOrderStatus, 1)
                 .eq(OutboundOrder::getPrintStatus, 0)
@@ -211,6 +231,7 @@ public class ReceiptPrintService {
 
     private void ensureOrderNoAvailable(String tenantCode, Long currentOrderId, String orderNo) {
         Long count = outboundOrderMapper.selectCount(new LambdaQueryWrapper<OutboundOrder>()
+                .eq(OutboundOrder::getTenantCode, tenantCode)
                 .eq(OutboundOrder::getOrderNo, orderNo)
                 .ne(OutboundOrder::getId, currentOrderId));
         if (count != null && count > 0) {
@@ -258,6 +279,7 @@ public class ReceiptPrintService {
 
     private void savePrintItems(String tenantCode, Long orderId, List<OutboundPrintItemUpdateRequest> itemRequests) {
         List<OutboundItem> currentItems = outboundItemMapper.selectList(new LambdaQueryWrapper<OutboundItem>()
+                .eq(OutboundItem::getTenantCode, tenantCode)
                 .eq(OutboundItem::getOrderId, orderId)
                 .orderByAsc(OutboundItem::getId));
         Map<Long, OutboundItem> currentItemMap = new HashMap<>();
@@ -298,6 +320,7 @@ public class ReceiptPrintService {
         for (OutboundItem item : currentItems) {
             if (!keptIds.contains(item.getId())) {
                 outboundItemMapper.delete(new LambdaQueryWrapper<OutboundItem>()
+                        .eq(OutboundItem::getTenantCode, tenantCode)
                         .eq(OutboundItem::getOrderId, orderId)
                         .eq(OutboundItem::getId, item.getId()));
             }

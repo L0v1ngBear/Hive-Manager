@@ -5,6 +5,7 @@ import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
 import my.hive.shared.enums.BinaryFlagEnum;
 import my.hive.shared.enums.CommonStatusEnum;
+import my.hive.shared.security.InternalUploadUrlValidator;
 import my.hive.domain.notification.mapper.EnterpriseAnnouncementMapper;
 import my.hive.domain.notification.model.dto.AnnouncementPublishRequest;
 import my.hive.domain.notification.model.entity.EnterpriseAnnouncement;
@@ -63,7 +64,8 @@ public class EnterpriseAnnouncementService {
         }
 
         EnterpriseAnnouncement announcement = new EnterpriseAnnouncement();
-        announcement.setTenantCode(TenantPermissionContext.getTenantCode());
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        announcement.setTenantCode(tenantCode);
         announcement.setAnnouncementCode("ANNOUNCEMENT:" + UUID.randomUUID());
         announcement.setTitle(limit(title, ANNOUNCEMENT_TITLE_LIMIT));
         announcement.setContent(limit(content, ANNOUNCEMENT_CONTENT_LIMIT));
@@ -71,7 +73,8 @@ public class EnterpriseAnnouncementService {
         announcement.setRoute(ANNOUNCEMENT_ROUTE);
         announcement.setStatus(CommonStatusEnum.ENABLED.getCode());
         announcement.setPublisherUserId(TenantPermissionContext.getUserId());
-        String attachmentUrl = normalizeText(request == null ? null : request.getAttachmentUrl());
+        String attachmentUrl = InternalUploadUrlValidator.normalizeOptionalModuleAttachment(
+                request == null ? null : request.getAttachmentUrl(), tenantCode, "announcement");
         if (attachmentUrl != null) {
             String attachmentName = normalizeText(request.getAttachmentName());
             announcement.setAttachmentName(limit(

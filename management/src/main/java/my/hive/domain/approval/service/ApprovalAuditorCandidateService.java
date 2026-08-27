@@ -47,6 +47,7 @@ public class ApprovalAuditorCandidateService {
         }
         List<ApprovalAuditorCandidate> rows = approvalAuditorCandidateMapper.selectList(
                 new LambdaQueryWrapper<ApprovalAuditorCandidate>()
+                        .eq(ApprovalAuditorCandidate::getTenantCode, tenantCode)
                         .eq(ApprovalAuditorCandidate::getApprovalType, approvalType)
                         .eq(ApprovalAuditorCandidate::getApprovalCode, approvalCode)
                         .eq(ApprovalAuditorCandidate::getStatus, STATUS_ACTIVE)
@@ -69,6 +70,7 @@ public class ApprovalAuditorCandidateService {
         }
         List<ApprovalAuditorCandidate> rows = approvalAuditorCandidateMapper.selectList(
                 new LambdaQueryWrapper<ApprovalAuditorCandidate>()
+                        .eq(ApprovalAuditorCandidate::getTenantCode, tenantCode)
                         .eq(ApprovalAuditorCandidate::getApprovalType, approvalType)
                         .eq(ApprovalAuditorCandidate::getApprovalCode, approvalCode)
                         .eq(ApprovalAuditorCandidate::getStatus, STATUS_ACTIVE)
@@ -92,6 +94,7 @@ public class ApprovalAuditorCandidateService {
             return false;
         }
         Long count = approvalAuditorCandidateMapper.selectCount(new LambdaQueryWrapper<ApprovalAuditorCandidate>()
+                .eq(ApprovalAuditorCandidate::getTenantCode, tenantCode)
                 .eq(ApprovalAuditorCandidate::getApprovalType, approvalType)
                 .eq(ApprovalAuditorCandidate::getApprovalCode, approvalCode)
                 .eq(ApprovalAuditorCandidate::getAuditorId, auditorId)
@@ -105,6 +108,7 @@ public class ApprovalAuditorCandidateService {
             return 0L;
         }
         Long count = approvalAuditorCandidateMapper.selectCount(new LambdaQueryWrapper<ApprovalAuditorCandidate>()
+                .eq(ApprovalAuditorCandidate::getTenantCode, tenantCode)
                 .eq(ApprovalAuditorCandidate::getApprovalType, approvalType)
                 .eq(ApprovalAuditorCandidate::getAuditorId, auditorId)
                 .eq(ApprovalAuditorCandidate::getStatus, STATUS_ACTIVE)
@@ -118,6 +122,7 @@ public class ApprovalAuditorCandidateService {
         }
         List<ApprovalAuditorCandidate> rows = approvalAuditorCandidateMapper.selectList(
                 new LambdaQueryWrapper<ApprovalAuditorCandidate>()
+                        .eq(ApprovalAuditorCandidate::getTenantCode, tenantCode)
                         .eq(ApprovalAuditorCandidate::getApprovalType, approvalType)
                         .eq(ApprovalAuditorCandidate::getAuditorId, auditorId)
                         .eq(ApprovalAuditorCandidate::getStatus, STATUS_ACTIVE)
@@ -242,6 +247,7 @@ public class ApprovalAuditorCandidateService {
             return false;
         }
         int rows = approvalAuditorCandidateMapper.update(null, new LambdaUpdateWrapper<ApprovalAuditorCandidate>()
+                .eq(ApprovalAuditorCandidate::getTenantCode, tenantCode)
                 .eq(ApprovalAuditorCandidate::getApprovalType, approvalType)
                 .eq(ApprovalAuditorCandidate::getApprovalCode, approvalCode)
                 .eq(ApprovalAuditorCandidate::getAuditorId, auditorId)
@@ -312,6 +318,7 @@ public class ApprovalAuditorCandidateService {
             return;
         }
         approvalAuditorCandidateMapper.update(null, new LambdaUpdateWrapper<ApprovalAuditorCandidate>()
+                .eq(ApprovalAuditorCandidate::getTenantCode, tenantCode)
                 .eq(ApprovalAuditorCandidate::getApprovalType, approvalType)
                 .eq(ApprovalAuditorCandidate::getApprovalCode, approvalCode)
                 .eq(ApprovalAuditorCandidate::getStatus, STATUS_ACTIVE)

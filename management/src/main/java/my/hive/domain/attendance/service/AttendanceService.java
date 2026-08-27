@@ -344,6 +344,7 @@ public class AttendanceService {
 
     private void saveLocations(String tenantCode, boolean enableGps, List<AttendanceLocationSaveRequest> locations) {
         List<TenantAttendanceLocation> existing = tenantAttendanceLocationManageMapper.selectList(new LambdaQueryWrapper<TenantAttendanceLocation>()
+                .eq(TenantAttendanceLocation::getTenantCode, tenantCode)
                 .eq(TenantAttendanceLocation::getStatus, CommonStatusEnum.ENABLED.getCode()));
         Map<Long, TenantAttendanceLocation> existingById = existing.stream()
                 .filter(item -> item.getId() != null)

@@ -71,6 +71,7 @@ import my.hive.domain.tenant.mapper.TenantMapper;
 import my.hive.domain.tenant.model.entity.Tenant;
 import my.hive.domain.tenant.service.TenantLicenseService;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -118,6 +119,10 @@ public class AuthenticationService {
     private static final String DEFAULT_JOIN_DEPARTMENT = "待分配部门";
     private static final String DEFAULT_JOIN_POSITION = "普通员工";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final DefaultRedisScript<Long> RELEASE_SMS_SEND_LOCK_SCRIPT = new DefaultRedisScript<>(
+            "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0",
+            Long.class
+    );
 
     @Resource
     private AuthMapper authMapper;
@@ -218,25 +223,26 @@ public class AuthenticationService {
         LoginUserRow loginUser = resolvePasswordResetUser(phone, phoneHash, request.getAccount());
 
         String sendLockKey = passwordResetSendLockKey(phoneHash);
-        if (Boolean.TRUE.equals(stringRedisTemplate.hasKey(sendLockKey))) {
-            throw new BusinessException(429, "验证码发送过于频繁，请稍后再试");
-        }
-
+        String lockValue = acquireSmsSendLock(sendLockKey, PASSWORD_RESET_SEND_INTERVAL_SECONDS);
         String code = generateSmsCode();
-        boolean sent = smsVerificationService.sendCode(phone, "Hive 管理端密码重置", code, PASSWORD_RESET_CODE_EXPIRE_MINUTES);
-        if (!sent) {
-            throw new BusinessException(503, "短信服务未配置或发送失败，请联系管理员");
-        }
+        try {
+            boolean sent = smsVerificationService.sendCode(phone, "Hive 管理端密码重置", code, PASSWORD_RESET_CODE_EXPIRE_MINUTES);
+            if (!sent) {
+                throw new BusinessException(503, "短信服务未配置或发送失败，请联系管理员");
+            }
 
-        String codeValue = loginUser.getUserId() + ":" + code;
-        stringRedisTemplate.opsForValue().set(
-                passwordResetCodeKey(phoneHash),
-                codeValue,
-                PASSWORD_RESET_CODE_EXPIRE_MINUTES,
-                TimeUnit.MINUTES
-        );
-        stringRedisTemplate.opsForValue().set(sendLockKey, "1", PASSWORD_RESET_SEND_INTERVAL_SECONDS, TimeUnit.SECONDS);
-        stringRedisTemplate.delete(passwordResetFailKey(phoneHash));
+            String codeValue = loginUser.getUserId() + ":" + code;
+            stringRedisTemplate.opsForValue().set(
+                    passwordResetCodeKey(phoneHash),
+                    codeValue,
+                    PASSWORD_RESET_CODE_EXPIRE_MINUTES,
+                    TimeUnit.MINUTES
+            );
+            stringRedisTemplate.delete(passwordResetFailKey(phoneHash));
+        } catch (RuntimeException exception) {
+            releaseSmsSendLock(sendLockKey, lockValue);
+            throw exception;
+        }
     }
 
     public void sendOrganizationJoinCode(OrganizationJoinCodeSendRequest request) {
@@ -249,23 +255,24 @@ public class AuthenticationService {
         enforcePublicLimit("organization-join-sms-send", "ip", clientIp, 10);
         enforcePublicLimit("organization-join-sms-send", "phone", phoneHash, 3);
         String sendLockKey = organizationJoinSmsSendLockKey(phoneHash);
-        if (Boolean.TRUE.equals(stringRedisTemplate.hasKey(sendLockKey))) {
-            throw new BusinessException(429, "验证码发送过于频繁，请稍后再试");
-        }
-
+        String lockValue = acquireSmsSendLock(sendLockKey, ORGANIZATION_JOIN_SMS_INTERVAL_SECONDS);
         String code = generateSmsCode();
-        boolean sent = smsVerificationService.sendCode(phone, "Hive 加入组织", code, ORGANIZATION_JOIN_SMS_EXPIRE_MINUTES);
-        if (!sent) {
-            throw new BusinessException(503, "短信服务未配置或发送失败，请联系管理员");
-        }
+        try {
+            boolean sent = smsVerificationService.sendCode(phone, "Hive 加入组织", code, ORGANIZATION_JOIN_SMS_EXPIRE_MINUTES);
+            if (!sent) {
+                throw new BusinessException(503, "短信服务未配置或发送失败，请联系管理员");
+            }
 
-        stringRedisTemplate.opsForValue().set(
-                organizationJoinSmsCodeKey(phoneHash),
-                code,
-                ORGANIZATION_JOIN_SMS_EXPIRE_MINUTES,
-                TimeUnit.MINUTES
-        );
-        stringRedisTemplate.opsForValue().set(sendLockKey, "1", ORGANIZATION_JOIN_SMS_INTERVAL_SECONDS, TimeUnit.SECONDS);
+            stringRedisTemplate.opsForValue().set(
+                    organizationJoinSmsCodeKey(phoneHash),
+                    code,
+                    ORGANIZATION_JOIN_SMS_EXPIRE_MINUTES,
+                    TimeUnit.MINUTES
+            );
+        } catch (RuntimeException exception) {
+            releaseSmsSendLock(sendLockKey, lockValue);
+            throw exception;
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -331,6 +338,9 @@ public class AuthenticationService {
             recordPublicSmsFailure("password-reset-sms-fail", clientIp, phoneHash);
             recordPasswordResetFail(phoneHash);
             throw new BusinessException(400, "验证码错误");
+        }
+        if (!consumeRedisValueIfMatches(passwordResetCodeKey(phoneHash), storedValue)) {
+            throw new BusinessException(400, "验证码已被使用或已过期，请重新获取");
         }
 
         int updated = authMapper.updatePasswordByUserIdAndTenantCode(
@@ -1077,6 +1087,7 @@ public class AuthenticationService {
 
     private Department getOrCreateJoinDepartment(String tenantCode) {
         Department department = departmentMapper.selectOne(new LambdaQueryWrapper<Department>()
+                .eq(Department::getTenantCode, tenantCode)
                 .eq(Department::getDeptName, DEFAULT_JOIN_DEPARTMENT)
                 .eq(Department::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .last("LIMIT 1"));
@@ -1098,6 +1109,7 @@ public class AuthenticationService {
 
     private Position getOrCreateJoinPosition(String tenantCode, Long departmentId) {
         Position position = positionMapper.selectOne(new LambdaQueryWrapper<Position>()
+                .eq(Position::getTenantCode, tenantCode)
                 .eq(Position::getPositionName, DEFAULT_JOIN_POSITION)
                 .eq(Position::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .last("LIMIT 1"));
@@ -1496,6 +1508,47 @@ public class AuthenticationService {
             return "data:image/png;base64," + Base64.getEncoder().encodeToString(outputStream.toByteArray());
         } catch (Exception exception) {
             throw new BusinessException(500, "网页扫码二维码生成失败");
+        }
+    }
+
+    private String acquireSmsSendLock(String key, long timeoutSeconds) {
+        String lockValue = UUID.randomUUID().toString();
+        Boolean acquired = stringRedisTemplate.opsForValue().setIfAbsent(
+                key,
+                lockValue,
+                Math.max(1L, timeoutSeconds),
+                TimeUnit.SECONDS
+        );
+        if (!Boolean.TRUE.equals(acquired)) {
+            throw new BusinessException(429, "验证码发送过于频繁，请稍后再试");
+        }
+        return lockValue;
+    }
+
+    private void releaseSmsSendLock(String key, String lockValue) {
+        if (!StringUtils.hasText(key) || !StringUtils.hasText(lockValue)) {
+            return;
+        }
+        try {
+            stringRedisTemplate.execute(RELEASE_SMS_SEND_LOCK_SCRIPT, List.of(key), lockValue);
+        } catch (RuntimeException ignored) {
+            // The TTL still prevents a permanently held cooldown lock when Redis is temporarily unavailable.
+        }
+    }
+
+    private boolean consumeRedisValueIfMatches(String key, String expectedValue) {
+        if (!StringUtils.hasText(key) || expectedValue == null) {
+            return false;
+        }
+        try {
+            Long consumed = stringRedisTemplate.execute(
+                    RELEASE_SMS_SEND_LOCK_SCRIPT,
+                    List.of(key),
+                    expectedValue
+            );
+            return consumed != null && consumed > 0;
+        } catch (RuntimeException exception) {
+            throw new BusinessException(503, "验证码服务暂不可用，请稍后重试");
         }
     }
 

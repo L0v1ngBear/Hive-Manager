@@ -37,13 +37,19 @@ xxl:
       port: ${XXL_JOB_EXECUTOR_PORT:9999}
 
 hive:
+  tenant:
+    # 本地演示库包含 TENANT_001 / TENANT_002；受限租户模式必须明确默认组织。
+    default-code: ${HIVE_DEFAULT_TENANT_CODE:TENANT_001}
+    allowed-codes: ${HIVE_ALLOWED_TENANT_CODES:TENANT_001,TENANT_002}
   operation-log:
     enabled: true
     recorded-modules: order,auth,organization
     collect-to-db: true
     collect-to-slf4j: true
     async-db: true
-    queue-type: rabbitmq
+    # 本地开发默认不依赖 RabbitMQ；生产环境仍由 application-prod.yaml 控制。
+    # 如本机已启动 RabbitMQ，可设置 OPERATION_LOG_QUEUE_TYPE=rabbitmq 验证消息队列链路。
+    queue-type: ${OPERATION_LOG_QUEUE_TYPE:memory}
     rabbit-exchange: hive.operation.log.exchange
     rabbit-routing-key: hive.operation.log
     rabbit-queue: hive.operation.log.queue

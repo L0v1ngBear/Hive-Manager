@@ -87,8 +87,13 @@ export function updateOrderWarningSetting(data) {
   return request({ url: '/orders/warning/setting', method: 'post', data })
 }
 
-export function getOrderWarningSummary() {
-  return request({ url: '/orders/warning/summary', method: 'get' })
+export function getOrderWarningSummary(options = {}) {
+  return request({
+    url: '/orders/warning/summary',
+    method: 'get',
+    cacheTtl: 5 * 60 * 1000,
+    ...options
+  })
 }
 
 export function refreshOrderWarningSummary() {

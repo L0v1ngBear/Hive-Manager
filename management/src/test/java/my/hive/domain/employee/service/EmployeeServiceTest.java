@@ -92,8 +92,8 @@ class EmployeeServiceTest {
         position.setPositionName("工程师");
         position.setStatus(CommonStatusEnum.ENABLED.getCode());
         position.setIsDeleted(0);
-        when(departmentMapper.selectById(10L)).thenReturn(department);
-        when(positionMapper.selectById(20L)).thenReturn(position);
+        when(departmentMapper.selectOne(any())).thenReturn(department);
+        when(positionMapper.selectOne(any())).thenReturn(position);
         when(employeeMapper.selectList(any())).thenReturn(List.of());
         when(sysUserRoleMapper.selectList(any())).thenReturn(List.of());
         when(employeeMapper.incrementPermissionVersion(TENANT_CODE, 100L)).thenReturn(1);

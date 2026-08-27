@@ -94,6 +94,28 @@ export const useUserStore = defineStore('user', () => {
     authStorage.setItem('expireAt', expireAt.value)
   }
 
+  const refreshCurrentSession = (loginData) => {
+    if (!token.value || !loginData) {
+      return
+    }
+    userInfo.value = {
+      userId: loginData.userId,
+      userName: loginData.userName,
+      tenantCode: loginData.tenantCode,
+      tenantName: loginData.tenantName,
+      tenantLogoUrl: loginData.tenantLogoUrl,
+      developer: Boolean(loginData.developer)
+    }
+    permissions.value = Array.isArray(loginData.permissions) ? loginData.permissions : []
+    features.value = Array.isArray(loginData.features) ? loginData.features : []
+    mustChangePassword.value = Boolean(loginData.mustChangePassword)
+
+    authStorage.setItem('userInfo', JSON.stringify(userInfo.value))
+    authStorage.setItem('permissions', JSON.stringify(permissions.value))
+    authStorage.setItem('features', JSON.stringify(features.value))
+    authStorage.setItem('mustChangePassword', mustChangePassword.value ? '1' : '0')
+  }
+
   const logout = () => {
     token.value = ''
     userInfo.value = null
@@ -163,6 +185,7 @@ export const useUserStore = defineStore('user', () => {
     hasAnyFeature,
     setLoginInfo,
     renewSession,
+    refreshCurrentSession,
     markPasswordChanged,
     updateTenantBrand,
     logout

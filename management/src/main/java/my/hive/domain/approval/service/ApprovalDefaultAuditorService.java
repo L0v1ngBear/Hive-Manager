@@ -31,6 +31,7 @@ public class ApprovalDefaultAuditorService {
     public static final String TYPE_RESIGNATION = "RESIGNATION";
     public static final String TYPE_ORDER = "ORDER";
     public static final String TYPE_QUALITY = "QUALITY";
+    public static final String TYPE_AFTER_SALES = "AFTER_SALES";
     public static final String MODE_AND = "AND";
     public static final String MODE_OR = "OR";
     private static final int STATUS_ACTIVE = 1;
@@ -44,7 +45,7 @@ public class ApprovalDefaultAuditorService {
 
     public List<ApprovalDefaultAuditorVO> listDefaults() {
         String tenantCode = TenantPermissionContext.getTenantCode();
-        return List.of(TYPE_ORDER, TYPE_QUALITY, TYPE_FINANCE, TYPE_LEAVE, TYPE_RESIGNATION).stream()
+        return List.of(TYPE_ORDER, TYPE_QUALITY, TYPE_AFTER_SALES, TYPE_FINANCE, TYPE_LEAVE, TYPE_RESIGNATION).stream()
                 .map(type -> toVO(tenantCode, type))
                 .toList();
     }
@@ -158,6 +159,7 @@ public class ApprovalDefaultAuditorService {
             case "RESIGNATION" -> TYPE_RESIGNATION;
             case "ORDER", "ORDER_SALES", "ORDER_PRODUCTION", "SALES", "PRODUCTION" -> TYPE_ORDER;
             case "QUALITY", "BADPRODUCT", "BAD_PRODUCT" -> TYPE_QUALITY;
+            case "AFTER_SALES", "AFTERSALES", "AFTER-SALES" -> TYPE_AFTER_SALES;
             default -> throw new BusinessException("审批类型不合法");
         };
     }
@@ -169,6 +171,7 @@ public class ApprovalDefaultAuditorService {
             case TYPE_RESIGNATION -> PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_AUDIT;
             case TYPE_ORDER -> PermissionCatalogV3.CODE_ORDER_AUDIT_SHIPMENT;
             case TYPE_QUALITY -> PermissionCatalogV3.CODE_QUALITY_AUDIT;
+            case TYPE_AFTER_SALES -> PermissionCatalogV3.CODE_AFTER_SALES_PROCESS;
             default -> throw new BusinessException("审批类型不合法");
         };
     }
@@ -204,6 +207,7 @@ public class ApprovalDefaultAuditorService {
             case TYPE_LEAVE -> "请假审批";
             case TYPE_RESIGNATION -> "离职审批";
             case TYPE_QUALITY -> "质量审核";
+            case TYPE_AFTER_SALES -> "售后审批";
             default -> type;
         };
     }
@@ -323,12 +327,22 @@ public class ApprovalDefaultAuditorService {
         }
         List<String> names = new ArrayList<>();
         for (Long auditorId : auditorIds) {
-            Employee employee = employeeMapper.selectById(auditorId);
+            Employee employee = findTenantEmployee(auditorId);
             if (employee != null && StringUtils.hasText(employee.getName())) {
                 names.add(employee.getName());
             }
         }
         return names.isEmpty() ? null : String.join("、", names);
+    }
+
+    private Employee findTenantEmployee(Long userId) {
+        if (userId == null || userId <= 0) {
+            return null;
+        }
+        return employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
+                .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(Employee::getId, userId)
+                .last("LIMIT 1"));
     }
 
     private void validateAuditorIds(Long applyUserId,

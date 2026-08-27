@@ -115,14 +115,14 @@ class OrderShipmentServiceTest {
         SalesOrderShipment existing = existingShipment(11L, 2);
         when(mapper.selectList(any())).thenReturn(List.of(existing), List.of(existing));
         when(mapper.updateShipment(eq(11L), eq("TENANT_001"), eq("SO-1"), eq(2),
-                eq("SF Express"), eq("SF-NEW"), eq(0), any(), any(), any())).thenReturn(1);
+                eq("tracked"), eq("SF Express"), eq("SF-NEW"), eq(0), any(), any(), any())).thenReturn(1);
         when(externalApiGuardService.fingerprint("SF-NEW")).thenReturn("updated-fingerprint");
 
         List<SalesOrderShipmentVO> result = service.saveShipments("TENANT_001", "SO-1",
                 List.of(request(11L, 2, "SF Express", "SF-NEW")));
 
         verify(mapper).updateShipment(eq(11L), eq("TENANT_001"), eq("SO-1"), eq(2),
-                eq("SF Express"), eq("SF-NEW"), eq(0), any(), any(), any());
+                eq("tracked"), eq("SF Express"), eq("SF-NEW"), eq(0), any(), any(), any());
         assertEquals(1, result.size());
 
         ArgumentCaptor<OperationLogEvent> eventCaptor = ArgumentCaptor.forClass(OperationLogEvent.class);
@@ -141,7 +141,7 @@ class OrderShipmentServiceTest {
 
         service.saveShipments("TENANT_001", "SO-1", List.of(request(11L, 2, "SF Express", "SF-001")));
 
-        verify(mapper, never()).updateShipment(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(mapper, never()).updateShipment(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
         verify(operationLogCollector, never()).collect(any());
     }
 
@@ -176,7 +176,7 @@ class OrderShipmentServiceTest {
                         List.of(request(11L, 2, "SF Express", "SF-001"))));
 
         assertEquals("发货记录不存在或不属于当前订单", error.getMessage());
-        verify(mapper, never()).updateShipment(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(mapper, never()).updateShipment(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -196,7 +196,7 @@ class OrderShipmentServiceTest {
     void updatesWithVersionAndRejectsConcurrentChange() {
         when(mapper.selectList(any())).thenReturn(List.of(existingShipment(11L, 2)));
         when(mapper.updateShipment(eq(11L), eq("TENANT_001"), eq("SO-1"), eq(2),
-                eq("SF Express"), eq("SF-NEW"), eq(0), any(), any(), any())).thenReturn(0);
+                eq("tracked"), eq("SF Express"), eq("SF-NEW"), eq(0), any(), any(), any())).thenReturn(0);
 
         BusinessException error = assertThrows(BusinessException.class,
                 () -> service.saveShipments("TENANT_001", "SO-1",
@@ -215,9 +215,9 @@ class OrderShipmentServiceTest {
         second.setSortOrder(1);
         when(mapper.selectList(any())).thenReturn(List.of(first, second));
         when(mapper.updateShipment(eq(11L), eq("TENANT_001"), eq("SO-1"), eq(2),
-                eq("SF Express"), eq("SF-NEW"), eq(0), any(), any(), any())).thenReturn(1);
+                eq("tracked"), eq("SF Express"), eq("SF-NEW"), eq(0), any(), any(), any())).thenReturn(1);
         when(mapper.updateShipment(eq(12L), eq("TENANT_001"), eq("SO-1"), eq(4),
-                eq("UPS"), eq("UPS-NEW"), eq(1), any(), any(), any())).thenReturn(0);
+                eq("tracked"), eq("UPS"), eq("UPS-NEW"), eq(1), any(), any(), any())).thenReturn(0);
 
         BusinessException error = assertThrows(BusinessException.class,
                 () -> service.saveShipments("TENANT_001", "SO-1", List.of(
@@ -319,7 +319,7 @@ class OrderShipmentServiceTest {
 
         assertTrue(result.isEmpty());
         verify(mapper, never()).insert(any());
-        verify(mapper, never()).updateShipment(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(mapper, never()).updateShipment(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
         verify(mapper, never()).delete(any());
         verify(operationLogCollector, never()).collect(any());
     }
@@ -330,7 +330,27 @@ class OrderShipmentServiceTest {
                 () -> service.saveShipments("TENANT_001", "SO-1",
                         List.of(request(null, null, " ", "SF-001"))));
 
-        assertEquals("物流公司和物流单号不能为空", error.getMessage());
+        assertEquals("快递物流必须填写物流公司", error.getMessage());
+    }
+
+    @Test
+    void savesNonTrackableShipmentWithoutCompanyOrWaybill() {
+        when(mapper.selectList(any())).thenReturn(List.of(), List.of(existingShipment(101L, 0)));
+        when(mapper.insert(any())).thenAnswer(invocation -> {
+            invocation.<SalesOrderShipment>getArgument(0).setId(101L);
+            return 1;
+        });
+        SalesOrderShipmentSaveRequest request = request(null, null, null, null);
+        request.setDeliveryMode("lalamove");
+
+        service.saveShipments("TENANT_001", "SO-1", List.of(request));
+
+        ArgumentCaptor<SalesOrderShipment> captor = ArgumentCaptor.forClass(SalesOrderShipment.class);
+        verify(mapper).insert(captor.capture());
+        assertEquals("lalamove", captor.getValue().getDeliveryMode());
+        assertEquals(null, captor.getValue().getLogisticsCompany());
+        assertEquals(null, captor.getValue().getTrackingNo());
+        verify(externalApiGuardService, never()).fingerprint(any());
     }
 
     private SalesOrderShipmentSaveRequest request(Long id, Integer version, String company, String trackingNo) {
@@ -339,6 +359,7 @@ class OrderShipmentServiceTest {
         request.setVersion(version);
         request.setLogisticsCompany(company);
         request.setTrackingNo(trackingNo);
+        request.setDeliveryMode("tracked");
         return request;
     }
 
@@ -349,6 +370,7 @@ class OrderShipmentServiceTest {
         shipment.setOrderId("SO-1");
         shipment.setLogisticsCompany("SF Express");
         shipment.setTrackingNo("SF-001");
+        shipment.setDeliveryMode("tracked");
         shipment.setSortOrder(0);
         shipment.setVersion(version);
         shipment.setCreator("8");

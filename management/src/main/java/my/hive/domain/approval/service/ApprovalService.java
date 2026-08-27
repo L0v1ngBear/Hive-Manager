@@ -153,16 +153,19 @@ public class ApprovalService {
         String tenantCode = TenantPermissionContext.getTenantCode();
 
         LambdaQueryWrapper<UserLeave> leavePendingWrapper = new LambdaQueryWrapper<UserLeave>()
+                .eq(UserLeave::getTenantCode, tenantCode)
                 .eq(UserLeave::getStatus, ApprovalStatusEnum.PENDING.getCode());
         appendLeaveAuditorFilter(leavePendingWrapper, userId);
         long leavePending = safeCount(leaveMapper.selectCount(leavePendingWrapper));
 
         LambdaQueryWrapper<FinanceApproval> financePendingWrapper = new LambdaQueryWrapper<FinanceApproval>()
+                .eq(FinanceApproval::getTenantCode, tenantCode)
                 .eq(FinanceApproval::getStatus, ApprovalStatusEnum.PENDING.getCode());
         appendFinanceAuditorFilter(financePendingWrapper, userId);
         long financePending = safeCount(financeApprovalMapper.selectCount(financePendingWrapper));
 
         LambdaQueryWrapper<ResignationApproval> resignationPendingWrapper = new LambdaQueryWrapper<ResignationApproval>()
+                .eq(ResignationApproval::getTenantCode, tenantCode)
                 .eq(ResignationApproval::getStatus, ApprovalStatusEnum.PENDING.getCode());
         appendResignationAuditorFilter(resignationPendingWrapper, userId);
         long resignationPending = safeCount(resignationApprovalMapper.selectCount(resignationPendingWrapper));
@@ -170,19 +173,25 @@ public class ApprovalService {
         long qualityPending = approvalAuditorCandidateService.countPendingAudits(tenantCode, APPROVAL_TYPE_QUALITY, userId);
 
         long mineTotal = safeCount(leaveMapper.selectCount(new LambdaQueryWrapper<UserLeave>()
+                .eq(UserLeave::getTenantCode, tenantCode)
                 .eq(UserLeave::getApplyUserId, userId)))
                 + safeCount(financeApprovalMapper.selectCount(new LambdaQueryWrapper<FinanceApproval>()
+                .eq(FinanceApproval::getTenantCode, tenantCode)
                 .eq(FinanceApproval::getApplyUserId, userId)))
                 + safeCount(resignationApprovalMapper.selectCount(new LambdaQueryWrapper<ResignationApproval>()
+                .eq(ResignationApproval::getTenantCode, tenantCode)
                 .eq(ResignationApproval::getApplyUserId, userId)));
 
         LambdaQueryWrapper<UserLeave> approvedLeaveWrapper = new LambdaQueryWrapper<UserLeave>()
+                .eq(UserLeave::getTenantCode, tenantCode)
                 .eq(UserLeave::getStatus, ApprovalStatusEnum.APPROVED.getCode());
         appendLeaveRelatedFilter(approvedLeaveWrapper, userId);
         LambdaQueryWrapper<FinanceApproval> approvedFinanceWrapper = new LambdaQueryWrapper<FinanceApproval>()
+                .eq(FinanceApproval::getTenantCode, tenantCode)
                 .eq(FinanceApproval::getStatus, ApprovalStatusEnum.APPROVED.getCode());
         appendFinanceRelatedFilter(approvedFinanceWrapper, userId);
         LambdaQueryWrapper<ResignationApproval> approvedResignationWrapper = new LambdaQueryWrapper<ResignationApproval>()
+                .eq(ResignationApproval::getTenantCode, tenantCode)
                 .eq(ResignationApproval::getStatus, ApprovalStatusEnum.APPROVED.getCode());
         appendResignationRelatedFilter(approvedResignationWrapper, userId);
         long approvedTotal = safeCount(leaveMapper.selectCount(approvedLeaveWrapper))
@@ -224,7 +233,8 @@ public class ApprovalService {
                 PermissionCatalogV3.CODE_APPROVAL_LEAVE_AUDIT,
                 "请假");
         Long userId = TenantPermissionContext.getUserId();
-        LambdaQueryWrapper<UserLeave> wrapper = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<UserLeave> wrapper = new LambdaQueryWrapper<UserLeave>()
+                .eq(UserLeave::getTenantCode, TenantPermissionContext.getTenantCode());
         if (status != null) {
             wrapper.eq(UserLeave::getStatus, status);
         }
@@ -246,6 +256,7 @@ public class ApprovalService {
             throw new BusinessException("提交失败：不能提交过去的请假申请");
         }
         boolean hasOverlap = leaveMapper.exists(new LambdaQueryWrapper<UserLeave>()
+                .eq(UserLeave::getTenantCode, tenantCode)
                 .eq(UserLeave::getApplyUserId, userId)
                 .ne(UserLeave::getStatus, ApprovalStatusEnum.REJECTED.getCode())
                 .and(wrapper -> wrapper
@@ -273,7 +284,7 @@ public class ApprovalService {
         UserLeave userLeave = getLeaveByCode(leaveCode);
         LeaveDetailVO vo = new LeaveDetailVO();
         BeanUtils.copyProperties(userLeave, vo);
-        Employee applyUser = employeeMapper.selectById(userLeave.getApplyUserId());
+        Employee applyUser = findTenantEmployee(userLeave.getApplyUserId());
         vo.setApplyUserName(applyUser == null ? "未知员工" : applyUser.getName());
         vo.setAuditorName(resolveAuditorNames(userLeave.getAuditorId(), userLeave.getAuditorIds()));
         return vo;
@@ -371,6 +382,7 @@ public class ApprovalService {
 
             String punchId = currentDate.format(formatter) + "_" + leave.getApplyUserId();
             AttendanceRecord record = attendanceRecordMapper.selectOne(new LambdaQueryWrapper<AttendanceRecord>()
+                    .eq(AttendanceRecord::getTenantCode, leave.getTenantCode())
                     .eq(AttendanceRecord::getPunchId, punchId));
 
             if (record == null) {
@@ -429,7 +441,8 @@ public class ApprovalService {
                 PermissionCatalogV3.CODE_APPROVAL_FINANCE_AUDIT,
                 "财务");
         Long userId = TenantPermissionContext.getUserId();
-        LambdaQueryWrapper<FinanceApproval> wrapper = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<FinanceApproval> wrapper = new LambdaQueryWrapper<FinanceApproval>()
+                .eq(FinanceApproval::getTenantCode, TenantPermissionContext.getTenantCode());
         if (status != null) {
             wrapper.eq(FinanceApproval::getStatus, status);
         }
@@ -451,7 +464,8 @@ public class ApprovalService {
                 PermissionCatalogV3.CODE_APPROVAL_RESIGNATION_AUDIT,
                 "离职");
         Long userId = TenantPermissionContext.getUserId();
-        LambdaQueryWrapper<ResignationApproval> wrapper = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<ResignationApproval> wrapper = new LambdaQueryWrapper<ResignationApproval>()
+                .eq(ResignationApproval::getTenantCode, TenantPermissionContext.getTenantCode());
         if (status != null) {
             wrapper.eq(ResignationApproval::getStatus, status);
         }
@@ -476,6 +490,7 @@ public class ApprovalService {
         }
         LinkedHashSet<String> codeSet = new LinkedHashSet<>(approvalCodes);
         return badProductMapper.selectList(new LambdaQueryWrapper<BadProductRecord>()
+                        .eq(BadProductRecord::getTenantCode, tenantCode)
                         .in(BadProductRecord::getDefectiveId, approvalCodes)
                         .orderByDesc(BadProductRecord::getUpdateTime)
                         .last("LIMIT " + safeLimit))
@@ -527,6 +542,7 @@ public class ApprovalService {
         Long currentUserId = TenantPermissionContext.getUserId();
         int safeLimit = safeApprovalListLimit(limit);
         List<OrderApprovalVO> salesRows = salesOrderMapper.selectList(new LambdaQueryWrapper<SalesOrder>()
+                        .eq(SalesOrder::getTenantCode, tenantCode)
                         .in(SalesOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM, ORDER_STATUS_PENDING_PAY,
                                 ORDER_STATUS_PENDING_SHIP, ORDER_STATUS_PENDING_CANCEL)
                         .orderByDesc(SalesOrder::getCreateTime)
@@ -536,6 +552,7 @@ public class ApprovalService {
                 .map(this::toSalesOrderApprovalVO)
                 .toList();
         List<OrderApprovalVO> productionRows = productionOrderMapper.selectList(new LambdaQueryWrapper<ProductionOrder>()
+                        .eq(ProductionOrder::getTenantCode, tenantCode)
                         .in(ProductionOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM, ORDER_STATUS_PENDING_PAY)
                         .orderByDesc(ProductionOrder::getCreateTime)
                         .last("LIMIT " + safeLimit))
@@ -691,6 +708,7 @@ public class ApprovalService {
         String tenantCode = TenantPermissionContext.getTenantCode();
 
         Long pendingCount = resignationApprovalMapper.selectCount(new LambdaQueryWrapper<ResignationApproval>()
+                .eq(ResignationApproval::getTenantCode, tenantCode)
                 .eq(ResignationApproval::getApplyUserId, userId)
                 .eq(ResignationApproval::getStatus, ApprovalStatusEnum.PENDING.getCode()));
         if (pendingCount != null && pendingCount > 0) {
@@ -858,6 +876,7 @@ public class ApprovalService {
 
     private UserLeave getLeaveByCode(String leaveCode) {
         UserLeave userLeave = leaveMapper.selectOne(new LambdaQueryWrapper<UserLeave>()
+                .eq(UserLeave::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(UserLeave::getLeaveCode, leaveCode));
         if (userLeave == null) {
             throw new BusinessException("请假单不存在");
@@ -867,6 +886,7 @@ public class ApprovalService {
 
     private FinanceApproval getFinanceByCode(String approvalCode) {
         FinanceApproval approval = financeApprovalMapper.selectOne(new LambdaQueryWrapper<FinanceApproval>()
+                .eq(FinanceApproval::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(FinanceApproval::getApprovalCode, approvalCode));
         if (approval == null) {
             throw new BusinessException("财务审批单不存在");
@@ -876,6 +896,7 @@ public class ApprovalService {
 
     private ResignationApproval getResignationByCode(String resignationCode) {
         ResignationApproval approval = resignationApprovalMapper.selectOne(new LambdaQueryWrapper<ResignationApproval>()
+                .eq(ResignationApproval::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(ResignationApproval::getResignationCode, resignationCode));
         if (approval == null) {
             throw new BusinessException("离职审批单不存在");
@@ -888,7 +909,7 @@ public class ApprovalService {
         BeanUtils.copyProperties(leave, vo);
         vo.setLeaveTypeText(leaveTypeText(leave.getLeaveType()));
         vo.setStatusText(statusText(leave.getStatus()));
-        Employee applyUser = employeeMapper.selectById(leave.getApplyUserId());
+        Employee applyUser = findTenantEmployee(leave.getApplyUserId());
         if (applyUser != null) {
             vo.setApplyUserName(applyUser.getName());
             vo.setApplyDepartmentName(applyUser.getDepartmentName());
@@ -901,7 +922,7 @@ public class ApprovalService {
         FinanceApprovalVO vo = new FinanceApprovalVO();
         BeanUtils.copyProperties(approval, vo);
         vo.setStatusText(statusText(approval.getStatus()));
-        Employee applyUser = employeeMapper.selectById(approval.getApplyUserId());
+        Employee applyUser = findTenantEmployee(approval.getApplyUserId());
         if (applyUser != null) {
             vo.setApplyUserName(applyUser.getName());
             vo.setApplyDepartmentName(applyUser.getDepartmentName());
@@ -914,7 +935,7 @@ public class ApprovalService {
         ResignationApprovalVO vo = new ResignationApprovalVO();
         BeanUtils.copyProperties(approval, vo);
         vo.setStatusText(statusText(approval.getStatus()));
-        Employee applyUser = employeeMapper.selectById(approval.getApplyUserId());
+        Employee applyUser = findTenantEmployee(approval.getApplyUserId());
         if (applyUser != null) {
             vo.setApplyUserName(applyUser.getName());
             vo.setApplyDepartmentName(applyUser.getDepartmentName());
@@ -953,6 +974,7 @@ public class ApprovalService {
             throw new BusinessException("质量编号不能为空");
         }
         BadProductRecord record = badProductMapper.selectOne(new LambdaQueryWrapper<BadProductRecord>()
+                .eq(BadProductRecord::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(BadProductRecord::getDefectiveId, defectiveId.trim())
                 .last("LIMIT 1"));
         if (record == null || !BAD_PRODUCT_STATUS_PENDING_AUDIT.equals(record.getStatus())) {
@@ -1060,6 +1082,7 @@ public class ApprovalService {
 
     private SalesOrder findPendingSalesOrder(String orderId) {
         SalesOrder order = salesOrderMapper.selectOne(new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(SalesOrder::getOrderId, orderId)
                 .in(SalesOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM, ORDER_STATUS_PENDING_PAY,
                         ORDER_STATUS_PENDING_SHIP, ORDER_STATUS_PENDING_CANCEL));
@@ -1071,6 +1094,7 @@ public class ApprovalService {
 
     private SalesOrder findSalesOrderForApproval(String orderId) {
         SalesOrder order = salesOrderMapper.selectOne(new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(SalesOrder::getOrderId, orderId)
                 .last("LIMIT 1"));
         if (order == null) {
@@ -1114,6 +1138,7 @@ public class ApprovalService {
 
     private ProductionOrder findPendingProductionOrder(String orderId) {
         ProductionOrder order = productionOrderMapper.selectOne(new LambdaQueryWrapper<ProductionOrder>()
+                .eq(ProductionOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(ProductionOrder::getOrderId, orderId)
                 .in(ProductionOrder::getStatus, ORDER_STATUS_PENDING_CONFIRM, ORDER_STATUS_PENDING_PAY));
         if (order == null) {
@@ -1132,6 +1157,7 @@ public class ApprovalService {
 
     private ProductionOrder findProductionOrderForApproval(String orderId) {
         ProductionOrder order = productionOrderMapper.selectOne(new LambdaQueryWrapper<ProductionOrder>()
+                .eq(ProductionOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(ProductionOrder::getOrderId, orderId)
                 .last("LIMIT 1"));
         if (order == null) {
@@ -1215,7 +1241,7 @@ public class ApprovalService {
         if (auditorId == null || auditorId <= 0) {
             return "待分配";
         }
-        Employee auditor = employeeMapper.selectById(auditorId);
+        Employee auditor = findTenantEmployee(auditorId);
         return auditor == null || !StringUtils.hasText(auditor.getName()) ? "待分配" : auditor.getName();
     }
 
@@ -1225,7 +1251,7 @@ public class ApprovalService {
         }
         List<String> names = new ArrayList<>();
         for (Long auditorId : auditorIds) {
-            Employee auditor = auditorId == null ? null : employeeMapper.selectById(auditorId);
+            Employee auditor = findTenantEmployee(auditorId);
             if (auditor != null && StringUtils.hasText(auditor.getName())) {
                 names.add(auditor.getName());
             }
@@ -1603,7 +1629,7 @@ public class ApprovalService {
         }
         List<String> names = new ArrayList<>();
         for (Long id : ids) {
-            Employee auditor = employeeMapper.selectById(id);
+            Employee auditor = findTenantEmployee(id);
             if (auditor != null && StringUtils.hasText(auditor.getName())) {
                 names.add(auditor.getName());
             }
@@ -1702,13 +1728,23 @@ public class ApprovalService {
     }
 
     private Long getManagerId(Long userId) {
-        Employee employee = employeeMapper.selectById(userId);
+        Employee employee = findTenantEmployee(userId);
         return employee == null ? null : employee.getManagerId();
     }
 
     private Integer getRoleLevel(Long userId) {
-        Employee employee = employeeMapper.selectById(userId);
+        Employee employee = findTenantEmployee(userId);
         return employee == null ? null : employee.getRoleLevel();
+    }
+
+    private Employee findTenantEmployee(Long userId) {
+        if (userId == null || userId <= 0) {
+            return null;
+        }
+        return employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
+                .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(Employee::getId, userId)
+                .last("LIMIT 1"));
     }
 
     private String leaveTypeText(Integer leaveType) {

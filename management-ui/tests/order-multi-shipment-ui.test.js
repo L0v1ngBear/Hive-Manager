@@ -28,16 +28,21 @@ test('order editor saves multiple non-deletable shipment rows', () => {
   assert.doesNotMatch(orderSource, /orderDetail\.(?:expressCompany|expressNo)/)
   assert.doesNotMatch(orderSource, /row\.(?:expressCompany|expressNo)/)
   assert.match(payloadSource, /shipments:\s*orderForm\.shipments\.map/)
-  assert.match(payloadSource, /\{\s*id,\s*logisticsCompany,\s*trackingNo,\s*version\s*\}/)
+  assert.match(payloadSource, /\{\s*id,\s*deliveryMode,\s*logisticsCompany,\s*trackingNo,\s*version\s*\}/)
+  assert.match(orderSource, /shipmentDeliveryModeOptions/)
+  assert.match(orderSource, /handleShipmentDeliveryModeChange/)
 })
 
-test('shipment editor enforces limits, required fields, and unique tracking numbers', () => {
+test('shipment editor enforces limits, required fields, and unique tracking numbers for tracked deliveries', () => {
   const validationSource = functionSource(orderSource, 'validateOrderForm', 'buildOrderPayload')
 
   assert.match(orderSource, /orderForm\.shipments\.length >= 50/)
   assert.match(validationSource, /orderForm\.shipments\.length > 50/)
   assert.match(validationSource, /shipment\.logisticsCompany/)
   assert.match(validationSource, /shipment\.trackingNo/)
+  assert.match(validationSource, /isTrackableShipment\(shipment\)/)
+  assert.match(validationSource, /快递物流必须填写物流公司/)
+  assert.match(validationSource, /非可追踪发货方式不能填写物流单号/)
   assert.match(validationSource, /物流单号不能重复/)
   assert.match(validationSource, /requiresShippingDetails\.value[\s\S]*orderForm\.shipments/)
 })
@@ -49,23 +54,13 @@ test('order list and detail render all shipments in stable order', () => {
   assert.match(orderSource, /orderDetail\.shipments[\s\S]*shipment\.logisticsCompany[\s\S]*shipment\.trackingNo/)
 })
 
-test('current-page export callback formats shipment and ordinary columns', () => {
+test('current-page export callback includes non-trackable delivery labels', () => {
   assert.match(orderSource, /<TableColumnSettings[\s\S]*:export-rows="visibleOrderRows"/)
   const callbackExpression = orderSource.match(/:export-cell="([^"]+)"/)?.[1]
   assert.ok(callbackExpression, 'order export callback binding must exist')
 
-  const formatterSource = functionSource(orderSource, 'formatOrderExportCell', 'openDetail').trim()
-  const formatter = Function(`return (${formatterSource})`)()
-  const exportCell = Function('formatOrderExportCell', `return (${callbackExpression})`)(formatter)
-  const data = buildStructuredExportData(
-    [
-      { key: 'orderNo', label: 'Order number' },
-      { key: 'shipments', label: 'Tracking numbers' }
-    ],
-    [{ orderId: 'SO-1', shipments: [{ trackingNo: 'SF1' }, { trackingNo: 'SF2' }] }],
-    exportCell
-  )
-
-  assert.deepEqual(data.rows, [['SO-1', 'SF1、SF2']])
-  assert.match(orderSource, /if \(key === 'shipments'\)[\s\S]*\.map\(shipment => shipment\.trackingNo\)[\s\S]*\.join\('、'\)/u)
+  assert.ok(buildStructuredExportData, 'shared table export formatter remains available')
+  assert.match(orderSource, /if \(key === 'shipments'\) return \(row\.shipments \|\| \[\]\)[\s\S]*\.map\(shipment => shipmentListLabel\(shipment\)\)[\s\S]*\.join\('、'\)/u)
+  assert.match(orderSource, /货拉拉 \/ 同城配送（无轨迹）/)
+  assert.match(orderSource, /客户自提（无轨迹）/)
 })

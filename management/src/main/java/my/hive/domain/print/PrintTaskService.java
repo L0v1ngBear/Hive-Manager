@@ -17,6 +17,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -220,6 +221,7 @@ public class PrintTaskService {
                             update_time = ?
                         WHERE tenant_code = ?
                           AND task_no = ?
+                          AND status NOT IN (?, ?)
                         """,
                 status,
                 blankToNull(request.getPrintChannel()),
@@ -232,8 +234,15 @@ public class PrintTaskService {
                 now,
                 now,
                 tenantCode,
-                taskNo);
+                taskNo,
+                PrintTaskStatus.SUCCESS,
+                PrintTaskStatus.CANCELED);
         if (rows == 0) {
+            if (Objects.equals(taskInfo.status(), status)) {
+                // A browser/mini-program retry of the same terminal report is
+                // idempotent; it must not reopen or otherwise rewrite the task.
+                return;
+            }
             throw new BusinessException("打印任务不存在或无权更新");
         }
     }
@@ -395,13 +404,13 @@ public class PrintTaskService {
 
     private PrintTaskAccessInfo requireTaskForAccess(String taskNo) {
         PrintTaskAccessInfo info = jdbcTemplate.query("""
-                            SELECT print_type
+                            SELECT print_type, status
                             FROM print_task
                             WHERE tenant_code = ?
                               AND task_no = ?
                             LIMIT 1
                             """,
-                rs -> rs.next() ? new PrintTaskAccessInfo(rs.getString("print_type")) : null,
+                rs -> rs.next() ? new PrintTaskAccessInfo(rs.getString("print_type"), rs.getInt("status")) : null,
                 TenantPermissionContext.getTenantCode(),
                 taskNo);
         if (info == null) {
@@ -446,6 +455,6 @@ public class PrintTaskService {
         return false;
     }
 
-    private record PrintTaskAccessInfo(String printType) {
+    private record PrintTaskAccessInfo(String printType, Integer status) {
     }
 }

@@ -5,7 +5,7 @@
         <div>
           <h2 class="text-xl font-bold tracking-tight text-primary">{{ isEditMode ? '编辑客户档案' : '新建客户档案' }}</h2>
           <p class="mt-1 text-xs text-on-surface-variant">
-            {{ isEditMode ? '更新客户基础信息、联系人和合作项目。' : '录入客户基础信息、联系人和合作项目。' }}
+            {{ isEditMode ? '更新客户基础信息、联系人和项目名称。' : '录入客户基础信息、联系人和项目名称。' }}
           </p>
         </div>
         <el-button circle text native-type="button" title="关闭" @click="closeDrawer">
@@ -71,7 +71,7 @@
         <section v-if="fieldVisible('projectName')" class="space-y-3">
           <div class="mb-2 flex items-end justify-between">
             <h3 class="flex items-center gap-2 text-sm font-bold text-tertiary">
-              <span class="h-4 w-1 rounded-full bg-tertiary"></span>{{ fieldLabel('projectName', '合作项目列表') }}
+              <span class="h-4 w-1 rounded-full bg-tertiary"></span>{{ fieldLabel('projectName', '项目名称') }}
             </h3>
             <el-button text type="primary" native-type="button" @click="addProject">
               <span class="material-symbols-outlined text-[16px]">post_add</span>
@@ -85,7 +85,7 @@
                 <el-input
                   v-if="fieldVisible('projectName')"
                   v-model="project.projectName"
-                  :placeholder="fieldLabel('projectName', '输入合作项目名称')"
+                  :placeholder="fieldLabel('projectName', '输入项目名称')"
                 />
                 <el-input
                   v-if="fieldVisible('constructionArea')"

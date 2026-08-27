@@ -5,6 +5,7 @@ import test from 'node:test'
 const readRepo = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')
 const page = readRepo('management-ui/src/views/function/approval/approvalCenter.vue')
 const api = readRepo('management-ui/src/views/function/approval/api/approval.js')
+const orderApi = readRepo('management-ui/src/views/function/order/api/order.js')
 const sidebar = readRepo('management-ui/src/layout/components/Sidebar.vue')
 const refresh = readRepo('management-ui/src/utils/approvalRefresh.js')
 const service = readRepo('management/src/main/java/my/hive/domain/approval/service/ApprovalService.java')
@@ -38,11 +39,16 @@ test('approval dashboard uses server-wide totals and mutations refresh all count
   assert.ok((page.match(/notifyApprovalChanged\(\)[\s\S]{0,40}await refreshAll\(\)/g) || []).length >= 4)
 })
 
-test('sidebar refreshes pending badges on approval changes, focus, navigation and fallback polling', () => {
+test('sidebar refreshes pending badges on approval changes without background polling', () => {
   assert.match(refresh, /hive-approval-changed/)
   assert.match(sidebar, /listenApprovalChanged\(refreshApprovalPendingCount\)/)
-  assert.match(sidebar, /window\.addEventListener\('focus', refreshApprovalPendingCount\)/)
-  assert.match(sidebar, /window\.setInterval\(refreshApprovalPendingCount, 30000\)/)
-  assert.match(sidebar, /\(\) => route\.path,[\s\S]*?refreshApprovalPendingCount/)
+  assert.doesNotMatch(sidebar, /window\.addEventListener\('focus', refreshApprovalPendingCount\)/)
+  assert.doesNotMatch(sidebar, /window\.setInterval\(refreshApprovalPendingCount/)
   assert.match(sidebar, /let approvalPendingRequestId = 0/)
+  assert.match(api, /export function getApprovalSummary\(options = \{\}\)/)
+  assert.match(api, /cacheTtl:\s*5 \* 60 \* 1000/)
+  assert.match(orderApi, /export function getOrderWarningSummary\(options = \{\}\)/)
+  assert.match(orderApi, /cacheTtl:\s*5 \* 60 \* 1000/)
+  assert.match(sidebar, /getApprovalSummary\(\{silent: true, showGlobalLoading: false\}\)/)
+  assert.match(sidebar, /getOrderWarningSummary\(\{silent: true, showGlobalLoading: false\}\)/)
 })

@@ -165,8 +165,6 @@ const approvalPendingCount = ref(0)
 const orderWarningCount = ref(0)
 let approvalPendingRequestId = 0
 let orderWarningRequestId = 0
-let approvalRefreshTimer = null
-let orderWarningRefreshTimer = null
 let stopApprovalChangedListener = () => {}
 let stopOrderWarningChangedListener = () => {}
 const brandTitle = computed(() => brandConfig.productName)
@@ -184,6 +182,7 @@ const menuFeatureMap = {
   '/function/announcement': 'module.dashboard',
   '/function/order': 'module.order',
   '/function/installation-task': 'module.order',
+  '/function/after-sales': 'module.afterSales',
   '/function/inventory': 'module.inventory',
   '/function/bad-product': 'module.badProduct',
   '/function/customer': 'module.customer',
@@ -219,6 +218,7 @@ const primaryMenus = computed(() => {
     icon: 'engineering',
     permissions: ['installation:list']
   },
+  {name: '售后管理', path: '/function/after-sales', icon: 'support_agent', permissions: ['after_sales:list']},
   {name: '库存管理', path: '/function/inventory', icon: 'storage', permissions: ['inventory:warning:list', 'inventory:record:list', 'inventory:cloth:in', 'inventory:cloth:out']},
   {name: '质量管理', path: '/function/bad-product', icon: 'warning', permissions: ['quality:list']},
   {name: '客户管理', path: '/function/customer', icon: 'handshake', permissions: ['customer:list']},
@@ -319,7 +319,7 @@ const refreshApprovalPendingCount = async () => {
     return
   }
   try {
-    const data = await getApprovalSummary()
+    const data = await getApprovalSummary({silent: true, showGlobalLoading: false})
     if (requestId !== approvalPendingRequestId) return
     approvalPendingCount.value = Number(data?.totalPending || 0)
   } catch (error) {
@@ -337,7 +337,7 @@ const refreshOrderWarningCount = async () => {
     return
   }
   try {
-    const data = await getOrderWarningSummary()
+    const data = await getOrderWarningSummary({silent: true, showGlobalLoading: false})
     if (requestId !== orderWarningRequestId) return
     orderWarningCount.value = Number(data?.totalCount || 0)
   } catch (error) {
@@ -349,44 +349,26 @@ const refreshOrderWarningCount = async () => {
 watch(
     () => [userStore.permissions, userStore.features],
     () => {
-      refreshApprovalPendingCount()
-      refreshOrderWarningCount()
+      // 角标属于后台信息：页面加载、切换租户或权限刷新时不主动发起请求。
+      // 仅在本端真实发生审批/订单预警业务变更时，由事件监听器刷新。
+      if (userStore.isPlatformTenant || !userStore.hasAnyFeature(['module.approval'])) {
+        approvalPendingCount.value = 0
+      }
+      if (userStore.isPlatformTenant || !userStore.hasAnyFeature(['module.order'])) {
+        orderWarningCount.value = 0
+      }
     },
     {immediate: true, deep: true}
-)
-
-watch(
-    () => route.path,
-    () => refreshApprovalPendingCount()
-)
-
-watch(
-    () => route.path,
-    () => refreshOrderWarningCount()
 )
 
 onMounted(() => {
   stopApprovalChangedListener = listenApprovalChanged(refreshApprovalPendingCount)
   stopOrderWarningChangedListener = listenOrderWarningChanged(refreshOrderWarningCount)
-  window.addEventListener('focus', refreshApprovalPendingCount)
-  window.addEventListener('focus', refreshOrderWarningCount)
-  approvalRefreshTimer = window.setInterval(refreshApprovalPendingCount, 30000)
-  orderWarningRefreshTimer = window.setInterval(refreshOrderWarningCount, 30000)
 })
 
 onBeforeUnmount(() => {
   stopApprovalChangedListener()
   stopOrderWarningChangedListener()
-  window.removeEventListener('focus', refreshApprovalPendingCount)
-  window.removeEventListener('focus', refreshOrderWarningCount)
-  if (approvalRefreshTimer) {
-    window.clearInterval(approvalRefreshTimer)
-    approvalRefreshTimer = null
-  }
-  if (orderWarningRefreshTimer) {
-    window.clearInterval(orderWarningRefreshTimer)
-    orderWarningRefreshTimer = null
-  }
 })
 
 const linkClass = (item) => {

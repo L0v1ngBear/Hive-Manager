@@ -36,7 +36,7 @@ test('video attachment requests and reverse proxy allow slow large uploads', () 
   const nginx = fs.readFileSync(path.join(root, '..', 'deploy/nginx/conf.d/hive.conf'), 'utf8')
 
   for (const source of apiFiles) assert.match(source, /timeout:\s*600000/)
-  assert.match(nginx, /client_max_body_size\s+210m/)
+  assert.match(nginx, /client_max_body_size\s+820m/)
   assert.match(nginx, /client_body_timeout\s+600s/)
   assert.match(nginx, /proxy_send_timeout\s+600s/)
   assert.match(nginx, /proxy_read_timeout\s+600s/)

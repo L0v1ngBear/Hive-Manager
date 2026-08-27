@@ -154,7 +154,11 @@ public class GlobalExceptionHandler {
             if (request != null) {
                 detail.put("method", request.getMethod());
                 detail.put("path", request.getRequestURI());
-                detail.put("query", request.getQueryString());
+                // Query strings commonly carry OAuth codes, tokens and one-time
+                // verification values.  The path and this marker are enough to
+                // diagnose an endpoint failure without storing those values.
+                detail.put("hasQueryParameters", request.getQueryString() != null
+                        && !request.getQueryString().isBlank());
             }
             Long userId = TenantPermissionContext.getUserId();
             detail.put("userId", userId);

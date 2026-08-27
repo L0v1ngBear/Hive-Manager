@@ -62,6 +62,7 @@ function createFixture() {
   for (const name of [
     'normalize-env.sh',
     'prune-management-ui.sh',
+    'prune-db-migrations.sh',
     'check-deploy-health.sh',
     'migrate-db.sh',
     'verify-release-integrity.sh',

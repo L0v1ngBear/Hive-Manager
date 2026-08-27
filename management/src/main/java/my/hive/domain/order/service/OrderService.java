@@ -263,6 +263,7 @@ public class OrderService {
         Page<SalesOrder> page = new Page<>(safePage(request.getPageNum()), safeSize(request.getPageSize()));
 
         LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, tenantCode)
                 .orderByDesc(SalesOrder::getCreateTime);
         applySalesOrderDataScopeFilter(wrapper);
 
@@ -381,6 +382,7 @@ public class OrderService {
         SalesOrder order = findSalesOrder(orderId);
         assertSalesOrderStagePermission(order, order.getStatus());
         List<SalesOrderDetail> details = salesOrderDetailMapper.selectList(new LambdaQueryWrapper<SalesOrderDetail>()
+                .eq(SalesOrderDetail::getTenantCode, order.getTenantCode())
                 .eq(SalesOrderDetail::getOrderId, orderId)
                 .orderByAsc(SalesOrderDetail::getId));
 
@@ -410,6 +412,7 @@ public class OrderService {
         SalesOrder order = findSalesOrder(orderId);
         assertSalesOrderStagePermission(order, order.getStatus());
         return salesOrderStatusLogMapper.selectList(new LambdaQueryWrapper<SalesOrderStatusLog>()
+                        .eq(SalesOrderStatusLog::getTenantCode, order.getTenantCode())
                         .eq(SalesOrderStatusLog::getOrderId, orderId)
                         .orderByDesc(SalesOrderStatusLog::getCreateTime))
                 .stream()
@@ -493,8 +496,8 @@ public class OrderService {
         String tenantCode = TenantPermissionContext.getTenantCode();
         SalesOrderStatusLog log = salesOrderStatusLogMapper.selectOne(new LambdaQueryWrapper<SalesOrderStatusLog>()
                 .eq(SalesOrderStatusLog::getId, logId)
-                .eq(SalesOrderStatusLog::getOrderId, orderId)
                 .eq(SalesOrderStatusLog::getTenantCode, tenantCode)
+                .eq(SalesOrderStatusLog::getOrderId, orderId)
                 .last("LIMIT 1"));
         if (log == null) {
             throw new BusinessException("流转记录不存在或无权修正");
@@ -851,6 +854,7 @@ public class OrderService {
         Page<ProductionOrder> page = new Page<>(safePage(request.getPageNum()), safeSize(request.getPageSize()));
 
         LambdaQueryWrapper<ProductionOrder> wrapper = new LambdaQueryWrapper<ProductionOrder>()
+                .eq(ProductionOrder::getTenantCode, tenantCode)
                 .orderByDesc(ProductionOrder::getCreateTime);
 
         if (StringUtils.hasText(request.getStatus())) {
@@ -936,7 +940,9 @@ public class OrderService {
     public OrderWarningSummaryVO refreshOrderWarnings() {
         String tenantCode = TenantPermissionContext.getTenantCode();
         LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, tenantCode)
                 .select(SalesOrder::getOrderId);
+        applySalesOrderDataScopeFilter(wrapper);
         applySalesStaleWarningFilter(wrapper, tenantCode);
         Set<String> permittedStatuses = currentPermittedOrderStatuses();
         applyOrderStatusPermissionFilter(wrapper, SalesOrder::getStatus, permittedStatuses);
@@ -949,6 +955,7 @@ public class OrderService {
             for (int start = 0; start < orderIds.size(); start += 500) {
                 List<String> batch = orderIds.subList(start, Math.min(start + 500, orderIds.size()));
                 salesOrderMapper.update(null, new LambdaUpdateWrapper<SalesOrder>()
+                        .eq(SalesOrder::getTenantCode, tenantCode)
                         .in(SalesOrder::getOrderId, batch)
                         .set(SalesOrder::getUpdateTime, now));
             }
@@ -965,6 +972,7 @@ public class OrderService {
         String tenantCode = TenantPermissionContext.getTenantCode();
         SalesOrder order = findSalesOrder(orderId.trim());
         salesOrderMapper.update(null, new LambdaUpdateWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, tenantCode)
                 .eq(SalesOrder::getOrderId, order.getOrderId())
                 .set(SalesOrder::getUpdateTime, LocalDateTime.now()));
         orderWarningCacheService.invalidate(tenantCode);
@@ -987,6 +995,7 @@ public class OrderService {
         ProductionOrder order = findProductionOrder(orderId);
         assertProductionOrderStagePermission(order, order.getStatus());
         return productionOrderStatusLogMapper.selectList(new LambdaQueryWrapper<ProductionOrderStatusLog>()
+                        .eq(ProductionOrderStatusLog::getTenantCode, order.getTenantCode())
                         .eq(ProductionOrderStatusLog::getOrderId, orderId)
                         .orderByDesc(ProductionOrderStatusLog::getCreateTime))
                 .stream()
@@ -1092,6 +1101,7 @@ public class OrderService {
         SalesOrder salesOrder = findSalesOrderForUpdate(salesOrderId);
         List<ProductionOrder> productionOrders = productionOrderMapper.selectList(
                 new LambdaQueryWrapper<ProductionOrder>()
+                        .eq(ProductionOrder::getTenantCode, salesOrder.getTenantCode())
                         .eq(ProductionOrder::getSalesOrderId, salesOrder.getOrderId())
         );
         if (productionOrders.isEmpty()) {
@@ -1254,6 +1264,7 @@ public class OrderService {
         Integer targetProcess = resolveProductionRollbackProcess(oldStatus, targetStatus, oldProcess);
 
         LambdaUpdateWrapper<ProductionOrder> updateWrapper = new LambdaUpdateWrapper<ProductionOrder>()
+                .eq(ProductionOrder::getTenantCode, order.getTenantCode())
                 .eq(ProductionOrder::getOrderId, order.getOrderId())
                 .eq(ProductionOrder::getStatus, oldStatus)
                 .set(ProductionOrder::getStatus, targetStatus)
@@ -1341,6 +1352,7 @@ public class OrderService {
 
     private void replaceSalesOrderItems(String orderId, List<SalesOrderSaveRequest.ItemDTO> items, LocalDateTime businessCreateTime) {
         salesOrderDetailMapper.delete(new LambdaQueryWrapper<SalesOrderDetail>()
+                .eq(SalesOrderDetail::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(SalesOrderDetail::getOrderId, orderId));
 
         LocalDateTime now = LocalDateTime.now();
@@ -1481,6 +1493,7 @@ public class OrderService {
             return null;
         }
         return salesOrderStatusLogMapper.selectOne(new LambdaQueryWrapper<SalesOrderStatusLog>()
+                .eq(SalesOrderStatusLog::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(SalesOrderStatusLog::getOrderId, orderId.trim())
                 .eq(SalesOrderStatusLog::getOperateType, OrderLogOperateTypeEnum.ROLLBACK_PENDING.getCode())
                 .orderByDesc(SalesOrderStatusLog::getId)
@@ -1489,6 +1502,7 @@ public class OrderService {
 
     public boolean hasPendingSalesRollbackApproval(String orderId) {
         SalesOrder order = StringUtils.hasText(orderId) ? salesOrderMapper.selectOne(new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(SalesOrder::getOrderId, orderId.trim())
                 .last("LIMIT 1")) : null;
         if (order == null) {
@@ -1507,6 +1521,7 @@ public class OrderService {
             return null;
         }
         return productionOrderStatusLogMapper.selectOne(new LambdaQueryWrapper<ProductionOrderStatusLog>()
+                .eq(ProductionOrderStatusLog::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(ProductionOrderStatusLog::getOrderId, orderId.trim())
                 .eq(ProductionOrderStatusLog::getOperateType, OrderLogOperateTypeEnum.ROLLBACK_PENDING.getCode())
                 .orderByDesc(ProductionOrderStatusLog::getId)
@@ -1515,6 +1530,7 @@ public class OrderService {
 
     public boolean hasPendingProductionRollbackApproval(String orderId) {
         ProductionOrder order = StringUtils.hasText(orderId) ? productionOrderMapper.selectOne(new LambdaQueryWrapper<ProductionOrder>()
+                .eq(ProductionOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(ProductionOrder::getOrderId, orderId.trim())
                 .last("LIMIT 1")) : null;
         if (order == null) {
@@ -1530,6 +1546,7 @@ public class OrderService {
 
     private String resolveStatusBeforePendingCancel(String orderId) {
         SalesOrderStatusLog latestCancelLog = salesOrderStatusLogMapper.selectOne(new LambdaQueryWrapper<SalesOrderStatusLog>()
+                .eq(SalesOrderStatusLog::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(SalesOrderStatusLog::getOrderId, orderId)
                 .eq(SalesOrderStatusLog::getNewStatus, STATUS_PENDING_CANCEL)
                 .orderByDesc(SalesOrderStatusLog::getId)
@@ -1643,6 +1660,7 @@ public class OrderService {
             return;
         }
         List<ProductionOrder> linkedOrders = productionOrderMapper.selectList(new LambdaQueryWrapper<ProductionOrder>()
+                .eq(ProductionOrder::getTenantCode, salesOrder.getTenantCode())
                 .eq(ProductionOrder::getSalesOrderId, salesOrder.getOrderId()));
         for (ProductionOrder linkedOrder : linkedOrders) {
             if (Objects.equals(linkedOrder.getStatus(), salesOrder.getStatus())) {
@@ -1672,6 +1690,7 @@ public class OrderService {
             return;
         }
         SalesOrder linkedSalesOrder = salesOrderMapper.selectOne(new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, productionOrder.getTenantCode())
                 .eq(SalesOrder::getOrderId, productionOrder.getSalesOrderId())
                 .last("LIMIT 1"));
         if (linkedSalesOrder == null || Objects.equals(linkedSalesOrder.getStatus(), productionOrder.getStatus())) {
@@ -1712,6 +1731,7 @@ public class OrderService {
 
     private Map<String, Object> buildSalesOrderFlowPrintPayload(SalesOrder order) {
         SalesOrderDetail firstItem = salesOrderDetailMapper.selectOne(new LambdaQueryWrapper<SalesOrderDetail>()
+                .eq(SalesOrderDetail::getTenantCode, order.getTenantCode())
                 .eq(SalesOrderDetail::getOrderId, order.getOrderId())
                 .orderByAsc(SalesOrderDetail::getId)
                 .last("LIMIT 1"));
@@ -2028,6 +2048,7 @@ public class OrderService {
 
     private SalesOrder findSalesOrder(String orderId) {
         SalesOrder order = salesOrderMapper.selectOne(new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(SalesOrder::getOrderId, orderId)
                 .last("LIMIT 1"));
         if (order == null) {
@@ -2049,6 +2070,7 @@ public class OrderService {
 
     private ProductionOrder findProductionOrder(String orderId) {
         ProductionOrder order = productionOrderMapper.selectOne(new LambdaQueryWrapper<ProductionOrder>()
+                .eq(ProductionOrder::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(ProductionOrder::getOrderId, orderId)
                 .last("LIMIT 1"));
         if (order == null) {
@@ -2063,6 +2085,7 @@ public class OrderService {
         }
         List<String> orderIds = orders.stream().map(SalesOrder::getOrderId).toList();
         return salesOrderDetailMapper.selectList(new LambdaQueryWrapper<SalesOrderDetail>()
+                        .eq(SalesOrderDetail::getTenantCode, TenantPermissionContext.getTenantCode())
                         .in(SalesOrderDetail::getOrderId, orderIds)
                         .orderByAsc(SalesOrderDetail::getId))
                 .stream()
@@ -2533,7 +2556,8 @@ public class OrderService {
     }
 
     private LambdaQueryWrapper<SalesOrder> scopedSalesOrderWrapper(Set<String> permittedStatuses) {
-        LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, TenantPermissionContext.getTenantCode());
         applySalesOrderDataScopeFilter(wrapper);
         applyOrderStatusPermissionFilter(wrapper, SalesOrder::getStatus, permittedStatuses);
         return wrapper;
@@ -2564,6 +2588,9 @@ public class OrderService {
     private void assertSalesOrderDataScope(SalesOrder order) {
         if (order == null) {
             throw new BusinessException(404, "订单不存在");
+        }
+        if (!Objects.equals(order.getTenantCode(), TenantPermissionContext.getTenantCode())) {
+            throw new BusinessException(403, "当前账号无权访问该订单");
         }
         if (TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_ORDER_SCOPE_TENANT)) {
             return;
@@ -2604,7 +2631,8 @@ public class OrderService {
     }
 
     private LambdaQueryWrapper<ProductionOrder> scopedProductionOrderWrapper(Set<String> permittedStatuses) {
-        LambdaQueryWrapper<ProductionOrder> wrapper = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<ProductionOrder> wrapper = new LambdaQueryWrapper<ProductionOrder>()
+                .eq(ProductionOrder::getTenantCode, TenantPermissionContext.getTenantCode());
         applyOrderStatusPermissionFilter(wrapper, ProductionOrder::getStatus, permittedStatuses);
         return wrapper;
     }
@@ -2698,6 +2726,7 @@ public class OrderService {
 
     private boolean salesOrderItemsChanged(String orderId, List<SalesOrderSaveRequest.ItemDTO> items) {
         List<SalesOrderDetail> existingItems = salesOrderDetailMapper.selectList(new LambdaQueryWrapper<SalesOrderDetail>()
+                .eq(SalesOrderDetail::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(SalesOrderDetail::getOrderId, orderId)
                 .orderByAsc(SalesOrderDetail::getId));
         List<SalesOrderSaveRequest.ItemDTO> requestItems = normalizeSalesItems(items);

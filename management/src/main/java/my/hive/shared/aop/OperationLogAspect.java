@@ -9,6 +9,8 @@ import my.hive.shared.log.OperationLogCollector;
 import my.hive.shared.log.OperationLogEvent;
 import my.hive.shared.log.OperationLogProperties;
 import my.hive.shared.log.SensitiveDataSanitizer;
+import my.hive.shared.web.RequestTraceFilter;
+import my.hive.shared.web.TrustedClientIpResolver;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -23,6 +25,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import org.slf4j.MDC;
+
 import java.util.UUID;
 
 /**
@@ -37,6 +41,7 @@ public class OperationLogAspect {
     private final OperationLogProperties properties;
     private final OperationLogCollector collector;
     private final SensitiveDataSanitizer sanitizer;
+    private final TrustedClientIpResolver trustedClientIpResolver;
     private final ExpressionParser expressionParser = new SpelExpressionParser();
     private final DefaultParameterNameDiscoverer parameterNameDiscoverer = new DefaultParameterNameDiscoverer();
 
@@ -86,7 +91,7 @@ public class OperationLogAspect {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
         OperationLogEvent event = new OperationLogEvent();
-        event.setTraceId(UUID.randomUUID().toString().replace("-", ""));
+        event.setTraceId(resolveTraceId());
         event.setTenantCode(TenantPermissionContext.getTenantCode());
         event.setUserId(TenantPermissionContext.getUserId());
         event.setModule(collectLog.module());
@@ -137,20 +142,27 @@ public class OperationLogAspect {
         HttpServletRequest request = attributes.getRequest();
         event.setRequestMethod(request.getMethod());
         event.setRequestUri(request.getRequestURI());
-        event.setClientIp(resolveClientIp(request));
+        event.setClientIp(trustedClientIpResolver.resolve(request));
         event.setUserAgent(request.getHeader("User-Agent"));
     }
 
-    private String resolveClientIp(HttpServletRequest request) {
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            return forwardedFor.split(",")[0].trim();
+    /**
+     * A business audit entry must be joinable with the request, exception and
+     * external-call entries produced by the same HTTP invocation.  Retain a
+     * generated id for non-web work such as a scheduled job.
+     */
+    private String resolveTraceId() {
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
+            Object traceId = attributes.getRequest().getAttribute(RequestTraceFilter.TRACE_ATTRIBUTE);
+            if (traceId != null && !String.valueOf(traceId).isBlank()) {
+                return String.valueOf(traceId);
+            }
         }
-        String realIp = request.getHeader("X-Real-IP");
-        if (realIp != null && !realIp.isBlank()) {
-            return realIp;
+        String traceId = MDC.get(RequestTraceFilter.MDC_TRACE_ID);
+        if (traceId != null && !traceId.isBlank()) {
+            return traceId;
         }
-        return request.getRemoteAddr();
+        return UUID.randomUUID().toString().replace("-", "");
     }
 
     private long resolveSlowThreshold(CollectLog collectLog) {

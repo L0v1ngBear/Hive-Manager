@@ -1,10 +1,12 @@
 import request from '@/utils/request'
 import { uploadAttachmentWithChunks } from '@/utils/chunkedAttachmentUpload.js'
 
-export function getApprovalSummary() {
+export function getApprovalSummary(options = {}) {
   return request({
     url: '/approval/summary',
     method: 'get',
+    cacheTtl: 5 * 60 * 1000,
+    ...options,
   })
 }
 
@@ -178,4 +180,12 @@ export function auditOrderApproval(data) {
     method: 'post',
     data,
   })
+}
+
+export function listAfterSalesApprovals() {
+  return request({ url: '/after-sales/approvals', method: 'get' })
+}
+
+export function auditAfterSalesApproval(ticketId, data) {
+  return request({ url: `/after-sales/tickets/${ticketId}/approval`, method: 'post', data })
 }

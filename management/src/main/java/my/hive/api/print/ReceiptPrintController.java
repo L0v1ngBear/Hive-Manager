@@ -1,6 +1,7 @@
 package my.hive.api.print;
 
 import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
 import my.hive.shared.annotation.CollectLog;
 import my.hive.shared.annotation.RequirePermission;
 import my.hive.shared.permission.PermissionCatalogV3;
@@ -95,7 +96,7 @@ public class ReceiptPrintController {
     @PostMapping("/template/save")
     @RequirePermission(value = PermissionCatalogV3.CODE_PRINT_RECEIPT_UPDATE, message = "您没有权限保存出库单模板")
     @CollectLog(module = "receipt_template", action = "save", bizType = "receipt_template", bizNo = "#request.id", description = "管理端保存出库单模板")
-    public Result<LabelTemplateVO> saveTemplate(@RequestBody LabelTemplateSaveRequest request) {
+    public Result<LabelTemplateVO> saveTemplate(@RequestBody @Valid LabelTemplateSaveRequest request) {
         request.setPrintType("receipt");
         return Result.success(labelTemplateService.save(request));
     }

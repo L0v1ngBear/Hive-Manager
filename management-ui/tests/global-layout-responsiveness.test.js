@@ -10,6 +10,7 @@ const navbar = read('src/layout/components/Navbar.vue')
 const price = read('src/views/function/price/price.vue')
 const equipment = read('src/views/function/equipment/equipment.vue')
 const order = read('src/views/function/order/order.vue')
+const customer = read('src/views/function/customer/customer.vue')
 
 const extractCssBlock = (source, marker) => {
   const markerStart = source.indexOf(marker)
@@ -88,7 +89,8 @@ test('tablet rules do not force every direct business grid to one column', () =>
 
 test('shared list layouts expose stable stats filters and horizontal tables', () => {
   assert.match(style, /\.function-stats-grid\s*\{[\s\S]{0,360}display\s*:\s*grid[\s\S]{0,360}grid-template-columns\s*:/)
-  assert.match(style, /\.function-filter-form\s*\{[\s\S]{0,360}display\s*:\s*grid[\s\S]{0,360}grid-template-columns\s*:/)
+  assert.doesNotMatch(style, /\.function-filter-form\s*\{[\s\S]{0,360}display\s*:\s*grid/)
+  assert.match(customer, /\.customer-filter-form\s*\{[\s\S]{0,360}grid-template-columns\s*:/)
   assert.match(style, /\.function-table-scroll\s*\{[\s\S]{0,240}overflow-x\s*:\s*auto/)
   assert.match(price, /class="[^"]*\bfunction-stats-grid\b[^"]*"/)
   assert.match(price, /class="[^"]*\bfunction-filter-form\b[^"]*"/)

@@ -27,14 +27,16 @@ public interface SystemEventPublisher {
     }
 
     default void error(String eventType, String title, Throwable throwable, Object detail) {
-        String message = throwable == null ? null : throwable.getMessage();
         publish(SystemEvent.builder()
                 .eventType(eventType)
                 .level("ERROR")
                 .title(title)
-                .content(message)
+                // Exception messages can contain provider responses, SQL text,
+                // credentials, or user supplied values.  Keep operational
+                // events useful without making them another sensitive-data log.
+                .content("系统处理失败，请查看受控服务器日志")
                 .detail(detail == null && throwable != null
-                        ? Map.of("errorType", throwable.getClass().getName(), "errorMessage", message == null ? "" : message)
+                        ? Map.of("errorType", throwable.getClass().getName())
                         : detail)
                 .build());
     }

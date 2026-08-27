@@ -1,10 +1,14 @@
 package my.hive.domain.order.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import my.hive.domain.order.model.entity.SalesOrder;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.exception.BusinessException;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -17,6 +21,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class OrderDataScopeFilterTest {
 
     private final OrderService service = new OrderService();
+
+    @BeforeAll
+    static void initializeSalesOrderMetadata() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "order-data-scope-test"), SalesOrder.class);
+    }
 
     @AfterEach
     void clearContext() {
@@ -34,12 +43,13 @@ class OrderDataScopeFilterTest {
     }
 
     @Test
-    void tenantScopeDoesNotAddAUserFilter() {
+    void tenantScopeRestrictsTenantWithoutAddingAUserFilter() {
         TenantPermissionContext.init("TENANT_001", 27L, Set.of("order:scope:tenant"));
 
         LambdaQueryWrapper<SalesOrder> wrapper = scopedWrapper();
 
-        assertThat(wrapper.getCustomSqlSegment()).isBlank();
+        assertThat(wrapper.getCustomSqlSegment()).contains("tenant_code").doesNotContain("creator");
+        assertThat(wrapper.getParamNameValuePairs()).containsValue("TENANT_001");
     }
 
     @Test

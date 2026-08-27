@@ -10,6 +10,7 @@ public class SalesOrderShipmentVO {
     private Long id;
     private String logisticsCompany;
     private String trackingNo;
+    private String deliveryMode;
     private Integer sortOrder;
     private Integer version;
     private String creator;

@@ -11,5 +11,7 @@ public class SalesOrderShipmentSaveRequest {
 
     private String trackingNo;
 
+    private String deliveryMode;
+
     private Integer version;
 }

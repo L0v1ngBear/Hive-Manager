@@ -66,9 +66,9 @@ if env_true NOTIFICATION_SMS_ENABLED; then
 fi
 
 logistics_provider="$(normalize_provider "$(env_value LOGISTICS_PROVIDER)")"
-logistics_provider="${logistics_provider:-apispace}"
+logistics_provider="${logistics_provider:-aliyun-market}"
 case "${logistics_provider}" in
-  apispace) ;;
+  apispace|aliyun-market) ;;
   *) fail "unsupported logistics provider: ${logistics_provider}" ;;
 esac
 
@@ -77,6 +77,14 @@ if env_true APISPACE_LOGISTICS_ENABLED; then
     value="$(trim_value "$(env_value "${key}")")"
     [ -n "${value}" ] || fail "APISpace logistics is enabled but ${key} is empty"
     case "${value}" in CHANGE_ME*) fail "APISpace logistics is enabled but ${key} is a placeholder" ;; esac
+  done
+fi
+
+if env_true ALIYUN_MARKET_LOGISTICS_ENABLED; then
+  for key in ALIYUN_MARKET_LOGISTICS_APPCODE; do
+    value="$(trim_value "$(env_value "${key}")")"
+    [ -n "${value}" ] || fail "Aliyun Market logistics is enabled but ${key} is empty"
+    case "${value}" in CHANGE_ME*) fail "Aliyun Market logistics is enabled but ${key} is a placeholder" ;; esac
   done
 fi
 

@@ -10,12 +10,12 @@ import org.springframework.stereotype.Component;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 /**
  * TokenUtil 属于管理端后端通用能力层，提供可复用的工具方法。
  */
@@ -44,6 +44,12 @@ public class TokenUtil {
 
     @PostConstruct
     public void init() {
+        if (tokenSecret == null || tokenSecret.isBlank()) {
+            throw new IllegalStateException("auth.token.secret must not be blank");
+        }
+        if (tokenExpireHours == null || tokenExpireHours <= 0) {
+            throw new IllegalStateException("auth.token.expire-hours must be positive");
+        }
         secret = tokenSecret;
         expireHours = tokenExpireHours;
         try {
@@ -85,37 +91,48 @@ public class TokenUtil {
             return null;
         }
 
-        String[] parts = token.split("\\.");
+        String[] parts = token.split("\\.", -1);
         if (parts.length != 3) {
             return null;
         }
+        try {
+            String content = parts[0] + "." + parts[1];
+            String expectedSignature = sign(content);
+            if (!MessageDigest.isEqual(
+                    expectedSignature.getBytes(StandardCharsets.US_ASCII),
+                    parts[2].getBytes(StandardCharsets.US_ASCII))) {
+                return null;
+            }
 
-        String content = parts[0] + "." + parts[1];
-        if (!Objects.equals(sign(content), parts[2])) {
+            Map<String, Object> payload = JSON.parseObject(
+                    new String(URL_DECODER.decode(parts[1]), StandardCharsets.UTF_8),
+                    new TypeReference<Map<String, Object>>() {}
+            );
+            if (payload == null) {
+                return null;
+            }
+
+            Long userId = toLong(payload.get("userId"));
+            Long expireAtValue = toLong(payload.get("exp"));
+            Long authVersion = toLong(payload.get("authVersion"));
+            Object tenantValue = payload.get("tenantCode");
+            String tenantCode = tenantValue instanceof String value ? value.trim() : null;
+            if (userId == null || userId <= 0 || tenantCode == null || tenantCode.isEmpty()
+                    || expireAtValue == null || authVersion == null || authVersion <= 0
+                    || Instant.now().getEpochSecond() > expireAtValue) {
+                return null;
+            }
+
+            AuthUserInfo authUserInfo = new AuthUserInfo();
+            authUserInfo.setUserId(userId);
+            authUserInfo.setTenantCode(tenantCode);
+            authUserInfo.setAuthVersion(authVersion);
+            authUserInfo.setExpireAt(expireAtValue);
+            return authUserInfo;
+        } catch (RuntimeException exception) {
+            // Untrusted Authorization headers must be rejected as invalid sessions, never leak parser failures as 5xx.
             return null;
         }
-
-        Map<String, Object> payload = JSON.parseObject(
-                new String(URL_DECODER.decode(parts[1]), StandardCharsets.UTF_8),
-                new TypeReference<Map<String, Object>>() {}
-        );
-        if (payload == null) {
-            return null;
-        }
-
-        Long expireAtValue = toLong(payload.get("exp"));
-        Long authVersion = toLong(payload.get("authVersion"));
-        if (expireAtValue == null || authVersion == null || authVersion <= 0
-                || Instant.now().getEpochSecond() > expireAtValue) {
-            return null;
-        }
-
-        AuthUserInfo authUserInfo = new AuthUserInfo();
-        authUserInfo.setUserId(toLong(payload.get("userId")));
-        authUserInfo.setTenantCode((String) payload.get("tenantCode"));
-        authUserInfo.setAuthVersion(authVersion);
-        authUserInfo.setExpireAt(expireAtValue);
-        return authUserInfo;
     }
 
     public static boolean shouldRenew(AuthUserInfo authUserInfo, long renewBeforeMinutes) {

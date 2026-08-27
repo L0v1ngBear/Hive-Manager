@@ -173,6 +173,7 @@ class UnifiedQualityServiceTest {
     }
 
     private QualityService serviceWithMapper(BadProductMapper mapper) {
+        when(mapper.update(any(), any())).thenReturn(1);
         QualityService service = new QualityService();
         ReflectionTestUtils.setField(service, "badProductMapper", mapper);
         ReflectionTestUtils.setField(service, "employeeMapper", mock(EmployeeMapper.class));

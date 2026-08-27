@@ -39,8 +39,6 @@ import java.util.stream.Collectors;
  * DocumentController 是管理端后端请求入口控制类，负责接收请求并调用对应服务。
  */
     // 文件内容统一存储在服务器本地 uploads 目录，接口契约保持稳定。
-@org.springframework.stereotype.Controller
-@org.springframework.web.bind.annotation.ResponseBody
 @RestController
 @RequestMapping("/document")
 @RequireTenantFeature(TenantFeatureEnum.CODE_DOCUMENT)

@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import my.hive.domain.order.model.vo.OrderLogisticsTrackingVO;
+import my.hive.shared.external.ExternalApiResponseDiagnosticLogger;
 import my.hive.shared.exception.BusinessException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -30,15 +31,24 @@ public class ApispaceLogisticsTrackingProvider implements LogisticsTrackingProvi
 
     private final ApispaceLogisticsProperties properties;
     private final HttpClient http;
+    private final ExternalApiResponseDiagnosticLogger diagnosticLogger;
 
     @Autowired
-    public ApispaceLogisticsTrackingProvider(ApispaceLogisticsProperties properties) {
-        this(properties, HttpClient.newBuilder().connectTimeout(properties.getConnectTimeout()).build());
+    public ApispaceLogisticsTrackingProvider(ApispaceLogisticsProperties properties,
+                                             ExternalApiResponseDiagnosticLogger diagnosticLogger) {
+        this(properties, HttpClient.newBuilder().connectTimeout(properties.getConnectTimeout()).build(), diagnosticLogger);
     }
 
     ApispaceLogisticsTrackingProvider(ApispaceLogisticsProperties properties, HttpClient http) {
+        this(properties, http, null);
+    }
+
+    ApispaceLogisticsTrackingProvider(ApispaceLogisticsProperties properties,
+                                      HttpClient http,
+                                      ExternalApiResponseDiagnosticLogger diagnosticLogger) {
         this.properties = properties;
         this.http = http;
+        this.diagnosticLogger = diagnosticLogger;
     }
 
     @Override
@@ -55,20 +65,40 @@ public class ApispaceLogisticsTrackingProvider implements LogisticsTrackingProvi
                 .header("X-APISpace-Token", properties.getToken().trim())
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody(query), StandardCharsets.UTF_8))
                 .build();
+        long startedAt = System.nanoTime();
         try {
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            recordResponse(response, elapsedMillis(startedAt));
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw httpFailure(response.statusCode());
             }
             return normalize(response.body());
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+            recordTransportFailure(elapsedMillis(startedAt), exception);
             throw new BusinessException(502, "物流查询服务暂时不可用");
         } catch (BusinessException exception) {
             throw exception;
         } catch (Exception exception) {
+            recordTransportFailure(elapsedMillis(startedAt), exception);
             throw new BusinessException(502, "物流查询服务暂时不可用");
         }
+    }
+
+    private void recordResponse(HttpResponse<String> response, long durationMillis) {
+        if (diagnosticLogger != null) {
+            diagnosticLogger.recordResponse(providerCode(), "trace-query", response.statusCode(), durationMillis, response.body());
+        }
+    }
+
+    private void recordTransportFailure(long durationMillis, Throwable exception) {
+        if (diagnosticLogger != null) {
+            diagnosticLogger.recordTransportFailure(providerCode(), "trace-query", durationMillis, exception);
+        }
+    }
+
+    private long elapsedMillis(long startedAt) {
+        return (System.nanoTime() - startedAt) / 1_000_000L;
     }
 
     private String requestBody(LogisticsTrackingQuery query) {

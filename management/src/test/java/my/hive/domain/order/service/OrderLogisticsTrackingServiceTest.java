@@ -108,6 +108,27 @@ class OrderLogisticsTrackingServiceTest {
     }
 
     @Test
+    void rejectsNonTrackableDeliveryBeforeCallingLogisticsProvider() {
+        OrderService orderService = mock(OrderService.class);
+        OrderShipmentService shipmentService = mock(OrderShipmentService.class);
+        LogisticsTrackingGateway gateway = mock(LogisticsTrackingGateway.class);
+        ExternalApiGuardService guard = mock(ExternalApiGuardService.class);
+        SalesOrderShipment shipment = shipment(7L, null, null);
+        shipment.setDeliveryMode("lalamove");
+        when(orderService.getSalesOrderForLogisticsTracking("SO-001")).thenReturn(order());
+        when(shipmentService.requireShipment("TENANT_001", "SO-001", 7L)).thenReturn(shipment);
+        OrderLogisticsTrackingService service = new OrderLogisticsTrackingService(
+                orderService, shipmentService, gateway, guard);
+
+        assertThatThrownBy(() -> service.getTracking("SO-001", 7L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("该发货方式不支持物流轨迹查询");
+
+        verify(guard, never()).fingerprint(anyString());
+        verify(gateway, never()).query(any(LogisticsTrackingQuery.class));
+    }
+
+    @Test
     void returnsCachedShipmentResponseWithoutCallingProvider() {
         OrderService orderService = mock(OrderService.class);
         OrderShipmentService shipmentService = mock(OrderShipmentService.class);
@@ -262,6 +283,14 @@ class OrderLogisticsTrackingServiceTest {
         assertThat(OrderLogisticsTrackingService.resolveCompanyCode("安能物流")).isEqualTo("ANE56");
         assertThat(OrderLogisticsTrackingService.resolveCompanyCode("百世快递")).isEqualTo("HTKY");
         assertThat(OrderLogisticsTrackingService.resolveCompanyCode("YTO")).isEqualTo("YTO");
+    }
+
+    @Test
+    void allowsAnUnknownCompanyForProvidersThatCanAutoRecognizeWaybills() {
+        assertThat(OrderLogisticsTrackingService.resolveCompanyCode("未登记物流", true)).isNull();
+        assertThatThrownBy(() -> OrderLogisticsTrackingService.resolveCompanyCode("未登记物流", false))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("无法识别物流公司，请填写物流供应商公司编码");
     }
 
     private SalesOrder order() {

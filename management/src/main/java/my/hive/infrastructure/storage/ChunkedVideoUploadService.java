@@ -38,7 +38,8 @@ public class ChunkedVideoUploadService {
             "doc", "docx", "xls", "xlsx", "csv",
             "txt", "zip", "rar", "7z", "ppt", "pptx",
             "mp4", "mov", "m4v", "avi", "mkv", "webm", "3gp");
-    private static final Set<String> MODULES = Set.of("sales-order", "bad-product", "finance", "installation-task", "document");
+    private static final Set<String> MODULES = Set.of(
+            "sales-order", "bad-product", "finance", "installation-task", "announcement", "document");
 
     private final BusinessAttachmentService businessAttachmentService;
 

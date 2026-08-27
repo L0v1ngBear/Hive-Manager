@@ -349,9 +349,7 @@ public class TenantManageService {
     }
 
     private void upsertOwnerEmployeeExt(Long userId, String tenantCode) {
-        EmployeeExt ext = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>()
-                .eq(EmployeeExt::getUserId, userId)
-                .last("LIMIT 1"));
+        EmployeeExt ext = employeeExtMapper.selectIncludingDeleted(tenantCode, userId);
         if (ext == null) {
             ext = new EmployeeExt();
             ext.setUserId(userId);
@@ -367,13 +365,20 @@ public class TenantManageService {
         if (!StringUtils.hasText(ext.getEmpNo())) {
             ext.setEmpNo(codeGeneratorUtil.generateEmployeeNo());
         }
+        boolean restoreDeletedExt = DeleteFlagEnum.isDeleted(ext.getIsDeleted());
         ext.setEmployeeType(EmployeeTypeEnum.FULL_TIME.getCode());
         if (ext.getEntryDate() == null) {
             ext.setEntryDate(LocalDate.now());
         }
         ext.setRemark("企业负责人账号");
         ext.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
-        employeeExtMapper.updateById(ext);
+        if (restoreDeletedExt) {
+            if (employeeExtMapper.restoreIncludingDeleted(ext) != 1) {
+                throw new BusinessException("恢复企业负责人档案失败，请稍后重试");
+            }
+        } else {
+            employeeExtMapper.updateById(ext);
+        }
     }
 
     private Department getOrCreateOwnerDepartment(String tenantCode, String leaderName) {

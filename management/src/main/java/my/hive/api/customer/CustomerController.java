@@ -2,12 +2,14 @@ package my.hive.api.customer;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import my.hive.shared.annotation.CollectLog;
 import my.hive.shared.annotation.RequirePermission;
 import my.hive.shared.permission.PermissionCatalogV3;
 import my.hive.shared.dto.PageResult;
 import my.hive.shared.dto.Result;
+import my.hive.shared.dto.ImportResultVO;
 import my.hive.shared.tenant.RequireTenantFeature;
 import my.hive.domain.tenant.model.enums.TenantFeatureEnum;
 import my.hive.domain.customer.model.dto.CustomerAddRequest;
@@ -24,6 +26,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Optional;
 import java.util.List;
@@ -79,5 +83,18 @@ public class CustomerController {
     @RequirePermission(value = PermissionCatalogV3.CODE_CUSTOMER_LIST, message = "您没有权限查看客户选项")
     public Result<List<CustomerOptionVO>> listCustomerOptions(String keyword) {
         return Result.success(customerService.listCustomerOptions(keyword));
+    }
+
+    @GetMapping("/import-template")
+    @RequirePermission(value = PermissionCatalogV3.CODE_CUSTOMER_IMPORT, message = "您没有权限下载客户导入模板")
+    public void downloadImportTemplate(HttpServletResponse response) {
+        customerService.downloadImportTemplate(response);
+    }
+
+    @PostMapping("/import")
+    @RequirePermission(value = PermissionCatalogV3.CODE_CUSTOMER_IMPORT, message = "您没有权限导入客户数据")
+    @CollectLog(module = "customer", action = "import", bizType = "customer", description = "管理端导入客户")
+    public Result<ImportResultVO> importCustomers(@RequestParam("file") MultipartFile file) {
+        return Result.success(customerService.importCustomers(file));
     }
 }

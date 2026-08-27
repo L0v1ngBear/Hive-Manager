@@ -25,8 +25,12 @@ test('each shipment logistics query is triggered only when its popover opens', (
   assert.match(trackingKeySource, /shipment\.id/)
   assert.match(trackingKeySource, /shipment\.logisticsCompany/)
   assert.match(trackingKeySource, /shipment\.trackingNo/)
+  assert.match(trackingKeySource, /normalizeShipmentDeliveryMode\(shipment\)/)
   assert.match(trackingKeySource, /shipment\.version/)
-  const trackingKey = Function(`return (${trackingKeySource.trim()})`)()
+  const trackingKey = Function(
+    'normalizeShipmentDeliveryMode',
+    `return (${trackingKeySource.trim()})`
+  )((shipment) => shipment.deliveryMode || (shipment.trackingNo ? 'tracked' : 'other'))
   const row = { orderId: 'SO-001' }
   const shipment = {
     id: 7,
@@ -45,6 +49,7 @@ test('each shipment logistics query is triggered only when its popover opens', (
   )
   assert.match(orderSource, /function logisticsTrackingState\(row = \{\}, shipment = \{\}\)/)
   assert.match(orderSource, /function loadLogisticsTracking\(row, shipment\)/)
+  assert.match(orderSource, /if \(!isTrackableShipment\(shipment\) \|\| !canViewOrderDetail\(row\)/)
   assert.match(orderSource, /getOrderLogisticsTracking\(row\.orderId, shipment\.id, shipment\.version\)/)
   assert.doesNotMatch(loadOrdersSource, /getOrderLogisticsTracking/)
   assert.doesNotMatch(orderSource, /@(mouseenter|mouseover)="loadLogisticsTracking/)
@@ -63,12 +68,14 @@ test('successful and failed hover queries are both throttled locally', async () 
   const loadSource = functionSource(orderSource, 'loadLogisticsTracking', 'resolveOrderListFailure').trim()
   const createLoader = (tracking, query) => Function(
     'canViewOrderDetail',
+    'isTrackableShipment',
     'logisticsTrackingState',
     'logisticsTrackingCacheValid',
     'getOrderLogisticsTracking',
     'LOGISTICS_TRACKING_FAILURE_RETRY_MS',
     `return (${loadSource})`
   )(
+    () => true,
     () => true,
     () => tracking,
     (data) => Date.parse(data?.cacheExpiresAt || '') > Date.now(),
@@ -116,18 +123,20 @@ test('tracking popover renders loading, error and reference-aligned trace states
 
 test('list-only users render disabled tracking numbers and never call the tracking API', async () => {
   const loadSource = functionSource(orderSource, 'loadLogisticsTracking', 'resolveOrderListFailure').trim()
-  assert.match(orderSource, /v-for="shipment in row\.shipments"[\s\S]*<el-popover\s+v-if="canViewOrderDetail\(row\)"/)
-  assert.match(orderSource, /v-else[\s\S]*order-express-number-trigger is-disabled[\s\S]*aria-disabled="true"/)
+  assert.match(orderSource, /v-for="shipment in row\.shipments"[\s\S]*<el-popover\s+v-if="isTrackableShipment\(shipment\) && canViewOrderDetail\(row\)"/)
+  assert.match(orderSource, /v-else[\s\S]*order-express-number-trigger[\s\S]*:aria-disabled="!canViewOrderDetail\(row\) \|\| !isTrackableShipment\(shipment\)"/)
 
   let apiCalls = 0
   const loadLogisticsTracking = Function(
     'canViewOrderDetail',
+    'isTrackableShipment',
     'logisticsTrackingState',
     'logisticsTrackingCacheValid',
     'getOrderLogisticsTracking',
     `return (${loadSource})`
   )(
     () => false,
+    () => true,
     () => ({ loading: false, data: null, errorMessage: '' }),
     () => false,
     async () => { apiCalls += 1 }
@@ -136,6 +145,31 @@ test('list-only users render disabled tracking numbers and never call the tracki
   await loadLogisticsTracking(
     { orderId: 'SO-001', status: 'pending_ship' },
     { id: 7, trackingNo: 'SF123456' }
+  )
+  assert.equal(apiCalls, 0)
+})
+
+test('non-trackable deliveries never query the logistics API', async () => {
+  const loadSource = functionSource(orderSource, 'loadLogisticsTracking', 'resolveOrderListFailure').trim()
+  let apiCalls = 0
+  const loadLogisticsTracking = Function(
+    'canViewOrderDetail',
+    'isTrackableShipment',
+    'logisticsTrackingState',
+    'logisticsTrackingCacheValid',
+    'getOrderLogisticsTracking',
+    `return (${loadSource})`
+  )(
+    () => true,
+    (shipment) => shipment.deliveryMode === 'tracked',
+    () => ({ loading: false, data: null, errorMessage: '' }),
+    () => false,
+    async () => { apiCalls += 1 }
+  )
+
+  await loadLogisticsTracking(
+    { orderId: 'SO-001', status: 'shipped' },
+    { id: 8, deliveryMode: 'lalamove', trackingNo: '' }
   )
   assert.equal(apiCalls, 0)
 })

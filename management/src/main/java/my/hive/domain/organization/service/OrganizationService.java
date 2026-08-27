@@ -140,6 +140,7 @@ public class OrganizationService {
     public void delete(Long id) {
         Department department = requireDepartment(id);
         Long childCount = departmentMapper.selectCount(new LambdaQueryWrapper<Department>()
+                .eq(Department::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Department::getParentId, id)
                 .eq(Department::getIsDeleted, 0));
         if (childCount != null && childCount > 0) {
@@ -150,6 +151,7 @@ public class OrganizationService {
             throw new BusinessException("该部门下仍有员工，请先调整员工部门后再删除");
         }
         Long positionCount = positionMapper.selectCount(new LambdaQueryWrapper<Position>()
+                .eq(Position::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Position::getDepartmentId, id)
                 .eq(Position::getIsDeleted, DeleteFlagEnum.NORMAL.getCode()));
         if (positionCount != null && positionCount > 0) {
@@ -220,6 +222,7 @@ public class OrganizationService {
 
     private List<Department> listTenantDepartments() {
         return departmentMapper.selectList(new LambdaQueryWrapper<Department>()
+                .eq(Department::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Department::getIsDeleted, 0)
                 .orderByAsc(Department::getSortNo)
                 .orderByAsc(Department::getId));
@@ -290,6 +293,7 @@ public class OrganizationService {
 
     private Department requireDepartment(Long id) {
         Department department = departmentMapper.selectOne(new LambdaQueryWrapper<Department>()
+                .eq(Department::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Department::getId, id)
                 .eq(Department::getIsDeleted, 0)
                 .last("LIMIT 1"));
@@ -301,6 +305,7 @@ public class OrganizationService {
 
     private Position requirePosition(Long id) {
         Position position = positionMapper.selectOne(new LambdaQueryWrapper<Position>()
+                .eq(Position::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Position::getId, id)
                 .eq(Position::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .last("LIMIT 1"));
@@ -318,6 +323,7 @@ public class OrganizationService {
 
     private void ensurePositionNameUnique(Position position) {
         LambdaQueryWrapper<Position> wrapper = new LambdaQueryWrapper<Position>()
+                .eq(Position::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Position::getDepartmentId, position.getDepartmentId())
                 .eq(Position::getPositionName, position.getPositionName())
                 .eq(Position::getIsDeleted, DeleteFlagEnum.NORMAL.getCode());
@@ -350,6 +356,7 @@ public class OrganizationService {
 
     private void ensureNameUnique(Department department) {
         LambdaQueryWrapper<Department> wrapper = new LambdaQueryWrapper<Department>()
+                .eq(Department::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Department::getDeptName, department.getDeptName())
                 .eq(Department::getIsDeleted, 0);
         if (department.getId() != null) {

@@ -8,9 +8,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
+import javax.imageio.stream.ImageInputStream;
 import java.awt.AlphaComposite;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -44,31 +46,50 @@ public class MediaUploadPreprocessor {
             return source;
         }
 
-        try (InputStream inputStream = source.getInputStream()) {
-            BufferedImage original = ImageIO.read(inputStream);
-            if (original == null) {
+        try (InputStream inputStream = source.getInputStream();
+             ImageInputStream imageInput = ImageIO.createImageInputStream(inputStream)) {
+            if (imageInput == null) {
                 return source;
             }
-            long pixels = (long) original.getWidth() * original.getHeight();
-            if (pixels <= 0 || pixels > Math.max(1, properties.getMaxPixels())) {
-                throw new BusinessException("图片像素过大，无法上传");
-            }
-
-            BufferedImage scaled = resizeIfNeeded(original);
-            String extension = extensionOf(source.getOriginalFilename());
-            boolean jpeg = "jpg".equals(extension) || "jpeg".equals(extension);
-            byte[] processed = jpeg ? writeJpeg(scaled) : writePng(scaled);
-
-            // Keep the original if re-encoding has not actually saved space.
-            if (processed.length >= source.getSize()) {
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(imageInput);
+            if (!readers.hasNext()) {
                 return source;
             }
-            String contentType = jpeg ? "image/jpeg" : "image/png";
-            String filename = jpeg ? withExtension(source.getOriginalFilename(), "jpg") : source.getOriginalFilename();
-            log.info("media image compressed, filename={}, sourceBytes={}, storedBytes={}, dimensions={}x{}",
-                    safeName(source.getOriginalFilename()), source.getSize(), processed.length,
-                    scaled.getWidth(), scaled.getHeight());
-            return new ByteArrayMultipartFile(source.getName(), filename, contentType, processed);
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(imageInput, true, true);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                long pixels = (long) width * height;
+                if (pixels <= 0 || pixels > Math.max(1, properties.getMaxPixels())) {
+                    throw new BusinessException("图片像素过大，无法上传");
+                }
+
+                // Decode only after validating dimensions. ImageIO.read would
+                // allocate the complete bitmap before this safety check.
+                BufferedImage original = reader.read(0);
+                if (original == null) {
+                    return source;
+                }
+
+                BufferedImage scaled = resizeIfNeeded(original);
+                String extension = extensionOf(source.getOriginalFilename());
+                boolean jpeg = "jpg".equals(extension) || "jpeg".equals(extension);
+                byte[] processed = jpeg ? writeJpeg(scaled) : writePng(scaled);
+
+                // Keep the original if re-encoding has not actually saved space.
+                if (processed.length >= source.getSize()) {
+                    return source;
+                }
+                String contentType = jpeg ? "image/jpeg" : "image/png";
+                String filename = jpeg ? withExtension(source.getOriginalFilename(), "jpg") : source.getOriginalFilename();
+                log.info("media image compressed, filename={}, sourceBytes={}, storedBytes={}, dimensions={}x{}",
+                        safeName(source.getOriginalFilename()), source.getSize(), processed.length,
+                        scaled.getWidth(), scaled.getHeight());
+                return new ByteArrayMultipartFile(source.getName(), filename, contentType, processed);
+            } finally {
+                reader.dispose();
+            }
         } catch (BusinessException exception) {
             throw exception;
         } catch (IOException | RuntimeException exception) {

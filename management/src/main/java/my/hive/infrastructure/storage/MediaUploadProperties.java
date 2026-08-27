@@ -24,7 +24,7 @@ public class MediaUploadProperties {
     private int maxDimension = 2560;
 
     /** Safety limit while decoding an image received from an untrusted client. */
-    private long maxPixels = 40_000_000L;
+    private long maxPixels = 20_000_000L;
 
     /** JPEG output quality, in the inclusive range 0.0 to 1.0. */
     private float jpegQuality = 0.82F;

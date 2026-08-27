@@ -8,6 +8,7 @@ import org.springframework.web.servlet.resource.PathResourceResolver;
 import org.springframework.web.servlet.resource.ResourceResolverChain;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Protects uploaded business files served by Spring's static resource handler.
@@ -16,6 +17,16 @@ import java.util.List;
 public class TenantUploadResourceResolver extends PathResourceResolver {
 
     private static final String PUBLIC_TENANT_LOGO_PREFIX = "tenant-logo/";
+    private static final Set<String> PRIVATE_UPLOAD_MODULES = Set.of(
+            "sales-order",
+            "bad-product",
+            "finance",
+            "inventory-recognition",
+            "installation-task",
+            "announcement",
+            "document",
+            "after-sales-part"
+    );
 
     @Override
     protected Resource resolveResourceInternal(HttpServletRequest request,
@@ -67,6 +78,8 @@ public class TenantUploadResourceResolver extends PathResourceResolver {
         }
 
         String[] segments = path.split("/");
-        return segments.length >= 3 && tenantSegment.equals(segments[1]);
+        return segments.length >= 3
+                && PRIVATE_UPLOAD_MODULES.contains(segments[0])
+                && tenantSegment.equals(segments[1]);
     }
 }

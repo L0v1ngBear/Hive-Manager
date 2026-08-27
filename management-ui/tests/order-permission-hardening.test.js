@@ -30,6 +30,8 @@ test('order list and detail require exact view permissions', () => {
     canViewOrderDetail(['order:detail', 'order:status:pending-ship:view'], pendingShipOrder),
     true
   )
+  assert.equal(canViewOrder(['order:list', 'order:detail'], pendingShipOrder), false)
+  assert.equal(canViewOrderDetail(['order:list', 'order:detail'], pendingShipOrder), false)
   assert.equal(canViewOrderDetail(['order:detail'], pendingShipOrder), false)
   assert.equal(canViewOrderDetail(['order:status:pending-ship:view'], pendingShipOrder), false)
 })

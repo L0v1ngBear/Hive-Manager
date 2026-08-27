@@ -34,7 +34,13 @@
       </section>
 
       <section class="function-list-panel installation-panel">
-        <el-form v-filter-collapse :model="filters" class="function-filter-form installation-filter-grid" @submit.prevent="loadTasks">
+        <el-form
+          v-filter-collapse
+          :model="filters"
+          label-position="top"
+          class="function-filter-form installation-filter-grid"
+          @submit.prevent="loadTasks"
+        >
           <el-form-item label="综合搜索" class="installation-filter-field installation-filter-field-wide">
             <el-input
               v-model.trim="filters.keyword"
@@ -1053,12 +1059,15 @@ function formatDateTime(value) {
 }
 
 .installation-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   align-items: end;
   gap: 12px;
   padding: 16px;
 }
 
 .installation-filter-field {
+  grid-column: span 2;
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -1068,11 +1077,35 @@ function formatDateTime(value) {
   font-weight: 950;
 }
 
-.installation-filter-field .box-input {
+.installation-filter-field-wide {
+  grid-column: span 4;
+}
+
+.installation-filter-grid :deep(.el-form-item) {
+  margin: 0;
+}
+
+.installation-filter-grid :deep(.el-form-item__label) {
+  width: auto !important;
+  height: auto;
+  justify-content: flex-start;
+  padding: 0 0 7px;
+  line-height: 1.25;
+}
+
+.installation-filter-grid :deep(.el-form-item__content),
+.installation-filter-grid :deep(.el-input),
+.installation-filter-grid :deep(.el-select) {
   width: 100%;
+  min-width: 0;
 }
 
 .installation-filter-actions {
+  grid-column: span 2;
+  display: flex;
+  min-width: 0;
+  min-height: 32px;
+  align-items: center;
   justify-content: flex-start;
 }
 

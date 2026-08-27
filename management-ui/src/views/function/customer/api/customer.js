@@ -38,3 +38,22 @@ export function getCustomerOptions(params) {
     params
   })
 }
+
+export function downloadCustomerImportTemplate() {
+  return request({
+    url: '/customer/import-template',
+    method: 'get',
+    responseType: 'blob'
+  })
+}
+
+export function importCustomers(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request({
+    url: '/customer/import',
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}

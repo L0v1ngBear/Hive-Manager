@@ -9,6 +9,7 @@ configure_profiles
 prepare_runtime_directories
 
 bash scripts/prune-management-ui.sh
+bash scripts/prune-db-migrations.sh
 bash scripts/check-deploy-health.sh
 
 desired_hive_subnet="$(env_value HIVE_DOCKER_SUBNET)"

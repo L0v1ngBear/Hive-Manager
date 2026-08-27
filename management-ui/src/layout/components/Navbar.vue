@@ -293,7 +293,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import {
   ElBadge,
   ElButton,
@@ -357,7 +357,6 @@ const pendingNotifications = ref([])
 const notificationsLoading = ref(false)
 const passwordDialogVisible = ref(false)
 const passwordSubmitting = ref(false)
-let notificationRefreshTimer = null
 let stopApprovalChangedListener = () => {}
 let stopOrderWarningChangedListener = () => {}
 const passwordForm = reactive({
@@ -387,7 +386,7 @@ const searchableMenus = computed(() => {
   { name: '安装任务', path: '/function/installation-task', icon: 'engineering', desc: '安装状态跟进和验收记录', permissions: ['installation:list'] },
   { name: '库存管理', path: '/function/inventory', icon: 'inventory_2', desc: '布匹入库、出库、库存预警和流水', permissions: ['inventory:warning:list', 'inventory:record:list', 'inventory:cloth:in', 'inventory:cloth:out'] },
   { name: '质量管理', path: '/function/bad-product', icon: 'report_problem', desc: '质量异常登记、处理闭环和损失跟踪', permissions: ['quality:list'] },
-  { name: '客户管理', path: '/function/customer', icon: 'handshake', desc: '客户档案、联系人和合作项目维护', permissions: ['customer:list'] },
+  { name: '客户管理', path: '/function/customer', icon: 'handshake', desc: '客户档案、联系人和项目名称维护', permissions: ['customer:list'] },
   { name: '价格管理', path: '/function/price', icon: 'sell', desc: 'SKU 基准价、客户等级价和特价维护', permissions: ['price:list'] },
   { name: '出库单打印', path: '/function/receipt', icon: 'print', desc: '待打印出库单、连续纸模板和打印确认', permissions: ['print:receipt:list'] },
   { name: '审批中心', path: '/function/approval', icon: 'approval', desc: '请假、财务、离职和订单审批待办处理', permissions: ['approval:leave:list', 'approval:finance:list', 'approval:resignation:list', 'approval:leave:submit', 'approval:finance:submit', 'approval:resignation:submit', 'order:list', 'order:audit:shipment', 'order:audit:cancel', 'quality:audit'] },
@@ -456,7 +455,7 @@ function buildSmartSearchResults(rawKeyword) {
       path: '/function/customer',
       to: { path: '/function/customer', query: { keyword: value } },
       icon: 'handshake',
-      desc: '按客户名称、联系人或合作项目筛选'
+      desc: '按客户名称、联系人或项目名称筛选'
     },
     {
       name: '员工管理',
@@ -589,12 +588,12 @@ async function refreshNotifications(sync = false, notifyOnError = true) {
     let syncFailed = false
     if (sync && canSyncNotifications.value) {
       try {
-        await syncNotifications()
+        await syncNotifications({ silent: true, showGlobalLoading: false })
       } catch {
         syncFailed = true
       }
     }
-    const list = await getUnreadNotifications()
+    const list = await getUnreadNotifications({ silent: true, showGlobalLoading: false })
     pendingNotifications.value = (list || []).slice(0, 8).map((item) => ({
       key: `notification-${item.id}`,
       id: Number(item.id),
@@ -619,10 +618,6 @@ async function refreshNotifications(sync = false, notifyOnError = true) {
 
 function refreshNotificationsInBackground() {
   return refreshNotifications(true, false)
-}
-
-function refreshNotificationListInBackground() {
-  return refreshNotifications(false, false)
 }
 
 async function openNotification(item) {
@@ -752,29 +747,16 @@ function handleClickOutside(event) {
   }
 }
 
-watch(
-  () => [userStore.currentTenantCode, userStore.permissions],
-  () => refreshNotifications(true, false),
-  { immediate: true, deep: true }
-)
-
 onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   stopApprovalChangedListener = listenApprovalChanged(refreshNotificationsInBackground)
   stopOrderWarningChangedListener = listenOrderWarningChanged(refreshNotificationsInBackground)
-  window.addEventListener('focus', refreshNotificationsInBackground)
-  notificationRefreshTimer = window.setInterval(refreshNotificationListInBackground, 30000)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
   stopApprovalChangedListener()
   stopOrderWarningChangedListener()
-  window.removeEventListener('focus', refreshNotificationsInBackground)
-  if (notificationRefreshTimer) {
-    window.clearInterval(notificationRefreshTimer)
-    notificationRefreshTimer = null
-  }
 })
 </script>
 

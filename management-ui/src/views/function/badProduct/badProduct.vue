@@ -18,23 +18,6 @@ Output:
         </el-button>
       </header>
 
-      <section class="quality-scope-grid">
-        <el-button
-          v-for="scope in scopeOptions"
-          :key="scope.value"
-          class="quality-scope-button"
-          :type="activeScope === scope.value ? 'primary' : 'default'"
-          :plain="activeScope !== scope.value"
-          @click="handleScopeChange(scope.value)"
-        >
-          <span class="material-symbols-outlined">{{ scope.icon }}</span>
-          <span>
-            <strong>{{ scope.tabTitle }}</strong>
-            <small>{{ scope.tabDesc }}</small>
-          </span>
-        </el-button>
-      </section>
-
       <section class="quality-stats-grid">
         <div class="quality-stat-card">
           <p>总记录数</p>
@@ -452,20 +435,6 @@ const qualityTypeOptions = [
   { value: 'process_flow', label: '工艺流程' },
   { value: 'other', label: '其他' }
 ]
-const afterSalesTypeOptions = [
-  { value: 'motor', label: '电机' },
-  { value: 'manual_track', label: '手动轨道' },
-  { value: 'electric_track', label: '电动轨道' },
-  { value: 'fabric', label: '面料' },
-  { value: 'electric_roller_blind', label: '电动卷帘' },
-  { value: 'manual_roller_blind', label: '手动卷帘' },
-  { value: 'wear_part', label: '易损件' },
-  { value: 'craft', label: '工艺' },
-  { value: 'installation', label: '安装' },
-  { value: 'measurement', label: '测量' },
-  { value: 'after_sales_other', label: '其他' }
-]
-const allTypeOptions = [...qualityTypeOptions, ...afterSalesTypeOptions]
 const lossAmountOptions = [
   { value: '25', label: '0-50' },
   { value: '100', label: '50-200' },
@@ -492,23 +461,6 @@ const scopeOptions = [
     formSubtitle: '保存后会形成质量记录。',
     icon: 'fact_check'
   },
-  {
-    value: 'afterSales',
-    tabTitle: '售后管理',
-    tabDesc: '记录客户售后、退换货、投诉和赔付协商，便于追踪回访。',
-    eyebrow: '客户售后中心',
-    title: '售后管理',
-    desc: '统一管理客户售后问题、退换货、赔付协商和回访记录，确保每个售后都有处理闭环。',
-    createText: '新增售后记录',
-    countText: '条售后记录',
-    emptyText: '暂无售后记录。',
-    detailTitle: '售后记录详情',
-    createTitle: '新增售后记录',
-    editTitle: '编辑售后记录',
-    processTitle: '处理售后记录',
-    formSubtitle: '保存后会形成售后记录。',
-    icon: 'support_agent'
-  }
 ]
 const defaultBadProductTableColumns = [
   { key: 'defectiveId', label: '记录编号' },
@@ -561,7 +513,7 @@ const {
 
 const totalPages = computed(() => Math.max(Number(pagination.pages || 1), 1))
 const scopeMeta = computed(() => scopeOptions.find((item) => item.value === activeScope.value) || scopeOptions[0])
-const typeOptions = computed(() => activeScope.value === 'afterSales' ? afterSalesTypeOptions : qualityTypeOptions)
+const typeOptions = computed(() => qualityTypeOptions)
 const stats = computed(() => {
   const pending = rows.value.filter((item) => item.status === 'pending').length
   const processed = rows.value.filter((item) => item.status === 'processed').length
@@ -578,17 +530,6 @@ function badProductCellClass(key) {
 }
 
 fetchData()
-
-function handleScopeChange(scope) {
-  if (activeScope.value === scope) {
-    return
-  }
-  activeScope.value = scope
-  query.type = ''
-  query.status = ''
-  query.pageNum = 1
-  fetchData()
-}
 
 async function fetchData() {
   const request = listRequest.begin()
@@ -893,7 +834,7 @@ async function submitProcess() {
 }
 
 function typeLabel(value) {
-  return allTypeOptions.find((item) => item.value === value)?.label || '其他'
+  return qualityTypeOptions.find((item) => item.value === value)?.label || '其他'
 }
 
 function normalizeLossAmountBucketValue(value) {
@@ -1012,12 +953,11 @@ function createEmptyForm() {
 }
 
 function defaultTypeForScope() {
-  return activeScope.value === 'afterSales' ? 'motor' : 'raw_material'
+  return 'raw_material'
 }
 
 function normalizeTypeForScope(value) {
-  const options = activeScope.value === 'afterSales' ? afterSalesTypeOptions : qualityTypeOptions
-  return options.some((item) => item.value === value) ? value : defaultTypeForScope()
+  return qualityTypeOptions.some((item) => item.value === value) ? value : defaultTypeForScope()
 }
 </script>
 

@@ -222,11 +222,6 @@ button[aria-disabled="true"],
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08) !important;
 }
 
-.el-dialog {
-  --el-bg-color: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(18px);
-}
-
 /* Material Symbols 图标字体改为本地 npm 依赖，避免 Google Fonts 被网络或 VPN 影响。 */
 .material-symbols-outlined {
   font-family: "Material Symbols Outlined";
@@ -425,45 +420,6 @@ button[aria-disabled="true"],
   --tw-shadow-color: rgba(15, 23, 42, 0.12) !important;
 }
 
-.el-card,
-.el-table,
-.el-table tr,
-.el-table th.el-table__cell,
-.el-table td.el-table__cell {
-  background-color: rgba(255, 255, 255, 0.92) !important;
-}
-
-.el-table th.el-table__cell {
-  color: #0f172a;
-}
-
-.el-input__wrapper,
-.el-select__wrapper,
-.el-textarea__inner,
-.el-date-editor.el-input__wrapper {
-  border-radius: 14px !important;
-  box-shadow: 0 0 0 1px rgba(200, 211, 223, 0.82) inset !important;
-  background: rgba(255, 255, 255, 0.9) !important;
-}
-
-.el-input__wrapper.is-focus,
-.el-select__wrapper.is-focused,
-.el-textarea__inner:focus {
-  box-shadow: 0 0 0 1px rgb(var(--ys-primary-rgb) / 0.72) inset, 0 0 0 4px rgb(var(--ys-primary-rgb) / 0.1) !important;
-}
-
-.el-input__wrapper:focus-within,
-.el-select__wrapper.is-focused,
-.el-textarea__inner:focus {
-  box-shadow: var(--ys-focus-ring) !important;
-}
-
-.el-message,
-.el-notification {
-  border-color: rgba(200, 211, 223, 0.86) !important;
-  box-shadow: 0 22px 52px rgba(15, 23, 42, 0.16) !important;
-}
-
 /* ==========================================
    父级自适应布局兜底
    ========================================== */
@@ -563,36 +519,6 @@ button[aria-disabled="true"],
   background: rgba(255, 255, 255, 0.96);
   padding: 1rem;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
-}
-
-.function-filter-form {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 15rem));
-  align-items: end;
-  justify-content: start;
-  gap: 0.75rem;
-}
-
-.function-filter-form .el-form-item {
-  width: 100%;
-  min-width: 0;
-  margin: 0 !important;
-}
-
-.function-filter-form :is(.el-input, .el-select, .el-date-editor, .el-input-number) {
-  width: 100% !important;
-  min-width: 0;
-}
-
-.function-filter-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.function-filter-actions .el-button + .el-button {
-  margin-left: 0;
 }
 
 .function-filter-collapse-bar {
@@ -808,8 +734,7 @@ button[aria-disabled="true"],
 }
 
 @media (max-width: 640px) {
-  .function-stats-grid,
-  .function-filter-form {
+  .function-stats-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

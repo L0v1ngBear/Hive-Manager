@@ -32,7 +32,7 @@ class PermissionCatalogV3Test {
 
     @Test
     void definitionsAreUniqueAndEveryAssignableDefinitionIsALeaf() {
-        assertEquals(197, catalog.definitions().size());
+        assertEquals(208, catalog.definitions().size());
         assertEquals(catalog.definitions().size(),
                 new HashSet<>(catalog.definitions().stream()
                         .map(PermissionCatalogV3.PermissionDefinition::code)

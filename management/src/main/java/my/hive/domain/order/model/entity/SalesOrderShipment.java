@@ -27,6 +27,9 @@ public class SalesOrderShipment {
     @TableField("tracking_no")
     private String trackingNo;
 
+    @TableField("delivery_mode")
+    private String deliveryMode;
+
     @TableField("sort_order")
     private Integer sortOrder;
 

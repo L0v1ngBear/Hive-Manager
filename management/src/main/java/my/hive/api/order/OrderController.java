@@ -125,7 +125,7 @@ public class OrderController {
     @PostMapping("/{orderId}/status")
     @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_UPDATE, message = "您没有权限更新订单")
     @CollectLog(module = "order", action = "update_order_status", bizType = "order", bizNo = "#orderId", description = "管理端更新订单状态")
-    public Result<Void> update(@PathVariable String orderId, @RequestBody SalesOrderUpdateRequest request) {
+    public Result<Void> update(@PathVariable String orderId, @RequestBody @Valid SalesOrderUpdateRequest request) {
         orderService.updateSalesOrder(orderId, request);
         return Result.success(null);
     }
@@ -151,7 +151,7 @@ public class OrderController {
     @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_UPDATE, message = "您没有权限提交订单回退审批")
     @CollectLog(module = "order", action = "submit_order_rollback", bizType = "order", bizNo = "#orderId", description = "管理端提交订单回退审批")
     public Result<Void> rollback(@PathVariable String orderId,
-                                 @RequestBody(required = false) SalesOrderUpdateRequest request) {
+                                 @RequestBody(required = false) @Valid SalesOrderUpdateRequest request) {
         orderService.submitSalesOrderRollbackApproval(orderId, request == null ? new SalesOrderUpdateRequest() : request);
         return Result.success(null);
     }

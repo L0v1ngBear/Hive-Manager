@@ -70,6 +70,29 @@ public final class InternalUploadUrlValidator {
         return "/uploads/" + path;
     }
 
+    public static String normalizeOptionalModuleAttachment(String value, String tenantCode, String module) {
+        if (!StringUtils.hasText(module)) {
+            throw new BusinessException("附件模块不能为空");
+        }
+        if (InternalStorageReference.isPrivateOssReference(value, null)) {
+            return InternalStorageReference.normalizePrivateOssReference(
+                    value,
+                    null,
+                    tenantCode,
+                    Set.of(module)
+            );
+        }
+        String path = normalize(value, null);
+        if (path == null) {
+            return null;
+        }
+        String expectedPrefix = module.trim() + "/" + safeTenantSegment(tenantCode) + "/";
+        if (!path.startsWith(expectedPrefix)) {
+            throw new BusinessException("附件必须使用当前租户的系统上传文件");
+        }
+        return "/uploads/" + path;
+    }
+
     private static String normalize(String value, String contextPath) {
         if (!StringUtils.hasText(value)) {
             return null;

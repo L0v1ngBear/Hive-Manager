@@ -25,13 +25,15 @@ test("customer surfaces use Element Plus table dialog drawer and form", () => {
 test("customer list separates header actions from collapsible filters", () => {
   const customer = read("../src/views/function/customer/customer.vue");
   const header = customer.match(/<header class="customer-page-header[\s\S]*?<\/header>/)?.[0] || "";
-  const listPanel = customer.match(/<section class="customer-list-panel[\s\S]*?<CustomerCreateDrawer/)?.[0] || "";
+  const listPanel = customer.match(/<section class="customer-list-panel[\s\S]*?<\/section>/)?.[0] || "";
 
   assert.match(header, /@click="openCreateDrawer"/);
   assert.doesNotMatch(header, /v-filter-collapse|class="function-filter-form/);
   assert.match(listPanel, /v-filter-collapse class="function-filter-form customer-filter-form"/);
   assert.match(listPanel, /class="function-table-scroll responsive-table-wrap"/);
-  assert.match(listPanel, /<el-table-column label="操作" fixed="right" width="128"/);
+  assert.match(listPanel, /<el-table-column label="操作" fixed="right" width="76"/);
+  assert.match(listPanel, /@row-click="handleCustomerRowClick"/);
+  assert.doesNotMatch(listPanel, /visibility/);
   assert.match(customer, /class="customer-summary-grid"/);
   assert.match(customer, /\.customer-filter-form\s*\{[\s\S]*grid-template-columns/);
   assert.match(customer, /@container \(max-width: 64rem\)[\s\S]*\.customer-filter-form/);
@@ -145,12 +147,11 @@ test("customer and document commands keep visible disabled permission tooltips",
   }
   assert.match(customer, /:disabled="!canCreateCustomer"/);
   assert.match(customer, /:disabled="!canUpdateCustomer"/);
-  assert.match(customer, /:disabled="!canViewCustomerDetail"/);
   assert.match(customer, /:export-disabled="!canExportTable"/);
   assert.match(customer, /当前账号暂无新增客户权限/);
   assert.match(customer, /当前账号暂无编辑客户权限/);
-  assert.match(customer, /当前账号暂无查看客户详情权限/);
   assert.match(customer, /当前账号暂无表格导出权限/);
+  assert.match(customer, /function handleCustomerRowClick\(customer\) \{[\s\S]*?canViewCustomerDetail\.value[\s\S]*?openDetail\(customer\.id\)/);
 
   for (const permission of ["document:folder:create", "document:file:upload", "document:export", "document:move", "document:delete"]) {
     assert.match(document, new RegExp(permission));

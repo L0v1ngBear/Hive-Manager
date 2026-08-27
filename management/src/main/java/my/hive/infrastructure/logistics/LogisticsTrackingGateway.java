@@ -30,15 +30,23 @@ public class LogisticsTrackingGateway {
     }
 
     public OrderLogisticsTrackingVO query(LogisticsTrackingQuery query) {
-        LogisticsTrackingProvider provider = providers.get(providerCode);
-        if (provider == null) {
-            throw new BusinessException(503, "物流查询供应商未配置或不受支持");
-        }
-        return provider.query(query);
+        return activeProvider().query(query);
     }
 
     public String providerCode() {
         return providerCode;
+    }
+
+    public boolean supportsCompanyCodeAutoRecognition() {
+        return activeProvider().supportsCompanyCodeAutoRecognition();
+    }
+
+    private LogisticsTrackingProvider activeProvider() {
+        LogisticsTrackingProvider provider = providers.get(providerCode);
+        if (provider == null) {
+            throw new BusinessException(503, "物流查询供应商未配置或不受支持");
+        }
+        return provider;
     }
 
     private static String normalize(String value) {

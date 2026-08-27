@@ -1,5 +1,13 @@
 import request from '@/utils/request.js'
 
+export function getCurrentSession() {
+  return request({
+    url: '/auth/me',
+    method: 'get',
+    showGlobalLoading: false
+  })
+}
+
 export function login(data) {
   return request({
     url: '/auth/admin/login',

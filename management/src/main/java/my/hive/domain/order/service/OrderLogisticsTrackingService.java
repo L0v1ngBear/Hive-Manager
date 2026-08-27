@@ -76,11 +76,40 @@ public class OrderLogisticsTrackingService {
                 || !Objects.equals(shipmentId, shipment.getId())) {
             throw new BusinessException("物流记录不存在或不属于当前订单");
         }
+        if (shipment.getDeliveryMode() != null
+                && !shipment.getDeliveryMode().isBlank()
+                && !"tracked".equalsIgnoreCase(shipment.getDeliveryMode())) {
+            throw new BusinessException("该发货方式不支持物流轨迹查询");
+        }
         String company = required(shipment.getLogisticsCompany(), "Shipment logistics company is required");
         String trackingNo = required(shipment.getTrackingNo(), "Shipment tracking number is required");
-        String companyCode = resolveCompanyCode(company);
-        String cacheSource = String.join("|", order.getTenantCode(), orderId,
-                String.valueOf(shipmentId), company, trackingNo);
+        return getTrackingForWaybill(order, company, trackingNo, String.valueOf(shipmentId));
+    }
+
+    /**
+     * Reuses the same provider, cache and cooldown as an order shipment for a
+     * separately dispatched after-sales waybill.
+     */
+    public OrderLogisticsTrackingVO getTrackingForAfterSales(String orderId,
+                                                              String logisticsCompany,
+                                                              String trackingNo,
+                                                              Long ticketId) {
+        if (orderId == null || orderId.isBlank()) {
+            throw new BusinessException("关联订单不能为空");
+        }
+        SalesOrder order = orderService.getSalesOrderForLogisticsTracking(orderId.trim());
+        String company = required(logisticsCompany, "请补充物流公司后再查询物流轨迹");
+        String waybill = required(trackingNo, "请补充物流单号后再查询物流轨迹");
+        return getTrackingForWaybill(order, company, waybill, "after-sales:" + (ticketId == null ? "new" : ticketId));
+    }
+
+    private OrderLogisticsTrackingVO getTrackingForWaybill(SalesOrder order,
+                                                            String company,
+                                                            String trackingNo,
+                                                            String reference) {
+        String companyCode = resolveCompanyCode(company, logisticsTrackingGateway.supportsCompanyCodeAutoRecognition());
+        String cacheSource = String.join("|", order.getTenantCode(), order.getOrderId(),
+                reference, company, trackingNo);
         String cacheKey = externalApiGuardService.fingerprint(cacheSource);
         String provider = logisticsTrackingGateway.providerCode() + "-logistics";
 
@@ -116,7 +145,9 @@ public class OrderLogisticsTrackingService {
             OrderLogisticsTrackingVO result = logisticsTrackingGateway.query(
                     new LogisticsTrackingQuery(companyCode, trackingNo, phoneSuffix));
             result.setCompany(company);
-            result.setCompanyCode(companyCode);
+            if (companyCode != null) {
+                result.setCompanyCode(companyCode);
+            }
             result.setTrackingNo(trackingNo);
             result.setCached(false);
             if (result.getQueriedAt() == null) {
@@ -270,6 +301,10 @@ public class OrderLogisticsTrackingService {
     }
 
     static String resolveCompanyCode(String company) {
+        return resolveCompanyCode(company, false);
+    }
+
+    static String resolveCompanyCode(String company, boolean allowAutoRecognition) {
         String normalized = company == null ? "" : company.trim().replace(" ", "");
         String mapped = COMPANY_CODES.get(normalized.toLowerCase(Locale.ROOT));
         if (mapped != null) {
@@ -278,6 +313,9 @@ public class OrderLogisticsTrackingService {
         String directCode = normalized.toUpperCase(Locale.ROOT);
         if (DIRECT_COMPANY_CODE.matcher(directCode).matches()) {
             return directCode;
+        }
+        if (allowAutoRecognition) {
+            return null;
         }
         throw new BusinessException("无法识别物流公司，请填写物流供应商公司编码");
     }

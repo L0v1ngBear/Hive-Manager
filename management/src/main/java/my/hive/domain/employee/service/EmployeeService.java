@@ -250,7 +250,13 @@ public class EmployeeService {
             employeeMapper.insert(employee);
         }
 
-        EmployeeExt ext = new EmployeeExt();
+        EmployeeExt ext = reuseJoinedUser
+                ? employeeExtMapper.selectIncludingDeleted(TenantPermissionContext.getTenantCode(), employee.getId())
+                : null;
+        boolean restoreDeletedExt = ext != null;
+        if (ext == null) {
+            ext = new EmployeeExt();
+        }
         ext.setUserId(employee.getId());
         ext.setTenantCode(TenantPermissionContext.getTenantCode());
         ext.setEmpNo(empNo);
@@ -259,7 +265,13 @@ public class EmployeeService {
         ext.setEntryDate(request.getEntryDate());
         ext.setRemark(request.getRemark());
         ext.setIsDeleted(DeleteFlagEnum.NORMAL.getCode());
-        employeeExtMapper.insert(ext);
+        if (restoreDeletedExt) {
+            if (employeeExtMapper.restoreIncludingDeleted(ext) != 1) {
+                throw new BusinessException("恢复员工档案失败，请稍后重试");
+            }
+        } else {
+            employeeExtMapper.insert(ext);
+        }
         syncUserRolesByStatus(employee.getId(), request.getRoleIds(), employee.getStatus());
         syncAttendanceLocations(employee.getId(), isResigned(employee.getStatus()) ? Collections.emptyList() : request.getAttendanceLocationIds());
 
@@ -459,12 +471,14 @@ public class EmployeeService {
     public EmployeeFormOptionsVO initFormOptions() {
         EmployeeFormOptionsVO vo = new EmployeeFormOptionsVO();
         vo.setDepartments(departmentMapper.selectList(new LambdaQueryWrapper<Department>()
+                        .eq(Department::getTenantCode, TenantPermissionContext.getTenantCode())
                         .eq(Department::getStatus, CommonStatusEnum.ENABLED.getCode())
                         .orderByAsc(Department::getSortNo))
                 .stream()
                 .map(this::toDepartmentOption)
                 .toList());
         vo.setPositions(positionMapper.selectList(new LambdaQueryWrapper<Position>()
+                        .eq(Position::getTenantCode, TenantPermissionContext.getTenantCode())
                         .eq(Position::getStatus, CommonStatusEnum.ENABLED.getCode())
                         .orderByAsc(Position::getSortNo))
                 .stream()
@@ -614,6 +628,7 @@ public class EmployeeService {
             throw new BusinessException("员工不存在");
         }
         EmployeeExt ext = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>()
+                .eq(EmployeeExt::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(EmployeeExt::getUserId, id)
                 .last("LIMIT 1"));
         if (ext != null && DeleteFlagEnum.isDeleted(ext.getIsDeleted())) {
@@ -623,7 +638,10 @@ public class EmployeeService {
     }
 
     private Department requireDepartment(Long id) {
-        Department department = departmentMapper.selectById(id);
+        Department department = departmentMapper.selectOne(new LambdaQueryWrapper<Department>()
+                .eq(Department::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(Department::getId, id)
+                .last("LIMIT 1"));
         if (department == null || DeleteFlagEnum.isDeleted(department.getIsDeleted()) || !CommonStatusEnum.isEnabled(department.getStatus())) {
             throw new BusinessException("部门不合法");
         }
@@ -631,7 +649,10 @@ public class EmployeeService {
     }
 
     private Position requirePosition(Long id) {
-        Position position = positionMapper.selectById(id);
+        Position position = positionMapper.selectOne(new LambdaQueryWrapper<Position>()
+                .eq(Position::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(Position::getId, id)
+                .last("LIMIT 1"));
         if (position == null || DeleteFlagEnum.isDeleted(position.getIsDeleted()) || !CommonStatusEnum.isEnabled(position.getStatus())) {
             throw new BusinessException("职位不合法");
         }
@@ -640,6 +661,7 @@ public class EmployeeService {
 
     private Department requireDepartmentByName(String departmentName) {
         Department department = departmentMapper.selectOne(new LambdaQueryWrapper<Department>()
+                .eq(Department::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Department::getDeptName, departmentName)
                 .eq(Department::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .eq(Department::getStatus, CommonStatusEnum.ENABLED.getCode())
@@ -679,6 +701,7 @@ public class EmployeeService {
 
     private EmployeeExt getOrCreateExt(Long userId) {
         EmployeeExt ext = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>()
+                .eq(EmployeeExt::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(EmployeeExt::getUserId, userId)
                 .last("LIMIT 1"));
         if (ext != null) {
@@ -730,6 +753,7 @@ public class EmployeeService {
                 }
             });
             List<EmployeeAttendanceLocation> relations = employeeAttendanceLocationMapper.selectList(new LambdaQueryWrapper<EmployeeAttendanceLocation>()
+                    .eq(EmployeeAttendanceLocation::getTenantCode, tenantCode)
                     .in(EmployeeAttendanceLocation::getUserId, userIds));
             Map<Long, String> locationNameById = new HashMap<>();
             List<Long> locationIds = (relations == null ? List.<EmployeeAttendanceLocation>of() : relations).stream()
@@ -739,6 +763,7 @@ public class EmployeeService {
                     .toList();
             if (!locationIds.isEmpty()) {
                 tenantAttendanceLocationManageMapper.selectList(new LambdaQueryWrapper<TenantAttendanceLocation>()
+                        .eq(TenantAttendanceLocation::getTenantCode, tenantCode)
                         .eq(TenantAttendanceLocation::getStatus, CommonStatusEnum.ENABLED.getCode())
                         .in(TenantAttendanceLocation::getId, locationIds)
                         .orderByAsc(TenantAttendanceLocation::getSortOrder)
@@ -875,6 +900,7 @@ public class EmployeeService {
         String tenantCode = TenantPermissionContext.getTenantCode();
         List<Long> normalizedLocationIds = normalizeAttendanceLocationIds(tenantCode, locationIds);
         employeeAttendanceLocationMapper.delete(new LambdaQueryWrapper<EmployeeAttendanceLocation>()
+                .eq(EmployeeAttendanceLocation::getTenantCode, tenantCode)
                 .eq(EmployeeAttendanceLocation::getUserId, userId));
         for (Long locationId : normalizedLocationIds) {
             EmployeeAttendanceLocation relation = new EmployeeAttendanceLocation();
@@ -942,6 +968,7 @@ public class EmployeeService {
             return Collections.emptyList();
         }
         List<TenantAttendanceLocation> locations = tenantAttendanceLocationManageMapper.selectList(new LambdaQueryWrapper<TenantAttendanceLocation>()
+                .eq(TenantAttendanceLocation::getTenantCode, tenantCode)
                 .eq(TenantAttendanceLocation::getStatus, CommonStatusEnum.ENABLED.getCode())
                 .in(TenantAttendanceLocation::getId, normalized));
         Set<Long> validLocationIds = new HashSet<>(locations.stream().map(TenantAttendanceLocation::getId).toList());
@@ -1014,6 +1041,7 @@ public class EmployeeService {
 
         Employee matchedUser = matchedUsers.get(0);
         EmployeeExt activeExt = employeeExtMapper.selectOne(new LambdaQueryWrapper<EmployeeExt>()
+                .eq(EmployeeExt::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(EmployeeExt::getUserId, matchedUser.getId())
                 .eq(EmployeeExt::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
                 .last("LIMIT 1"));
@@ -1048,6 +1076,7 @@ public class EmployeeService {
 
     private Department getOrCreateDepartment(String departmentName) {
         Department department = departmentMapper.selectOne(new LambdaQueryWrapper<Department>()
+                .eq(Department::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Department::getDeptName, departmentName)
                 .eq(Department::getStatus, CommonStatusEnum.ENABLED.getCode())
                 .eq(Department::getIsDeleted, DeleteFlagEnum.NORMAL.getCode())
@@ -1068,6 +1097,7 @@ public class EmployeeService {
 
     private Position getOrCreatePosition(String positionName, Long departmentId) {
         Position position = positionMapper.selectOne(new LambdaQueryWrapper<Position>()
+                .eq(Position::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Position::getPositionName, positionName)
                 .eq(Position::getDepartmentId, departmentId)
                 .eq(Position::getStatus, CommonStatusEnum.ENABLED.getCode())

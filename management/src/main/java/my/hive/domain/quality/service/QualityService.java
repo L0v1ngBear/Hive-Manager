@@ -1,6 +1,7 @@
 package my.hive.domain.quality.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
 import my.hive.shared.context.OperationLogSkipContext;
@@ -167,7 +168,10 @@ public class QualityService {
         boolean update = request.getDefectiveId() != null && !request.getDefectiveId().isBlank();
         requireQualitySavePermission(update);
         Long userId = TenantPermissionContext.getUserId();
-        Employee operator = userId == null ? null : employeeMapper.selectById(userId);
+        Employee operator = userId == null ? null : employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
+                .eq(Employee::getTenantCode, tenantCode)
+                .eq(Employee::getId, userId)
+                .last("LIMIT 1"));
 
         BadProductRecord entity;
         BadProductRecord before = null;
@@ -214,7 +218,13 @@ public class QualityService {
             if (!businessChanged) {
                 entity.setUpdateTime(before.getUpdateTime());
             }
-            badProductMapper.updateById(entity);
+            int updated = badProductMapper.update(entity, new LambdaUpdateWrapper<BadProductRecord>()
+                    .eq(BadProductRecord::getTenantCode, tenantCode)
+                    .eq(BadProductRecord::getId, entity.getId())
+                    .eq(BadProductRecord::getStatus, before.getStatus()));
+            if (updated != 1) {
+                throw new BusinessException("质量记录已被其他操作更新，请刷新后重试");
+            }
             if (!businessChanged) {
                 OperationLogSkipContext.skipCurrent();
             }
@@ -242,7 +252,13 @@ public class QualityService {
         entity.setResponsiblePerson(blankToNull(request.getResponsiblePerson()));
         entity.setProcessMeasure(blankToNull(request.getProcessMeasure()));
         entity.setImprovementPlan(blankToNull(request.getImprovementPlan()));
-        badProductMapper.updateById(entity);
+        int transitioned = badProductMapper.update(entity, new LambdaUpdateWrapper<BadProductRecord>()
+                .eq(BadProductRecord::getTenantCode, tenantCode)
+                .eq(BadProductRecord::getId, entity.getId())
+                .eq(BadProductRecord::getStatus, STATUS_PENDING));
+        if (transitioned != 1) {
+            throw new BusinessException("质量记录已被其他操作更新，请刷新后重试");
+        }
 
         List<Long> auditorIds = approvalDefaultAuditorService.resolveAuditorIds(
                 entity.getTenantCode(),
@@ -263,8 +279,15 @@ public class QualityService {
         if (!STATUS_PENDING_AUDIT.equals(entity.getStatus())) {
             throw new BusinessException("当前质量记录不在审核中");
         }
-        entity.setStatus(STATUS_PROCESSED);
-        badProductMapper.updateById(entity);
+        int updated = badProductMapper.update(null, new LambdaUpdateWrapper<BadProductRecord>()
+                .eq(BadProductRecord::getTenantCode, entity.getTenantCode())
+                .eq(BadProductRecord::getId, entity.getId())
+                .eq(BadProductRecord::getStatus, STATUS_PENDING_AUDIT)
+                .set(BadProductRecord::getStatus, STATUS_PROCESSED)
+                .set(BadProductRecord::getUpdateTime, LocalDateTime.now()));
+        if (updated != 1) {
+            throw new BusinessException("当前质量记录已被其他操作处理");
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -273,8 +296,15 @@ public class QualityService {
         if (!STATUS_PENDING_AUDIT.equals(entity.getStatus())) {
             throw new BusinessException("当前质量记录不在审核中");
         }
-        entity.setStatus(STATUS_PENDING);
-        badProductMapper.updateById(entity);
+        int updated = badProductMapper.update(null, new LambdaUpdateWrapper<BadProductRecord>()
+                .eq(BadProductRecord::getTenantCode, entity.getTenantCode())
+                .eq(BadProductRecord::getId, entity.getId())
+                .eq(BadProductRecord::getStatus, STATUS_PENDING_AUDIT)
+                .set(BadProductRecord::getStatus, STATUS_PENDING)
+                .set(BadProductRecord::getUpdateTime, LocalDateTime.now()));
+        if (updated != 1) {
+            throw new BusinessException("当前质量记录已被其他操作处理");
+        }
     }
 
     public boolean hasPendingQualityApproval(String defectiveId) {

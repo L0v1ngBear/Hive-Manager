@@ -220,11 +220,17 @@ public class EquipmentService {
         record.setInspectionTime(inspectionTime);
         inspectionRecordMapper.insert(record);
 
-        equipmentDeviceMapper.update(null, new LambdaUpdateWrapper<EquipmentDevice>()
+        int deviceUpdated = equipmentDeviceMapper.update(null, new LambdaUpdateWrapper<EquipmentDevice>()
                 .eq(EquipmentDevice::getTenantCode, device.getTenantCode())
                 .eq(EquipmentDevice::getId, device.getId())
+                .eq(EquipmentDevice::getStatus, STATUS_ENABLED)
                 .set(EquipmentDevice::getLastInspectionTime, inspectionTime)
                 .set(EquipmentDevice::getUpdateTime, LocalDateTime.now()));
+        if (deviceUpdated != 1) {
+            // The record insert is in the same transaction, so a device that
+            // was disabled after scanning cannot retain a new inspection entry.
+            throw new BusinessException("设备已停用或已被其他操作更新，请重新扫描后提交");
+        }
         return toRecordVO(record);
     }
 

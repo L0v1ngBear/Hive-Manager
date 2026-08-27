@@ -1,10 +1,12 @@
 import request from '@/utils/request.js'
 import { uploadAttachmentWithChunks } from '@/utils/chunkedAttachmentUpload.js'
 
-export function getUnreadNotifications() {
+export function getUnreadNotifications(options = {}) {
   return request({
     url: '/notifications/unread',
-    method: 'get'
+    method: 'get',
+    cacheTtl: 5 * 60 * 1000,
+    ...options
   })
 }
 
@@ -66,9 +68,10 @@ export function closeNotificationTask(id, data) {
   })
 }
 
-export function syncNotifications() {
+export function syncNotifications(options = {}) {
   return request({
     url: '/notifications/sync',
-    method: 'post'
+    method: 'post',
+    ...options
   })
 }

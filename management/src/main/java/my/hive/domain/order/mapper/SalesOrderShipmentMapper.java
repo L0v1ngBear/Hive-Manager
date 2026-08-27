@@ -17,6 +17,7 @@ public interface SalesOrderShipmentMapper extends BaseMapper<SalesOrderShipment>
             UPDATE sales_order_shipment
             SET logistics_company = #{company},
                 tracking_no = #{trackingNo},
+                delivery_mode = #{deliveryMode},
                 sort_order = #{sortOrder},
                 updater = #{updater},
                 updater_name = #{updaterName},
@@ -31,6 +32,7 @@ public interface SalesOrderShipmentMapper extends BaseMapper<SalesOrderShipment>
                        @Param("tenantCode") String tenantCode,
                        @Param("orderId") String orderId,
                        @Param("version") Integer version,
+                       @Param("deliveryMode") String deliveryMode,
                        @Param("company") String company,
                        @Param("trackingNo") String trackingNo,
                        @Param("sortOrder") Integer sortOrder,

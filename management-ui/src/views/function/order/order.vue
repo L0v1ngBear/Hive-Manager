@@ -228,7 +228,7 @@
         </div>
       </div>
 
-      <div v-loading="orderState.loading" class="responsive-table-wrap">
+      <div v-loading="orderState.loading" class="responsive-table-wrap order-table-wrap">
         <table class="order-list-table responsive-data-table w-full text-left">
           <colgroup>
             <col
@@ -317,7 +317,7 @@
                       :key="logisticsTrackingKey(row, shipment)"
                   >
                     <el-popover
-                      v-if="canViewOrderDetail(row)"
+                      v-if="isTrackableShipment(shipment) && canViewOrderDetail(row)"
                       trigger="hover"
                       placement="right-start"
                       :width="390"
@@ -416,11 +416,12 @@
                     </el-popover>
                     <span
                         v-else
-                        class="order-express-number-trigger is-disabled"
-                        aria-disabled="true"
+                        class="order-express-number-trigger"
+                        :class="{'is-disabled': !canViewOrderDetail(row) || !isTrackableShipment(shipment)}"
+                        :aria-disabled="!canViewOrderDetail(row) || !isTrackableShipment(shipment)"
                     >
                       <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
-                      <span>{{ shipment.trackingNo }}</span>
+                      <span>{{ shipmentListLabel(shipment) }}</span>
                     </span>
                   </template>
                 </div>
@@ -483,50 +484,36 @@
             <td class="td-cell" data-label="操作">
               <div class="order-row-actions">
                 <el-button
-                    class="icon-btn text-secondary"
-                    :class="permissionDisabledClass(!canViewOrderDetail(row))"
-                    :disabled="!canViewOrderDetail(row)"
-                    :title="canViewOrderDetail(row) ? '查看订单详情' : '当前账号暂无查看该订单详情权限'"
-                    @click.stop="openDetail(row.orderId, row)"
-                >
-                  <span class="material-symbols-outlined text-[18px]">visibility</span>
-                </el-button>
-                <el-button
-                    class="icon-btn text-primary"
-                    :class="permissionDisabledClass(!canPrintOrderFlowCode(row))"
-                    :disabled="!canPrintOrderFlowCode(row)"
-                    :title="canPrintOrderFlowCode(row) ? '补打流转码' : '当前账号暂无补打流转码权限'"
-                    @click.stop="openFlowCode(row)"
-                >
-                  <span class="material-symbols-outlined text-[18px]">qr_code_2</span>
-                </el-button>
-                <el-button
-                    class="icon-btn text-success"
-                    :class="permissionDisabledClass(!canAdvanceOrder(row))"
-                    :disabled="!canAdvanceOrder(row)"
-                    :title="canAdvanceOrder(row) ? advanceOrderTitle(row) : '当前账号暂无推进该订单权限'"
+                    v-if="canAdvanceOrder(row)"
+                    link
+                    type="success"
+                    class="order-action-button"
+                    :title="advanceOrderTitle(row)"
                     @click.stop="advanceOrder(row)"
                 >
-                  <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  推进
                 </el-button>
                 <el-button
-                    class="icon-btn text-amber-600"
-                    :class="permissionDisabledClass(!canRollbackOrder(row))"
-                    :disabled="!canRollbackOrder(row)"
-                    :title="canRollbackOrder(row) ? rollbackOrderTitle(row) : '当前账号暂无回退该订单权限'"
-                    @click.stop="rollbackOrder(row)"
-                >
-                  <span class="material-symbols-outlined text-[18px]">undo</span>
-                </el-button>
-                <el-button
-                    class="icon-btn text-primary"
-                    :class="permissionDisabledClass(!canEditOrder(row))"
-                    :disabled="!canEditOrder(row)"
-                    :title="canEditOrder(row) ? '编辑订单' : '当前账号暂无编辑该订单权限'"
+                    v-if="canEditOrder(row)"
+                    link
+                    type="primary"
+                    class="order-action-button"
+                    title="编辑订单"
                     @click.stop="openEdit(row.orderId, row)"
                 >
-                  <span class="material-symbols-outlined text-[18px]">edit</span>
+                  编辑
                 </el-button>
+                <span v-if="canPrintOrderFlowCode(row) || canRollbackOrder(row)" class="order-more-action" @click.stop>
+                  <el-dropdown trigger="click" @command="command => handleOrderMoreAction(command, row)">
+                    <el-button link class="order-action-button order-action-more">更多</el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item v-if="canPrintOrderFlowCode(row)" command="flow-code">补打流转码</el-dropdown-item>
+                        <el-dropdown-item v-if="canRollbackOrder(row)" command="rollback" :divided="canPrintOrderFlowCode(row)">回退订单</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </span>
               </div>
             </td>
           </tr>
@@ -602,7 +589,7 @@
                   <div class="info-label">物流信息</div>
                   <div v-if="orderDetail.shipments?.length" class="order-detail-shipment-list">
                     <div v-for="shipment in orderDetail.shipments" :key="shipment.id || shipment.trackingNo" class="order-detail-shipment">
-                      <div class="info-value">{{ shipment.logisticsCompany }} / {{ shipment.trackingNo }}</div>
+                      <div class="info-value">{{ shipmentDetailLabel(shipment) }}</div>
                       <div class="mt-1 text-xs text-on-surface-variant">
                         最后修改：{{ formatDateTime(shipment.updateTime) }}{{ shipment.updaterName ? ` · ${shipment.updaterName}` : '' }}
                       </div>
@@ -767,6 +754,22 @@
               label="业务时间"
               description="用于修正当前订单的业务时间。"
             />
+            <div class="customer-smart-fill-panel">
+              <div>
+                <div class="field-label">客户信息智能拆分</div>
+                <p>粘贴客户名称、联系人、手机号等文本后，自动回填可识别的客户名称与联系电话。</p>
+              </div>
+              <div class="customer-smart-fill-controls">
+                <el-input
+                  v-model.trim="customerInfoSmartInput"
+                  class="box-input"
+                  clearable
+                  placeholder="例如：杭州某某装饰工程有限公司 张三 13800138000"
+                  @keyup.enter="applyCustomerInfoSmartInput"
+                />
+                <el-button type="primary" :disabled="!customerInfoSmartInput" @click="applyCustomerInfoSmartInput">智能拆分</el-button>
+              </div>
+            </div>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="relative">
                   <label class="field-label">客户名称 *</label>
@@ -910,7 +913,7 @@
                 <div class="order-shipments-editor-header">
                   <div>
                     <label class="field-label">物流信息</label>
-                    <p class="order-shipment-hint">每条物流信息均需填写公司和单号，最多 50 条。</p>
+                    <p class="order-shipment-hint">快递物流需填写公司和单号；货拉拉、自送等无轨迹方式无需填写，最多 50 条。</p>
                   </div>
                   <el-button
                     text
@@ -929,6 +932,24 @@
                   >
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
+                        <label class="field-label">发货方式 *</label>
+                        <el-select
+                          v-model="shipment.deliveryMode"
+                          :data-field="`order.shipments.${index}.deliveryMode`"
+                          class="box-input"
+                          @change="handleShipmentDeliveryModeChange(shipment)"
+                        >
+                          <el-option
+                            v-for="option in shipmentDeliveryModeOptions"
+                            :key="option.value"
+                            :label="option.label"
+                            :value="option.value"
+                          />
+                        </el-select>
+                      </div>
+                    </div>
+                    <div v-if="isTrackableShipment(shipment)" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
                         <label class="field-label">物流公司 *</label>
                         <el-input
                           v-model.trim="shipment.logisticsCompany"
@@ -944,6 +965,15 @@
                           class="box-input"
                         />
                       </div>
+                    </div>
+                    <div v-else>
+                      <label class="field-label">配送说明（可选）</label>
+                      <el-input
+                        v-model.trim="shipment.logisticsCompany"
+                        :data-field="`order.shipments.${index}.logisticsCompany`"
+                        class="box-input"
+                        placeholder="例如：货拉拉司机王师傅、客户自行提货"
+                      />
                     </div>
                     <div class="order-shipment-row-footer">
                       <span v-if="shipment.id" class="order-shipment-meta">
@@ -1075,7 +1105,7 @@
 
 <script setup>
 import {computed, onMounted, reactive, ref, watch} from 'vue'
-import {ElButton, ElDatePicker, ElDialog, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElPagination, ElPopover, ElProgress, ElSelect, ElTag} from 'element-plus'
+import {ElButton, ElDatePicker, ElDialog, ElDrawer, ElDropdown, ElDropdownItem, ElDropdownMenu, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElPagination, ElPopover, ElProgress, ElSelect, ElTag} from 'element-plus'
 import {useRoute} from 'vue-router'
 import {useUserStore} from '@/stores/user'
 import {getCustomerOptions} from '../customer/api/customer'
@@ -1137,7 +1167,7 @@ const defaultOrderTableColumns = [
   {key: 'orderNo', label: '编号'},
   {key: 'customer', label: '项目 / 客户'},
   {key: 'informationChannel', label: '信息渠道'},
-  {key: 'shipments', label: '物流单号'},
+  {key: 'shipments', label: '发货方式 / 物流信息'},
   {key: 'status', label: '状态'},
   {key: 'progress', label: '进度'}
 ]
@@ -1226,6 +1256,7 @@ const filters = reactive({
   staleOnly: false
 })
 const orderState = reactive({rows: [], page: 1, size: 10, total: 0, pages: 1, loading: false, requestState: 'ready', errorMessage: ''})
+const customerInfoSmartInput = ref('')
 const logisticsTrackingStates = reactive({})
 const LOGISTICS_TRACKING_FAILURE_RETRY_MS = 30 * 1000
 let orderRequestId = 0
@@ -1360,6 +1391,16 @@ function canSelectOrderStatus(status) {
 
 function permissionDisabledClass(disabled) {
   return disabled ? 'permission-action-disabled' : ''
+}
+
+function handleOrderMoreAction(command, row) {
+  if (command === 'flow-code' && canPrintOrderFlowCode(row)) {
+    openFlowCode(row)
+    return
+  }
+  if (command === 'rollback' && canRollbackOrder(row)) {
+    rollbackOrder(row)
+  }
 }
 
 function warnNoOrderStagePermission() {
@@ -1539,6 +1580,7 @@ function defaultOrderItem() {
 function defaultOrderShipment() {
   return {
     id: null,
+    deliveryMode: 'tracked',
     logisticsCompany: '',
     trackingNo: '',
     version: null,
@@ -1552,6 +1594,7 @@ function normalizeOrderShipment(shipment = {}) {
   return {
     ...defaultOrderShipment(),
     id: shipment.id ?? null,
+    deliveryMode: normalizeShipmentDeliveryMode(shipment),
     logisticsCompany: String(shipment.logisticsCompany || ''),
     trackingNo: String(shipment.trackingNo || ''),
     version: shipment.version ?? null,
@@ -1559,6 +1602,48 @@ function normalizeOrderShipment(shipment = {}) {
     updateTime: shipment.updateTime || '',
     isNew: !shipment.id
   }
+}
+
+const shipmentDeliveryModeOptions = Object.freeze([
+  {value: 'tracked', label: '快递物流（可查询轨迹）'},
+  {value: 'lalamove', label: '货拉拉 / 同城配送（无轨迹）'},
+  {value: 'self_delivery', label: '自送（无轨迹）'},
+  {value: 'customer_pickup', label: '客户自提（无轨迹）'},
+  {value: 'other', label: '其他（无轨迹）'}
+])
+
+function normalizeShipmentDeliveryMode(shipment = {}) {
+  const mode = String(shipment.deliveryMode || '').trim()
+  if (shipmentDeliveryModeOptions.some(option => option.value === mode)) return mode
+  return String(shipment.trackingNo || '').trim() ? 'tracked' : 'other'
+}
+
+function isTrackableShipment(shipment = {}) {
+  return normalizeShipmentDeliveryMode(shipment) === 'tracked'
+}
+
+function shipmentDeliveryModeLabel(shipment = {}) {
+  const mode = normalizeShipmentDeliveryMode(shipment)
+  return shipmentDeliveryModeOptions.find(option => option.value === mode)?.label
+    ?.replace(/（.*$/, '') || '其他'
+}
+
+function shipmentListLabel(shipment = {}) {
+  if (isTrackableShipment(shipment)) return shipment.trackingNo || '未填写物流单号'
+  const note = String(shipment.logisticsCompany || '').trim()
+  return note ? `${shipmentDeliveryModeLabel(shipment)} · ${note}` : `${shipmentDeliveryModeLabel(shipment)}（无轨迹）`
+}
+
+function shipmentDetailLabel(shipment = {}) {
+  if (isTrackableShipment(shipment)) {
+    return `${shipment.logisticsCompany || '物流信息'} / ${shipment.trackingNo || '未填写物流单号'}`
+  }
+  const note = String(shipment.logisticsCompany || '').trim()
+  return note ? `${shipmentDeliveryModeLabel(shipment)} / ${note}` : `${shipmentDeliveryModeLabel(shipment)}（无物流轨迹）`
+}
+
+function handleShipmentDeliveryModeChange(shipment = {}) {
+  if (!isTrackableShipment(shipment)) shipment.trackingNo = ''
 }
 
 function addOrderShipment() {
@@ -1635,6 +1720,7 @@ function defaultOrderForm() {
 
 function resetOrderForm() {
   Object.assign(orderForm, defaultOrderForm())
+  customerInfoSmartInput.value = ''
   customerDropdownVisible.value = false
   projectDropdownVisible.value = false
 }
@@ -1848,6 +1934,44 @@ function applyOrderWarningSummary(summary = {}) {
   notifyOrderWarningChanged(orderWarningSummary.totalCount)
 }
 
+function applyCustomerInfoSmartInput() {
+  const parsed = parseCustomerInfo(customerInfoSmartInput.value)
+  if (!parsed) {
+    ElMessage.warning('未识别到可用的客户名称和手机号，请按“客户名称 联系人 手机号”格式输入')
+    return
+  }
+  orderForm.customerName = parsed.customerName
+  orderForm.customerPhone = parsed.customerPhone
+  customerInfoSmartInput.value = ''
+  customerDropdownVisible.value = false
+  handleOrderCustomerInput()
+  ElMessage.success('已识别并填入客户名称和联系电话')
+}
+
+function parseCustomerInfo(source) {
+  const text = String(source || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!text) return null
+  const phoneMatch = text.match(/(?<!\d)(?:\+?86[-\s]?)?(1[3-9]\d{9})(?!\d)/)
+  if (!phoneMatch) return null
+
+  const customerPhone = phoneMatch[1]
+  const customerLabelMatch = text.match(/(?:客户名称|客户)\s*[:：]\s*([^，,;；|｜\n]+?)(?=\s*(?:联系人|电话|手机|手机号)\s*[:：]|[，,;；|｜]|$)/)
+  const withoutPhone = text
+    .replace(phoneMatch[0], ' ')
+    .replace(/(?:客户名称|客户|联系人|电话|手机|手机号)\s*[:：]/g, ' ')
+    .replace(/[，,;；|｜]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!withoutPhone) return null
+
+  const parts = withoutPhone.split(' ').filter(Boolean)
+  // The order currently stores customer name and phone only. For an unlabelled
+  // delivery-style paste, take the first segment before the phone as the
+  // customer name and deliberately leave contact/address text out.
+  const customerName = String(customerLabelMatch?.[1] || parts[0] || '').trim()
+  return customerName ? { customerName, customerPhone } : null
+}
+
 function assignWarningSetting(target, source = {}, fallback = {}) {
   target.staleWarningDays = normalizeWarningDayValue(source?.staleWarningDays, fallback.staleWarningDays || 3)
   target.sampleRoomStaleWarningDays = normalizeWarningDayValue(
@@ -2010,6 +2134,7 @@ function logisticsTrackingKey(row = {}, shipment = {}) {
     shipmentIdentity,
     shipment.logisticsCompany || '',
     shipment.trackingNo || '',
+    normalizeShipmentDeliveryMode(shipment),
     shipment.version ?? ''
   ])
 }
@@ -2054,7 +2179,7 @@ async function copyTrackingNumber(shipment = {}) {
 }
 
 async function loadLogisticsTracking(row, shipment) {
-  if (!canViewOrderDetail(row) || !row?.orderId || !shipment?.id) return
+  if (!isTrackableShipment(shipment) || !canViewOrderDetail(row) || !row?.orderId || !shipment?.id) return
   const tracking = logisticsTrackingState(row, shipment)
   if (tracking.loading
     || logisticsTrackingCacheValid(tracking.data)
@@ -2118,7 +2243,7 @@ function formatOrderExportCell(row, key) {
   if (key === 'brand') return row.brandName || ''
   if (key === 'informationChannel') return row.informationChannel || ''
   if (key === 'shipments') return (row.shipments || [])
-      .map(shipment => shipment.trackingNo)
+      .map(shipment => shipmentListLabel(shipment))
       .filter(Boolean)
       .join('、')
   if (key === 'invoice') return invoiceLabel(row.isInvoice)
@@ -2514,12 +2639,17 @@ function validateOrderForm() {
   }
   const trackingNumbers = new Set()
   orderForm.shipments.forEach((shipment, index) => {
+    const isTracked = isTrackableShipment(shipment)
     const logisticsCompany = String(shipment.logisticsCompany || '').trim()
     const trackingNo = String(shipment.trackingNo || '').trim()
-    if (!logisticsCompany) fail('物流公司不能为空', `order.shipments.${index}.logisticsCompany`)
-    if (!trackingNo) fail('物流单号不能为空', `order.shipments.${index}.trackingNo`)
-    if (trackingNumbers.has(trackingNo)) fail('物流单号不能重复', `order.shipments.${index}.trackingNo`)
-    trackingNumbers.add(trackingNo)
+    if (isTracked) {
+      if (!logisticsCompany) fail('快递物流必须填写物流公司', `order.shipments.${index}.logisticsCompany`)
+      if (!trackingNo) fail('快递物流必须填写物流单号', `order.shipments.${index}.trackingNo`)
+      if (trackingNumbers.has(trackingNo)) fail('物流单号不能重复', `order.shipments.${index}.trackingNo`)
+      trackingNumbers.add(trackingNo)
+    } else if (trackingNo) {
+      fail('非可追踪发货方式不能填写物流单号', `order.shipments.${index}.trackingNo`)
+    }
   })
   if (orderForm.notes.length > 50) fail('每个订单最多添加50条备注', 'order.notes')
   orderForm.notes.forEach((note, index) => {
@@ -2562,10 +2692,11 @@ function buildOrderPayload() {
     informationChannel: blank(orderForm.informationChannel),
     productionLocation: blank(orderForm.productionLocation),
     createTime: blank(formatCreateTimePayload(orderForm.createTime)),
-    shipments: orderForm.shipments.map(({ id, logisticsCompany, trackingNo, version }) => ({
+    shipments: orderForm.shipments.map(({ id, deliveryMode, logisticsCompany, trackingNo, version }) => ({
       id,
-      logisticsCompany: logisticsCompany.trim(),
-      trackingNo: trackingNo.trim(),
+      deliveryMode: normalizeShipmentDeliveryMode({deliveryMode, trackingNo}),
+      logisticsCompany: blank(logisticsCompany),
+      trackingNo: blank(trackingNo),
       version
     })),
     isInvoice: Number(orderForm.isInvoice || 0),
@@ -4166,6 +4297,12 @@ function fulfillmentProcessText(row = {}) {
   table-layout: fixed;
 }
 
+/* 表格超出容器时保留横向滚动，不能裁切右侧操作列。 */
+.function-page-shell .responsive-table-wrap.order-table-wrap {
+  overflow-x: auto !important;
+  overflow-y: hidden;
+}
+
 .function-page-shell .order-list-table.responsive-data-table th,
 .function-page-shell .order-list-table.responsive-data-table td {
   box-sizing: border-box;
@@ -4621,34 +4758,36 @@ function fulfillmentProcessText(row = {}) {
   font-size: .7rem;
 }
 
-.icon-btn {
-  border-radius: .375rem;
-  padding: .375rem
-}
-
 .order-row-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
-  gap: .4rem;
+  gap: .1rem;
 }
 
-.order-row-actions .icon-btn {
+.order-row-actions .order-action-button {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: .75rem;
-  background: rgba(255, 255, 255, .58);
-  transition: transform .18s ease, background .18s ease;
+  min-height: 1.9rem;
+  margin: 0;
+  padding: .25rem .42rem;
+  border-radius: .45rem;
+  font-size: .78rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: background .18s ease;
 }
 
-.order-row-actions .icon-btn:hover {
-  transform: translateY(-1px);
-  background: rgba(255, 255, 255, .9);
+.order-row-actions .order-action-button:hover:not(.is-disabled) {
+  background: rgb(var(--ys-primary-rgb) / .08);
+}
+
+.order-more-action {
+  display: inline-flex;
+  flex: 0 0 auto;
 }
 
 .permission-action-disabled,
@@ -4783,6 +4922,45 @@ function fulfillmentProcessText(row = {}) {
   font-size: .75rem;
   font-weight: 700;
   color: rgb(var(--primary))
+}
+
+.customer-smart-fill-panel {
+  display: grid;
+  grid-template-columns: minmax(0, .85fr) minmax(18rem, 1.5fr);
+  align-items: end;
+  gap: 1rem;
+  padding: .85rem 1rem;
+  border: 1px dashed rgb(var(--primary) / .28);
+  border-radius: .8rem;
+  background: rgb(var(--primary) / .035);
+}
+
+.customer-smart-fill-panel p {
+  margin: 0;
+  color: rgb(var(--on-surface-variant));
+  font-size: .72rem;
+  line-height: 1.5;
+}
+
+.customer-smart-fill-controls {
+  display: flex;
+  min-width: 0;
+  gap: .6rem;
+}
+
+.customer-smart-fill-controls .el-input {
+  min-width: 0;
+  flex: 1;
+}
+
+@media (max-width: 40rem) {
+  .customer-smart-fill-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-smart-fill-controls {
+    flex-direction: column;
+  }
 }
 
 .order-detail-attachment-list,

@@ -9,21 +9,42 @@
           </div>
           <h1 class="function-page-title">客户档案库</h1>
           <p class="function-page-desc">
-            管理客户基础信息、联系人和合作项目，施工区域按项目维度维护。
+            管理客户基础信息、联系人和项目名称，施工区域按项目维度维护。
           </p>
         </div>
 
-        <el-button
-          class="customer-create-action"
-          type="primary"
-          :disabled="!canCreateCustomer"
-          :class="permissionDisabledClass(!canCreateCustomer)"
-          :title="canCreateCustomer ? '新建客户' : '当前账号暂无新增客户权限'"
-          @click="openCreateDrawer"
-        >
-          <span class="material-symbols-outlined text-[20px]">domain_add</span>
-          新建客户
-        </el-button>
+        <div class="customer-header-actions">
+          <el-button
+            :disabled="!canImportCustomer"
+            :class="permissionDisabledClass(!canImportCustomer)"
+            :title="canImportCustomer ? '下载客户导入模板' : '当前账号暂无导入客户权限'"
+            @click="downloadImportTemplate"
+          >
+            <span class="material-symbols-outlined text-[18px]">description</span>
+            导入模板
+          </el-button>
+          <el-button
+            :disabled="!canImportCustomer"
+            :class="permissionDisabledClass(!canImportCustomer)"
+            :title="canImportCustomer ? '导入客户' : '当前账号暂无导入客户权限'"
+            @click="triggerCustomerImport"
+          >
+            <span class="material-symbols-outlined text-[18px]">upload_file</span>
+            导入客户
+          </el-button>
+          <el-button
+            class="customer-create-action"
+            type="primary"
+            :disabled="!canCreateCustomer"
+            :class="permissionDisabledClass(!canCreateCustomer)"
+            :title="canCreateCustomer ? '新建客户' : '当前账号暂无新增客户权限'"
+            @click="openCreateDrawer"
+          >
+            <span class="material-symbols-outlined text-[20px]">domain_add</span>
+            新建客户
+          </el-button>
+          <input ref="customerImportInputRef" class="sr-only" type="file" accept=".xlsx" @change="handleCustomerImport" />
+        </div>
       </header>
 
       <section class="customer-summary-grid">
@@ -102,7 +123,7 @@
             :data="customerList"
             row-key="id"
             v-loading="loading"
-            class="w-full"
+            class="w-full customer-data-table"
             @row-click="handleCustomerRowClick"
           >
           <el-table-column
@@ -130,7 +151,7 @@
               <template v-else>{{ customerColumnText(customer, field.key) }}</template>
             </template>
           </el-table-column>
-          <el-table-column label="操作" fixed="right" width="128" align="right">
+          <el-table-column label="操作" fixed="right" width="76" align="right">
             <template #default="{ row: customer }">
               <div class="flex justify-end gap-1">
                 <el-button
@@ -142,17 +163,6 @@
                   @click.stop="openEditDrawer(customer.id)"
                 >
                   <span class="material-symbols-outlined text-[18px]">edit</span>
-                </el-button>
-                <el-button
-                  circle
-                  text
-                  type="primary"
-                  :disabled="!canViewCustomerDetail"
-                  :class="permissionDisabledClass(!canViewCustomerDetail)"
-                  :title="canViewCustomerDetail ? '查看详情' : '当前账号暂无查看客户详情权限'"
-                  @click.stop="openDetail(customer.id)"
-                >
-                  <span class="material-symbols-outlined text-[18px]">visibility</span>
                 </el-button>
               </div>
             </template>
@@ -184,7 +194,7 @@
       />
 
       <el-dialog v-model="detailVisible" title="客户详情" width="min(760px, calc(100vw - 2rem))" destroy-on-close @close="invalidateCustomerDetail">
-        <p class="mb-6 text-sm text-on-surface-variant">查看客户基础信息、联系人和合作项目。</p>
+        <p class="mb-6 text-sm text-on-surface-variant">查看客户基础信息、联系人和项目名称。</p>
         <div v-if="detailLoading" class="py-16 text-center text-on-surface-variant">
           <span class="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
         </div>
@@ -218,7 +228,7 @@
           </section>
 
           <section v-if="isCustomerFieldVisible('projectName') || isCustomerFieldVisible('constructionArea') || isCustomerFieldVisible('projectOwner')">
-            <h4 class="mb-3 text-sm font-bold text-primary">{{ fieldLabel('projectName', '合作项目') }}</h4>
+            <h4 class="mb-3 text-sm font-bold text-primary">{{ fieldLabel('projectName', '项目名称') }}</h4>
             <div v-if="detailData.projects?.length" class="space-y-3">
               <div v-for="(project, index) in detailData.projects" :key="index" class="rounded-xl border border-outline-variant/15 bg-surface-container-lowest p-4">
                 <div v-if="isCustomerFieldVisible('projectName')" class="font-bold text-primary">{{ project.projectName || '未命名项目' }}</div>
@@ -247,6 +257,7 @@ import {
   ElEmpty,
   ElInput,
   ElMessage,
+  ElMessageBox,
   ElOption,
   ElPagination,
   ElResult,
@@ -268,7 +279,7 @@ import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useUserStore } from '@/stores/user'
 import { createLatestRequestRunner } from '@/utils/latestRequest'
 import CustomerCreateDrawer from './customerCreate.vue'
-import { getCustomerDetail, getCustomerPage } from './api/customer'
+import { downloadCustomerImportTemplate, getCustomerDetail, getCustomerPage, importCustomers } from './api/customer'
 import { resolveCustomerDetailOutcome } from './customerState'
 
 const route = useRoute()
@@ -289,11 +300,13 @@ const total = ref(0)
 const totalPages = ref(1)
 const pageNum = ref(1)
 const pageSize = ref(10)
+const customerImportInputRef = ref(null)
 const customerFieldConfig = ref(defaultTenantFieldConfig('customer'))
 const canCreateCustomer = computed(() => userStore.hasPermission('customer:create'))
 const canUpdateCustomer = computed(() => userStore.hasPermission('customer:update'))
 const canViewCustomerDetail = computed(() => userStore.hasPermission('customer:detail'))
 const canExportTable = computed(() => userStore.hasPermission('customer:export'))
+const canImportCustomer = computed(() => userStore.hasPermission('customer:import'))
 const hasCustomerFilters = computed(() => Boolean(
   filters.keyword || filters.customerType || filters.createStart || filters.createEnd
 ))
@@ -407,6 +420,43 @@ function openCreateDrawer() {
   if (!canCreateCustomer.value) return
   editingCustomerId.value = null
   isDrawerOpen.value = true
+}
+
+async function downloadImportTemplate() {
+  if (!canImportCustomer.value) return
+  const blob = await downloadCustomerImportTemplate()
+  downloadBlob(blob, '客户导入模板.xlsx')
+}
+
+function triggerCustomerImport() {
+  if (!canImportCustomer.value) return
+  customerImportInputRef.value?.click()
+}
+
+async function handleCustomerImport(event) {
+  const [file] = event.target.files || []
+  if (!file) return
+  try {
+    const result = await importCustomers(file)
+    const failures = (result?.failMessages || []).slice(0, 5).join('\n')
+    await ElMessageBox.alert(
+      `导入结果：成功 ${result?.successCount || 0} 条，失败 ${result?.failCount || 0} 条。${failures ? `\n\n部分失败原因：\n${failures}` : ''}`,
+      '客户导入结果'
+    )
+    pageNum.value = 1
+    await fetchCustomerList()
+  } finally {
+    event.target.value = ''
+  }
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 function openEditDrawer(id) {
@@ -524,6 +574,13 @@ watch(
   grid-template-columns: minmax(0, 24rem);
 }
 
+.customer-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: .5rem;
+}
+
 .customer-filter-form {
   grid-template-columns: minmax(16rem, 1.5fr) repeat(3, minmax(10rem, 1fr)) minmax(15rem, auto);
   padding: 1rem;
@@ -547,6 +604,7 @@ watch(
   }
 
   .customer-create-action,
+  .customer-header-actions,
   .customer-filter-form .function-filter-actions {
     width: 100%;
   }

@@ -112,7 +112,7 @@ public class ExcelUtil {
         if (value instanceof LocalDateTime localDateTime) {
             return localDateTime.format(DATETIME_FORMATTER);
         }
-        return String.valueOf(value);
+        return escapeSpreadsheetFormula(String.valueOf(value));
     }
 
     public void validateXlsxImportFile(MultipartFile file, long maxBytes) {
@@ -270,6 +270,26 @@ public class ExcelUtil {
         return values.stream()
                 .map(value -> List.of(stringify(value)))
                 .toList();
+    }
+
+    /**
+     * Exported values are user-controlled business data. Prefix spreadsheet
+     * formula sigils so opening an export never evaluates them as formulas.
+     */
+    private String escapeSpreadsheetFormula(String value) {
+        if (value == null || value.isEmpty()) {
+            return value == null ? "" : value;
+        }
+        for (int index = 0; index < value.length(); index += 1) {
+            char current = value.charAt(index);
+            if (current == ' ' || current == '\t' || current == '\r' || current == '\n') {
+                continue;
+            }
+            return current == '=' || current == '+' || current == '-' || current == '@'
+                    ? "'" + value
+                    : value;
+        }
+        return value;
     }
 
     private String safeSheetName(String sheetName) {

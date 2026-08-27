@@ -18,6 +18,7 @@ public enum TenantFeatureEnum {
     ATTENDANCE("module.attendance", "考勤管理", "基础模块", "小程序打卡、规则和统计", true, true),
     EMPLOYEE("module.employee", "员工管理", "基础模块", "员工档案、组织和状态", true, true),
     EQUIPMENT("module.equipment", "设备巡检", "基础模块", "设备档案、固定巡检码和巡检记录", true, true),
+    AFTER_SALES("module.afterSales", "售后管理", "基础模块", "售后工单、配件库存和售后出库", true, true),
     ROLE("module.role", "角色管理", "基础模块", "角色权限和人员授权", true, true),
     LABEL("module.label", "标签打印", "基础模块", "标签模板和小程序打印联动", true, true),
     DOCUMENT("module.document", "文档管理", "基础模块", "企业目录、文件和 OSS 存储", true, true),
@@ -34,6 +35,7 @@ public enum TenantFeatureEnum {
     public static final String CODE_ATTENDANCE = "module.attendance";
     public static final String CODE_EMPLOYEE = "module.employee";
     public static final String CODE_EQUIPMENT = "module.equipment";
+    public static final String CODE_AFTER_SALES = "module.afterSales";
     public static final String CODE_ROLE = "module.role";
     public static final String CODE_LABEL = "module.label";
     public static final String CODE_DOCUMENT = "module.document";

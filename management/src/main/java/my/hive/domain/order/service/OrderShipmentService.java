@@ -34,6 +34,9 @@ import java.util.UUID;
 public class OrderShipmentService {
 
     private static final int MAX_SHIPMENTS = 50;
+    private static final String DELIVERY_MODE_TRACKED = "tracked";
+    private static final Set<String> DELIVERY_MODES = Set.of(
+            DELIVERY_MODE_TRACKED, "lalamove", "self_delivery", "customer_pickup", "other");
 
     private final SalesOrderShipmentMapper shipmentMapper;
     private final EmployeeMapper employeeMapper;
@@ -88,6 +91,7 @@ public class OrderShipmentService {
                 SalesOrderShipment shipment = new SalesOrderShipment();
                 shipment.setTenantCode(tenantCode);
                 shipment.setOrderId(orderId);
+                shipment.setDeliveryMode(request.deliveryMode());
                 shipment.setLogisticsCompany(request.logisticsCompany());
                 shipment.setTrackingNo(request.trackingNo());
                 shipment.setSortOrder(index);
@@ -113,7 +117,7 @@ public class OrderShipmentService {
                 continue;
             }
             int changed = shipmentMapper.updateShipment(existing.getId(), tenantCode, orderId, request.version(),
-                    request.logisticsCompany(), request.trackingNo(), index, user, userName, now);
+                    request.deliveryMode(), request.logisticsCompany(), request.trackingNo(), index, user, userName, now);
             if (changed != 1) {
                 throw new BusinessException(409, "发货记录已被其他人修改，请刷新后重试");
             }
@@ -178,21 +182,44 @@ public class OrderShipmentService {
         Set<String> trackingNumbers = new LinkedHashSet<>();
         List<NormalizedShipment> normalized = new ArrayList<>(safeRequests.size());
         for (SalesOrderShipmentSaveRequest request : safeRequests) {
-            String company = trimRequired(request == null ? null : request.getLogisticsCompany());
-            String trackingNo = trimRequired(request == null ? null : request.getTrackingNo());
-            if (!trackingNumbers.add(trackingNo)) {
-                throw new BusinessException("物流单号不能重复");
+            String deliveryMode = normalizeDeliveryMode(request == null ? null : request.getDeliveryMode(),
+                    request == null ? null : request.getTrackingNo());
+            String company = trimOptional(request == null ? null : request.getLogisticsCompany());
+            String trackingNo = trimOptional(request == null ? null : request.getTrackingNo());
+            if (DELIVERY_MODE_TRACKED.equals(deliveryMode)) {
+                company = trimRequired(company, "快递物流必须填写物流公司");
+                trackingNo = trimRequired(trackingNo, "快递物流必须填写物流单号");
+                if (!trackingNumbers.add(trackingNo)) {
+                    throw new BusinessException("物流单号不能重复");
+                }
+            } else if (trackingNo != null) {
+                throw new BusinessException("非可追踪发货方式不能填写物流单号");
             }
-            normalized.add(new NormalizedShipment(request.getId(), request.getVersion(), company, trackingNo));
+            normalized.add(new NormalizedShipment(request.getId(), request.getVersion(), deliveryMode, company, trackingNo));
         }
         return normalized;
     }
 
-    private String trimRequired(String value) {
+    private String normalizeDeliveryMode(String deliveryMode, String trackingNo) {
+        String normalized = trimOptional(deliveryMode);
+        if (normalized == null) {
+            return StringUtils.hasText(trackingNo) ? DELIVERY_MODE_TRACKED : "other";
+        }
+        if (!DELIVERY_MODES.contains(normalized)) {
+            throw new BusinessException("发货方式无效");
+        }
+        return normalized;
+    }
+
+    private String trimRequired(String value, String message) {
         if (!StringUtils.hasText(value)) {
-            throw new BusinessException("物流公司和物流单号不能为空");
+            throw new BusinessException(message);
         }
         return value.trim();
+    }
+
+    private String trimOptional(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 
     private List<SalesOrderShipment> selectShipments(String tenantCode, String orderId) {
@@ -222,9 +249,14 @@ public class OrderShipmentService {
     }
 
     private boolean hasChanged(SalesOrderShipment existing, NormalizedShipment request, int sortOrder) {
-        return !request.logisticsCompany().equals(existing.getLogisticsCompany())
-                || !request.trackingNo().equals(existing.getTrackingNo())
+        return !request.deliveryMode().equals(normalizeExistingDeliveryMode(existing))
+                || !java.util.Objects.equals(request.logisticsCompany(), existing.getLogisticsCompany())
+                || !java.util.Objects.equals(request.trackingNo(), existing.getTrackingNo())
                 || !Integer.valueOf(sortOrder).equals(existing.getSortOrder());
+    }
+
+    private String normalizeExistingDeliveryMode(SalesOrderShipment shipment) {
+        return normalizeDeliveryMode(shipment.getDeliveryMode(), shipment.getTrackingNo());
     }
 
     private void publishShipmentEvents(String tenantCode,
@@ -258,7 +290,9 @@ public class OrderShipmentService {
                                                   LocalDateTime createTime) {
         String trackingNo = pending.trackingNo();
         boolean isNew = pending.isNew();
-        String fingerprint = externalApiGuardService.fingerprint(trackingNo);
+        String fingerprint = StringUtils.hasText(trackingNo)
+                ? externalApiGuardService.fingerprint(trackingNo)
+                : null;
         OperationLogEvent event = new OperationLogEvent();
         event.setTraceId(UUID.randomUUID().toString().replace("-", ""));
         event.setTenantCode(tenantCode);
@@ -270,8 +304,10 @@ public class OrderShipmentService {
         event.setDescription(isNew
                 ? "\u65b0\u589e\u8ba2\u5355\u7269\u6d41\u8bb0\u5f55"
                 : "\u66f4\u65b0\u8ba2\u5355\u7269\u6d41\u8bb0\u5f55");
-        event.setArgsJson("{\"shipmentId\":" + pending.shipmentId()
-                + ",\"trackingFingerprint\":\"" + fingerprint + "\"}");
+        event.setArgsJson(fingerprint == null
+                ? "{\"shipmentId\":" + pending.shipmentId() + "}"
+                : "{\"shipmentId\":" + pending.shipmentId()
+                        + ",\"trackingFingerprint\":\"" + fingerprint + "\"}");
         event.setLogLevel("INFO");
         event.setSuccess(true);
         event.setSlow(false);
@@ -286,7 +322,7 @@ public class OrderShipmentService {
         return vo;
     }
 
-    private record NormalizedShipment(Long id, Integer version, String logisticsCompany, String trackingNo) {
+    private record NormalizedShipment(Long id, Integer version, String deliveryMode, String logisticsCompany, String trackingNo) {
     }
 
     private record ShipmentEvent(Long shipmentId, String trackingNo, boolean isNew) {

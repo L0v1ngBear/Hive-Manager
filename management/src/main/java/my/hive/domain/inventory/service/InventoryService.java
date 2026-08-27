@@ -255,7 +255,8 @@ public class InventoryService {
         if (request == null) {
             request = new InventoryPageRequest();
         }
-        LambdaQueryWrapper<Cloth> wrapper = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<Cloth> wrapper = new LambdaQueryWrapper<Cloth>()
+                .eq(Cloth::getTenantCode, TenantPermissionContext.getTenantCode());
         if (request.getStatus() != null) {
             wrapper.eq(Cloth::getStatus, request.getStatus());
         }
@@ -332,6 +333,7 @@ public class InventoryService {
             throw new BusinessException("型号不能为空");
         }
         LambdaQueryWrapper<Cloth> wrapper = new LambdaQueryWrapper<Cloth>()
+                .eq(Cloth::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Cloth::getModelCode, safeModelCode)
                 .eq(spec != null, Cloth::getSpec, spec)
                 .eq(status != null, Cloth::getStatus, status)
@@ -351,7 +353,8 @@ public class InventoryService {
             throw new BusinessException("请选择要查看的单匹布");
         }
 
-        LambdaQueryWrapper<Cloth> wrapper = new LambdaQueryWrapper<>();
+        LambdaQueryWrapper<Cloth> wrapper = new LambdaQueryWrapper<Cloth>()
+                .eq(Cloth::getTenantCode, tenantCode);
         if (id != null && id > 0) {
             wrapper.eq(Cloth::getId, id);
         } else {
@@ -434,6 +437,7 @@ public class InventoryService {
             throw new BusinessException("请输入条码");
         }
         Cloth cloth = clothMapper.selectOne(new LambdaQueryWrapper<Cloth>()
+                .eq(Cloth::getTenantCode, TenantPermissionContext.getTenantCode())
                 .eq(Cloth::getBarcode, barcode.trim()));
         if (cloth == null) {
             throw new BusinessException("未找到该条码库存");
@@ -519,6 +523,7 @@ public class InventoryService {
         LocalDateTime now = LocalDateTime.now();
 
         Cloth cloth = clothMapper.selectOne(new LambdaQueryWrapper<Cloth>()
+                .eq(Cloth::getTenantCode, tenantCode)
                 .eq(Cloth::getBarcode, request.getBarcode().trim()));
         if (cloth == null) {
             throw new BusinessException("未找到该条码库存");
@@ -533,7 +538,13 @@ public class InventoryService {
         cloth.setOutTime(now);
         cloth.setOutOperatorId(userId);
         cloth.setUpdateTime(now);
-        clothMapper.updateById(cloth);
+        if (clothMapper.updateById(cloth) != 1) {
+            // Cloth uses MyBatis-Plus optimistic locking.  A concurrent outbound
+            // operation may have changed the version after the stock check; in
+            // that case do not write an inventory record for a deduction that
+            // was never persisted.
+            throw new BusinessException("库存已被其他操作更新，请刷新后重试出库");
+        }
 
         saveRecord(cloth, InventoryOperateTypeEnum.OUT.getCode(), request.getMeters(), userId, now);
         invalidateDashboardCache(tenantCode);
@@ -1141,6 +1152,7 @@ public class InventoryService {
 
     private void saveModelSpecIfAbsent(String tenantCode, String modelCode, BigDecimal spec) {
         Long count = clothModelSpecMapper.selectCount(new LambdaQueryWrapper<ClothModelSpec>()
+                .eq(ClothModelSpec::getTenantCode, tenantCode)
                 .eq(ClothModelSpec::getModelCode, modelCode)
                 .eq(ClothModelSpec::getSpec, spec));
         if (count != null && count > 0) {
@@ -1166,6 +1178,7 @@ public class InventoryService {
 
     private boolean existsBarcode(String tenantCode, String barcode) {
         Long count = clothMapper.selectCount(new LambdaQueryWrapper<Cloth>()
+                .eq(Cloth::getTenantCode, tenantCode)
                 .eq(Cloth::getBarcode, barcode));
         return count != null && count > 0;
     }

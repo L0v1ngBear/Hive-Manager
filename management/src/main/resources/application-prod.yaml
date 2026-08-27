@@ -19,9 +19,11 @@ logging:
     name: ${LOGGING_FILE_NAME:}
   logback:
     rollingpolicy:
-      max-file-size: ${LOGGING_FILE_MAX_SIZE:20MB}
-      max-history: ${LOGGING_FILE_MAX_HISTORY:14}
-      total-size-cap: ${LOGGING_FILE_TOTAL_SIZE_CAP:512MB}
+      # Keep the default in sync with the deploy compose file. A bounded
+      # rolling window prevents duplicate application logs consuming disk.
+      max-file-size: ${LOGGING_FILE_MAX_SIZE:10MB}
+      max-history: ${LOGGING_FILE_MAX_HISTORY:7}
+      total-size-cap: ${LOGGING_FILE_TOTAL_SIZE_CAP:128MB}
   level:
     root: ${LOGGING_LEVEL_ROOT:INFO}
     my.hive: ${LOGGING_LEVEL_MY_HIVE:INFO}
@@ -58,10 +60,14 @@ hive:
     rabbit-exchange: ${OPERATION_LOG_EXCHANGE:hive.operation.log.exchange}
     rabbit-routing-key: ${OPERATION_LOG_ROUTING_KEY:hive.operation.log}
     rabbit-queue: ${OPERATION_LOG_QUEUE:hive.operation.log.queue}
-    cleanup-enabled: ${OPERATION_LOG_CLEANUP_ENABLED:false}
-    retention-days: ${OPERATION_LOG_RETENTION_DAYS:730}
+    cleanup-enabled: ${OPERATION_LOG_CLEANUP_ENABLED:true}
+    retention-days: ${OPERATION_LOG_RETENTION_DAYS:90}
     cleanup-batch-size: ${OPERATION_LOG_CLEANUP_BATCH_SIZE:5000}
     cleanup-cron: "${OPERATION_LOG_CLEANUP_CRON:0 20 3 * * ?}"
+  service-operation-log:
+    # This logs every public Service call made by an HTTP request. Keep it
+    # opt-in in production; business-level @CollectLog audit events remain on.
+    enabled: ${SERVICE_OPERATION_LOG_ENABLED:false}
   system-event:
     enabled: ${SYSTEM_EVENT_ENABLED:true}
     source-app: ${SYSTEM_EVENT_SOURCE_APP:hive-backend}

@@ -548,6 +548,7 @@ import {
   auditResignationApproval,
   auditLeaveApproval,
   auditQualityApproval,
+  auditAfterSalesApproval,
   downloadFinanceApprovalAttachment,
   getApprovalSummary,
   getFinanceApprovalDetail,
@@ -561,6 +562,7 @@ import {
   listFinanceApprovals,
   listLeaveApprovals,
   listQualityApprovals,
+  listAfterSalesApprovals,
   listResignationApprovals,
   saveApprovalDefaultAuditor,
   submitResignationApproval,
@@ -573,6 +575,7 @@ const userStore = useUserStore()
 const tabs = [
   { label: '订单审批', value: 'order', permissions: ['approval:list'] },
   { label: '质量审核', value: 'quality', permissions: ['quality:audit'], auditPermission: 'quality:audit' },
+  { label: '售后审批', value: 'after-sales', permissions: ['after_sales:process'], auditPermission: 'after_sales:process' },
   { label: '财务审批', value: 'finance', permissions: ['approval:finance:submit', 'approval:finance:list', 'approval:finance:audit'], auditPermission: 'approval:finance:audit' },
   { label: '请假审批', value: 'leave', permissions: ['approval:leave:submit', 'approval:leave:list', 'approval:leave:audit'], auditPermission: 'approval:leave:audit' },
   { label: '离职审批', value: 'resignation', permissions: ['approval:resignation:submit', 'approval:resignation:list', 'approval:resignation:audit'], auditPermission: 'approval:resignation:audit' }
@@ -716,6 +719,7 @@ const canAuditDetail = computed(() => canAuditAction(detailData.value))
 const canDownloadFinanceAttachment = computed(() => userStore.hasPermission('approval:finance:detail'))
 
 function detailPermissionForType(type) {
+  if (type === 'after-sales') return 'after_sales:process'
   if (type === 'leave') return 'approval:leave:detail'
   if (type === 'finance') return 'approval:finance:detail'
   if (type === 'resignation') return 'approval:resignation:detail'
@@ -765,6 +769,7 @@ const formatAuditorOption = (item = {}) => {
 const defaultTypeToApiType = (type) => {
   if (type === 'ORDER') return 'order'
   if (type === 'QUALITY') return 'quality'
+  if (type === 'AFTER_SALES') return 'after_sales'
   if (type === 'FINANCE') return 'finance'
   if (type === 'LEAVE') return 'leave'
   if (type === 'RESIGNATION') return 'resignation'
@@ -1063,6 +1068,9 @@ const fetchList = async () => {
         canAudit: item.canAudit !== false,
         raw: item
       }))
+    } else if (requestedTab === 'after-sales') {
+      const data = await listAfterSalesApprovals()
+      nextRows = (data || []).map((item) => ({ type: 'after-sales', typeLabel: '售后审批', code: item.id, applicantName: item.creatorName || '售后工单', departmentName: item.projectName || '未关联项目', category: item.ticketType || '售后处理', summary: `${item.ticketNo} / ${item.problemDesc || '待审核售后工单'}`, auditorName: item.approvalAuditorIds || item.approvalAuditorId || '待分配', auditorId: item.approvalAuditorId, auditorIds: item.approvalAuditorIds, status: item.approvalStatus === 'approved' ? 2 : item.approvalStatus === 'rejected' ? 3 : 1, statusText: item.approvalStatus === 'approved' ? '已通过' : item.approvalStatus === 'rejected' ? '已驳回' : '待审核', createTime: item.createTime, isMine: false, canAudit: item.canAudit === true, raw: item }))
     } else {
       const data = await listOrderApprovals()
       nextRows = (data || []).map((item) => ({
@@ -1212,6 +1220,10 @@ const loadDetail = async (item, requestId) => {
       canAudit: detail.canAudit !== false
     }
     detailTitle.value = '质量审核详情'
+  } else if (item.type === 'after-sales') {
+    const detail = item.raw
+    detailData.value = { type: 'after-sales', code: detail.id, applicantName: detail.creatorName || '售后工单', category: detail.ticketType || '售后处理', reason: detail.problemDesc, status: detail.approvalStatus === 'approved' ? 2 : detail.approvalStatus === 'rejected' ? 3 : 1, statusText: detail.approvalStatus === 'approved' ? '已通过' : detail.approvalStatus === 'rejected' ? '已驳回' : '待审核', auditorId: detail.approvalAuditorId, auditorIds: detail.approvalAuditorIds, canAudit: detail.canAudit === true }
+    detailTitle.value = '售后审批详情'
   } else {
     const detail = await getOrderApprovalDetail(item.orderType || item.raw?.orderType, item.code)
     if (requestId !== detailRequestId) return
@@ -1319,6 +1331,8 @@ const quickAudit = async (item, action) => {
       action,
       comment: action === 2 ? '审批中心快捷驳回' : ''
     })
+  } else if (item.type === 'after-sales') {
+    auditResult = await auditAfterSalesApproval(item.code, { approved: action === 1, comment: action === 2 ? '审批中心快捷驳回' : '' })
   } else {
     auditResult = await auditOrderApproval({
       orderType: item.orderType || item.raw?.orderType,
@@ -1366,6 +1380,8 @@ const submitAudit = async (action) => {
       action,
       comment: auditComment.value
     })
+  } else if (detailData.value.type === 'after-sales') {
+    auditResult = await auditAfterSalesApproval(detailData.value.code, { approved: action === 1, comment: auditComment.value })
   } else {
     auditResult = await auditOrderApproval({
       orderType: detailData.value.orderType,

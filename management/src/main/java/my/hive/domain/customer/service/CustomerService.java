@@ -4,8 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletResponse;
 import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.dto.ImportResultVO;
 import my.hive.shared.exception.BusinessException;
+import my.hive.shared.utils.ExcelUtil;
 import my.hive.domain.customer.mapper.CustomerContactMapper;
 import my.hive.domain.customer.mapper.CustomerMapper;
 import my.hive.domain.customer.mapper.CustomerProjectMapper;
@@ -21,12 +24,19 @@ import my.hive.domain.customer.model.vo.CustomerPageVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 
+import java.io.IOException;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 /**
  * CustomerService 属于管理端后端客户模块，实现核心业务编排与规则逻辑。
@@ -37,6 +47,11 @@ public class CustomerService {
     private static final int DEFAULT_PAGE_NUM = 1;
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final int MAX_PAGE_SIZE = 200;
+    private static final int CUSTOMER_IMPORT_COLUMN_COUNT = 7;
+    private static final int MAX_CUSTOMER_IMPORT_ROWS = 2000;
+    private static final long MAX_IMPORT_FILE_SIZE_BYTES = 20L * 1024L * 1024L;
+    private static final List<String> CUSTOMER_IMPORT_HEADERS = List.of(
+            "客户名称", "客户类型", "联系人", "联系电话", "项目名称", "施工区域", "项目负责人");
 
     @Resource
     private CustomerMapper customerMapper;
@@ -47,14 +62,15 @@ public class CustomerService {
     @Resource
     private CustomerProjectMapper customerProjectMapper;
 
+    @Resource
+    private ExcelUtil excelUtil;
+
     @Transactional(rollbackFor = Exception.class)
     public void addCustomer(CustomerAddRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
 
-        Long count = customerMapper.selectCount(new LambdaQueryWrapper<Customer>()
-                .eq(Customer::getTenantCode, tenantCode)
-                .eq(Customer::getCustomerName, request.getCustomerName()));
-        if (count > 0) {
+        Customer existing = customerMapper.selectByTenantCodeAndNameForUpdate(tenantCode, request.getCustomerName());
+        if (existing != null) {
             throw new BusinessException("客户已存在");
         }
 
@@ -77,11 +93,8 @@ public class CustomerService {
             throw new BusinessException("客户不存在");
         }
 
-        Long duplicateCount = customerMapper.selectCount(new LambdaQueryWrapper<Customer>()
-                .eq(Customer::getTenantCode, tenantCode)
-                .eq(Customer::getCustomerName, request.getCustomerName())
-                .ne(Customer::getId, request.getId()));
-        if (duplicateCount != null && duplicateCount > 0) {
+        Customer duplicate = customerMapper.selectByTenantCodeAndNameForUpdate(tenantCode, request.getCustomerName());
+        if (duplicate != null && !Objects.equals(duplicate.getId(), request.getId())) {
             throw new BusinessException("客户已存在");
         }
 
@@ -224,6 +237,113 @@ public class CustomerService {
             vo.setProjectNames(projectNamesByCustomerId.getOrDefault(customer.getId(), Collections.emptyList()));
             return vo;
         }).toList();
+    }
+
+    public void downloadImportTemplate(HttpServletResponse response) {
+        excelUtil.writeTemplateToResponse(response,
+                "客户导入模板",
+                CUSTOMER_IMPORT_HEADERS,
+                List.of(
+                        List.of("示例客户", "直客（甲方）", "张三", "13900030001", "示例项目", "浙江杭州", "李经理"),
+                        List.of("示例总包", "总包方", "王工", "13900030002", "", "", "")),
+                List.of(
+                        "仅支持 .xlsx 文件导入。",
+                        "每行新增一个客户；客户名称和客户类型为必填项。",
+                        "客户类型支持：直客（甲方）、总包方、分包方，也可填写 1、2、3。",
+                        "联系人、联系电话、项目名称、施工区域、项目负责人均为可选项。",
+                        "同一客户名称不能重复；系统不会覆盖已有客户。"),
+                "客户导入模板.xlsx");
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public ImportResultVO importCustomers(MultipartFile file) {
+        excelUtil.validateXlsxImportFile(file, MAX_IMPORT_FILE_SIZE_BYTES);
+        ImportResultVO result = new ImportResultVO();
+        Set<String> importedNames = new HashSet<>();
+        try (var inputStream = file.getInputStream(); var workbook = WorkbookFactory.create(inputStream)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            excelUtil.validateImportHeader(sheet.getRow(0), CUSTOMER_IMPORT_HEADERS);
+            excelUtil.validateImportDataRows(sheet, CUSTOMER_IMPORT_COLUMN_COUNT, MAX_CUSTOMER_IMPORT_ROWS);
+            for (int index = 1; index <= sheet.getLastRowNum(); index++) {
+                Row row = sheet.getRow(index);
+                if (excelUtil.isEmptyRow(row, CUSTOMER_IMPORT_COLUMN_COUNT)) {
+                    continue;
+                }
+                result.setTotalCount(result.getTotalCount() + 1);
+                try {
+                    CustomerAddRequest request = buildImportRequest(row);
+                    String nameKey = request.getCustomerName().trim();
+                    if (!importedNames.add(nameKey)) {
+                        throw new BusinessException("客户名称在导入文件中重复：" + nameKey);
+                    }
+                    addCustomer(request);
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                } catch (Exception exception) {
+                    result.setFailCount(result.getFailCount() + 1);
+                    if (result.getFailMessages().size() < 20) {
+                        result.getFailMessages().add("第 " + (index + 1) + " 行：" + importErrorMessage(exception));
+                    }
+                }
+            }
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (IOException exception) {
+            throw new BusinessException("读取客户导入文件失败");
+        } catch (Exception exception) {
+            throw new BusinessException("客户导入文件格式不正确，请使用系统下载的 .xlsx 模板");
+        }
+        return result;
+    }
+
+    private CustomerAddRequest buildImportRequest(Row row) {
+        CustomerAddRequest request = new CustomerAddRequest();
+        request.setCustomerName(requiredImportText(excelUtil.readString(row.getCell(0)), "客户名称不能为空"));
+        request.setCustomerType(parseCustomerType(excelUtil.readString(row.getCell(1))));
+
+        String contactName = excelUtil.readString(row.getCell(2));
+        String contactPhone = excelUtil.readString(row.getCell(3));
+        if (!contactName.isBlank() || !contactPhone.isBlank()) {
+            CustomerContact contact = new CustomerContact();
+            contact.setContactName(contactName.trim());
+            contact.setContactPhone(contactPhone.trim());
+            request.setContacts(List.of(contact));
+        }
+
+        String projectName = excelUtil.readString(row.getCell(4));
+        String constructionArea = excelUtil.readString(row.getCell(5));
+        String projectOwner = excelUtil.readString(row.getCell(6));
+        if (!projectName.isBlank() || !constructionArea.isBlank() || !projectOwner.isBlank()) {
+            if (projectName.isBlank()) {
+                throw new BusinessException("填写施工区域或项目负责人时，项目名称不能为空");
+            }
+            CustomerProject project = new CustomerProject();
+            project.setProjectName(projectName.trim());
+            project.setConstructionArea(constructionArea.trim());
+            project.setProjectOwner(projectOwner.trim());
+            request.setProjects(List.of(project));
+        }
+        return request;
+    }
+
+    private Integer parseCustomerType(String value) {
+        String type = requiredImportText(value, "客户类型不能为空");
+        return switch (type.trim()) {
+            case "1", "直客", "直客（甲方）" -> 1;
+            case "2", "总包", "总包方" -> 2;
+            case "3", "分包", "分包方" -> 3;
+            default -> throw new BusinessException("客户类型仅支持：直客（甲方）、总包方、分包方");
+        };
+    }
+
+    private String requiredImportText(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new BusinessException(message);
+        }
+        return value.trim();
+    }
+
+    private String importErrorMessage(Exception exception) {
+        return exception.getMessage() == null || exception.getMessage().isBlank() ? "数据不合法" : exception.getMessage();
     }
 
     private void saveContactsAndProjects(String tenantCode, Long customerId, CustomerAddRequest request) {

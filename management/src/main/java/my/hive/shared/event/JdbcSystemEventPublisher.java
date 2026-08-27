@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import my.hive.shared.log.SensitiveDataSanitizer;
+import my.hive.shared.web.RequestTraceFilter;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.slf4j.MDC;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -44,7 +46,7 @@ public class JdbcSystemEventPublisher implements SystemEventPublisher {
                     truncate(sanitizer.toSafeText(event.getContent()), properties.getMaxContentLength()),
                     blankToNull(event.getBizType()),
                     blankToNull(event.getBizNo()),
-                    blankToNull(event.getTraceId()),
+                    blankToNull(resolveTraceId(event.getTraceId())),
                     toJson(event.getDetail()),
                     occurTime);
         } catch (DataAccessException ex) {
@@ -85,5 +87,17 @@ public class JdbcSystemEventPublisher implements SystemEventPublisher {
 
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /**
+     * Callers that deliberately create a background event may leave traceId
+     * blank.  For request-driven events, inherit the boundary trace instead
+     * of creating a second correlation id at every call site.
+     */
+    private String resolveTraceId(String eventTraceId) {
+        if (eventTraceId != null && !eventTraceId.isBlank()) {
+            return eventTraceId;
+        }
+        return MDC.get(RequestTraceFilter.MDC_TRACE_ID);
     }
 }

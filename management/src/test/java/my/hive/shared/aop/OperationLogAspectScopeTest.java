@@ -10,11 +10,16 @@ import my.hive.shared.log.OperationLogCollector;
 import my.hive.shared.log.OperationLogEvent;
 import my.hive.shared.log.OperationLogProperties;
 import my.hive.shared.log.SensitiveDataSanitizer;
+import my.hive.shared.web.RequestTraceFilter;
+import my.hive.shared.web.TrustedClientIpResolver;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -35,7 +40,7 @@ class OperationLogAspectScopeTest {
         properties.setRecordedModules(Set.of("order"));
         OperationLogCollector collector = mock(OperationLogCollector.class);
         SensitiveDataSanitizer sanitizer = mock(SensitiveDataSanitizer.class);
-        OperationLogAspect aspect = new OperationLogAspect(properties, collector, sanitizer);
+        OperationLogAspect aspect = new OperationLogAspect(properties, collector, sanitizer, mock(TrustedClientIpResolver.class));
 
         ProceedingJoinPoint customerJoinPoint = mock(ProceedingJoinPoint.class);
         when(customerJoinPoint.proceed()).thenReturn("customer-result");
@@ -64,7 +69,7 @@ class OperationLogAspectScopeTest {
         properties.setRecordedModules(Set.of("order"));
         OperationLogCollector collector = mock(OperationLogCollector.class);
         SensitiveDataSanitizer sanitizer = mock(SensitiveDataSanitizer.class);
-        OperationLogAspect aspect = new OperationLogAspect(properties, collector, sanitizer);
+        OperationLogAspect aspect = new OperationLogAspect(properties, collector, sanitizer, mock(TrustedClientIpResolver.class));
 
         ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
         MethodSignature signature = mock(MethodSignature.class);
@@ -86,7 +91,7 @@ class OperationLogAspectScopeTest {
         properties.setRecordedModules(Set.of("order"));
         OperationLogCollector collector = mock(OperationLogCollector.class);
         SensitiveDataSanitizer sanitizer = new SensitiveDataSanitizer(new ObjectMapper(), properties);
-        OperationLogAspect aspect = new OperationLogAspect(properties, collector, sanitizer);
+        OperationLogAspect aspect = new OperationLogAspect(properties, collector, sanitizer, mock(TrustedClientIpResolver.class));
         SalesOrderSaveRequest request = orderRequest("TRACKING-NO-1234567890");
 
         Result<String> createResult = Result.success("SO-1001");
@@ -115,7 +120,7 @@ class OperationLogAspectScopeTest {
         properties.setRecordedModules(Set.of("order"));
         OperationLogCollector collector = mock(OperationLogCollector.class);
         SensitiveDataSanitizer sanitizer = new SensitiveDataSanitizer(new ObjectMapper(), properties);
-        OperationLogAspect aspect = new OperationLogAspect(properties, collector, sanitizer);
+        OperationLogAspect aspect = new OperationLogAspect(properties, collector, sanitizer, mock(TrustedClientIpResolver.class));
         String rawMessage = "Duplicate entry 'TENANT-ORDER-SF123' for key 'uk_order_shipment_tracking'";
         DataIntegrityViolationException failure = new DataIntegrityViolationException(rawMessage);
 
@@ -136,6 +141,27 @@ class OperationLogAspectScopeTest {
                 .isEqualTo(SensitiveDataSanitizer.DATA_CONSTRAINT_MESSAGE)
                 .doesNotContain("SF123")
                 .doesNotContain("TENANT-ORDER");
+    }
+
+    @Test
+    void reusesRequestTraceIdForBusinessAuditEvent() throws Throwable {
+        OperationLogProperties properties = new OperationLogProperties();
+        properties.setRecordedModules(Set.of("order"));
+        OperationLogCollector collector = mock(OperationLogCollector.class);
+        SensitiveDataSanitizer sanitizer = new SensitiveDataSanitizer(new ObjectMapper(), properties);
+        OperationLogAspect aspect = new OperationLogAspect(properties, collector, sanitizer, mock(TrustedClientIpResolver.class));
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/orders");
+        request.setAttribute(RequestTraceFilter.TRACE_ATTRIBUTE, "trace-from-request-1234");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        try {
+            invoke(aspect, Fixture.class.getDeclaredMethod("orderOperation"), new Object[0], Result.success(null));
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+        }
+
+        ArgumentCaptor<OperationLogEvent> eventCaptor = ArgumentCaptor.forClass(OperationLogEvent.class);
+        verify(collector).collect(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().getTraceId()).isEqualTo("trace-from-request-1234");
     }
 
     private Object invoke(OperationLogAspect aspect, Method method, Object[] args, Object result) throws Throwable {

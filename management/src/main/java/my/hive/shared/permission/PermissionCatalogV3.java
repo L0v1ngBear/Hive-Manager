@@ -90,6 +90,16 @@ public class PermissionCatalogV3 {
     public static final String CODE_EQUIPMENT_INSPECTION_LIST = "equipment:inspection:list";
     public static final String CODE_EQUIPMENT_INSPECTION_SUBMIT = "equipment:inspection:submit";
     public static final String CODE_EQUIPMENT_EXPORT = "equipment:export";
+    public static final String CODE_AFTER_SALES_LIST = "after_sales:list";
+    public static final String CODE_AFTER_SALES_DETAIL = "after_sales:detail";
+    public static final String CODE_AFTER_SALES_CREATE = "after_sales:create";
+    public static final String CODE_AFTER_SALES_UPDATE = "after_sales:update";
+    public static final String CODE_AFTER_SALES_PROCESS = "after_sales:process";
+    public static final String CODE_AFTER_SALES_PART_LIST = "after_sales:part:list";
+    public static final String CODE_AFTER_SALES_PART_CREATE = "after_sales:part:create";
+    public static final String CODE_AFTER_SALES_PART_UPDATE = "after_sales:part:update";
+    public static final String CODE_AFTER_SALES_PART_STOCK_IN = "after_sales:part:stock-in";
+    public static final String CODE_AFTER_SALES_PART_OUTBOUND = "after_sales:part:outbound";
     public static final String CODE_INVENTORY_LIST = "inventory:list";
     public static final String CODE_INVENTORY_DETAIL = "inventory:detail";
     public static final String CODE_INVENTORY_WARNING_LIST = "inventory:warning:list";
@@ -238,6 +248,12 @@ public class PermissionCatalogV3 {
                 action("create", 3, "新增设备"), action("update", 4, "编辑设备"),
                 action("disable", 5, "停用设备"), entry("inspection:list", 6, "查看巡检记录"),
                 action("inspection:submit", 7, "提交巡检记录"), action("export", 8, "导出设备"));
+        addFlatModule(catalog, "after_sales", "售后管理", 780,
+                entry("list", 1, "查看售后工单"), entry("detail", 2, "查看售后工单详情"),
+                action("create", 3, "新建售后工单"), action("update", 4, "编辑售后工单"),
+                action("process", 5, "处理售后工单"), entry("part:list", 6, "查看售后配件库"),
+                action("part:create", 7, "新增售后配件"), action("part:update", 8, "编辑售后配件"),
+                action("part:stock-in", 9, "售后配件入库"), action("part:outbound", 10, "售后配件出库"));
         addFlatModule(catalog, "employee", "员工管理", 800,
                 entry("list", 1, "查看员工列表"), entry("detail", 2, "查看员工详情"),
                 action("create", 3, "新增员工"), action("update", 4, "编辑员工"),

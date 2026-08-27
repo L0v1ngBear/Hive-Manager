@@ -6,9 +6,14 @@ import my.hive.infrastructure.scheduler.DatabaseMaintenanceProperties;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import javax.sql.DataSource;
 import java.io.File;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -25,6 +30,7 @@ public class DatabaseMaintenanceService {
     private static final BigDecimal MB_BYTES = BigDecimal.valueOf(1024L * 1024L);
 
     private final JdbcTemplate jdbcTemplate;
+    private final DataSource dataSource;
     private final DatabaseMaintenanceProperties properties;
 
     public Map<String, Object> buildCapacityReport() {
@@ -64,40 +70,44 @@ public class DatabaseMaintenanceService {
             return result;
         }
 
-        if (!tryAcquireCleanupLock()) {
-            result.put("skipped", true);
-            result.put("reason", "another cleanup task is running");
-            log.info("database maintenance cleanup skipped: lock busy");
-            return result;
-        }
-
-        List<Map<String, Object>> tableResults = new ArrayList<>();
-        int deletedTotal = 0;
-        try {
-            tableResults.add(cleanupTable("operation_log", "create_time",
-                    properties.getOperationLogRetentionDays(), ""));
-            tableResults.add(cleanupNotifications());
-            tableResults.add(cleanupPrintTasks());
-            tableResults.add(cleanupTable("sales_order_status_log", "create_time",
-                    properties.getOrderStatusLogRetentionDays(), ""));
-            tableResults.add(cleanupTable("production_order_status_log", "create_time",
-                    properties.getOrderStatusLogRetentionDays(), ""));
-            tableResults.add(cleanupTable("system_event", "create_time",
-                    properties.getSystemEventRetentionDays(), ""));
-
-            for (Map<String, Object> tableResult : tableResults) {
-                Object value = tableResult.get("deletedRows");
-                if (value instanceof Number number) {
-                    deletedTotal += number.intValue();
-                }
+        try (Connection lockConnection = dataSource.getConnection()) {
+            if (!tryAcquireCleanupLock(lockConnection)) {
+                result.put("skipped", true);
+                result.put("reason", "another cleanup task is running");
+                log.info("database maintenance cleanup skipped: lock busy");
+                return result;
             }
-            result.put("deletedTotal", deletedTotal);
-            result.put("tables", tableResults);
-            result.put("finishedAt", LocalDateTime.now());
-            log.info("database maintenance cleanup finished: deletedTotal={}, tables={}", deletedTotal, tableResults);
-            return result;
-        } finally {
-            releaseCleanupLock();
+
+            List<Map<String, Object>> tableResults = new ArrayList<>();
+            int deletedTotal = 0;
+            try {
+                tableResults.add(cleanupTable("operation_log", "create_time",
+                        properties.getOperationLogRetentionDays(), ""));
+                tableResults.add(cleanupNotifications());
+                tableResults.add(cleanupPrintTasks());
+                tableResults.add(cleanupTable("sales_order_status_log", "create_time",
+                        properties.getOrderStatusLogRetentionDays(), ""));
+                tableResults.add(cleanupTable("production_order_status_log", "create_time",
+                        properties.getOrderStatusLogRetentionDays(), ""));
+                tableResults.add(cleanupTable("system_event", "create_time",
+                        properties.getSystemEventRetentionDays(), ""));
+
+                for (Map<String, Object> tableResult : tableResults) {
+                    Object value = tableResult.get("deletedRows");
+                    if (value instanceof Number number) {
+                        deletedTotal += number.intValue();
+                    }
+                }
+                result.put("deletedTotal", deletedTotal);
+                result.put("tables", tableResults);
+                result.put("finishedAt", LocalDateTime.now());
+                log.info("database maintenance cleanup finished: deletedTotal={}, tables={}", deletedTotal, tableResults);
+                return result;
+            } finally {
+                releaseCleanupLock(lockConnection);
+            }
+        } catch (SQLException exception) {
+            throw new IllegalStateException("数据库清理锁不可用", exception);
         }
     }
 
@@ -551,15 +561,21 @@ public class DatabaseMaintenanceService {
         return count != null && count > 0;
     }
 
-    private boolean tryAcquireCleanupLock() {
-        Integer lockResult = jdbcTemplate.queryForObject("SELECT GET_LOCK(?, 0)", Integer.class, CLEANUP_LOCK_NAME);
-        return lockResult != null && lockResult == 1;
+    private boolean tryAcquireCleanupLock(Connection connection) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT GET_LOCK(?, 0)")) {
+            statement.setString(1, CLEANUP_LOCK_NAME);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() && resultSet.getInt(1) == 1;
+            }
+        }
     }
 
-    private void releaseCleanupLock() {
-        try {
-            jdbcTemplate.queryForObject("SELECT RELEASE_LOCK(?)", Integer.class, CLEANUP_LOCK_NAME);
-        } catch (Exception ignored) {
+    private void releaseCleanupLock(Connection connection) {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT RELEASE_LOCK(?)")) {
+            statement.setString(1, CLEANUP_LOCK_NAME);
+            statement.executeQuery();
+        } catch (SQLException exception) {
+            log.warn("release database maintenance cleanup lock failed", exception);
         }
     }
 }

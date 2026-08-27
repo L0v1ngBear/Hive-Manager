@@ -5,6 +5,7 @@ import my.hive.shared.log.OperationLogProperties;
 import my.hive.shared.log.SensitiveDataSanitizer;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.slf4j.MDC;
 
 import java.util.Map;
 
@@ -34,6 +35,24 @@ class JdbcSystemEventPublisherTest {
                 .doesNotContain("SF123")
                 .contains(SensitiveDataSanitizer.DATA_CONSTRAINT_MESSAGE)
                 .contains("Order is already closed");
+    }
+
+    @Test
+    void inheritsRequestTraceIdWhenEventDoesNotSpecifyOne() {
+        RecordingJdbcTemplate jdbcTemplate = new RecordingJdbcTemplate();
+        SystemEventProperties properties = new SystemEventProperties();
+        SensitiveDataSanitizer sanitizer = new SensitiveDataSanitizer(
+                new ObjectMapper(), new OperationLogProperties());
+        JdbcSystemEventPublisher publisher = new JdbcSystemEventPublisher(
+                new ObjectMapper(), jdbcTemplate, properties, sanitizer);
+        MDC.put("traceId", "trace-from-request-1234");
+        try {
+            publisher.publish(SystemEvent.builder().eventType("EXTERNAL_API_CALL").title("Provider call").build());
+        } finally {
+            MDC.remove("traceId");
+        }
+
+        assertThat(jdbcTemplate.arguments[10]).isEqualTo("trace-from-request-1234");
     }
 
     private static final class RecordingJdbcTemplate extends JdbcTemplate {

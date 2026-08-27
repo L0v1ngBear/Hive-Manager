@@ -10,8 +10,10 @@ spring:
     active: dev
   servlet:
     multipart:
-      max-file-size: ${APP_UPLOAD_MAX_FILE_SIZE:200MB}
-      max-request-size: ${APP_UPLOAD_MAX_REQUEST_SIZE:210MB}
+      # Keep the transport limit consistent with the business attachment
+      # limit. Chunked upload is intentionally not required by the UI.
+      max-file-size: ${APP_UPLOAD_MAX_FILE_SIZE:800MB}
+      max-request-size: ${APP_UPLOAD_MAX_REQUEST_SIZE:820MB}
 
 app:
   upload:
@@ -20,7 +22,7 @@ app:
       enabled: ${APP_UPLOAD_IMAGE_COMPRESSION_ENABLED:true}
       min-file-size-kb: ${APP_UPLOAD_IMAGE_COMPRESSION_MIN_FILE_SIZE_KB:250}
       max-dimension: ${APP_UPLOAD_IMAGE_COMPRESSION_MAX_DIMENSION:2560}
-      max-pixels: ${APP_UPLOAD_IMAGE_COMPRESSION_MAX_PIXELS:40000000}
+      max-pixels: ${APP_UPLOAD_IMAGE_COMPRESSION_MAX_PIXELS:20000000}
       jpeg-quality: ${APP_UPLOAD_IMAGE_COMPRESSION_JPEG_QUALITY:0.82}
     chunked-video:
       chunk-size-mb: ${APP_UPLOAD_CHUNKED_VIDEO_CHUNK_SIZE_MB:10}
@@ -68,7 +70,12 @@ external-api:
       upload-window-seconds: ${EXTERNAL_API_OSS_UPLOAD_WINDOW_SECONDS:3600}
 
 logistics:
-  provider: ${LOGISTICS_PROVIDER:apispace}
+  provider: ${LOGISTICS_PROVIDER:aliyun-market}
+  aliyun-market:
+    enabled: ${ALIYUN_MARKET_LOGISTICS_ENABLED:false}
+    app-code: ${ALIYUN_MARKET_LOGISTICS_APPCODE:}
+    connect-timeout: ${ALIYUN_MARKET_LOGISTICS_CONNECT_TIMEOUT:5s}
+    request-timeout: ${ALIYUN_MARKET_LOGISTICS_REQUEST_TIMEOUT:10s}
   apispace:
     enabled: ${APISPACE_LOGISTICS_ENABLED:false}
     token: ${APISPACE_LOGISTICS_TOKEN:}
@@ -178,6 +185,18 @@ hive:
       # Only socket peers in these CIDRs may supply X-Forwarded-For/X-Real-IP.
       # Loopback covers the supported local nginx/container proxy topology.
       trusted-proxies: ${TRUSTED_PROXY_CIDRS:127.0.0.0/8,::1/128}
+  request-access-log:
+    # Boundary logs retain only request route, status and duration.  Request
+    # bodies and query values are intentionally excluded to avoid logging
+    # credentials, one-time codes and personal data.
+    enabled: ${REQUEST_ACCESS_LOG_ENABLED:true}
+    slow-threshold-ms: ${REQUEST_ACCESS_LOG_SLOW_THRESHOLD_MS:1000}
+    excluded-path-prefixes: ${REQUEST_ACCESS_LOG_EXCLUDED_PATH_PREFIXES:/actuator/health,/actuator/prometheus}
+  external-api-diagnostics:
+    # Metadata-only: HTTP status, duration, body fingerprint and JSON shape;
+    # never stores provider response text, headers, credentials or request data.
+    enabled: ${EXTERNAL_API_DIAGNOSTICS_ENABLED:true}
+    max-response-keys: ${EXTERNAL_API_DIAGNOSTICS_MAX_RESPONSE_KEYS:24}
   tenant:
     # BOUNDED = keep tenant_code isolation, but only allow the configured fixed tenants.
     # OPEN is reserved for a future multi-tenant platform and should not be used now.

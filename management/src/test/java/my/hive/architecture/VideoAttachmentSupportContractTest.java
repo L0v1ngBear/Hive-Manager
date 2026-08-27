@@ -23,8 +23,8 @@ class VideoAttachmentSupportContractTest {
             assertTrue(local.contains("\"" + extension + "\""), "local storage must support " + extension);
             assertTrue(oss.contains("\"" + extension + "\""), "OSS storage must support " + extension);
         }
-        assertTrue(application.contains("APP_UPLOAD_MAX_FILE_SIZE:200MB"));
-        assertTrue(application.contains("APP_UPLOAD_MAX_REQUEST_SIZE:210MB"));
+        assertTrue(application.contains("APP_UPLOAD_MAX_FILE_SIZE:800MB"));
+        assertTrue(application.contains("APP_UPLOAD_MAX_REQUEST_SIZE:820MB"));
         assertTrue(application.contains("APP_UPLOAD_MAX_FILE_SIZE_MB:800"));
         assertTrue(application.contains("ALIYUN_OSS_MAX_FILE_SIZE_MB:800"));
     }

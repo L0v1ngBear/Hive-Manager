@@ -164,13 +164,24 @@ function isRefreshRequest(config) {
 }
 
 function buildRequestKey(config) {
+    const userStore = useUserStore()
     return [
+        buildAuthScopeKey(userStore),
         normalizeMethod(config.method),
         config.baseURL || service.defaults.baseURL || '',
         config.url || '',
         stableStringify(cleanValue(config.params) || {}),
         stableStringify(cleanValue(config.data) || {})
     ].join('|')
+}
+
+function buildAuthScopeKey(userStore) {
+    const userId = userStore?.userInfo?.userId ?? ''
+    const tenantCode = userStore?.userInfo?.tenantCode ?? ''
+    // Keep cached responses and in-flight GET requests inside the authenticated
+    // session that initiated them.  This prevents a tab reused by another
+    // employee from observing the previous employee's short-lived cache.
+    return `session:${tenantCode}:${userId}:${userStore?.token || 'anonymous'}`
 }
 
 function stableStringify(value) {
@@ -286,6 +297,7 @@ function handleBusinessError(res, config, userStore) {
     if (Number(res?.code) === 401) {
         const currentPath = router.currentRoute.value.fullPath
         userStore.logout()
+        clearRequestMemory()
         if (!isLoginPath(currentPath)) {
             showBusinessTip(tip)
             router.push({ path: '/login', query: buildLoginQuery(currentPath) })
@@ -305,6 +317,7 @@ function handleHttpError(error, userStore, currentPath) {
     })
     if (status === 401) {
         userStore.logout()
+        clearRequestMemory()
         if (!isLoginPath(currentPath)) {
             showBusinessTip(tip)
             router.push({ path: '/login', query: buildLoginQuery(currentPath) })
@@ -312,6 +325,11 @@ function handleHttpError(error, userStore, currentPath) {
         return
     }
     showBusinessTip(tip)
+}
+
+function clearRequestMemory() {
+    pendingGetRequests.clear()
+    responseCache.clear()
 }
 
 function applyRenewedSession(response, userStore) {

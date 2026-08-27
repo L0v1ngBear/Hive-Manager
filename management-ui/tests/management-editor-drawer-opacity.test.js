@@ -37,7 +37,7 @@ test('global styles no longer make every Element Plus drawer translucent', () =>
     .filter((body) => /--el-bg-color|backdrop-filter/.test(body))
 
   assert.deepEqual(drawerAppearanceRules, [])
-  assert.match(globalStyle, /\.el-dialog\s*\{[\s\S]*?--el-bg-color:\s*rgba\(255,\s*255,\s*255,\s*0\.96\)/)
+  assert.doesNotMatch(globalStyle, /\.el-dialog\s*\{[\s\S]*?(?:--el-bg-color|backdrop-filter)/)
 })
 
 test('inventory and quality drawers own opaque module-local surfaces', () => {

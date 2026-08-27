@@ -32,6 +32,18 @@ public class SalesOrder {
     @TableField("customer_phone")
     private String customerPhone;
 
+    /**
+     * 售后关联订单时展示的客户联系人，不对应 sales_order 表字段。
+     */
+    @TableField(exist = false)
+    private String contactName;
+
+    /**
+     * 售后关联订单时展示的客户联系人电话，不对应 sales_order 表字段。
+     */
+    @TableField(exist = false)
+    private String contactPhone;
+
     @TableField("project_name")
     private String projectName;
 

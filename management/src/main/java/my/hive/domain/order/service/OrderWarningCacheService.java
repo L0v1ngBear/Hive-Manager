@@ -11,6 +11,8 @@ import my.hive.domain.order.model.entity.SalesOrder;
 import my.hive.domain.order.model.enums.OrderCategoryEnum;
 import my.hive.domain.order.model.enums.OrderStatusEnum;
 import my.hive.domain.order.model.vo.OrderWarningSummaryVO;
+import my.hive.shared.context.TenantPermissionContext;
+import my.hive.shared.permission.PermissionCatalogV3;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -46,10 +48,16 @@ public class OrderWarningCacheService {
     private RedisCacheHelper redisCacheHelper;
 
     public OrderWarningSummaryVO summary(String tenantCode) {
-        return summary(tenantCode, null);
+        return summary(tenantCode, null, false);
     }
 
     public OrderWarningSummaryVO summary(String tenantCode, Set<String> permittedStatuses) {
+        return summary(tenantCode, permittedStatuses, true);
+    }
+
+    private OrderWarningSummaryVO summary(String tenantCode,
+                                          Set<String> permittedStatuses,
+                                          boolean restrictToCurrentOrderScope) {
         if (tenantCode == null || tenantCode.isBlank()) {
             return emptySummary(OrderSettingService.DEFAULT_STALE_WARNING_DAYS);
         }
@@ -62,25 +70,31 @@ public class OrderWarningCacheService {
         if (statusScope != null && statusScope.isEmpty()) {
             return emptySummary(days, sampleRoomDays, bulkDays, replenishmentDays, drawingBudgetDays);
         }
-        String cacheKey = cacheKey(tenantCode, days, sampleRoomDays, bulkDays, replenishmentDays,
-                drawingBudgetDays, statusScope);
-        try {
-            String cached = stringRedisTemplate.opsForValue().get(cacheKey);
-            if (cached != null && !cached.isBlank()) {
-                OrderWarningSummaryVO summary = objectMapper.readValue(cached, OrderWarningSummaryVO.class);
-                return summary == null ? emptySummary(days) : normalize(summary, days, sampleRoomDays,
-                        bulkDays, replenishmentDays, drawingBudgetDays);
+        boolean cacheable = !restrictToCurrentOrderScope
+                || TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_ORDER_SCOPE_TENANT);
+        String cacheKey = cacheable ? cacheKey(tenantCode, days, sampleRoomDays, bulkDays, replenishmentDays,
+                drawingBudgetDays, statusScope) : null;
+        if (cacheable) {
+            try {
+                String cached = stringRedisTemplate.opsForValue().get(cacheKey);
+                if (cached != null && !cached.isBlank()) {
+                    OrderWarningSummaryVO summary = objectMapper.readValue(cached, OrderWarningSummaryVO.class);
+                    return summary == null ? emptySummary(days) : normalize(summary, days, sampleRoomDays,
+                            bulkDays, replenishmentDays, drawingBudgetDays);
+                }
+            } catch (Exception exception) {
+                log.warn("Read order warning cache failed, tenantCode={}", tenantCode, exception);
             }
-        } catch (Exception exception) {
-            log.warn("Read order warning cache failed, tenantCode={}", tenantCode, exception);
         }
 
         OrderWarningSummaryVO summary = querySummary(tenantCode, days, sampleRoomDays, bulkDays,
-                replenishmentDays, drawingBudgetDays, statusScope);
-        try {
-            stringRedisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(summary), WARNING_CACHE_TTL);
-        } catch (Exception exception) {
-            log.warn("Write order warning cache failed, tenantCode={}", tenantCode, exception);
+                replenishmentDays, drawingBudgetDays, statusScope, restrictToCurrentOrderScope);
+        if (cacheable) {
+            try {
+                stringRedisTemplate.opsForValue().set(cacheKey, objectMapper.writeValueAsString(summary), WARNING_CACHE_TTL);
+            } catch (Exception exception) {
+                log.warn("Write order warning cache failed, tenantCode={}", tenantCode, exception);
+            }
         }
         return summary;
     }
@@ -98,12 +112,13 @@ public class OrderWarningCacheService {
                                                int bulkDays,
                                                int replenishmentDays,
                                                int drawingBudgetDays,
-                                               Set<String> statusScope) {
-        long sampleRoomCount = countOrdersByCategory(tenantCode, OrderCategoryEnum.SAMPLE_ROOM.getCode(), sampleRoomDays, statusScope);
-        long bulkCount = countOrdersByCategory(tenantCode, OrderCategoryEnum.BULK.getCode(), bulkDays, statusScope);
-        long replenishmentCount = countOrdersByCategory(tenantCode, OrderCategoryEnum.REPLENISHMENT.getCode(), replenishmentDays, statusScope);
-        long drawingBudgetCount = countOrdersByCategory(tenantCode, OrderCategoryEnum.DRAWING_BUDGET.getCode(), drawingBudgetDays, statusScope);
-        long otherCount = countOtherOrders(tenantCode, days, statusScope);
+                                               Set<String> statusScope,
+                                               boolean restrictToCurrentOrderScope) {
+        long sampleRoomCount = countOrdersByCategory(tenantCode, OrderCategoryEnum.SAMPLE_ROOM.getCode(), sampleRoomDays, statusScope, restrictToCurrentOrderScope);
+        long bulkCount = countOrdersByCategory(tenantCode, OrderCategoryEnum.BULK.getCode(), bulkDays, statusScope, restrictToCurrentOrderScope);
+        long replenishmentCount = countOrdersByCategory(tenantCode, OrderCategoryEnum.REPLENISHMENT.getCode(), replenishmentDays, statusScope, restrictToCurrentOrderScope);
+        long drawingBudgetCount = countOrdersByCategory(tenantCode, OrderCategoryEnum.DRAWING_BUDGET.getCode(), drawingBudgetDays, statusScope, restrictToCurrentOrderScope);
+        long otherCount = countOtherOrders(tenantCode, days, statusScope, restrictToCurrentOrderScope);
         long orderCount = sampleRoomCount + bulkCount + replenishmentCount + drawingBudgetCount + otherCount;
 
         OrderWarningSummaryVO summary = new OrderWarningSummaryVO();
@@ -121,7 +136,8 @@ public class OrderWarningCacheService {
         return summary;
     }
 
-    private long countOrdersByCategory(String tenantCode, String category, int days, Set<String> statusScope) {
+    private long countOrdersByCategory(String tenantCode, String category, int days, Set<String> statusScope,
+                                       boolean restrictToCurrentOrderScope) {
         LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<SalesOrder>()
                 .eq(SalesOrder::getTenantCode, tenantCode)
                 .eq(SalesOrder::getOrderCategory, category)
@@ -129,10 +145,12 @@ public class OrderWarningCacheService {
                         OrderStatusEnum.PENDING_CANCEL.getCode(), OrderStatusEnum.CANCELLED.getCode(), OrderStatusEnum.BUDGET_COMPLETED.getCode())
                 .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(days));
         applyStatusScope(wrapper, statusScope);
+        applyCurrentOrderDataScope(wrapper, restrictToCurrentOrderScope);
         return safeCount(salesOrderMapper.selectCount(wrapper));
     }
 
-    private long countOtherOrders(String tenantCode, int days, Set<String> statusScope) {
+    private long countOtherOrders(String tenantCode, int days, Set<String> statusScope,
+                                  boolean restrictToCurrentOrderScope) {
         LambdaQueryWrapper<SalesOrder> wrapper = new LambdaQueryWrapper<SalesOrder>()
                 .eq(SalesOrder::getTenantCode, tenantCode)
                 .and(category -> category.isNull(SalesOrder::getOrderCategory)
@@ -146,7 +164,32 @@ public class OrderWarningCacheService {
                         OrderStatusEnum.PENDING_CANCEL.getCode(), OrderStatusEnum.CANCELLED.getCode(), OrderStatusEnum.BUDGET_COMPLETED.getCode())
                 .apply("COALESCE(update_time, create_time) <= {0}", LocalDateTime.now().minusDays(days));
         applyStatusScope(wrapper, statusScope);
+        applyCurrentOrderDataScope(wrapper, restrictToCurrentOrderScope);
         return safeCount(salesOrderMapper.selectCount(wrapper));
+    }
+
+    private void applyCurrentOrderDataScope(LambdaQueryWrapper<SalesOrder> wrapper,
+                                            boolean restrictToCurrentOrderScope) {
+        if (!restrictToCurrentOrderScope
+                || TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_ORDER_SCOPE_TENANT)) {
+            return;
+        }
+        Long userId = TenantPermissionContext.getUserId();
+        if (userId != null && TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_ORDER_SCOPE_SALES_SELF)) {
+            wrapper.apply("creator = {0}", String.valueOf(userId));
+            return;
+        }
+        if (userId != null && TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_ORDER_SCOPE_SALES_DEPARTMENT)) {
+            wrapper.apply("creator IN ("
+                            + "SELECT CAST(scope_user.id AS CHAR) FROM `user` scope_user "
+                            + "WHERE scope_user.tenant_code = {0} "
+                            + "AND scope_user.department_name = ("
+                            + "SELECT active_scope_user.department_name FROM `user` active_scope_user "
+                            + "WHERE active_scope_user.tenant_code = {0} AND active_scope_user.id = {1} LIMIT 1))",
+                    TenantPermissionContext.getTenantCode(), userId);
+            return;
+        }
+        wrapper.apply("1 = 0");
     }
 
     private void applyStatusScope(LambdaQueryWrapper<SalesOrder> wrapper, Set<String> statusScope) {

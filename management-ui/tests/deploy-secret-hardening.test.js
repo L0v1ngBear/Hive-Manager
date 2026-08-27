@@ -77,7 +77,11 @@ for (const source of [runtimeConfig, composeSource, envExample, deployHealth, de
   assert.doesNotMatch(source, new RegExp(['KUAIDI', '100'].join('')), 'retired logistics variables must be absent')
 }
 
-assert.match(runtimeConfig, /provider: \$\{LOGISTICS_PROVIDER:apispace\}/)
+assert.match(runtimeConfig, /provider: \$\{LOGISTICS_PROVIDER:aliyun-market\}/)
+assert.match(runtimeConfig, /enabled: \$\{ALIYUN_MARKET_LOGISTICS_ENABLED:false\}/)
+assert.match(runtimeConfig, /app-code: \$\{ALIYUN_MARKET_LOGISTICS_APPCODE:\}/)
+assert.match(runtimeConfig, /connect-timeout: \$\{ALIYUN_MARKET_LOGISTICS_CONNECT_TIMEOUT:5s\}/)
+assert.match(runtimeConfig, /request-timeout: \$\{ALIYUN_MARKET_LOGISTICS_REQUEST_TIMEOUT:10s\}/)
 assert.match(runtimeConfig, /enabled: \$\{APISPACE_LOGISTICS_ENABLED:false\}/)
 assert.match(runtimeConfig, /token: \$\{APISPACE_LOGISTICS_TOKEN:\}/)
 assert.match(runtimeConfig, /connect-timeout: \$\{APISPACE_LOGISTICS_CONNECT_TIMEOUT:5s\}/)
@@ -85,7 +89,11 @@ assert.match(runtimeConfig, /request-timeout: \$\{APISPACE_LOGISTICS_REQUEST_TIM
 assert.match(runtimeConfig, /provider: \$\{FILE_STORAGE_PROVIDER:local\}/)
 assert.match(runtimeConfig, /enabled: \$\{ALIYUN_OSS_ENABLED:false\}/)
 
-assert.match(composeSource, /LOGISTICS_PROVIDER: \$\{LOGISTICS_PROVIDER:-apispace\}/)
+assert.match(composeSource, /LOGISTICS_PROVIDER: \$\{LOGISTICS_PROVIDER:-aliyun-market\}/)
+assert.match(composeSource, /ALIYUN_MARKET_LOGISTICS_ENABLED: \$\{ALIYUN_MARKET_LOGISTICS_ENABLED:-false\}/)
+assert.match(composeSource, /ALIYUN_MARKET_LOGISTICS_APPCODE: \$\{ALIYUN_MARKET_LOGISTICS_APPCODE:-\}/)
+assert.match(composeSource, /ALIYUN_MARKET_LOGISTICS_CONNECT_TIMEOUT: \$\{ALIYUN_MARKET_LOGISTICS_CONNECT_TIMEOUT:-5s\}/)
+assert.match(composeSource, /ALIYUN_MARKET_LOGISTICS_REQUEST_TIMEOUT: \$\{ALIYUN_MARKET_LOGISTICS_REQUEST_TIMEOUT:-10s\}/)
 assert.match(composeSource, /APISPACE_LOGISTICS_ENABLED: \$\{APISPACE_LOGISTICS_ENABLED:-false\}/)
 assert.match(composeSource, /APISPACE_LOGISTICS_TOKEN: \$\{APISPACE_LOGISTICS_TOKEN:-\}/)
 assert.match(composeSource, /APISPACE_LOGISTICS_CONNECT_TIMEOUT: \$\{APISPACE_LOGISTICS_CONNECT_TIMEOUT:-5s\}/)
@@ -93,7 +101,11 @@ assert.match(composeSource, /APISPACE_LOGISTICS_REQUEST_TIMEOUT: \$\{APISPACE_LO
 assert.match(composeSource, /FILE_STORAGE_PROVIDER: \$\{FILE_STORAGE_PROVIDER:-local\}/)
 assert.match(composeSource, /ALIYUN_OSS_ENABLED: \$\{ALIYUN_OSS_ENABLED:-false\}/)
 
-assert.match(envExample, /^LOGISTICS_PROVIDER=apispace$/m)
+assert.match(envExample, /^LOGISTICS_PROVIDER=aliyun-market$/m)
+assert.match(envExample, /^ALIYUN_MARKET_LOGISTICS_ENABLED=false$/m)
+assert.match(envExample, /^ALIYUN_MARKET_LOGISTICS_APPCODE=$/m)
+assert.match(envExample, /^ALIYUN_MARKET_LOGISTICS_CONNECT_TIMEOUT=5s$/m)
+assert.match(envExample, /^ALIYUN_MARKET_LOGISTICS_REQUEST_TIMEOUT=10s$/m)
 assert.match(envExample, /^APISPACE_LOGISTICS_ENABLED=false$/m)
 assert.match(envExample, /^APISPACE_LOGISTICS_TOKEN=$/m)
 assert.match(envExample, /^APISPACE_LOGISTICS_CONNECT_TIMEOUT=5s$/m)
@@ -101,6 +113,7 @@ assert.match(envExample, /^APISPACE_LOGISTICS_REQUEST_TIMEOUT=10s$/m)
 assert.match(envExample, /^FILE_STORAGE_PROVIDER=local$/m)
 assert.match(envExample, /^ALIYUN_OSS_ENABLED=false$/m)
 assert.doesNotMatch(envExample, /APISPACE_LOGISTICS_TOKEN=\S+/)
+assert.doesNotMatch(envExample, /ALIYUN_MARKET_LOGISTICS_APPCODE=\S+/)
 
 for (const source of [runtimeConfig, composeSource, envExample]) {
   for (const line of source.split(/\r?\n/).filter((item) => item.includes('APISPACE_LOGISTICS_TOKEN'))) {
@@ -114,6 +127,10 @@ for (const source of [runtimeConfig, composeSource, envExample]) {
 assert.match(
   deployHealth,
   /if env_true APISPACE_LOGISTICS_ENABLED[\s\S]*for key in APISPACE_LOGISTICS_TOKEN/
+)
+assert.match(
+  deployHealth,
+  /if env_true ALIYUN_MARKET_LOGISTICS_ENABLED[\s\S]*for key in ALIYUN_MARKET_LOGISTICS_APPCODE/
 )
 assert.match(
   deployHealth,
@@ -235,7 +252,9 @@ function createHealthFixture(overrides = {}) {
     EMPLOYEE_DEFAULT_PASSWORD: 'fixture-employee-password',
     TENANT_OWNER_DEFAULT_PASSWORD: 'fixture-owner-password',
     CORS_ALLOWED_ORIGINS: 'https://example.test',
-    LOGISTICS_PROVIDER: 'apispace',
+    LOGISTICS_PROVIDER: 'aliyun-market',
+    ALIYUN_MARKET_LOGISTICS_ENABLED: 'false',
+    ALIYUN_MARKET_LOGISTICS_APPCODE: '',
     APISPACE_LOGISTICS_ENABLED: 'false',
     APISPACE_LOGISTICS_TOKEN: '',
     FILE_STORAGE_PROVIDER: 'local',
@@ -272,6 +291,16 @@ test('deploy health rejects a whitespace-only APISpace token', () => {
   assert.equal(result.error, undefined)
   assert.notEqual(result.status, 0)
   assert.match(`${result.stdout}\n${result.stderr}`, /APISpace logistics is enabled but APISPACE_LOGISTICS_TOKEN is empty/)
+})
+
+test('deploy health rejects a whitespace-only Aliyun Market AppCode', () => {
+  const result = runHealth({
+    ALIYUN_MARKET_LOGISTICS_ENABLED: 'true',
+    ALIYUN_MARKET_LOGISTICS_APPCODE: ' \t '
+  })
+  assert.equal(result.error, undefined)
+  assert.notEqual(result.status, 0)
+  assert.match(`${result.stdout}\n${result.stderr}`, /Aliyun Market logistics is enabled but ALIYUN_MARKET_LOGISTICS_APPCODE is empty/)
 })
 
 test('deploy health applies runtime defaults when provider settings are empty', () => {
