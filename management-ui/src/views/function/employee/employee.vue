@@ -99,7 +99,7 @@ Output:
 
       <div class="function-list-panel shadow-sm flex flex-col border border-surface-variant/50">
         <div v-filter-collapse class="function-filter-form p-4 bg-surface-container-low border-b border-surface-variant/50">
-          <div class="flex-1 min-w-[300px] relative">
+          <div class="employee-filter-search relative">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
             <el-input
                 v-model.trim="query.keyword"
@@ -108,11 +108,11 @@ Output:
                 placeholder="按姓名、电话或工号搜索"
             />
           </div>
-          <div class="contents">
+          <div class="employee-filter-fields">
             <el-select
                 v-model="query.departmentId"
                 @change="handleFilterChange"
-                class="pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary min-w-[160px] font-medium appearance-none"
+                class="employee-filter-control pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary font-medium appearance-none"
                 placeholder="所有部门"
             >
               <el-option label="所有部门" value="" />
@@ -121,7 +121,7 @@ Output:
             <el-select
                 v-model="query.status"
                 @change="handleFilterChange"
-                class="pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary min-w-[160px] font-medium appearance-none"
+                class="employee-filter-control pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary font-medium appearance-none"
                 placeholder="所有状态"
             >
               <el-option label="所有状态" value="" />
@@ -130,7 +130,7 @@ Output:
             <el-select
                 v-model="query.employeeType"
                 @change="handleFilterChange"
-                class="pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary min-w-[150px] font-medium appearance-none"
+                class="employee-filter-control pl-3 pr-8 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary font-medium appearance-none"
                 placeholder="所有用工类型"
             >
               <el-option label="所有用工类型" value="" />
@@ -143,7 +143,7 @@ Output:
                 placeholder="入职开始"
                 type="date"
                 value-format="YYYY-MM-DD"
-                class="px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
+                class="employee-filter-control px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
                 @change="handleFilterChange"
             />
             <el-date-picker
@@ -151,7 +151,7 @@ Output:
                 placeholder="入职结束"
                 type="date"
                 value-format="YYYY-MM-DD"
-                class="px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
+                class="employee-filter-control px-3 py-2 bg-white border-none ring-1 ring-outline-variant/30 rounded-lg text-sm focus:ring-2 focus:ring-primary"
                 @change="handleFilterChange"
             />
             <div class="function-filter-actions">
@@ -763,6 +763,77 @@ watch(
 </script>
 
 <style scoped>
+.employee-filter-form {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.35fr) minmax(0, 4.65fr);
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.employee-filter-search {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.employee-filter-fields {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(128px, 1fr)) auto;
+  align-items: end;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.employee-filter-control {
+  width: 100%;
+  min-width: 0;
+}
+
+.employee-filter-form :deep(.el-input),
+.employee-filter-form :deep(.el-select),
+.employee-filter-form :deep(.el-date-editor) {
+  width: 100%;
+  min-width: 0;
+}
+
+.employee-filter-form .function-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+@media (max-width: 1280px) {
+  .employee-filter-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .employee-filter-search {
+    grid-column: 1;
+  }
+
+  .employee-filter-fields {
+    grid-column: 1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .employee-filter-form .function-filter-actions {
+    grid-column: span 3;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .employee-filter-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .employee-filter-form .function-filter-actions {
+    grid-column: 1;
+  }
+}
+
 .employee-operation-actions {
   display: flex;
   align-items: center;
