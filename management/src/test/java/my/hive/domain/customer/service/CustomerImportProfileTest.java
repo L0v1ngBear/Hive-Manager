@@ -89,7 +89,10 @@ class CustomerImportProfileTest {
 
         service.downloadImportTemplate(response);
 
-        try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(response.getContentAsByteArray()))) {
+        byte[] content = response.getContentAsByteArray();
+        assertThat(content).isNotEmpty();
+        assertThat(response.getContentLength()).isEqualTo(content.length);
+        try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(content))) {
             assertThat(workbook.getSheetAt(0).getRow(0).getCell(0).getStringCellValue()).isEqualTo("客户名称");
             assertThat(workbook.getSheetAt(0).getRow(0).getCell(1).getStringCellValue()).isEqualTo("客户地址");
             assertThat(workbook.getSheetAt(0).getRow(0).getCell(2).getStringCellValue()).isEqualTo("开业时间");

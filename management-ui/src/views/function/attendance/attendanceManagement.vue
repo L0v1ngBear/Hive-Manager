@@ -402,6 +402,7 @@ import {
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { createLatestRequest, createSubmitGuard } from '@/utils/latestRequest'
+import { downloadXlsxBlob } from '@/utils/excelDownload'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import {
@@ -776,11 +777,7 @@ async function exportExcel() {
     status: query.status || undefined,
     date: query.date || undefined
   })
-  const link = document.createElement('a')
-  link.href = URL.createObjectURL(new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
-  link.download = `考勤记录_${query.date || today}.xlsx`
-  link.click()
-  URL.revokeObjectURL(link.href)
+  await downloadXlsxBlob(blob, `考勤记录_${query.date || today}.xlsx`, (message) => ElMessage.error(message))
 }
 
 function statusClass(status) {

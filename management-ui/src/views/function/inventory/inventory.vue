@@ -674,6 +674,7 @@ import { ElButton, ElCheckbox, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, E
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { warnAndFocusField } from '@/utils/formFocus'
+import { downloadXlsxBlob } from '@/utils/excelDownload'
 import { getCurrentTenantFieldConfig } from '@/api/tenantFieldConfig'
 import { customTenantFields, defaultTenantFieldConfig, mergeTenantFieldConfig } from '@/utils/tenantFieldConfig'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
@@ -1283,7 +1284,7 @@ async function submitOut() {
 async function handleTemplateDownload() {
   if (!requireUiPermission('inventory:import')) return
   const blob = await downloadInventoryImportTemplate()
-  await downloadBlob(blob, '外部库存导入说明.xlsx')
+  await downloadXlsxBlob(blob, '外部库存导入说明.xlsx', (message) => ElMessage.error(message))
 }
 
 function triggerImport() {
@@ -1325,40 +1326,6 @@ async function handleImportChange(event) {
   } finally {
     event.target.value = ''
   }
-}
-
-async function downloadBlob(blob, fileName) {
-  if (!blob || blob.size === 0) {
-    ElMessage.error('下载失败：文件为空')
-    return
-  }
-  const contentType = String(blob.type || '').toLowerCase()
-  if (contentType.includes('application/json') || contentType.includes('text/plain')) {
-    const text = await blob.text()
-    let message = text || '下载失败'
-    try {
-      const parsed = JSON.parse(text)
-      message = parsed.msg || parsed.message || parsed.error || message
-    } catch (ignored) {
-      // Non-JSON text response; keep the original message for troubleshooting.
-    }
-    ElMessage.error(message)
-    return
-  }
-  if (fileName.endsWith('.xlsx')) {
-    const header = new Uint8Array(await blob.slice(0, 4).arrayBuffer())
-    const isZipBasedExcel = header.length >= 2 && header[0] === 0x50 && header[1] === 0x4b
-    if (!isZipBasedExcel) {
-      ElMessage.error('下载失败：文件内容不是有效 Excel')
-      return
-    }
-  }
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  link.click()
-  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 function trendWidth(value) {

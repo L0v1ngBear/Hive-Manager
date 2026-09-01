@@ -3,7 +3,7 @@ package my.hive.shared.utils;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.metadata.WriteSheet;
-import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
+import com.alibaba.excel.write.style.column.SimpleColumnWidthStyleStrategy;
 import jakarta.servlet.http.HttpServletResponse;
 import my.hive.shared.exception.BusinessException;
 import org.apache.poi.ss.usermodel.Cell;
@@ -36,24 +36,21 @@ public class ExcelUtil {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final int EXCEL_WRITE_BATCH_SIZE = 500;
+    private static final int FONT_INDEPENDENT_EXPORT_COLUMN_WIDTH = 20;
+    private static final int FONT_INDEPENDENT_NOTE_COLUMN_WIDTH = 80;
 
     public void writeRowsToResponse(HttpServletResponse response,
                                     String sheetName,
                                     List<String> headers,
                                     List<List<String>> rows,
                                     String fileName) {
-        prepareDownloadResponse(response, fileName);
-        try (ExcelWriter writer = EasyExcel.write(response.getOutputStream())
-                    .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
-                    .build()) {
-            WriteSheet writeSheet = EasyExcel.writerSheet(safeSheetName(sheetName))
-                    .head(toEasyExcelHead(headers))
-                    .build();
-            writeRowsInBatches(writer, writeSheet, rows, headerCount(headers));
-            response.flushBuffer();
-        } catch (IOException e) {
-            throw new RuntimeException("导出 Excel 失败", e);
+        byte[] content;
+        try {
+            content = writeRowsToBytes(sheetName, headers, rows);
+        } catch (RuntimeException exception) {
+            throw new RuntimeException("导出 Excel 失败", exception);
         }
+        writeWorkbookToResponse(response, fileName, content, "导出 Excel 失败");
     }
 
     public void writeTemplateToResponse(HttpServletResponse response,
@@ -62,23 +59,13 @@ public class ExcelUtil {
                                         List<List<String>> exampleRows,
                                         List<String> notes,
                                         String fileName) {
-        prepareDownloadResponse(response, fileName);
-        try (ExcelWriter writer = EasyExcel.write(response.getOutputStream())
-                .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
-                .build()) {
-            WriteSheet dataSheet = EasyExcel.writerSheet(0, safeSheetName(sheetName))
-                    .head(toEasyExcelHead(headers))
-                    .build();
-            writer.write(normalizeRows(exampleRows, headerCount(headers)), dataSheet);
-
-            WriteSheet noteSheet = EasyExcel.writerSheet(1, "填写说明")
-                    .head(toEasyExcelHead(List.of("说明")))
-                    .build();
-            writer.write(toSingleColumnRows(notes), noteSheet);
-            response.flushBuffer();
-        } catch (IOException e) {
-            throw new RuntimeException("导出 Excel 模板失败", e);
+        byte[] content;
+        try {
+            content = writeTemplateToBytes(sheetName, headers, exampleRows, notes);
+        } catch (RuntimeException exception) {
+            throw new RuntimeException("导出 Excel 模板失败", exception);
         }
+        writeWorkbookToResponse(response, fileName, content, "导出 Excel 模板失败");
     }
 
     public String readString(Cell cell) {
@@ -283,7 +270,7 @@ public class ExcelUtil {
                                    List<List<String>> rows) {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (ExcelWriter writer = EasyExcel.write(output)
-                .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+                .registerWriteHandler(new SimpleColumnWidthStyleStrategy(FONT_INDEPENDENT_EXPORT_COLUMN_WIDTH))
                 .build()) {
             WriteSheet writeSheet = EasyExcel.writerSheet(safeSheetName(sheetName))
                     .head(toEasyExcelHead(headers))
@@ -291,6 +278,44 @@ public class ExcelUtil {
             writeRowsInBatches(writer, writeSheet, rows, headerCount(headers));
         }
         return output.toByteArray();
+    }
+
+    private byte[] writeTemplateToBytes(String sheetName,
+                                        List<String> headers,
+                                        List<List<String>> exampleRows,
+                                        List<String> notes) {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (ExcelWriter writer = EasyExcel.write(output).build()) {
+            WriteSheet dataSheet = EasyExcel.writerSheet(0, safeSheetName(sheetName))
+                    .head(toEasyExcelHead(headers))
+                    .registerWriteHandler(new SimpleColumnWidthStyleStrategy(FONT_INDEPENDENT_EXPORT_COLUMN_WIDTH))
+                    .build();
+            writer.write(normalizeRows(exampleRows, headerCount(headers)), dataSheet);
+
+            WriteSheet noteSheet = EasyExcel.writerSheet(1, "填写说明")
+                    .head(toEasyExcelHead(List.of("说明")))
+                    .registerWriteHandler(new SimpleColumnWidthStyleStrategy(FONT_INDEPENDENT_NOTE_COLUMN_WIDTH))
+                    .build();
+            writer.write(toSingleColumnRows(notes), noteSheet);
+        }
+        return output.toByteArray();
+    }
+
+    private void writeWorkbookToResponse(HttpServletResponse response,
+                                         String fileName,
+                                         byte[] content,
+                                         String failureMessage) {
+        if (content == null || content.length == 0) {
+            throw new RuntimeException(failureMessage + "：生成内容为空");
+        }
+        prepareDownloadResponse(response, fileName);
+        response.setContentLength(content.length);
+        try {
+            response.getOutputStream().write(content);
+            response.flushBuffer();
+        } catch (IOException exception) {
+            throw new RuntimeException(failureMessage, exception);
+        }
     }
 
     /**

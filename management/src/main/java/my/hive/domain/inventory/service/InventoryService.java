@@ -576,8 +576,8 @@ public class InventoryService {
     @CollectLog(module = "inventory", action = "inventory_import", bizType = "cloth", description = "网页端库存快照导入")
     public InventoryImportResultVO importInventory(MultipartFile file) {
         validateImportFile(file);
-        List<List<String>> rows = readImportRows(file);
         Map<String, Set<String>> importHeaderAliases = tenantAwareImportHeaderAliases();
+        List<List<String>> rows = readImportRows(file, importHeaderAliases);
         int headerRowIndex = findHeaderRowIndex(rows, importHeaderAliases);
         if (headerRowIndex < 0) {
             throw new BusinessException("未识别到库存表头，请至少包含型号和库存米数/数量相关列");
@@ -702,13 +702,13 @@ public class InventoryService {
         }
     }
 
-    private List<List<String>> readImportRows(MultipartFile file) {
+    private List<List<String>> readImportRows(MultipartFile file, Map<String, Set<String>> importHeaderAliases) {
         String fileName = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().toLowerCase(Locale.ROOT);
         try {
             if (fileName.endsWith(".csv")) {
                 return readCsvRows(file);
             }
-            return readExcelRows(file);
+            return readExcelRows(file, importHeaderAliases);
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
@@ -716,8 +716,9 @@ public class InventoryService {
         }
     }
 
-    private List<List<String>> readExcelRows(MultipartFile file) throws IOException {
+    private List<List<String>> readExcelRows(MultipartFile file, Map<String, Set<String>> importHeaderAliases) throws IOException {
         List<List<String>> rows = new ArrayList<>();
+        int scannedRowCount = 0;
         try (var inputStream = file.getInputStream(); var workbook = WorkbookFactory.create(inputStream)) {
             if (workbook.getNumberOfSheets() == 0) {
                 throw new BusinessException("库存导入文件没有可读取的工作表");
@@ -727,6 +728,7 @@ public class InventoryService {
                 if (sheet == null) {
                     continue;
                 }
+                List<List<String>> sheetRows = new ArrayList<>();
                 for (int i = sheet.getFirstRowNum(); i <= sheet.getLastRowNum(); i++) {
                     Row row = sheet.getRow(i);
                     int lastCellNum = row == null ? 0 : Math.max(row.getLastCellNum(), 0);
@@ -734,8 +736,11 @@ public class InventoryService {
                     for (int j = 0; j < lastCellNum; j++) {
                         values.add(readCellValue(row.getCell(j)));
                     }
-                    rows.add(values);
-                    guardImportReadRowCount(rows.size());
+                    sheetRows.add(values);
+                    guardImportReadRowCount(++scannedRowCount);
+                }
+                if (findHeaderRowIndex(sheetRows, importHeaderAliases) >= 0) {
+                    rows.addAll(sheetRows);
                 }
             }
         }

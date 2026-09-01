@@ -36,6 +36,7 @@ class ExcelUtilTest {
 
         byte[] content = response.getContentAsByteArray();
         assertTrue(content.length > 0);
+        assertEquals(content.length, response.getContentLength());
         assertTrue(response.getContentType().contains("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
         assertTrue(response.getHeader("Content-Disposition").contains("filename*=UTF-8''"));
 
@@ -46,6 +47,9 @@ class ExcelUtilTest {
             assertEquals("型号", workbook.getSheetAt(0).getRow(0).getCell(1).getStringCellValue());
             assertEquals("说明", workbook.getSheetAt(1).getRow(0).getCell(0).getStringCellValue());
             assertEquals("一行代表一匹布；条码可为空，系统会自动生成。", workbook.getSheetAt(1).getRow(1).getCell(0).getStringCellValue());
+            assertEquals(20 * 256, workbook.getSheetAt(0).getColumnWidth(0));
+            assertEquals(20 * 256, workbook.getSheetAt(0).getColumnWidth(6));
+            assertEquals(80 * 256, workbook.getSheetAt(1).getColumnWidth(0));
         }
     }
 
@@ -61,11 +65,31 @@ class ExcelUtilTest {
                 "员工列表.xlsx"
         );
 
-        try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(response.getContentAsByteArray()))) {
+        byte[] content = response.getContentAsByteArray();
+        assertTrue(content.length > 0);
+        assertEquals(content.length, response.getContentLength());
+        try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(content))) {
             assertEquals("员工列表", workbook.getSheetAt(0).getSheetName());
             assertEquals("姓名", workbook.getSheetAt(0).getRow(0).getCell(0).getStringCellValue());
             assertEquals("张三", workbook.getSheetAt(0).getRow(1).getCell(0).getStringCellValue());
             assertEquals("", workbook.getSheetAt(0).getRow(1).getCell(2).getStringCellValue());
+            assertEquals(20 * 256, workbook.getSheetAt(0).getColumnWidth(0));
+            assertEquals(20 * 256, workbook.getSheetAt(0).getColumnWidth(2));
+        }
+    }
+
+    @Test
+    void writeRowsToBytesUsesFontIndependentColumnWidths() throws Exception {
+        byte[] content = excelUtil.writeRowsToBytes(
+                "售后工单",
+                List.of("工单号", "问题描述"),
+                List.of(List.of("AS202609010001", "遥控器无法使用"))
+        );
+
+        try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(content))) {
+            assertEquals("售后工单", workbook.getSheetAt(0).getSheetName());
+            assertEquals(20 * 256, workbook.getSheetAt(0).getColumnWidth(0));
+            assertEquals(20 * 256, workbook.getSheetAt(0).getColumnWidth(1));
         }
     }
 

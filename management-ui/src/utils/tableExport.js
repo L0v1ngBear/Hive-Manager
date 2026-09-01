@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { downloadXlsxBlob } from '@/utils/excelDownload'
 
 const ACTION_HEADER_PATTERN = /^(操作|动作|Actions?)$/i
 const MAX_CURRENT_PAGE_ROWS = 2000
@@ -35,45 +36,6 @@ function isVisible(element) {
   if (!element) return false
   const style = window.getComputedStyle(element)
   return style.display !== 'none' && style.visibility !== 'hidden'
-}
-
-function downloadBlob(blob, fileName) {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
-}
-
-async function ensureXlsxBlob(blob) {
-  if (typeof Blob === 'undefined' || !(blob instanceof Blob) || blob.size === 0) {
-    throw new Error('导出失败，系统未返回有效 Excel 文件')
-  }
-  const contentType = String(blob.type || '').toLowerCase()
-  if (contentType.includes('json') || contentType.includes('text') || contentType.includes('html')) {
-    throw new Error(await extractBlobErrorMessage(blob))
-  }
-  const signature = new Uint8Array(await blob.slice(0, 4).arrayBuffer())
-  const isXlsxZip = signature[0] === 0x50 && signature[1] === 0x4b
-  if (!isXlsxZip) {
-    throw new Error('导出失败，系统未返回有效 Excel 文件，请刷新后重试')
-  }
-}
-
-async function extractBlobErrorMessage(blob) {
-  const text = await blob.text()
-  if (!text) {
-    return '导出失败，系统未返回有效 Excel 文件'
-  }
-  try {
-    const payload = JSON.parse(text)
-    return payload?.msg || payload?.message || payload?.data?.msg || payload?.data?.message || '导出失败，请稍后重试'
-  } catch {
-    return text.replace(/\s+/g, ' ').trim().slice(0, 160) || '导出失败，请稍后重试'
-  }
 }
 
 function getTableTitle(table) {
@@ -141,8 +103,7 @@ async function downloadTableExport({ title, fileName, sheetName, sourceModule, h
     timeout
   })
 
-  await ensureXlsxBlob(blob)
-  downloadBlob(blob, outputFileName)
+  await downloadXlsxBlob(blob, outputFileName)
 }
 
 export async function exportTableElementToExcel(table, options = {}) {

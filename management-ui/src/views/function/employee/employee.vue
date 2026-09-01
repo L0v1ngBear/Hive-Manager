@@ -362,6 +362,7 @@ import {
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { createLatestRequest } from '@/utils/latestRequest'
+import { downloadXlsxBlob } from '@/utils/excelDownload'
 import { Vue3TreeOrg } from 'vue3-tree-org'
 import 'vue3-tree-org/lib/vue3-tree-org.css'
 import { getCurrentTenantFieldConfig } from '@/api/tenantFieldConfig'
@@ -668,7 +669,7 @@ const employeeHierarchyHasChildren = (employeeId, nodes) => {
 
 const handleExport = async () => {
   const blob = await exportEmployeesExcel(normalizeQuery())
-  downloadBlob(blob, `员工列表-${Date.now()}.xlsx`)
+  await downloadXlsxBlob(blob, `员工列表-${Date.now()}.xlsx`, (message) => ElMessage.error(message))
 }
 
 const handleCreateJoinCode = async () => {
@@ -684,7 +685,7 @@ const handleCreateJoinCode = async () => {
 
 const handleTemplateDownload = async () => {
   const blob = await downloadEmployeeImportTemplate()
-  downloadBlob(blob, '员工导入模板.xlsx')
+  await downloadXlsxBlob(blob, '员工导入模板.xlsx', (message) => ElMessage.error(message))
 }
 
 const triggerImport = () => {
@@ -705,15 +706,6 @@ const handleImportChange = async (event) => {
   } finally {
     event.target.value = ''
   }
-}
-
-const downloadBlob = (blob, fileName) => {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  link.click()
-  URL.revokeObjectURL(url)
 }
 
 const normalizeQuery = () => ({

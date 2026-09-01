@@ -51,6 +51,7 @@ import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
+import { downloadXlsxBlob } from '@/utils/excelDownload'
 import PriceCreateDrawer from './priceCreate.vue'
 import { createLatestRequestGate, normalizeOptionalNumber } from './priceBehavior.js'
 import { deletePrice, downloadPriceImportTemplate, exportPriceExcel, getPriceDetail, getPricePage, getPriceStats, importPrices } from './api/price.js'
@@ -89,10 +90,9 @@ async function openDetail(item) { if (!canViewDetail.value) return; detailItem.v
 function retryDetail() { if (detailItem.value) openDetail(detailItem.value) }
 function closeDetail() { detailRequestId += 1; detail.value = null; detailError.value = null; detailItem.value = null }
 async function remove(item) { if (!canDelete.value || deletingId.value !== null) return; try { await ElMessageBox.confirm(`确认删除 ${item.modelCode} 的价格记录吗？`, '删除确认', { type: 'warning' }); deletingId.value = item.id; await deletePrice(item.id); ElMessage.success('价格记录已删除。'); await Promise.all([fetchData(), fetchStats()]) } catch (error) { if (error !== 'cancel' && error !== 'close') throw error } finally { deletingId.value = null } }
-async function exportExcel() { if (exporting.value) return; exporting.value = true; try { downloadBlob(await exportPriceExcel(normalizedQuery()), `价格表-${Date.now()}.xlsx`) } finally { exporting.value = false } }
-async function downloadTemplate() { if (downloadingTemplate.value) return; downloadingTemplate.value = true; try { downloadBlob(await downloadPriceImportTemplate(), '价格导入模板.xlsx') } finally { downloadingTemplate.value = false } }
+async function exportExcel() { if (exporting.value) return; exporting.value = true; try { await downloadXlsxBlob(await exportPriceExcel(normalizedQuery()), `价格表-${Date.now()}.xlsx`, (message) => ElMessage.error(message)) } finally { exporting.value = false } }
+async function downloadTemplate() { if (downloadingTemplate.value) return; downloadingTemplate.value = true; try { await downloadXlsxBlob(await downloadPriceImportTemplate(), '价格导入模板.xlsx', (message) => ElMessage.error(message)) } finally { downloadingTemplate.value = false } }
 async function handleImportUpload(uploadFile) { if (!canPublish.value || importing.value || !uploadFile.raw) return; importing.value = true; try { const result = await importPrices(uploadFile.raw); const failText = (result.failMessages || []).slice(0, 5).join('\n'); await ElMessageBox.alert(`总行数：${result.totalCount}\n成功：${result.successCount}\n失败：${result.failCount}${failText ? `\n\n失败明细：\n${failText}` : ''}`, '价格导入结果'); await Promise.all([fetchData(), fetchStats()]) } finally { importing.value = false } }
-function downloadBlob(blob, fileName) { const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = fileName; link.click(); URL.revokeObjectURL(url) }
 function money(value) { return Number(value ?? 0).toFixed(2) }
 function applyRouteKeyword() { const value = String(route.query.keyword || route.query.q || '').trim(); if (value !== query.keyword) { query.keyword = value; query.page = 1 } }
 onMounted(async () => { applyRouteKeyword(); await Promise.all([fetchData(), fetchStats()]) })

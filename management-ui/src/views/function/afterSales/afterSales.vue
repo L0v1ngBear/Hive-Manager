@@ -96,6 +96,7 @@ import {
   ElUpload
 } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { downloadXlsxBlob } from '@/utils/excelDownload'
 import { assignAfterSalesTicket, downloadAfterSalesRepairImage, exportAfterSalesTickets, followUpAfterSalesTicket, getAfterSalesAssigneeOptions, getAfterSalesCustomerOptions, getAfterSalesOrderOptions, getAfterSalesParts, getAfterSalesTicket, getAfterSalesTicketLogisticsTracking, getAfterSalesTickets, outboundAfterSalesTicket, saveAfterSalesPart, saveAfterSalesTicket, stockInAfterSalesPart, updateAfterSalesTicketStatus, uploadAfterSalesPartPhoto, uploadAfterSalesRepairImage } from './api/afterSales'
 
 const userStore = useUserStore()
@@ -120,8 +121,7 @@ function reset(target, source) { Object.keys(target).forEach(key => delete targe
 function ticketQueryParams() { const [createdStartDate, createdEndDate] = ticketQuery.createdDateRange || []; return { pageNum: ticketQuery.pageNum, pageSize: ticketQuery.pageSize, keyword: ticketQuery.keyword || undefined, status: ticketQuery.status || undefined, ticketType: ticketQuery.ticketType || undefined, createdStartDate: createdStartDate || undefined, createdEndDate: createdEndDate || undefined } }
 function submitTicketQuery() { ticketQuery.pageNum = 1; loadTickets() }
 async function loadTickets() { ticketLoading.value = true; try { const data = await getAfterSalesTickets(ticketQueryParams()); tickets.value = data?.data || []; ticketTotal.value = Number(data?.total || 0) } catch { tickets.value = []; ticketTotal.value = 0 } finally { ticketLoading.value = false } }
-function downloadBlob(blob, fileName) { const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = fileName; link.click(); URL.revokeObjectURL(url) }
-async function exportTickets() { if (ticketExporting.value) return; ticketExporting.value = true; try { downloadBlob(await exportAfterSalesTickets(ticketQueryParams()), `售后工单-${new Date().toISOString().slice(0, 10)}.xlsx`) } finally { ticketExporting.value = false } }
+async function exportTickets() { if (ticketExporting.value) return; ticketExporting.value = true; try { await downloadXlsxBlob(await exportAfterSalesTickets(ticketQueryParams()), `售后工单-${new Date().toISOString().slice(0, 10)}.xlsx`, (message) => ElMessage.error(message)) } finally { ticketExporting.value = false } }
 function ticketLogisticsKey(ticket = {}) { return [ticket.id || '', ticket.logisticsCompany || '', ticket.waybillNo || '', ticket.updateTime || ''].join('|') }
 function ticketLogisticsState(ticket = {}) { const key = ticketLogisticsKey(ticket); if (!ticketLogisticsStates[key]) ticketLogisticsStates[key] = { loading: false, data: null, errorMessage: '', retryAfter: 0 }; return ticketLogisticsStates[key] }
 function ticketLogisticsCacheValid(data) { const expiresAt = Date.parse(data?.cacheExpiresAt || ''); return Number.isFinite(expiresAt) && expiresAt > Date.now() }

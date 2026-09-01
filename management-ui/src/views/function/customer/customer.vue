@@ -286,6 +286,7 @@ import TableColumnSettings from '@/components/TableColumnSettings.vue'
 import { useLocalTableColumns } from '@/composables/useLocalTableColumns'
 import { useUserStore } from '@/stores/user'
 import { createLatestRequestRunner } from '@/utils/latestRequest'
+import { downloadXlsxBlob } from '@/utils/excelDownload'
 import CustomerCreateDrawer from './customerCreate.vue'
 import { downloadCustomerImportTemplate, getCustomerDetail, getCustomerPage, importCustomers } from './api/customer'
 import { resolveCustomerDetailOutcome } from './customerState'
@@ -433,7 +434,7 @@ function openCreateDrawer() {
 async function downloadImportTemplate() {
   if (!canImportCustomer.value) return
   const blob = await downloadCustomerImportTemplate()
-  downloadBlob(blob, '客户导入模板.xlsx')
+  await downloadXlsxBlob(blob, '客户导入模板.xlsx', (message) => ElMessage.error(message))
 }
 
 function triggerCustomerImport() {
@@ -456,15 +457,6 @@ async function handleCustomerImport(event) {
   } finally {
     event.target.value = ''
   }
-}
-
-function downloadBlob(blob, fileName) {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  link.click()
-  URL.revokeObjectURL(url)
 }
 
 function openEditDrawer(id) {
