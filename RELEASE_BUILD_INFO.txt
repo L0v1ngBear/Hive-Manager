@@ -1,9 +1,9 @@
 ReleaseName=Hive Unified Release
 ReleaseVersion=2.0.0
 ReleaseSource=git-commit
-SourceGitCommit=ff521639d24bc10c5b1828c0c9948feb3e73712a
+SourceGitCommit=995d79d1471924529ed7d1d35270ce9c48ecf5bc
 SourceBranch=main
-ReleasePackageGitCommit=ff521639d24bc10c5b1828c0c9948feb3e73712a
+ReleasePackageGitCommit=995d79d1471924529ed7d1d35270ce9c48ecf5bc
 BuildTimeUtc=2026-09-01T06:36:13Z
 
 BackendArtifact=backend/hive-backend.jar
@@ -16,7 +16,7 @@ BackendContainerName=hive-backend
 ApiPrefix=/api
 
 ManagementUiArtifact=management-ui/dist
-ManagementUiSourceGitCommit=ff521639d24bc10c5b1828c0c9948feb3e73712a
+ManagementUiSourceGitCommit=995d79d1471924529ed7d1d35270ce9c48ecf5bc
 ManagementUiSha256=f633f3d0622b2e81294397efb3bcb6be56a8d41caa5d779563029100ea6ea499
 ManagementUiHashAlgorithm=sha256(sorted lowercase-file-sha256 + two-spaces + relative-path + LF)
 ManagementUiIndexSha256=8ad22a8d35e04d4d5892d2d84ca9f8d2a34ba00c8ebb80a55c852005eb836f7d
@@ -38,7 +38,7 @@ ManagementUiBuild=PASS
 UnifiedRouteSmoke=NOT_RUN_TASK9
 DockerComposeValidation=PENDING_RELEASE_HOST
 
-MiniProgramSourceGitCommit=919c95a4a107e0797176e7453e0c4795407a0797
+MiniProgramSourceGitCommit=6448dff1b09b3d21b9726ee40cdda136c598e481
 MiniProgramSourceBranch=main
 MiniProgramFrontendVersion=2.0.0
 MiniProgramFrontendTests=7
