@@ -31,6 +31,8 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -48,10 +50,15 @@ public class CustomerService {
     private static final int DEFAULT_PAGE_NUM = 1;
     private static final int DEFAULT_PAGE_SIZE = 10;
     private static final int MAX_PAGE_SIZE = 200;
-    private static final int CUSTOMER_IMPORT_COLUMN_COUNT = 7;
+    private static final int CUSTOMER_IMPORT_COLUMN_COUNT = 9;
+    private static final int CUSTOMER_COMPACT_IMPORT_COLUMN_COUNT = 3;
+    private static final int CUSTOMER_LEGACY_IMPORT_COLUMN_COUNT = 7;
     private static final int MAX_CUSTOMER_IMPORT_ROWS = 2000;
     private static final long MAX_IMPORT_FILE_SIZE_BYTES = 20L * 1024L * 1024L;
     private static final List<String> CUSTOMER_IMPORT_HEADERS = List.of(
+            "客户名称", "客户地址", "开业时间", "客户类型", "联系人", "联系电话", "项目名称", "施工区域", "项目负责人");
+    private static final List<String> CUSTOMER_COMPACT_IMPORT_HEADERS = List.of("客户名称", "客户地址", "开业时间");
+    private static final List<String> CUSTOMER_LEGACY_IMPORT_HEADERS = List.of(
             "客户名称", "客户类型", "联系人", "联系电话", "项目名称", "施工区域", "项目负责人");
 
     @Resource
@@ -78,6 +85,8 @@ public class CustomerService {
         Customer customer = new Customer();
         customer.setCustomerName(request.getCustomerName());
         customer.setCustomerType(request.getCustomerType());
+        customer.setCustomerAddress(normalizeCustomerAddress(request.getCustomerAddress()));
+        customer.setOpeningDate(request.getOpeningDate());
         customer.setTenantCode(tenantCode);
         customerMapper.insert(customer);
         saveContactsAndProjects(tenantCode, customer.getId(), request);
@@ -101,6 +110,8 @@ public class CustomerService {
 
         customer.setCustomerName(request.getCustomerName());
         customer.setCustomerType(request.getCustomerType());
+        customer.setCustomerAddress(normalizeCustomerAddress(request.getCustomerAddress()));
+        customer.setOpeningDate(request.getOpeningDate());
         customerMapper.updateById(customer);
 
         // Replace children in one transaction so the drawer can submit the full latest state directly.
@@ -127,6 +138,7 @@ public class CustomerService {
             String safeKeyword = keyword.trim();
             wrapper.and(w -> w
                     .like(Customer::getCustomerName, safeKeyword)
+                    .or().like(Customer::getCustomerAddress, safeKeyword)
                     .or().apply("id IN (SELECT customer_id FROM customer_project WHERE tenant_code = {1} AND (project_name LIKE CONCAT('%', {0}, '%') OR project_owner LIKE CONCAT('%', {0}, '%')))", safeKeyword, tenantCode)
                     .or().apply("id IN (SELECT customer_id FROM customer_contact WHERE tenant_code = {1} AND (contact_name LIKE CONCAT('%', {0}, '%') OR contact_phone LIKE CONCAT('%', {0}, '%')))", safeKeyword, tenantCode)
             );
@@ -197,6 +209,7 @@ public class CustomerService {
             String safeKeyword = keyword.trim();
             wrapper.and(w -> w
                     .like(Customer::getCustomerName, safeKeyword)
+                    .or().like(Customer::getCustomerAddress, safeKeyword)
                     .or().apply("id IN (SELECT customer_id FROM customer_project WHERE tenant_code = {1} AND (project_name LIKE CONCAT('%', {0}, '%') OR project_owner LIKE CONCAT('%', {0}, '%')))", safeKeyword, tenantCode)
                     .or().apply("id IN (SELECT customer_id FROM customer_contact WHERE tenant_code = {1} AND (contact_name LIKE CONCAT('%', {0}, '%') OR contact_phone LIKE CONCAT('%', {0}, '%')))", safeKeyword, tenantCode)
             );
@@ -233,6 +246,8 @@ public class CustomerService {
             CustomerOptionVO vo = new CustomerOptionVO();
             vo.setId(customer.getId());
             vo.setCustomerName(customer.getCustomerName());
+            vo.setCustomerAddress(customer.getCustomerAddress());
+            vo.setOpeningDate(customer.getOpeningDate());
             CustomerContact contact = contactByCustomerId.get(customer.getId());
             if (contact != null) {
                 vo.setContactName(contact.getContactName());
@@ -252,12 +267,15 @@ public class CustomerService {
     public Customer ensureAfterSalesCustomer(String customerName,
                                              String contactName,
                                              String contactPhone,
-                                             String projectName) {
+                                             String projectName,
+                                             String customerAddress,
+                                             LocalDate openingDate) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         String normalizedCustomerName = normalizeAfterSalesText(customerName, 120, "请填写客户名称", "客户名称不能超过120个字符");
         String normalizedContactName = normalizeOptionalAfterSalesText(contactName, 64, "联系人不能超过64个字符");
         String normalizedContactPhone = normalizeOptionalAfterSalesText(contactPhone, 32, "联系电话不能超过32个字符");
         String normalizedProjectName = normalizeOptionalAfterSalesText(projectName, 128, "项目名称不能超过128个字符");
+        String normalizedCustomerAddress = normalizeOptionalAfterSalesText(customerAddress, 500, "客户地址不能超过500个字符");
 
         Customer customer = customerMapper.selectByTenantCodeAndNameForUpdate(tenantCode, normalizedCustomerName);
         if (customer == null) {
@@ -265,7 +283,20 @@ public class CustomerService {
             customer.setTenantCode(tenantCode);
             customer.setCustomerName(normalizedCustomerName);
             customer.setCustomerType(CustomerTypeEnum.DEFAULT.getCode());
+            customer.setCustomerAddress(normalizedCustomerAddress);
+            customer.setOpeningDate(openingDate);
             customerMapper.insert(customer);
+        } else {
+            boolean changed = false;
+            if (StringUtils.isBlank(customer.getCustomerAddress()) && normalizedCustomerAddress != null) {
+                customer.setCustomerAddress(normalizedCustomerAddress);
+                changed = true;
+            }
+            if (customer.getOpeningDate() == null && openingDate != null) {
+                customer.setOpeningDate(openingDate);
+                changed = true;
+            }
+            if (changed) customerMapper.updateById(customer);
         }
 
         if (normalizedContactName != null || normalizedContactPhone != null) {
@@ -320,13 +351,15 @@ public class CustomerService {
                 "客户导入模板",
                 CUSTOMER_IMPORT_HEADERS,
                 List.of(
-                        List.of("示例客户", "直客（甲方）", "张三", "13900030001", "示例项目", "浙江杭州", "李经理"),
-                        List.of("示例总包", "总包方", "王工", "13900030002", "", "", "")),
+                        List.of("示例客户", "浙江省杭州市示例路 1 号", "2026-08-01", "直客（甲方）", "张三", "13900030001", "示例项目", "浙江杭州", "李经理"),
+                        List.of("示例总包", "北京市朝阳区示例路 2 号", "2025-05-20", "总包方", "王工", "13900030002", "", "", "")),
                 List.of(
                         "仅支持 .xlsx 文件导入。",
-                        "每行新增一个客户；客户名称和客户类型为必填项。",
+                        "每行新增一个客户；客户名称为必填项，客户地址和开业时间可留空。",
+                        "也支持仅包含“客户名称、客户地址、开业时间”的三列表格；未填写客户类型时默认按直客（甲方）导入。",
                         "客户类型支持：直客（甲方）、总包方、分包方，也可填写 1、2、3。",
-                        "联系人、联系电话、项目名称、施工区域、项目负责人均为可选项。",
+                        "开业时间请填写为 yyyy-MM-dd，例如 2026-08-01。",
+                        "联系人、联系电话、项目名称、施工区域、项目负责人均为可选项；旧版七列表格仍可继续导入。",
                         "同一客户名称不能重复；系统不会覆盖已有客户。"),
                 "客户导入模板.xlsx");
     }
@@ -338,16 +371,19 @@ public class CustomerService {
         Set<String> importedNames = new HashSet<>();
         try (var inputStream = file.getInputStream(); var workbook = WorkbookFactory.create(inputStream)) {
             Sheet sheet = workbook.getSheetAt(0);
-            excelUtil.validateImportHeader(sheet.getRow(0), CUSTOMER_IMPORT_HEADERS);
-            excelUtil.validateImportDataRows(sheet, CUSTOMER_IMPORT_COLUMN_COUNT, MAX_CUSTOMER_IMPORT_ROWS);
+            Row header = sheet.getRow(0);
+            excelUtil.validateImportHeaderOptions(header, List.of(
+                    CUSTOMER_IMPORT_HEADERS, CUSTOMER_COMPACT_IMPORT_HEADERS, CUSTOMER_LEGACY_IMPORT_HEADERS));
+            CustomerImportLayout layout = resolveCustomerImportLayout(header);
+            excelUtil.validateImportDataRows(sheet, layout.columnCount(), MAX_CUSTOMER_IMPORT_ROWS);
             for (int index = 1; index <= sheet.getLastRowNum(); index++) {
                 Row row = sheet.getRow(index);
-                if (excelUtil.isEmptyRow(row, CUSTOMER_IMPORT_COLUMN_COUNT)) {
+                if (excelUtil.isEmptyRow(row, layout.columnCount())) {
                     continue;
                 }
                 result.setTotalCount(result.getTotalCount() + 1);
                 try {
-                    CustomerAddRequest request = buildImportRequest(row);
+                    CustomerAddRequest request = buildImportRequest(row, layout);
                     String nameKey = request.getCustomerName().trim();
                     if (!importedNames.add(nameKey)) {
                         throw new BusinessException("客户名称在导入文件中重复：" + nameKey);
@@ -371,13 +407,17 @@ public class CustomerService {
         return result;
     }
 
-    private CustomerAddRequest buildImportRequest(Row row) {
+    private CustomerAddRequest buildImportRequest(Row row, CustomerImportLayout layout) {
         CustomerAddRequest request = new CustomerAddRequest();
         request.setCustomerName(requiredImportText(excelUtil.readString(row.getCell(0)), "客户名称不能为空"));
-        request.setCustomerType(parseCustomerType(excelUtil.readString(row.getCell(1))));
+        request.setCustomerAddress(normalizeCustomerAddress(cellText(row, layout.addressIndex())));
+        request.setOpeningDate(readImportOpeningDate(row, layout.openingDateIndex()));
+        request.setCustomerType(layout.customerTypeIndex() < 0
+                ? CustomerTypeEnum.DEFAULT.getCode()
+                : parseCustomerType(cellText(row, layout.customerTypeIndex())));
 
-        String contactName = excelUtil.readString(row.getCell(2));
-        String contactPhone = excelUtil.readString(row.getCell(3));
+        String contactName = cellText(row, layout.contactNameIndex());
+        String contactPhone = cellText(row, layout.contactPhoneIndex());
         if (!contactName.isBlank() || !contactPhone.isBlank()) {
             CustomerContact contact = new CustomerContact();
             contact.setContactName(contactName.trim());
@@ -385,9 +425,9 @@ public class CustomerService {
             request.setContacts(List.of(contact));
         }
 
-        String projectName = excelUtil.readString(row.getCell(4));
-        String constructionArea = excelUtil.readString(row.getCell(5));
-        String projectOwner = excelUtil.readString(row.getCell(6));
+        String projectName = cellText(row, layout.projectNameIndex());
+        String constructionArea = cellText(row, layout.constructionAreaIndex());
+        String projectOwner = cellText(row, layout.projectOwnerIndex());
         if (!projectName.isBlank() || !constructionArea.isBlank() || !projectOwner.isBlank()) {
             if (projectName.isBlank()) {
                 throw new BusinessException("填写施工区域或项目负责人时，项目名称不能为空");
@@ -399,6 +439,47 @@ public class CustomerService {
             request.setProjects(List.of(project));
         }
         return request;
+    }
+
+    private CustomerImportLayout resolveCustomerImportLayout(Row header) {
+        if ("客户地址".equals(cellText(header, 1)) && "开业时间".equals(cellText(header, 2))) {
+            return "客户类型".equals(cellText(header, 3)) ? CustomerImportLayout.CURRENT : CustomerImportLayout.COMPACT;
+        }
+        return CustomerImportLayout.LEGACY;
+    }
+
+    private String cellText(Row row, int index) {
+        return index < 0 || row == null ? "" : excelUtil.readString(row.getCell(index));
+    }
+
+    private LocalDate readImportOpeningDate(Row row, int index) {
+        if (index < 0 || row == null || row.getCell(index) == null || cellText(row, index).isBlank()) return null;
+        try {
+            return excelUtil.readLocalDate(row.getCell(index));
+        } catch (DateTimeParseException exception) {
+            throw new BusinessException("开业时间格式应为 yyyy-MM-dd");
+        }
+    }
+
+    private String normalizeCustomerAddress(String value) {
+        if (StringUtils.isBlank(value)) return null;
+        String normalized = value.trim();
+        if (normalized.length() > 500) throw new BusinessException("客户地址不能超过500个字符");
+        return normalized;
+    }
+
+    private record CustomerImportLayout(int columnCount,
+                                        int addressIndex,
+                                        int openingDateIndex,
+                                        int customerTypeIndex,
+                                        int contactNameIndex,
+                                        int contactPhoneIndex,
+                                        int projectNameIndex,
+                                        int constructionAreaIndex,
+                                        int projectOwnerIndex) {
+        private static final CustomerImportLayout CURRENT = new CustomerImportLayout(9, 1, 2, 3, 4, 5, 6, 7, 8);
+        private static final CustomerImportLayout COMPACT = new CustomerImportLayout(3, 1, 2, -1, -1, -1, -1, -1, -1);
+        private static final CustomerImportLayout LEGACY = new CustomerImportLayout(7, -1, -1, 1, 2, 3, 4, 5, 6);
     }
 
     private Integer parseCustomerType(String value) {

@@ -32,6 +32,12 @@
               <el-option label="分包方" :value="3" />
             </el-select>
           </el-form-item>
+          <el-form-item v-if="fieldVisible('customerAddress')" :label="fieldLabel('customerAddress', '客户地址')">
+            <el-input v-model="formData.customerAddress" maxlength="500" placeholder="输入客户实际地址" />
+          </el-form-item>
+          <el-form-item v-if="fieldVisible('openingDate')" :label="fieldLabel('openingDate', '开业时间')">
+            <el-date-picker v-model="formData.openingDate" type="date" value-format="YYYY-MM-DD" class="w-full" placeholder="选择开业时间" />
+          </el-form-item>
         </section>
 
         <section v-if="fieldVisible('contactName') || fieldVisible('contactPhone')" class="space-y-3">
@@ -130,7 +136,7 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { ElButton, ElDrawer, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
+import { ElButton, ElDatePicker, ElDrawer, ElForm, ElFormItem, ElInput, ElMessage, ElOption, ElSelect } from 'element-plus'
 import { useTenantFieldConfig } from '@/composables/useTenantFieldConfig'
 import { useUserStore } from '@/stores/user'
 import { warnAndFocusField } from '@/utils/formFocus'
@@ -218,6 +224,8 @@ async function loadCustomerDetail() {
     const detail = await getCustomerDetail(props.customerId)
     formData.customerName = detail?.customerName || ''
     formData.customerType = Number(detail?.customerType || 1)
+    formData.customerAddress = detail?.customerAddress || ''
+    formData.openingDate = detail?.openingDate || ''
     formData.contacts = Array.isArray(detail?.contacts) && detail.contacts.length > 0
       ? detail.contacts.map((item) => ({
         contactName: item.contactName || '',
@@ -247,6 +255,8 @@ async function submit() {
   const requestPayload = {
     customerName: formData.customerName.trim(),
     customerType: Number(formData.customerType),
+    customerAddress: formData.customerAddress.trim(),
+    openingDate: formData.openingDate || null,
     contacts: formData.contacts
       .map((item) => ({
         contactName: item.contactName?.trim() || '',
@@ -290,6 +300,8 @@ function createDefaultForm() {
   return {
     customerName: '',
     customerType: 1,
+    customerAddress: '',
+    openingDate: '',
     contacts: [{ contactName: '', contactPhone: '' }],
     projects: []
   }

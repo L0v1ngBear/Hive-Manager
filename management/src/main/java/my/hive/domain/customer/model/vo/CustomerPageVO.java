@@ -4,6 +4,7 @@ import lombok.Data;
 import my.hive.domain.customer.model.entity.CustomerContact;
 import my.hive.domain.customer.model.entity.CustomerProject;
 
+import java.time.LocalDate;
 import java.util.List;
 /**
  * CustomerPageVO 属于管理端后端客户模块，定义出参结构。
@@ -14,6 +15,8 @@ public class CustomerPageVO {
     private String customerName;
     private Integer customerType;
     private String constructionArea;
+    private String customerAddress;
+    private LocalDate openingDate;
     private Integer projectCount;
     private List<String> projectNames;
     private List<CustomerContact> contacts;

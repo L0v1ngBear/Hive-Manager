@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.annotation.Resource;
-import jakarta.servlet.http.HttpServletResponse;
 import my.hive.domain.aftersales.mapper.AfterSalesPartMapper;
 import my.hive.domain.aftersales.mapper.AfterSalesPartStockRecordMapper;
 import my.hive.domain.aftersales.mapper.AfterSalesTicketMapper;
@@ -106,7 +105,7 @@ public class AfterSalesService {
         return toPageResult(page);
     }
 
-    public void exportTickets(AfterSalesTicketPageRequest request, HttpServletResponse response) {
+    public byte[] exportTickets(AfterSalesTicketPageRequest request) {
         AfterSalesTicketPageRequest safe = request == null ? new AfterSalesTicketPageRequest() : request;
         LambdaQueryWrapper<AfterSalesTicket> wrapper = buildTicketQuery(safe).orderByDesc(AfterSalesTicket::getCreateTime).orderByDesc(AfterSalesTicket::getId);
         long total = ticketMapper.selectCount(wrapper);
@@ -121,7 +120,7 @@ public class AfterSalesService {
                 excelUtil.stringify(ticket.getServiceAddress()), excelUtil.stringify(ticket.getRepairAmount()), excelUtil.stringify(ticket.getReturnOldMotorQuantity()),
                 excelUtil.stringify(ticket.getProblemDesc()), excelUtil.stringify(ticket.getDiagnosis()), excelUtil.stringify(ticket.getResolution())
         )).toList();
-        excelUtil.writeRowsToResponse(response, "售后工单", headers, rows, "售后工单.xlsx");
+        return excelUtil.writeRowsToBytes("售后工单", headers, rows);
     }
 
     private LambdaQueryWrapper<AfterSalesTicket> buildTicketQuery(AfterSalesTicketPageRequest request) {
@@ -170,11 +169,13 @@ public class AfterSalesService {
         String projectName = order == null ? clean(request.getProjectName()) : order.getProjectName();
         if (order == null) {
             Customer customer = customerService.ensureAfterSalesCustomer(
-                    customerName, request.getContactName(), request.getContactPhone(), projectName);
+                    customerName, request.getContactName(), request.getContactPhone(), projectName,
+                    request.getActualAddress(), request.getOpeningDate());
             customerName = customer.getCustomerName();
         }
         AfterSalesTicket ticket;
         boolean creating = request.getId() == null;
+        boolean editingClosedTicket = false;
         if (creating) {
             ticket = new AfterSalesTicket();
             ticket.setTenantCode(tenantCode);
@@ -183,7 +184,10 @@ public class AfterSalesService {
             ticket.setCreatorName(currentOperatorName());
         } else {
             ticket = requireTicket(request.getId());
-            if (!STATUS_DRAFT.equals(ticket.getStatus())) throw new BusinessException("仅草稿工单可以编辑，已提交工单请通过处理操作推进");
+            editingClosedTicket = STATUS_CLOSED.equals(ticket.getStatus());
+            if (!STATUS_DRAFT.equals(ticket.getStatus()) && !editingClosedTicket) {
+                throw new BusinessException("仅草稿或已结案工单可以编辑，处理中工单请通过处理操作推进");
+            }
         }
         ticket.setOrderId(order == null ? null : order.getOrderId());
         ticket.setCustomerName(customerName);
@@ -211,11 +215,13 @@ public class AfterSalesService {
             List<AfterSalesRepairImageVO> repairImages = normalizeRepairImages(resolveRequestedRepairImages(request));
             ticket.setAttachmentUrlsJson(repairImages.isEmpty() ? null : JSON.toJSONString(repairImages));
         }
-        ticket.setApprovalRequired(Boolean.TRUE.equals(request.getApprovalRequired()) ? 1 : 0);
-        ticket.setStatus(Boolean.TRUE.equals(request.getApprovalRequired()) ? STATUS_PENDING_APPROVAL : (hasParts(request.getParts()) ? STATUS_WAITING_OUTBOUND : STATUS_DRAFT));
+        if (!editingClosedTicket) {
+            ticket.setApprovalRequired(Boolean.TRUE.equals(request.getApprovalRequired()) ? 1 : 0);
+            ticket.setStatus(Boolean.TRUE.equals(request.getApprovalRequired()) ? STATUS_PENDING_APPROVAL : (hasParts(request.getParts()) ? STATUS_WAITING_OUTBOUND : STATUS_DRAFT));
+        }
         if (creating) ticketMapper.insert(ticket); else ticketMapper.updateById(ticket);
-        replaceTicketParts(ticket, request.getParts());
-        if (Boolean.TRUE.equals(request.getApprovalRequired())) submitTicketApproval(ticket);
+        if (!editingClosedTicket) replaceTicketParts(ticket, request.getParts());
+        if (!editingClosedTicket && Boolean.TRUE.equals(request.getApprovalRequired())) submitTicketApproval(ticket);
         return ticketDetail(ticket.getId());
     }
 

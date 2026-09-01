@@ -1,7 +1,6 @@
 package my.hive.api.aftersales;
 
 import jakarta.annotation.Resource;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import my.hive.domain.aftersales.model.dto.AfterSalesPartSaveRequest;
 import my.hive.domain.aftersales.model.dto.AfterSalesPartStockInRequest;
@@ -66,8 +65,15 @@ public class AfterSalesController {
     @GetMapping("/tickets/export")
     @RequirePermission(value = PermissionCatalogV3.CODE_AFTER_SALES_LIST, message = "当前账号没有导出售后工单权限")
     @CollectLog(module = "after_sales", action = "export_ticket", bizType = "after_sales_ticket", description = "导出售后工单")
-    public void exportTickets(@Valid AfterSalesTicketPageRequest request, HttpServletResponse response) {
-        afterSalesService.exportTickets(request, response);
+    public ResponseEntity<byte[]> exportTickets(@Valid AfterSalesTicketPageRequest request) {
+        byte[] content = afterSalesService.exportTickets(request);
+        String encodedFilename = URLEncoder.encode("售后工单.xlsx", StandardCharsets.UTF_8).replace("+", "%20");
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .contentLength(content.length)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedFilename)
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(content);
     }
 
     @GetMapping("/tickets/{id}")

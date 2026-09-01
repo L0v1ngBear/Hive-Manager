@@ -2,6 +2,7 @@ package my.hive.domain.customer.model.vo;
 
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -17,6 +18,10 @@ public class CustomerOptionVO {
     private String contactName;
 
     private String contactPhone;
+
+    private String customerAddress;
+
+    private LocalDate openingDate;
 
     private List<String> projectNames;
 }

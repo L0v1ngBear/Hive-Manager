@@ -17,6 +17,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -270,6 +271,26 @@ public class ExcelUtil {
         return values.stream()
                 .map(value -> List.of(stringify(value)))
                 .toList();
+    }
+
+    /**
+     * Build the workbook completely before an HTTP response is committed.
+     * This is used by downloads that must publish an exact Content-Length and
+     * must never expose a successful zero-byte response through a proxy.
+     */
+    public byte[] writeRowsToBytes(String sheetName,
+                                   List<String> headers,
+                                   List<List<String>> rows) {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (ExcelWriter writer = EasyExcel.write(output)
+                .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+                .build()) {
+            WriteSheet writeSheet = EasyExcel.writerSheet(safeSheetName(sheetName))
+                    .head(toEasyExcelHead(headers))
+                    .build();
+            writeRowsInBatches(writer, writeSheet, rows, headerCount(headers));
+        }
+        return output.toByteArray();
     }
 
     /**

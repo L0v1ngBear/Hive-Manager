@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 /**
  * Customer 属于管理端后端客户模块，定义持久化实体结构，用于表字段映射。
@@ -25,6 +26,10 @@ public class Customer {
     private Integer customerType;
 
     private String constructionArea;
+
+    private String customerAddress;
+
+    private LocalDate openingDate;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;

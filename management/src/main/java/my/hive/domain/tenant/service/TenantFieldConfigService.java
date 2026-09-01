@@ -40,7 +40,7 @@ public class TenantFieldConfigService {
             "inventory", Set.of("modelCode", "spec", "barCode", "totalMeters", "remainingMeters", "location", "status", "updateTime"),
             "receipt", Set.of("modelCode", "spec", "meters", "price", "amount", "remark"),
             "employee", Set.of("name", "empNo", "employeeType", "phone", "email", "departmentName", "positionName", "leaderName", "entryDate", "status", "remark"),
-            "customer", Set.of("customerName", "customerType", "contactName", "contactPhone", "projectName", "projectOwner", "projectCount", "constructionArea")
+            "customer", Set.of("customerName", "customerType", "customerAddress", "openingDate", "contactName", "contactPhone", "projectName", "projectOwner", "projectCount", "constructionArea")
     );
 
     @Resource

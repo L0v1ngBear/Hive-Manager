@@ -35,6 +35,18 @@ const customerCreate = readRepo('management-ui/src/views/function/customer/custo
 const customerService = readRepo('management/src/main/java/my/hive/domain/customer/service/CustomerService.java')
 const optionalOrderMigrationPath = 'db-migrations/migrations/V20260901_001_after_sales_optional_order.sql'
 const optionalOrderMigration = readRepo(optionalOrderMigrationPath)
+const customerProfileMigrationPath = 'db-migrations/migrations/V20260901_002_customer_address_opening_date.sql'
+const customerProfileMigration = readRepo(customerProfileMigrationPath)
+const excelUtil = readRepo('management/src/main/java/my/hive/shared/utils/ExcelUtil.java')
+
+test('after-sales export returns a completed EasyExcel workbook with an explicit content length', () => {
+  assert.match(service, /public byte\[\] exportTickets\(AfterSalesTicketPageRequest request\)/)
+  assert.match(service, /excelUtil\.writeRowsToBytes\("售后工单", headers, rows\)/)
+  assert.match(excelUtil, /EasyExcel\.write\(output\)/)
+  assert.match(controller, /ResponseEntity<byte\[\]> exportTickets/)
+  assert.match(controller, /\.contentLength\(content\.length\)/)
+  assert.match(controller, /filename\*=UTF-8''/)
+})
 
 test('after-sales saves distinguish create and update permissions', () => {
   assert.match(controller, /requireSavePermission\(request\.getId\(\) == null/)
@@ -62,6 +74,22 @@ test('after-sales tickets can be created without an order and retain reusable cu
   assert.match(manifest, /migrations\/V20260901_001_after_sales_optional_order\.sql/)
   const hash = createHash('sha256').update(optionalOrderMigration).digest('hex')
   assert.match(checksums, new RegExp(`${hash}  migrations/V20260901_001_after_sales_optional_order\\.sql`))
+})
+
+test('customer import accepts address and opening date and reuses them in orderless after-sales', () => {
+  assert.match(customerService, /"客户名称", "客户地址", "开业时间"/)
+  assert.match(customerService, /CustomerImportLayout\.COMPACT/)
+  assert.match(customerService, /request\.setCustomerAddress/)
+  assert.match(customerService, /request\.setOpeningDate/)
+  assert.match(page, /ticketForm\.actualAddress = selectedCustomer\.value\.customerAddress \|\| ''/)
+  assert.match(page, /ticketForm\.openingDate = selectedCustomer\.value\.openingDate \|\| ''/)
+  assert.match(customerCreate, /formData\.customerAddress/)
+  assert.match(customerCreate, /formData\.openingDate/)
+  assert.match(customerProfileMigration, /ADD COLUMN `customer_address` VARCHAR\(500\)/)
+  assert.match(customerProfileMigration, /ADD COLUMN `opening_date` DATE/)
+  assert.match(manifest, /migrations\/V20260901_002_customer_address_opening_date\.sql/)
+  const hash = createHash('sha256').update(customerProfileMigration).digest('hex')
+  assert.match(checksums, new RegExp(`${hash}  migrations/V20260901_002_customer_address_opening_date\\.sql`))
 })
 
 test('after-sales state transitions and parts are guarded', () => {
@@ -161,12 +189,17 @@ test('after-sales ticket parts retain the selected stock location', () => {
   assert.match(checksums, new RegExp(`${hash}  migrations/V20260826_008_after_sales_ticket_part_location\\.sql`))
 })
 
-test('closed after-sales tickets only expose follow-up and retain the visit record', () => {
+test('closed after-sales tickets can revise data without reopening workflow or rebuilding outbound parts', () => {
   assert.match(controller, /@PostMapping\("\/tickets\/\{id\}\/follow-up"\)/)
   assert.match(service, /public AfterSalesTicket followUpTicket\(Long ticketId, AfterSalesTicketFollowUpRequest request\)/)
   assert.match(service, /requireTicketStatus\(ticket, Set\.of\(STATUS_CLOSED\), "只有已结案工单可以回访"\)/)
-  assert.match(page, /v-if="row\.status === 'closed'"[^]*?回访/)
-  assert.match(page, /v-else><el-button link type="primary" @click\.stop="openDetail\(row\)">详情/)
+  assert.match(page, /v-if="row\.status === 'closed'"[^]*?openTicket\(row\)[^]*?编辑[^]*?回访/)
+  assert.match(page, /const editingClosedTicket = computed\(\(\) => Boolean\(ticketForm\.id\) && ticketForm\.status === 'closed'\)/)
+  assert.match(page, /v-if="!editingClosedTicket" label="是否审核"/)
+  assert.match(page, /const editableTicketParts = computed\(\(\) => needsParts\.value && !editingClosedTicket\.value\)/)
+  assert.match(service, /editingClosedTicket = STATUS_CLOSED\.equals\(ticket\.getStatus\(\)\)/)
+  assert.match(service, /if \(!editingClosedTicket\) replaceTicketParts/)
+  assert.match(service, /if \(!editingClosedTicket && Boolean\.TRUE\.equals\(request\.getApprovalRequired\(\)\)\) submitTicketApproval/)
   assert.match(page, /客户满意度/)
   assert.match(page, /回访内容/)
   assert.match(followUpMigration, /follow_up_time DATETIME NULL/)

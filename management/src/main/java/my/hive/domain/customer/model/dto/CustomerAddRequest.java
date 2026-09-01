@@ -6,6 +6,7 @@ import lombok.Data;
 import my.hive.domain.customer.model.entity.CustomerContact;
 import my.hive.domain.customer.model.entity.CustomerProject;
 
+import java.time.LocalDate;
 import java.util.List;
 /**
  * CustomerAddRequest 属于管理端后端客户模块，定义入参结构。
@@ -18,6 +19,10 @@ public class CustomerAddRequest {
 
     @NotNull(message = "客户类型不能为空")
     private Integer customerType;
+
+    private String customerAddress;
+
+    private LocalDate openingDate;
 
     private List<CustomerContact> contacts;
 

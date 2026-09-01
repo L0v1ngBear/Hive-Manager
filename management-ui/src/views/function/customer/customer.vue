@@ -214,6 +214,14 @@
               <div class="text-xs text-on-surface-variant">{{ fieldLabel('customerType', '客户类型') }}</div>
               <div class="mt-2 text-base font-bold text-secondary">{{ getTypeLabel(detailData.customerType) }}</div>
             </div>
+            <div v-if="isCustomerFieldVisible('customerAddress')" class="rounded-xl bg-surface-container-low p-4">
+              <div class="text-xs text-on-surface-variant">{{ fieldLabel('customerAddress', '客户地址') }}</div>
+              <div class="mt-2 text-base font-bold text-primary">{{ detailData.customerAddress || '未填写' }}</div>
+            </div>
+            <div v-if="isCustomerFieldVisible('openingDate')" class="rounded-xl bg-surface-container-low p-4">
+              <div class="text-xs text-on-surface-variant">{{ fieldLabel('openingDate', '开业时间') }}</div>
+              <div class="mt-2 text-base font-bold text-secondary">{{ detailData.openingDate || '未填写' }}</div>
+            </div>
           </section>
 
           <section v-if="isCustomerFieldVisible('contactName') || isCustomerFieldVisible('contactPhone')">
@@ -353,7 +361,7 @@ const customerDetailRunner = createLatestRequestRunner({
   }
 })
 
-const customerColumnRenderers = new Set(['customerName', 'customerType', 'contactName', 'contactPhone', 'projectName', 'projectOwner', 'projectCount', 'constructionArea'])
+const customerColumnRenderers = new Set(['customerName', 'customerType', 'customerAddress', 'openingDate', 'contactName', 'contactPhone', 'projectName', 'projectOwner', 'projectCount', 'constructionArea'])
 const defaultCustomerColumns = computed(() => visibleTenantFields(customerFieldConfig.value, 'customerName').filter((field) => customerColumnRenderers.has(field.key)))
 const {
   orderedColumns: visibleCustomerColumns,

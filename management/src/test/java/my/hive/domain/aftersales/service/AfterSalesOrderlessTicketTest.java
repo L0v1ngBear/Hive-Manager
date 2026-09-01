@@ -55,7 +55,7 @@ class AfterSalesOrderlessTicketTest {
         customer.setId(88L);
         customer.setTenantCode("TENANT_001");
         customer.setCustomerName("杭州新客户");
-        when(customerService.ensureAfterSalesCustomer("杭州新客户", "王经理", "13900001111", "酒店窗帘项目"))
+        when(customerService.ensureAfterSalesCustomer("杭州新客户", "王经理", "13900001111", "酒店窗帘项目", null, null))
                 .thenReturn(customer);
 
         AtomicReference<AfterSalesTicket> stored = new AtomicReference<>();
@@ -83,7 +83,48 @@ class AfterSalesOrderlessTicketTest {
         assertThat(result.getCustomerName()).isEqualTo("杭州新客户");
         assertThat(result.getProjectName()).isEqualTo("酒店窗帘项目");
         assertThat(result.getProblemDesc()).isEqualTo("电机偶发离线");
-        verify(customerService).ensureAfterSalesCustomer("杭州新客户", "王经理", "13900001111", "酒店窗帘项目");
+        verify(customerService).ensureAfterSalesCustomer("杭州新客户", "王经理", "13900001111", "酒店窗帘项目", null, null);
         verify(salesOrderMapper, never()).selectByOrderIdForUpdate(any(), any());
+    }
+
+    @Test
+    void editsClosedTicketWithoutReopeningWorkflowOrReplacingOutboundParts() {
+        Customer customer = new Customer();
+        customer.setId(88L);
+        customer.setTenantCode("TENANT_001");
+        customer.setCustomerName("杭州老客户");
+        when(customerService.ensureAfterSalesCustomer("杭州老客户", "李经理", "13800001111", "酒店维修项目", null, null))
+                .thenReturn(customer);
+
+        AfterSalesTicket closedTicket = new AfterSalesTicket();
+        closedTicket.setId(100L);
+        closedTicket.setTenantCode("TENANT_001");
+        closedTicket.setTicketNo("AS202609010001");
+        closedTicket.setStatus("closed");
+        closedTicket.setApprovalRequired(1);
+        closedTicket.setProblemDesc("原问题描述");
+        when(ticketMapper.selectOne(any())).thenReturn(closedTicket);
+        when(ticketPartMapper.selectList(any())).thenReturn(List.of());
+
+        AfterSalesTicketSaveRequest request = new AfterSalesTicketSaveRequest();
+        request.setId(100L);
+        request.setCustomerName("杭州老客户");
+        request.setProjectName("酒店维修项目");
+        request.setContactName("李经理");
+        request.setContactPhone("13800001111");
+        request.setTicketType("on_site_repair");
+        request.setProblemDesc("修订后的问题描述");
+        request.setResolution("补充维修结果");
+        request.setApprovalRequired(false);
+
+        AfterSalesTicket result = service.saveTicket(request);
+
+        assertThat(result.getStatus()).isEqualTo("closed");
+        assertThat(result.getApprovalRequired()).isEqualTo(1);
+        assertThat(result.getProblemDesc()).isEqualTo("修订后的问题描述");
+        assertThat(result.getResolution()).isEqualTo("补充维修结果");
+        verify(ticketMapper).updateById(closedTicket);
+        verify(ticketPartMapper, never()).delete(any());
+        verify(ticketPartMapper, never()).insert(any());
     }
 }
