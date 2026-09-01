@@ -12,7 +12,7 @@ function assertElementComponents(source, components, label) {
     assert.match(source, new RegExp(`<el-${tag}(?:\\s|>)`), `${label} must render ${component}`)
     assert.match(
       source,
-      new RegExp(`import\\s*\\{[^}]*\\b${component}\\b[^}]*\\}\\s*from\\s*['\"]element-plus['\"]`, 's'),
+      new RegExp(`import\\s*\\{[^}]*\\b${component}\\b[^}]*\\}\\s*from\\s*['"]element-plus['"]`, 's'),
       `${label} must explicitly import ${component}`
     )
   }
@@ -58,7 +58,7 @@ test('approval center uses explicit Element Plus workflow controls', () => {
 
 test('approval center retains all five approval dispatch families and permission guards', () => {
   for (const type of ['order', 'quality', 'finance', 'leave', 'resignation']) {
-    assert.match(approval, new RegExp(`value:\\s*['\"]${type}['\"]`), `approval type ${type} must remain configured`)
+    assert.match(approval, new RegExp(`value:\\s*['"]${type}['"]`), `approval type ${type} must remain configured`)
   }
   for (const api of [
     'listOrderApprovals',
@@ -76,7 +76,7 @@ test('approval center retains all five approval dispatch families and permission
   }
   assert.match(approval, /accessibleTabs/)
   assert.match(approval, /activeTabCanViewList/)
-  assert.match(approval, /ElMessage\.warning\(['\"]当前账号暂无权限/)
+  assert.match(approval, /ElMessage\.warning\(['"]当前账号暂无权限/)
 })
 
 test('approval list clears stale content and exposes exclusive retryable load states', () => {

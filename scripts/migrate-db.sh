@@ -9,6 +9,7 @@ if [ -f "scripts/normalize-env.sh" ]; then
   bash scripts/normalize-env.sh .env
 fi
 
+source db-migrations/scripts/lib/database.sh
 DATABASE_NAME="${DATABASE_NAME:-hive}"
 SKIP_BACKUP="${SKIP_BACKUP:-NO}"
 
@@ -23,6 +24,7 @@ require_executable() {
 }
 
 test -f ".env" || fail "Missing .env"
+load_database_env || exit 1
 test -f "db-migrations/migration_manifest.txt" || fail "Missing db-migrations/migration_manifest.txt"
 require_executable "db-migrations/scripts/preflight-online.sh"
 require_executable "db-migrations/scripts/check-database-state.sh"

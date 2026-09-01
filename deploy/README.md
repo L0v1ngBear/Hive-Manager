@@ -59,6 +59,40 @@ bash scripts/restart.sh
 
 `restart.sh` validates the release, builds the backend image, stops backend writes, backs up and migrates the managed database, then recreates only `backend` and `nginx`. It does not recreate MySQL or Redis. A failed migration leaves the backend stopped.
 
+## Independent MySQL cutover
+
+The default is `HIVE_DATABASE_MODE=COMPOSE`, which retains the bundled MySQL
+container and existing data path. To deliberately use a separately operated
+MySQL 8 instance such as Alibaba Cloud RDS MySQL, set
+`HIVE_DATABASE_MODE=EXTERNAL` in the server-owned `.env`
+and populate every `HIVE_DATABASE_*` field. The JDBC URL and application account
+are used by `hive-backend`; the admin host/port/account are used only from the
+release host for the guarded backup and migration steps. The Docker network must
+be able to reach the JDBC host, and the release host must have `mysql` and
+`mysqldump` installed.
+
+Copy or restore the existing Hive database into the independent MySQL instance
+first. Do not switch an empty or partial database into production. With
+`HIVE_DATABASE_MODE=EXTERNAL` set, run the read-only cutover gate:
+
+```bash
+bash scripts/verify-external-mysql.sh
+```
+
+Only after it reports `READY`, perform the normal guarded restart:
+
+```bash
+bash scripts/restart.sh
+```
+
+In EXTERNAL mode, `start.sh`, `restart.sh`, backup, migration, and schema
+verification use the independent MySQL connection and do not start the bundled
+`mysql` service. The local `xxl-job-admin` service remains disabled in this mode;
+if scheduling is enabled, point `XXL_JOB_ADMIN_ADDRESSES` at a separately managed
+scheduler before cutover. Switching back requires the same backup, preflight and
+restart sequence with `HIVE_DATABASE_MODE=COMPOSE`; no script copies data between
+the two databases automatically.
+
 `sync-release-files.sh` normalizes the management UI tree to directory mode `0755` and file mode `0644` so the unprivileged Nginx worker can read bind-mounted assets. The final smoke test also requires the management web home to return HTTP 200; API-only health is not sufficient.
 
 Before the versioned runner reaches `V20260717_001`, `scripts/migrate-db.sh` reads its migration-history state. A recorded `SUCCESS` bypasses the destructive row check because that migration will not run. If the version is pending, the runtime gate permits execution only when `sales_order` can be verified to contain exactly zero rows; any rows, missing table, failed query or non-success history state stops the release and directs operators to the formal cleanup process. There is no bypass flag.

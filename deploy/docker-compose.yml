@@ -102,15 +102,15 @@ services:
     container_name: hive-backend
     restart: unless-stopped
     depends_on:
-      mysql:
-        condition: service_healthy
       redis:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/hive?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: ${DB_APP_USERNAME}
-      SPRING_DATASOURCE_PASSWORD: ${DB_APP_PASSWORD}
+      # EXTERNAL mode supplies these values from .env. Existing deployments
+      # retain the managed Compose MySQL connection by default.
+      SPRING_DATASOURCE_URL: ${HIVE_DATABASE_JDBC_URL:-jdbc:mysql://mysql:3306/hive?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+      SPRING_DATASOURCE_USERNAME: ${HIVE_DATABASE_APP_USERNAME:-${DB_APP_USERNAME}}
+      SPRING_DATASOURCE_PASSWORD: ${HIVE_DATABASE_APP_PASSWORD:-${DB_APP_PASSWORD}}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_DATABASE: 0

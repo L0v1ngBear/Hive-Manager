@@ -6,33 +6,25 @@ set -euo pipefail
 DEPLOY_DIR="${DEPLOY_DIR:-/root/hive}"
 DATABASE_NAME="${DATABASE_NAME:-hive}"
 BACKUP_ROOT="${BACKUP_ROOT:-${DEPLOY_DIR}/backups/db}"
-STAMP="$(date +%Y%m%d_%H%M%S)"
-BACKUP_DIR="${BACKUP_ROOT}/${STAMP}"
-BACKUP_FILE="${BACKUP_DIR}/${DATABASE_NAME}_${STAMP}.sql.gz"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/lib/database.sh"
 
 fail() {
   echo "FAIL: $1" >&2
   exit 1
 }
 
-cd "${DEPLOY_DIR}"
-test -f ".env" || fail "Missing ${DEPLOY_DIR}/.env"
-
-set -a
-source ./.env
-set +a
-
-test -n "${MYSQL_ROOT_PASSWORD:-}" || fail ".env missing MYSQL_ROOT_PASSWORD"
+load_database_env || exit 1
+STAMP="$(date +%Y%m%d_%H%M%S)"
+BACKUP_DIR="${BACKUP_ROOT}/${STAMP}"
+BACKUP_FILE="${BACKUP_DIR}/${DATABASE_NAME}_${STAMP}.sql.gz"
 mkdir -p "${BACKUP_DIR}"
 
 echo "1/3 Check MySQL..."
-docker compose up -d mysql >/dev/null
-docker compose exec -T mysql mysqladmin ping -h 127.0.0.1 -p"${MYSQL_ROOT_PASSWORD}" --silent
+ensure_database_available
 
 echo "2/3 Backup ${DATABASE_NAME} to ${BACKUP_FILE}..."
-docker compose exec -T mysql mysqldump \
-  -uroot \
-  -p"${MYSQL_ROOT_PASSWORD}" \
+mysql_root_dump \
   --single-transaction \
   --routines \
   --triggers \

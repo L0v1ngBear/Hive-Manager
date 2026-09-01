@@ -25,7 +25,8 @@ public class TenantUploadResourceResolver extends PathResourceResolver {
             "installation-task",
             "announcement",
             "document",
-            "after-sales-part"
+            "after-sales-part",
+            "after-sales-repair"
     );
 
     @Override

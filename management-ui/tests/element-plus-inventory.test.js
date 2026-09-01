@@ -13,7 +13,7 @@ function assertElementComponents(source, components, label) {
   for (const component of components) {
     const tag = component.replace(/^El/, '').replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`).slice(1)
     assert.match(source, new RegExp(`<el-${tag}(?:\\s|>)`), `${label} must render ${component}`)
-    assert.match(source, new RegExp(`import\\s*\\{[^}]*\\b${component}\\b[^}]*\\}\\s*from\\s*['\"]element-plus['\"]`, 's'), `${label} must explicitly import ${component}`)
+    assert.match(source, new RegExp(`import\\s*\\{[^}]*\\b${component}\\b[^}]*\\}\\s*from\\s*['"]element-plus['"]`, 's'), `${label} must explicitly import ${component}`)
   }
 }
 
@@ -39,7 +39,7 @@ test('inventory preserves payload types, recognition drafts, attachments and tim
 test('inventory permission commands remain visible, disabled with reasons and handler guarded', () => {
   for (const permission of ['inventory:warning:setting', 'inventory:cloth:in', 'inventory:cloth:out', 'inventory:import']) {
     assert.match(inventory, new RegExp(permission.replaceAll(':', '\\:')))
-    assert.match(inventory, new RegExp(`requireUiPermission\\(['\"]${permission}['\"]\\)`))
+    assert.match(inventory, new RegExp(`requireUiPermission\\(['"]${permission}['"]\\)`))
   }
   assert.match(inventory, /<el-tooltip/)
   assert.match(inventory, /:disabled="!can[A-Z][^"]+"/)

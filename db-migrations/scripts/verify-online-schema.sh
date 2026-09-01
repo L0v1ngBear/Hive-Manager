@@ -12,6 +12,7 @@ MIGRATION_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 MANIFEST_FILE="${MIGRATION_MANIFEST:-${MIGRATION_DIR}/migration_manifest.txt}"
 BASELINE_FILE="${BASELINE_FILE:-${MIGRATION_DIR}/baseline/hive_schema_baseline_v2.sql}"
 BASELINE_MIGRATION_VERSION="baseline/hive_schema_baseline_v2"
+source "${SCRIPT_DIR}/lib/database.sh"
 
 fail() {
   echo "FAIL: $1" >&2
@@ -30,27 +31,12 @@ hash_file() {
   fail "Missing sha256sum/openssl; cannot verify baseline migration state"
 }
 
-mysql_root_no_db() {
-  docker compose exec -T mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" --default-character-set=utf8mb4 "$@"
-}
-
-mysql_root_db() {
-  local db_name="$1"
-  shift
-  docker compose exec -T mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" --default-character-set=utf8mb4 "$@" "${db_name}"
-}
-
 cd "${DEPLOY_DIR}"
 test -f "${MANIFEST_FILE}" || fail "Missing migration manifest: ${MANIFEST_FILE}"
-test -f ".env" || fail "缺少 ${DEPLOY_DIR}/.env。"
-
-set -a
-source ./.env
-set +a
-
-test -n "${MYSQL_ROOT_PASSWORD:-}" || fail ".env 缺少 MYSQL_ROOT_PASSWORD。"
+load_database_env || exit 1
 
 echo "1/4 检查目标库表数量..."
+ensure_database_available
 mysql_root_no_db -e "
 SELECT table_schema, COUNT(*) AS table_count
 FROM information_schema.tables

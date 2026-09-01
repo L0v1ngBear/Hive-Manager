@@ -37,7 +37,25 @@ require_file db-migrations/migrations/V20260715_001_order_notes_and_material_app
 require_file scripts/migrate-db.sh
 require_command sha256sum
 
-for key in MYSQL_ROOT_PASSWORD DB_APP_USERNAME DB_APP_PASSWORD AUTH_TOKEN_SECRET RESPONSE_ENCRYPT_KEY PRIVACY_HASH_SECRET EMPLOYEE_DEFAULT_PASSWORD TENANT_OWNER_DEFAULT_PASSWORD; do
+database_mode="$(database_mode)"
+database_mode="${database_mode:-COMPOSE}"
+case "${database_mode}" in
+  COMPOSE)
+    database_required_keys=(MYSQL_ROOT_PASSWORD DB_APP_USERNAME DB_APP_PASSWORD)
+    ;;
+  EXTERNAL)
+    database_required_keys=(HIVE_DATABASE_JDBC_URL HIVE_DATABASE_APP_USERNAME HIVE_DATABASE_APP_PASSWORD HIVE_DATABASE_ADMIN_HOST HIVE_DATABASE_ADMIN_PORT HIVE_DATABASE_ADMIN_USERNAME HIVE_DATABASE_ADMIN_PASSWORD)
+    jdbc_url="$(env_value HIVE_DATABASE_JDBC_URL)"
+    [[ "${jdbc_url}" == jdbc:mysql://* ]] || fail "EXTERNAL MySQL requires HIVE_DATABASE_JDBC_URL starting with jdbc:mysql://"
+    admin_port="$(env_value HIVE_DATABASE_ADMIN_PORT)"
+    [[ "${admin_port}" =~ ^[0-9]{1,5}$ ]] || fail "EXTERNAL MySQL requires a numeric HIVE_DATABASE_ADMIN_PORT"
+    ;;
+  *)
+    fail "unsupported HIVE_DATABASE_MODE: ${database_mode} (use COMPOSE or EXTERNAL)"
+    ;;
+esac
+
+for key in "${database_required_keys[@]}" AUTH_TOKEN_SECRET RESPONSE_ENCRYPT_KEY PRIVACY_HASH_SECRET EMPLOYEE_DEFAULT_PASSWORD TENANT_OWNER_DEFAULT_PASSWORD; do
   value="$(env_value "${key}")"
   [ -n "${value}" ] || fail ".env missing ${key}"
   case "${value}" in *CHANGE_ME*) fail ".env still contains a placeholder for ${key}" ;; esac

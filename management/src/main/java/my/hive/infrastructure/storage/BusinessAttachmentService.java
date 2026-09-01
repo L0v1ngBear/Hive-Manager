@@ -23,7 +23,8 @@ public class BusinessAttachmentService {
             "installation-task",
             "announcement",
             "document",
-            "after-sales-part"
+            "after-sales-part",
+            "after-sales-repair"
     );
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             "pdf", "png", "jpg", "jpeg", "webp",

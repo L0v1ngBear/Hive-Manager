@@ -5,28 +5,17 @@ set -euo pipefail
 
 DEPLOY_DIR="${DEPLOY_DIR:-/root/hive}"
 DATABASE_NAME="${DATABASE_NAME:-hive}"
+source "$(cd "$(dirname "$0")" && pwd)/lib/database.sh"
 
 fail() {
   echo "FAIL: $1" >&2
   exit 1
 }
 
-mysql_root_no_db() {
-  docker compose exec -T mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" --default-character-set=utf8mb4 "$@"
-}
+load_database_env || exit 1
 
-cd "${DEPLOY_DIR}"
-test -f ".env" || fail "缺少 ${DEPLOY_DIR}/.env。"
-
-set -a
-source ./.env
-set +a
-
-test -n "${MYSQL_ROOT_PASSWORD:-}" || fail ".env 缺少 MYSQL_ROOT_PASSWORD。"
-
-echo "1/5 检查 Docker Compose 和 MySQL 容器..."
-docker compose up -d mysql >/dev/null
-docker compose exec -T mysql mysqladmin ping -h 127.0.0.1 -p"${MYSQL_ROOT_PASSWORD}" --silent
+echo "1/5 检查数据库连接..."
+ensure_database_available
 
 echo "2/5 检查服务器磁盘空间..."
 df -h

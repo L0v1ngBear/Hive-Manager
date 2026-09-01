@@ -8,6 +8,14 @@ const controller = readRepo('management/src/main/java/my/hive/api/aftersales/Aft
 const service = readRepo('management/src/main/java/my/hive/domain/aftersales/service/AfterSalesService.java')
 const roles = readRepo('management/src/main/java/my/hive/domain/permission/service/BuiltInRoleCatalog.java')
 const page = readRepo('management-ui/src/views/function/afterSales/afterSales.vue')
+const api = readRepo('management-ui/src/views/function/afterSales/api/afterSales.js')
+const ticketRequest = readRepo('management/src/main/java/my/hive/domain/aftersales/model/dto/AfterSalesTicketSaveRequest.java')
+const ticketEntity = readRepo('management/src/main/java/my/hive/domain/aftersales/model/entity/AfterSalesTicket.java')
+const attachmentService = readRepo('management/src/main/java/my/hive/infrastructure/storage/BusinessAttachmentService.java')
+const uploadResolver = readRepo('management/src/main/java/my/hive/shared/web/TenantUploadResourceResolver.java')
+const initialAfterSalesMigration = readRepo('db-migrations/migrations/V20260825_001_after_sales_v1.sql')
+const permissionMigrationPath = 'db-migrations/migrations/V20260825_002_after_sales_permissions.sql'
+const permissionMigration = readRepo(permissionMigrationPath)
 const migrationPath = 'db-migrations/migrations/V20260826_001_after_sales_sales_part_read.sql'
 const migration = readRepo(migrationPath)
 const assigneeMigrationPath = 'db-migrations/migrations/V20260826_003_after_sales_ticket_assignee.sql'
@@ -24,6 +32,9 @@ const followUpMigrationPath = 'db-migrations/migrations/V20260826_009_after_sale
 const followUpMigration = readRepo(followUpMigrationPath)
 const customerPage = readRepo('management-ui/src/views/function/customer/customer.vue')
 const customerCreate = readRepo('management-ui/src/views/function/customer/customerCreate.vue')
+const customerService = readRepo('management/src/main/java/my/hive/domain/customer/service/CustomerService.java')
+const optionalOrderMigrationPath = 'db-migrations/migrations/V20260901_001_after_sales_optional_order.sql'
+const optionalOrderMigration = readRepo(optionalOrderMigrationPath)
 
 test('after-sales saves distinguish create and update permissions', () => {
   assert.match(controller, /requireSavePermission\(request\.getId\(\) == null/)
@@ -32,12 +43,61 @@ test('after-sales saves distinguish create and update permissions', () => {
   assert.match(controller, /CODE_AFTER_SALES_PART_CREATE : PermissionCatalogV3\.CODE_AFTER_SALES_PART_UPDATE/)
 })
 
+test('after-sales tickets can be created without an order and retain reusable customer information', () => {
+  assert.match(ticketRequest, /private String orderId;\s+private String customerName;\s+private String projectName;/)
+  assert.match(service, /requestedOrderId == null \? null : salesOrderMapper\.selectByOrderIdForUpdate/)
+  assert.match(service, /cleanRequired\(request\.getCustomerName\(\), "未关联订单时请填写客户名称"\)/)
+  assert.match(service, /customerService\.ensureAfterSalesCustomer/)
+  assert.match(customerService, /public Customer ensureAfterSalesCustomer/)
+  assert.match(customerService, /CustomerTypeEnum\.DEFAULT\.getCode\(\)/)
+  assert.match(customerService, /customerContactMapper\.selectCount\(contactQuery\) == 0/)
+  assert.match(customerService, /CustomerProject::getProjectName, normalizedProjectName/)
+  assert.match(controller, /@GetMapping\("\/customer-options"\)/)
+  assert.match(page, /label="关联订单（可选）"/)
+  assert.match(page, /未关联订单时请填写客户名称/)
+  assert.match(page, /if \(!ticketForm\.problemDesc\?\.trim\(\)\) return ElMessage\.warning\('请填写问题描述'\)/)
+  assert.doesNotMatch(page, /请选择订单并填写问题描述/)
+  assert.match(optionalOrderMigration, /MODIFY COLUMN `order_id` VARCHAR\(64\) NULL/)
+  assert.match(optionalOrderMigration, /MODIFY COLUMN `project_name` VARCHAR\(200\) NULL/)
+  assert.match(manifest, /migrations\/V20260901_001_after_sales_optional_order\.sql/)
+  const hash = createHash('sha256').update(optionalOrderMigration).digest('hex')
+  assert.match(checksums, new RegExp(`${hash}  migrations/V20260901_001_after_sales_optional_order\\.sql`))
+})
+
 test('after-sales state transitions and parts are guarded', () => {
   assert.match(service, /requireTicketStatus\(ticket, Set\.of\(STATUS_DRAFT\), "只有草稿工单可以开始处理"\)/)
   assert.match(service, /requireTicketStatus\(ticket, Set\.of\(STATUS_PROCESSING\), "只有处理中的工单可以结案"\)/)
   assert.match(service, /requireTicketStatus\(ticket, Set\.of\(STATUS_WAITING_OUTBOUND\), "只有待配件出库的工单可以出库"\)/)
   assert.match(service, /if \(item == null\) throw new BusinessException\("配件明细不能为空"\)/)
-  assert.match(page, /await loadParts\(\); ticketEditorVisible\.value = true/)
+  assert.match(page, /await loadParts\(\)\s+ticketEditorVisible\.value = true/)
+})
+
+test('after-sales repair images use the existing ticket JSON column and tenant-scoped upload flow', () => {
+  assert.match(initialAfterSalesMigration, /`attachment_urls_json` JSON DEFAULT NULL/)
+  assert.match(ticketEntity, /private String attachmentUrlsJson;/)
+  assert.match(ticketEntity, /private List<AfterSalesRepairImageVO> repairImages;/)
+  assert.match(ticketRequest, /@Size\(max = 9, message = "维修图片最多上传9张"\)/)
+  assert.match(controller, /@PostMapping\(value = "\/tickets\/repair-image", consumes = MediaType\.MULTIPART_FORM_DATA_VALUE\)/)
+  assert.match(controller, /businessAttachmentService\.upload\(file, "after-sales-repair"\)/)
+  assert.match(controller, /businessAttachmentService\.load\(url, "after-sales-repair"\)/)
+  assert.match(service, /InternalUploadUrlValidator\.normalizeStoredUploadUrl\(/)
+  assert.match(service, /creating \|\| request\.getRepairImages\(\) != null \|\| request\.getAttachmentUrlsJson\(\) != null/)
+  assert.match(attachmentService, /"after-sales-repair"/)
+  assert.match(uploadResolver, /"after-sales-repair"/)
+  assert.match(api, /url: '\/after-sales\/tickets\/repair-image'/)
+  assert.match(page, /label="售后维修图片"/)
+  assert.match(page, /ticketForm\.repairImages\.length >= 9/)
+  assert.match(page, /downloadAfterSalesRepairImage/)
+})
+
+test('after-sales permission migration compares identifier codes without collation coercion', () => {
+  assert.match(permissionMigration, /role_code varchar\(50\) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL/)
+  assert.match(permissionMigration, /perm_code varchar\(100\) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL/)
+  assert.match(permissionMigration, /ON BINARY seed\.role_code = BINARY role_item\.role_code/g)
+  assert.match(permissionMigration, /ON BINARY permission\.perm_code = BINARY seed\.perm_code/)
+  assert.match(manifest, /migrations\/V20260825_002_after_sales_permissions\.sql/)
+  const hash = createHash('sha256').update(permissionMigration).digest('hex')
+  assert.match(checksums, new RegExp(`${hash}  migrations/V20260825_002_after_sales_permissions\\.sql`))
 })
 
 test('sales roles can read parts without receiving warehouse permissions', () => {

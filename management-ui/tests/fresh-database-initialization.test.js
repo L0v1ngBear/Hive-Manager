@@ -32,13 +32,17 @@ test('fresh database initialization uses a current schema-only baseline', () => 
 test('routine migration rejects missing or incomplete baseline schemas', () => {
   const stateCheck = read('db-migrations/scripts/check-database-state.sh')
   for (const table of ['tenant', 'user', 'sys_permission', 'sys_role']) {
-    assert.match(stateCheck, new RegExp(`['\"]${table}['\"]`))
+    assert.match(stateCheck, new RegExp(`['"]${table}['"]`))
   }
   assert.match(stateCheck, /FRESH_EMPTY/)
   assert.match(stateCheck, /READY/)
+  assert.match(stateCheck, /RECOVERABLE_FAILED/)
   assert.match(stateCheck, /INCOMPLETE/)
   assert.match(stateCheck, /history_count/)
   assert.match(stateCheck, /history_count[^\n]*-gt 0/)
+  assert.match(stateCheck, /failed_count/)
+  assert.match(stateCheck, /versioned migration runner will retry them/)
+  assert.doesNotMatch(stateCheck, /history_count[^\n]*&&[^\n]*failed_count/)
 
   const migrate = read('scripts/migrate-db.sh')
   const stateIndex = migrate.indexOf('check-database-state.sh')

@@ -4,15 +4,11 @@ set -euo pipefail
 DEPLOY_DIR="${DEPLOY_DIR:-/root/hive}"
 DATABASE_NAME="${DATABASE_NAME:-hive}"
 MIGRATION_VERSION="migrations/V20260717_001_order_multi_shipment"
+source "$(cd "$(dirname "$0")" && pwd)/lib/database.sh"
 
 fail() {
   echo "FAIL: $1" >&2
   exit 1
-}
-
-mysql_root_db() {
-  docker compose exec -T mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-    --default-character-set=utf8mb4 "$@" "${DATABASE_NAME}"
 }
 
 assert_empty_sales_order() {
@@ -32,11 +28,8 @@ assert_empty_sales_order() {
 
 check_order_multi_shipment_clean_launch() {
   cd "${DEPLOY_DIR}"
-  test -f ".env" || fail "Missing ${DEPLOY_DIR}/.env"
-  set -a
-  source ./.env
-  set +a
-  test -n "${MYSQL_ROOT_PASSWORD:-}" || fail ".env missing MYSQL_ROOT_PASSWORD"
+  load_database_env || return 1
+  ensure_database_available
 
   local migration_state
   if ! migration_state="$(mysql_root_db -N -B -e "

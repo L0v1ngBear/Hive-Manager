@@ -34,6 +34,14 @@ env_true() {
   [ "${value}" = "true" ] || [ "${value}" = "TRUE" ] || [ "${value}" = "1" ]
 }
 
+database_mode() {
+  env_value HIVE_DATABASE_MODE | tr '[:lower:]' '[:upper:]'
+}
+
+using_external_mysql() {
+  [ "${1:-$(database_mode)}" = "EXTERNAL" ]
+}
+
 configure_profiles() {
   local profiles=()
   [ "$(env_value OPERATION_LOG_QUEUE_TYPE)" = "rabbitmq" ] && profiles+=(rabbitmq)
@@ -47,7 +55,10 @@ configure_profiles() {
 }
 
 prepare_runtime_directories() {
-  mkdir -p logs/backend uploads mysql/data redis/data rabbitmq/data certbot/www smoke-reports release-snapshots management-ui/dist
+  mkdir -p logs/backend uploads redis/data rabbitmq/data certbot/www smoke-reports release-snapshots management-ui/dist
+  if ! using_external_mysql; then
+    mkdir -p mysql/data
+  fi
   chown -R 10001:10001 logs/backend uploads 2>/dev/null || true
   chmod -R u+rwX,g+rwX logs/backend uploads 2>/dev/null || true
 }

@@ -43,6 +43,8 @@ test('release synchronization is allowlisted and preserves runtime-owned paths',
   assert.match(sync, /RELEASE_SOURCE_DIR/)
   assert.match(sync, /backend\/hive-backend\.jar/)
   assert.match(sync, /management-ui\/dist/)
+  assert.match(sync, /publish\.sh/)
+  assert.match(sync, /install -D -m 0755 "\$\{RELEASE_SOURCE_DIR\}\/publish\.sh" "\$\{RELEASE_TARGET_DIR\}\/publish\.sh"/)
   for (const runtimePath of ['.env', 'mysql/data', 'redis/data', 'nginx/certs', 'uploads', 'backups']) {
     assert.match(sync, new RegExp(runtimePath.replace('/', '\\/')))
   }

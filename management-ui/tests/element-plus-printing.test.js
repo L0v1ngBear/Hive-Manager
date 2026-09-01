@@ -9,7 +9,7 @@ function assertComponents(source, components, page) {
   for (const component of components) {
     const tag = component.replace(/^El/, '').replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
     assert.match(source, new RegExp(`<el-${tag}(?:\\s|>)`), `${page} must render ${component}`)
-    assert.match(source, new RegExp(`\\b${component}\\b[\\s\\S]*from ['\"]element-plus['\"]|import \\{[\\s\\S]*\\b${component}\\b[\\s\\S]*\\} from ['\"]element-plus['\"]`), `${page} must explicitly import ${component}`)
+    assert.match(source, new RegExp(`\\b${component}\\b[\\s\\S]*from ['"]element-plus['"]|import \\{[\\s\\S]*\\b${component}\\b[\\s\\S]*\\} from ['"]element-plus['"]`), `${page} must explicitly import ${component}`)
   }
 }
 

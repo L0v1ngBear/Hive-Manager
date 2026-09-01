@@ -25,7 +25,9 @@ for required in \
   management-ui/dist/index.html \
   management-ui/dist-manifest.sha256 \
   nginx/conf.d/hive.conf \
+  publish.sh \
   scripts/restart.sh \
+  scripts/verify-external-mysql.sh \
   db-migrations/migration_manifest.txt; do
   [ -f "${RELEASE_SOURCE_DIR}/${required}" ] || fail "Missing release artifact: ${required}"
 done
@@ -40,6 +42,8 @@ for file in docker-compose.yml .env.example README.md RELEASE_BUILD_INFO.txt man
     install -D -m 0644 "${RELEASE_SOURCE_DIR}/${file}" "${RELEASE_TARGET_DIR}/${file}"
   fi
 done
+
+install -D -m 0755 "${RELEASE_SOURCE_DIR}/publish.sh" "${RELEASE_TARGET_DIR}/publish.sh"
 
 for directory in backend management-ui/dist nginx/conf.d scripts db-migrations mysql/init; do
   if [ -d "${RELEASE_SOURCE_DIR}/${directory}" ]; then

@@ -18,15 +18,34 @@ backend port directly.
 ## Required release contents
 
 - `backend/hive-backend.jar`
-- `management-web/dist/`
-- `mini-program/`
+- `management-ui/dist/`
 - `db-migrations/`
 - `nginx/`
 - `scripts/`
+- `publish.sh`
 - `docker-compose.yml`
 - `.env.example`
+- `RELEASE_BUILD_INFO.txt`
 
 Production `.env`, certificates, database/cache files, uploads, logs and backups are runtime-owned and must not be overwritten by a release upload.
+
+## Mini-program synchronization
+
+The WeChat mini-program source is maintained separately at
+`D:\productHiveFrontend\client`; it is not copied into the server release directory.
+The server release continues to contain one `hive-backend` process only. Both clients
+call the same `/api/**` contract, while their authentication entry points remain
+channel-specific: the management web uses `/api/auth/admin/**` and the mini-program
+uses `/api/auth/mini/**`.
+
+For a change that affects a shared API, deploy and verify the backend contract before
+submitting the corresponding mini-program build in WeChat DevTools. At minimum,
+verify `/api/health`, mini-program login and the affected authenticated business
+route against the same deployed build identity. The mini-program production request
+host is configured in its own `client/utils/request.js`; its production HTTPS domain
+must be added to the WeChat request-domain allow list. Do not add the mini-program
+source, its local configuration, or WeChat credentials to the server deployment
+package.
 
 ## Fresh installation
 
@@ -78,6 +97,33 @@ The controlled migration never passes `-v` or `--volumes`. Named volumes, bind-m
 After either startup path, the script inspects the live network again and requires its actual subnet to equal `HIVE_DOCKER_SUBNET` before starting container health checks. If the default subnet collides with a host, LAN, cloud or VPN route, first choose an unused CIDR and change the single `HIVE_DOCKER_SUBNET` value in the server-owned `.env`; the next restart intentionally takes the full-project migration path. Never silence a mismatch by broadening `TRUSTED_PROXY_CIDRS`.
 
 The script builds the local backend image, stops backend writes and runs the sole migration entry before bringing up the selected topology. A database migration failure leaves the backend stopped. It does not pull images unless explicitly requested.
+
+## Independent MySQL cutover entry
+
+`HIVE_DATABASE_MODE=COMPOSE` is the default and continues to use the bundled
+MySQL container. The explicit `HIVE_DATABASE_MODE=EXTERNAL` entry is for a
+separately operated MySQL 8 instance, including Alibaba Cloud RDS MySQL. Set the `HIVE_DATABASE_JDBC_URL`, the
+application username/password, and the independent admin host, port and
+credentials in the server-owned `.env`. The backend uses the JDBC/application
+fields; the release host uses the admin fields for backup, migration and schema
+verification. The Docker network must reach the JDBC host and the release host
+must provide the `mysql` and `mysqldump` clients.
+
+Restore or copy a complete Hive database into the independent MySQL instance
+before changing modes. Do not cut over an empty or partial schema. Then run:
+
+```bash
+bash scripts/verify-external-mysql.sh
+bash scripts/restart.sh
+```
+
+The first command is read-only against MySQL and requires a `READY` Hive schema.
+The second command is the existing guarded release flow, now routed to the
+external connection: it backs up, migrates and verifies that database, then
+starts only Redis, backend and Nginx. It does not start or write the bundled
+`mysql` service. Local `xxl-job-admin` is not started in EXTERNAL mode; use a
+separately managed scheduler endpoint if XXL-JOB is enabled. No automatic data
+copy occurs when switching in either direction.
 
 The sole migration entry enforces the `V20260717_001` clean-launch contract at runtime. When that version is still pending, `sales_order` must exist and its exact row count must be zero; a non-zero count or any inability to prove emptiness fails closed with an instruction to run the formal cleanup process. When that migration has already executed successfully, the gate does not query order rows and the migration remains skipped. No confirmation or compatibility override exists.
 

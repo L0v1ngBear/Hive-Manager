@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
+import my.hive.domain.aftersales.model.vo.AfterSalesRepairImageVO;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -59,6 +60,8 @@ public class AfterSalesTicket {
     private LocalDateTime updateTime;
     @TableField(exist = false)
     private List<AfterSalesTicketPart> parts;
+    @TableField(exist = false)
+    private List<AfterSalesRepairImageVO> repairImages;
     @TableField(exist = false)
     private Boolean canAudit;
 }

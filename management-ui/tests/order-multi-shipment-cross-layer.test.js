@@ -39,10 +39,19 @@ const activeOrderContractPaths = [
   'management-ui/src/views/function/order'
 ].flatMap(sourceFiles)
 
+function maskProtocolLiterals(source) {
+  return source
+    .replace(/"(?:\\.|[^"\\])*"/gu, '""')
+    .replace(/'(?:\\.|[^'\\])*'/gu, "''")
+    .replace(/`(?:\\.|[^`\\])*`/gu, '``')
+    .replace(/\/\*[\s\S]*?\*\//gu, '')
+    .replace(/\/\/[^\r\n]*/gu, '')
+}
+
 test('active order contracts contain only shipment-list logistics', () => {
   for (const relativePath of activeOrderContractPaths) {
     assert.doesNotMatch(
-      read(relativePath),
+      maskProtocolLiterals(read(relativePath)),
       /expressCompany|expressNo|getExpressCompany|getExpressNo|setExpressCompany|setExpressNo/u,
       `${relativePath} must not expose order-wide logistics fields`
     )
@@ -55,6 +64,9 @@ test('active order contracts contain only shipment-list logistics', () => {
   const orderApi = read('management-ui/src/views/function/order/api/order.js')
   const frontendContract = read('docs/architecture/unified-frontend-contract.md')
   const orderLogisticsContract = sectionBlock(frontendContract, '订单物流合同')
+  const aliyunProvider = read(
+    'management/src/main/java/my/hive/infrastructure/logistics/AliyunMarketLogisticsTrackingProvider.java'
+  )
 
   assert.match(saveRequest, /List<SalesOrderShipmentSaveRequest> shipments/u)
   assert.match(updateRequest, /List<SalesOrderShipmentSaveRequest> shipments/u)
@@ -64,6 +76,11 @@ test('active order contracts contain only shipment-list logistics', () => {
   assert.match(orderLogisticsContract, /`shipments\[\]\.logisticsCompany`/u)
   assert.match(orderLogisticsContract, /`shipments\[\]\.trackingNo`/u)
   assert.doesNotMatch(orderLogisticsContract, /expressCompany|expressNo/u)
+  assert.match(
+    aliyunProvider,
+    /\.append\("\?expressNo="\)\.append\(encode\(query\.trackingNo\(\)\)\)/u,
+    'Aliyun Market must retain its provider-defined expressNo wire parameter'
+  )
 })
 
 test('database contracts normalize order logistics without rewriting migration history', () => {

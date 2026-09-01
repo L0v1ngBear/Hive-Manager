@@ -3,6 +3,7 @@ package my.hive.domain.aftersales.model.dto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -13,8 +14,9 @@ import java.util.List;
 @Data
 public class AfterSalesTicketSaveRequest {
     private Long id;
-    @NotBlank(message = "请选择关联订单")
     private String orderId;
+    private String customerName;
+    private String projectName;
     @NotBlank(message = "请选择处理方式")
     private String ticketType;
     private String priority;
@@ -36,6 +38,9 @@ public class AfterSalesTicketSaveRequest {
     private Integer returnOldMotorQuantity;
     private BigDecimal repairAmount;
     private String attachmentUrlsJson;
+    @Valid
+    @Size(max = 9, message = "维修图片最多上传9张")
+    private List<AfterSalesRepairImageRequest> repairImages;
     private Boolean approvalRequired;
     @Valid
     private List<AfterSalesTicketPartItem> parts;

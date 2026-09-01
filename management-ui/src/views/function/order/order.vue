@@ -484,6 +484,16 @@
             <td class="td-cell" data-label="操作">
               <div class="order-row-actions">
                 <el-button
+                    link
+                    class="order-action-button"
+                    :class="permissionDisabledClass(!canViewOrderDetail(row))"
+                    :disabled="!canViewOrderDetail(row)"
+                    :title="canViewOrderDetail(row) ? '查看订单详情' : '当前账号暂无查看该订单详情权限'"
+                    @click.stop="openDetail(row.orderId, row)"
+                >
+                  详情
+                </el-button>
+                <el-button
                     v-if="canAdvanceOrder(row)"
                     link
                     type="success"

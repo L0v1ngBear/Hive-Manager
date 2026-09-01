@@ -131,7 +131,9 @@ if [ "${network_restart_mode}" = "migrate" ]; then
   if ! docker compose down --remove-orphans; then
     fail "Docker Compose 网络迁移停止失败；未使用 -v/--volumes，持久化数据未被删除。请检查仍连接网络的容器后重试。"
   fi
-  if ! docker compose up -d; then
+  if using_external_mysql; then
+    docker compose up -d --remove-orphans redis backend nginx
+  elif ! docker compose up -d; then
     fail "Docker Compose 网络迁移重建失败；当前项目可能仍处于停机状态。未删除 volumes，请修复错误后运行 docker compose up -d。"
   fi
 else

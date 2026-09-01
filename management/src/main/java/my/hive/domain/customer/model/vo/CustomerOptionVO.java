@@ -14,6 +14,8 @@ public class CustomerOptionVO {
 
     private String customerName;
 
+    private String contactName;
+
     private String contactPhone;
 
     private List<String> projectNames;

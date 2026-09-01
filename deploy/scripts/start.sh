@@ -13,8 +13,13 @@ echo "1/6 Validate release source"
 bash scripts/check-deploy-health.sh
 
 echo "2/6 Start data services"
-docker compose up -d --remove-orphans mysql redis
-wait_for_healthy_container mysql
+if using_external_mysql; then
+  echo "EXTERNAL MySQL mode: the bundled mysql service will not be started."
+  docker compose up -d --remove-orphans redis
+else
+  docker compose up -d --remove-orphans mysql redis
+  wait_for_healthy_container mysql
+fi
 wait_for_healthy_container redis
 
 if [ "$(env_value OPERATION_LOG_QUEUE_TYPE)" = "rabbitmq" ]; then
@@ -27,7 +32,10 @@ docker compose stop backend 2>/dev/null || true
 bash scripts/migrate-db.sh
 
 echo "4/6 Apply optional scheduler"
-if env_true XXL_JOB_ENABLED; then
+if using_external_mysql; then
+  echo "EXTERNAL MySQL mode: local xxl-job-admin is not started; configure a separate scheduler endpoint if enabled."
+  docker compose stop xxl-job-admin 2>/dev/null || true
+elif env_true XXL_JOB_ENABLED; then
   docker compose up -d --remove-orphans xxl-job-admin
 else
   docker compose stop xxl-job-admin 2>/dev/null || true

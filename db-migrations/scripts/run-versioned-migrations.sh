@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MIGRATION_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 MANIFEST_FILE="${MIGRATION_MANIFEST:-${MIGRATION_DIR}/migration_manifest.txt}"
 RUN_PREFLIGHT="${RUN_PREFLIGHT:-YES}"
+source "${SCRIPT_DIR}/lib/database.sh"
 
 fail() {
   echo "FAIL: $1" >&2
@@ -32,23 +33,10 @@ file_sha256() {
   fail "服务器缺少 sha256sum/openssl，无法计算迁移文件校验值。"
 }
 
-mysql_root_no_db() {
-  docker compose exec -T mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" --default-character-set=utf8mb4 "$@"
-}
-
-mysql_root_db() {
-  docker compose exec -T mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" --default-character-set=utf8mb4 "$@" "${DATABASE_NAME}"
-}
-
 cd "${DEPLOY_DIR}"
-test -f ".env" || fail "缺少 ${DEPLOY_DIR}/.env。"
 test -f "${MANIFEST_FILE}" || fail "缺少迁移清单：${MANIFEST_FILE}"
-
-set -a
-source ./.env
-set +a
-
-test -n "${MYSQL_ROOT_PASSWORD:-}" || fail ".env 缺少 MYSQL_ROOT_PASSWORD。"
+load_database_env || exit 1
+ensure_database_available
 
 if [ "${RUN_PREFLIGHT}" = "YES" ]; then
   echo "0/5 执行迁移预检..."

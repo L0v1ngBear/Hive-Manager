@@ -1,5 +1,6 @@
 package my.hive.domain.aftersales.service;
 
+import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
@@ -17,14 +18,18 @@ import my.hive.domain.aftersales.model.dto.AfterSalesTicketAssignRequest;
 import my.hive.domain.aftersales.model.dto.AfterSalesTicketFollowUpRequest;
 import my.hive.domain.aftersales.model.dto.AfterSalesTicketSaveRequest;
 import my.hive.domain.aftersales.model.dto.AfterSalesTicketStatusRequest;
+import my.hive.domain.aftersales.model.dto.AfterSalesRepairImageRequest;
 import my.hive.domain.aftersales.model.entity.AfterSalesPart;
 import my.hive.domain.aftersales.model.entity.AfterSalesPartStockRecord;
 import my.hive.domain.aftersales.model.entity.AfterSalesTicket;
 import my.hive.domain.aftersales.model.entity.AfterSalesTicketPart;
+import my.hive.domain.aftersales.model.vo.AfterSalesRepairImageVO;
 import my.hive.domain.customer.mapper.CustomerContactMapper;
 import my.hive.domain.customer.mapper.CustomerMapper;
 import my.hive.domain.customer.model.entity.Customer;
 import my.hive.domain.customer.model.entity.CustomerContact;
+import my.hive.domain.customer.model.vo.CustomerOptionVO;
+import my.hive.domain.customer.service.CustomerService;
 import my.hive.domain.order.mapper.SalesOrderMapper;
 import my.hive.domain.order.model.entity.SalesOrder;
 import my.hive.domain.order.model.vo.OrderLogisticsTrackingVO;
@@ -41,9 +46,11 @@ import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.permission.PermissionCatalogV3;
 import my.hive.shared.dto.PageResult;
 import my.hive.shared.exception.BusinessException;
+import my.hive.shared.security.InternalUploadUrlValidator;
 import my.hive.shared.utils.ExcelUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -51,6 +58,7 @@ import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +68,8 @@ import java.util.UUID;
 @Service
 public class AfterSalesService {
     private static final int MAX_TICKET_EXPORT_ROWS = 10_000;
+    private static final int MAX_REPAIR_IMAGES = 9;
+    private static final long MAX_REPAIR_IMAGE_BYTES = 5L * 1024L * 1024L;
     private static final Set<String> TICKET_TYPES = Set.of("consultation", "diagnosis", "resend_parts", "on_site_repair", "motor_replacement");
     private static final Set<String> PRIORITIES = Set.of("low", "normal", "high", "urgent");
     private static final Set<String> PART_LOCATIONS = Set.of("三车间", "二车间", "其他");
@@ -78,6 +88,7 @@ public class AfterSalesService {
     @Resource private SalesOrderMapper salesOrderMapper;
     @Resource private CustomerMapper customerMapper;
     @Resource private CustomerContactMapper customerContactMapper;
+    @Resource private CustomerService customerService;
     @Resource private OrderShipmentService orderShipmentService;
     @Resource private OrderLogisticsTrackingService orderLogisticsTrackingService;
     @Resource private EmployeeMapper employeeMapper;
@@ -85,6 +96,7 @@ public class AfterSalesService {
     @Resource private ApprovalDefaultAuditorService approvalDefaultAuditorService;
     @Resource private ApprovalAuditorCandidateService approvalAuditorCandidateService;
     @Resource private ExcelUtil excelUtil;
+    @Value("${server.servlet.context-path:}") private String contextPath;
 
     public PageResult<AfterSalesTicket> ticketPage(AfterSalesTicketPageRequest request) {
         AfterSalesTicketPageRequest safe = request == null ? new AfterSalesTicketPageRequest() : request;
@@ -142,6 +154,7 @@ public class AfterSalesService {
                 .eq(AfterSalesTicketPart::getTenantCode, ticket.getTenantCode())
                 .eq(AfterSalesTicketPart::getTicketId, ticket.getId())
                 .orderByAsc(AfterSalesTicketPart::getId)));
+        ticket.setRepairImages(resolveRepairImages(ticket.getAttachmentUrlsJson()));
         return ticket;
     }
 
@@ -149,8 +162,17 @@ public class AfterSalesService {
     public AfterSalesTicket saveTicket(AfterSalesTicketSaveRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
         String type = requireType(request.getTicketType());
-        SalesOrder order = salesOrderMapper.selectByOrderIdForUpdate(tenantCode, cleanRequired(request.getOrderId(), "请选择关联订单"));
-        if (order == null) throw new BusinessException("关联订单不存在或不属于当前组织");
+        String requestedOrderId = clean(request.getOrderId());
+        SalesOrder order = requestedOrderId == null ? null : salesOrderMapper.selectByOrderIdForUpdate(tenantCode, requestedOrderId);
+        if (requestedOrderId != null && order == null) throw new BusinessException("关联订单不存在或不属于当前组织");
+        String customerName = order == null ? cleanRequired(request.getCustomerName(), "未关联订单时请填写客户名称") : order.getCustomerName();
+        String customerPhone = order == null ? clean(request.getContactPhone()) : order.getCustomerPhone();
+        String projectName = order == null ? clean(request.getProjectName()) : order.getProjectName();
+        if (order == null) {
+            Customer customer = customerService.ensureAfterSalesCustomer(
+                    customerName, request.getContactName(), request.getContactPhone(), projectName);
+            customerName = customer.getCustomerName();
+        }
         AfterSalesTicket ticket;
         boolean creating = request.getId() == null;
         if (creating) {
@@ -163,10 +185,10 @@ public class AfterSalesService {
             ticket = requireTicket(request.getId());
             if (!STATUS_DRAFT.equals(ticket.getStatus())) throw new BusinessException("仅草稿工单可以编辑，已提交工单请通过处理操作推进");
         }
-        ticket.setOrderId(order.getOrderId());
-        ticket.setCustomerName(order.getCustomerName());
-        ticket.setCustomerPhone(order.getCustomerPhone());
-        ticket.setProjectName(order.getProjectName());
+        ticket.setOrderId(order == null ? null : order.getOrderId());
+        ticket.setCustomerName(customerName);
+        ticket.setCustomerPhone(customerPhone);
+        ticket.setProjectName(projectName);
         ticket.setContactName(clean(request.getContactName()));
         ticket.setContactPhone(clean(request.getContactPhone()));
         ticket.setServiceAddress(clean(request.getServiceAddress()));
@@ -185,13 +207,89 @@ public class AfterSalesService {
         ticket.setReturnOldMotor(Boolean.TRUE.equals(request.getReturnOldMotor()) ? 1 : 0);
         ticket.setReturnOldMotorQuantity(normalizeNonNegativeInteger(request.getReturnOldMotorQuantity(), "旧电机退还数量不能小于 0"));
         ticket.setRepairAmount(normalizeNonNegativeAmount(request.getRepairAmount(), "维修金额不能小于 0"));
-        ticket.setAttachmentUrlsJson(clean(request.getAttachmentUrlsJson()));
+        if (creating || request.getRepairImages() != null || request.getAttachmentUrlsJson() != null) {
+            List<AfterSalesRepairImageVO> repairImages = normalizeRepairImages(resolveRequestedRepairImages(request));
+            ticket.setAttachmentUrlsJson(repairImages.isEmpty() ? null : JSON.toJSONString(repairImages));
+        }
         ticket.setApprovalRequired(Boolean.TRUE.equals(request.getApprovalRequired()) ? 1 : 0);
         ticket.setStatus(Boolean.TRUE.equals(request.getApprovalRequired()) ? STATUS_PENDING_APPROVAL : (hasParts(request.getParts()) ? STATUS_WAITING_OUTBOUND : STATUS_DRAFT));
         if (creating) ticketMapper.insert(ticket); else ticketMapper.updateById(ticket);
         replaceTicketParts(ticket, request.getParts());
         if (Boolean.TRUE.equals(request.getApprovalRequired())) submitTicketApproval(ticket);
         return ticketDetail(ticket.getId());
+    }
+
+    private List<AfterSalesRepairImageRequest> resolveRequestedRepairImages(AfterSalesTicketSaveRequest request) {
+        if (request.getRepairImages() != null) {
+            return request.getRepairImages();
+        }
+        String legacyJson = clean(request.getAttachmentUrlsJson());
+        if (legacyJson == null) {
+            return List.of();
+        }
+        try {
+            List<AfterSalesRepairImageRequest> images = JSON.parseArray(legacyJson, AfterSalesRepairImageRequest.class);
+            return images == null ? List.of() : images;
+        } catch (RuntimeException exception) {
+            throw new BusinessException("维修图片信息格式不正确");
+        }
+    }
+
+    private List<AfterSalesRepairImageVO> normalizeRepairImages(List<AfterSalesRepairImageRequest> requested) {
+        if (requested == null || requested.isEmpty()) {
+            return List.of();
+        }
+        if (requested.size() > MAX_REPAIR_IMAGES) {
+            throw new BusinessException("维修图片最多上传9张");
+        }
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        Map<String, AfterSalesRepairImageVO> uniqueImages = new LinkedHashMap<>();
+        for (AfterSalesRepairImageRequest image : requested) {
+            if (image == null) {
+                throw new BusinessException("维修图片信息不能为空");
+            }
+            String fileName = cleanRequired(image.getFileName(), "维修图片名称不能为空");
+            if (fileName.length() > 255) {
+                throw new BusinessException("维修图片名称不能超过255个字符");
+            }
+            String fileUrl = InternalUploadUrlValidator.normalizeStoredUploadUrl(
+                    cleanRequired(image.getFileUrl(), "维修图片地址不能为空"),
+                    contextPath,
+                    tenantCode,
+                    "after-sales-repair"
+            );
+            Long fileSize = image.getFileSize();
+            if (fileSize != null && (fileSize < 0 || fileSize > MAX_REPAIR_IMAGE_BYTES)) {
+                throw new BusinessException("单张维修图片不能超过5MB");
+            }
+            if (uniqueImages.containsKey(fileUrl)) {
+                throw new BusinessException("同一维修图片不能重复添加");
+            }
+            AfterSalesRepairImageVO normalized = new AfterSalesRepairImageVO();
+            normalized.setFileName(fileName);
+            normalized.setFileUrl(fileUrl);
+            normalized.setFileSize(fileSize);
+            uniqueImages.put(fileUrl, normalized);
+        }
+        return new ArrayList<>(uniqueImages.values());
+    }
+
+    private List<AfterSalesRepairImageVO> resolveRepairImages(String attachmentUrlsJson) {
+        if (StringUtils.isBlank(attachmentUrlsJson)) {
+            return List.of();
+        }
+        try {
+            List<AfterSalesRepairImageVO> images = JSON.parseArray(attachmentUrlsJson, AfterSalesRepairImageVO.class);
+            if (images == null) {
+                return List.of();
+            }
+            return images.stream()
+                    .filter(image -> image != null && !StringUtils.isBlank(image.getFileUrl()))
+                    .limit(MAX_REPAIR_IMAGES)
+                    .toList();
+        } catch (RuntimeException ignored) {
+            return List.of();
+        }
     }
 
     /**
@@ -448,6 +546,10 @@ public class AfterSalesService {
         List<SalesOrder> orders = salesOrderMapper.selectList(wrapper);
         enrichOrderContacts(tenantCode, orders);
         return orders;
+    }
+
+    public List<CustomerOptionVO> customerOptions(String keyword) {
+        return customerService.listCustomerOptions(keyword);
     }
 
     private void enrichOrderContacts(String tenantCode, List<SalesOrder> orders) {

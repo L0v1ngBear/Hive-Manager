@@ -10,6 +10,8 @@ export const getAfterSalesTicketLogisticsTracking = (id) => request({
   cacheTtl: 30 * 60 * 1000
 })
 export const saveAfterSalesTicket = (data) => request({ url: '/after-sales/tickets', method: 'post', data })
+export const uploadAfterSalesRepairImage = (data) => request({ url: '/after-sales/tickets/repair-image', method: 'post', data })
+export const downloadAfterSalesRepairImage = (params) => request({ url: '/after-sales/tickets/repair-image', method: 'get', params, responseType: 'blob' })
 export const updateAfterSalesTicketStatus = (data) => request({ url: '/after-sales/tickets/status', method: 'post', data })
 export const followUpAfterSalesTicket = (id, data) => request({ url: `/after-sales/tickets/${id}/follow-up`, method: 'post', data })
 export const getAfterSalesAssigneeOptions = (params) => request({ url: '/after-sales/assignee-options', method: 'get', params, silent: true })
@@ -22,3 +24,4 @@ export const saveAfterSalesPart = (data) => request({ url: '/after-sales/parts',
 export const uploadAfterSalesPartPhoto = (data) => request({ url: '/after-sales/parts/photo', method: 'post', data })
 export const stockInAfterSalesPart = (data) => request({ url: '/after-sales/parts/stock-in', method: 'post', data })
 export const getAfterSalesOrderOptions = (params) => request({ url: '/after-sales/order-options', method: 'get', params })
+export const getAfterSalesCustomerOptions = (params) => request({ url: '/after-sales/customer-options', method: 'get', params })

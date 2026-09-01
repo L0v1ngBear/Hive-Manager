@@ -36,8 +36,8 @@ ON DUPLICATE KEY UPDATE
 
 DROP TEMPORARY TABLE IF EXISTS after_sales_role_permission_seed;
 CREATE TEMPORARY TABLE after_sales_role_permission_seed (
-  role_code varchar(50) NOT NULL,
-  perm_code varchar(100) NOT NULL,
+  role_code varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  perm_code varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   PRIMARY KEY (role_code, perm_code)
 ) ENGINE=MEMORY;
 
@@ -81,15 +81,15 @@ INSERT IGNORE INTO after_sales_role_permission_seed (role_code, perm_code) VALUE
 INSERT INTO sys_role_permission (role_id, permission_id, create_time, is_deleted)
 SELECT role_item.id, permission.id, NOW(), 0
 FROM sys_role role_item
-JOIN after_sales_role_permission_seed seed ON seed.role_code = role_item.role_code
-JOIN sys_permission permission ON permission.perm_code = seed.perm_code AND permission.is_deleted = 0
+JOIN after_sales_role_permission_seed seed ON BINARY seed.role_code = BINARY role_item.role_code
+JOIN sys_permission permission ON BINARY permission.perm_code = BINARY seed.perm_code AND permission.is_deleted = 0
 WHERE role_item.is_deleted = 0
 ON DUPLICATE KEY UPDATE is_deleted = 0;
 
 UPDATE user AS user_item
 JOIN sys_user_role user_role ON user_role.user_id = user_item.id AND user_role.is_deleted = 0
 JOIN sys_role role_item ON role_item.id = user_role.role_id AND role_item.is_deleted = 0
-JOIN after_sales_role_permission_seed seed ON seed.role_code = role_item.role_code
+JOIN after_sales_role_permission_seed seed ON BINARY seed.role_code = BINARY role_item.role_code
 SET user_item.permission_version = COALESCE(user_item.permission_version, 1) + 1,
     user_item.auth_version = COALESCE(user_item.auth_version, 1) + 1
 WHERE user_item.status = 1;

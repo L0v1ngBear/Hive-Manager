@@ -18,6 +18,7 @@ import my.hive.domain.customer.model.dto.CustomerUpdateRequest;
 import my.hive.domain.customer.model.entity.Customer;
 import my.hive.domain.customer.model.entity.CustomerContact;
 import my.hive.domain.customer.model.entity.CustomerProject;
+import my.hive.domain.customer.model.enums.CustomerTypeEnum;
 import my.hive.domain.customer.model.vo.CustomerDetailVO;
 import my.hive.domain.customer.model.vo.CustomerOptionVO;
 import my.hive.domain.customer.model.vo.CustomerPageVO;
@@ -216,15 +217,14 @@ public class CustomerService {
                         LinkedHashMap::new,
                         Collectors.mapping(CustomerProject::getProjectName, Collectors.toList())
                 ));
-        Map<Long, String> contactPhoneByCustomerId = customerContactMapper.selectList(new LambdaQueryWrapper<CustomerContact>()
+        Map<Long, CustomerContact> contactByCustomerId = customerContactMapper.selectList(new LambdaQueryWrapper<CustomerContact>()
                         .eq(CustomerContact::getTenantCode, tenantCode)
                         .in(CustomerContact::getCustomerId, customerIds)
                         .orderByDesc(CustomerContact::getId))
                 .stream()
-                .filter(contact -> StringUtils.isNotBlank(contact.getContactPhone()))
                 .collect(Collectors.toMap(
                         CustomerContact::getCustomerId,
-                        contact -> contact.getContactPhone().trim(),
+                        contact -> contact,
                         (existing, ignored) -> existing,
                         LinkedHashMap::new
                 ));
@@ -233,10 +233,86 @@ public class CustomerService {
             CustomerOptionVO vo = new CustomerOptionVO();
             vo.setId(customer.getId());
             vo.setCustomerName(customer.getCustomerName());
-            vo.setContactPhone(contactPhoneByCustomerId.get(customer.getId()));
+            CustomerContact contact = contactByCustomerId.get(customer.getId());
+            if (contact != null) {
+                vo.setContactName(contact.getContactName());
+                vo.setContactPhone(contact.getContactPhone());
+            }
             vo.setProjectNames(projectNamesByCustomerId.getOrDefault(customer.getId(), Collections.emptyList()));
             return vo;
         }).toList();
+    }
+
+    /**
+     * An orderless after-sales ticket still belongs in the shared customer catalog.
+     * Reuse an exact tenant customer name and append only missing contact/project
+     * children so existing customer-management data is never replaced.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Customer ensureAfterSalesCustomer(String customerName,
+                                             String contactName,
+                                             String contactPhone,
+                                             String projectName) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        String normalizedCustomerName = normalizeAfterSalesText(customerName, 120, "请填写客户名称", "客户名称不能超过120个字符");
+        String normalizedContactName = normalizeOptionalAfterSalesText(contactName, 64, "联系人不能超过64个字符");
+        String normalizedContactPhone = normalizeOptionalAfterSalesText(contactPhone, 32, "联系电话不能超过32个字符");
+        String normalizedProjectName = normalizeOptionalAfterSalesText(projectName, 128, "项目名称不能超过128个字符");
+
+        Customer customer = customerMapper.selectByTenantCodeAndNameForUpdate(tenantCode, normalizedCustomerName);
+        if (customer == null) {
+            customer = new Customer();
+            customer.setTenantCode(tenantCode);
+            customer.setCustomerName(normalizedCustomerName);
+            customer.setCustomerType(CustomerTypeEnum.DEFAULT.getCode());
+            customerMapper.insert(customer);
+        }
+
+        if (normalizedContactName != null || normalizedContactPhone != null) {
+            String storedContactName = normalizedContactName == null ? normalizedCustomerName : normalizedContactName;
+            LambdaQueryWrapper<CustomerContact> contactQuery = new LambdaQueryWrapper<CustomerContact>()
+                    .eq(CustomerContact::getTenantCode, tenantCode)
+                    .eq(CustomerContact::getCustomerId, customer.getId())
+                    .eq(CustomerContact::getContactName, storedContactName);
+            if (normalizedContactPhone == null) contactQuery.isNull(CustomerContact::getContactPhone);
+            else contactQuery.eq(CustomerContact::getContactPhone, normalizedContactPhone);
+            if (customerContactMapper.selectCount(contactQuery) == 0) {
+                CustomerContact contact = new CustomerContact();
+                contact.setTenantCode(tenantCode);
+                contact.setCustomerId(customer.getId());
+                contact.setContactName(storedContactName);
+                contact.setContactPhone(normalizedContactPhone);
+                customerContactMapper.insert(contact);
+            }
+        }
+
+        if (normalizedProjectName != null) {
+            long projectCount = customerProjectMapper.selectCount(new LambdaQueryWrapper<CustomerProject>()
+                    .eq(CustomerProject::getTenantCode, tenantCode)
+                    .eq(CustomerProject::getCustomerId, customer.getId())
+                    .eq(CustomerProject::getProjectName, normalizedProjectName));
+            if (projectCount == 0) {
+                CustomerProject project = new CustomerProject();
+                project.setTenantCode(tenantCode);
+                project.setCustomerId(customer.getId());
+                project.setProjectName(normalizedProjectName);
+                customerProjectMapper.insert(project);
+            }
+        }
+        return customer;
+    }
+
+    private String normalizeAfterSalesText(String value, int maxLength, String emptyMessage, String lengthMessage) {
+        String normalized = normalizeOptionalAfterSalesText(value, maxLength, lengthMessage);
+        if (normalized == null) throw new BusinessException(emptyMessage);
+        return normalized;
+    }
+
+    private String normalizeOptionalAfterSalesText(String value, int maxLength, String lengthMessage) {
+        if (StringUtils.isBlank(value)) return null;
+        String normalized = value.trim();
+        if (normalized.length() > maxLength) throw new BusinessException(lengthMessage);
+        return normalized;
     }
 
     public void downloadImportTemplate(HttpServletResponse response) {

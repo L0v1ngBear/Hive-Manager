@@ -17,6 +17,7 @@ import my.hive.domain.aftersales.service.AfterSalesService;
 import my.hive.domain.order.model.entity.SalesOrder;
 import my.hive.domain.employee.model.vo.EmployeeLeaderOptionVO;
 import my.hive.domain.order.model.vo.OrderLogisticsTrackingVO;
+import my.hive.domain.customer.model.vo.CustomerOptionVO;
 import my.hive.domain.tenant.model.enums.TenantFeatureEnum;
 import my.hive.shared.annotation.CollectLog;
 import my.hive.shared.annotation.RequirePermission;
@@ -29,6 +30,9 @@ import my.hive.shared.tenant.RequireTenantFeature;
 import my.hive.infrastructure.storage.BusinessAttachmentService;
 import my.hive.infrastructure.storage.BusinessAttachmentVO;
 import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,6 +45,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/after-sales")
@@ -48,6 +54,8 @@ import java.util.Set;
 public class AfterSalesController {
     private static final long PART_PHOTO_MAX_SIZE = 5L * 1024L * 1024L;
     private static final Set<String> PART_PHOTO_EXTENSIONS = Set.of("png", "jpg", "jpeg", "webp");
+    private static final long REPAIR_IMAGE_MAX_SIZE = 5L * 1024L * 1024L;
+    private static final Set<String> REPAIR_IMAGE_EXTENSIONS = Set.of("png", "jpg", "jpeg", "webp");
     @Resource private AfterSalesService afterSalesService;
     @Resource private BusinessAttachmentService businessAttachmentService;
 
@@ -83,6 +91,29 @@ public class AfterSalesController {
     public Result<AfterSalesTicket> saveTicket(@Valid @RequestBody AfterSalesTicketSaveRequest request) {
         requireSavePermission(request.getId() == null, "当前账号没有保存售后工单权限");
         return Result.success(afterSalesService.saveTicket(request));
+    }
+
+    @PostMapping(value = "/tickets/repair-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @RequirePermission(value = {PermissionCatalogV3.CODE_AFTER_SALES_CREATE, PermissionCatalogV3.CODE_AFTER_SALES_UPDATE}, message = "当前账号没有上传售后维修图片权限")
+    @CollectLog(module = "after_sales", action = "upload_repair_image", bizType = "after_sales_ticket", description = "上传售后维修图片")
+    public Result<BusinessAttachmentVO> uploadRepairImage(@RequestParam("file") MultipartFile file) {
+        validateRepairImage(file);
+        return Result.success(businessAttachmentService.upload(file, "after-sales-repair"));
+    }
+
+    @GetMapping("/tickets/repair-image")
+    @RequirePermission(value = PermissionCatalogV3.CODE_AFTER_SALES_DETAIL, message = "当前账号没有查看售后维修图片权限")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadRepairImage(@RequestParam String url,
+                                                                                    @RequestParam(required = false) String name) {
+        org.springframework.core.io.Resource resource = businessAttachmentService.load(url, "after-sales-repair");
+        String filename = name != null && !name.isBlank() ? name.trim() : resource.getFilename();
+        String encodedFilename = URLEncoder.encode(filename == null ? "after-sales-repair-image" : filename, StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return ResponseEntity.ok()
+                .contentType(MediaTypeFactory.getMediaType(filename == null ? "repair-image" : filename)
+                        .orElse(MediaType.APPLICATION_OCTET_STREAM))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + encodedFilename)
+                .body(resource);
     }
 
     @PostMapping("/tickets/status")
@@ -144,8 +175,12 @@ public class AfterSalesController {
     public Result<Void> stockIn(@Valid @RequestBody AfterSalesPartStockInRequest request) { afterSalesService.stockIn(request); return Result.success(null); }
 
     @GetMapping("/order-options")
-    @RequirePermission(value = PermissionCatalogV3.CODE_AFTER_SALES_CREATE, message = "当前账号没有新建售后工单权限")
+    @RequirePermission(value = {PermissionCatalogV3.CODE_AFTER_SALES_CREATE, PermissionCatalogV3.CODE_AFTER_SALES_UPDATE}, message = "当前账号没有维护售后工单权限")
     public Result<List<SalesOrder>> orderOptions(String keyword) { return Result.success(afterSalesService.orderOptions(keyword)); }
+
+    @GetMapping("/customer-options")
+    @RequirePermission(value = {PermissionCatalogV3.CODE_AFTER_SALES_CREATE, PermissionCatalogV3.CODE_AFTER_SALES_UPDATE}, message = "当前账号没有维护售后工单权限")
+    public Result<List<CustomerOptionVO>> customerOptions(String keyword) { return Result.success(afterSalesService.customerOptions(keyword)); }
 
     private void validatePartPhoto(MultipartFile file) {
         if (file == null || file.isEmpty()) throw new BusinessException("请选择配件图片");
@@ -154,6 +189,15 @@ public class AfterSalesController {
         int dot = name == null ? -1 : name.lastIndexOf('.');
         String extension = dot < 0 ? "" : name.substring(dot + 1).toLowerCase(Locale.ROOT);
         if (!PART_PHOTO_EXTENSIONS.contains(extension)) throw new BusinessException("配件图片仅支持 PNG、JPG、JPEG 或 WebP 格式");
+    }
+
+    private void validateRepairImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) throw new BusinessException("请选择售后维修图片");
+        if (file.getSize() > REPAIR_IMAGE_MAX_SIZE) throw new BusinessException("售后维修图片不能超过5MB");
+        String name = file.getOriginalFilename();
+        int dot = name == null ? -1 : name.lastIndexOf('.');
+        String extension = dot < 0 ? "" : name.substring(dot + 1).toLowerCase(Locale.ROOT);
+        if (!REPAIR_IMAGE_EXTENSIONS.contains(extension)) throw new BusinessException("售后维修图片仅支持 PNG、JPG、JPEG 或 WebP 格式");
     }
 
     private void requireSavePermission(boolean creating, String message) {

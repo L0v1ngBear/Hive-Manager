@@ -7,7 +7,7 @@ require_file backend/hive-backend.jar
 list_jar_entries() {
   local artifact="$1"
   if command -v jar >/dev/null 2>&1; then
-    jar tf "${artifact}"
+    jar tf "${artifact}" | tr -d "$(printf '\r')"
     return
   fi
   if command -v unzip >/dev/null 2>&1; then
@@ -34,12 +34,12 @@ for required in \
   BOOT-INF/classes/my/hive/api/auth/AdminAuthController.class \
   BOOT-INF/classes/my/hive/api/auth/MiniAuthController.class \
   BOOT-INF/classes/my/hive/api/order/OrderController.class; do
-  echo "${entries}" | grep -qx "${required}" || fail "JAR missing ${required}"
+  grep -qx "${required}" <<< "${entries}" || fail "JAR missing ${required}"
 done
 
-if echo "${entries}" | grep -Eq 'BOOT-INF/classes/my/(management|hive_back)/'; then
+if grep -Eq 'BOOT-INF/classes/my/(management|hive_back)/' <<< "${entries}"; then
   fail "JAR contains a retired backend package"
 fi
 
-[ "$(echo "${entries}" | grep -c 'BOOT-INF/classes/my/hive/HiveApplication.class')" = "1" ] || fail "JAR must contain one application entry"
+[ "$(grep -cx 'BOOT-INF/classes/my/hive/HiveApplication.class' <<< "${entries}")" = "1" ] || fail "JAR must contain one application entry"
 echo "Unified backend artifact inspection passed."

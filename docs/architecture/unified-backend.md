@@ -4,6 +4,34 @@
 
 The management application is the convergence shell for one Spring Boot application under `my.hive`, one `/api` context, and one runtime implementation of every shared capability. `D:\HiveBackend\server` and `D:\HiveCommon\hive-backend-common` are immutable source references, not additional runtimes.
 
+## 当前项目概览
+
+本仓库是 Hive 的统一交付源码。管理网页与微信小程序共用一个 Spring Boot
+后端；当前不再存在独立管理端后端、第二个业务 JAR 或 `/web/**` 兼容入口。以
+下路径用于快速定位当前实现和维护文档：
+
+| 范围 | 当前实现 / 入口 | 说明文档 |
+| --- | --- | --- |
+| 后端 | `management/`；启动类 `my.hive.HiveApplication`；运行端口 `8080`、context path `/api` | [本文件](unified-backend.md)、[统一 API 目录](../api/unified-api-catalog.md) |
+| 管理网页 | `management-ui/`；Vue 3、Vite 与 Element Plus；开发服务器 `5173`，`/api` 代理到本地后端 | [管理网页模块索引](../management-ui/README.md) |
+| 微信小程序 | `D:\productHiveFrontend\client`；原生微信小程序，请求统一由 `utils/request.js` 发往同一 `/api` 后端 | 小程序仓库 `client/docs/MINI_WEB_FIELD_SYNC.md` |
+| 数据库 | `db-migrations/`；唯一顶层迁移入口为 `scripts/migrate-db.sh` | [迁移体系](../../db-migrations/README.md) |
+| 部署模板 | `deploy/`；一个 `backend` 服务、容器名 `hive-backend`，Nginx 仅反向代理 `/api/**` | [部署模板说明](../../deploy/README.md)、[运行拓扑](../deployment/unified-backend-deployment.md) |
+| 本地开发 | JDK 21、MySQL 8、Redis、Node.js；后端和前端均从上述源码目录启动 | [本地启动](../development/local-startup.md) |
+
+### 代码布局与维护边界
+
+- HTTP 适配层位于 `my.hive.api`，领域逻辑位于 `my.hive.domain`，共享请求与运行时
+  契约位于 `my.hive.shared`，外部设施适配位于 `my.hive.infrastructure`。
+- 前端代码按 `views`、`components`、`router`、`stores`、`utils` 等目录组织；页面
+  功能、接口、权限或状态流发生变化时，应同步更新其对应的
+  `docs/management-ui/modules/*.md` 维护档案。
+- 本地 `.env`、生产 `.env`、证书、数据库与 Redis 数据、上传文件、日志、备份均属
+  运行时数据，不能写入源码或部署包。
+- 对代码、接口、权限、数据结构、共享样式或发布流程的任何改动，均须遵守
+  [变更影响范围控制规范](../development/change-scope-safety.md)，并以源码、测试和
+  实际发布产物作为最终事实来源。
+
 `my.hive.HiveApplication` is the only executable entry point and uses the default `my.hive` component-scan boundary. MyBatis scans only `my.hive.domain.**.mapper` and `my.hive.infrastructure.**.mapper`. Shared infrastructure lives in the application artifact under `my.hive.shared`, with RabbitMQ operation-log adapters under `my.hive.infrastructure.messaging`; the external common JAR is no longer a runtime dependency.
 
 `UniqueRuntimeComponentTest` now boots the authoritative application context and reads Spring's resolved bean registry and `RequestMappingHandlerMapping`. This runtime resolution covers composed stereotypes, annotation aliases, path/value arrays, constants, and method-specific request conditions that the Task 1 source regexes could not model.

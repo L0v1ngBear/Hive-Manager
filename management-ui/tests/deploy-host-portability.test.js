@@ -17,6 +17,8 @@ test('unified backend compose detection accepts Linux LF and uploaded Windows CR
 test('backend artifact inspection does not require a host JDK jar command', () => {
   assert.doesNotMatch(inspectSource, /require_command jar/)
   assert.match(inspectSource, /command -v jar/)
+  assert.match(inspectSource, /jar tf "\$\{artifact\}" \| tr -d "\$\(printf '\\r'\)"/)
+  assert.match(inspectSource, /grep -qx "\$\{required\}" <<< "\$\{entries\}"/)
   assert.match(inspectSource, /command -v unzip/)
   assert.match(inspectSource, /command -v python3/)
   assert.match(inspectSource, /jar, unzip or python3/)
