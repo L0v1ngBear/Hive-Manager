@@ -53,3 +53,12 @@ test('repository deployment source excludes runtime secrets and artifacts', () =
   assert.ok(!files.some((file) => /\.(?:jar|key|pem|p12|pfx)$/i.test(file)))
   assert.ok(!files.some((file) => /(?:^|\/)(?:data|logs|uploads|letsencrypt)(?:\/|$)/i.test(file)))
 })
+
+test('backend image provides a font runtime and a POI missing-font fallback for Excel downloads', () => {
+  const dockerfile = read('backend/Dockerfile')
+
+  assert.match(dockerfile, /apk add --no-cache\s+fontconfig\s+font-dejavu/)
+  assert.match(dockerfile, /fc-cache\s+-f/)
+  assert.match(dockerfile, /-Djava\.awt\.headless=true/)
+  assert.match(dockerfile, /-Dorg\.apache\.poi\.ss\.ignoreMissingFontSystem=true/)
+})

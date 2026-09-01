@@ -2,9 +2,11 @@ FROM amazoncorretto:21-alpine
 
 WORKDIR /app
 ENV TZ=Asia/Shanghai
-ENV JAVA_TOOL_OPTIONS="-Duser.timezone=Asia/Shanghai"
+ENV JAVA_TOOL_OPTIONS="-Duser.timezone=Asia/Shanghai -Djava.awt.headless=true -Dorg.apache.poi.ss.ignoreMissingFontSystem=true"
 
-RUN addgroup -S -g 10001 app \
+RUN apk add --no-cache fontconfig font-dejavu \
+    && fc-cache -f \
+    && addgroup -S -g 10001 app \
     && adduser -S -D -H -u 10001 -G app app \
     && mkdir -p /app/logs /app/uploads \
     && chown -R app:app /app
