@@ -46,7 +46,6 @@ import my.hive.domain.quality.service.QualityService;
 import my.hive.domain.order.mapper.ProductionOrderMapper;
 import my.hive.domain.order.mapper.SalesOrderMapper;
 import my.hive.domain.order.model.dto.ProductionOrderUpdateRequest;
-import my.hive.domain.order.model.dto.SalesOrderUpdateRequest;
 import my.hive.domain.order.model.entity.ProductionOrder;
 import my.hive.domain.order.model.entity.ProductionOrderStatusLog;
 import my.hive.domain.order.model.entity.SalesOrder;
@@ -70,6 +69,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 /**
  * ApprovalService 属于管理端后端审批模块，实现核心业务编排与规则逻辑。
  */
@@ -637,26 +637,7 @@ public class ApprovalService {
                 }
                 throw new BusinessException("订单驳回/取消请到订单管理中处理，避免误改业务单据状态");
             }
-            if (orderService.hasPendingSalesRollbackApproval(salesOrder.getOrderId())) {
-                if (isCompletedDrawingBudgetOrder(salesOrder)) {
-                    approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-                    return ApprovalAuditResultVO.approved("订单审批");
-                }
-                orderService.approveSalesOrderRollback(request.getOrderId(), remark);
-                approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-                return ApprovalAuditResultVO.approved("订单审批");
-            }
-            if (ORDER_STATUS_PENDING_CANCEL.equals(salesOrder.getStatus()) && isDrawingBudgetOrder(salesOrder)) {
-                orderService.rejectPendingCancelSalesOrder(request.getOrderId(), remark);
-                approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-                return ApprovalAuditResultVO.approved("订单审批");
-            }
-            SalesOrderUpdateRequest updateRequest = new SalesOrderUpdateRequest();
-            updateRequest.setStatus(resolveSalesApprovalNextStatus(salesOrder));
-            updateRequest.setRemark(remark);
-            orderService.approveSalesOrderTransition(request.getOrderId(), updateRequest.getStatus(), updateRequest.getRemark());
-            approvalAuditorCandidateService.closeActiveCandidates(salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-            return ApprovalAuditResultVO.approved("订单审批");
+            return completeApprovedSalesOrder(salesOrder, approvalCode, remark);
         }
         if (ORDER_TYPE_PRODUCTION.equals(orderType)) {
             ProductionOrder productionOrder = findProductionOrderForApproval(request.getOrderId());
@@ -677,17 +658,86 @@ public class ApprovalService {
                 }
                 throw new BusinessException("订单驳回/取消请到订单管理中处理，避免误改业务单据状态");
             }
-            if (orderService.hasPendingProductionRollbackApproval(productionOrder.getOrderId())) {
-                orderService.approveProductionOrderRollback(request.getOrderId(), remark);
-                approvalAuditorCandidateService.closeActiveCandidates(productionOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-                return ApprovalAuditResultVO.approved("订单审批");
-            }
-            String targetStatus = resolveProductionApprovalNextStatus(productionOrder);
-            orderService.approveProductionOrderTransition(request.getOrderId(), targetStatus, remark);
-            approvalAuditorCandidateService.closeActiveCandidates(productionOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
-            return ApprovalAuditResultVO.approved("订单审批");
+            return completeApprovedProductionOrder(productionOrder, approvalCode, remark);
         }
         throw new BusinessException("订单审批类型不合法");
+    }
+
+    /**
+     * Replays only the business completion step for an old ORDER candidate set which is already
+     * approved under OR semantics. Candidate rows are locked so a concurrent manual approval
+     * cannot advance the same order twice.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public boolean reconcileApprovedOrder(String tenantCode, String approvalCode) {
+        if (!StringUtils.hasText(tenantCode)
+                || !Objects.equals(tenantCode.trim(), TenantPermissionContext.getTenantCode())) {
+            throw new BusinessException("订单审批补偿租户上下文不合法");
+        }
+        if (!StringUtils.hasText(approvalCode)) {
+            throw new BusinessException("订单审批补偿编号不能为空");
+        }
+        String normalizedCode = approvalCode.trim();
+        ApprovalAuditorCandidateService.ApprovalDecision decision = approvalAuditorCandidateService
+                .resolveActiveDecisionForUpdate(tenantCode.trim(), APPROVAL_TYPE_ORDER, normalizedCode);
+        if (decision != ApprovalAuditorCandidateService.ApprovalDecision.APPROVED) {
+            return false;
+        }
+
+        String remark = "订单审批规则调整为一人通过即可，系统自动推进历史待审订单";
+        String salesPrefix = ORDER_TYPE_SALES + ":";
+        if (normalizedCode.startsWith(salesPrefix)) {
+            String orderId = normalizedCode.substring(salesPrefix.length()).trim();
+            SalesOrder salesOrder = findSalesOrderForApproval(orderId);
+            completeApprovedSalesOrder(salesOrder, normalizedCode, remark);
+            return true;
+        }
+        String productionPrefix = ORDER_TYPE_PRODUCTION + ":";
+        if (normalizedCode.startsWith(productionPrefix)) {
+            String orderId = normalizedCode.substring(productionPrefix.length()).trim();
+            ProductionOrder productionOrder = findProductionOrderForApproval(orderId);
+            completeApprovedProductionOrder(productionOrder, normalizedCode, remark);
+            return true;
+        }
+        throw new BusinessException("订单审批补偿编号不合法");
+    }
+
+    private ApprovalAuditResultVO completeApprovedSalesOrder(SalesOrder salesOrder,
+                                                              String approvalCode,
+                                                              String remark) {
+        if (orderService.hasPendingSalesRollbackApproval(salesOrder.getOrderId())) {
+            if (!isCompletedDrawingBudgetOrder(salesOrder)) {
+                orderService.approveSalesOrderRollback(salesOrder.getOrderId(), remark);
+            }
+            approvalAuditorCandidateService.closeActiveCandidates(
+                    salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
+            return ApprovalAuditResultVO.approved("订单审批");
+        }
+        if (ORDER_STATUS_PENDING_CANCEL.equals(salesOrder.getStatus()) && isDrawingBudgetOrder(salesOrder)) {
+            orderService.rejectPendingCancelSalesOrder(salesOrder.getOrderId(), remark);
+            approvalAuditorCandidateService.closeActiveCandidates(
+                    salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
+            return ApprovalAuditResultVO.approved("订单审批");
+        }
+        String targetStatus = resolveSalesApprovalNextStatus(salesOrder);
+        orderService.approveSalesOrderTransition(salesOrder.getOrderId(), targetStatus, remark);
+        approvalAuditorCandidateService.closeActiveCandidates(
+                salesOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
+        return ApprovalAuditResultVO.approved("订单审批");
+    }
+
+    private ApprovalAuditResultVO completeApprovedProductionOrder(ProductionOrder productionOrder,
+                                                                   String approvalCode,
+                                                                   String remark) {
+        if (orderService.hasPendingProductionRollbackApproval(productionOrder.getOrderId())) {
+            orderService.approveProductionOrderRollback(productionOrder.getOrderId(), remark);
+        } else {
+            String targetStatus = resolveProductionApprovalNextStatus(productionOrder);
+            orderService.approveProductionOrderTransition(productionOrder.getOrderId(), targetStatus, remark);
+        }
+        approvalAuditorCandidateService.closeActiveCandidates(
+                productionOrder.getTenantCode(), APPROVAL_TYPE_ORDER, approvalCode);
+        return ApprovalAuditResultVO.approved("订单审批");
     }
 
     private ApprovalAuditResultVO pendingOrderApprovalResult(String tenantCode, String approvalCode) {

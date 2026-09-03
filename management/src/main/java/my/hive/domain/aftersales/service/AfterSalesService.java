@@ -154,6 +154,7 @@ public class AfterSalesService {
                 .eq(AfterSalesTicketPart::getTicketId, ticket.getId())
                 .orderByAsc(AfterSalesTicketPart::getId)));
         ticket.setRepairImages(resolveRepairImages(ticket.getAttachmentUrlsJson()));
+        ticket.setFollowUpImages(resolveRepairImages(ticket.getFollowUpImagesJson()));
         return ticket;
     }
 
@@ -242,34 +243,43 @@ public class AfterSalesService {
     }
 
     private List<AfterSalesRepairImageVO> normalizeRepairImages(List<AfterSalesRepairImageRequest> requested) {
+        return normalizeAfterSalesImages(requested, "维修图片");
+    }
+
+    private List<AfterSalesRepairImageVO> normalizeFollowUpImages(List<AfterSalesRepairImageRequest> requested) {
+        return normalizeAfterSalesImages(requested, "回访图片");
+    }
+
+    private List<AfterSalesRepairImageVO> normalizeAfterSalesImages(List<AfterSalesRepairImageRequest> requested,
+                                                                     String imageLabel) {
         if (requested == null || requested.isEmpty()) {
             return List.of();
         }
         if (requested.size() > MAX_REPAIR_IMAGES) {
-            throw new BusinessException("维修图片最多上传9张");
+            throw new BusinessException(imageLabel + "最多上传9张");
         }
         String tenantCode = TenantPermissionContext.getTenantCode();
         Map<String, AfterSalesRepairImageVO> uniqueImages = new LinkedHashMap<>();
         for (AfterSalesRepairImageRequest image : requested) {
             if (image == null) {
-                throw new BusinessException("维修图片信息不能为空");
+                throw new BusinessException(imageLabel + "信息不能为空");
             }
-            String fileName = cleanRequired(image.getFileName(), "维修图片名称不能为空");
+            String fileName = cleanRequired(image.getFileName(), imageLabel + "名称不能为空");
             if (fileName.length() > 255) {
-                throw new BusinessException("维修图片名称不能超过255个字符");
+                throw new BusinessException(imageLabel + "名称不能超过255个字符");
             }
             String fileUrl = InternalUploadUrlValidator.normalizeStoredUploadUrl(
-                    cleanRequired(image.getFileUrl(), "维修图片地址不能为空"),
+                    cleanRequired(image.getFileUrl(), imageLabel + "地址不能为空"),
                     contextPath,
                     tenantCode,
                     "after-sales-repair"
             );
             Long fileSize = image.getFileSize();
             if (fileSize != null && (fileSize < 0 || fileSize > MAX_REPAIR_IMAGE_BYTES)) {
-                throw new BusinessException("单张维修图片不能超过5MB");
+                throw new BusinessException("单张" + imageLabel + "不能超过5MB");
             }
             if (uniqueImages.containsKey(fileUrl)) {
-                throw new BusinessException("同一维修图片不能重复添加");
+                throw new BusinessException("同一" + imageLabel + "不能重复添加");
             }
             AfterSalesRepairImageVO normalized = new AfterSalesRepairImageVO();
             normalized.setFileName(fileName);
@@ -419,6 +429,10 @@ public class AfterSalesService {
         ticket.setFollowUpSatisfaction(normalizeFollowUpSatisfaction(request.getSatisfaction()));
         ticket.setFollowUpResolved(Boolean.TRUE.equals(request.getResolved()) ? 1 : 0);
         ticket.setFollowUpContent(cleanRequired(request.getContent(), "请填写回访内容"));
+        if (request.getFollowUpImages() != null) {
+            List<AfterSalesRepairImageVO> followUpImages = normalizeFollowUpImages(request.getFollowUpImages());
+            ticket.setFollowUpImagesJson(followUpImages.isEmpty() ? null : JSON.toJSONString(followUpImages));
+        }
         ticketMapper.updateById(ticket);
         return ticketDetail(ticket.getId());
     }

@@ -12,6 +12,8 @@ export const getAfterSalesTicketLogisticsTracking = (id) => request({
 export const saveAfterSalesTicket = (data) => request({ url: '/after-sales/tickets', method: 'post', data })
 export const uploadAfterSalesRepairImage = (data) => request({ url: '/after-sales/tickets/repair-image', method: 'post', data })
 export const downloadAfterSalesRepairImage = (params) => request({ url: '/after-sales/tickets/repair-image', method: 'get', params, responseType: 'blob' })
+export const uploadAfterSalesFollowUpImage = (data) => request({ url: '/after-sales/tickets/follow-up-image', method: 'post', data })
+export const downloadAfterSalesFollowUpImage = (params) => request({ url: '/after-sales/tickets/follow-up-image', method: 'get', params, responseType: 'blob' })
 export const updateAfterSalesTicketStatus = (data) => request({ url: '/after-sales/tickets/status', method: 'post', data })
 export const followUpAfterSalesTicket = (id, data) => request({ url: `/after-sales/tickets/${id}/follow-up`, method: 'post', data })
 export const getAfterSalesAssigneeOptions = (params) => request({ url: '/after-sales/assignee-options', method: 'get', params, silent: true })

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import my.hive.domain.aftersales.model.dto.AfterSalesRepairImageRequest;
 import my.hive.domain.aftersales.model.dto.AfterSalesTicketSaveRequest;
+import my.hive.domain.aftersales.model.dto.AfterSalesTicketFollowUpRequest;
 import my.hive.domain.aftersales.model.entity.AfterSalesTicket;
 import my.hive.domain.aftersales.model.vo.AfterSalesRepairImageVO;
 import my.hive.shared.context.TenantPermissionContext;
@@ -45,6 +46,13 @@ class AfterSalesRepairImageContractTest {
         assertThat(requestImages.getAnnotation(Size.class).max()).isEqualTo(9);
         assertThat(AfterSalesTicket.class.getDeclaredField("attachmentUrlsJson")).isNotNull();
         assertThat(AfterSalesTicket.class.getDeclaredField("repairImages").getType()).isEqualTo(List.class);
+
+        Field followUpImages = AfterSalesTicketFollowUpRequest.class.getDeclaredField("followUpImages");
+        assertThat(followUpImages.getType()).isEqualTo(List.class);
+        assertThat(followUpImages.getAnnotation(Valid.class)).isNotNull();
+        assertThat(followUpImages.getAnnotation(Size.class).max()).isEqualTo(9);
+        assertThat(AfterSalesTicket.class.getDeclaredField("followUpImagesJson")).isNotNull();
+        assertThat(AfterSalesTicket.class.getDeclaredField("followUpImages").getType()).isEqualTo(List.class);
     }
 
     @Test
@@ -61,6 +69,17 @@ class AfterSalesRepairImageContractTest {
                         "/uploads/after-sales-repair/TENANT_001/before.jpg",
                         "/uploads/after-sales-repair/TENANT_001/after.webp"
                 );
+    }
+
+    @Test
+    void normalizesMultipleFollowUpImagesAndRetainsOrder() {
+        List<AfterSalesRepairImageVO> normalized = normalizeFollowUp(List.of(
+                image("回访现场-1.jpg", "/uploads/after-sales-repair/TENANT_001/follow-up-1.jpg", 100L),
+                image("回访现场-2.webp", "/uploads/after-sales-repair/TENANT_001/follow-up-2.webp", 200L)
+        ));
+
+        assertThat(normalized).extracting(AfterSalesRepairImageVO::getFileName)
+                .containsExactly("回访现场-1.jpg", "回访现场-2.webp");
     }
 
     @Test
@@ -111,6 +130,11 @@ class AfterSalesRepairImageContractTest {
     @SuppressWarnings("unchecked")
     private List<AfterSalesRepairImageVO> normalize(List<AfterSalesRepairImageRequest> images) {
         return ReflectionTestUtils.invokeMethod(service, "normalizeRepairImages", images);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<AfterSalesRepairImageVO> normalizeFollowUp(List<AfterSalesRepairImageRequest> images) {
+        return ReflectionTestUtils.invokeMethod(service, "normalizeFollowUpImages", images);
     }
 
     @SuppressWarnings("unchecked")

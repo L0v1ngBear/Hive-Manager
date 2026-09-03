@@ -30,6 +30,9 @@ const ticketPartLocationMigrationPath = 'db-migrations/migrations/V20260826_008_
 const ticketPartLocationMigration = readRepo(ticketPartLocationMigrationPath)
 const followUpMigrationPath = 'db-migrations/migrations/V20260826_009_after_sales_ticket_follow_up.sql'
 const followUpMigration = readRepo(followUpMigrationPath)
+const followUpImagesMigrationPath = 'db-migrations/migrations/V20260902_001_after_sales_follow_up_images.sql'
+const followUpImagesMigration = readRepo(followUpImagesMigrationPath)
+const followUpRequest = readRepo('management/src/main/java/my/hive/domain/aftersales/model/dto/AfterSalesTicketFollowUpRequest.java')
 const customerPage = readRepo('management-ui/src/views/function/customer/customer.vue')
 const customerCreate = readRepo('management-ui/src/views/function/customer/customerCreate.vue')
 const customerService = readRepo('management/src/main/java/my/hive/domain/customer/service/CustomerService.java')
@@ -207,6 +210,25 @@ test('closed after-sales tickets can revise data without reopening workflow or r
   assert.match(manifest, /migrations\/V20260826_009_after_sales_ticket_follow_up\.sql/)
   const hash = createHash('sha256').update(followUpMigration).digest('hex')
   assert.match(checksums, new RegExp(`${hash}  migrations/V20260826_009_after_sales_ticket_follow_up\\.sql`))
+})
+
+test('after-sales follow-up stores and displays up to nine independent images', () => {
+  assert.match(followUpRequest, /@Size\(max = 9, message = "回访图片最多上传9张"\)/)
+  assert.match(followUpRequest, /private List<AfterSalesRepairImageRequest> followUpImages;/)
+  assert.match(ticketEntity, /private String followUpImagesJson;/)
+  assert.match(ticketEntity, /private List<AfterSalesRepairImageVO> followUpImages;/)
+  assert.match(service, /if \(request\.getFollowUpImages\(\) != null\) \{[\s\S]*?ticket\.setFollowUpImagesJson/)
+  assert.match(service, /ticket\.setFollowUpImagesJson\(followUpImages\.isEmpty\(\) \? null : JSON\.toJSONString\(followUpImages\)\)/)
+  assert.match(controller, /@PostMapping\(value = "\/tickets\/follow-up-image", consumes = MediaType\.MULTIPART_FORM_DATA_VALUE\)/)
+  assert.match(controller, /CODE_AFTER_SALES_PROCESS, message = "当前账号没有上传售后回访图片权限"/)
+  assert.match(api, /url: '\/after-sales\/tickets\/follow-up-image'/)
+  assert.match(page, /label="回访图片"/)
+  assert.match(page, /followUpForm\.followUpImages\.length >= 9/)
+  assert.match(page, /v-for="\(image, index\) in followUpForm\.followUpImages"/)
+  assert.match(followUpImagesMigration, /ADD COLUMN `follow_up_images_json` JSON NULL/)
+  assert.match(manifest, /migrations\/V20260902_001_after_sales_follow_up_images\.sql/)
+  const hash = createHash('sha256').update(followUpImagesMigration).digest('hex')
+  assert.match(checksums, new RegExp(`${hash}  migrations/V20260902_001_after_sales_follow_up_images\\.sql`))
 })
 
 test('after-sales warranty prompts calculate one-year and six-year coverage from opening date', () => {

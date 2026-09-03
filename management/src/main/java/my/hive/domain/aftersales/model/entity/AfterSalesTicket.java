@@ -54,6 +54,7 @@ public class AfterSalesTicket {
     private String followUpSatisfaction;
     private Integer followUpResolved;
     private String followUpContent;
+    private String followUpImagesJson;
     private Long creatorUserId;
     private String creatorName;
     private LocalDateTime createTime;
@@ -62,6 +63,8 @@ public class AfterSalesTicket {
     private List<AfterSalesTicketPart> parts;
     @TableField(exist = false)
     private List<AfterSalesRepairImageVO> repairImages;
+    @TableField(exist = false)
+    private List<AfterSalesRepairImageVO> followUpImages;
     @TableField(exist = false)
     private Boolean canAudit;
 }

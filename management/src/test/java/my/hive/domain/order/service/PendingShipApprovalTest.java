@@ -205,6 +205,38 @@ class PendingShipApprovalTest {
     }
 
     @Test
+    void migratedOrApprovalAdvancesThroughTheExistingOrderBusinessPath() {
+        SalesOrder order = pendingShipOrder();
+        ApprovalService approvalService = approvalServiceFor(order);
+        when(approvalAuditorCandidateService.resolveActiveDecisionForUpdate(
+                "tenant-a", "ORDER", "sales:SO-100"))
+                .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.APPROVED);
+
+        boolean completed = approvalService.reconcileApprovedOrder("tenant-a", "sales:SO-100");
+
+        assertTrue(completed);
+        verify(orderService).approveSalesOrderTransition(
+                "SO-100", "shipped", "订单审批规则调整为一人通过即可，系统自动推进历史待审订单");
+        verify(approvalAuditorCandidateService)
+                .closeActiveCandidates("tenant-a", "ORDER", "sales:SO-100");
+    }
+
+    @Test
+    void pendingOrApprovalIsNotAdvancedByReconciliation() {
+        ApprovalService approvalService = approvalServiceFor(pendingShipOrder());
+        when(approvalAuditorCandidateService.resolveActiveDecisionForUpdate(
+                "tenant-a", "ORDER", "sales:SO-100"))
+                .thenReturn(ApprovalAuditorCandidateService.ApprovalDecision.PENDING);
+
+        boolean completed = approvalService.reconcileApprovedOrder("tenant-a", "sales:SO-100");
+
+        assertEquals(false, completed);
+        verify(orderService, never()).approveSalesOrderTransition(anyString(), anyString(), anyString());
+        verify(approvalAuditorCandidateService, never())
+                .closeActiveCandidates(anyString(), anyString(), anyString());
+    }
+
+    @Test
     void approvingOneOfMultipleShipmentCandidatesKeepsOrderPendingShip() {
         SalesOrder order = pendingShipOrder();
         ApprovalService approvalService = approvalServiceFor(order);

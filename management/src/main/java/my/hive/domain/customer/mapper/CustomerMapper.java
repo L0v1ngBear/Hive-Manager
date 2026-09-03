@@ -15,7 +15,9 @@ public interface CustomerMapper extends BaseMapper<Customer> {
      */
     @InterceptorIgnore(tenantLine = "true")
     @Select("""
-            SELECT id, tenant_code, customer_name, customer_type, construction_area, create_time, update_time
+            SELECT id, tenant_code, customer_name, customer_type, construction_area,
+                   customer_address, opening_date, source_type, import_time, import_user_id, import_user_name,
+                   create_time, update_time
             FROM customer
             WHERE tenant_code = #{tenantCode}
               AND customer_name = #{customerName}

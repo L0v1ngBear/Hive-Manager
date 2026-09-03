@@ -4,6 +4,8 @@ import my.hive.domain.customer.mapper.CustomerContactMapper;
 import my.hive.domain.customer.mapper.CustomerMapper;
 import my.hive.domain.customer.mapper.CustomerProjectMapper;
 import my.hive.domain.customer.model.entity.Customer;
+import my.hive.domain.employee.mapper.EmployeeMapper;
+import my.hive.domain.employee.model.entity.Employee;
 import my.hive.shared.context.TenantPermissionContext;
 import my.hive.shared.dto.ImportResultVO;
 import my.hive.shared.utils.ExcelUtil;
@@ -28,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class CustomerImportProfileTest {
@@ -35,6 +38,7 @@ class CustomerImportProfileTest {
     private final CustomerMapper customerMapper = mock(CustomerMapper.class);
     private final CustomerContactMapper contactMapper = mock(CustomerContactMapper.class);
     private final CustomerProjectMapper projectMapper = mock(CustomerProjectMapper.class);
+    private final EmployeeMapper employeeMapper = mock(EmployeeMapper.class);
     private CustomerService service;
 
     @BeforeEach
@@ -45,6 +49,7 @@ class CustomerImportProfileTest {
         ReflectionTestUtils.setField(service, "customerContactMapper", contactMapper);
         ReflectionTestUtils.setField(service, "customerProjectMapper", projectMapper);
         ReflectionTestUtils.setField(service, "excelUtil", new ExcelUtil());
+        ReflectionTestUtils.setField(service, "employeeMapper", employeeMapper);
     }
 
     @AfterEach
@@ -81,6 +86,46 @@ class CustomerImportProfileTest {
         assertThat(customerCaptor.getValue().getCustomerAddress()).isEqualTo("北京市朝阳区示例路 8 号");
         assertThat(customerCaptor.getValue().getOpeningDate()).isEqualTo(LocalDate.of(2026, 8, 15));
         assertThat(customerCaptor.getValue().getCustomerType()).isEqualTo(1);
+    }
+
+    @Test
+    void importsCustomerWhenOptionalCellsAreBlank() throws Exception {
+        byte[] workbookBytes;
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            var sheet = workbook.createSheet("客户");
+            var header = sheet.createRow(0);
+            String[] headers = {"客户名称", "客户地址", "开业时间", "客户类型", "联系人", "联系电话", "项目名称", "施工区域", "项目负责人"};
+            for (int index = 0; index < headers.length; index++) {
+                header.createCell(index).setCellValue(headers[index]);
+            }
+            var row = sheet.createRow(1);
+            row.createCell(0).setCellValue("允许信息不完整的客户");
+            row.createCell(7).setCellValue("仅填写的施工区域");
+            row.createCell(8).setCellValue("仅填写的项目负责人");
+            workbook.write(output);
+            workbookBytes = output.toByteArray();
+        }
+        when(customerMapper.selectByTenantCodeAndNameForUpdate(
+                eq("TENANT_001"), eq("允许信息不完整的客户"))).thenReturn(null);
+        Employee importer = new Employee();
+        importer.setName("张导入");
+        when(employeeMapper.selectOne(any())).thenReturn(importer);
+
+        ImportResultVO result = service.importCustomers(new MockMultipartFile(
+                "file", "客户.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", workbookBytes));
+
+        assertThat(result.getSuccessCount()).isEqualTo(1);
+        assertThat(result.getFailCount()).isZero();
+        ArgumentCaptor<Customer> customerCaptor = ArgumentCaptor.forClass(Customer.class);
+        verify(customerMapper).insert(customerCaptor.capture());
+        assertThat(customerCaptor.getValue().getCustomerType()).isEqualTo(1);
+        assertThat(customerCaptor.getValue().getCustomerAddress()).isNull();
+        assertThat(customerCaptor.getValue().getOpeningDate()).isNull();
+        assertThat(customerCaptor.getValue().getSourceType()).isEqualTo("import");
+        assertThat(customerCaptor.getValue().getImportTime()).isNotNull();
+        assertThat(customerCaptor.getValue().getImportUserId()).isEqualTo(7L);
+        assertThat(customerCaptor.getValue().getImportUserName()).isEqualTo("张导入");
+        verifyNoInteractions(contactMapper, projectMapper);
     }
 
     @Test

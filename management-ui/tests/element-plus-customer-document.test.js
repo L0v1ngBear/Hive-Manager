@@ -46,7 +46,7 @@ test("customer filters use shell-width container queries at desktop sidebar widt
   const columnsAt = (shellWidth) => {
     if (shellWidth <= 40 * rem) return 1;
     if (shellWidth <= 64 * rem) return 2;
-    return 5;
+    return 6;
   };
 
   assert.match(globalStyle, /\.function-page-shell\s*\{[\s\S]*?container-type\s*:\s*inline-size/);
@@ -89,6 +89,17 @@ test("customer and document current-page exports use explicit row data", () => {
   assert.match(settings, /exportRowsToExcel/);
   assert.match(settings, /buildStructuredExportData/);
   assert.match(settings, /await exportRowsToExcel\([\s\S]*?headers: exportData\.headers,[\s\S]*?rows: exportData\.rows/);
+});
+
+test("customer pagination keeps its page count while a new page is loading", () => {
+  const customer = read("../src/views/function/customer/customer.vue");
+  const loadingBranch = customer.match(/onLoading\(value\)\s*\{[\s\S]*?\r?\n  \},\r?\n  onSuccess/)?.[0] || "";
+
+  assert.match(customer, /@current-change="changePage"/);
+  assert.match(loadingBranch, /customerList\.value = \[\]/);
+  assert.doesNotMatch(loadingBranch, /total\.value\s*=\s*0/);
+  assert.doesNotMatch(loadingBranch, /totalPages\.value\s*=\s*1/);
+  assert.match(customer, /pageNum\.value = nextPage\s*\r?\n  await fetchCustomerList\(\)/);
 });
 
 test("structured current-page export retains the row limit", () => {

@@ -166,6 +166,25 @@ public class ApprovalAuditorCandidateService {
         return !findPendingAuditorIds(tenantCode, approvalType, approvalCode).isEmpty();
     }
 
+    public List<ApprovalAuditorCandidate> findOrderGroupsReadyForOrReconciliation() {
+        List<ApprovalAuditorCandidate> rows = approvalAuditorCandidateMapper
+                .selectOrderGroupsReadyForOrReconciliation();
+        return rows == null ? List.of() : rows;
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public ApprovalDecision resolveActiveDecisionForUpdate(String tenantCode,
+                                                           String approvalType,
+                                                           String approvalCode) {
+        if (!StringUtils.hasText(tenantCode) || !StringUtils.hasText(approvalType)
+                || !StringUtils.hasText(approvalCode)) {
+            throw new BusinessException("审批决定参数不合法");
+        }
+        List<ApprovalAuditorCandidate> history = approvalAuditorCandidateMapper.selectApprovalForUpdate(
+                tenantCode, approvalType, approvalCode);
+        return resolveActiveDecision(history);
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public ApprovalDecision recordDecision(String tenantCode,
                                            String approvalType,
@@ -205,7 +224,14 @@ public class ApprovalAuditorCandidateService {
 
         List<ApprovalAuditorCandidate> current = approvalAuditorCandidateMapper.selectApprovalForUpdate(
                 tenantCode, approvalType, approvalCode);
-        List<ApprovalAuditorCandidate> active = current == null ? List.of() : current.stream()
+        return resolveActiveDecision(current);
+    }
+
+    private ApprovalDecision resolveActiveDecision(List<ApprovalAuditorCandidate> history) {
+        if (history == null || history.isEmpty()) {
+            return ApprovalDecision.LEGACY;
+        }
+        List<ApprovalAuditorCandidate> active = history.stream()
                 .filter(candidate -> STATUS_ACTIVE == valueOrDefault(candidate.getStatus()))
                 .toList();
         if (active.isEmpty()) {

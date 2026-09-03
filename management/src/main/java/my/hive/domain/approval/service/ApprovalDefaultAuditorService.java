@@ -177,8 +177,9 @@ public class ApprovalDefaultAuditorService {
     }
 
     public String resolveApprovalMode(String tenantCode, String approvalType) {
-        ApprovalDefaultAuditor entity = findActive(tenantCode, approvalType);
-        return normalizeApprovalMode(entity == null ? null : entity.getApprovalMode());
+        String normalizedType = normalizeType(approvalType);
+        ApprovalDefaultAuditor entity = findActive(tenantCode, normalizedType);
+        return resolveConfiguredApprovalMode(normalizedType, entity);
     }
 
     private ApprovalDefaultAuditorVO toVO(String tenantCode, String type) {
@@ -187,7 +188,7 @@ public class ApprovalDefaultAuditorService {
         vo.setApprovalType(type);
         vo.setApprovalTypeText(typeText(type));
         vo.setPermissionCode(permissionCode(type));
-        String approvalMode = normalizeApprovalMode(entity == null ? null : entity.getApprovalMode());
+        String approvalMode = resolveConfiguredApprovalMode(type, entity);
         vo.setApprovalMode(approvalMode);
         vo.setApprovalModeText(MODE_OR.equals(approvalMode) ? "一人通过即可" : "全部通过");
         vo.setConfigured(entity != null && entity.getAuditorId() != null);
@@ -254,6 +255,13 @@ public class ApprovalDefaultAuditorService {
 
     public String normalizeApprovalMode(String value) {
         return MODE_OR.equalsIgnoreCase(value == null ? "" : value.trim()) ? MODE_OR : MODE_AND;
+    }
+
+    private String resolveConfiguredApprovalMode(String approvalType, ApprovalDefaultAuditor entity) {
+        if (entity == null || !StringUtils.hasText(entity.getApprovalMode())) {
+            return TYPE_ORDER.equals(normalizeType(approvalType)) ? MODE_OR : MODE_AND;
+        }
+        return normalizeApprovalMode(entity.getApprovalMode());
     }
 
     private String validateApprovalMode(String value) {

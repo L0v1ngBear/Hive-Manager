@@ -31,6 +31,14 @@ public class Customer {
 
     private LocalDate openingDate;
 
+    private String sourceType;
+
+    private LocalDateTime importTime;
+
+    private Long importUserId;
+
+    private String importUserName;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 

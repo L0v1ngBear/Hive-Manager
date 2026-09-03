@@ -17,6 +17,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -98,6 +99,23 @@ class ApprovalAuditorCandidateServiceTest {
                 "tenant-a", "ORDER", "sales:SO-100", 11L, true, "ok");
 
         assertEquals(ApprovalAuditorCandidateService.ApprovalDecision.APPROVED, result);
+    }
+
+    @Test
+    void resolvesMigratedOrGroupWithApprovedAndPendingCandidatesAsApproved() {
+        ApprovalAuditorCandidate approved = candidate(1L, "tenant-a", 11L, 1, 1);
+        ApprovalAuditorCandidate pending = candidate(2L, "tenant-a", 12L, 1, 0);
+        approved.setApprovalMode("OR");
+        pending.setApprovalMode("OR");
+        when(mapper.selectApprovalForUpdate("tenant-a", "ORDER", "sales:SO-100"))
+                .thenReturn(List.of(approved, pending));
+
+        ApprovalAuditorCandidateService.ApprovalDecision result = subject
+                .resolveActiveDecisionForUpdate("tenant-a", "ORDER", "sales:SO-100");
+
+        assertEquals(ApprovalAuditorCandidateService.ApprovalDecision.APPROVED, result);
+        verify(mapper, never()).updatePendingDecision(
+                any(), any(), any(), any(), anyInt(), any(), any(LocalDateTime.class));
     }
 
     @Test

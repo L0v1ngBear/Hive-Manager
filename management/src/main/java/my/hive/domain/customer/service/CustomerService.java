@@ -22,6 +22,8 @@ import my.hive.domain.customer.model.enums.CustomerTypeEnum;
 import my.hive.domain.customer.model.vo.CustomerDetailVO;
 import my.hive.domain.customer.model.vo.CustomerOptionVO;
 import my.hive.domain.customer.model.vo.CustomerPageVO;
+import my.hive.domain.employee.mapper.EmployeeMapper;
+import my.hive.domain.employee.model.entity.Employee;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,7 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.HashSet;
@@ -46,6 +49,13 @@ import java.util.stream.Collectors;
  */
 @Service
 public class CustomerService {
+
+    private static final String SOURCE_MANUAL = "manual";
+    private static final String SOURCE_IMPORT = "import";
+    private static final String SOURCE_AFTER_SALES = "after_sales";
+    private static final String SOURCE_UNKNOWN = "unknown";
+    private static final Set<String> CUSTOMER_SOURCE_FILTERS = Set.of(
+            SOURCE_MANUAL, SOURCE_IMPORT, SOURCE_AFTER_SALES, SOURCE_UNKNOWN);
 
     private static final int DEFAULT_PAGE_NUM = 1;
     private static final int DEFAULT_PAGE_SIZE = 10;
@@ -73,8 +83,19 @@ public class CustomerService {
     @Resource
     private ExcelUtil excelUtil;
 
+    @Resource
+    private EmployeeMapper employeeMapper;
+
     @Transactional(rollbackFor = Exception.class)
     public void addCustomer(CustomerAddRequest request) {
+        addCustomer(request, SOURCE_MANUAL, null, null, null);
+    }
+
+    private void addCustomer(CustomerAddRequest request,
+                             String sourceType,
+                             LocalDateTime importTime,
+                             Long importUserId,
+                             String importUserName) {
         String tenantCode = TenantPermissionContext.getTenantCode();
 
         Customer existing = customerMapper.selectByTenantCodeAndNameForUpdate(tenantCode, request.getCustomerName());
@@ -88,6 +109,10 @@ public class CustomerService {
         customer.setCustomerAddress(normalizeCustomerAddress(request.getCustomerAddress()));
         customer.setOpeningDate(request.getOpeningDate());
         customer.setTenantCode(tenantCode);
+        customer.setSourceType(sourceType);
+        customer.setImportTime(importTime);
+        customer.setImportUserId(importUserId);
+        customer.setImportUserName(importUserName);
         customerMapper.insert(customer);
         saveContactsAndProjects(tenantCode, customer.getId(), request);
     }
@@ -145,6 +170,12 @@ public class CustomerService {
         }
         if (request.getCustomerType() != null) {
             wrapper.eq(Customer::getCustomerType, request.getCustomerType());
+        }
+        String sourceType = cleanCustomerSourceFilter(request.getSourceType());
+        if (SOURCE_UNKNOWN.equals(sourceType)) {
+            wrapper.isNull(Customer::getSourceType);
+        } else if (sourceType != null) {
+            wrapper.eq(Customer::getSourceType, sourceType);
         }
         if (request.getCreateStart() != null) {
             wrapper.ge(Customer::getCreateTime, request.getCreateStart().atStartOfDay());
@@ -285,6 +316,7 @@ public class CustomerService {
             customer.setCustomerType(CustomerTypeEnum.DEFAULT.getCode());
             customer.setCustomerAddress(normalizedCustomerAddress);
             customer.setOpeningDate(openingDate);
+            customer.setSourceType(SOURCE_AFTER_SALES);
             customerMapper.insert(customer);
         } else {
             boolean changed = false;
@@ -355,11 +387,12 @@ public class CustomerService {
                         List.of("示例总包", "北京市朝阳区示例路 2 号", "2025-05-20", "总包方", "王工", "13900030002", "", "", "")),
                 List.of(
                         "仅支持 .xlsx 文件导入。",
-                        "每行新增一个客户；客户名称为必填项，客户地址和开业时间可留空。",
+                        "每行新增一个客户；仅客户名称为必填项，其他未填写的数据均可留空。",
                         "也支持仅包含“客户名称、客户地址、开业时间”的三列表格；未填写客户类型时默认按直客（甲方）导入。",
                         "客户类型支持：直客（甲方）、总包方、分包方，也可填写 1、2、3。",
                         "开业时间请填写为 yyyy-MM-dd，例如 2026-08-01。",
-                        "联系人、联系电话、项目名称、施工区域、项目负责人均为可选项；旧版七列表格仍可继续导入。",
+                        "联系人、联系电话、项目名称、施工区域、项目负责人均为可选项；未填写项目名称时不保存该行的施工区域和项目负责人，但客户仍会导入。",
+                        "旧版七列表格仍可继续导入。",
                         "同一客户名称不能重复；系统不会覆盖已有客户。"),
                 "客户导入模板.xlsx");
     }
@@ -369,6 +402,9 @@ public class CustomerService {
         excelUtil.validateXlsxImportFile(file, MAX_IMPORT_FILE_SIZE_BYTES);
         ImportResultVO result = new ImportResultVO();
         Set<String> importedNames = new HashSet<>();
+        LocalDateTime importTime = LocalDateTime.now();
+        Long importUserId = TenantPermissionContext.getUserId();
+        String importUserName = currentOperatorName(importUserId);
         try (var inputStream = file.getInputStream(); var workbook = WorkbookFactory.create(inputStream)) {
             Sheet sheet = workbook.getSheetAt(0);
             Row header = sheet.getRow(0);
@@ -388,7 +424,7 @@ public class CustomerService {
                     if (!importedNames.add(nameKey)) {
                         throw new BusinessException("客户名称在导入文件中重复：" + nameKey);
                     }
-                    addCustomer(request);
+                    addCustomer(request, SOURCE_IMPORT, importTime, importUserId, importUserName);
                     result.setSuccessCount(result.getSuccessCount() + 1);
                 } catch (Exception exception) {
                     result.setFailCount(result.getFailCount() + 1);
@@ -428,10 +464,7 @@ public class CustomerService {
         String projectName = cellText(row, layout.projectNameIndex());
         String constructionArea = cellText(row, layout.constructionAreaIndex());
         String projectOwner = cellText(row, layout.projectOwnerIndex());
-        if (!projectName.isBlank() || !constructionArea.isBlank() || !projectOwner.isBlank()) {
-            if (projectName.isBlank()) {
-                throw new BusinessException("填写施工区域或项目负责人时，项目名称不能为空");
-            }
+        if (!projectName.isBlank()) {
             CustomerProject project = new CustomerProject();
             project.setProjectName(projectName.trim());
             project.setConstructionArea(constructionArea.trim());
@@ -483,8 +516,11 @@ public class CustomerService {
     }
 
     private Integer parseCustomerType(String value) {
-        String type = requiredImportText(value, "客户类型不能为空");
-        return switch (type.trim()) {
+        if (value == null || value.isBlank()) {
+            return CustomerTypeEnum.DEFAULT.getCode();
+        }
+        String type = value.trim();
+        return switch (type) {
             case "1", "直客", "直客（甲方）" -> 1;
             case "2", "总包", "总包方" -> 2;
             case "3", "分包", "分包方" -> 3;
@@ -501,6 +537,24 @@ public class CustomerService {
 
     private String importErrorMessage(Exception exception) {
         return exception.getMessage() == null || exception.getMessage().isBlank() ? "数据不合法" : exception.getMessage();
+    }
+
+    private String cleanCustomerSourceFilter(String value) {
+        if (StringUtils.isBlank(value)) return null;
+        String normalized = value.trim().toLowerCase();
+        if (!CUSTOMER_SOURCE_FILTERS.contains(normalized)) {
+            throw new BusinessException("客户来源筛选值不正确");
+        }
+        return normalized;
+    }
+
+    private String currentOperatorName(Long userId) {
+        if (userId == null) return "系统用户";
+        Employee employee = employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
+                .eq(Employee::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(Employee::getId, userId)
+                .last("LIMIT 1"));
+        return employee == null || StringUtils.isBlank(employee.getName()) ? "用户" + userId : employee.getName().trim();
     }
 
     private void saveContactsAndProjects(String tenantCode, Long customerId, CustomerAddRequest request) {

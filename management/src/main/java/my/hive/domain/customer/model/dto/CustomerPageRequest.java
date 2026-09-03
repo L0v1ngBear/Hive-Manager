@@ -12,6 +12,7 @@ public class CustomerPageRequest {
     private Integer pageSize = 10;
     private String keyword;
     private Integer customerType;
+    private String sourceType;
     private LocalDate createStart;
     private LocalDate createEnd;
 }

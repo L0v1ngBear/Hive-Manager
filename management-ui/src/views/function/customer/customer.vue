@@ -75,6 +75,12 @@
             <el-option label="总包方" value="2" />
             <el-option label="分包方" value="3" />
           </el-select>
+          <el-select v-model="filters.sourceType" class="w-full sm:w-[180px]" placeholder="全部客户来源" clearable :value-on-clear="''">
+            <el-option label="导入客户" value="import" />
+            <el-option label="手工新增" value="manual" />
+            <el-option label="售后同步" value="after_sales" />
+            <el-option label="历史来源未记录" value="unknown" />
+          </el-select>
           <el-date-picker
             v-model="filters.createStart"
             class="w-full sm:w-[150px]"
@@ -135,8 +141,9 @@
             <template #default="{ row: customer }">
               <template v-if="field.key === 'customerName'">
                 <div class="min-w-0">
-                  <div class="truncate leading-tight font-bold text-primary">{{ customer.customerName }}</div>
-                  <div class="mt-1 text-xs text-on-surface-variant">客户编号 #{{ customer.id }}</div>
+                  <div class="flex min-w-0 items-center gap-2 leading-tight font-bold text-primary"><span class="truncate">{{ customer.customerName }}</span><el-tag v-if="customer.sourceType === 'import'" size="small" type="success" effect="plain">导入</el-tag></div>
+                  <div class="mt-1 text-xs text-on-surface-variant">客户编号 #{{ customer.id }} · {{ customerSourceLabel(customer.sourceType) }}</div>
+                  <div v-if="customer.sourceType === 'import'" class="mt-1 text-xs text-on-surface-variant">{{ customer.importTime || '--' }} · {{ customer.importUserName || '未知导入人' }}</div>
                 </div>
               </template>
               <span v-else-if="field.key === 'customerType'" class="text-sm font-bold text-secondary">
@@ -222,6 +229,14 @@
               <div class="text-xs text-on-surface-variant">{{ fieldLabel('openingDate', '开业时间') }}</div>
               <div class="mt-2 text-base font-bold text-secondary">{{ detailData.openingDate || '未填写' }}</div>
             </div>
+            <div class="rounded-xl bg-surface-container-low p-4">
+              <div class="text-xs text-on-surface-variant">客户来源</div>
+              <div class="mt-2 text-base font-bold text-secondary">{{ customerSourceLabel(detailData.sourceType) }}</div>
+            </div>
+            <div v-if="detailData.sourceType === 'import'" class="rounded-xl bg-surface-container-low p-4">
+              <div class="text-xs text-on-surface-variant">导入记录</div>
+              <div class="mt-2 text-sm font-bold text-primary">{{ detailData.importTime || '--' }} · {{ detailData.importUserName || '未知导入人' }}</div>
+            </div>
           </section>
 
           <section v-if="isCustomerFieldVisible('contactName') || isCustomerFieldVisible('contactPhone')">
@@ -270,6 +285,7 @@ import {
   ElPagination,
   ElResult,
   ElSelect,
+  ElTag,
   ElTable,
   ElTableColumn
 } from 'element-plus'
@@ -302,7 +318,7 @@ const detailData = ref(null)
 const detailError = ref(null)
 const detailEmpty = ref(false)
 const selectedCustomerId = ref(null)
-const filters = reactive({ keyword: '', customerType: '', createStart: '', createEnd: '' })
+const filters = reactive({ keyword: '', customerType: '', sourceType: '', createStart: '', createEnd: '' })
 const customerList = ref([])
 const listError = ref(null)
 const total = ref(0)
@@ -317,7 +333,7 @@ const canViewCustomerDetail = computed(() => userStore.hasPermission('customer:d
 const canExportTable = computed(() => userStore.hasPermission('customer:export'))
 const canImportCustomer = computed(() => userStore.hasPermission('customer:import'))
 const hasCustomerFilters = computed(() => Boolean(
-  filters.keyword || filters.customerType || filters.createStart || filters.createEnd
+  filters.keyword || filters.customerType || filters.sourceType || filters.createStart || filters.createEnd
 ))
 const customerEmptyDescription = computed(() => hasCustomerFilters.value ? '没有符合筛选条件的客户' : '暂无客户数据')
 
@@ -327,8 +343,6 @@ const customerListRunner = createLatestRequestRunner({
     if (value) {
       listError.value = null
       customerList.value = []
-      total.value = 0
-      totalPages.value = 1
     }
   },
   onSuccess(page) {
@@ -374,6 +388,7 @@ const getTypeLabel = (type) => {
   const map = { 1: '直客（甲方）', 2: '总包方', 3: '分包方' }
   return map[type] || '未知类型'
 }
+const customerSourceLabel = (sourceType) => ({ import: '导入客户', manual: '手工新增', after_sales: '售后同步' }[sourceType] || '历史来源未记录')
 
 const firstContact = (customer) => Array.isArray(customer?.contacts) && customer.contacts.length > 0 ? customer.contacts[0] : null
 const firstProject = (customer) => Array.isArray(customer?.projects) && customer.projects.length > 0 ? customer.projects[0] : null
@@ -413,6 +428,7 @@ async function fetchCustomerList() {
       pageSize: pageSize.value,
       keyword: filters.keyword || undefined,
       customerType: filters.customerType === '' ? undefined : Number(filters.customerType),
+      sourceType: filters.sourceType || undefined,
       createStart: filters.createStart || undefined,
       createEnd: filters.createEnd || undefined
     }))
@@ -514,6 +530,7 @@ function handleFilter() {
 function resetFilter() {
   filters.keyword = ''
   filters.customerType = ''
+  filters.sourceType = ''
   filters.createStart = ''
   filters.createEnd = ''
   pageNum.value = 1
@@ -582,7 +599,7 @@ watch(
 }
 
 .customer-filter-form {
-  grid-template-columns: minmax(16rem, 1.5fr) repeat(3, minmax(10rem, 1fr)) minmax(15rem, auto);
+  grid-template-columns: minmax(16rem, 1.5fr) repeat(4, minmax(10rem, 1fr)) minmax(15rem, auto);
   padding: 1rem;
   border-bottom: 1px solid rgba(200, 211, 223, 0.64);
 }

@@ -122,6 +122,21 @@ public class AfterSalesController {
                 .body(resource);
     }
 
+    @PostMapping(value = "/tickets/follow-up-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @RequirePermission(value = PermissionCatalogV3.CODE_AFTER_SALES_PROCESS, message = "当前账号没有上传售后回访图片权限")
+    @CollectLog(module = "after_sales", action = "upload_follow_up_image", bizType = "after_sales_ticket", description = "上传售后回访图片")
+    public Result<BusinessAttachmentVO> uploadFollowUpImage(@RequestParam("file") MultipartFile file) {
+        validateAfterSalesImage(file, "售后回访图片");
+        return Result.success(businessAttachmentService.upload(file, "after-sales-repair"));
+    }
+
+    @GetMapping("/tickets/follow-up-image")
+    @RequirePermission(value = {PermissionCatalogV3.CODE_AFTER_SALES_DETAIL, PermissionCatalogV3.CODE_AFTER_SALES_PROCESS}, message = "当前账号没有查看售后回访图片权限")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadFollowUpImage(@RequestParam String url,
+                                                                                       @RequestParam(required = false) String name) {
+        return downloadRepairImage(url, name);
+    }
+
     @PostMapping("/tickets/status")
     @RequirePermission(value = PermissionCatalogV3.CODE_AFTER_SALES_PROCESS, message = "当前账号没有处理售后工单权限")
     @CollectLog(module = "after_sales", action = "ticket_status", bizType = "after_sales_ticket", bizNo = "#request.ticketId", description = "推进售后工单")
@@ -198,12 +213,16 @@ public class AfterSalesController {
     }
 
     private void validateRepairImage(MultipartFile file) {
-        if (file == null || file.isEmpty()) throw new BusinessException("请选择售后维修图片");
-        if (file.getSize() > REPAIR_IMAGE_MAX_SIZE) throw new BusinessException("售后维修图片不能超过5MB");
+        validateAfterSalesImage(file, "售后维修图片");
+    }
+
+    private void validateAfterSalesImage(MultipartFile file, String imageLabel) {
+        if (file == null || file.isEmpty()) throw new BusinessException("请选择" + imageLabel);
+        if (file.getSize() > REPAIR_IMAGE_MAX_SIZE) throw new BusinessException(imageLabel + "不能超过5MB");
         String name = file.getOriginalFilename();
         int dot = name == null ? -1 : name.lastIndexOf('.');
         String extension = dot < 0 ? "" : name.substring(dot + 1).toLowerCase(Locale.ROOT);
-        if (!REPAIR_IMAGE_EXTENSIONS.contains(extension)) throw new BusinessException("售后维修图片仅支持 PNG、JPG、JPEG 或 WebP 格式");
+        if (!REPAIR_IMAGE_EXTENSIONS.contains(extension)) throw new BusinessException(imageLabel + "仅支持 PNG、JPG、JPEG 或 WebP 格式");
     }
 
     private void requireSavePermission(boolean creating, String message) {
