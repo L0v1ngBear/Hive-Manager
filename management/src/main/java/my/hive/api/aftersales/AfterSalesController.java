@@ -190,6 +190,20 @@ public class AfterSalesController {
         return Result.success(businessAttachmentService.upload(file, "after-sales-part"));
     }
 
+    @GetMapping("/parts/photo")
+    @RequirePermission(value = PermissionCatalogV3.CODE_AFTER_SALES_PART_LIST, message = "当前账号没有查看配件图片权限")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadPartPhoto(@RequestParam String url) {
+        org.springframework.core.io.Resource resource = businessAttachmentService.load(url, "after-sales-part");
+        String filename = resource.getFilename();
+        String encodedFilename = URLEncoder.encode(filename == null ? "after-sales-part-image" : filename, StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return ResponseEntity.ok()
+                .contentType(MediaTypeFactory.getMediaType(filename == null ? "part-image" : filename)
+                        .orElse(MediaType.APPLICATION_OCTET_STREAM))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + encodedFilename)
+                .body(resource);
+    }
+
     @PostMapping("/parts/stock-in")
     @RequirePermission(value = PermissionCatalogV3.CODE_AFTER_SALES_PART_STOCK_IN, message = "当前账号没有配件入库权限")
     @CollectLog(module = "after_sales", action = "part_stock_in", bizType = "after_sales_part", bizNo = "#request.partId", description = "售后配件入库")

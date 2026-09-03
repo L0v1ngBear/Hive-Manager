@@ -24,6 +24,7 @@ export const outboundAfterSalesTicket = (id) => request({ url: `/after-sales/tic
 export const getAfterSalesParts = (params) => request({ url: '/after-sales/parts', method: 'get', params })
 export const saveAfterSalesPart = (data) => request({ url: '/after-sales/parts', method: 'post', data })
 export const uploadAfterSalesPartPhoto = (data) => request({ url: '/after-sales/parts/photo', method: 'post', data })
+export const downloadAfterSalesPartPhoto = (params) => request({ url: '/after-sales/parts/photo', method: 'get', params, responseType: 'blob' })
 export const stockInAfterSalesPart = (data) => request({ url: '/after-sales/parts/stock-in', method: 'post', data })
 export const getAfterSalesOrderOptions = (params) => request({ url: '/after-sales/order-options', method: 'get', params })
 export const getAfterSalesCustomerOptions = (params) => request({ url: '/after-sales/customer-options', method: 'get', params })

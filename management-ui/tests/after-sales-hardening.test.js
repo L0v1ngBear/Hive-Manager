@@ -121,6 +121,17 @@ test('after-sales repair images use the existing ticket JSON column and tenant-s
   assert.match(page, /downloadAfterSalesRepairImage/)
 })
 
+test('after-sales part photos use an authenticated tenant-scoped blob preview', () => {
+  assert.match(controller, /@GetMapping\("\/parts\/photo"\)/)
+  assert.match(controller, /CODE_AFTER_SALES_PART_LIST, message = "当前账号没有查看配件图片权限"/)
+  assert.match(controller, /businessAttachmentService\.load\(url, "after-sales-part"\)/)
+  assert.match(api, /downloadAfterSalesPartPhoto = \(params\) => request\(\{ url: '\/after-sales\/parts\/photo', method: 'get', params, responseType: 'blob' \}\)/)
+  assert.match(page, /downloadAfterSalesPartPhoto\(\{ url: fileUrl \}\)/)
+  assert.match(page, /partPhotoPreviewUrl\.value = URL\.createObjectURL\(blob\)/)
+  assert.match(page, /URL\.revokeObjectURL\(partPhotoPreviewUrl\.value\)/)
+  assert.doesNotMatch(page, /<el-image v-if="partForm\.photoUrl" :src="partForm\.photoUrl"/)
+})
+
 test('after-sales permission migration compares identifier codes without collation coercion', () => {
   assert.match(permissionMigration, /role_code varchar\(50\) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL/)
   assert.match(permissionMigration, /perm_code varchar\(100\) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL/)
