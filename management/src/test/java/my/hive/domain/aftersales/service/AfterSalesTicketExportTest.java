@@ -60,7 +60,8 @@ class AfterSalesTicketExportTest {
             assertThat(workbook.getSheetAt(0).getSheetName()).isEqualTo("售后工单");
             assertThat(workbook.getSheetAt(0).getRow(0).getCell(0).getStringCellValue()).isEqualTo("工单号");
             assertThat(workbook.getSheetAt(0).getRow(1).getCell(0).getStringCellValue()).isEqualTo("AS202609010001");
-            assertThat(workbook.getSheetAt(0).getRow(1).getCell(4).getStringCellValue()).isEmpty();
+            assertThat(workbook.getSheetAt(0).getRow(1).getCell(1).getStringCellValue()).isEmpty();
+            assertThat(workbook.getSheetAt(0).getRow(1).getCell(4).getStringCellValue()).isEqualTo("示例客户");
             assertThat(workbook.getSheetAt(0).getColumnWidth(0)).isEqualTo(20 * 256);
             assertThat(workbook.getSheetAt(0).getColumnWidth(20)).isEqualTo(20 * 256);
         }

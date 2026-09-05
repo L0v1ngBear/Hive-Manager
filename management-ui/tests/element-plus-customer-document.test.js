@@ -31,7 +31,7 @@ test("customer list separates header actions from collapsible filters", () => {
   assert.doesNotMatch(header, /v-filter-collapse|class="function-filter-form/);
   assert.match(listPanel, /v-filter-collapse class="function-filter-form customer-filter-form"/);
   assert.match(listPanel, /class="function-table-scroll responsive-table-wrap"/);
-  assert.match(listPanel, /<el-table-column label="操作" fixed="right" width="76"/);
+  assert.match(listPanel, /<el-table-column label="操作" fixed="right" width="116"/);
   assert.match(listPanel, /@row-click="handleCustomerRowClick"/);
   assert.doesNotMatch(listPanel, /visibility/);
   assert.match(customer, /class="customer-summary-grid"/);

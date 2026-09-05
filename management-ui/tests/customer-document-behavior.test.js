@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
+
+const readRepo = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8')
 
 async function loadRequiredModule(path, description) {
   try {
@@ -75,6 +78,23 @@ test('客户详情错误分类区分 HTTP 与业务状态，并保留真正空�
   assert.equal(resolveCustomerDetailOutcome({ response: { status: 503 } }).error.title, '客户服务暂时不可用')
   assert.equal(resolveCustomerDetailOutcome(new Error('network')).error.title, '客户详情加载失败')
   assert.deepEqual(resolveCustomerDetailOutcome(null), { empty: true, error: null })
+})
+
+test('客户删除使用独立权限，并保护已有业务关联的数据', () => {
+  const page = readRepo('management-ui/src/views/function/customer/customer.vue')
+  const api = readRepo('management-ui/src/views/function/customer/api/customer.js')
+  const controller = readRepo('management/src/main/java/my/hive/api/customer/CustomerController.java')
+  const service = readRepo('management/src/main/java/my/hive/domain/customer/service/CustomerService.java')
+
+  assert.match(page, /userStore\.hasPermission\('customer:delete'\)/)
+  assert.match(page, /确认删除客户/)
+  assert.match(api, /url: `\/customer\/\$\{id\}`/)
+  assert.match(api, /method: 'delete'/)
+  assert.match(controller, /@DeleteMapping\("\/\{id\}"\)/)
+  assert.match(controller, /CODE_CUSTOMER_DELETE/)
+  assert.match(service, /SalesOrder::getCustomerName, customer\.getCustomerName\(\)/)
+  assert.match(service, /AfterSalesTicket::getCustomerName, customer\.getCustomerName\(\)/)
+  assert.match(service, /PriceCustomerOverride::getCustomerId, customer\.getId\(\)/)
 })
 
 test('文档面包屑无权限时所有目录导航均不调用 API', async () => {

@@ -20,6 +20,7 @@ import my.hive.domain.customer.model.vo.CustomerOptionVO;
 import my.hive.domain.customer.model.vo.CustomerPageVO;
 import my.hive.domain.customer.service.CustomerService;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -56,6 +57,14 @@ public class CustomerController {
     @CollectLog(module = "customer", action = "update", bizType = "customer", bizNo = "#request.id", description = "管理端编辑客户")
     public Result<Void> updateCustomer(@Valid @RequestBody CustomerUpdateRequest request) {
         customerService.updateCustomer(request);
+        return Result.success(null);
+    }
+
+    @DeleteMapping("/{id}")
+    @RequirePermission(value = PermissionCatalogV3.CODE_CUSTOMER_DELETE, message = "您没有权限删除客户")
+    @CollectLog(module = "customer", action = "delete", bizType = "customer", bizNo = "#id", description = "管理端删除客户")
+    public Result<Void> deleteCustomer(@PathVariable Long id) {
+        customerService.deleteCustomer(id);
         return Result.success(null);
     }
 

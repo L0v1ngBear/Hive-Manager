@@ -90,25 +90,32 @@ public class OrderLogisticsTrackingService {
      * Reuses the same provider, cache and cooldown as an order shipment for a
      * separately dispatched after-sales waybill.
      */
-    public OrderLogisticsTrackingVO getTrackingForAfterSales(String orderId,
+    public OrderLogisticsTrackingVO getTrackingForAfterSales(String tenantCode,
                                                               String logisticsCompany,
                                                               String trackingNo,
                                                               Long ticketId) {
-        if (orderId == null || orderId.isBlank()) {
-            throw new BusinessException("关联订单不能为空");
-        }
-        SalesOrder order = orderService.getSalesOrderForLogisticsTracking(orderId.trim());
+        tenantCode = required(tenantCode, "当前组织不能为空");
         String company = required(logisticsCompany, "请补充物流公司后再查询物流轨迹");
         String waybill = required(trackingNo, "请补充物流单号后再查询物流轨迹");
-        return getTrackingForWaybill(order, company, waybill, "after-sales:" + (ticketId == null ? "new" : ticketId));
+        return getTrackingForWaybill(tenantCode, null, "after-sales", company, waybill,
+                "after-sales:" + (ticketId == null ? "new" : ticketId));
     }
 
     private OrderLogisticsTrackingVO getTrackingForWaybill(SalesOrder order,
                                                             String company,
                                                             String trackingNo,
                                                             String reference) {
+        return getTrackingForWaybill(order.getTenantCode(), order.getCustomerPhone(), order.getOrderId(), company, trackingNo, reference);
+    }
+
+    private OrderLogisticsTrackingVO getTrackingForWaybill(String tenantCode,
+                                                            String customerPhone,
+                                                            String cacheScope,
+                                                            String company,
+                                                            String trackingNo,
+                                                            String reference) {
         String companyCode = resolveCompanyCode(company, logisticsTrackingGateway.supportsCompanyCodeAutoRecognition());
-        String cacheSource = String.join("|", order.getTenantCode(), order.getOrderId(),
+        String cacheSource = String.join("|", tenantCode, cacheScope,
                 reference, company, trackingNo);
         String cacheKey = externalApiGuardService.fingerprint(cacheSource);
         String provider = logisticsTrackingGateway.providerCode() + "-logistics";
@@ -126,14 +133,15 @@ public class OrderLogisticsTrackingService {
                     return cached;
                 }
                 throwCachedFailure(provider, cacheKey);
-                return queryAndCache(order, company, companyCode, trackingNo, provider, cacheKey);
+                return queryAndCache(tenantCode, customerPhone, company, companyCode, trackingNo, provider, cacheKey);
             }
         } finally {
             queryLocks.remove(cacheKey, queryLock);
         }
     }
 
-    private OrderLogisticsTrackingVO queryAndCache(SalesOrder order,
+    private OrderLogisticsTrackingVO queryAndCache(String tenantCode,
+                                                    String customerPhone,
                                                     String company,
                                                     String companyCode,
                                                     String trackingNo,
@@ -141,7 +149,7 @@ public class OrderLogisticsTrackingService {
                                                     String cacheKey) {
         long startedAt = System.nanoTime();
         try {
-            String phoneSuffix = phoneSuffix(order.getCustomerPhone());
+            String phoneSuffix = phoneSuffix(customerPhone);
             OrderLogisticsTrackingVO result = logisticsTrackingGateway.query(
                     new LogisticsTrackingQuery(companyCode, trackingNo, phoneSuffix));
             result.setCompany(company);
@@ -168,7 +176,7 @@ public class OrderLogisticsTrackingService {
                     provider,
                     ACTION,
                     "SUCCESS",
-                    order.getTenantCode(),
+                    tenantCode,
                     200,
                     elapsedMillis(startedAt),
                     "logistics realtime query succeeded",
@@ -189,7 +197,7 @@ public class OrderLogisticsTrackingService {
                     provider,
                     ACTION,
                     "ERROR",
-                    order.getTenantCode(),
+                    tenantCode,
                     exception.getCode(),
                     elapsedMillis(startedAt),
                     "logistics realtime query failed",

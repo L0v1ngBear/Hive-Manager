@@ -69,7 +69,8 @@ public class AfterSalesService {
     private static final int MAX_TICKET_EXPORT_ROWS = 10_000;
     private static final int MAX_REPAIR_IMAGES = 9;
     private static final long MAX_REPAIR_IMAGE_BYTES = 5L * 1024L * 1024L;
-    private static final Set<String> TICKET_TYPES = Set.of("consultation", "diagnosis", "resend_parts", "on_site_repair", "motor_replacement");
+    private static final String TICKET_TYPE_PENDING_ASSIGNMENT = "pending_assignment";
+    private static final Set<String> TICKET_TYPES = Set.of(TICKET_TYPE_PENDING_ASSIGNMENT, "consultation", "diagnosis", "resend_parts", "on_site_repair", "motor_replacement");
     private static final Set<String> PRIORITIES = Set.of("low", "normal", "high", "urgent");
     private static final Set<String> PART_LOCATIONS = Set.of("三车间", "二车间", "其他");
     private static final String STATUS_DRAFT = "draft";
@@ -110,12 +111,12 @@ public class AfterSalesService {
         LambdaQueryWrapper<AfterSalesTicket> wrapper = buildTicketQuery(safe).orderByDesc(AfterSalesTicket::getCreateTime).orderByDesc(AfterSalesTicket::getId);
         long total = ticketMapper.selectCount(wrapper);
         if (total > MAX_TICKET_EXPORT_ROWS) throw new BusinessException("导出数据超过 " + MAX_TICKET_EXPORT_ROWS + " 行，请缩小时间筛选范围后重试");
-        List<String> headers = List.of("工单号", "创建时间", "项目名称", "客户名称", "关联订单", "处理方式", "负责人", "状态", "紧急程度", "物流公司", "物流单号", "联系人", "联系电话", "开业时间", "实际地址", "服务地址", "维修金额", "旧电机退还数量", "问题描述", "故障研判", "处理结果");
+        List<String> headers = List.of("工单号", "登记日期", "创建时间", "项目名称", "客户名称", "关联订单", "处理方式", "负责人", "状态", "紧急程度", "物流公司", "物流单号", "厂家返客户物流公司", "厂家返客户单号", "联系人", "联系电话", "开业时间", "实际地址", "服务地址", "维修金额", "旧电机退还数量", "问题描述", "故障研判", "处理结果");
         List<List<String>> rows = ticketMapper.selectList(wrapper).stream().map(ticket -> List.of(
-                excelUtil.stringify(ticket.getTicketNo()), excelUtil.stringify(ticket.getCreateTime()),
+                excelUtil.stringify(ticket.getTicketNo()), excelUtil.stringify(ticket.getRegistrationDate()), excelUtil.stringify(ticket.getCreateTime()),
                 excelUtil.stringify(ticket.getProjectName()), excelUtil.stringify(ticket.getCustomerName()), excelUtil.stringify(ticket.getOrderId()),
                 ticketTypeLabel(ticket.getTicketType()), excelUtil.stringify(ticket.getAssigneeName()), statusLabel(ticket.getStatus()), priorityLabel(ticket.getPriority()),
-                excelUtil.stringify(ticket.getLogisticsCompany()), excelUtil.stringify(ticket.getWaybillNo()), excelUtil.stringify(ticket.getContactName()),
+                excelUtil.stringify(ticket.getLogisticsCompany()), excelUtil.stringify(ticket.getWaybillNo()), excelUtil.stringify(ticket.getManufacturerReturnLogisticsCompany()), excelUtil.stringify(ticket.getManufacturerReturnWaybillNo()), excelUtil.stringify(ticket.getContactName()),
                 excelUtil.stringify(ticket.getContactPhone()), excelUtil.stringify(ticket.getOpeningDate()), excelUtil.stringify(ticket.getActualAddress()),
                 excelUtil.stringify(ticket.getServiceAddress()), excelUtil.stringify(ticket.getRepairAmount()), excelUtil.stringify(ticket.getReturnOldMotorQuantity()),
                 excelUtil.stringify(ticket.getProblemDesc()), excelUtil.stringify(ticket.getDiagnosis()), excelUtil.stringify(ticket.getResolution())
@@ -135,6 +136,8 @@ public class AfterSalesService {
         }
         if (clean(request.getStatus()) != null) wrapper.eq(AfterSalesTicket::getStatus, request.getStatus().trim());
         if (clean(request.getTicketType()) != null) wrapper.eq(AfterSalesTicket::getTicketType, request.getTicketType().trim());
+        if (request.getAssigneeUserId() != null) wrapper.eq(AfterSalesTicket::getAssigneeUserId, request.getAssigneeUserId());
+        if (Boolean.TRUE.equals(request.getOpenTasksOnly())) wrapper.notIn(AfterSalesTicket::getStatus, STATUS_CLOSED, STATUS_CANCELLED);
         LocalDate startDate = request.getCreatedStartDate();
         LocalDate endDate = request.getCreatedEndDate();
         if (startDate != null && endDate != null && startDate.isAfter(endDate)) throw new BusinessException("开始日期不能晚于结束日期");
@@ -143,7 +146,7 @@ public class AfterSalesService {
         return wrapper;
     }
 
-    private String ticketTypeLabel(String value) { return switch (value == null ? "" : value) { case "consultation" -> "咨询"; case "diagnosis" -> "故障研判"; case "resend_parts" -> "补发配件"; case "on_site_repair" -> "上门维修"; case "motor_replacement" -> "更换电机"; default -> value == null ? "" : value; }; }
+    private String ticketTypeLabel(String value) { return switch (value == null ? "" : value) { case TICKET_TYPE_PENDING_ASSIGNMENT -> "待指派确认"; case "consultation" -> "咨询"; case "diagnosis" -> "故障研判"; case "resend_parts" -> "补发配件"; case "on_site_repair" -> "上门维修"; case "motor_replacement" -> "更换电机"; default -> value == null ? "" : value; }; }
     private String statusLabel(String value) { return switch (value == null ? "" : value) { case "draft" -> "草稿"; case "pending_approval" -> "待售后审核"; case "waiting_outbound" -> "待配件出库"; case "processing" -> "处理中"; case "closed" -> "已结案"; case "cancelled" -> "已取消"; default -> value == null ? "" : value; }; }
     private String priorityLabel(String value) { return switch (value == null ? "" : value) { case "low" -> "低"; case "normal" -> "普通"; case "high" -> "高"; case "urgent" -> "紧急"; default -> value == null ? "" : value; }; }
 
@@ -161,7 +164,13 @@ public class AfterSalesService {
     @Transactional(rollbackFor = Exception.class)
     public AfterSalesTicket saveTicket(AfterSalesTicketSaveRequest request) {
         String tenantCode = TenantPermissionContext.getTenantCode();
-        String type = requireType(request.getTicketType());
+        boolean creating = request.getId() == null;
+        boolean hasFullEditPermission = TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_AFTER_SALES_UPDATE);
+        AfterSalesTicket ticket = creating ? null : requireTicket(request.getId());
+        if (!creating) {
+            requireTicketEditAccess(ticket, hasFullEditPermission);
+        }
+        String type = creating ? normalizeIntakeTicketType(request.getTicketType()) : requireType(request.getTicketType());
         String requestedOrderId = clean(request.getOrderId());
         SalesOrder order = requestedOrderId == null ? null : salesOrderMapper.selectByOrderIdForUpdate(tenantCode, requestedOrderId);
         if (requestedOrderId != null && order == null) throw new BusinessException("关联订单不存在或不属于当前组织");
@@ -174,22 +183,14 @@ public class AfterSalesService {
                     request.getActualAddress(), request.getOpeningDate());
             customerName = customer.getCustomerName();
         }
-        AfterSalesTicket ticket;
-        boolean creating = request.getId() == null;
-        boolean editingClosedTicket = false;
         if (creating) {
             ticket = new AfterSalesTicket();
             ticket.setTenantCode(tenantCode);
             ticket.setTicketNo(nextTicketNo());
             ticket.setCreatorUserId(TenantPermissionContext.getUserId());
             ticket.setCreatorName(currentOperatorName());
-        } else {
-            ticket = requireTicket(request.getId());
-            editingClosedTicket = STATUS_CLOSED.equals(ticket.getStatus());
-            if (!STATUS_DRAFT.equals(ticket.getStatus()) && !editingClosedTicket) {
-                throw new BusinessException("仅草稿或已结案工单可以编辑，处理中工单请通过处理操作推进");
-            }
         }
+        boolean editingWorkflowTicket = !creating && !STATUS_DRAFT.equals(ticket.getStatus());
         ticket.setOrderId(order == null ? null : order.getOrderId());
         ticket.setCustomerName(customerName);
         ticket.setCustomerPhone(customerPhone);
@@ -205,9 +206,12 @@ public class AfterSalesService {
         ticket.setDiagnosis(clean(request.getDiagnosis()));
         ticket.setResolution(clean(request.getResolution()));
         ticket.setScheduledTime(request.getScheduledTime());
+        ticket.setRegistrationDate(request.getRegistrationDate());
         ticket.setTechnicianName(clean(request.getTechnicianName()));
         ticket.setWaybillNo(clean(request.getWaybillNo()));
         ticket.setLogisticsCompany(clean(request.getLogisticsCompany()));
+        ticket.setManufacturerReturnWaybillNo(clean(request.getManufacturerReturnWaybillNo()));
+        ticket.setManufacturerReturnLogisticsCompany(clean(request.getManufacturerReturnLogisticsCompany()));
         ticket.setOldMotorInfo(clean(request.getOldMotorInfo()));
         ticket.setReturnOldMotor(Boolean.TRUE.equals(request.getReturnOldMotor()) ? 1 : 0);
         ticket.setReturnOldMotorQuantity(normalizeNonNegativeInteger(request.getReturnOldMotorQuantity(), "旧电机退还数量不能小于 0"));
@@ -216,14 +220,27 @@ public class AfterSalesService {
             List<AfterSalesRepairImageVO> repairImages = normalizeRepairImages(resolveRequestedRepairImages(request));
             ticket.setAttachmentUrlsJson(repairImages.isEmpty() ? null : JSON.toJSONString(repairImages));
         }
-        if (!editingClosedTicket) {
+        if (!editingWorkflowTicket) {
             ticket.setApprovalRequired(Boolean.TRUE.equals(request.getApprovalRequired()) ? 1 : 0);
             ticket.setStatus(Boolean.TRUE.equals(request.getApprovalRequired()) ? STATUS_PENDING_APPROVAL : (hasParts(request.getParts()) ? STATUS_WAITING_OUTBOUND : STATUS_DRAFT));
         }
         if (creating) ticketMapper.insert(ticket); else ticketMapper.updateById(ticket);
-        if (!editingClosedTicket) replaceTicketParts(ticket, request.getParts());
-        if (!editingClosedTicket && Boolean.TRUE.equals(request.getApprovalRequired())) submitTicketApproval(ticket);
+        if (!editingWorkflowTicket) replaceTicketParts(ticket, request.getParts());
+        if (!editingWorkflowTicket && Boolean.TRUE.equals(request.getApprovalRequired())) submitTicketApproval(ticket);
         return ticketDetail(ticket.getId());
+    }
+
+    private void requireTicketEditAccess(AfterSalesTicket ticket, boolean hasFullEditPermission) {
+        if (hasFullEditPermission) {
+            return;
+        }
+        if (!TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_AFTER_SALES_PROCESS)) {
+            throw new BusinessException(403, "当前账号没有编辑售后工单权限");
+        }
+        Long currentUserId = TenantPermissionContext.getUserId();
+        if (currentUserId == null || !currentUserId.equals(ticket.getAssigneeUserId())) {
+            throw new BusinessException(403, "仅被指派人可以补充该售后工单的处理资料");
+        }
     }
 
     private List<AfterSalesRepairImageRequest> resolveRequestedRepairImages(AfterSalesTicketSaveRequest request) {
@@ -321,19 +338,22 @@ public class AfterSalesService {
         }
         String company = clean(ticket.getLogisticsCompany());
         if (company == null) {
-            SalesOrderShipmentVO orderShipment = orderShipmentService
-                    .listShipments(ticket.getTenantCode(), ticket.getOrderId())
-                    .stream()
-                    .filter(item -> waybill.equals(clean(item.getTrackingNo())))
-                    .findFirst()
-                    .orElse(null);
-            if (orderShipment != null) {
-                return orderLogisticsTrackingService.getTracking(ticket.getOrderId(), orderShipment.getId());
+            String orderId = clean(ticket.getOrderId());
+            if (orderId != null) {
+                SalesOrderShipmentVO orderShipment = orderShipmentService
+                        .listShipments(ticket.getTenantCode(), orderId)
+                        .stream()
+                        .filter(item -> waybill.equals(clean(item.getTrackingNo())))
+                        .findFirst()
+                        .orElse(null);
+                if (orderShipment != null) {
+                    return orderLogisticsTrackingService.getTracking(orderId, orderShipment.getId());
+                }
             }
             throw new BusinessException("该售后工单缺少物流公司，请编辑工单后补充");
         }
         return orderLogisticsTrackingService.getTrackingForAfterSales(
-                ticket.getOrderId(), company, waybill, ticket.getId());
+                ticket.getTenantCode(), company, waybill, ticket.getId());
     }
 
     /**
@@ -391,6 +411,9 @@ public class AfterSalesService {
         String action = cleanRequired(request.getAction(), "操作不能为空");
         if ("start".equals(action)) {
             requireTicketStatus(ticket, Set.of(STATUS_DRAFT), "只有草稿工单可以开始处理");
+            if (TICKET_TYPE_PENDING_ASSIGNMENT.equals(ticket.getTicketType())) {
+                throw new BusinessException("请先指派人员并补充处理方式");
+            }
             long pending = ticketPartMapper.selectCount(new LambdaQueryWrapper<AfterSalesTicketPart>()
                     .eq(AfterSalesTicketPart::getTenantCode, ticket.getTenantCode()).eq(AfterSalesTicketPart::getTicketId, ticket.getId())
                     .eq(AfterSalesTicketPart::getLineStatus, "pending"));
@@ -639,6 +662,7 @@ public class AfterSalesService {
         record.setQuantity(quantity); record.setBeforeQty(before); record.setAfterQty(after); record.setOperatorUserId(TenantPermissionContext.getUserId()); record.setOperatorName(currentOperatorName()); record.setRemark(remark);
         return record;
     }
+    private String normalizeIntakeTicketType(String type) { String safe = clean(type); return safe == null ? TICKET_TYPE_PENDING_ASSIGNMENT : requireType(safe); }
     private String requireType(String type) { String safe = cleanRequired(type, "请选择处理方式"); if (!TICKET_TYPES.contains(safe)) throw new BusinessException("处理方式不合法"); return safe; }
     private String normalizePriority(String priority) { String safe = clean(priority); if (safe == null) return "normal"; if (!PRIORITIES.contains(safe)) throw new BusinessException("紧急程度不合法"); return safe; }
     private String normalizeFollowUpSatisfaction(String satisfaction) { String safe = cleanRequired(satisfaction, "请选择客户满意度"); if (!Set.of("满意", "一般", "不满意").contains(safe)) throw new BusinessException("客户满意度不合法"); return safe; }

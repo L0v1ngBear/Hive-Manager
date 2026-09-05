@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
@@ -14,6 +15,13 @@ function collectFiles(directory) {
     if (entry.isDirectory()) return collectFiles(absolute)
     return [absolute]
   })
+}
+
+function trackedDeployFiles() {
+  return execFileSync('git', ['-C', repositoryRoot, 'ls-files', 'deploy'], { encoding: 'utf8' })
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((file) => file.slice('deploy/'.length))
 }
 
 test('Compose defines exactly one Hive backend business service', () => {
@@ -45,8 +53,8 @@ test('nginx and operational scripts target only the unified backend', () => {
   assert.doesNotMatch(scripts, /mini-backend|management-backend|backend-1|management-backend-1/i)
 })
 
-test('repository deployment source excludes runtime secrets and artifacts', () => {
-  const files = collectFiles(deployRoot).map((file) => path.relative(deployRoot, file).replaceAll('\\', '/'))
+test('repository tracked deployment source excludes runtime secrets and artifacts', () => {
+  const files = trackedDeployFiles()
   assert.ok(files.includes('.env.example'))
   assert.ok(files.includes('backend/Dockerfile'))
   assert.ok(!files.includes('.env'))

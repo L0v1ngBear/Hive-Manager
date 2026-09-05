@@ -24,6 +24,13 @@ export function updateCustomer(data) {
   })
 }
 
+export function deleteCustomer(id) {
+  return request({
+    url: `/customer/${id}`,
+    method: 'delete'
+  })
+}
+
 export function getCustomerDetail(id) {
   return request({
     url: `/customer/detail/${id}`,

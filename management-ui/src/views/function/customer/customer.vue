@@ -158,7 +158,7 @@
               <template v-else>{{ customerColumnText(customer, field.key) }}</template>
             </template>
           </el-table-column>
-          <el-table-column label="操作" fixed="right" width="76" align="right">
+          <el-table-column label="操作" fixed="right" width="116" align="right">
             <template #default="{ row: customer }">
               <div class="flex justify-end gap-1">
                 <el-button
@@ -170,6 +170,17 @@
                   @click.stop="openEditDrawer(customer.id)"
                 >
                   <span class="material-symbols-outlined text-[18px]">edit</span>
+                </el-button>
+                <el-button
+                  circle
+                  text
+                  type="danger"
+                  :disabled="!canDeleteCustomer"
+                  :class="permissionDisabledClass(!canDeleteCustomer)"
+                  :title="canDeleteCustomer ? '删除客户' : '当前账号暂无删除客户权限'"
+                  @click.stop="removeCustomer(customer)"
+                >
+                  <span class="material-symbols-outlined text-[18px]">delete</span>
                 </el-button>
               </div>
             </template>
@@ -304,7 +315,7 @@ import { useUserStore } from '@/stores/user'
 import { createLatestRequestRunner } from '@/utils/latestRequest'
 import { downloadXlsxBlob } from '@/utils/excelDownload'
 import CustomerCreateDrawer from './customerCreate.vue'
-import { downloadCustomerImportTemplate, getCustomerDetail, getCustomerPage, importCustomers } from './api/customer'
+import { deleteCustomer, downloadCustomerImportTemplate, getCustomerDetail, getCustomerPage, importCustomers } from './api/customer'
 import { resolveCustomerDetailOutcome } from './customerState'
 
 const route = useRoute()
@@ -329,6 +340,7 @@ const customerImportInputRef = ref(null)
 const customerFieldConfig = ref(defaultTenantFieldConfig('customer'))
 const canCreateCustomer = computed(() => userStore.hasPermission('customer:create'))
 const canUpdateCustomer = computed(() => userStore.hasPermission('customer:update'))
+const canDeleteCustomer = computed(() => userStore.hasPermission('customer:delete'))
 const canViewCustomerDetail = computed(() => userStore.hasPermission('customer:detail'))
 const canExportTable = computed(() => userStore.hasPermission('customer:export'))
 const canImportCustomer = computed(() => userStore.hasPermission('customer:import'))
@@ -569,6 +581,25 @@ function resolveCustomerListError(error) {
 
 function permissionDisabledClass(disabled) {
   return disabled ? 'cursor-not-allowed grayscale' : ''
+}
+
+async function removeCustomer(customer) {
+  if (!canDeleteCustomer.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确认删除客户“${customer.customerName}”吗？仅未关联订单、售后工单或客户特价的客户可以删除。`,
+      '删除客户',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+  await deleteCustomer(customer.id)
+  if (customerList.value.length === 1 && pageNum.value > 1) {
+    pageNum.value -= 1
+  }
+  await fetchCustomerList()
+  ElMessage.success(`客户“${customer.customerName}”已删除`)
 }
 
 onMounted(async () => {

@@ -22,8 +22,14 @@ import my.hive.domain.customer.model.enums.CustomerTypeEnum;
 import my.hive.domain.customer.model.vo.CustomerDetailVO;
 import my.hive.domain.customer.model.vo.CustomerOptionVO;
 import my.hive.domain.customer.model.vo.CustomerPageVO;
+import my.hive.domain.aftersales.mapper.AfterSalesTicketMapper;
+import my.hive.domain.aftersales.model.entity.AfterSalesTicket;
 import my.hive.domain.employee.mapper.EmployeeMapper;
 import my.hive.domain.employee.model.entity.Employee;
+import my.hive.domain.order.mapper.SalesOrderMapper;
+import my.hive.domain.order.model.entity.SalesOrder;
+import my.hive.domain.price.mapper.PriceCustomerOverrideMapper;
+import my.hive.domain.price.model.entity.PriceCustomerOverride;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +43,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -85,6 +92,15 @@ public class CustomerService {
 
     @Resource
     private EmployeeMapper employeeMapper;
+
+    @Resource
+    private SalesOrderMapper salesOrderMapper;
+
+    @Resource
+    private AfterSalesTicketMapper afterSalesTicketMapper;
+
+    @Resource
+    private PriceCustomerOverrideMapper priceCustomerOverrideMapper;
 
     @Transactional(rollbackFor = Exception.class)
     public void addCustomer(CustomerAddRequest request) {
@@ -148,6 +164,53 @@ public class CustomerService {
                 .eq(CustomerProject::getCustomerId, request.getId()));
 
         saveContactsAndProjects(tenantCode, request.getId(), request);
+    }
+
+    /**
+     * Customer records are removable only before any business record references
+     * them, preserving historical order, after-sales, and price information.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteCustomer(Long id) {
+        String tenantCode = TenantPermissionContext.getTenantCode();
+        Customer customer = customerMapper.selectOne(new LambdaQueryWrapper<Customer>()
+                .eq(Customer::getTenantCode, tenantCode)
+                .eq(Customer::getId, id)
+                .last("LIMIT 1"));
+        if (customer == null) {
+            throw new BusinessException("客户不存在");
+        }
+
+        List<String> references = new ArrayList<>();
+        if (salesOrderMapper.selectCount(new LambdaQueryWrapper<SalesOrder>()
+                .eq(SalesOrder::getTenantCode, tenantCode)
+                .eq(SalesOrder::getCustomerName, customer.getCustomerName())) > 0) {
+            references.add("订单");
+        }
+        if (afterSalesTicketMapper.selectCount(new LambdaQueryWrapper<AfterSalesTicket>()
+                .eq(AfterSalesTicket::getTenantCode, tenantCode)
+                .eq(AfterSalesTicket::getCustomerName, customer.getCustomerName())) > 0) {
+            references.add("售后工单");
+        }
+        if (priceCustomerOverrideMapper.selectCount(new LambdaQueryWrapper<PriceCustomerOverride>()
+                .eq(PriceCustomerOverride::getTenantCode, tenantCode)
+                .eq(PriceCustomerOverride::getCustomerId, customer.getId())
+                .eq(PriceCustomerOverride::getIsDeleted, 0)) > 0) {
+            references.add("客户特价");
+        }
+        if (!references.isEmpty()) {
+            throw new BusinessException("客户已关联" + String.join("、", references) + "，不能删除");
+        }
+
+        customerContactMapper.delete(new LambdaQueryWrapper<CustomerContact>()
+                .eq(CustomerContact::getTenantCode, tenantCode)
+                .eq(CustomerContact::getCustomerId, customer.getId()));
+        customerProjectMapper.delete(new LambdaQueryWrapper<CustomerProject>()
+                .eq(CustomerProject::getTenantCode, tenantCode)
+                .eq(CustomerProject::getCustomerId, customer.getId()));
+        customerMapper.delete(new LambdaQueryWrapper<Customer>()
+                .eq(Customer::getTenantCode, tenantCode)
+                .eq(Customer::getId, customer.getId()));
     }
 
     public Page<CustomerPageVO> pageSearchCustomer(CustomerPageRequest request) {

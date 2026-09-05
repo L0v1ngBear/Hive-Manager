@@ -100,7 +100,7 @@ public class AfterSalesController {
     }
 
     @PostMapping(value = "/tickets/repair-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @RequirePermission(value = {PermissionCatalogV3.CODE_AFTER_SALES_CREATE, PermissionCatalogV3.CODE_AFTER_SALES_UPDATE}, message = "当前账号没有上传售后维修图片权限")
+    @RequirePermission(value = {PermissionCatalogV3.CODE_AFTER_SALES_CREATE, PermissionCatalogV3.CODE_AFTER_SALES_UPDATE, PermissionCatalogV3.CODE_AFTER_SALES_PROCESS}, message = "当前账号没有上传售后维修图片权限")
     @CollectLog(module = "after_sales", action = "upload_repair_image", bizType = "after_sales_ticket", description = "上传售后维修图片")
     public Result<BusinessAttachmentVO> uploadRepairImage(@RequestParam("file") MultipartFile file) {
         validateRepairImage(file);
@@ -240,8 +240,11 @@ public class AfterSalesController {
     }
 
     private void requireSavePermission(boolean creating, String message) {
-        String permission = creating ? PermissionCatalogV3.CODE_AFTER_SALES_CREATE : PermissionCatalogV3.CODE_AFTER_SALES_UPDATE;
-        if (!TenantPermissionContext.hasPermission(permission)) {
+        if (creating && !TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_AFTER_SALES_CREATE)) {
+            throw new BusinessException(403, message);
+        }
+        if (!creating && !TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_AFTER_SALES_UPDATE)
+                && !TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_AFTER_SALES_PROCESS)) {
             throw new BusinessException(403, message);
         }
     }

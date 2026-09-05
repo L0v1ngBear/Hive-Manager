@@ -30,6 +30,7 @@ class UnifiedCustomerServiceTest {
     void customerServiceKeepsCustomFieldContracts() throws Exception {
         assertMethod("addCustomer", CustomerAddRequest.class);
         assertMethod("updateCustomer", CustomerUpdateRequest.class);
+        assertMethod("deleteCustomer", Long.class);
         assertMethod("pageSearchCustomer", CustomerPageRequest.class);
         assertMethod("getCustomer", Long.class);
         assertMethod("listCustomerOptions", String.class);

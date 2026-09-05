@@ -36,6 +36,17 @@ test('release integrity verifies every artifact family and source commit', () =>
   assert.match(script, /table:export/u)
 })
 
+test('release metadata uses the canonical UI manifest hash for the UI tree hash', () => {
+  const metadata = Object.fromEntries(read('RELEASE_BUILD_INFO.txt')
+    .split(/\r?\n/u)
+    .flatMap((line) => {
+      const separator = line.indexOf('=')
+      return separator < 0 ? [] : [[line.slice(0, separator), line.slice(separator + 1)]]
+    }))
+
+  assert.equal(metadata.ManagementUiSha256, metadata.ManagementUiManifestSha256)
+})
+
 test('upload package verifier rejects secrets, certificates, and runtime data', () => {
   const script = read('deploy/scripts/verify-upload-package.sh')
   for (const forbidden of [

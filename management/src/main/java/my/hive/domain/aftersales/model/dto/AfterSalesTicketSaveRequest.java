@@ -17,7 +17,6 @@ public class AfterSalesTicketSaveRequest {
     private String orderId;
     private String customerName;
     private String projectName;
-    @NotBlank(message = "请选择处理方式")
     private String ticketType;
     private String priority;
     @NotBlank(message = "请填写问题描述")
@@ -30,9 +29,12 @@ public class AfterSalesTicketSaveRequest {
     private String diagnosis;
     private String resolution;
     private LocalDateTime scheduledTime;
+    private LocalDate registrationDate;
     private String technicianName;
     private String waybillNo;
     private String logisticsCompany;
+    private String manufacturerReturnWaybillNo;
+    private String manufacturerReturnLogisticsCompany;
     private String oldMotorInfo;
     private Boolean returnOldMotor;
     private Integer returnOldMotorQuantity;

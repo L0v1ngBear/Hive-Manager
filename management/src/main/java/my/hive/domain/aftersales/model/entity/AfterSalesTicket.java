@@ -35,9 +35,12 @@ public class AfterSalesTicket {
     private String diagnosis;
     private String resolution;
     private LocalDateTime scheduledTime;
+    private LocalDate registrationDate;
     private String technicianName;
     private String waybillNo;
     private String logisticsCompany;
+    private String manufacturerReturnWaybillNo;
+    private String manufacturerReturnLogisticsCompany;
     private String oldMotorInfo;
     private Integer returnOldMotor;
     private Integer returnOldMotorQuantity;
