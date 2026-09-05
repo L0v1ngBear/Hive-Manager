@@ -1,9 +1,9 @@
 ReleaseName=Hive Unified Release
 ReleaseVersion=2.0.0
-ReleaseSource=working-tree-on-git-commit
-SourceGitCommit=699dce4ca0f6f268621952e312d8807375347cc4
+ReleaseSource=git-commit
+SourceGitCommit=556fb225d5375c389ad85b1b984c2e235a570595
 SourceBranch=main
-ReleasePackageGitCommit=699dce4ca0f6f268621952e312d8807375347cc4
+ReleasePackageGitCommit=556fb225d5375c389ad85b1b984c2e235a570595
 BuildTimeUtc=2026-09-05T08:09:58Z
 
 BackendArtifact=backend/hive-backend.jar
@@ -16,7 +16,7 @@ BackendContainerName=hive-backend
 ApiPrefix=/api
 
 ManagementUiArtifact=management-ui/dist
-ManagementUiSourceGitCommit=699dce4ca0f6f268621952e312d8807375347cc4
+ManagementUiSourceGitCommit=556fb225d5375c389ad85b1b984c2e235a570595
 ManagementUiSha256=f93bfc877126bbe93f0122250d018c1e505f30651e8f2bad619fc199d8f21db7
 ManagementUiHashAlgorithm=sha256(sorted lowercase-file-sha256 + two-spaces + relative-path + LF)
 ManagementUiIndexSha256=3d378014b6def9b940ab3093bed626141083838855356425bb739a5dc61bb538
