@@ -1,6 +1,6 @@
 import request from '@/utils/request.js'
 
-export const getAfterSalesTickets = (params) => request({ url: '/after-sales/tickets', method: 'get', params })
+export const getAfterSalesTickets = (params, options = {}) => request({ url: '/after-sales/tickets', method: 'get', params, ...options })
 export const exportAfterSalesTickets = (params) => request({ url: '/after-sales/tickets/export', method: 'get', params, responseType: 'blob' })
 export const getAfterSalesTicket = (id) => request({ url: `/after-sales/tickets/${id}`, method: 'get' })
 export const getAfterSalesTicketLogisticsTracking = (id) => request({

@@ -79,7 +79,7 @@
         @show="handleNotificationShow"
       >
         <template #reference>
-          <el-badge :value="pendingNotifications.length" :hidden="pendingNotifications.length === 0" :max="99">
+          <el-badge :value="notificationCount" :hidden="notificationCount === 0" :max="99">
             <el-button text circle aria-label="待办通知">
               <span class="material-symbols-outlined">notifications</span>
             </el-button>
@@ -92,12 +92,12 @@
               <div class="min-w-0">
                 <div class="notification-panel__title-row">
                   <p class="notification-panel__title">待办通知</p>
-                  <span v-if="pendingNotifications.length" class="notification-panel__count">
-                    {{ pendingNotifications.length }} 条
+                  <span v-if="notificationItems.length" class="notification-panel__count">
+                    {{ notificationItems.length }} 条
                   </span>
                 </div>
                 <p class="notification-panel__subtitle">
-                  {{ pendingNotifications.length ? '需要您及时跟进处理' : '当前没有新的待办' }}
+                  {{ notificationItems.length ? '需要您及时跟进处理' : '当前没有新的待办' }}
                 </p>
               </div>
             </div>
@@ -109,14 +109,14 @@
               :loading="notificationsLoading"
               aria-label="立即更新待办通知"
               title="立即更新"
-              @click="refreshNotifications(true, true)"
+              @click="refreshNotificationPanel(true, true)"
             >
               <span class="material-symbols-outlined">refresh</span>
             </el-button>
           </div>
           <div class="notification-panel__list">
             <article
-              v-for="item in pendingNotifications"
+              v-for="item in notificationItems"
               :key="item.key"
               class="notification-item"
               :class="`notification-item--${item.level || 'info'}`"
@@ -132,7 +132,7 @@
                   <span class="material-symbols-outlined">arrow_forward</span>
                 </span>
               </button>
-              <div class="notification-item__actions">
+              <div v-if="!item.afterSalesTask" class="notification-item__actions">
                 <el-button
                   type="primary"
                   size="small"
@@ -150,12 +150,12 @@
                 </el-button>
               </div>
             </article>
-            <div v-if="notificationsLoading && !pendingNotifications.length" class="notification-panel__empty">
+            <div v-if="notificationsLoading && !notificationItems.length" class="notification-panel__empty">
               <span class="notification-panel__loading material-symbols-outlined">progress_activity</span>
               <p class="notification-panel__empty-title">正在更新待办</p>
               <p class="notification-panel__empty-copy">请稍候，最新业务提醒马上呈现。</p>
             </div>
-            <div v-else-if="!pendingNotifications.length" class="notification-panel__empty">
+            <div v-else-if="!notificationItems.length" class="notification-panel__empty">
               <span class="notification-panel__empty-icon material-symbols-outlined">task_alt</span>
               <p class="notification-panel__empty-title">待办已清空</p>
               <p class="notification-panel__empty-copy">审批和业务提醒会自动展示在这里。</p>
@@ -312,6 +312,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { changePassword } from '@/api/auth.js'
 import { closeNotificationTask, getUnreadNotifications, markNotificationRead, syncNotifications } from '@/api/notification.js'
+import { getAfterSalesTickets } from '@/views/function/afterSales/api/afterSales.js'
 import {decorateAccessItems, resolveAccessState} from '@/utils/access'
 import { listenApprovalChanged } from '@/utils/approvalRefresh.js'
 import { listenOrderWarningChanged } from '@/utils/orderWarningRefresh.js'
@@ -354,6 +355,7 @@ const mobileSearchOpen = ref(false)
 const notificationOpen = ref(false)
 const userMenuOpen = ref(false)
 const pendingNotifications = ref([])
+const assignedAfterSalesTasks = ref([])
 const notificationsLoading = ref(false)
 const passwordDialogVisible = ref(false)
 const passwordSubmitting = ref(false)
@@ -371,6 +373,9 @@ const displayName = computed(() => userStore.userInfo?.userName || '当前用户
 const tenantName = computed(() => userStore.currentTenantName)
 const roleLabel = computed(() => '运营管理')
 const canSyncNotifications = computed(() => userStore.hasPermission('notification:announcement:publish'))
+const canLoadAssignedAfterSalesTasks = computed(() => userStore.hasPermission('after_sales:list') && userStore.hasPermission('after_sales:process') && userStore.userInfo?.userId != null)
+const notificationItems = computed(() => [...assignedAfterSalesTasks.value, ...pendingNotifications.value])
+const notificationCount = computed(() => notificationItems.value.length)
 const avatarText = computed(() => {
   const name = displayName.value.trim()
   return name ? name.slice(0, 1).toUpperCase() : 'U'
@@ -572,7 +577,48 @@ async function handleNotificationShow() {
   userMenuOpen.value = false
   searchPanelOpen.value = false
   mobileSearchOpen.value = false
-  await refreshNotifications(true, false)
+  await refreshNotificationPanel(true, false)
+}
+
+async function refreshNotificationPanel(sync = false, notifyOnError = true) {
+  await Promise.all([refreshNotifications(sync, notifyOnError), refreshAssignedAfterSalesTasks()])
+}
+
+async function refreshAssignedAfterSalesTasks() {
+  if (!canLoadAssignedAfterSalesTasks.value) {
+    assignedAfterSalesTasks.value = []
+    return
+  }
+  try {
+    const result = await getAfterSalesTickets({
+      pageNum: 1,
+      pageSize: 8,
+      assigneeUserId: userStore.userInfo.userId,
+      openTasksOnly: true
+    }, {
+      silent: true,
+      showGlobalLoading: false
+    })
+    assignedAfterSalesTasks.value = (result?.data || []).map((ticket) => ({
+      key: `after-sales-task-${ticket.id}`,
+      title: '售后工单待处理',
+      desc: `${ticket.ticketNo || '未编号工单'} · ${ticket.projectName || ticket.customerName || '未填写项目'} · ${afterSalesTaskInstruction(ticket)}`,
+      type: '售后待办',
+      route: { path: '/function/after-sales', query: { tab: 'my-tasks' } },
+      level: afterSalesTaskLevel(ticket.priority),
+      afterSalesTask: true
+    }))
+  } catch {
+    assignedAfterSalesTasks.value = []
+  }
+}
+
+function afterSalesTaskInstruction(ticket = {}) {
+  return ({ pending_assignment: '请确认处理方式', consultation: '请填写答复结论', diagnosis: '请完成故障研判', resend_parts: '请推进配件出库', on_site_repair: '请安排上门维修', motor_replacement: '请核对电机更换与物流' }[ticket.ticketType] || '请进入工单处理')
+}
+
+function afterSalesTaskLevel(priority) {
+  return priority === 'urgent' ? 'critical' : priority === 'high' ? 'warning' : 'info'
 }
 
 async function refreshNotifications(sync = false, notifyOnError = true) {
@@ -617,17 +663,19 @@ async function refreshNotifications(sync = false, notifyOnError = true) {
 }
 
 function refreshNotificationsInBackground() {
-  return refreshNotifications(true, false)
+  return refreshNotificationPanel(true, false)
 }
 
 async function openNotification(item) {
-  try {
-    await markNotificationRead(item.id)
-  } catch {
-    // 已读失败不阻断跳转，避免提醒入口不可用。
+  if (!item.afterSalesTask) {
+    try {
+      await markNotificationRead(item.id)
+    } catch {
+      // 已读失败不阻断跳转，避免提醒入口不可用。
+    }
   }
   goRoute(item.route || '/dashboard')
-  await refreshNotifications(false, false)
+  await refreshNotificationPanel(false, false)
 }
 
 async function closeNotification(item, taskStatus) {
@@ -751,6 +799,7 @@ onMounted(() => {
   document.addEventListener('click', handleClickOutside)
   stopApprovalChangedListener = listenApprovalChanged(refreshNotificationsInBackground)
   stopOrderWarningChangedListener = listenOrderWarningChanged(refreshNotificationsInBackground)
+  refreshAssignedAfterSalesTasks()
 })
 
 onBeforeUnmount(() => {

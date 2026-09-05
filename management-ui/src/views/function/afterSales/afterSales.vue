@@ -34,11 +34,12 @@
           <el-table-column label="状态" width="130"><template #default="{ row }"><el-tag :type="statusTag(row.status)">{{ statusLabel(row.status) }}</el-tag></template></el-table-column>
           <el-table-column label="紧急程度" width="100"><template #default="{ row }">{{ priorityLabel(row.priority) }}</template></el-table-column>
           <el-table-column label="质保提示" min-width="160"><template #default="{ row }"><div class="warranty-status is-compact"><el-tag v-for="item in warrantyStates(row.openingDate)" :key="item.years" :type="item.type" effect="plain" size="small">{{ item.label }}</el-tag></div></template></el-table-column>
-          <el-table-column label="操作" width="320" fixed="right"><template #default="{ row }"><template v-if="row.status === 'closed'"><el-button link type="primary" @click.stop="openDetail(row)">详情</el-button><el-button v-if="canEditTicket(row)" link type="primary" @click.stop="openTicket(row)">编辑</el-button><el-button link type="primary" :disabled="!canProcess" @click.stop="openFollowUp(row)">{{ row.followUpTime ? '查看回访' : '回访' }}</el-button></template><template v-else><el-button link type="primary" @click.stop="openDetail(row)">详情</el-button><el-button v-if="canProcess && row.status !== 'cancelled'" link type="primary" @click.stop="openAssign(row)">指派人员</el-button><el-button v-if="canEditTicket(row)" link type="primary" @click.stop="openTicket(row)">编辑</el-button><el-button v-if="row.status === 'draft' && canProcess && row.ticketType !== 'pending_assignment'" link type="success" @click.stop="startTicket(row)">开始处理</el-button><el-button v-if="row.status === 'waiting_outbound' && canOutbound" link type="success" @click.stop="outbound(row)">配件出库</el-button><el-button v-if="row.status === 'processing' && canProcess" link type="success" @click.stop="closeTicket(row)">结案</el-button></template></template></el-table-column>
+          <el-table-column label="操作" width="320" fixed="right"><template #default="{ row }"><template v-if="row.status === 'closed'"><el-button link type="primary" @click.stop="openDetail(row)">详情</el-button><el-button v-if="canEditTicket(row)" link type="primary" @click.stop="openTicket(row)">编辑</el-button><el-button link type="primary" :disabled="!canProcess" @click.stop="openFollowUp(row)">{{ row.followUpTime ? '查看回访' : '回访' }}</el-button></template><template v-else><el-button link type="primary" @click.stop="openDetail(row)">详情</el-button><el-button v-if="canProcess && row.status !== 'cancelled'" link type="primary" @click.stop="openAssign(row)">指派人员</el-button><el-button v-if="canEditTicket(row)" link type="primary" @click.stop="openTicket(row)">{{ ticketEditActionLabel(row) }}</el-button><el-button v-if="row.status === 'draft' && canProcess && row.ticketType !== 'pending_assignment'" link type="success" @click.stop="startTicket(row)">开始处理</el-button><el-button v-if="row.status === 'waiting_outbound' && canOutbound" link type="success" @click.stop="outbound(row)">配件出库</el-button><el-button v-if="row.status === 'processing' && canProcess" link type="success" @click.stop="closeTicket(row)">结案</el-button></template></template></el-table-column>
         </el-table>
         <el-pagination class="mt-4 justify-end" background layout="total, prev, pager, next" :current-page="ticketQuery.pageNum" :page-size="ticketQuery.pageSize" :total="ticketTotal" @current-change="page => { ticketQuery.pageNum = page; loadTickets() }" />
       </el-tab-pane>
-      <el-tab-pane v-if="canProcess" label="我的待办" name="my-tasks">
+      <el-tab-pane v-if="canProcess" name="my-tasks">
+        <template #label><el-badge is-dot :hidden="myTaskTotal === 0" type="danger"><span>我的待办</span></el-badge></template>
         <el-alert type="info" :closable="false" title="仅显示已指派给我、尚未结案或取消的工单；请根据处理方式完成对应事项。" class="mb-4" />
         <el-table v-loading="myTaskLoading" :data="myTasks" class="function-table" @row-click="openDetail">
           <el-table-column prop="ticketNo" label="工单号" min-width="170" />
@@ -47,7 +48,7 @@
           <el-table-column label="待做事项" min-width="260"><template #default="{ row }">{{ taskInstruction(row) }}</template></el-table-column>
           <el-table-column label="紧急程度" width="100"><template #default="{ row }">{{ priorityLabel(row.priority) }}</template></el-table-column>
           <el-table-column label="状态" width="130"><template #default="{ row }"><el-tag :type="statusTag(row.status)">{{ statusLabel(row.status) }}</el-tag></template></el-table-column>
-          <el-table-column label="操作" width="100" fixed="right"><template #default="{ row }"><el-button link type="primary" @click.stop="openTicket(row)">去处理</el-button></template></el-table-column>
+          <el-table-column label="操作" width="100" fixed="right"><template #default="{ row }"><el-button link type="primary" @click.stop="openTicket(row)">处理</el-button></template></el-table-column>
         </el-table>
         <el-pagination class="mt-4 justify-end" background layout="total, prev, pager, next" :current-page="myTaskQuery.pageNum" :page-size="myTaskQuery.pageSize" :total="myTaskTotal" @current-change="page => { myTaskQuery.pageNum = page; loadMyTasks() }" />
       </el-tab-pane>
@@ -119,9 +120,10 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
   ElAlert,
+  ElBadge,
   ElButton,
   ElDatePicker,
   ElDescriptions,
@@ -151,10 +153,12 @@ import {
   ElUpload
 } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { useRoute } from 'vue-router'
 import { downloadXlsxBlob } from '@/utils/excelDownload'
 import { assignAfterSalesTicket, downloadAfterSalesFollowUpImage, downloadAfterSalesPartPhoto, downloadAfterSalesRepairImage, exportAfterSalesTickets, followUpAfterSalesTicket, getAfterSalesAssigneeOptions, getAfterSalesCustomerOptions, getAfterSalesOrderOptions, getAfterSalesParts, getAfterSalesTicket, getAfterSalesTicketLogisticsTracking, getAfterSalesTickets, outboundAfterSalesTicket, saveAfterSalesPart, saveAfterSalesTicket, stockInAfterSalesPart, updateAfterSalesTicketStatus, uploadAfterSalesFollowUpImage, uploadAfterSalesPartPhoto, uploadAfterSalesRepairImage } from './api/afterSales'
 
 const userStore = useUserStore()
+const route = useRoute()
 const activeTab = ref('tickets'); const tickets = ref([]); const myTasks = ref([]); const parts = ref([]); const ticketLoading = ref(false); const myTaskLoading = ref(false); const partLoading = ref(false); const ticketTotal = ref(0); const myTaskTotal = ref(0); const saving = ref(false)
 const ticketEditorVisible = ref(false); const partEditorVisible = ref(false); const stockInVisible = ref(false); const detailVisible = ref(false); const assignVisible = ref(false); const followUpVisible = ref(false); const detail = ref(null); const stockInPart = ref(null); const selectedOrder = ref(null); const orderOptions = ref([]); const orderLoading = ref(false); const selectedCustomer = ref(null); const customerOptions = ref([]); const customerLoading = ref(false); const partPhotoUploading = ref(false); const partPhotoPreviewLoading = ref(false); const partPhotoPreviewUrl = ref(''); const repairImageUploading = ref(false); const followUpImageUploading = ref(false); const repairImagePreviewVisible = ref(false); const repairImagePreviewUrl = ref(''); const repairImagePreviewName = ref(''); const savingPart = ref(false); const assigning = ref(false); const savingFollowUp = ref(false); const assigneeLoading = ref(false); const assigneeOptions = ref([]); const assigningTicket = ref(null); const followUpTicket = ref(null); const ticketExporting = ref(false)
 let partPhotoPreviewRequestId = 0
@@ -182,6 +186,8 @@ async function loadMyTasks() { if (userStore.userInfo?.userId == null) { myTasks
 async function exportTickets() { if (ticketExporting.value) return; ticketExporting.value = true; try { await downloadXlsxBlob(await exportAfterSalesTickets(ticketQueryParams()), `售后工单-${new Date().toISOString().slice(0, 10)}.xlsx`, (message) => ElMessage.error(message)) } finally { ticketExporting.value = false } }
 function ticketLogisticsKey(ticket = {}) { return [ticket.id || '', ticket.logisticsCompany || '', ticket.waybillNo || '', ticket.updateTime || ''].join('|') }
 function canEditTicket(ticket = {}) { return canUpdate.value || (canProcess.value && userStore.userInfo?.userId != null && Number(ticket.assigneeUserId) === Number(userStore.userInfo.userId)) }
+function isCurrentAssignee(ticket = {}) { return userStore.userInfo?.userId != null && Number(ticket.assigneeUserId) === Number(userStore.userInfo.userId) }
+function ticketEditActionLabel(ticket = {}) { return isCurrentAssignee(ticket) && ticket.status !== 'closed' && ticket.status !== 'cancelled' ? '处理' : '编辑' }
 function taskInstruction(ticket = {}) { return ({ pending_assignment: '请确认本工单的处理方式，并补充后续处理资料。', consultation: '请联系客户并填写答复或处理结论。', diagnosis: '请完成故障研判，并填写建议处理方案。', resend_parts: '请确认补发配件明细，并推进配件出库。', on_site_repair: '请安排上门时间和服务人员，并填写维修记录。', motor_replacement: '请核对电机更换、旧电机退回及往返物流信息。' }[ticket.ticketType] || '请进入工单完成处理。') }
 function ticketLogisticsState(ticket = {}) { const key = ticketLogisticsKey(ticket); if (!ticketLogisticsStates[key]) ticketLogisticsStates[key] = { loading: false, data: null, errorMessage: '', retryAfter: 0 }; return ticketLogisticsStates[key] }
 function ticketLogisticsCacheValid(data) { const expiresAt = Date.parse(data?.cacheExpiresAt || ''); return Number.isFinite(expiresAt) && expiresAt > Date.now() }
@@ -222,7 +228,7 @@ async function openAssign(row) { assigningTicket.value = row; assignForm.assigne
 async function assignTicket() { if (!assignForm.assigneeUserId) return ElMessage.warning('请选择指派人员'); assigning.value = true; try { await assignAfterSalesTicket(assigningTicket.value.id, { assigneeUserId: assignForm.assigneeUserId }); ElMessage.success('售后工单已指派，并已发送订阅提醒'); assignVisible.value = false; loadTickets() } finally { assigning.value = false } }
 async function outbound(row) { await ElMessageBox.confirm(`确认对工单 ${row.ticketNo} 的全部待出库配件执行出库？`, '确认出库', { type: 'warning' }); await outboundAfterSalesTicket(row.id); ElMessage.success('配件已出库，工单进入处理中'); loadTickets() }
 async function startTicket(row) { await updateAfterSalesTicketStatus({ ticketId: row.id, action: 'start' }); ElMessage.success('工单已进入处理中'); loadTickets() }
-async function closeTicket(row) { const { value } = await ElMessageBox.prompt('请填写处理结果', '售后结案', { inputType: 'textarea', inputPlaceholder: '客户确认情况、维修结果等' }); await updateAfterSalesTicketStatus({ ticketId: row.id, action: 'close', resolution: value }); ElMessage.success('工单已结案'); loadTickets() }
+async function closeTicket(row) { const { value } = await ElMessageBox.prompt('请填写处理结果', '售后结案', { inputType: 'textarea', inputPlaceholder: '客户确认情况、维修结果等' }); await updateAfterSalesTicketStatus({ ticketId: row.id, action: 'close', resolution: value }); ElMessage.success('工单已结案'); loadTickets(); loadMyTasks() }
 function releasePartPhotoPreview() { partPhotoPreviewRequestId += 1; if (partPhotoPreviewUrl.value) URL.revokeObjectURL(partPhotoPreviewUrl.value); partPhotoPreviewUrl.value = ''; partPhotoPreviewLoading.value = false }
 async function loadPartPhotoPreview(fileUrl) { releasePartPhotoPreview(); if (!fileUrl) return false; const requestId = partPhotoPreviewRequestId; partPhotoPreviewLoading.value = true; try { const blob = await downloadAfterSalesPartPhoto({ url: fileUrl }); if (requestId !== partPhotoPreviewRequestId || partForm.photoUrl !== fileUrl) return false; partPhotoPreviewUrl.value = URL.createObjectURL(blob); return true } catch { return false } finally { if (requestId === partPhotoPreviewRequestId) partPhotoPreviewLoading.value = false } }
 function openPart(row) { releasePartPhotoPreview(); reset(partForm, { ...blankPart(), ...row }); partEditorVisible.value = true; if (partForm.photoUrl) loadPartPhotoPreview(partForm.photoUrl) }
@@ -238,7 +244,8 @@ async function savePart() { if (!partForm.partName) return ElMessage.warning('�
 const formatPrice = (value) => value === null || value === undefined || value === '' ? '--' : `¥${Number(value).toFixed(2)}`
 function openStockIn(row) { stockInPart.value = row; reset(stockInForm, { partId: row.id, quantity: 1, remark: '' }); stockInVisible.value = true }
 async function stockIn() { await stockInAfterSalesPart(stockInForm); ElMessage.success('配件已入库'); stockInVisible.value = false; loadParts() }
-onMounted(loadTickets)
+watch(() => route.query.tab, (tab) => { if (tab === 'my-tasks' && canProcess.value) { activeTab.value = 'my-tasks'; loadMyTasks() } })
+onMounted(() => { if (route.query.tab === 'my-tasks' && canProcess.value) activeTab.value = 'my-tasks'; loadActive(activeTab.value); if (canProcess.value && activeTab.value !== 'my-tasks') loadMyTasks() })
 onBeforeUnmount(() => { releasePartPhotoPreview(); releaseRepairImagePreview() })
 </script>
 

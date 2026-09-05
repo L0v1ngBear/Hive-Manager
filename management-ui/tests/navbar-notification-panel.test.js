@@ -17,11 +17,22 @@ test('notification panel uses a wrapping card layout instead of an Element butto
 })
 
 test('notifications synchronize only on an explicit popover open or business changes without polling', () => {
-  assert.match(navbar, /handleNotificationShow\(\)[\s\S]*?refreshNotifications\(true, false\)/)
+  assert.match(navbar, /handleNotificationShow\(\)[\s\S]*?refreshNotificationPanel\(true, false\)/)
   assert.match(navbar, /listenApprovalChanged\(refreshNotificationsInBackground\)/)
   assert.match(navbar, /listenOrderWarningChanged\(refreshNotificationsInBackground\)/)
   assert.doesNotMatch(navbar, /window\.addEventListener\('focus', refreshNotificationsInBackground\)/)
   assert.doesNotMatch(navbar, /window\.setInterval\(refreshNotificationListInBackground/)
   assert.doesNotMatch(navbar, /\(\) => \[userStore\.currentTenantCode, userStore\.permissions\]/)
   assert.match(navbar, /const notificationsLoading = ref\(false\)/)
+})
+
+test('navbar surfaces assigned after-sales tasks alongside ordinary notifications', () => {
+  assert.match(navbar, /getAfterSalesTickets/)
+  assert.match(navbar, /const assignedAfterSalesTasks = ref\(\[\]\)/)
+  assert.match(navbar, /function refreshAssignedAfterSalesTasks\(\)/)
+  assert.match(navbar, /afterSalesTask: true/)
+  assert.match(navbar, /售后待办/)
+  assert.match(navbar, /path: '\/function\/after-sales'/)
+  assert.match(navbar, /v-if="!item\.afterSalesTask"/)
+  assert.match(navbar, /refreshAssignedAfterSalesTasks\(\)/)
 })
