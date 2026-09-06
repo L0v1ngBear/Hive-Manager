@@ -213,7 +213,7 @@ test('all after-sales ticket statuses can revise data without reopening workflow
   assert.match(page, /v-if="canEditTicket\(row\)" link type="primary" @click\.stop="openTicket\(row\)">编辑/)
   assert.doesNotMatch(page, /row\.status === 'draft' && canUpdate/)
   assert.match(page, /const editingWorkflowTicket = computed\(\(\) => Boolean\(ticketForm\.id\) && ticketForm\.status !== 'draft'\)/)
-  assert.match(page, /v-if="!editingWorkflowTicket" label="是否审核"/)
+  assert.match(page, /v-if="!editingWorkflowTicket && ticketForm\.ticketType !== 'pending_assignment'" label="是否审核"/)
   assert.match(page, /const editableTicketParts = computed\(\(\) => needsParts\.value && !editingWorkflowTicket\.value\)/)
   assert.match(controller, /CODE_AFTER_SALES_UPDATE\)\s*&& !TenantPermissionContext\.hasPermission\(PermissionCatalogV3\.CODE_AFTER_SALES_PROCESS\)/)
   assert.match(controller, /CODE_AFTER_SALES_CREATE, PermissionCatalogV3\.CODE_AFTER_SALES_UPDATE, PermissionCatalogV3\.CODE_AFTER_SALES_PROCESS/)
@@ -297,8 +297,17 @@ test('intake creation defers processing details until the assignee edits the dra
 })
 
 test('editing an assigned ticket keeps the intake section out of the processing form', () => {
-  assert.match(page, /<section v-if="!ticketForm\.id" class="form-section"><h3>1\. 订单与受理信息<\/h3>/)
+  assert.match(page, /<section v-if="!ticketForm\.id" class="form-section"><h3>1\. 客户与受理信息<\/h3>/)
   assert.match(page, /<section v-if="ticketForm\.id" class="form-section">/)
+})
+
+test('assigned processors choose a handling tab and only then see its required fields', () => {
+  assert.match(page, /const processingTypeOptions = typeOptions\.filter\(item => item\.value !== 'pending_assignment'\)/)
+  assert.match(page, /<el-tabs v-model="ticketForm\.ticketType" class="processing-type-tabs">/)
+  assert.match(page, /v-for="item in processingTypeOptions"/)
+  assert.match(page, /请选择本工单的处理方式，随后填写该方式所需的处理信息。/)
+  assert.match(page, /v-if="!editingWorkflowTicket && ticketForm\.ticketType !== 'pending_assignment'" label="是否审核"/)
+  assert.doesNotMatch(page, /<el-radio-group v-model="ticketForm\.ticketType" class="type-cards"/)
 })
 
 test('assigned processors have a dedicated open-task tab with the processing method and next action', () => {
