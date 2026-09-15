@@ -72,7 +72,7 @@ public class AfterSalesService {
     private static final String TICKET_TYPE_PENDING_ASSIGNMENT = "pending_assignment";
     private static final Set<String> TICKET_TYPES = Set.of(TICKET_TYPE_PENDING_ASSIGNMENT, "consultation", "diagnosis", "resend_parts", "on_site_repair", "motor_replacement");
     private static final Set<String> PRIORITIES = Set.of("low", "normal", "high", "urgent");
-    private static final Set<String> PART_LOCATIONS = Set.of("三车间", "二车间", "其他");
+    private static final Set<String> PART_LOCATIONS = Set.of("一车间", "二车间", "三车间", "其他");
     private static final String STATUS_DRAFT = "draft";
     private static final String STATUS_WAITING_OUTBOUND = "waiting_outbound";
     private static final String STATUS_PROCESSING = "processing";
@@ -137,7 +137,13 @@ public class AfterSalesService {
         if (clean(request.getStatus()) != null) wrapper.eq(AfterSalesTicket::getStatus, request.getStatus().trim());
         if (clean(request.getTicketType()) != null) wrapper.eq(AfterSalesTicket::getTicketType, request.getTicketType().trim());
         if (request.getAssigneeUserId() != null) wrapper.eq(AfterSalesTicket::getAssigneeUserId, request.getAssigneeUserId());
-        if (Boolean.TRUE.equals(request.getOpenTasksOnly())) wrapper.notIn(AfterSalesTicket::getStatus, STATUS_CLOSED, STATUS_CANCELLED);
+        if (Boolean.TRUE.equals(request.getTodoOnly())) {
+            wrapper.and(task -> task.notIn(AfterSalesTicket::getStatus, STATUS_CLOSED, STATUS_CANCELLED)
+                    .or(closed -> closed.eq(AfterSalesTicket::getStatus, STATUS_CLOSED)
+                            .isNull(AfterSalesTicket::getFollowUpTime)));
+        } else if (Boolean.TRUE.equals(request.getOpenTasksOnly())) {
+            wrapper.notIn(AfterSalesTicket::getStatus, STATUS_CLOSED, STATUS_CANCELLED);
+        }
         LocalDate startDate = request.getCreatedStartDate();
         LocalDate endDate = request.getCreatedEndDate();
         if (startDate != null && endDate != null && startDate.isAfter(endDate)) throw new BusinessException("开始日期不能晚于结束日期");
@@ -171,6 +177,10 @@ public class AfterSalesService {
             requireTicketEditAccess(ticket, hasFullEditPermission);
         }
         String type = creating ? normalizeIntakeTicketType(request.getTicketType()) : requireType(request.getTicketType());
+        if (!creating && TICKET_TYPE_PENDING_ASSIGNMENT.equals(ticket.getTicketType())
+                && !TICKET_TYPE_PENDING_ASSIGNMENT.equals(type) && clean(request.getDiagnosis()) == null) {
+            throw new BusinessException("请先完成故障研判，再选择处理类型");
+        }
         String requestedOrderId = clean(request.getOrderId());
         SalesOrder order = requestedOrderId == null ? null : salesOrderMapper.selectByOrderIdForUpdate(tenantCode, requestedOrderId);
         if (requestedOrderId != null && order == null) throw new BusinessException("关联订单不存在或不属于当前组织");
@@ -330,7 +340,7 @@ public class AfterSalesService {
      * linked order, resolve its carrier automatically; new tickets retain their
      * own carrier so their after-sales dispatch can be tracked independently.
      */
-    public OrderLogisticsTrackingVO ticketLogisticsTracking(Long ticketId) {
+    public OrderLogisticsTrackingVO ticketLogisticsTracking(Long ticketId, String phoneSuffix) {
         AfterSalesTicket ticket = requireTicket(ticketId);
         String waybill = clean(ticket.getWaybillNo());
         if (waybill == null) {
@@ -347,13 +357,13 @@ public class AfterSalesService {
                         .findFirst()
                         .orElse(null);
                 if (orderShipment != null) {
-                    return orderLogisticsTrackingService.getTracking(orderId, orderShipment.getId());
+                    return orderLogisticsTrackingService.getTracking(orderId, orderShipment.getId(), phoneSuffix);
                 }
             }
             throw new BusinessException("该售后工单缺少物流公司，请编辑工单后补充");
         }
         return orderLogisticsTrackingService.getTrackingForAfterSales(
-                ticket.getTenantCode(), company, waybill, ticket.getId());
+                ticket.getTenantCode(), company, waybill, ticket.getId(), phoneSuffix);
     }
 
     /**

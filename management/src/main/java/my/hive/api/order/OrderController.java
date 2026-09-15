@@ -81,8 +81,9 @@ public class OrderController {
     @GetMapping("/{orderId}/shipments/{shipmentId}/logistics-tracking")
     @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_DETAIL, message = "您没有权限查看订单物流")
     public Result<OrderLogisticsTrackingVO> logisticsTracking(@PathVariable String orderId,
-                                                               @PathVariable Long shipmentId) {
-        return Result.success(orderLogisticsTrackingService.getTracking(orderId, shipmentId));
+                                                               @PathVariable Long shipmentId,
+                                                               @RequestParam String phoneSuffix) {
+        return Result.success(orderLogisticsTrackingService.getTracking(orderId, shipmentId, phoneSuffix));
     }
 
     @PostMapping

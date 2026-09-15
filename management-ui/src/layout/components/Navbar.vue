@@ -594,7 +594,7 @@ async function refreshAssignedAfterSalesTasks() {
       pageNum: 1,
       pageSize: 8,
       assigneeUserId: userStore.userInfo.userId,
-      openTasksOnly: true
+      todoOnly: true
     }, {
       silent: true,
       showGlobalLoading: false
@@ -614,7 +614,8 @@ async function refreshAssignedAfterSalesTasks() {
 }
 
 function afterSalesTaskInstruction(ticket = {}) {
-  return ({ pending_assignment: '请确认处理方式', consultation: '请填写答复结论', diagnosis: '请完成故障研判', resend_parts: '请推进配件出库', on_site_repair: '请安排上门维修', motor_replacement: '请核对电机更换与物流' }[ticket.ticketType] || '请进入工单处理')
+  if (ticket.status === 'closed' && !ticket.followUpTime) return '已结案，请完成客户回访'
+  return ({ pending_assignment: '请完成故障研判并选择下一步处理方式', consultation: '请填写答复结论', diagnosis: '请完成故障研判并选择下一步处理方式', resend_parts: '请推进配件出库', on_site_repair: '请安排上门维修', motor_replacement: '请核对电机更换与物流' }[ticket.ticketType] || '请进入工单处理')
 }
 
 function afterSalesTaskLevel(priority) {

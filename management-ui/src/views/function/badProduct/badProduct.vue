@@ -536,8 +536,6 @@ async function fetchData() {
   requestState.value = 'loading'
   requestErrorMessage.value = ''
   rows.value = []
-  pagination.total = 0
-  pagination.pages = 0
   try {
     const data = await getBadProductPage({
       ...query,

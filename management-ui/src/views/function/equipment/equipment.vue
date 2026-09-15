@@ -191,8 +191,6 @@ async function fetchDevices() {
   loading.value = true
   listFailure.value = null
   devices.value = []
-  total.value = 0
-  totalPages.value = 1
   if (!canViewList.value) {
     listFailure.value = { kind: 'forbidden', title: '暂无权限查看设备列表', message: '当前账号缺少 equipment:list 权限，请联系管理员授权。' }
     loading.value = false

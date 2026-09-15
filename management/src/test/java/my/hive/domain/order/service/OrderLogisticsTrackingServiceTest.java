@@ -108,6 +108,41 @@ class OrderLogisticsTrackingServiceTest {
     }
 
     @Test
+    void usesTheRequestPhoneSuffixForOrderlessAfterSalesTracking() {
+        OrderService orderService = mock(OrderService.class);
+        OrderShipmentService shipmentService = mock(OrderShipmentService.class);
+        LogisticsTrackingGateway gateway = mock(LogisticsTrackingGateway.class);
+        ExternalApiGuardService guard = mock(ExternalApiGuardService.class);
+        when(guard.fingerprint("TENANT_001|after-sales|after-sales:201:phone:1234|顺丰速运|SF5119899421157"))
+                .thenReturn("after-sales-cache-key");
+        when(guard.fingerprint("SF5119899421157")).thenReturn("tracking-fingerprint");
+        when(gateway.providerCode()).thenReturn("aliyun-market");
+        when(guard.getCachedResponse("aliyun-market-logistics", "realtime-query", "after-sales-cache-key"))
+                .thenReturn(null);
+        when(gateway.query(new LogisticsTrackingQuery("SF", "SF5119899421157", "1234")))
+                .thenReturn(new OrderLogisticsTrackingVO());
+
+        OrderLogisticsTrackingService service = new OrderLogisticsTrackingService(
+                orderService, shipmentService, gateway, guard);
+
+        service.getTrackingForAfterSales("TENANT_001", "顺丰速运", "SF5119899421157", 201L, "1234");
+
+        verify(gateway).query(new LogisticsTrackingQuery("SF", "SF5119899421157", "1234"));
+    }
+
+    @Test
+    void rejectsPhoneSuffixesThatAreNotExactlyFourDigitsBeforeQueryingTheProvider() {
+        OrderLogisticsTrackingService service = new OrderLogisticsTrackingService(
+                mock(OrderService.class), mock(OrderShipmentService.class),
+                mock(LogisticsTrackingGateway.class), mock(ExternalApiGuardService.class));
+
+        assertThatThrownBy(() -> service.getTrackingForAfterSales(
+                "TENANT_001", "顺丰速运", "SF5119899421157", 201L, "12a4"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("手机号尾号4位数字");
+    }
+
+    @Test
     void rejectsNonTrackableDeliveryBeforeCallingLogisticsProvider() {
         OrderService orderService = mock(OrderService.class);
         OrderShipmentService shipmentService = mock(OrderShipmentService.class);

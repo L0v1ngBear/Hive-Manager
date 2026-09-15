@@ -87,18 +87,49 @@ public class OrderLogisticsTrackingService {
     }
 
     /**
+     * Queries a shipment using the phone suffix supplied for this request.
+     * The suffix is deliberately not read from, or written to, order data.
+     */
+    public OrderLogisticsTrackingVO getTracking(String orderId, Long shipmentId, String phoneSuffix) {
+        String suppliedPhoneSuffix = requirePhoneSuffix(phoneSuffix);
+        if (orderId == null || orderId.isBlank()) {
+            throw new BusinessException("订单编号不能为空");
+        }
+        orderId = orderId.trim();
+        SalesOrder order = orderService.getSalesOrderForLogisticsTracking(orderId);
+        SalesOrderShipment shipment = orderShipmentService.requireShipment(
+                order.getTenantCode(), orderId, shipmentId);
+        if (!Objects.equals(order.getTenantCode(), shipment.getTenantCode())
+                || !Objects.equals(orderId, shipment.getOrderId())
+                || !Objects.equals(shipmentId, shipment.getId())) {
+            throw new BusinessException("物流记录不存在或不属于当前订单");
+        }
+        if (shipment.getDeliveryMode() != null
+                && !shipment.getDeliveryMode().isBlank()
+                && !"tracked".equalsIgnoreCase(shipment.getDeliveryMode())) {
+            throw new BusinessException("该发货方式不支持物流轨迹查询");
+        }
+        String company = required(shipment.getLogisticsCompany(), "Shipment logistics company is required");
+        String trackingNo = required(shipment.getTrackingNo(), "Shipment tracking number is required");
+        return getTrackingForWaybill(order.getTenantCode(), suppliedPhoneSuffix, order.getOrderId(),
+                company, trackingNo, shipmentId + ":phone:" + suppliedPhoneSuffix);
+    }
+
+    /**
      * Reuses the same provider, cache and cooldown as an order shipment for a
      * separately dispatched after-sales waybill.
      */
     public OrderLogisticsTrackingVO getTrackingForAfterSales(String tenantCode,
                                                               String logisticsCompany,
                                                               String trackingNo,
-                                                              Long ticketId) {
+                                                              Long ticketId,
+                                                              String phoneSuffix) {
         tenantCode = required(tenantCode, "当前组织不能为空");
         String company = required(logisticsCompany, "请补充物流公司后再查询物流轨迹");
         String waybill = required(trackingNo, "请补充物流单号后再查询物流轨迹");
-        return getTrackingForWaybill(tenantCode, null, "after-sales", company, waybill,
-                "after-sales:" + (ticketId == null ? "new" : ticketId));
+        String suppliedPhoneSuffix = requirePhoneSuffix(phoneSuffix);
+        return getTrackingForWaybill(tenantCode, suppliedPhoneSuffix, "after-sales", company, waybill,
+                "after-sales:" + (ticketId == null ? "new" : ticketId) + ":phone:" + suppliedPhoneSuffix);
     }
 
     private OrderLogisticsTrackingVO getTrackingForWaybill(SalesOrder order,
@@ -115,6 +146,7 @@ public class OrderLogisticsTrackingService {
                                                             String trackingNo,
                                                             String reference) {
         String companyCode = resolveCompanyCode(company, logisticsTrackingGateway.supportsCompanyCodeAutoRecognition());
+        String suffix = phoneSuffix(customerPhone);
         String cacheSource = String.join("|", tenantCode, cacheScope,
                 reference, company, trackingNo);
         String cacheKey = externalApiGuardService.fingerprint(cacheSource);
@@ -133,7 +165,7 @@ public class OrderLogisticsTrackingService {
                     return cached;
                 }
                 throwCachedFailure(provider, cacheKey);
-                return queryAndCache(tenantCode, customerPhone, company, companyCode, trackingNo, provider, cacheKey);
+                return queryAndCache(tenantCode, suffix, company, companyCode, trackingNo, provider, cacheKey);
             }
         } finally {
             queryLocks.remove(cacheKey, queryLock);
@@ -341,6 +373,13 @@ public class OrderLogisticsTrackingService {
         }
         String digits = value.replaceAll("\\D", "");
         return digits.length() < 4 ? null : digits.substring(digits.length() - 4);
+    }
+
+    private static String requirePhoneSuffix(String value) {
+        if (value == null || !value.matches("\\d{4}")) {
+            throw new BusinessException("请输入手机号尾号4位数字后再查询物流轨迹");
+        }
+        return value;
     }
 
     private static long elapsedMillis(long startedAt) {

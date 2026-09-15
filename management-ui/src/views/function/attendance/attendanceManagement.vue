@@ -590,8 +590,6 @@ async function fetchData(snapshot = currentQuerySnapshot(), request = attendance
   loading.value = true
   listError.value = null
   rows.value = []
-  pagination.total = 0
-  pagination.pages = 0
   try {
     const data = await getAttendancePage(snapshot)
     request.commit(() => {

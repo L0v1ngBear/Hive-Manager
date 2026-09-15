@@ -85,6 +85,15 @@ class UnifiedApprovalServiceTest {
     }
 
     @Test
+    void approvalAuditorPermissionTypeAcceptsAfterSalesConfigurationType() throws Exception {
+        ApprovalService service = new ApprovalService();
+        Method method = ApprovalService.class.getDeclaredMethod("resolveAuditorPermissionCode", String.class);
+        method.setAccessible(true);
+
+        assertEquals(PermissionCatalogV3.CODE_AFTER_SALES_PROCESS, method.invoke(service, "after_sales"));
+    }
+
+    @Test
     void approvalRelatedScopeIsCanonicalAndPreserved() throws Exception {
         ApprovalService service = new ApprovalService();
         Method method = ApprovalService.class.getDeclaredMethod("normalizeApprovalScope", String.class);

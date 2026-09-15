@@ -3,11 +3,11 @@ import request from '@/utils/request.js'
 export const getAfterSalesTickets = (params, options = {}) => request({ url: '/after-sales/tickets', method: 'get', params, ...options })
 export const exportAfterSalesTickets = (params) => request({ url: '/after-sales/tickets/export', method: 'get', params, responseType: 'blob' })
 export const getAfterSalesTicket = (id) => request({ url: `/after-sales/tickets/${id}`, method: 'get' })
-export const getAfterSalesTicketLogisticsTracking = (id) => request({
+export const getAfterSalesTicketLogisticsTracking = (id, phoneSuffix) => request({
   url: `/after-sales/tickets/${id}/logistics-tracking`,
   method: 'get',
-  silent: true,
-  cacheTtl: 30 * 60 * 1000
+  params: { phoneSuffix },
+  silent: true
 })
 export const saveAfterSalesTicket = (data) => request({ url: '/after-sales/tickets', method: 'post', data })
 export const uploadAfterSalesRepairImage = (data) => request({ url: '/after-sales/tickets/repair-image', method: 'post', data })

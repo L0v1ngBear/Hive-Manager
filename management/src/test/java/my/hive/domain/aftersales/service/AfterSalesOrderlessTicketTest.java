@@ -151,6 +151,28 @@ class AfterSalesOrderlessTicketTest {
     }
 
     @Test
+    void cannotChooseHandlingTypeForAssignedIntakeBeforeDiagnosisIsCompleted() {
+        AfterSalesTicket intakeTicket = new AfterSalesTicket();
+        intakeTicket.setId(111L);
+        intakeTicket.setTenantCode("TENANT_001");
+        intakeTicket.setStatus("draft");
+        intakeTicket.setTicketType("pending_assignment");
+        when(ticketMapper.selectOne(any())).thenReturn(intakeTicket);
+
+        AfterSalesTicketSaveRequest request = new AfterSalesTicketSaveRequest();
+        request.setId(111L);
+        request.setCustomerName("杭州待指派客户");
+        request.setProjectName("酒店项目");
+        request.setTicketType("on_site_repair");
+        request.setProblemDesc("窗帘无法正常开合");
+
+        assertThatThrownBy(() -> service.saveTicket(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("请先完成故障研判");
+        verify(ticketMapper, never()).updateById(any());
+    }
+
+    @Test
     void editsProcessingTicketWithoutChangingWorkflowOrReplacingOutboundParts() {
         Customer customer = new Customer();
         customer.setId(88L);
@@ -302,17 +324,18 @@ class AfterSalesOrderlessTicketTest {
         ticket.setTenantCode("TENANT_001");
         ticket.setLogisticsCompany("德邦快递");
         ticket.setWaybillNo("DPK212715394227");
+        ticket.setContactPhone("13800009999");
         when(ticketMapper.selectOne(any())).thenReturn(ticket);
         OrderLogisticsTrackingVO tracking = new OrderLogisticsTrackingVO();
         tracking.setTrackingNo("DPK212715394227");
-        when(orderLogisticsTrackingService.getTrackingForAfterSales("TENANT_001", "德邦快递", "DPK212715394227", 201L))
+        when(orderLogisticsTrackingService.getTrackingForAfterSales("TENANT_001", "德邦快递", "DPK212715394227", 201L, "1234"))
                 .thenReturn(tracking);
 
-        OrderLogisticsTrackingVO result = service.ticketLogisticsTracking(201L);
+        OrderLogisticsTrackingVO result = service.ticketLogisticsTracking(201L, "1234");
 
         assertThat(result).isSameAs(tracking);
         verify(orderLogisticsTrackingService)
-                .getTrackingForAfterSales("TENANT_001", "德邦快递", "DPK212715394227", 201L);
+                .getTrackingForAfterSales("TENANT_001", "德邦快递", "DPK212715394227", 201L, "1234");
     }
 
     @Test
@@ -323,7 +346,7 @@ class AfterSalesOrderlessTicketTest {
         ticket.setWaybillNo("DPK212715394228");
         when(ticketMapper.selectOne(any())).thenReturn(ticket);
 
-        assertThatThrownBy(() -> service.ticketLogisticsTracking(202L))
+        assertThatThrownBy(() -> service.ticketLogisticsTracking(202L, "1234"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("该售后工单缺少物流公司，请编辑工单后补充");
     }

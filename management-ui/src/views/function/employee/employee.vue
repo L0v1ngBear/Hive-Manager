@@ -504,8 +504,6 @@ const fetchEmployees = async () => {
   loading.value = true
   listError.value = null
   employees.value = []
-  pagination.total = 0
-  pagination.pages = 0
   try {
     const data = await getEmployeePage(normalizeQuery())
     request.commit(() => {

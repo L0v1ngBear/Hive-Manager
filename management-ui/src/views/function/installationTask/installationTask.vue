@@ -515,8 +515,6 @@ async function loadTasks() {
   requestState.value = 'loading'
   requestErrorMessage.value = ''
   rows.value = []
-  pagination.total = 0
-  pagination.pages = 0
   try {
     const result = await getInstallationTaskPage({...filters})
     request.commit(() => {

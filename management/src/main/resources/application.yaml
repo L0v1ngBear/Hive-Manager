@@ -113,10 +113,10 @@ wechat:
     app-secret: ${WECHAT_MINI_PROGRAM_APP_SECRET:}
     subscribe:
       enabled: ${WECHAT_SUBSCRIBE_ENABLED:false}
-      todo-template-id: ${WECHAT_SUBSCRIBE_TODO_TEMPLATE_ID:}
+      todo-template-id: ${WECHAT_SUBSCRIBE_TODO_TEMPLATE_ID:v_vEvmaNMXDHYEHdm0FNY8j_YqCmdT_Tx7-BHOCRVBU}
       todo-title-key: ${WECHAT_SUBSCRIBE_TODO_TITLE_KEY:thing1}
       todo-content-key: ${WECHAT_SUBSCRIBE_TODO_CONTENT_KEY:thing2}
-      todo-time-key: ${WECHAT_SUBSCRIBE_TODO_TIME_KEY:time3}
+      todo-time-key: ${WECHAT_SUBSCRIBE_TODO_TIME_KEY:time1}
   web-login:
     enabled: ${WECHAT_WEB_LOGIN_ENABLED:false}
     app-id: ${WECHAT_WEB_LOGIN_APP_ID:}

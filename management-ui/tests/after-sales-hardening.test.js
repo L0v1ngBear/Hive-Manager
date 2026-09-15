@@ -195,10 +195,10 @@ test('customer projects use the project-name wording and after-sales pre-fills l
 })
 
 test('after-sales ticket parts retain the selected stock location', () => {
-  assert.match(service, /PART_LOCATIONS = Set\.of\("三车间", "二车间", "其他"\)/)
+  assert.match(service, /PART_LOCATIONS = Set\.of\("一车间", "二车间", "三车间", "其他"\)/)
   assert.match(service, /line\.setPartLocation\(normalizePartLocation\(item\.getPartLocation\(\)\)\)/)
   assert.match(page, /配件地点/)
-  assert.match(page, /const partLocationOptions = \['三车间', '二车间', '其他'\]/)
+  assert.match(page, /const partLocationOptions = \['一车间', '二车间', '三车间', '其他'\]/)
   assert.match(ticketPartLocationMigration, /part_location VARCHAR\(20\)/)
   assert.match(manifest, /migrations\/V20260826_008_after_sales_ticket_part_location\.sql/)
   const hash = createHash('sha256').update(ticketPartLocationMigration).digest('hex')
@@ -291,39 +291,62 @@ test('intake creation defers processing details until the assignee edits the dra
   assert.match(service, /creating \? normalizeIntakeTicketType\(request\.getTicketType\(\)\) : requireType\(request\.getTicketType\(\)\)/)
   assert.match(service, /boolean editingWorkflowTicket = !creating && !STATUS_DRAFT\.equals\(ticket\.getStatus\(\)\)/)
   assert.match(page, /ticketType: 'pending_assignment'/)
-  assert.match(page, /<section v-if="ticketForm\.id" class="form-section">/)
+  assert.match(page, /<section v-if="ticketForm\.id && processingStep === 'diagnosis'" class="form-section">/)
   assert.match(page, /const editingWorkflowTicket = computed\(\(\) => Boolean\(ticketForm\.id\) && ticketForm\.status !== 'draft'\)/)
   assert.match(page, /row\.status === 'draft' && canProcess && row\.ticketType !== 'pending_assignment'/)
 })
 
 test('editing an assigned ticket keeps the intake section out of the processing form', () => {
   assert.match(page, /<section v-if="!ticketForm\.id" class="form-section"><h3>1\. 客户与受理信息<\/h3>/)
-  assert.match(page, /<section v-if="ticketForm\.id" class="form-section">/)
+  assert.match(page, /<section v-if="ticketForm\.id && processingStep === 'handling'" class="form-section">/)
 })
 
-test('assigned processors choose a handling tab and only then see its required fields', () => {
-  assert.match(page, /const processingTypeOptions = typeOptions\.filter\(item => item\.value !== 'pending_assignment'\)/)
-  assert.match(page, /<el-tabs v-model="ticketForm\.ticketType" class="processing-type-tabs">/)
-  assert.match(page, /v-for="item in processingTypeOptions"/)
-  assert.match(page, /请选择本工单的处理方式，随后填写该方式所需的处理信息。/)
+test('assigned processors choose a follow-up handling tab only after diagnosis', () => {
+  assert.match(page, /const followUpTypeOptions = processingTypeOptions\.filter\(item => item\.value !== 'diagnosis'\)/)
+  assert.match(page, /<el-tabs v-model="selectedHandlingType" class="processing-type-tabs mt-4" @tab-click="selectHandlingType">/)
+  assert.match(page, /v-for="item in followUpTypeOptions"/)
+  assert.match(page, /已指派工单须先完成故障研判/)
   assert.match(page, /v-if="!editingWorkflowTicket && ticketForm\.ticketType !== 'pending_assignment'" label="是否审核"/)
-  assert.doesNotMatch(page, /<el-radio-group v-model="ticketForm\.ticketType" class="type-cards"/)
+  assert.doesNotMatch(page, /<el-tabs v-model="ticketForm\.ticketType" class="processing-type-tabs">/)
 })
 
-test('assigned processors have a dedicated open-task tab with the processing method and next action', () => {
+test('assigned intake tickets complete diagnosis before choosing a follow-up handling type', () => {
+  assert.match(page, /const processingStep = ref\('intake'\)/)
+  assert.match(page, /v-if="ticketForm\.id && processingStep === 'diagnosis'"/)
+  assert.match(page, /@click="continueFromDiagnosis"/)
+  assert.match(page, /v-if="ticketForm\.id && processingStep === 'select_type'"/)
+  assert.match(page, /@tab-click="selectHandlingType"/)
+})
+
+test('on-site repair processing retains a dedicated repair-image upload entry after assignment', () => {
+  assert.match(page, /v-if="ticketForm\.ticketType === 'on_site_repair'"[\s\S]*?label="上门维修图片"/)
+  assert.match(page, /label="上门维修图片"[\s\S]*?handleRepairImageUpload/)
+})
+
+test('after-sales logistics asks for a four-digit phone suffix before querying a trace', () => {
+  assert.match(page, /@show="prepareTicketLogisticsTracking\(row\)"/)
+  assert.match(page, /请输入手机号尾号 4 位/)
+  assert.match(page, /@click\.stop="loadTicketLogisticsTracking\(row\)"/)
+  assert.doesNotMatch(page, /@show="loadTicketLogisticsTracking\(row\)"/)
+  assert.match(api, /getAfterSalesTicketLogisticsTracking = \(id, phoneSuffix\)[\s\S]*?params: \{ phoneSuffix \}/)
+})
+
+test('assigned processors have a dedicated todo tab with the processing method, next action, and pending follow-up', () => {
   const ticketPageRequest = readRepo('management/src/main/java/my/hive/domain/aftersales/model/dto/AfterSalesTicketPageRequest.java')
 
   assert.match(ticketPageRequest, /private Long assigneeUserId;/)
   assert.match(ticketPageRequest, /private Boolean openTasksOnly;/)
+  assert.match(ticketPageRequest, /private Boolean todoOnly;/)
   assert.match(service, /getAssigneeUserId\(\).*AfterSalesTicket::getAssigneeUserId/)
-  assert.match(service, /Boolean\.TRUE\.equals\(request\.getOpenTasksOnly\(\)\).*STATUS_CLOSED.*STATUS_CANCELLED/)
+  assert.match(service, /Boolean\.TRUE\.equals\(request\.getTodoOnly\(\)\)[\s\S]*?STATUS_CLOSED[\s\S]*?getFollowUpTime\(\)/)
+  assert.match(service, /Boolean\.TRUE\.equals\(request\.getOpenTasksOnly\(\)\)[\s\S]*?STATUS_CLOSED[\s\S]*?STATUS_CANCELLED/)
   assert.match(page, /<el-tab-pane v-if="canProcess" name="my-tasks">/)
   assert.match(page, /<el-badge is-dot :hidden="myTaskTotal === 0" type="danger">/)
   assert.match(page, /处理方式/)
   assert.match(page, /待做事项/)
   assert.match(page, /taskInstruction\(row\)/)
   assert.match(page, /assigneeUserId: userStore\.userInfo\?\.userId/)
-  assert.match(page, /openTasksOnly: true/)
+  assert.match(page, /todoOnly: true/)
 })
 
 test('assigned users see a processing action instead of a generic edit action', () => {
@@ -331,4 +354,23 @@ test('assigned users see a processing action instead of a generic edit action', 
   assert.match(page, /function ticketEditActionLabel\(ticket = \{\}\)/)
   assert.match(page, /\{\{ ticketEditActionLabel\(row\) \}\}/)
   assert.match(page, />处理<\/el-button>/)
+})
+
+test('after-sales todo work includes diagnosis, next handling, and pending follow-up tasks', () => {
+  const ticketPageRequest = readRepo('management/src/main/java/my/hive/domain/aftersales/model/dto/AfterSalesTicketPageRequest.java')
+  const navbar = readRepo('management-ui/src/layout/components/Navbar.vue')
+
+  assert.match(page, /故障研判[\s\S]*?label="质保提示"[\s\S]*?warrantyStates\(ticketForm\.openingDate\)/)
+  assert.match(page, /ticketForm\.ticketType === 'diagnosis'[\s\S]*?label="质保提示"[\s\S]*?warrantyStates\(ticketForm\.openingDate\)/)
+  assert.match(page, /const partLocationOptions = \['一车间', '二车间', '三车间', '其他'\]/)
+  assert.match(service, /PART_LOCATIONS = Set\.of\("一车间", "二车间", "三车间", "其他"\)/)
+  assert.match(ticketPageRequest, /private Boolean todoOnly;/)
+  assert.match(service, /Boolean\.TRUE\.equals\(request\.getTodoOnly\(\)\)[\s\S]*?STATUS_CLOSED[\s\S]*?getFollowUpTime\(\)/)
+  assert.match(page, /todoOnly: true/)
+  assert.match(page, /function isFollowUpTask\(ticket = \{\}\)/)
+  assert.match(page, /请完成故障研判并选择下一步处理方式/)
+  assert.match(page, /已结案，请完成客户回访/)
+  assert.match(navbar, /todoOnly: true/)
+  assert.match(navbar, /请完成故障研判并选择下一步处理方式/)
+  assert.match(navbar, /已结案，请完成客户回访/)
 })

@@ -39,7 +39,7 @@ public class WechatSubscribeService {
     private String titleKey;
     @Value("${wechat.mini-program.subscribe.todo-content-key:thing2}")
     private String contentKey;
-    @Value("${wechat.mini-program.subscribe.todo-time-key:time3}")
+    @Value("${wechat.mini-program.subscribe.todo-time-key:time1}")
     private String timeKey;
 
     public WechatSubscribeConfig config() {

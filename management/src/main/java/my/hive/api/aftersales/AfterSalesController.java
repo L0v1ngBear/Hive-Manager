@@ -82,8 +82,9 @@ public class AfterSalesController {
 
     @GetMapping("/tickets/{id}/logistics-tracking")
     @RequirePermission(value = PermissionCatalogV3.CODE_AFTER_SALES_DETAIL, message = "当前账号没有查看售后工单详情权限")
-    public Result<OrderLogisticsTrackingVO> ticketLogisticsTracking(@PathVariable Long id) {
-        return Result.success(afterSalesService.ticketLogisticsTracking(id));
+    public Result<OrderLogisticsTrackingVO> ticketLogisticsTracking(@PathVariable Long id,
+                                                                      @RequestParam String phoneSuffix) {
+        return Result.success(afterSalesService.ticketLogisticsTracking(id, phoneSuffix));
     }
 
     @GetMapping("/assignee-options")

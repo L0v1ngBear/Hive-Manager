@@ -324,7 +324,8 @@
                       :show-after="260"
                       :hide-after="120"
                       popper-class="order-logistics-popover"
-                      @show="loadLogisticsTracking(row, shipment)"
+                      @show="prepareLogisticsTracking(row, shipment)"
+                      @hide="clearLogisticsTrackingPhoneSuffix(row, shipment)"
                     >
                       <template #reference>
                         <button type="button" class="order-express-number-trigger">
@@ -362,7 +363,15 @@
                         </button>
                       </div>
 
-                      <div v-if="logisticsTrackingState(row, shipment).loading" class="order-logistics-feedback">
+                      <div v-if="!logisticsTrackingState(row, shipment).requested" class="order-logistics-phone-prompt">
+                        <p>请输入手机号尾号 4 位以查询物流轨迹</p>
+                        <div class="order-logistics-phone-input">
+                          <el-input v-model.trim="logisticsTrackingState(row, shipment).phoneSuffix" maxlength="4" inputmode="numeric" placeholder="请输入手机号尾号 4 位" @click.stop />
+                          <el-button type="primary" @click.stop="loadLogisticsTracking(row, shipment)">查询</el-button>
+                        </div>
+                      </div>
+
+                      <div v-else-if="logisticsTrackingState(row, shipment).loading" class="order-logistics-feedback">
                         <span class="order-logistics-spinner" aria-hidden="true"></span>
                         <span>物流轨迹加载中</span>
                       </div>
@@ -2156,7 +2165,9 @@ function logisticsTrackingState(row = {}, shipment = {}) {
       loading: false,
       data: null,
       errorMessage: '',
-      retryAfter: 0
+      retryAfter: 0,
+      phoneSuffix: '',
+      requested: false
     }
   }
   return logisticsTrackingStates[key]
@@ -2188,17 +2199,35 @@ async function copyTrackingNumber(shipment = {}) {
   }
 }
 
+function prepareLogisticsTracking(row = {}, shipment = {}) {
+  const tracking = logisticsTrackingState(row, shipment)
+  tracking.loading = false
+  tracking.data = null
+  tracking.errorMessage = ''
+  tracking.retryAfter = 0
+  tracking.phoneSuffix = ''
+  tracking.requested = false
+}
+
+function clearLogisticsTrackingPhoneSuffix(row = {}, shipment = {}) {
+  logisticsTrackingState(row, shipment).phoneSuffix = ''
+}
+
 async function loadLogisticsTracking(row, shipment) {
   if (!isTrackableShipment(shipment) || !canViewOrderDetail(row) || !row?.orderId || !shipment?.id) return
   const tracking = logisticsTrackingState(row, shipment)
+  if (!/^\d{4}$/.test(tracking.phoneSuffix)) {
+    ElMessage.warning('请输入手机号尾号 4 位数字')
+    return
+  }
   if (tracking.loading
-    || logisticsTrackingCacheValid(tracking.data)
     || tracking.retryAfter > Date.now()) return
 
   tracking.loading = true
+  tracking.requested = true
   tracking.errorMessage = ''
   try {
-    tracking.data = await getOrderLogisticsTracking(row.orderId, shipment.id, shipment.version)
+    tracking.data = await getOrderLogisticsTracking(row.orderId, shipment.id, shipment.version, tracking.phoneSuffix)
     tracking.retryAfter = 0
   } catch (error) {
     tracking.data = null

@@ -13,13 +13,17 @@ function functionSource(source, name, nextName) {
   return source.slice(start, start + 1 + end)
 }
 
-test('each shipment logistics query is triggered only when its popover opens', () => {
+test('each shipment logistics query requires a phone suffix after its popover opens', () => {
   const loadOrdersSource = functionSource(orderSource, 'loadOrders', 'logisticsTrackingKey')
   const trackingKeySource = functionSource(orderSource, 'logisticsTrackingKey', 'logisticsTrackingState')
 
   assert.match(orderSource, /v-for="shipment in row\.shipments"[\s\S]*<el-popover[\s\S]*trigger="hover"/)
   assert.match(orderSource, /:key="logisticsTrackingKey\(row, shipment\)"/)
-  assert.match(orderSource, /@show="loadLogisticsTracking\(row, shipment\)"/)
+  assert.match(orderSource, /@show="prepareLogisticsTracking\(row, shipment\)"/)
+  assert.match(orderSource, /@hide="clearLogisticsTrackingPhoneSuffix\(row, shipment\)"/)
+  assert.match(orderSource, /请输入手机号尾号 4 位以查询物流轨迹/)
+  assert.match(orderSource, /v-model\.trim="logisticsTrackingState\(row, shipment\)\.phoneSuffix"/)
+  assert.match(orderSource, /@click\.stop="loadLogisticsTracking\(row, shipment\)"/)
   assert.match(orderSource, /const logisticsTrackingStates = reactive\(\{\}\)/)
   assert.match(trackingKeySource, /row\.orderId/)
   assert.match(trackingKeySource, /shipment\.id/)
@@ -50,21 +54,21 @@ test('each shipment logistics query is triggered only when its popover opens', (
   assert.match(orderSource, /function logisticsTrackingState\(row = \{\}, shipment = \{\}\)/)
   assert.match(orderSource, /function loadLogisticsTracking\(row, shipment\)/)
   assert.match(orderSource, /if \(!isTrackableShipment\(shipment\) \|\| !canViewOrderDetail\(row\)/)
-  assert.match(orderSource, /getOrderLogisticsTracking\(row\.orderId, shipment\.id, shipment\.version\)/)
+  assert.match(orderSource, /getOrderLogisticsTracking\(row\.orderId, shipment\.id, shipment\.version, tracking\.phoneSuffix\)/)
   assert.doesNotMatch(loadOrdersSource, /getOrderLogisticsTracking/)
   assert.doesNotMatch(orderSource, /@(mouseenter|mouseover)="loadLogisticsTracking/)
 })
 
 test('management UI calls only the canonical order tracking endpoint', () => {
-  assert.match(apiSource, /export function getOrderLogisticsTracking\(orderId, shipmentId, shipmentVersion\)/)
+  assert.match(apiSource, /export function getOrderLogisticsTracking\(orderId, shipmentId, shipmentVersion, phoneSuffix\)/)
   assert.match(apiSource, /`\/orders\/\$\{encodeURIComponent\(orderId\)\}\/shipments\/\$\{encodeURIComponent\(shipmentId\)\}\/logistics-tracking`/)
-  assert.match(apiSource, /params:\s*\{\s*shipmentVersion\s*\}/)
-  assert.match(apiSource, /cacheTtl:\s*30\s*\*\s*60\s*\*\s*1000/)
+  assert.match(apiSource, /params:\s*\{\s*shipmentVersion, phoneSuffix\s*\}/)
+  assert.match(apiSource, /silent:\s*true/)
   assert.doesNotMatch(apiSource, /`\/orders\/\$\{encodeURIComponent\(orderId\)\}\/logistics-tracking`/)
   assert.doesNotMatch(apiSource, /kuaidi100\.com|poll\/query\.do|legacy|fallback/i)
 })
 
-test('successful and failed hover queries are both throttled locally', async () => {
+test('a valid phone suffix is sent with the query and failed queries are throttled locally', async () => {
   const loadSource = functionSource(orderSource, 'loadLogisticsTracking', 'resolveOrderListFailure').trim()
   const createLoader = (tracking, query) => Function(
     'canViewOrderDetail',
@@ -73,6 +77,7 @@ test('successful and failed hover queries are both throttled locally', async () 
     'logisticsTrackingCacheValid',
     'getOrderLogisticsTracking',
     'LOGISTICS_TRACKING_FAILURE_RETRY_MS',
+    'ElMessage',
     `return (${loadSource})`
   )(
     () => true,
@@ -80,23 +85,27 @@ test('successful and failed hover queries are both throttled locally', async () 
     () => tracking,
     (data) => Date.parse(data?.cacheExpiresAt || '') > Date.now(),
     query,
-    30_000
+    30_000,
+    { warning() {} }
   )
   const row = { orderId: 'SO-001', status: 'shipped' }
   const shipment = { id: 7, trackingNo: 'SF123456' }
 
   let successCalls = 0
-  const successState = { loading: false, data: null, errorMessage: '', retryAfter: 0 }
-  const successLoader = createLoader(successState, async () => {
+  const successState = { loading: false, data: null, errorMessage: '', retryAfter: 0, phoneSuffix: '1234', requested: false }
+  let successArguments = null
+  const successLoader = createLoader(successState, async (...args) => {
     successCalls += 1
+    successArguments = args
     return { cacheExpiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() }
   })
   await successLoader(row, shipment)
-  await successLoader(row, shipment)
   assert.equal(successCalls, 1)
+  assert.deepEqual(successArguments, ['SO-001', 7, undefined, '1234'])
+  assert.equal(successState.requested, true)
 
   let failureCalls = 0
-  const failureState = { loading: false, data: null, errorMessage: '', retryAfter: 0 }
+  const failureState = { loading: false, data: null, errorMessage: '', retryAfter: 0, phoneSuffix: '5678', requested: false }
   const failureLoader = createLoader(failureState, async () => {
     failureCalls += 1
     throw new Error('provider unavailable')
