@@ -118,6 +118,7 @@ test('after-sales repair images use the existing ticket JSON column and tenant-s
   assert.match(uploadResolver, /"after-sales-repair"/)
   assert.match(api, /url: '\/after-sales\/tickets\/repair-image'/)
   assert.match(page, /label="售后维修图片"/)
+  assert.match(page, />上传故障反馈图片<\/el-button>/)
   assert.match(page, /ticketForm\.repairImages\.length >= 9/)
   assert.match(page, /downloadAfterSalesRepairImage/)
 })
