@@ -16,7 +16,7 @@ public interface AuthMapper {
 
     @Select({
             "<script>",
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.position AS positionName, u.login_name AS loginName, ",
             "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
             "FROM user u ",
             "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
@@ -33,7 +33,7 @@ public interface AuthMapper {
 
     @Select({
             "<script>",
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.position AS positionName, u.login_name AS loginName, ",
             "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
             "FROM user u ",
             "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
@@ -51,7 +51,7 @@ public interface AuthMapper {
                                         @Param("tenantCodes") List<String> tenantCodes);
 
     @Select({
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.position AS positionName, u.login_name AS loginName, ",
             "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
             "FROM user u ",
             "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
@@ -62,7 +62,7 @@ public interface AuthMapper {
 
     @Select({
             "<script>",
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.position AS positionName, u.login_name AS loginName, ",
             "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
             "FROM user u ",
             "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
@@ -81,7 +81,7 @@ public interface AuthMapper {
 
     @Select({
             "<script>",
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.position AS positionName, u.login_name AS loginName, ",
             "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
             "FROM user u ",
             "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
@@ -101,7 +101,7 @@ public interface AuthMapper {
 
     @Select({
             "<script>",
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.position AS positionName, u.login_name AS loginName, ",
             "u.phone_mask AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
             "FROM user u ",
             "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
@@ -117,7 +117,7 @@ public interface AuthMapper {
 
     @Select({
             "<script>",
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.position AS positionName, u.login_name AS loginName, ",
             "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
             "FROM user_wechat_identity wi ",
             "JOIN user u ON u.id = wi.user_id AND u.tenant_code = wi.tenant_code ",
@@ -133,7 +133,7 @@ public interface AuthMapper {
             @Param("tenantCodes") List<String> tenantCodes);
 
     @Select({
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.position AS positionName, u.login_name AS loginName, ",
             "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
             "FROM user_wechat_identity wi ",
             "JOIN user u ON u.id = wi.user_id AND u.tenant_code = wi.tenant_code ",
@@ -172,7 +172,7 @@ public interface AuthMapper {
 
     @Select({
             "<script>",
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.position AS positionName, u.login_name AS loginName, ",
             "u.phone_mask AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
             "FROM user u ",
             "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
@@ -186,7 +186,7 @@ public interface AuthMapper {
                                                             @Param("tenantCodes") List<String> tenantCodes);
 
     @Select({
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.position AS positionName, u.login_name AS loginName, ",
             "u.phone_mask AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
             "FROM user u LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",
             "WHERE u.phone_hash = #{phoneHash} AND u.tenant_code = #{tenantCode} ORDER BY u.id ASC LIMIT 2"
@@ -195,7 +195,7 @@ public interface AuthMapper {
                                                             @Param("tenantCode") String tenantCode);
 
     @Select({
-            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.login_name AS loginName, ",
+            "SELECT u.id AS userId, u.tenant_code AS tenantCode, COALESCE(t.tenant_name, u.tenant_code) AS tenantName, t.logo_url AS tenantLogoUrl, u.name AS userName, u.position AS positionName, u.login_name AS loginName, ",
             "COALESCE(u.phone_mask, u.phone) AS phone, u.password AS password, COALESCE(u.must_change_password, 0) AS mustChangePassword, u.status AS userStatus, COALESCE(u.permission_version, 1) AS permissionVersion, COALESCE(u.auth_version, 1) AS authVersion ",
             "FROM user u ",
             "LEFT JOIN tenant t ON t.tenant_code = u.tenant_code AND IFNULL(t.deleted, 0) = 0 ",

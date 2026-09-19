@@ -1143,6 +1143,7 @@ public class AuthenticationService {
         loginVO.setToken(token);
         loginVO.setUserId(loginUser.getUserId());
         loginVO.setUserName(loginUser.getUserName());
+        loginVO.setPositionName(normalizePositionName(loginUser.getPositionName()));
         loginVO.setTenantCode(loginUser.getTenantCode());
         loginVO.setTenantName(loginUser.getTenantName());
         loginVO.setTenantLogoUrl(loginUser.getTenantLogoUrl());
@@ -1154,6 +1155,13 @@ public class AuthenticationService {
                 ? List.of()
                 : tenantLicenseService.enabledFeatureKeys(loginUser.getTenantCode()));
         return loginVO;
+    }
+
+    /**
+     * 顶栏展示的员工职位只取员工档案 user.position；未维护时返回 null，由前端按未设置处理，不得用固定文案冒充。
+     */
+    private String normalizePositionName(String positionName) {
+        return StringUtils.hasText(positionName) ? positionName.trim() : null;
     }
 
     private void validateLoginEligibility(LoginUserRow loginUser) {

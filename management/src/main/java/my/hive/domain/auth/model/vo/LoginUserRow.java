@@ -17,6 +17,8 @@ public class LoginUserRow {
 
     private String userName;
 
+    private String positionName;
+
     private String loginName;
 
     private String phone;

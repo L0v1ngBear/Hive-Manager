@@ -16,6 +16,9 @@ public class LoginVO {
 
     private String userName;
 
+    /** 员工档案职位（user.position），与员工管理列表同一事实；未设置时为 null。 */
+    private String positionName;
+
     private String tenantCode;
 
     private String tenantName;
