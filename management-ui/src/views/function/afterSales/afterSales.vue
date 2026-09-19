@@ -51,6 +51,7 @@
           <el-table-column label="操作" width="100" fixed="right"><template #default="{ row }"><el-button link type="primary" @click.stop="handleMyTask(row)">处理</el-button></template></el-table-column>
         </el-table>
         <el-pagination class="mt-4 justify-end" background layout="total, prev, pager, next" :current-page="myTaskQuery.pageNum" :page-size="myTaskQuery.pageSize" :total="myTaskTotal" @current-change="page => { myTaskQuery.pageNum = page; loadMyTasks() }" />
+        <treatment-todos :refresh-key="treatmentRefreshKey" @open="openTreatmentTask" />
       </el-tab-pane>
       <el-tab-pane v-if="canPartList" label="配件库 / 库存" name="parts">
         <div class="function-filter-bar"><el-input v-model="partQuery.keyword" clearable placeholder="配件编码、名称或规格" @keyup.enter="loadParts" /><el-button type="primary" @click="loadParts">查询</el-button></div>
@@ -111,6 +112,7 @@
     </el-dialog>
     <el-drawer v-model="detailVisible" title="售后工单详情" size="min(92vw, 680px)">
       <div v-if="detail">
+        <el-alert v-if="detail.hasTreatmentRecords" :closable="false" type="info" title="以下原始资料已保留；请在下方追加处理记录中补充物流、处理结果和回访。" />
         <el-descriptions :column="2" border>
           <el-descriptions-item label="工单号">{{ detail.ticketNo }}</el-descriptions-item><el-descriptions-item label="状态">{{ statusLabel(detail.status) }}</el-descriptions-item>
           <el-descriptions-item label="登记日期">{{ detail.registrationDate || '--' }}</el-descriptions-item><el-descriptions-item label="处理方式">{{ typeLabel(detail.ticketType) }}</el-descriptions-item>
@@ -124,6 +126,11 @@
           <el-descriptions-item v-if="detail.followUpTime" label="回访时间">{{ detail.followUpTime }}</el-descriptions-item><el-descriptions-item v-if="detail.followUpTime" label="客户满意度">{{ detail.followUpSatisfaction || '--' }}</el-descriptions-item><el-descriptions-item v-if="detail.followUpTime" label="回访结果">{{ detail.followUpResolved === 1 ? '已解决' : '未解决' }}</el-descriptions-item><el-descriptions-item v-if="detail.followUpTime" label="回访人">{{ detail.followUpOperatorName || '--' }}</el-descriptions-item><el-descriptions-item v-if="detail.followUpTime" label="回访内容" :span="2">{{ detail.followUpContent || '--' }}</el-descriptions-item><el-descriptions-item v-if="detail.followUpTime" label="回访图片" :span="2"><div v-if="detail.followUpImages?.length" class="repair-image-detail-list"><el-button v-for="image in detail.followUpImages" :key="image.fileUrl" plain @click="previewFollowUpImage(image)"><span class="material-symbols-outlined text-[18px]">image</span>{{ image.fileName }}</el-button></div><span v-else>--</span></el-descriptions-item>
         </el-descriptions>
         <h3 class="mt-6 mb-3 font-bold">配件明细</h3><el-table :data="detail.parts || []"><el-table-column prop="partCode" label="编码" /><el-table-column prop="partName" label="配件" /><el-table-column prop="partLocation" label="地点" /><el-table-column prop="quantity" label="数量" /><el-table-column prop="unit" label="单位" /><el-table-column label="状态"><template #default="{ row }">{{ row.lineStatus === 'outbound' ? '已出库' : '待出库' }}</template></el-table-column></el-table>
+        <treatment-timeline :ticket="detail" :selected-id="selectedTreatmentId" @changed="refreshTreatmentDetail" @preview="previewRepairImage" />
+        <section v-if="detail.treatmentClosures?.length" class="mt-6" aria-label="历次结案记录">
+          <h3>历次结案记录</h3>
+          <p v-for="(closure, index) in detail.treatmentClosures" :key="index">{{ closure.closedTime }} · {{ closure.operatorName }}：{{ closure.resolution }}</p>
+        </section>
       </div>
     </el-drawer>
     <el-dialog v-model="repairImagePreviewVisible" :title="repairImagePreviewName || '售后维修图片'" width="min(92vw, 920px)" destroy-on-close @closed="releaseRepairImagePreview"><div class="repair-image-preview-dialog"><el-image v-if="repairImagePreviewUrl" :src="repairImagePreviewUrl" fit="contain" /></div></el-dialog>
@@ -166,11 +173,25 @@ import {
 } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { useRoute } from 'vue-router'
+import TreatmentTimeline from './TreatmentTimeline.vue'
+import TreatmentTodos from './TreatmentTodos.vue'
 import { downloadXlsxBlob } from '@/utils/excelDownload'
 import { assignAfterSalesTicket, downloadAfterSalesFollowUpImage, downloadAfterSalesPartPhoto, downloadAfterSalesRepairImage, exportAfterSalesTickets, followUpAfterSalesTicket, getAfterSalesAssigneeOptions, getAfterSalesCustomerOptions, getAfterSalesOrderOptions, getAfterSalesParts, getAfterSalesTicket, getAfterSalesTicketLogisticsTracking, getAfterSalesTickets, outboundAfterSalesTicket, saveAfterSalesPart, saveAfterSalesTicket, stockInAfterSalesPart, updateAfterSalesTicketStatus, uploadAfterSalesFollowUpImage, uploadAfterSalesPartPhoto, uploadAfterSalesRepairImage } from './api/afterSales'
 
 const userStore = useUserStore()
 const route = useRoute()
+const treatmentRefreshKey = ref(0)
+const selectedTreatmentId = ref('')
+async function openTreatmentTask(record) {
+  selectedTreatmentId.value = String(record.id)
+  await openDetail({ id: record.ticketId })
+}
+async function refreshTreatmentDetail() {
+  treatmentRefreshKey.value++
+  if (detail.value?.id) detail.value = await getAfterSalesTicket(detail.value.id)
+  loadTickets()
+  if (canProcess.value) loadMyTasks()
+}
 const activeTab = ref('tickets'); const tickets = ref([]); const myTasks = ref([]); const parts = ref([]); const ticketLoading = ref(false); const myTaskLoading = ref(false); const partLoading = ref(false); const ticketTotal = ref(0); const myTaskTotal = ref(0); const saving = ref(false)
 const ticketEditorVisible = ref(false); const processingStep = ref('intake'); const selectedHandlingType = ref(''); const partEditorVisible = ref(false); const stockInVisible = ref(false); const detailVisible = ref(false); const assignVisible = ref(false); const followUpVisible = ref(false); const detail = ref(null); const stockInPart = ref(null); const selectedOrder = ref(null); const orderOptions = ref([]); const orderLoading = ref(false); const selectedCustomer = ref(null); const customerOptions = ref([]); const customerLoading = ref(false); const partPhotoUploading = ref(false); const partPhotoPreviewLoading = ref(false); const partPhotoPreviewUrl = ref(''); const repairImageUploading = ref(false); const followUpImageUploading = ref(false); const repairImagePreviewVisible = ref(false); const repairImagePreviewUrl = ref(''); const repairImagePreviewName = ref(''); const savingPart = ref(false); const assigning = ref(false); const savingFollowUp = ref(false); const assigneeLoading = ref(false); const assigneeOptions = ref([]); const assigningTicket = ref(null); const followUpTicket = ref(null); const ticketExporting = ref(false)
 let partPhotoPreviewRequestId = 0
@@ -208,7 +229,7 @@ function prepareTicketLogisticsTracking(ticket = {}) { const state = ticketLogis
 function clearTicketLogisticsPhoneSuffix(ticket = {}) { ticketLogisticsState(ticket).phoneSuffix = '' }
 async function loadTicketLogisticsTracking(ticket = {}) { if (!ticket?.id || !ticket?.waybillNo) return; const state = ticketLogisticsState(ticket); if (!/^\d{4}$/.test(state.phoneSuffix)) return ElMessage.warning('请输入手机号尾号 4 位数字'); if (state.loading || state.retryAfter > Date.now()) return; state.loading = true; state.requested = true; state.errorMessage = ''; try { state.data = await getAfterSalesTicketLogisticsTracking(ticket.id, state.phoneSuffix); state.retryAfter = 0 } catch (error) { state.data = null; state.retryAfter = Date.now() + LOGISTICS_TRACKING_FAILURE_RETRY_MS; state.errorMessage = error?.message || error?.msg || error?.response?.data?.msg || '物流查询失败，请稍后重试' } finally { state.loading = false } }
 async function loadParts() { if (!canPartList.value) { parts.value = []; return }; partLoading.value = true; try { const data = await getAfterSalesParts(partQuery); parts.value = data?.data || [] } catch { parts.value = [] } finally { partLoading.value = false } }
-function loadActive(tabName) { if (tabName === 'parts') { loadParts(); return } if (tabName === 'my-tasks') { loadMyTasks(); return } loadTickets() }
+function loadActive(tabName) { if (tabName === 'parts') { loadParts(); return } if (tabName === 'my-tasks') { treatmentRefreshKey.value++; loadMyTasks(); return } loadTickets() }
 async function searchOrders(keyword = '') { orderLoading.value = true; try { orderOptions.value = await getAfterSalesOrderOptions({ keyword }) || [] } finally { orderLoading.value = false } }
 async function searchCustomers(keyword = '') { customerLoading.value = true; try { customerOptions.value = await getAfterSalesCustomerOptions({ keyword }) || [] } finally { customerLoading.value = false } }
 function selectCustomer(name) { const previous = selectedCustomer.value; selectedCustomer.value = customerOptions.value.find(item => item.customerName === name) || null; if (!selectedCustomer.value) { if (previous) { ticketForm.contactName = ''; ticketForm.contactPhone = ''; ticketForm.projectName = ''; ticketForm.actualAddress = ''; ticketForm.openingDate = '' } return } ticketForm.contactName = selectedCustomer.value.contactName || ''; ticketForm.contactPhone = selectedCustomer.value.contactPhone || ''; ticketForm.projectName = selectedCustomer.value.projectNames?.[0] || ''; ticketForm.actualAddress = selectedCustomer.value.customerAddress || ''; ticketForm.openingDate = selectedCustomer.value.openingDate || '' }
@@ -216,6 +237,7 @@ function selectOrder(id) { selectedOrder.value = orderOptions.value.find(item =>
 async function openTicket(row) {
   if (row?.id) {
     const data = await getAfterSalesTicket(row.id)
+    if (data.hasTreatmentRecords) { detail.value = data; selectedTreatmentId.value = ''; detailVisible.value = true; return }
     reset(ticketForm, { ...blankTicket(), ...data, orderId: data.orderId || '', customerName: data.customerName || '', projectName: data.projectName || '', diagnosisRemark: data.diagnosis || '', returnOldMotor: Number(data.returnOldMotor) === 1, parts: (data.parts || []).map(item => ({ partId: item.partId, partLocation: item.partLocation || '', quantity: item.quantity, remark: item.remark || '' })) })
     selectedOrder.value = data.orderId ? { orderId: data.orderId, customerName: data.customerName, customerPhone: data.customerPhone, contactName: data.contactName, contactPhone: data.contactPhone, projectName: data.projectName } : null
     orderOptions.value = selectedOrder.value ? [selectedOrder.value] : []
@@ -241,7 +263,7 @@ function selectHandlingType(tab) { const type = String(tab?.paneName || selected
 async function saveTicket() { if (ticketForm.id && processingStep.value !== 'handling') return ElMessage.warning('请先完成故障研判并选择处理类型'); if (!ticketForm.problemDesc?.trim()) return ElMessage.warning('请填写问题描述'); if (!ticketForm.orderId && !ticketForm.customerName?.trim()) return ElMessage.warning('未关联订单时请填写客户名称'); const diagnosis = buildDiagnosis() || ticketForm.diagnosis; saving.value = true; try { const payload = { ...ticketForm, orderId: ticketForm.orderId || null, customerName: ticketForm.customerName?.trim() || null, projectName: ticketForm.projectName?.trim() || null, problemDesc: ticketForm.problemDesc.trim(), diagnosis, parts: needsParts.value ? ticketForm.parts : [] }; delete payload.diagnosisProduct; delete payload.diagnosisFault; delete payload.diagnosisAction; delete payload.diagnosisRemark; await saveAfterSalesTicket(payload); ElMessage.success('售后工单已保存'); ticketEditorVisible.value = false; loadTickets() } finally { saving.value = false } }
 async function openDetail(row) { const data = await getAfterSalesTicket(row.id); detail.value = data; detailVisible.value = true }
 function currentDateTimeValue() { const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); return now.toISOString().slice(0, 19) }
-async function openFollowUp(row) { const data = await getAfterSalesTicket(row.id); followUpTicket.value = data; reset(followUpForm, { followUpTime: data.followUpTime || currentDateTimeValue(), satisfaction: data.followUpSatisfaction || '', resolved: data.followUpTime ? data.followUpResolved === 1 : true, content: data.followUpContent || '', followUpImages: (data.followUpImages || []).map(image => ({ ...image })) }); followUpVisible.value = true }
+async function openFollowUp(row) { const data = await getAfterSalesTicket(row.id); if (data.hasTreatmentRecords) { detail.value = data; detailVisible.value = true; return } followUpTicket.value = data; reset(followUpForm, { followUpTime: data.followUpTime || currentDateTimeValue(), satisfaction: data.followUpSatisfaction || '', resolved: data.followUpTime ? data.followUpResolved === 1 : true, content: data.followUpContent || '', followUpImages: (data.followUpImages || []).map(image => ({ ...image })) }); followUpVisible.value = true }
 async function handleMyTask(row) { if (isFollowUpTask(row)) return openFollowUp(row); return openTicket(row) }
 async function saveFollowUp() { if (!followUpForm.satisfaction || !followUpForm.content?.trim()) return ElMessage.warning('请选择客户满意度并填写回访内容'); savingFollowUp.value = true; try { await followUpAfterSalesTicket(followUpTicket.value.id, followUpForm); ElMessage.success('回访记录已保存'); followUpVisible.value = false; loadTickets() } finally { savingFollowUp.value = false } }
 const assigneeLabel = (item) => [item.name, item.departmentName, item.positionName].filter(Boolean).join(' · ')
@@ -267,6 +289,11 @@ const formatPrice = (value) => value === null || value === undefined || value ==
 function openStockIn(row) { stockInPart.value = row; reset(stockInForm, { partId: row.id, quantity: 1, remark: '' }); stockInVisible.value = true }
 async function stockIn() { await stockInAfterSalesPart(stockInForm); ElMessage.success('配件已入库'); stockInVisible.value = false; loadParts() }
 watch(() => route.query.tab, (tab) => { if (tab === 'my-tasks' && canProcess.value) { activeTab.value = 'my-tasks'; loadMyTasks() } })
+watch(() => [route.query.ticketId, route.query.treatmentId], ([ticketId, treatmentId]) => {
+  if (/^[1-9][0-9]*$/.test(String(ticketId || '')) && /^[1-9][0-9]*$/.test(String(treatmentId || ''))) {
+    openTreatmentTask({ ticketId: Number(ticketId), id: treatmentId })
+  }
+}, { immediate: true })
 onMounted(() => { if (route.query.tab === 'my-tasks' && canProcess.value) activeTab.value = 'my-tasks'; loadActive(activeTab.value); if (canProcess.value && activeTab.value !== 'my-tasks') loadMyTasks() })
 onBeforeUnmount(() => { releasePartPhotoPreview(); releaseRepairImagePreview() })
 </script>

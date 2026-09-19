@@ -1,0 +1,16 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>售后分次处理测试</title></head>
+<body><div id="app"></div><script type="module">
+import { createApp, h } from 'vue'
+import { createPinia } from 'pinia'
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+import { useUserStore } from '../../src/stores/user.js'
+import TreatmentTimeline from '../../src/views/function/afterSales/TreatmentTimeline.vue'
+import TreatmentTodos from '../../src/views/function/afterSales/TreatmentTodos.vue'
+const app = createApp({ render: () => h('main', [h('h1', '售后处理验证'), h(TreatmentTimeline, { ticket: { id: 1, ticketNo: 'AS-TEST', status: 'processing', assigneeUserId: 7, openingDate: '2020-02-29' }, selectedId: '2' }), h(TreatmentTodos)]) })
+const pinia = createPinia(); app.use(pinia); app.use(ElementPlus)
+const user = useUserStore(pinia)
+user.userInfo = { userId: 7, tenantCode: 'test' }
+user.permissions = ['after_sales:process', 'after_sales:detail', 'after_sales:part:list', 'after_sales:part:outbound']
+app.mount('#app')
+</script></body></html>

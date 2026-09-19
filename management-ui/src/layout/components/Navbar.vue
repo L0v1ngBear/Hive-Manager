@@ -313,6 +313,8 @@ import { useUserStore } from '@/stores/user'
 import { changePassword } from '@/api/auth.js'
 import { closeNotificationTask, getUnreadNotifications, markNotificationRead, syncNotifications } from '@/api/notification.js'
 import { getAfterSalesTickets } from '@/views/function/afterSales/api/afterSales.js'
+import { getTreatmentTodos } from '@/views/function/afterSales/api/treatments.js'
+import { treatmentStates, treatmentTypes, treatmentTodoRoute } from '@/views/function/afterSales/treatmentHelpers.js'
 import {decorateAccessItems, resolveAccessState} from '@/utils/access'
 import { listenApprovalChanged } from '@/utils/approvalRefresh.js'
 import { listenOrderWarningChanged } from '@/utils/orderWarningRefresh.js'
@@ -608,6 +610,13 @@ async function refreshAssignedAfterSalesTasks() {
       level: afterSalesTaskLevel(ticket.priority),
       afterSalesTask: true
     }))
+    const rounds = await getTreatmentTodos({ pageNum: 1, pageSize: 8 }, { silent: true, showGlobalLoading: false }).catch(() => ({ data: [] }))
+    assignedAfterSalesTasks.value.push(...(rounds?.data || []).map(record => ({
+      key: `after-sales-treatment-${record.id}`,
+      title: `${treatmentTypes[record.treatmentType]} · ${treatmentStates[record.status]}`,
+      desc: `${record.ticketNo} · 第${record.sequenceNo}次追加处理`,
+      type: '售后待办', route: treatmentTodoRoute(record), level: 'info', afterSalesTask: true
+    })))
   } catch {
     assignedAfterSalesTasks.value = []
   }
