@@ -2,3 +2,8 @@ db-migrations/** -text
 scripts/*.sh text eol=lf
 deploy/scripts/*.sh text eol=lf
 deploy/docker-compose.yml text eol=lf
+# Windows 检出时若缺 eol=lf，publish.sh 会带 CRLF，服务器上 bash 会报
+# "invalid option name / set: pipefail"；所有在 Linux 上执行的发布文件必须固定 LF。
+deploy/publish.sh text eol=lf
+deploy/.env.example text eol=lf
+deploy/nginx/** text eol=lf
