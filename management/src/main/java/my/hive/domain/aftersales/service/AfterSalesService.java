@@ -82,6 +82,7 @@ public class AfterSalesService {
     private static final String APPROVAL_TYPE_AFTER_SALES = "after_sales";
 
     @Resource private AfterSalesTicketMapper ticketMapper;
+    @Resource private my.hive.domain.aftersales.mapper.AfterSalesTreatmentMapper treatmentMapper;
     @Resource private AfterSalesPartMapper partMapper;
     @Resource private AfterSalesTicketPartMapper ticketPartMapper;
     @Resource private AfterSalesPartStockRecordMapper stockRecordMapper;
@@ -158,6 +159,9 @@ public class AfterSalesService {
 
     public AfterSalesTicket ticketDetail(Long id) {
         AfterSalesTicket ticket = requireTicket(id);
+        ticket.setHasTreatmentRecords(!treatmentStatuses(ticket).isEmpty());
+        ticket.setTreatmentClosures(ticket.getTreatmentClosuresJson() == null ? List.of()
+                : JSON.parseArray(ticket.getTreatmentClosuresJson(), my.hive.domain.aftersales.model.vo.AfterSalesClosureVO.class));
         ticket.setParts(ticketPartMapper.selectList(new LambdaQueryWrapper<AfterSalesTicketPart>()
                 .eq(AfterSalesTicketPart::getTenantCode, ticket.getTenantCode())
                 .eq(AfterSalesTicketPart::getTicketId, ticket.getId())
@@ -172,9 +176,10 @@ public class AfterSalesService {
         String tenantCode = TenantPermissionContext.getTenantCode();
         boolean creating = request.getId() == null;
         boolean hasFullEditPermission = TenantPermissionContext.hasPermission(PermissionCatalogV3.CODE_AFTER_SALES_UPDATE);
-        AfterSalesTicket ticket = creating ? null : requireTicket(request.getId());
+        AfterSalesTicket ticket = creating ? null : lockTicket(request.getId());
         if (!creating) {
             requireTicketEditAccess(ticket, hasFullEditPermission);
+            if (!treatmentStatuses(ticket).isEmpty()) throw new BusinessException("已有追加处理记录，原工单资料和质保日期已保留，请在处理记录中补充信息");
         }
         String type = creating ? normalizeIntakeTicketType(request.getTicketType()) : requireType(request.getTicketType());
         if (!creating && TICKET_TYPE_PENDING_ASSIGNMENT.equals(ticket.getTicketType())
@@ -269,7 +274,7 @@ public class AfterSalesService {
         }
     }
 
-    private List<AfterSalesRepairImageVO> normalizeRepairImages(List<AfterSalesRepairImageRequest> requested) {
+    List<AfterSalesRepairImageVO> normalizeRepairImages(List<AfterSalesRepairImageRequest> requested) {
         return normalizeAfterSalesImages(requested, "维修图片");
     }
 
@@ -394,7 +399,7 @@ public class AfterSalesService {
 
     @Transactional(rollbackFor = Exception.class)
     public AfterSalesTicket assignTicket(Long ticketId, AfterSalesTicketAssignRequest request) {
-        AfterSalesTicket ticket = requireTicket(ticketId);
+        AfterSalesTicket ticket = lockTicket(ticketId);
         requireTicketStatus(ticket, Set.of(STATUS_DRAFT, STATUS_WAITING_OUTBOUND, STATUS_PROCESSING), "已结案或已取消的工单不能再指派");
         Employee assignee = employeeMapper.selectOne(new LambdaQueryWrapper<Employee>()
                 .eq(Employee::getTenantCode, ticket.getTenantCode())
@@ -417,7 +422,7 @@ public class AfterSalesService {
 
     @Transactional(rollbackFor = Exception.class)
     public void updateTicketStatus(AfterSalesTicketStatusRequest request) {
-        AfterSalesTicket ticket = requireTicket(request.getTicketId());
+        AfterSalesTicket ticket = lockTicket(request.getTicketId());
         String action = cleanRequired(request.getAction(), "操作不能为空");
         if ("start".equals(action)) {
             requireTicketStatus(ticket, Set.of(STATUS_DRAFT), "只有草稿工单可以开始处理");
@@ -433,7 +438,19 @@ public class AfterSalesService {
         }
         if ("close".equals(action)) {
             requireTicketStatus(ticket, Set.of(STATUS_PROCESSING), "只有处理中的工单可以结案");
+            List<String> statuses = treatmentStatuses(ticket);
+            AfterSalesTreatmentPolicy.requireClosable(statuses);
             String resolution = clean(request.getResolution());
+            if (!statuses.isEmpty()) {
+                if (resolution == null) throw new BusinessException("请填写本次工单结案说明");
+                var closures = ticket.getTreatmentClosuresJson() == null
+                        ? new ArrayList<my.hive.domain.aftersales.model.vo.AfterSalesClosureVO>()
+                        : JSON.parseArray(ticket.getTreatmentClosuresJson(), my.hive.domain.aftersales.model.vo.AfterSalesClosureVO.class);
+                closures.add(new my.hive.domain.aftersales.model.vo.AfterSalesClosureVO(resolution, LocalDateTime.now(), currentOperatorName()));
+                ticket.setTreatmentClosuresJson(JSON.toJSONString(closures));
+                updateTicketStatus(ticket, STATUS_CLOSED, null);
+                return;
+            }
             if (resolution == null && clean(ticket.getResolution()) == null) throw new BusinessException("结案前请填写处理结果");
             updateTicketStatus(ticket, STATUS_CLOSED, resolution);
             return;
@@ -455,7 +472,8 @@ public class AfterSalesService {
 
     @Transactional(rollbackFor = Exception.class)
     public AfterSalesTicket followUpTicket(Long ticketId, AfterSalesTicketFollowUpRequest request) {
-        AfterSalesTicket ticket = requireTicket(ticketId);
+        AfterSalesTicket ticket = lockTicket(ticketId);
+        if (!treatmentStatuses(ticket).isEmpty()) throw new BusinessException("请在对应处理记录中回访，原回访记录不可覆盖");
         requireTicketStatus(ticket, Set.of(STATUS_CLOSED), "只有已结案工单可以回访");
         ticket.setFollowUpTime(request.getFollowUpTime() == null ? LocalDateTime.now() : request.getFollowUpTime());
         ticket.setFollowUpOperatorName(currentOperatorName());
@@ -498,7 +516,7 @@ public class AfterSalesService {
 
     @Transactional(rollbackFor = Exception.class)
     public AfterSalesTicket auditTicketApproval(Long ticketId, Boolean approved, String comment) {
-        AfterSalesTicket ticket = requireTicket(ticketId);
+        AfterSalesTicket ticket = lockTicket(ticketId);
         requireTicketStatus(ticket, Set.of(STATUS_PENDING_APPROVAL), "当前工单不处于待审核状态");
         var decision = approvalAuditorCandidateService.recordDecision(ticket.getTenantCode(), APPROVAL_TYPE_AFTER_SALES,
                 ticket.getTicketNo(), TenantPermissionContext.getUserId(), Boolean.TRUE.equals(approved), clean(comment));
@@ -519,7 +537,7 @@ public class AfterSalesService {
 
     @Transactional(rollbackFor = Exception.class)
     public void outbound(Long ticketId) {
-        AfterSalesTicket ticket = requireTicket(ticketId);
+        AfterSalesTicket ticket = lockTicket(ticketId);
         requireTicketStatus(ticket, Set.of(STATUS_WAITING_OUTBOUND), "只有待配件出库的工单可以出库");
         List<AfterSalesTicketPart> lines = ticketPartMapper.selectList(new LambdaQueryWrapper<AfterSalesTicketPart>()
                 .eq(AfterSalesTicketPart::getTenantCode, ticket.getTenantCode()).eq(AfterSalesTicketPart::getTicketId, ticket.getId())
@@ -652,6 +670,22 @@ public class AfterSalesService {
         if (ticket == null) throw new BusinessException("售后工单不存在或不属于当前组织");
         return ticket;
     }
+    private AfterSalesTicket lockTicket(Long id) {
+        if (id == null || id <= 0) throw new BusinessException("售后工单不能为空");
+        AfterSalesTicket ticket = ticketMapper.selectOne(new LambdaQueryWrapper<AfterSalesTicket>()
+                .eq(AfterSalesTicket::getTenantCode, TenantPermissionContext.getTenantCode())
+                .eq(AfterSalesTicket::getId, id).last("LIMIT 1 FOR UPDATE"));
+        if (ticket == null) throw new BusinessException("售后工单不存在或不属于当前组织");
+        return ticket;
+    }
+    private List<String> treatmentStatuses(AfterSalesTicket ticket) {
+        return treatmentMapper.selectList(new LambdaQueryWrapper<my.hive.domain.aftersales.model.entity.AfterSalesTreatment>()
+                .eq(my.hive.domain.aftersales.model.entity.AfterSalesTreatment::getTenantCode, ticket.getTenantCode())
+                .eq(my.hive.domain.aftersales.model.entity.AfterSalesTreatment::getTicketId, ticket.getId())
+                .orderByAsc(my.hive.domain.aftersales.model.entity.AfterSalesTreatment::getUpdateTime)
+                .orderByAsc(my.hive.domain.aftersales.model.entity.AfterSalesTreatment::getId))
+                .stream().map(my.hive.domain.aftersales.model.entity.AfterSalesTreatment::getStatus).toList();
+    }
     private AfterSalesPart requirePart(Long id, boolean enabled) {
         if (id == null || id <= 0) throw new BusinessException("配件不能为空");
         LambdaQueryWrapper<AfterSalesPart> wrapper = new LambdaQueryWrapper<AfterSalesPart>().eq(AfterSalesPart::getTenantCode, TenantPermissionContext.getTenantCode()).eq(AfterSalesPart::getId, id).last("LIMIT 1");
@@ -690,5 +724,5 @@ public class AfterSalesService {
     private <T> PageResult<T> toPageResult(Page<T> page) { PageResult<T> result = new PageResult<>(); result.setCurrent(page.getCurrent()); result.setSize(page.getSize()); result.setTotal(page.getTotal()); result.setPages(page.getPages()); result.setData(page.getRecords()); return result; }
     private String nextTicketNo() { return "AS" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + UUID.randomUUID().toString().replace("-", "").substring(0, 4).toUpperCase(); }
     private String nextPartCode() { return "PT" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(); }
-    private String currentOperatorName() { Long userId = TenantPermissionContext.getUserId(); return userId == null ? "系统用户" : "用户" + userId; }
+    String currentOperatorName() { Long userId = TenantPermissionContext.getUserId(); return userId == null ? "系统用户" : "用户" + userId; }
 }
