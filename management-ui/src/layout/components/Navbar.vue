@@ -371,7 +371,8 @@ const passwordForm = reactive({
 const pageTitle = computed(() => route.meta.title || '高管总览大盘')
 const displayName = computed(() => userStore.userInfo?.userName || '当前用户')
 const tenantName = computed(() => userStore.currentTenantName)
-const roleLabel = computed(() => '运营管理')
+// 顶栏职位必须与员工管理列表同源（员工档案 user.position）；员工未维护职位时按未设置显示，禁止用固定文案冒充。
+const roleLabel = computed(() => userStore.userInfo?.positionName || '未设置职位')
 const canSyncNotifications = computed(() => userStore.hasPermission('notification:announcement:publish'))
 const canLoadAssignedAfterSalesTasks = computed(() => userStore.hasPermission('after_sales:list') && userStore.hasPermission('after_sales:process') && userStore.userInfo?.userId != null)
 const notificationItems = computed(() => [...assignedAfterSalesTasks.value, ...pendingNotifications.value])

@@ -58,6 +58,7 @@ export const useUserStore = defineStore('user', () => {
       ? {
           userId: loginData.userId,
           userName: loginData.userName,
+          positionName: loginData.positionName,
           tenantCode: loginData.tenantCode,
           tenantName: loginData.tenantName,
           tenantLogoUrl: loginData.tenantLogoUrl,
@@ -101,6 +102,7 @@ export const useUserStore = defineStore('user', () => {
     userInfo.value = {
       userId: loginData.userId,
       userName: loginData.userName,
+      positionName: loginData.positionName,
       tenantCode: loginData.tenantCode,
       tenantName: loginData.tenantName,
       tenantLogoUrl: loginData.tenantLogoUrl,
