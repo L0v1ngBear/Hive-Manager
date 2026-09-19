@@ -202,7 +202,11 @@ async function save() {
     }
   } catch (error) {
     console.error('[Hive Auth] 保存异常:', error)
-    ElMessage.error('保存失败，请检查网络环境')
+    // 业务错误与 HTTP 错误已由 request 拦截器给出准确提示，这里只在真正的网络异常时兜底，
+    // 避免用“请检查网络环境”掩盖服务端的真实失败原因。
+    if (!error?.response && !error?.code) {
+      ElMessage.error('保存失败，请检查网络环境')
+    }
   } finally {
     isSubmitting.value = false
   }

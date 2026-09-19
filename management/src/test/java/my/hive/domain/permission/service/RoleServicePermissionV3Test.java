@@ -2,9 +2,16 @@ package my.hive.domain.permission.service;
 
 import my.hive.shared.permission.PermissionCatalogV3;
 
+import my.hive.domain.employee.mapper.EmployeeMapper;
 import my.hive.domain.permission.mapper.SysPermissionMapper;
+import my.hive.domain.permission.mapper.SysRoleMapper;
+import my.hive.domain.permission.mapper.SysRolePermissionMapper;
+import my.hive.domain.permission.mapper.SysUserRoleMapper;
+import my.hive.domain.permission.model.dto.SysRoleUpdateRequest;
 import my.hive.domain.permission.model.entity.SysPermission;
+import my.hive.domain.permission.model.entity.SysRole;
 import my.hive.domain.permission.model.vo.SysPermissionTreeVO;
+import my.hive.shared.utils.PermissionCacheUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,9 +23,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -58,6 +69,46 @@ class RoleServicePermissionV3Test {
         assertFalse(codes.contains("order:*"));
         assertFalse(codes.contains("order:detail"));
         assertFalse(codes.contains("platform:tenant:view"));
+    }
+
+    @Test
+    void keepsSavingPermissionsWhenRoleHasAStaleEmployeeBinding() {
+        SysRoleMapper roleMapper = mock(SysRoleMapper.class);
+        SysUserRoleMapper userRoleMapper = mock(SysUserRoleMapper.class);
+        SysRolePermissionMapper rolePermissionMapper = mock(SysRolePermissionMapper.class);
+        EmployeeMapper employeeMapper = mock(EmployeeMapper.class);
+        PermissionCacheUtil permissionCacheUtil = mock(PermissionCacheUtil.class);
+        ReflectionTestUtils.setField(roleService, "sysRoleMapper", roleMapper);
+        ReflectionTestUtils.setField(roleService, "sysUserRoleMapper", userRoleMapper);
+        ReflectionTestUtils.setField(roleService, "sysRolePermissionMapper", rolePermissionMapper);
+        ReflectionTestUtils.setField(roleService, "employeeMapper", employeeMapper);
+        ReflectionTestUtils.setField(roleService, "permissionCacheUtil", permissionCacheUtil);
+
+        SysRole role = new SysRole();
+        role.setId(9L);
+        role.setTenantCode("TENANT_A");
+        role.setRoleCode("SALES_MANAGER");
+        role.setIsDeleted(0);
+        when(roleMapper.selectOne(any())).thenReturn(role);
+        when(permissionMapper.selectList(any()))
+                .thenReturn(List.of(permission(70L, null, "document:file:download", 3, 1, 1)));
+        // 角色上残留一条指向已不存在员工的脏绑定（7L），正常绑定为 8L：
+        // 脏绑定只能被跳过并告警，不能回滚整次“分配权限”保存。
+        when(userRoleMapper.selectUserIdsByRoleId("TENANT_A", 9L)).thenReturn(List.of(7L, 8L));
+        when(employeeMapper.incrementPermissionVersion("TENANT_A", 7L)).thenReturn(0);
+        when(employeeMapper.incrementPermissionVersion("TENANT_A", 8L)).thenReturn(1);
+        my.hive.shared.context.TenantPermissionContext.init("TENANT_A", 1L, Set.of("role:update"));
+        SysRoleUpdateRequest request = new SysRoleUpdateRequest();
+        request.setRoleId(9L);
+        request.setPermissionIds(List.of(70L));
+
+        assertDoesNotThrow(() -> roleService.updateRole(request));
+
+        verify(rolePermissionMapper).delete(any());
+        verify(rolePermissionMapper).upsertBatch(any());
+        verify(permissionCacheUtil).evict("TENANT_A", 8L);
+        verify(permissionCacheUtil, never()).evict("TENANT_A", 7L);
+        my.hive.shared.context.TenantPermissionContext.clear();
     }
 
     private Set<String> flatten(List<SysPermissionTreeVO> nodes) {
