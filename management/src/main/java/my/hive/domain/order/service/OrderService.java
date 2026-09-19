@@ -1304,6 +1304,9 @@ public class OrderService {
     private void applySalesOrderContent(SalesOrder order, SalesOrderSaveRequest request, boolean createMode) {
         order.setCustomerName(request.getCustomerName().trim());
         order.setCustomerPhone(blankToNull(request.getCustomerPhone()));
+        // Omitted fields from older clients preserve the saved recipient.
+        if (request.getRecipientName() != null) order.setRecipientName(request.getRecipientName().trim());
+        if (request.getRecipientPhoneSuffix() != null) order.setRecipientPhoneSuffix(request.getRecipientPhoneSuffix().trim());
         order.setProjectName(request.getProjectName().trim());
         order.setBrandName(blankToNull(request.getBrandName()));
         String orderCategory = OrderCategoryEnum.normalize(request.getOrderCategory());
@@ -2694,6 +2697,8 @@ public class OrderService {
         return !Objects.equals(before.getStatus(), after.getStatus())
                 || !sameText(before.getCustomerName(), after.getCustomerName())
                 || !sameText(before.getCustomerPhone(), after.getCustomerPhone())
+                || !sameText(before.getRecipientName(), after.getRecipientName())
+                || !sameText(before.getRecipientPhoneSuffix(), after.getRecipientPhoneSuffix())
                 || !sameText(before.getProjectName(), after.getProjectName())
                 || !sameText(before.getBrandName(), after.getBrandName())
                 || !sameText(before.getGoodsDesc(), after.getGoodsDesc())

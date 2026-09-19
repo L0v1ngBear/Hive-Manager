@@ -13,17 +13,15 @@ function functionSource(source, name, nextName) {
   return source.slice(start, start + 1 + end)
 }
 
-test('each shipment logistics query requires a phone suffix after its popover opens', () => {
+test('shipment tracking is available in details and loads without another phone prompt', () => {
   const loadOrdersSource = functionSource(orderSource, 'loadOrders', 'logisticsTrackingKey')
   const trackingKeySource = functionSource(orderSource, 'logisticsTrackingKey', 'logisticsTrackingState')
 
-  assert.match(orderSource, /v-for="shipment in row\.shipments"[\s\S]*<el-popover[\s\S]*trigger="hover"/)
+  assert.match(orderSource, /v-for="shipment in orderDetail\.shipments"[\s\S]*<el-popover[\s\S]*trigger="hover"/)
   assert.match(orderSource, /:key="logisticsTrackingKey\(row, shipment\)"/)
-  assert.match(orderSource, /@show="prepareLogisticsTracking\(row, shipment\)"/)
-  assert.match(orderSource, /@hide="clearLogisticsTrackingPhoneSuffix\(row, shipment\)"/)
-  assert.match(orderSource, /请输入手机号尾号 4 位以查询物流轨迹/)
-  assert.match(orderSource, /v-model\.trim="logisticsTrackingState\(row, shipment\)\.phoneSuffix"/)
-  assert.match(orderSource, /@click\.stop="loadLogisticsTracking\(row, shipment\)"/)
+  assert.match(orderSource, /@show="prepareLogisticsTracking\(orderDetail, shipment\)"/)
+  assert.doesNotMatch(orderSource, /请输入手机号尾号 4 位以查询物流轨迹/)
+  assert.doesNotMatch(orderSource, /@show="prepareLogisticsTracking\(row, shipment\)"/)
   assert.match(orderSource, /const logisticsTrackingStates = reactive\(\{\}\)/)
   assert.match(trackingKeySource, /row\.orderId/)
   assert.match(trackingKeySource, /shipment\.id/)
@@ -44,6 +42,7 @@ test('each shipment logistics query requires a phone suffix after its popover op
   }
   const originalKey = trackingKey(row, shipment)
   assert.notEqual(trackingKey({ orderId: 'SO-002' }, shipment), originalKey)
+  assert.notEqual(trackingKey({ ...row, recipientPhoneSuffix: '0042' }, shipment), originalKey)
   assert.notEqual(trackingKey(row, { ...shipment, logisticsCompany: 'zhongtong' }), originalKey)
   assert.notEqual(trackingKey(row, { ...shipment, trackingNo: 'ZT123456' }), originalKey)
   assert.notEqual(trackingKey(row, { ...shipment, version: 3 }), originalKey)
@@ -54,7 +53,7 @@ test('each shipment logistics query requires a phone suffix after its popover op
   assert.match(orderSource, /function logisticsTrackingState\(row = \{\}, shipment = \{\}\)/)
   assert.match(orderSource, /function loadLogisticsTracking\(row, shipment\)/)
   assert.match(orderSource, /if \(!isTrackableShipment\(shipment\) \|\| !canViewOrderDetail\(row\)/)
-  assert.match(orderSource, /getOrderLogisticsTracking\(row\.orderId, shipment\.id, shipment\.version, tracking\.phoneSuffix\)/)
+  assert.match(orderSource, /getOrderLogisticsTracking\(row\.orderId, shipment\.id, shipment\.version\)/)
   assert.doesNotMatch(loadOrdersSource, /getOrderLogisticsTracking/)
   assert.doesNotMatch(orderSource, /@(mouseenter|mouseover)="loadLogisticsTracking/)
 })
@@ -68,7 +67,7 @@ test('management UI calls only the canonical order tracking endpoint', () => {
   assert.doesNotMatch(apiSource, /kuaidi100\.com|poll\/query\.do|legacy|fallback/i)
 })
 
-test('a valid phone suffix is sent with the query and failed queries are throttled locally', async () => {
+test('saved recipient query omits manual suffix and throttles failed queries', async () => {
   const loadSource = functionSource(orderSource, 'loadLogisticsTracking', 'resolveOrderListFailure').trim()
   const createLoader = (tracking, query) => Function(
     'canViewOrderDetail',
@@ -101,8 +100,10 @@ test('a valid phone suffix is sent with the query and failed queries are throttl
   })
   await successLoader(row, shipment)
   assert.equal(successCalls, 1)
-  assert.deepEqual(successArguments, ['SO-001', 7, undefined, '1234'])
+  assert.deepEqual(successArguments, ['SO-001', 7, undefined])
   assert.equal(successState.requested, true)
+  await successLoader(row, shipment)
+  assert.equal(successCalls, 1, 'reopening a cached hover must not query again')
 
   let failureCalls = 0
   const failureState = { loading: false, data: null, errorMessage: '', retryAfter: 0, phoneSuffix: '5678', requested: false }
@@ -118,9 +119,9 @@ test('a valid phone suffix is sent with the query and failed queries are throttl
 
 test('tracking popover renders loading, error and reference-aligned trace states without exposing credentials', () => {
   assert.match(orderSource, /物流轨迹加载中/)
-  assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.errorMessage/)
-  assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.data\.latestContext/)
-  assert.match(orderSource, /logisticsTrackingState\(row, shipment\)\.data\.traces/)
+  assert.match(orderSource, /logisticsTrackingState\(orderDetail, shipment\)\.errorMessage/)
+  assert.match(orderSource, /logisticsTrackingState\(orderDetail, shipment\)\.data\.latestContext/)
+  assert.match(orderSource, /logisticsTrackingState\(orderDetail, shipment\)\.data\.traces/)
   assert.match(orderSource, /class="order-logistics-timeline-title"/)
   assert.match(orderSource, /物流跟踪/)
   assert.match(orderSource, /function logisticsTrackingRoute\(data = \{\}\)/)
@@ -132,7 +133,7 @@ test('tracking popover renders loading, error and reference-aligned trace states
 
 test('list-only users render disabled tracking numbers and never call the tracking API', async () => {
   const loadSource = functionSource(orderSource, 'loadLogisticsTracking', 'resolveOrderListFailure').trim()
-  assert.match(orderSource, /v-for="shipment in row\.shipments"[\s\S]*<el-popover\s+v-if="isTrackableShipment\(shipment\) && canViewOrderDetail\(row\)"/)
+  assert.match(orderSource, /v-for="shipment in orderDetail\.shipments"[\s\S]*<el-popover[\s\S]*trigger="hover"/)
   assert.match(orderSource, /v-else[\s\S]*order-express-number-trigger[\s\S]*:aria-disabled="!canViewOrderDetail\(row\) \|\| !isTrackableShipment\(shipment\)"/)
 
   let apiCalls = 0

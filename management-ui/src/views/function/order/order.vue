@@ -316,115 +316,8 @@
                       v-for="shipment in row.shipments"
                       :key="logisticsTrackingKey(row, shipment)"
                   >
-                    <el-popover
-                      v-if="isTrackableShipment(shipment) && canViewOrderDetail(row)"
-                      trigger="hover"
-                      placement="right-start"
-                      :width="390"
-                      :show-after="260"
-                      :hide-after="120"
-                      popper-class="order-logistics-popover"
-                      @show="prepareLogisticsTracking(row, shipment)"
-                      @hide="clearLogisticsTrackingPhoneSuffix(row, shipment)"
-                    >
-                      <template #reference>
-                        <button type="button" class="order-express-number-trigger">
-                          <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
-                          <span>{{ shipment.trackingNo }}</span>
-                        </button>
-                      </template>
-                      <section class="order-logistics-card" aria-live="polite">
-                      <header class="order-logistics-header">
-                        <div class="order-logistics-heading">
-                          <span class="order-logistics-heading-icon material-symbols-outlined" aria-hidden="true">
-                            local_shipping
-                          </span>
-                          <div>
-                            <div class="order-logistics-company">{{ shipment.logisticsCompany || '物流信息' }}</div>
-                          </div>
-                        </div>
-                        <span
-                            v-if="logisticsTrackingState(row, shipment).data"
-                            class="order-logistics-state"
-                        >
-                          {{ logisticsTrackingState(row, shipment).data.stateLabel || '物流状态已更新' }}
-                        </span>
-                      </header>
-                      <div class="order-logistics-waybill">
-                        <span>单号</span>
-                        <strong>{{ shipment.trackingNo }}</strong>
-                        <button
-                            type="button"
-                            class="order-logistics-copy"
-                            aria-label="复制运单号"
-                            @click.stop="copyTrackingNumber(shipment)"
-                        >
-                          <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
-                        </button>
-                      </div>
 
-                      <div v-if="!logisticsTrackingState(row, shipment).requested" class="order-logistics-phone-prompt">
-                        <p>请输入手机号尾号 4 位以查询物流轨迹</p>
-                        <div class="order-logistics-phone-input">
-                          <el-input v-model.trim="logisticsTrackingState(row, shipment).phoneSuffix" maxlength="4" inputmode="numeric" placeholder="请输入手机号尾号 4 位" @click.stop />
-                          <el-button type="primary" @click.stop="loadLogisticsTracking(row, shipment)">查询</el-button>
-                        </div>
-                      </div>
-
-                      <div v-else-if="logisticsTrackingState(row, shipment).loading" class="order-logistics-feedback">
-                        <span class="order-logistics-spinner" aria-hidden="true"></span>
-                        <span>物流轨迹加载中</span>
-                      </div>
-                      <div
-                          v-else-if="logisticsTrackingState(row, shipment).errorMessage"
-                          class="order-logistics-feedback order-logistics-feedback-error"
-                      >
-                        <span class="material-symbols-outlined" aria-hidden="true">error</span>
-                        <span>{{ logisticsTrackingState(row, shipment).errorMessage }}</span>
-                      </div>
-                      <template v-else-if="logisticsTrackingState(row, shipment).data">
-                        <div
-                            v-if="logisticsTrackingRoute(logisticsTrackingState(row, shipment).data)"
-                            class="order-logistics-route"
-                        >
-                          <span class="material-symbols-outlined" aria-hidden="true">trip_origin</span>
-                          <span>{{ logisticsTrackingRoute(logisticsTrackingState(row, shipment).data).origin }}</span>
-                          <span class="material-symbols-outlined order-logistics-route-arrow" aria-hidden="true">
-                            arrow_forward
-                          </span>
-                          <span class="material-symbols-outlined" aria-hidden="true">location_on</span>
-                          <span>{{ logisticsTrackingRoute(logisticsTrackingState(row, shipment).data).destination }}</span>
-                        </div>
-                        <div
-                            v-if="logisticsTrackingState(row, shipment).data.traces?.length"
-                            class="order-logistics-timeline"
-                        >
-                          <div class="order-logistics-timeline-title">
-                            <span>物流跟踪</span>
-                            <span>共 {{ logisticsTrackingState(row, shipment).data.traces.length }} 条</span>
-                          </div>
-                          <div
-                              v-for="(trace, traceIndex) in logisticsTrackingState(row, shipment).data.traces"
-                              :key="`${trace.time || 'trace'}-${traceIndex}`"
-                              class="order-logistics-trace"
-                              :class="{'is-latest': traceIndex === 0}"
-                          >
-                            <span class="order-logistics-trace-dot" aria-hidden="true"></span>
-                            <div>
-                              <time>{{ trace.time || '时间未知' }}</time>
-                              <p>{{ trace.context || '物流状态已更新' }}</p>
-                              <small v-if="trace.location">{{ trace.location }}</small>
-                            </div>
-                          </div>
-                        </div>
-                        <div v-else class="order-logistics-feedback">
-                          {{ logisticsTrackingState(row, shipment).data.latestContext || '暂未返回物流路径' }}
-                        </div>
-                      </template>
-                      </section>
-                    </el-popover>
                     <span
-                        v-else
                         class="order-express-number-trigger"
                         :class="{'is-disabled': !canViewOrderDetail(row) || !isTrackableShipment(shipment)}"
                         :aria-disabled="!canViewOrderDetail(row) || !isTrackableShipment(shipment)"
@@ -606,9 +499,108 @@
                 </div>
                 <div class="info-card">
                   <div class="info-label">物流信息</div>
+                  <p>收件人：{{ orderDetail.recipientName || '未填写' }} · 手机尾号：{{ orderDetail.recipientPhoneSuffix || '未填写' }}</p>
                   <div v-if="orderDetail.shipments?.length" class="order-detail-shipment-list">
                     <div v-for="shipment in orderDetail.shipments" :key="shipment.id || shipment.trackingNo" class="order-detail-shipment">
-                      <div class="info-value">{{ shipmentDetailLabel(shipment) }}</div>
+                      <el-popover
+                      v-if="isTrackableShipment(shipment) && canViewOrderDetail(orderDetail)"
+                      trigger="hover"
+                      placement="right-start"
+                      :width="390"
+                      :show-after="260"
+                      :hide-after="120"
+                      popper-class="order-logistics-popover"
+                      @show="prepareLogisticsTracking(orderDetail, shipment)"
+                    >
+                      <template #reference>
+                        <button type="button" class="order-express-number-trigger">
+                          <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+                          <span>{{ shipmentDetailLabel(shipment) }}</span>
+                        </button>
+                      </template>
+                      <section class="order-logistics-card" aria-live="polite">
+                      <header class="order-logistics-header">
+                        <div class="order-logistics-heading">
+                          <span class="order-logistics-heading-icon material-symbols-outlined" aria-hidden="true">
+                            local_shipping
+                          </span>
+                          <div>
+                            <div class="order-logistics-company">{{ shipment.logisticsCompany || '物流信息' }}</div>
+                          </div>
+                        </div>
+                        <span
+                            v-if="logisticsTrackingState(orderDetail, shipment).data"
+                            class="order-logistics-state"
+                        >
+                          {{ logisticsTrackingState(orderDetail, shipment).data.stateLabel || '物流状态已更新' }}
+                        </span>
+                      </header>
+                      <div class="order-logistics-waybill">
+                        <span>单号</span>
+                        <strong>{{ shipment.trackingNo }}</strong>
+                        <button
+                            type="button"
+                            class="order-logistics-copy"
+                            aria-label="复制运单号"
+                            @click.stop="copyTrackingNumber(shipment)"
+                        >
+                          <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
+                        </button>
+                      </div>
+
+                      <div v-if="logisticsTrackingState(orderDetail, shipment).loading" class="order-logistics-feedback">
+                        <span class="order-logistics-spinner" aria-hidden="true"></span>
+                        <span>物流轨迹加载中</span>
+                      </div>
+                      <div
+                          v-else-if="logisticsTrackingState(orderDetail, shipment).errorMessage"
+                          class="order-logistics-feedback order-logistics-feedback-error"
+                      >
+                        <span class="material-symbols-outlined" aria-hidden="true">error</span>
+                        <span>{{ logisticsTrackingState(orderDetail, shipment).errorMessage }}</span>
+                      </div>
+                      <template v-else-if="logisticsTrackingState(orderDetail, shipment).data">
+                        <div
+                            v-if="logisticsTrackingRoute(logisticsTrackingState(orderDetail, shipment).data)"
+                            class="order-logistics-route"
+                        >
+                          <span class="material-symbols-outlined" aria-hidden="true">trip_origin</span>
+                          <span>{{ logisticsTrackingRoute(logisticsTrackingState(orderDetail, shipment).data).origin }}</span>
+                          <span class="material-symbols-outlined order-logistics-route-arrow" aria-hidden="true">
+                            arrow_forward
+                          </span>
+                          <span class="material-symbols-outlined" aria-hidden="true">location_on</span>
+                          <span>{{ logisticsTrackingRoute(logisticsTrackingState(orderDetail, shipment).data).destination }}</span>
+                        </div>
+                        <div
+                            v-if="logisticsTrackingState(orderDetail, shipment).data.traces?.length"
+                            class="order-logistics-timeline"
+                        >
+                          <div class="order-logistics-timeline-title">
+                            <span>物流跟踪</span>
+                            <span>共 {{ logisticsTrackingState(orderDetail, shipment).data.traces.length }} 条</span>
+                          </div>
+                          <div
+                              v-for="(trace, traceIndex) in logisticsTrackingState(orderDetail, shipment).data.traces"
+                              :key="`${trace.time || 'trace'}-${traceIndex}`"
+                              class="order-logistics-trace"
+                              :class="{'is-latest': traceIndex === 0}"
+                          >
+                            <span class="order-logistics-trace-dot" aria-hidden="true"></span>
+                            <div>
+                              <time>{{ trace.time || '时间未知' }}</time>
+                              <p>{{ trace.context || '物流状态已更新' }}</p>
+                              <small v-if="trace.location">{{ trace.location }}</small>
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else class="order-logistics-feedback">
+                          {{ logisticsTrackingState(orderDetail, shipment).data.latestContext || '暂未返回物流路径' }}
+                        </div>
+                      </template>
+                      </section>
+                    </el-popover>
+                      <div v-else class="info-value">{{ shipmentDetailLabel(shipment) }}</div>
                       <div class="mt-1 text-xs text-on-surface-variant">
                         最后修改：{{ formatDateTime(shipment.updateTime) }}{{ shipment.updaterName ? ` · ${shipment.updaterName}` : '' }}
                       </div>
@@ -821,6 +813,14 @@
                 <div>
                   <label class="field-label">联系电话</label>
                   <el-input v-model.trim="orderForm.customerPhone" class="box-input" />
+                </div>
+                <div>
+                  <label class="field-label" for="order-recipient-name">收件人</label>
+                  <el-input id="order-recipient-name" v-model.trim="orderForm.recipientName" class="box-input" maxlength="100" />
+                </div>
+                <div>
+                  <label class="field-label" for="order-recipient-suffix">收件人手机号后四位</label>
+                  <el-input id="order-recipient-suffix" v-model.trim="orderForm.recipientPhoneSuffix" class="box-input" maxlength="4" inputmode="numeric" placeholder="例如 0042，用于快递轨迹查询" />
                 </div>
                 <div class="relative">
                   <label class="field-label">项目名称 *</label>
@@ -1722,6 +1722,8 @@ function defaultOrderForm() {
   return {
     customerName: '',
     customerPhone: '',
+    recipientName: '',
+    recipientPhoneSuffix: '',
     projectName: '',
     brandName: '',
     orderCategory: 'bulk',
@@ -2150,6 +2152,7 @@ function logisticsTrackingKey(row = {}, shipment = {}) {
   const shipmentIdentity = shipment.id ?? `new:${shipment.trackingNo || ''}`
   return JSON.stringify([
     row.orderId || '',
+    row.recipientPhoneSuffix || '',
     shipmentIdentity,
     shipment.logisticsCompany || '',
     shipment.trackingNo || '',
@@ -2166,7 +2169,6 @@ function logisticsTrackingState(row = {}, shipment = {}) {
       data: null,
       errorMessage: '',
       retryAfter: 0,
-      phoneSuffix: '',
       requested: false
     }
   }
@@ -2200,34 +2202,21 @@ async function copyTrackingNumber(shipment = {}) {
 }
 
 function prepareLogisticsTracking(row = {}, shipment = {}) {
-  const tracking = logisticsTrackingState(row, shipment)
-  tracking.loading = false
-  tracking.data = null
-  tracking.errorMessage = ''
-  tracking.retryAfter = 0
-  tracking.phoneSuffix = ''
-  tracking.requested = false
-}
-
-function clearLogisticsTrackingPhoneSuffix(row = {}, shipment = {}) {
-  logisticsTrackingState(row, shipment).phoneSuffix = ''
+  loadLogisticsTracking(row, shipment)
 }
 
 async function loadLogisticsTracking(row, shipment) {
   if (!isTrackableShipment(shipment) || !canViewOrderDetail(row) || !row?.orderId || !shipment?.id) return
   const tracking = logisticsTrackingState(row, shipment)
-  if (!/^\d{4}$/.test(tracking.phoneSuffix)) {
-    ElMessage.warning('请输入手机号尾号 4 位数字')
-    return
-  }
-  if (tracking.loading
+
+  if (tracking.loading || logisticsTrackingCacheValid(tracking.data)
     || tracking.retryAfter > Date.now()) return
 
   tracking.loading = true
   tracking.requested = true
   tracking.errorMessage = ''
   try {
-    tracking.data = await getOrderLogisticsTracking(row.orderId, shipment.id, shipment.version, tracking.phoneSuffix)
+    tracking.data = await getOrderLogisticsTracking(row.orderId, shipment.id, shipment.version)
     tracking.retryAfter = 0
   } catch (error) {
     tracking.data = null
@@ -2466,6 +2455,8 @@ async function openEdit(orderId, row = {}, intent = null) {
     }
     orderForm.customerName = detail.customerName || ''
     orderForm.customerPhone = detail.customerPhone || ''
+    orderForm.recipientName = detail.recipientName || ''
+    orderForm.recipientPhoneSuffix = detail.recipientPhoneSuffix || ''
     orderForm.projectName = detail.projectName || ''
     orderForm.brandName = detail.brandName || ''
     orderForm.orderCategory = normalizeOrderCategory(detail.orderCategory)
@@ -2668,6 +2659,9 @@ async function submitForm() {
 }
 
 function validateOrderForm() {
+  if (orderForm.recipientPhoneSuffix && !/^[0-9]{4}$/.test(orderForm.recipientPhoneSuffix)) {
+    fail('收件人手机号尾号须为4位数字', 'order.recipientPhoneSuffix')
+  }
   if (!orderForm.customerName.trim()) fail('请输入客户名称', 'order.customerName')
   if (!orderForm.projectName.trim()) fail('请输入项目名称', 'order.projectName')
   if (orderForm.orderCategory !== 'drawing_budget' && !orderForm.informationChannel) fail('请输入信息渠道', 'order.informationChannel')
@@ -2725,6 +2719,8 @@ function buildOrderPayload() {
   return {
     customerName: orderForm.customerName.trim(),
     customerPhone: blank(orderForm.customerPhone),
+    recipientName: orderForm.recipientName.trim(),
+    recipientPhoneSuffix: orderForm.recipientPhoneSuffix.trim(),
     projectName: orderForm.projectName.trim(),
     brandName: blank(orderForm.brandName),
     orderCategory,

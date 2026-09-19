@@ -21,6 +21,8 @@ public interface SalesOrderMapper extends BaseMapper<SalesOrder> {
                    order_category AS orderCategory,
                    customer_name AS customerName,
                    customer_phone AS customerPhone,
+                   recipient_name AS recipientName,
+                   recipient_phone_suffix AS recipientPhoneSuffix,
                    project_name AS projectName,
                    brand_name AS brandName,
                    goods_desc AS goodsDesc,

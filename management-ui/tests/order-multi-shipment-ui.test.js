@@ -54,12 +54,12 @@ test('order list and detail render all shipments in stable order', () => {
   assert.match(orderSource, /orderDetail\.shipments[\s\S]*shipment\.logisticsCompany[\s\S]*shipment\.trackingNo/)
 })
 
-test('shipment tracking asks for a four-digit phone suffix before it sends a tracking request', () => {
-  assert.match(orderSource, /@show="prepareLogisticsTracking\(row, shipment\)"/)
-  assert.match(orderSource, /请输入手机号尾号 4 位/)
-  assert.match(orderSource, /@click\.stop="loadLogisticsTracking\(row, shipment\)"/)
+test('shipment tracking loads from the detail hover using server-saved recipient', () => {
+  assert.match(orderSource, /@show="prepareLogisticsTracking\(orderDetail, shipment\)"/)
+  assert.doesNotMatch(orderSource, /请输入手机号尾号 4 位以查询物流轨迹/)
+  assert.doesNotMatch(orderSource, /请输入手机号尾号 4 位以查询物流轨迹/)
   assert.doesNotMatch(orderSource, /@show="loadLogisticsTracking\(row, shipment\)"/)
-  assert.match(orderSource, /getOrderLogisticsTracking\(row\.orderId, shipment\.id, shipment\.version, tracking\.phoneSuffix\)/)
+  assert.match(orderSource, /getOrderLogisticsTracking\(row\.orderId, shipment\.id, shipment\.version\)/)
 })
 
 test('current-page export callback includes non-trackable delivery labels', () => {

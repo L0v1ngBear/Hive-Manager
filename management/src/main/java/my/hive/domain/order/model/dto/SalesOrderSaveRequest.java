@@ -20,6 +20,12 @@ public class SalesOrderSaveRequest {
 
     private String customerPhone;
 
+    @Size(max = 100, message = "收件人最多100个字符")
+    private String recipientName;
+
+    @Pattern(regexp = "^$|[0-9]{4}", message = "收件人手机号尾号须为4位数字")
+    private String recipientPhoneSuffix;
+
     @NotBlank(message = "项目名称不能为空")
     private String projectName;
 
