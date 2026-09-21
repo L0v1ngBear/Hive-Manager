@@ -13,7 +13,7 @@ function functionSource(source, name, nextName) {
   return source.slice(start, start + 1 + end)
 }
 
-test('shipment tracking is available in details and loads without another phone prompt', () => {
+test('shipment tracking remains available in both list and details without another phone prompt', () => {
   const loadOrdersSource = functionSource(orderSource, 'loadOrders', 'logisticsTrackingKey')
   const trackingKeySource = functionSource(orderSource, 'logisticsTrackingKey', 'logisticsTrackingState')
 
@@ -21,7 +21,12 @@ test('shipment tracking is available in details and loads without another phone 
   assert.match(orderSource, /:key="logisticsTrackingKey\(row, shipment\)"/)
   assert.match(orderSource, /@show="prepareLogisticsTracking\(orderDetail, shipment\)"/)
   assert.doesNotMatch(orderSource, /请输入手机号尾号 4 位以查询物流轨迹/)
-  assert.doesNotMatch(orderSource, /@show="prepareLogisticsTracking\(row, shipment\)"/)
+  const listShipments = orderSource.slice(orderSource.indexOf('column.key === \'shipments\''), orderSource.indexOf('column.key === \'informationChannel\''))
+  assert.match(listShipments, /<el-popover[\s\S]*v-if="isTrackableShipment\(shipment\) && canViewOrderDetail\(row\)"[\s\S]*trigger="hover"/)
+  assert.match(listShipments, /@show="prepareLogisticsTracking\(row, shipment\)"/)
+  assert.match(listShipments, /logisticsTrackingState\(row, shipment\)\.data\.traces/)
+  assert.match(listShipments, /logisticsTrackingState\(row, shipment\)\.errorMessage/)
+  assert.doesNotMatch(listShipments, /<el-input/)
   assert.match(orderSource, /const logisticsTrackingStates = reactive\(\{\}\)/)
   assert.match(trackingKeySource, /row\.orderId/)
   assert.match(trackingKeySource, /shipment\.id/)

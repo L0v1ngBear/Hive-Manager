@@ -317,7 +317,106 @@
                       :key="logisticsTrackingKey(row, shipment)"
                   >
 
+                    <el-popover
+                      v-if="isTrackableShipment(shipment) && canViewOrderDetail(row)"
+                      trigger="hover"
+                      placement="right-start"
+                      :width="390"
+                      :show-after="260"
+                      :hide-after="120"
+                      popper-class="order-logistics-popover"
+                      @show="prepareLogisticsTracking(row, shipment)"
+                    >
+                      <template #reference>
+                        <button type="button" class="order-express-number-trigger">
+                          <span class="material-symbols-outlined" aria-hidden="true">local_shipping</span>
+                          <span>{{ shipmentListLabel(shipment) }}</span>
+                        </button>
+                      </template>
+                      <section class="order-logistics-card" aria-live="polite">
+                      <header class="order-logistics-header">
+                        <div class="order-logistics-heading">
+                          <span class="order-logistics-heading-icon material-symbols-outlined" aria-hidden="true">
+                            local_shipping
+                          </span>
+                          <div>
+                            <div class="order-logistics-company">{{ shipment.logisticsCompany || '物流信息' }}</div>
+                          </div>
+                        </div>
+                        <span
+                            v-if="logisticsTrackingState(row, shipment).data"
+                            class="order-logistics-state"
+                        >
+                          {{ logisticsTrackingState(row, shipment).data.stateLabel || '物流状态已更新' }}
+                        </span>
+                      </header>
+                      <div class="order-logistics-waybill">
+                        <span>单号</span>
+                        <strong>{{ shipment.trackingNo }}</strong>
+                        <button
+                            type="button"
+                            class="order-logistics-copy"
+                            aria-label="复制运单号"
+                            @click.stop="copyTrackingNumber(shipment)"
+                        >
+                          <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
+                        </button>
+                      </div>
+
+                      <div v-if="logisticsTrackingState(row, shipment).loading" class="order-logistics-feedback">
+                        <span class="order-logistics-spinner" aria-hidden="true"></span>
+                        <span>物流轨迹加载中</span>
+                      </div>
+                      <div
+                          v-else-if="logisticsTrackingState(row, shipment).errorMessage"
+                          class="order-logistics-feedback order-logistics-feedback-error"
+                      >
+                        <span class="material-symbols-outlined" aria-hidden="true">error</span>
+                        <span>{{ logisticsTrackingState(row, shipment).errorMessage }}</span>
+                      </div>
+                      <template v-else-if="logisticsTrackingState(row, shipment).data">
+                        <div
+                            v-if="logisticsTrackingRoute(logisticsTrackingState(row, shipment).data)"
+                            class="order-logistics-route"
+                        >
+                          <span class="material-symbols-outlined" aria-hidden="true">trip_origin</span>
+                          <span>{{ logisticsTrackingRoute(logisticsTrackingState(row, shipment).data).origin }}</span>
+                          <span class="material-symbols-outlined order-logistics-route-arrow" aria-hidden="true">
+                            arrow_forward
+                          </span>
+                          <span class="material-symbols-outlined" aria-hidden="true">location_on</span>
+                          <span>{{ logisticsTrackingRoute(logisticsTrackingState(row, shipment).data).destination }}</span>
+                        </div>
+                        <div
+                            v-if="logisticsTrackingState(row, shipment).data.traces?.length"
+                            class="order-logistics-timeline"
+                        >
+                          <div class="order-logistics-timeline-title">
+                            <span>物流跟踪</span>
+                            <span>共 {{ logisticsTrackingState(row, shipment).data.traces.length }} 条</span>
+                          </div>
+                          <div
+                              v-for="(trace, traceIndex) in logisticsTrackingState(row, shipment).data.traces"
+                              :key="`${trace.time || 'trace'}-${traceIndex}`"
+                              class="order-logistics-trace"
+                              :class="{'is-latest': traceIndex === 0}"
+                          >
+                            <span class="order-logistics-trace-dot" aria-hidden="true"></span>
+                            <div>
+                              <time>{{ trace.time || '时间未知' }}</time>
+                              <p>{{ trace.context || '物流状态已更新' }}</p>
+                              <small v-if="trace.location">{{ trace.location }}</small>
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else class="order-logistics-feedback">
+                          {{ logisticsTrackingState(row, shipment).data.latestContext || '暂未返回物流路径' }}
+                        </div>
+                      </template>
+                      </section>
+                    </el-popover>
                     <span
+                        v-else
                         class="order-express-number-trigger"
                         :class="{'is-disabled': !canViewOrderDetail(row) || !isTrackableShipment(shipment)}"
                         :aria-disabled="!canViewOrderDetail(row) || !isTrackableShipment(shipment)"
