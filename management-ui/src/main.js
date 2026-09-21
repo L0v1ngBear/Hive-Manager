@@ -8,6 +8,8 @@ import './style.css'
 import permissionDirective from '@/directives/permission'
 import filterCollapseDirective from '@/directives/filterCollapse'
 import { installElementPlusFoundation } from './plugins/elementPlus'
+import { ElMessage } from 'element-plus'
+import { startReleaseUpdates } from './utils/releaseUpdates'
 
 const app = createApp(App)
 
@@ -18,3 +20,12 @@ app.directive('filter-collapse', filterCollapseDirective)
 installElementPlusFoundation(app)
 
 app.mount('#app')
+
+if (import.meta.env.PROD) {
+  const updates = startReleaseUpdates({
+    buildId: import.meta.env.VITE_HIVE_BUILD_ID,
+    baseUrl: import.meta.env.BASE_URL,
+    notify: message => ElMessage({ message, type: 'warning', duration: 10_000 }),
+  })
+  void updates.check()
+}
