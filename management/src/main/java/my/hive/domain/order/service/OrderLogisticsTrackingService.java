@@ -88,10 +88,9 @@ public class OrderLogisticsTrackingService {
 
     /**
      * Queries a shipment using the phone suffix supplied for this request.
-     * The suffix is deliberately not read from, or written to, order data.
+     * Saved recipient information takes priority; the request remains compatible with old clients.
      */
     public OrderLogisticsTrackingVO getTracking(String orderId, Long shipmentId, String phoneSuffix) {
-        String suppliedPhoneSuffix = requirePhoneSuffix(phoneSuffix);
         if (orderId == null || orderId.isBlank()) {
             throw new BusinessException("订单编号不能为空");
         }
@@ -111,6 +110,13 @@ public class OrderLogisticsTrackingService {
         }
         String company = required(shipment.getLogisticsCompany(), "Shipment logistics company is required");
         String trackingNo = required(shipment.getTrackingNo(), "Shipment tracking number is required");
+        String suppliedPhoneSuffix = order.getRecipientPhoneSuffix();
+        if (suppliedPhoneSuffix == null || suppliedPhoneSuffix.isBlank()) {
+            suppliedPhoneSuffix = phoneSuffix == null || phoneSuffix.isBlank() ? null : requirePhoneSuffix(phoneSuffix);
+        }
+        if (suppliedPhoneSuffix == null && "SF".equals(resolveCompanyCode(company, logisticsTrackingGateway.supportsCompanyCodeAutoRecognition()))) {
+            throw new BusinessException("请在订单编辑中补充收件人手机号后4位");
+        }
         return getTrackingForWaybill(order.getTenantCode(), suppliedPhoneSuffix, order.getOrderId(),
                 company, trackingNo, shipmentId + ":phone:" + suppliedPhoneSuffix);
     }

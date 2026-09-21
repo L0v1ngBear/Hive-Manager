@@ -32,6 +32,10 @@ public class SalesOrder {
     @TableField("customer_phone")
     private String customerPhone;
 
+    private String recipientName;
+
+    private String recipientPhoneSuffix;
+
     /**
      * 售后关联订单时展示的客户联系人，不对应 sales_order 表字段。
      */

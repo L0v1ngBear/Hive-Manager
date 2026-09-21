@@ -82,7 +82,7 @@ public class OrderController {
     @RequirePermission(value = PermissionCatalogV3.CODE_ORDER_DETAIL, message = "您没有权限查看订单物流")
     public Result<OrderLogisticsTrackingVO> logisticsTracking(@PathVariable String orderId,
                                                                @PathVariable Long shipmentId,
-                                                               @RequestParam String phoneSuffix) {
+                                                               @RequestParam(required = false) String phoneSuffix) {
         return Result.success(orderLogisticsTrackingService.getTracking(orderId, shipmentId, phoneSuffix));
     }
 
