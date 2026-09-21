@@ -128,3 +128,11 @@ Navbar 通过 `management-ui/src/api/notification.js` 调用：
 - [ ] 桌面折叠、移动遮罩、路由后自动关闭和滚动复位正常。
 - [ ] 搜索直达 query 与目标页面现有解析契约一致。
 - [ ] 通知已读、完成、跳过、同步及失败提示均可复现。
+
+## 2026-09-19 顶栏职位与员工列表同源（热修）
+
+- 现象：顶栏职位是固定文案（`const roleLabel = computed(() => '运营管理')`），与员工管理列表中的员工档案 `user.position` 不一致。
+- 修复（前后端必须同版本发布）：后端 `AuthMapper` 11 处查询补 `u.position AS positionName`，`LoginVO`/`LoginUserRow` 暴露该字段，`AuthenticationService` 把空白归一为 `null`；前端 `Navbar.vue` 改为 `userStore.userInfo?.positionName || '未设置职位'`，`stores/user.js` 在登录与会话刷新两处透传 `positionName`。
+- 约定：员工未维护职位时显示"未设置职位"，不得用固定文案冒充；顶栏与员工列表必须读取同一事实。
+- 验证：`tests/navbar-user-position.test.js`（3 例静态契约）与 `AuthenticationServiceTest` 两条服务用例通过；顶栏真实显示待发布后人工点验。
+- 关联交接：`docs/operations/2026-09-19-hotfix-role-permission-and-topbar-position.md`。

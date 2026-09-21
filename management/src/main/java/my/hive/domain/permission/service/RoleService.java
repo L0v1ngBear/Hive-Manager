@@ -23,6 +23,7 @@ import my.hive.domain.permission.model.entity.SysRole;
 import my.hive.domain.permission.model.entity.SysRolePermission;
 import my.hive.domain.permission.model.vo.SysPermissionTreeVO;
 import my.hive.domain.employee.mapper.EmployeeMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +43,7 @@ import java.util.stream.Collectors;
 /**
  * RoleService 属于管理端后端系统模块，实现核心业务编排与规则逻辑。
  */
+@Slf4j
 @Service
 public class RoleService {
 
@@ -249,8 +251,12 @@ public class RoleService {
     private void evictRoleUsersPermissionCache(String tenantCode, Long roleId) {
         List<Long> userIds = sysUserRoleMapper.selectUserIdsByRoleId(tenantCode, roleId);
         for (Long userId : userIds) {
+            // 角色-员工绑定可能因历史数据、组织迁移、自助加入残留或租户编码变更而指向
+            // 当前租户下已不存在的 user 行。这类绑定本身是脏数据，只应跳过并告警，
+            // 不能让整个“分配权限”事务回滚——否则该角色此后永远无法调整权限。
             if (employeeMapper.incrementPermissionVersion(tenantCode, userId) != 1) {
-                throw new BusinessException(404, "员工不存在");
+                log.warn("角色权限变更时跳过失效的员工绑定: tenantCode={}, roleId={}, userId={}", tenantCode, roleId, userId);
+                continue;
             }
             permissionCacheUtil.evict(tenantCode, userId);
         }
