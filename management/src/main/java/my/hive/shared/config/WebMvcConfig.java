@@ -22,6 +22,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private static final String[] PUBLIC_PATHS = {
             "/health",
+            "/release/events",
             "/auth/admin/login",
             "/auth/admin/password-reset/code",
             "/auth/admin/password-reset",
