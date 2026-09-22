@@ -1,10 +1,10 @@
 <template>
   <header ref="navbarRef" class="ys-navbar min-h-16 md:min-h-20 bg-surface flex flex-wrap md:flex-nowrap items-center justify-between gap-3 px-3 py-3 md:px-8 shrink-0 relative z-30 isolate overflow-visible">
     <el-button
-      class="md:hidden p-2 text-on-surface-variant rounded-full hover:bg-surface-container-highest"
+      class="navbar-mobile-toggle md:hidden p-2 text-on-surface-variant rounded-full hover:bg-surface-container-highest"
       text
       circle
-      @click="emit('toggle-mobile-menu')"
+      @click="emit('toggle-mobile-menu')" aria-label="打开功能导航"
     >
       <span class="material-symbols-outlined">menu</span>
     </el-button>
@@ -16,7 +16,7 @@
         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">search</span>
         <el-input
           v-model.trim="keyword"
-          placeholder="搜索订单、库存、客户、员工..."
+          placeholder="查找功能：订单、库存、客户、员工…" aria-label="查找功能入口"
           clearable
           class="w-full"
           @focus="searchPanelOpen = true"
@@ -59,10 +59,10 @@
 
       <el-button
         v-if="!userStore.isPlatformTenant"
-        class="md:hidden w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors"
+        class="navbar-mobile-toggle md:hidden w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors"
         text
         circle
-        @click.stop="toggleMobileSearch"
+        @click.stop="toggleMobileSearch" aria-label="查找功能入口"
       >
         <span class="material-symbols-outlined">search</span>
       </el-button>
@@ -206,7 +206,7 @@
         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
         <el-input
           v-model.trim="keyword"
-          placeholder="搜索订单、库存、客户、员工..."
+          placeholder="查找功能：订单、库存、客户、员工…" aria-label="查找功能入口"
           clearable
           class="w-full"
           @focus="searchPanelOpen = true"

@@ -15,6 +15,22 @@
 
         <div class="customer-header-actions">
           <el-button
+            class="customer-create-action"
+            type="primary"
+            :disabled="!canCreateCustomer"
+            :class="permissionDisabledClass(!canCreateCustomer)"
+            :title="canCreateCustomer ? '新建客户' : '当前账号暂无新增客户权限'"
+            @click="openCreateDrawer"
+          >
+            <span class="material-symbols-outlined text-[20px]">domain_add</span>
+            新建客户
+          </el-button>
+          <input ref="customerImportInputRef" class="sr-only" type="file" accept=".xlsx" @change="handleCustomerImport" />
+        </div>
+      </header>
+
+      <PageActionGroup label="批量维护">
+          <el-button
             :disabled="!canImportCustomer"
             :class="permissionDisabledClass(!canImportCustomer)"
             :title="canImportCustomer ? '下载客户导入模板' : '当前账号暂无导入客户权限'"
@@ -32,20 +48,7 @@
             <span class="material-symbols-outlined text-[18px]">upload_file</span>
             导入客户
           </el-button>
-          <el-button
-            class="customer-create-action"
-            type="primary"
-            :disabled="!canCreateCustomer"
-            :class="permissionDisabledClass(!canCreateCustomer)"
-            :title="canCreateCustomer ? '新建客户' : '当前账号暂无新增客户权限'"
-            @click="openCreateDrawer"
-          >
-            <span class="material-symbols-outlined text-[20px]">domain_add</span>
-            新建客户
-          </el-button>
-          <input ref="customerImportInputRef" class="sr-only" type="file" accept=".xlsx" @change="handleCustomerImport" />
-        </div>
-      </header>
+      </PageActionGroup>
 
       <section class="customer-summary-grid">
         <div class="function-stat-card group relative overflow-hidden bg-primary-container">
@@ -283,6 +286,7 @@
 </template>
 
 <script setup>
+import PageActionGroup from '@/components/PageActionGroup.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
   ElButton,

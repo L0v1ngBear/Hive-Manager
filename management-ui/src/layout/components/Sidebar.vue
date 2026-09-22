@@ -30,7 +30,8 @@
       </div>
     </div>
 
-    <nav class="flex-1 py-4 overflow-y-auto scrollbar-hide" :class="isCollapsed ? 'px-2' : 'px-4'">
+    <nav aria-label="功能导航" class="flex-1 py-4 overflow-y-auto scrollbar-hide" :class="isCollapsed ? 'px-2' : 'px-4'">
+      <p v-if="!isCollapsed && primaryMenus.length" class="sidebar-section-label">常用业务</p>
       <div class="space-y-2">
         <router-link
             v-for="item in primaryMenus"
@@ -48,6 +49,7 @@
                 :disabled="item.disabled"
                 :title="item.disabled ? item.disabledReason : item.name"
                 :aria-label="item.name"
+                :aria-current="route.path === item.path ? 'page' : undefined"
                 @click="handleMenuNavigate(item, navigate)"
             >
               <span class="material-symbols-outlined shrink-0 transition-all"
@@ -80,6 +82,7 @@
               class="sidebar-nav-button w-full rounded-xl text-on-surface-variant transition-all duration-200 hover:bg-surface-container-highest hover:text-primary"
               :class="isCollapsed ? 'flex items-center justify-center px-3 py-3' : 'flex-row items-center justify-between px-4 py-3'"
               aria-label="更多功能"
+              :aria-expanded="showMore"
           >
             <div class="flex items-center" :class="isCollapsed ? '' : 'flex-row gap-3'">
               <span class="material-symbols-outlined shrink-0"
@@ -108,6 +111,7 @@
                   :disabled="item.disabled"
                   :title="item.disabled ? item.disabledReason : item.name"
                   :aria-label="item.name"
+                  :aria-current="route.path === item.path ? 'page' : undefined"
                   @click="handleMenuNavigate(item, navigate)"
               >
                 <span class="material-symbols-outlined shrink-0 transition-all"
@@ -160,7 +164,7 @@ const props = defineProps({
 
 const route = useRoute()
 const userStore = useUserStore()
-const isCollapsed = ref(!props.mobile)
+const isCollapsed = ref(false)
 const approvalPendingCount = ref(0)
 const orderWarningCount = ref(0)
 let approvalPendingRequestId = 0
@@ -264,7 +268,7 @@ function handleMenuNavigate(item, navigate) {
   navigate()
 }
 
-const showMore = ref(false)
+const showMore = ref(true)
 const secondaryPaths = computed(() => secondaryMenus.value.map((item) => item.path))
 
 watch(
@@ -328,12 +332,16 @@ const refreshApprovalPendingCount = async () => {
   }
 }
 
-const refreshOrderWarningCount = async () => {
+const refreshOrderWarningCount = async (event) => {
   const requestId = ++orderWarningRequestId
   if (userStore.isPlatformTenant ||
       !userStore.hasAnyFeature(['module.order']) ||
       !userStore.hasPermission('order:warning:list')) {
     orderWarningCount.value = 0
+    return
+  }
+  if (Number.isFinite(event?.detail?.count) && event.detail.count >= 0) {
+    orderWarningCount.value = event.detail.count
     return
   }
   try {

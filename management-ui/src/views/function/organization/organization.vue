@@ -22,8 +22,8 @@
         <article class="function-stat-card stat-card stat-card--warning"><p>空部门</p><strong>{{ stats.emptyDepartmentCount }}</strong></article>
       </section>
 
-      <section class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.9fr)]">
-        <section class="panel-card" v-loading="loading">
+      <section class="organization-workspace">
+        <section ref="departmentPanel" class="panel-card department-panel" tabindex="-1" v-loading="loading">
           <header class="panel-header">
             <div>
               <h2>部门层级</h2>
@@ -31,7 +31,7 @@
             </div>
             <el-button @click="fetchOverview">刷新</el-button>
           </header>
-          <div class="p-5">
+          <div class="department-scroll p-5">
             <el-result v-if="overviewFailure" :icon="overviewFailure.kind === 'forbidden' ? 'warning' : 'error'" :title="overviewFailure.title" :sub-title="overviewFailure.message">
               <template #extra><el-button type="primary" :loading="loading" @click="fetchOverview">重试</el-button></template>
             </el-result>
@@ -43,7 +43,7 @@
                 :active-id="activeDepartment?.id"
                 :can-update="canDepartmentManage"
                 :can-delete="canDepartmentDelete"
-                @select="selectDepartment"
+                @select="handleDepartmentSelect"
                 @create-child="openCreate"
                 @edit="openEdit"
                 @delete="handleDepartmentDelete"
@@ -57,12 +57,13 @@
           </div>
         </section>
 
-        <aside class="panel-card min-w-0">
+        <aside ref="detailPanel" class="panel-card department-detail min-w-0" tabindex="-1">
           <header class="panel-header">
             <div class="min-w-0">
-              <h2 class="truncate">{{ activeDepartment?.deptName || '部门详情' }}</h2>
+              <h2 class="truncate" :title="activeDepartment?.deptName">{{ activeDepartment?.deptName || '部门详情' }}</h2>
               <p>{{ activeDepartment ? `负责人：${activeDepartment.leaderName || '未设置'} · 成员 ${activeDepartment.employeeCount || 0} 人 · 职位 ${activeDepartment.positionCount || 0} 个` : '请选择左侧部门' }}</p>
             </div>
+            <el-button class="department-return" size="small" @click="returnToDepartments">返回部门</el-button>
           </header>
 
           <el-tabs v-model="activeDetailTab" class="organization-tabs">
@@ -104,7 +105,7 @@
                     <template #default="{ row }">{{ row.positionCode || '-' }}</template>
                   </el-table-column>
                   <el-table-column prop="employeeCount" label="员工" width="72" align="center" />
-                  <el-table-column label="操作" width="132" align="right">
+                  <el-table-column label="操作" width="132" align="right" fixed="right">
                     <template #default="{ row }">
                       <el-tooltip :disabled="canPositionManage" content="暂无 organization:position:manage 权限">
                         <span><el-button link type="primary" :disabled="!canPositionManage" @click="openPositionEdit(row)">编辑</el-button></span>
@@ -183,7 +184,7 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
+import { computed, defineComponent, h, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElButton, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElResult, ElSelect, ElTabPane, ElTable, ElTableColumn, ElTabs, ElTag, ElTooltip } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { warnAndFocusField } from '@/utils/formFocus'
@@ -224,7 +225,7 @@ const DepartmentNode = defineComponent({
         }, props.level === 0 ? 'account_tree' : 'subdirectory_arrow_right'),
         h('div', { class: 'org-node__content' }, [
           h('div', { class: 'org-node__heading' }, [
-            h('p', { class: 'org-node__name' }, props.node.deptName || '未命名部门')
+            h('p', { class: 'org-node__name', title: props.node.deptName }, props.node.deptName || '未命名部门')
           ]),
           h('div', { class: 'org-node__meta' }, [
             h('span', [
@@ -280,6 +281,23 @@ const positionSaving = ref(false)
 const drawerVisible = ref(false)
 const positionDrawerVisible = ref(false)
 const activeDetailTab = ref('members')
+const departmentPanel = ref(null)
+const detailPanel = ref(null)
+
+async function handleDepartmentSelect(node) {
+  const request = selectDepartment(node)
+  await nextTick()
+  if (window.matchMedia('(max-width: 1199px)').matches) {
+    detailPanel.value?.scrollIntoView({ block: 'start' })
+    detailPanel.value?.focus({ preventScroll: true })
+  }
+  await request
+}
+
+function returnToDepartments() {
+  departmentPanel.value?.scrollIntoView({ block: 'start' })
+  departmentPanel.value?.focus({ preventScroll: true })
+}
 const departments = ref([])
 const members = ref([])
 const positions = ref([])
@@ -677,5 +695,31 @@ function resolveOverviewFailure(error) {
   .organization-tree :deep(.org-node) { margin-left: 0; }
   .organization-tree :deep(.org-node__meta) { align-items: flex-start; flex-direction: column; }
   .organization-tree :deep(.org-node-children) { padding-left: .75rem; }
+}
+
+@media screen {
+  .organization-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; height: clamp(24rem, calc(100dvh - 21rem), 52rem); }
+  .department-panel, .department-detail { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .panel-header { flex-shrink: 0; padding: 1rem; }
+  .department-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: .75rem; }
+  .organization-tabs { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 0 .75rem .75rem; }
+  .organization-tabs :deep(.el-tabs__header) { flex-shrink: 0; }
+  .organization-tabs :deep(.el-tabs__content) { flex: 1; min-height: 0; }
+  .organization-tabs :deep(.el-tab-pane) { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+  .detail-scroll { flex: 1; min-height: 0; max-height: none; overscroll-behavior: contain; }
+  .position-toolbar { flex-shrink: 0; }
+  .organization-tree :deep(.org-node) { grid-template-columns: auto minmax(0, 1fr); margin-left: min(calc(var(--org-node-level) * .75rem), 3rem); }
+  .organization-tree :deep(.org-node__actions) { grid-column: 2; flex-wrap: wrap; }
+  .department-return { display: none; }
+}
+@media screen and (max-width: 1199px) {
+  .organization-workspace { height: auto; grid-template-columns: minmax(0, 1fr); }
+  .department-panel { height: 22rem; }
+  .department-detail { height: clamp(24rem, 65dvh, 40rem); scroll-margin-top: .5rem; }
+  .department-return { display: inline-flex; flex-shrink: 0; }
+}
+@media screen and (max-width: 640px) {
+  .organization-tree :deep(.org-node) { margin-left: 0; }
+  .organization-tree :deep(.org-node__children) { padding-left: 0; }
 }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <main class="min-h-screen overflow-hidden bg-[#f8fafc] text-slate-900">
+  <main class="password-change-page min-h-screen overflow-hidden bg-[#f8fafc] text-slate-900">
     <section class="relative flex min-h-screen items-center justify-center px-4 py-10">
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_30%_10%,rgba(15,118,110,0.18),transparent_32%),linear-gradient(135deg,#fbfcfe_0%,#ccfbf1_45%,#ffffff_100%)]"></div>
       <div class="absolute -left-16 top-20 h-56 w-56 rounded-full bg-primary/20 blur-3xl"></div>

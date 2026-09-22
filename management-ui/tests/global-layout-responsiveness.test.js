@@ -152,7 +152,7 @@ test('responsive table rules convert native tables on compact screens', () => {
   assert.equal(hasRule(compactRules, tableHeader, /display\s*:\s*none/), true, '640px rules must hide native table headers')
 })
 
-test('desktop sidebar starts collapsed while mobile navigation stays expanded', () => {
+test('desktop and mobile navigation expose names by default and retain the collapse control', () => {
   const primaryMenu = templateSection(sidebar, 'v-for="item in primaryMenus"', '      <div v-if="secondaryMenus.length"')
   const moreControl = templateSection(sidebar, '<el-tooltip :disabled="!isCollapsed" content="更多功能"', '        <div v-show="showMore"')
   const secondaryMenu = templateSection(sidebar, 'v-for="item in secondaryMenus"', '    </nav>')
@@ -163,7 +163,7 @@ test('desktop sidebar starts collapsed while mobile navigation stays expanded', 
   const unguardedSecondarySpans = unguardedCollapsedSpans(secondaryMenu)
   const unguardedMoreSpans = unguardedCollapsedSpans(moreControl)
 
-  assert.match(sidebar, /const isCollapsed = ref\(!props\.mobile\)/)
+  assert.match(sidebar, /const isCollapsed = ref\(false\)/)
   assert.match(primaryMenu, /<span v-if="!isCollapsed"[^>]*>\s*\{\{ item\.name \}\}\s*<\/span>/)
   assert.match(primaryMenu, /<el-tooltip[^>]*:content="item\.name"[^>]*placement="right"/)
   assert.match(secondaryMenu, /<span v-if="!isCollapsed"[^>]*>\s*\{\{ item\.name \}\}\s*<\/span>/)
@@ -319,7 +319,9 @@ test('equipment uses accessible shared filters, grouped actions and a scrolling 
   assert.match(filterForm, /<el-select\b(?=[^>]*v-model="filters\.status")(?=[^>]*aria-label="设备状态")[^>]*>/)
   assert.match(actions, /@click="handleSearch"/)
   assert.match(actions, /@click="resetSearch"/)
-  assert.match(actions, /@click="exportEquipmentExcel"/)
-  assert.match(actions, /@click="openCreate"/)
+  const header = equipment.slice(0, equipment.indexOf('</header>'))
+  assert.match(header, /@click="exportEquipmentExcel"/)
+  assert.match(header, /@click="openCreate"/)
+  assert.doesNotMatch(actions, /@click="(?:exportEquipmentExcel|openCreate)"/)
   assert.match(tableScroll, /<el-table\b[\s\S]*<el-table-column label="操作" width="210" fixed="right"[\s\S]*<\/el-table>/)
 })

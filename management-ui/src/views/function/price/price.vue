@@ -4,12 +4,15 @@
       <header class="function-page-header">
         <div><div class="function-page-eyebrow"><span class="material-symbols-outlined">sell</span>价格策略中心</div><h1 class="function-page-title">价格管理</h1><p class="function-page-desc">维护面料 SKU 基准价、客户等级价和指定客户特价。</p></div>
         <div class="flex flex-wrap items-center gap-3">
-          <el-button :loading="downloadingTemplate" :disabled="downloadingTemplate" @click="downloadTemplate">导入模板</el-button>
-          <el-tooltip :disabled="canPublish" content="缺少价格发布权限"><span><el-upload action="#" accept=".xlsx" :auto-upload="false" :show-file-list="false" :disabled="!canPublish || importing" :on-change="handleImportUpload"><el-button :loading="importing" :disabled="!canPublish || importing">导入价格</el-button></el-upload></span></el-tooltip>
-          <el-button :loading="exporting" :disabled="exporting" @click="exportExcel">导出 Excel</el-button>
           <el-tooltip :disabled="canPublish" content="缺少价格发布权限"><span><el-button type="primary" :disabled="!canPublish" @click="openCreate()">新增价格</el-button></span></el-tooltip>
         </div>
       </header>
+
+      <PageActionGroup label="批量维护">
+          <el-button :loading="downloadingTemplate" :disabled="downloadingTemplate" @click="downloadTemplate">导入模板</el-button>
+          <el-tooltip :disabled="canPublish" content="缺少价格发布权限"><span><el-upload action="#" accept=".xlsx" :auto-upload="false" :show-file-list="false" :disabled="!canPublish || importing" :on-change="handleImportUpload"><el-button :loading="importing" :disabled="!canPublish || importing">导入价格</el-button></el-upload></span></el-tooltip>
+          <el-button :loading="exporting" :disabled="exporting" @click="exportExcel">导出 Excel</el-button>
+      </PageActionGroup>
       <el-result v-if="statsError" :icon="statsError.icon" :title="statsError.title" :sub-title="statsError.message"><template #extra><el-button @click="fetchStats">重试统计</el-button></template></el-result>
       <section v-else v-loading="statsLoading" class="function-stats-grid">
         <el-statistic class="function-stat-card" title="SKU 数量" :value="stats.skuCount" />
@@ -45,6 +48,7 @@
 </template>
 
 <script setup>
+import PageActionGroup from '@/components/PageActionGroup.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElButton, ElDatePicker, ElDescriptions, ElDescriptionsItem, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElPagination, ElResult, ElSelect, ElStatistic, ElTable, ElTableColumn, ElTag, ElTooltip, ElUpload } from 'element-plus'
 import { useRoute } from 'vue-router'

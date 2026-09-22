@@ -1,0 +1,222 @@
+/* Management UI only, including Element Plus portals. Never style printed output. */
+@media screen {
+  /* Tailwind space-y utilities must not offset an inline portal's fixed overlay. */
+  body:has(.hive-office-ui) .el-overlay { margin: 0 !important; }
+  body:has(.hive-office-ui) :is(.el-dialog, .el-message-box) {
+    --el-dialog-border-radius: 12px;
+    --el-messagebox-border-radius: 12px;
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  body:has(.hive-office-ui) .el-dialog:not(.is-fullscreen) {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - min(8vh, 4rem) - 1rem);
+    margin-block: min(8vh, 4rem) 1rem;
+    padding: 0;
+  }
+
+  body:has(.hive-office-ui) :is(.el-dialog__header, .el-drawer__header) {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 1.25rem 3.5rem 1rem 1.25rem;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+  body:has(.hive-office-ui) :is(.el-dialog__title, .el-drawer__title) {
+    color: var(--el-text-color-primary);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  body:has(.hive-office-ui) .el-dialog__headerbtn {
+    top: .625rem;
+    right: .625rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--ys-control-radius);
+  }
+  body:has(.hive-office-ui) .el-drawer__header {
+    padding-right: 1rem;
+    gap: 1rem;
+  }
+  body:has(.hive-office-ui) .el-drawer__close-btn {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--ys-control-radius);
+  }
+  body:has(.hive-office-ui) .el-dialog:not(.is-fullscreen) > .el-dialog__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 1.25rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  body:has(.hive-office-ui) .el-drawer:has(> .el-drawer__header) > .el-drawer__body {
+    padding: 1.25rem;
+    overscroll-behavior: contain;
+  }
+  /* These audited drawers supply their own padded header, scrolling form and footer. */
+  body:has(.hive-office-ui) :is(.employee-editor-drawer, .customer-editor-drawer, .attendance-rule-drawer, .atelier-drawer, .drawer-small, .drawer-large) > .el-drawer__body { padding: 0; }
+  body:has(.hive-office-ui) :is(.drawer-small, .drawer-large, .atelier-drawer) > .el-drawer__body { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  body:has(.hive-office-ui) .atelier-drawer > .el-drawer__body > .h-full { flex: 1; height: auto; min-height: 0; }
+  body:has(.hive-office-ui) .atelier-drawer > .el-drawer__body > .h-1 { flex-shrink: 0; }
+  body:has(.hive-office-ui) :is(.employee-editor-drawer, .atelier-drawer, .attendance-rule-drawer) :is(.p-8, .px-8) { padding-inline: 1.25rem; }
+  body:has(.hive-office-ui) :is(.employee-editor-drawer, .atelier-drawer, .attendance-rule-drawer) :is(.p-8, .py-8) { padding-block: 1.25rem; }
+  body:has(.hive-office-ui) :is(.employee-editor-drawer, .atelier-drawer, .attendance-rule-drawer, .customer-editor-drawer) h2 { font-size: 1.125rem; line-height: 1.5; }
+  body:has(.hive-office-ui) .employee-editor-drawer :is(.el-input, .el-select, .el-textarea) { padding: 0; border-width: 0; background: transparent; }
+  body:has(.hive-office-ui) .employee-editor-drawer .el-input.pl-10 .el-input__wrapper { padding-left: 2.5rem; }
+  body:has(.hive-office-ui) :is(.el-dialog__footer, .el-drawer__footer) {
+    flex-shrink: 0;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--el-border-color-lighter);
+  }
+  body:has(.hive-office-ui) :is(.el-dialog__footer, .el-drawer__footer, .el-message-box__btns) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+  body:has(.hive-office-ui) :is(.el-dialog__footer, .el-drawer__footer, .el-message-box__btns) .el-button + .el-button { margin-left: 0; }
+  body:has(.hive-office-ui) :is(.el-dialog__footer, .el-drawer__footer) > .el-button:not(.is-circle) { min-width: 5rem; }
+
+  body:has(.hive-office-ui) .el-message-box { padding: 1.25rem; max-width: calc(100vw - 2rem); }
+  body:has(.hive-office-ui) .el-message-box__header { padding: 0 2rem .75rem 0; }
+  body:has(.hive-office-ui) .el-message-box__title { font-size: 1rem; font-weight: 700; line-height: 1.5; }
+  body:has(.hive-office-ui) .el-message-box__content { padding: .5rem 0 1.25rem; line-height: 1.7; overflow-wrap: anywhere; }
+  body:has(.hive-office-ui) .el-message-box__btns { padding: 0; }
+
+  /* Controls retain their native sizes, validation, disabled and semantic colors. */
+  body:has(.hive-office-ui) :is(.el-dialog, .el-drawer, .el-popover, .el-message-box) { font-family: var(--font-sans); }
+  body:has(.hive-office-ui) :is(.el-dialog, .el-drawer) .el-form-item { margin-bottom: 1.25rem; }
+  body:has(.hive-office-ui) :is(.el-dialog, .el-drawer) .el-form-item__label { font-weight: 600; line-height: 1.5; align-items: center; }
+  body:has(.hive-office-ui) :is(.el-dialog, .el-drawer) .el-form--label-top .el-form-item__label { margin-bottom: .5rem; }
+  body:has(.hive-office-ui) :is(.el-dialog, .el-drawer) .el-form-item__content { min-width: 0; }
+  body:has(.hive-office-ui) :is(.el-dialog, .el-drawer) .el-form-item__error { line-height: 1.4; padding-top: .25rem; }
+  body:has(.hive-office-ui) :is(.el-input__wrapper, .el-select__wrapper, .el-textarea__inner) { border-radius: var(--ys-control-radius); }
+  body:has(.hive-office-ui) .el-textarea__inner { padding: .625rem .75rem; line-height: 1.6; }
+  body:has(.hive-office-ui) .el-button { font-weight: 600; }
+  body:has(.hive-office-ui) .el-button > span { gap: .375rem; }
+  /* The legacy primary rule also colored link/text buttons as solid pills. */
+  body:has(.hive-office-ui) .el-button--primary:is(.is-link, .is-text):not(.is-disabled):not(:disabled):not([aria-disabled="true"]) {
+    background: transparent !important;
+    border-color: transparent !important;
+    color: var(--ys-primary) !important;
+    box-shadow: none;
+  }
+  body:has(.hive-office-ui) .el-button--primary.is-text:not(.is-disabled):not(:disabled):not([aria-disabled="true"]):is(:hover, .is-has-bg) { background: var(--el-color-primary-light-9) !important; }
+  body:has(.hive-office-ui) .el-button--primary:is(.is-link, .is-text):not(.is-disabled) :is(.material-symbols-outlined, .text-primary, .text-on-surface, .text-on-surface-variant) { color: inherit !important; }
+  body:has(.hive-office-ui) :is(.el-checkbox, .el-radio) { max-width: 100%; }
+  body:has(.hive-office-ui) :is(.el-checkbox__label, .el-radio__label) { white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
+  body:has(.hive-office-ui) :is(.el-checkbox-group, .el-radio-group):not(.grid) { display: flex; flex-wrap: wrap; row-gap: .375rem; }
+
+  /* Feedback: compact enough for drawers, with distinct text and action spacing. */
+  body:has(.hive-office-ui) .el-alert { padding: .75rem 1rem; border-radius: var(--ys-control-radius); align-items: flex-start; }
+  body:has(.hive-office-ui) .el-alert__title { line-height: 1.6; }
+  body:has(.hive-office-ui) .el-alert__icon { margin-top: .1875rem; }
+  body:has(.hive-office-ui) .el-empty { padding: 2rem 1rem; }
+  body:has(.hive-office-ui) .el-empty__image { max-width: 6rem; }
+  body:has(.hive-office-ui) .el-empty__description { margin-top: 1rem; }
+  body:has(.hive-office-ui) .el-empty__description p { line-height: 1.6; overflow-wrap: anywhere; }
+  body:has(.hive-office-ui) .el-empty__bottom { margin-top: 1rem; }
+  body:has(.hive-office-ui) .el-result { padding: 2rem 1.25rem; }
+  body:has(.hive-office-ui) .el-result__extra { margin-top: 1.25rem; }
+  body:has(.hive-office-ui) .el-result__subtitle p { line-height: 1.7; overflow-wrap: anywhere; }
+  body:has(.hive-office-ui) :is(.el-message, .el-notification) { max-width: calc(100vw - 2rem); border-radius: var(--ys-control-radius); }
+  body:has(.hive-office-ui) :is(.el-message__content, .el-notification__content) { line-height: 1.6; overflow-wrap: anywhere; }
+  body:has(.hive-office-ui) .el-descriptions__cell { overflow-wrap: anywhere; }
+
+  /* Portal bounds also cover installer lists and notification popovers. */
+  body:has(.hive-office-ui) .el-popover.el-popper { max-width: calc(100vw - 1.5rem); border-radius: 12px; }
+  body:has(.hive-office-ui) :is(.order-logistics-card, .after-sales-logistics-card) {
+    background: var(--el-bg-color);
+    font-size: .875rem;
+    line-height: 1.6;
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+  }
+  body:has(.hive-office-ui) :is(.order-logistics-header, .after-sales-logistics-card > header) { padding: .875rem 1rem; gap: .75rem; }
+  body:has(.hive-office-ui) :is(.order-logistics-company, .after-sales-logistics-card > header > b) { font-size: .9375rem; font-weight: 700; overflow-wrap: anywhere; min-width: 0; }
+  body:has(.hive-office-ui) .after-sales-logistics-card > header > .material-symbols-outlined { flex-shrink: 0; font-size: 1.5rem; }
+  body:has(.hive-office-ui) .after-sales-logistics-card > header > em { flex-shrink: 0; }
+  body:has(.hive-office-ui) .order-logistics-waybill { margin: .875rem 1rem 0; padding: .5rem .625rem; }
+  body:has(.hive-office-ui) .after-sales-logistics-waybill { padding: .875rem 1rem 0; font-size: .8125rem; }
+  body:has(.hive-office-ui) :is(.order-logistics-phone-prompt, .after-sales-logistics-phone-prompt) { padding: .875rem 1rem 1rem; }
+  body:has(.hive-office-ui) :is(.order-logistics-phone-prompt, .after-sales-logistics-phone-prompt) > p {
+    margin: 0 0 .625rem;
+    color: var(--el-text-color-regular);
+    font-size: .8125rem;
+    line-height: 1.6;
+  }
+  body:has(.hive-office-ui) :is(.order-logistics-phone-input, .after-sales-logistics-phone-prompt > div) { display: flex; align-items: center; gap: .5rem; }
+  body:has(.hive-office-ui) :is(.order-logistics-phone-input, .after-sales-logistics-phone-prompt > div) > .el-input { flex: 1 1 0; min-width: 0; }
+  body:has(.hive-office-ui) :is(.order-logistics-phone-input, .after-sales-logistics-phone-prompt > div) > .el-button { flex: 0 0 auto; height: var(--ys-control-height); margin: 0; padding-inline: 1rem; }
+  body:has(.hive-office-ui) :is(.order-logistics-feedback, .after-sales-logistics-feedback) { padding: 1.25rem 1rem; font-size: .8125rem; line-height: 1.6; overflow-wrap: anywhere; }
+  body:has(.hive-office-ui) :is(.order-logistics-timeline, .after-sales-logistics-traces) { padding: .75rem 1rem; max-height: min(18rem, 48dvh); overscroll-behavior: contain; }
+  body:has(.hive-office-ui) .el-select-dropdown__item { min-height: 2.25rem; line-height: 2.25rem; }
+  body:has(.hive-office-ui) .el-dropdown-menu { padding: .375rem; }
+  body:has(.hive-office-ui) .el-dropdown-menu__item { min-height: 2.25rem; border-radius: .375rem; }
+
+  body:has(.hive-office-ui) :is(.el-button, .el-dialog__headerbtn, .el-drawer__close-btn, .column-settings-trigger, .column-settings-reset, .column-settings-actions button, .drag-attachment-upload):focus-visible {
+    outline: 2px solid var(--ys-primary);
+    outline-offset: 2px;
+  }
+  body:has(.hive-office-ui) .drag-attachment-upload { min-width: 0; width: 100%; max-width: 100%; border-radius: var(--ys-control-radius); padding: 1rem; }
+  body:has(.hive-office-ui) .drag-upload-main { gap: .75rem; }
+  body:has(.hive-office-ui) :is(.drag-upload-title, .drag-upload-helper) { overflow-wrap: anywhere; }
+  body:has(.hive-office-ui) .drag-upload-title { white-space: normal; }
+  body:has(.hive-office-ui) .drag-upload-actions { flex-wrap: wrap; gap: .5rem; }
+  body:has(.hive-office-ui) .drag-upload-actions .el-button + .el-button { margin-left: 0; }
+  body:has(.hive-office-ui) .column-settings-panel { display: flex; flex-direction: column; max-width: calc(100vw - 2rem); max-height: min(32rem, 70dvh); border-radius: 12px; }
+  body:has(.hive-office-ui) .column-settings-popover.el-popper { padding: 0; overflow: hidden; }
+  body:has(.hive-office-ui) .column-settings-popover .column-settings-panel { border: 0; box-shadow: none; }
+  body:has(.hive-office-ui) .column-settings-head { flex-shrink: 0; }
+  body:has(.hive-office-ui) .column-settings-list { min-height: 0; overscroll-behavior: contain; }
+  body:has(.hive-office-ui) .column-settings-item { border-radius: var(--ys-control-radius); }
+
+  @media (max-width: 767px) {
+    /* Keep both range calendars usable; never hide the second month to fit. */
+    body:has(.hive-office-ui) .el-picker__popper {
+      position: fixed !important;
+      inset: auto .75rem 1rem !important;
+      transform: none !important;
+      width: fit-content;
+      max-width: calc(100vw - 1.5rem);
+      margin-inline: auto;
+    }
+    body:has(.hive-office-ui) .el-picker__popper > .el-popper__arrow { display: none; }
+    body:has(.hive-office-ui) :is(.el-date-picker, .el-date-range-picker, .el-time-range-picker) {
+      max-width: calc(100vw - 1.5rem);
+      max-height: calc(100dvh - 2rem);
+      overflow-y: auto;
+    }
+    body:has(.hive-office-ui) .el-date-range-picker .el-picker-panel__body { min-width: 0; }
+    body:has(.hive-office-ui) .el-date-range-picker__content { display: block; width: 100%; padding: .75rem; }
+    body:has(.hive-office-ui) .el-date-range-picker__content.is-left { border-right: 0; border-bottom: 1px solid var(--el-border-color-lighter); }
+    body:has(.hive-office-ui) .el-date-picker .el-picker-panel__content { width: auto; margin: .75rem; }
+    body:has(.hive-office-ui) .el-picker-panel__sidebar { position: static; width: 100%; max-height: 6rem; border-right: 0; border-bottom: 1px solid var(--el-border-color-lighter); }
+    body:has(.hive-office-ui) .el-picker-panel__sidebar + .el-picker-panel__body { margin-left: 0; }
+  }
+
+  @media (max-width: 640px) {
+    body:has(.hive-office-ui) .el-dialog:not(.is-fullscreen) { max-height: calc(100dvh - 1.5rem); }
+    body:has(.hive-office-ui) :is(.el-dialog__header, .el-drawer__header) { padding-left: 1rem; }
+    body:has(.hive-office-ui) .el-dialog:not(.is-fullscreen) > .el-dialog__body,
+    body:has(.hive-office-ui) .el-drawer:has(> .el-drawer__header) > .el-drawer__body { padding: 1rem; }
+    body:has(.hive-office-ui) :is(.el-dialog__footer, .el-drawer__footer) { padding: .75rem 1rem; }
+    body:has(.hive-office-ui) .el-dialog__footer > .el-button { flex: 1 1 auto; }
+    body:has(.hive-office-ui) .column-settings-panel { max-height: 65dvh; }
+    body:has(.hive-office-ui) .employee-editor-drawer .grid-cols-2 { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+    body:has(.hive-office-ui) .employee-editor-drawer .col-span-2 { grid-column: auto; }
+    body:has(.hive-office-ui) .drawer-small .drawer-head { flex-direction: row; align-items: flex-start; padding: 1rem; }
+    body:has(.hive-office-ui) .drawer-small .drawer-head-actions { width: auto; flex: 0 0 auto; }
+    body:has(.hive-office-ui) .drawer-small .drawer-head-actions > .close-btn { flex: 0 0 auto; width: 2.5rem; }
+    body:has(.hive-office-ui) .drawer-small .el-drawer__body > .overflow-y-auto { padding: 1rem; }
+  }
+}

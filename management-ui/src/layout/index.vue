@@ -14,6 +14,7 @@
       <main ref="mainRef" class="ys-app-main flex-1 min-h-0 overflow-x-hidden overflow-y-auto">
         <div class="ys-app-content-frame">
           <router-view v-slot="{ Component, route }">
+            <PageOperationGuide :route="route" />
             <ResponsivePageFrame :route="route">
               <component :is="Component" />
             </ResponsivePageFrame>
@@ -22,8 +23,8 @@
       </main>
     </div>
 
-    <div v-if="mobileMenuOpen" class="fixed inset-0 z-50 md:hidden">
-      <button class="absolute inset-0 bg-slate-950/35 backdrop-blur-sm" @click="mobileMenuOpen = false"></button>
+    <div v-if="mobileMenuOpen" class="mobile-navigation-panel fixed inset-0 z-50 md:hidden" @keydown.esc="mobileMenuOpen = false">
+      <button aria-label="关闭功能导航" class="absolute inset-0 bg-slate-950/35 backdrop-blur-sm" @click="mobileMenuOpen = false"></button>
       <div class="relative h-full w-[min(18rem,86vw)]">
         <Sidebar mobile />
       </div>
@@ -38,6 +39,7 @@ defineOptions({ name: 'Layout' });
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import ResponsivePageFrame from '@/components/ResponsivePageFrame.vue';
+import PageOperationGuide from '@/components/PageOperationGuide.vue';
 import Sidebar from './components/Sidebar.vue';
 import Navbar from './components/Navbar.vue';
 

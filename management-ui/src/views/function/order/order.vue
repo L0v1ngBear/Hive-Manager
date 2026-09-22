@@ -248,7 +248,7 @@
             >
               {{ column.label }}
             </th>
-            <th class="th-cell text-right">操作</th>
+            <th class="th-cell text-right order-list-operation-cell">操作</th>
           </tr>
           </thead>
           <tbody class="divide-y divide-outline-variant/10">
@@ -320,7 +320,7 @@
                     <el-popover
                       v-if="isTrackableShipment(shipment) && canViewOrderDetail(row)"
                       trigger="hover"
-                      placement="right-start"
+                      placement="right-start" :fallback-placements="['bottom-start', 'top-start', 'left-start']"
                       :width="390"
                       :show-after="260"
                       :hide-after="120"
@@ -482,7 +482,7 @@
                 </div>
               </template>
             </td>
-            <td class="td-cell" data-label="操作">
+            <td class="td-cell order-list-operation-cell" data-label="操作">
               <div class="order-row-actions">
                 <el-button
                     link
@@ -604,7 +604,7 @@
                       <el-popover
                       v-if="isTrackableShipment(shipment) && canViewOrderDetail(orderDetail)"
                       trigger="hover"
-                      placement="right-start"
+                      placement="right-start" :fallback-placements="['bottom-start', 'top-start', 'left-start']"
                       :width="390"
                       :show-after="260"
                       :hide-after="120"
@@ -5389,5 +5389,20 @@ function fulfillmentProcessText(row = {}) {
 .slide-enter-from, .slide-leave-to {
   opacity: 0;
   transform: translateX(100%)
+}
+@media screen and (min-width: 641px) {
+  .order-list-table .order-list-operation-cell {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    /* Keep the row's existing status gradient over the existing table surface. */
+    background: inherit;
+    background-color: var(--color-surface-container-lowest);
+  }
+
+  .order-list-table th.order-list-operation-cell {
+    /* Same visible color as the translucent header over the white table surface. */
+    background-color: color-mix(in srgb, var(--color-surface-container-low) 50%, var(--color-surface-container-lowest));
+  }
 }
 </style>

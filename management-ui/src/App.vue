@@ -1,6 +1,6 @@
 <template>
   <el-config-provider :locale="zhCn">
-    <div class="app-compliance-shell">
+    <div class="app-compliance-shell hive-office-ui">
       <router-view class="app-compliance-page" />
       <ComplianceFooter />
       <GlobalRequestOverlay />
@@ -24,6 +24,7 @@ const router = useRouter()
 const userStore = useUserStore()
 
 onMounted(async () => {
+  await router.isReady()
   if (!userStore.token) {
     return
   }

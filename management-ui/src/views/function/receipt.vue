@@ -2436,4 +2436,10 @@ function buildReceiptTemplateContent(config) {
     min-width: 640px;
   }
 }
+@media screen and (min-width: 1101px) {
+  .receipt-workspace { height: clamp(30rem, calc(100dvh - 16rem), 56rem); }
+  .queue-panel, .preview-panel { min-height: 0; }
+  .queue-head, .preview-head { flex-shrink: 0; }
+  .queue-list, .preview-scroll { min-height: 0; overscroll-behavior: contain; }
+}
 </style>

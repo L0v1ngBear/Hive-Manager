@@ -10,6 +10,18 @@
         <p class="function-page-desc">布匹标签、订单流转码、设备巡检码统一在这里预览和打印。</p>
       </div>
       <div class="header-actions">
+        <el-button :loading="loading" :disabled="loading" @click="reloadCurrentTab">
+          <span class="material-symbols-outlined" :class="{ 'animate-spin': loading }">sync</span>
+          刷新
+        </el-button>
+        <el-button type="primary" :disabled="!printTarget" @click="printCurrentLabel">
+          <span class="material-symbols-outlined">local_printshop</span>
+          浏览器打印
+        </el-button>
+      </div>
+    </header>
+
+      <PageActionGroup label="打印设置">
         <el-button @click="showPrintProfile = !showPrintProfile">
           <span class="material-symbols-outlined">tune</span>
           打印适配
@@ -22,16 +34,7 @@
           <span class="material-symbols-outlined">dashboard_customize</span>
           编辑模板
         </el-button></span></el-tooltip>
-        <el-button :loading="loading" :disabled="loading" @click="reloadCurrentTab">
-          <span class="material-symbols-outlined" :class="{ 'animate-spin': loading }">sync</span>
-          刷新
-        </el-button>
-        <el-button type="primary" :disabled="!printTarget" @click="printCurrentLabel">
-          <span class="material-symbols-outlined">local_printshop</span>
-          浏览器打印
-        </el-button>
-      </div>
-    </header>
+      </PageActionGroup>
 
     <el-tabs v-model="activeTab" class="print-tabs" @tab-change="switchTab">
       <el-tab-pane v-for="tab in accessibleTabs" :key="tab.key" :name="tab.key"><template #label>{{ tab.label }} <el-badge :value="tab.count" :hidden="!tab.count" /></template></el-tab-pane>
@@ -233,6 +236,7 @@
 </template>
 
 <script setup>
+import PageActionGroup from '@/components/PageActionGroup.vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   ElBadge,
@@ -2042,5 +2046,17 @@ function formatDate(value) {
     size: 70mm 50mm;
     margin: 0;
   }
+}
+@media screen {
+  .task-panel { min-height: 0; }
+  .panel-title-row, .preview-head, .search-row { flex-shrink: 0; }
+  .task-list { overscroll-behavior: contain; }
+}
+@media screen and (min-width: 1281px) {
+  .print-workbench { height: clamp(30rem, calc(100dvh - 20rem), 56rem); flex: none; }
+  .preview-stage { min-height: 0; overflow: auto; }
+}
+@media screen and (max-width: 1280px) {
+  .task-panel { max-height: 24rem; }
 }
 </style>

@@ -26,41 +26,51 @@
       导出全部页
     </button>
 
-    <button type="button" class="column-settings-trigger" @click="open = !open">
-      <span class="material-symbols-outlined text-[18px]">view_column</span>
-      列设置
-    </button>
-
-    <div v-if="open" class="column-settings-panel">
-      <div class="column-settings-head">
-        <div>
-          <p class="column-settings-title">表格列顺序</p>
-          <p class="column-settings-desc">仅保存在当前浏览器，本机刷新后仍生效。</p>
+    <el-popover
+      v-model:visible="open"
+      trigger="click"
+      placement="bottom-end"
+      :width="340"
+      :popper-options="{ modifiers: [{ name: 'preventOverflow', options: { altAxis: true, padding: 12, tether: false } }] }"
+      popper-class="column-settings-popover"
+    >
+      <template #reference>
+        <button type="button" class="column-settings-trigger" :aria-expanded="open" aria-label="列设置">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">view_column</span>
+          列设置
+        </button>
+      </template>
+      <div class="column-settings-panel" @keydown.esc="open = false">
+        <div class="column-settings-head">
+          <div>
+            <p class="column-settings-title">表格列顺序</p>
+            <p class="column-settings-desc">仅保存在当前浏览器，本机刷新后仍生效。</p>
+          </div>
+          <button type="button" class="column-settings-reset" @click="$emit('reset')">恢复默认</button>
         </div>
-        <button type="button" class="column-settings-reset" @click="$emit('reset')">恢复默认</button>
-      </div>
 
-      <div class="column-settings-list">
-        <div v-for="(column, index) in columns" :key="column.key" class="column-settings-item">
-          <span class="column-settings-index">{{ index + 1 }}</span>
-          <span class="column-settings-label">{{ column.label }}</span>
-          <div class="column-settings-actions">
-            <button type="button" :disabled="index === 0" @click="$emit('move', column.key, -1)">
-              上移
-            </button>
-            <button type="button" :disabled="index === columns.length - 1" @click="$emit('move', column.key, 1)">
-              下移
-            </button>
+        <div class="column-settings-list">
+          <div v-for="(column, index) in columns" :key="column.key" class="column-settings-item">
+            <span class="column-settings-index">{{ index + 1 }}</span>
+            <span class="column-settings-label">{{ column.label }}</span>
+            <div class="column-settings-actions">
+              <button type="button" :disabled="index === 0" @click="$emit('move', column.key, -1)">
+                上移
+              </button>
+              <button type="button" :disabled="index === columns.length - 1" @click="$emit('move', column.key, 1)">
+                下移
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </el-popover>
   </div>
 </template>
 
 <script setup>
-import { ElMessage } from 'element-plus'
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { ElMessage, ElPopover } from 'element-plus'
+import { ref } from 'vue'
 import { exportRowsToExcel, exportTableElementToExcel } from '@/utils/tableExport'
 import { buildStructuredExportData } from '@/utils/structuredTableExport'
 
@@ -113,11 +123,6 @@ const emit = defineEmits(['move', 'reset', 'export-all'])
 
 const open = ref(false)
 const rootRef = ref(null)
-
-const closeOnOutsideClick = (event) => {
-  if (!rootRef.value || rootRef.value.contains(event.target)) return
-  open.value = false
-}
 
 function findExportTable() {
   const root = rootRef.value
@@ -178,13 +183,6 @@ function handleExportAll() {
   emit('export-all')
 }
 
-onMounted(() => {
-  document.addEventListener('click', closeOnOutsideClick)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', closeOnOutsideClick)
-})
 </script>
 
 <style scoped>
@@ -247,11 +245,7 @@ onBeforeUnmount(() => {
 }
 
 .column-settings-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 10px);
-  z-index: 40;
-  width: 340px;
+  width: 100%;
   max-height: 520px;
   overflow: hidden;
   border-radius: 20px;
