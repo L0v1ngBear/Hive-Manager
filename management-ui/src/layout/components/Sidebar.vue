@@ -18,18 +18,6 @@
       </div>
     </div>
 
-    <div
-      v-if="!isCollapsed && !userStore.isPlatformTenant"
-      class="sidebar-tenant-card"
-      :title="brandConfig.companyName"
-    >
-      <img :src="brandConfig.logoUrl" :alt="brandConfig.logoAlt" class="sidebar-tenant-card__logo brand-logo-image">
-      <div class="min-w-0">
-        <p class="sidebar-tenant-card__eyebrow">企业</p>
-        <p class="sidebar-tenant-card__name">{{ brandConfig.companyName }}</p>
-      </div>
-    </div>
-
     <nav aria-label="功能导航" class="flex-1 py-4 overflow-y-auto scrollbar-hide" :class="isCollapsed ? 'px-2' : 'px-4'">
       <p v-if="!isCollapsed && primaryMenus.length" class="sidebar-section-label">常用业务</p>
       <div class="space-y-2">
@@ -499,57 +487,4 @@ const linkClass = (item) => {
   color: var(--ys-on-surface-variant);
 }
 
-.sidebar-tenant-card {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 0 1rem 0.6rem;
-  border: 1px solid rgb(var(--ys-primary-rgb) / 0.12);
-  border-radius: 1.25rem;
-  background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.92), var(--ys-primary-container)),
-      radial-gradient(circle at 10% 10%, rgb(var(--ys-primary-rgb) / 0.12), transparent 42%);
-  padding: 0.75rem;
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
-}
-
-.sidebar-tenant-card__logo,
-.sidebar-tenant-card__icon {
-  width: 4rem;
-  height: 2.35rem;
-  flex: 0 0 auto;
-  border-radius: 0.9rem;
-  background: #ffffff;
-  box-shadow: inset 0 0 0 1px rgb(var(--ys-primary-rgb) / 0.08);
-}
-
-.sidebar-tenant-card__logo {
-  object-fit: cover;
-}
-
-.sidebar-tenant-card__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ys-primary);
-  font-size: 1.25rem;
-}
-
-.sidebar-tenant-card__eyebrow {
-  font-size: 0.62rem;
-  font-weight: 950;
-  letter-spacing: 0.22em;
-  color: var(--ys-on-primary-container);
-}
-
-.sidebar-tenant-card__name {
-  margin-top: 0.1rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.9rem;
-  font-weight: 950;
-  color: #0f172a;
-}
 </style>

@@ -228,7 +228,8 @@ test('Hive branding is consistent', () => {
   assert.match(sidebar, /const brandTitle = computed\(\(\) => brandConfig\.productName\)/)
   assert.match(sidebar, /:src="brandConfig\.logoUrl"/)
   assert.match(sidebar, /:alt="brandConfig\.logoAlt"/)
-  assert.match(sidebar, /\{\{ brandConfig\.companyName \}\}/)
+  assert.match(sidebar, /:title="brandConfig\.companyName"/)
+  assert.doesNotMatch(sidebar, /sidebar-tenant-card/)
 })
 
 test('order page defines responsive summary filters and a compact mobile entry', () => {

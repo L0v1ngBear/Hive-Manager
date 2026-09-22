@@ -16,7 +16,6 @@
   .hive-office-ui.app-compliance-shell .ys-sidebar nav .mt-2.space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: .25rem; }
   .hive-office-ui.app-compliance-shell .ys-sidebar .sidebar-nav-button { min-height: 2.5rem; padding-block: .5rem; }
   .hive-office-ui.app-compliance-shell .ys-sidebar nav > .mt-4 { margin-top: .75rem; padding-top: .75rem; }
-  .hive-office-ui.app-compliance-shell .sidebar-tenant-card { margin-bottom: .5rem; }
   .hive-office-ui.app-compliance-shell .ys-sidebar:not(.ys-sidebar--collapsed) .sidebar-brand-logo { width: 3.5rem; height: 2.5rem; }
   .hive-office-ui.app-compliance-shell .ys-navbar { padding-inline: 1.25rem; gap: .75rem; }
 

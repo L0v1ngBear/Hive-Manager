@@ -6,6 +6,13 @@ import { pageGuides } from '../src/config/pageGuides.js'
 
 const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8')
 
+test('sidebar keeps its top brand and omits the duplicate enterprise card', () => {
+  const sidebar = read('layout/components/Sidebar.vue')
+  assert.match(sidebar, /class="sidebar-brand-logo"/)
+  assert.doesNotMatch(sidebar, /sidebar-tenant-card/)
+  assert.doesNotMatch(read('styles/office-layout.css'), /sidebar-tenant-card/)
+})
+
 test('office layout preserves the original login brand panel spacing', () => {
   const sheet = postcss.parse(read('styles/office-layout.css'))
   sheet.walkRules(rule => {
