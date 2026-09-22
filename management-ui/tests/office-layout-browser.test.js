@@ -83,7 +83,9 @@ browserTest('every page keeps readable navigation, usable actions and bounded sc
         if (route.name !== 'TenantManage') {
           assert.equal(await page.locator('.sidebar-tenant-card').count(), 0, 'duplicate enterprise card is removed')
           assert.equal(await page.locator('.ys-sidebar .sidebar-brand-logo img').count(), 1, 'top brand logo remains')
-          assert.equal(await page.locator('.ys-sidebar--collapsed').count(), 0, 'navigation names are visible by default')
+          assert.equal(await page.locator('.ys-sidebar--collapsed').count(), 1, 'desktop navigation is collapsed by default')
+          await page.getByRole('button', { name: '展开导航', exact: true }).click()
+          assert.equal(await page.locator('.ys-sidebar--collapsed').count(), 0, 'navigation names remain available after expanding')
           assert.ok((await page.locator('.ys-sidebar nav').innerText()).includes('订单列表'))
           assert.ok((await page.locator('.ys-sidebar nav').innerText()).includes('文档管理'), 'secondary entries are expanded')
         }

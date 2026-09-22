@@ -152,7 +152,7 @@ const props = defineProps({
 
 const route = useRoute()
 const userStore = useUserStore()
-const isCollapsed = ref(false)
+const isCollapsed = ref(!props.mobile)
 const approvalPendingCount = ref(0)
 const orderWarningCount = ref(0)
 let approvalPendingRequestId = 0

@@ -152,7 +152,7 @@ test('responsive table rules convert native tables on compact screens', () => {
   assert.equal(hasRule(compactRules, tableHeader, /display\s*:\s*none/), true, '640px rules must hide native table headers')
 })
 
-test('desktop and mobile navigation expose names by default and retain the collapse control', () => {
+test('desktop navigation starts collapsed while mobile navigation retains names', () => {
   const primaryMenu = templateSection(sidebar, 'v-for="item in primaryMenus"', '      <div v-if="secondaryMenus.length"')
   const moreControl = templateSection(sidebar, '<el-tooltip :disabled="!isCollapsed" content="更多功能"', '        <div v-show="showMore"')
   const secondaryMenu = templateSection(sidebar, 'v-for="item in secondaryMenus"', '    </nav>')
@@ -163,7 +163,7 @@ test('desktop and mobile navigation expose names by default and retain the colla
   const unguardedSecondarySpans = unguardedCollapsedSpans(secondaryMenu)
   const unguardedMoreSpans = unguardedCollapsedSpans(moreControl)
 
-  assert.match(sidebar, /const isCollapsed = ref\(false\)/)
+  assert.match(sidebar, /const isCollapsed = ref\(!props\.mobile\)/)
   assert.match(primaryMenu, /<span v-if="!isCollapsed"[^>]*>\s*\{\{ item\.name \}\}\s*<\/span>/)
   assert.match(primaryMenu, /<el-tooltip[^>]*:content="item\.name"[^>]*placement="right"/)
   assert.match(secondaryMenu, /<span v-if="!isCollapsed"[^>]*>\s*\{\{ item\.name \}\}\s*<\/span>/)
