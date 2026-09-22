@@ -97,7 +97,7 @@
   .hive-office-ui.app-compliance-shell .receipt-print-profile-controls { gap: .75rem; }
   .hive-office-ui.app-compliance-shell .label-print-header .header-actions { justify-content: flex-end; }
 
-  .hive-office-ui.app-compliance-shell :is(.login-stage, .join-stage) { padding-block: 1.5rem; }
+  .hive-office-ui.app-compliance-shell .join-stage { padding-block: 1.5rem; }
   .hive-office-ui.app-compliance-shell :is(.login-auth-panel, .join-form-panel) { padding: clamp(1.25rem, 3vw, 2.5rem); }
   .hive-office-ui.app-compliance-shell :is(.login-brand-copy, .join-brand-copy) { margin-block: 2rem; }
   .hive-office-ui.app-compliance-shell .legal-page { padding-block: 1.5rem; }
@@ -132,6 +132,6 @@
     .hive-office-ui.app-compliance-shell .document-navigation-pane { width: 100%; min-width: 0; }
     .hive-office-ui.app-compliance-shell .dashboard-greeting { font-size: 1.5rem; }
     .hive-office-ui.app-compliance-shell .manual-hero { padding: 1rem; }
-    .hive-office-ui.app-compliance-shell :is(.login-stage, .join-stage) { padding-block: .75rem; }
+    .hive-office-ui.app-compliance-shell .join-stage { padding-block: .75rem; }
   }
 }
