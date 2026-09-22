@@ -99,7 +99,7 @@
 
   .hive-office-ui.app-compliance-shell .join-stage { padding-block: 1.5rem; }
   .hive-office-ui.app-compliance-shell :is(.login-auth-panel, .join-form-panel) { padding: clamp(1.25rem, 3vw, 2.5rem); }
-  .hive-office-ui.app-compliance-shell :is(.login-brand-copy, .join-brand-copy) { margin-block: 2rem; }
+  .hive-office-ui.app-compliance-shell .join-brand-copy { margin-block: 2rem; }
   .hive-office-ui.app-compliance-shell .legal-page { padding-block: 1.5rem; }
   .hive-office-ui.app-compliance-shell .legal-page > section { max-width: 64rem; }
   .hive-office-ui.app-compliance-shell .legal-page article { line-height: 1.8; }

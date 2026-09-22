@@ -6,6 +6,14 @@ import { pageGuides } from '../src/config/pageGuides.js'
 
 const read = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8')
 
+test('office layout preserves the original login brand panel spacing', () => {
+  const sheet = postcss.parse(read('styles/office-layout.css'))
+  sheet.walkRules(rule => {
+    assert.ok(!rule.selector.includes('.login-brand-copy'), 'login branding retains its original scoped layout')
+  })
+  assert.match(read('views/Login.vue'), /\.login-brand-copy\s*\{\s*margin-top: auto;\s*margin-bottom: clamp\(3\.5rem, 8vh, 6\.5rem\);/)
+})
+
 test('every workspace route has concise operation guidance', () => {
   const router = read('router/index.js')
   const routes = [...router.matchAll(/name: '([^']+)',\s*component: \(\) => import\('([^']+)'\),\s*meta: \{([^}]+)\}/g)]
