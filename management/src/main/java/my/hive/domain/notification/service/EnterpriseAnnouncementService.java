@@ -14,6 +14,7 @@ import my.hive.domain.notification.model.vo.NotificationVO;
 import my.hive.infrastructure.storage.BusinessAttachmentService;
 import my.hive.infrastructure.storage.BusinessAttachmentVO;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -40,6 +41,9 @@ public class EnterpriseAnnouncementService {
 
     @Resource
     private BusinessAttachmentService businessAttachmentService;
+
+    @Value("${server.servlet.context-path:}")
+    private String contextPath;
 
     public List<NotificationVO> announcements(Integer limit, String levels) {
         int safeLimit = Math.min(Math.max(limit == null ? 5 : limit, 1), 50);
@@ -73,8 +77,8 @@ public class EnterpriseAnnouncementService {
         announcement.setRoute(ANNOUNCEMENT_ROUTE);
         announcement.setStatus(CommonStatusEnum.ENABLED.getCode());
         announcement.setPublisherUserId(TenantPermissionContext.getUserId());
-        String attachmentUrl = InternalUploadUrlValidator.normalizeOptionalModuleAttachment(
-                request == null ? null : request.getAttachmentUrl(), tenantCode, "announcement");
+        String attachmentUrl = InternalUploadUrlValidator.normalizeStoredUploadUrl(
+                request == null ? null : request.getAttachmentUrl(), contextPath, tenantCode, "announcement");
         if (attachmentUrl != null) {
             String attachmentName = normalizeText(request.getAttachmentName());
             announcement.setAttachmentName(limit(

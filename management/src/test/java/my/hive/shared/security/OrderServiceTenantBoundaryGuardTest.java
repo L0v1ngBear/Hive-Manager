@@ -151,8 +151,10 @@ class OrderServiceTenantBoundaryGuardTest {
     void announcementAttachmentsMustBeBoundToTheirTenantAndModule() throws IOException {
         String source = source("src/main/java/my/hive/domain/notification/service/EnterpriseAnnouncementService.java");
 
-        assertContains(source, "normalizeOptionalModuleAttachment(",
+        assertContains(source, "normalizeStoredUploadUrl(",
                 "announcement attachment URLs must be validated before persistence");
+        assertContains(source, "contextPath, tenantCode, \"announcement\"",
+                "announcement attachment validation must use the configured upload context path");
         assertContains(source, "tenantCode, \"announcement\"",
                 "announcement attachment URLs must be restricted to the announcement module of the current tenant");
     }
