@@ -1,4 +1,5 @@
 db-migrations/** -text
 scripts/*.sh text eol=lf
 deploy/scripts/*.sh text eol=lf
+deploy/publish.sh text eol=lf
 deploy/docker-compose.yml text eol=lf
