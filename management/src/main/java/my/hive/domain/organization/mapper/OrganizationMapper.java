@@ -19,11 +19,12 @@ import java.util.Map;
 public interface OrganizationMapper {
 
     @Select({
-            "SELECT department_name AS departmentName, COUNT(1) AS employeeCount ",
-            "FROM user ",
-            "WHERE tenant_code = #{tenantCode} ",
-            "AND department_name IS NOT NULL AND department_name <> '' ",
-            "GROUP BY department_name"
+            "SELECT u.department_name AS departmentName, COUNT(1) AS employeeCount ",
+            "FROM user u ",
+            "LEFT JOIN emp_employee_ext ext ON ext.user_id = u.id AND ext.tenant_code = u.tenant_code ",
+            "WHERE u.tenant_code = #{tenantCode} AND (ext.id IS NULL OR ext.is_deleted = 0) ",
+            "AND u.department_name IS NOT NULL AND u.department_name <> '' ",
+            "GROUP BY u.department_name"
     })
     List<Map<String, Object>> selectDepartmentEmployeeCounts(@Param("tenantCode") String tenantCode);
 
@@ -39,13 +40,28 @@ public interface OrganizationMapper {
             "SELECT u.id, u.name, ext.emp_no AS empNo, COALESCE(u.phone_mask, u.phone) AS phone, u.department_name AS departmentName, ",
             "u.position AS positionName, u.status ",
             "FROM user u ",
-            "LEFT JOIN emp_employee_ext ext ON ext.user_id = u.id AND ext.tenant_code = u.tenant_code AND ext.is_deleted = 0 ",
-            "WHERE u.tenant_code = #{tenantCode} ",
+            "LEFT JOIN emp_employee_ext ext ON ext.user_id = u.id AND ext.tenant_code = u.tenant_code ",
+            "WHERE u.tenant_code = #{tenantCode} AND (ext.id IS NULL OR ext.is_deleted = 0) ",
             "AND u.department_name = #{departmentName} ",
             "ORDER BY u.status DESC, u.id DESC"
     })
     List<OrganizationEmployeeVO> selectEmployeesByDepartment(@Param("tenantCode") String tenantCode,
                                                              @Param("departmentName") String departmentName);
+
+    @Select({
+            "<script>",
+            "SELECT u.id, u.name, ext.emp_no AS empNo, COALESCE(u.phone_mask, u.phone) AS phone, u.department_name AS departmentName, ",
+            "u.position AS positionName, u.status ",
+            "FROM user u ",
+            "LEFT JOIN emp_employee_ext ext ON ext.user_id = u.id AND ext.tenant_code = u.tenant_code ",
+            "WHERE u.tenant_code = #{tenantCode} AND (ext.id IS NULL OR ext.is_deleted = 0) ",
+            "AND u.department_name IN ",
+            "<foreach collection='departmentNames' item='name' open='(' separator=',' close=')'>#{name}</foreach> ",
+            "ORDER BY u.status DESC, u.id DESC",
+            "</script>"
+    })
+    List<OrganizationEmployeeVO> selectEmployeesByDepartments(@Param("tenantCode") String tenantCode,
+                                                               @Param("departmentNames") List<String> departmentNames);
 
     @Update({
             "UPDATE user ",
@@ -59,10 +75,12 @@ public interface OrganizationMapper {
     @Select({
             "SELECT p.id, p.department_id AS departmentId, d.dept_name AS departmentName, ",
             "p.position_name AS positionName, p.position_code AS positionCode, p.sort_no AS sortNo, ",
-            "p.status, p.create_time AS createTime, p.update_time AS updateTime, COUNT(u.id) AS employeeCount ",
+            "p.status, p.create_time AS createTime, p.update_time AS updateTime, ",
+            "COUNT(CASE WHEN ext.id IS NULL OR ext.is_deleted = 0 THEN u.id END) AS employeeCount ",
             "FROM emp_position p ",
             "INNER JOIN emp_department d ON d.id = p.department_id AND d.tenant_code = p.tenant_code AND d.is_deleted = 0 ",
             "LEFT JOIN user u ON u.tenant_code = p.tenant_code AND u.department_name = d.dept_name AND u.position = p.position_name ",
+            "LEFT JOIN emp_employee_ext ext ON ext.user_id = u.id AND ext.tenant_code = u.tenant_code ",
             "WHERE p.tenant_code = #{tenantCode} AND p.department_id = #{departmentId} AND p.is_deleted = 0 ",
             "GROUP BY p.id, p.department_id, d.dept_name, p.position_name, p.position_code, p.sort_no, p.status, p.create_time, p.update_time ",
             "ORDER BY p.sort_no ASC, p.id ASC"
@@ -71,8 +89,10 @@ public interface OrganizationMapper {
                                                   @Param("departmentId") Long departmentId);
 
     @Select({
-            "SELECT COUNT(1) FROM user ",
-            "WHERE tenant_code = #{tenantCode} AND department_name = #{departmentName} AND position = #{positionName}"
+            "SELECT COUNT(1) FROM user u ",
+            "LEFT JOIN emp_employee_ext ext ON ext.user_id = u.id AND ext.tenant_code = u.tenant_code ",
+            "WHERE u.tenant_code = #{tenantCode} AND u.department_name = #{departmentName} ",
+            "AND u.position = #{positionName} AND (ext.id IS NULL OR ext.is_deleted = 0)"
     })
     Long countEmployeesByPosition(@Param("tenantCode") String tenantCode,
                                   @Param("departmentName") String departmentName,
