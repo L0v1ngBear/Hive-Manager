@@ -29,10 +29,12 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 组织架构服务，围绕部门层级维护和部门员工查看进行业务编排。
@@ -70,15 +72,35 @@ public class OrganizationService {
                 .map(department -> toDepartmentVO(department, employeeCountMap, positionCountMap))
                 .toList();
 
+        List<OrganizationDepartmentVO> tree = buildTree(flatNodes);
+        tree.forEach(this::sumEmployeeCounts);
+
         OrganizationOverviewVO overview = new OrganizationOverviewVO();
-        overview.setDepartments(buildTree(flatNodes));
+        overview.setDepartments(tree);
         overview.setStats(buildStats(flatNodes));
         return overview;
     }
 
     public List<OrganizationEmployeeVO> employees(Long departmentId) {
         Department department = requireDepartment(departmentId);
-        List<OrganizationEmployeeVO> employees = organizationMapper.selectEmployeesByDepartment(TenantPermissionContext.getTenantCode(), department.getDeptName());
+        Map<Long, List<Department>> childrenByParent = new LinkedHashMap<>();
+        for (Department candidate : listTenantDepartments()) {
+            if (candidate.getParentId() != null) {
+                childrenByParent.computeIfAbsent(candidate.getParentId(), ignored -> new ArrayList<>()).add(candidate);
+            }
+        }
+        List<String> departmentNames = new ArrayList<>();
+        List<Department> pending = new ArrayList<>(List.of(department));
+        Set<Long> visited = new HashSet<>();
+        for (int index = 0; index < pending.size(); index++) {
+            Department current = pending.get(index);
+            if (visited.add(current.getId())) {
+                departmentNames.add(current.getDeptName());
+                pending.addAll(childrenByParent.getOrDefault(current.getId(), List.of()));
+            }
+        }
+        List<OrganizationEmployeeVO> employees = organizationMapper.selectEmployeesByDepartments(
+                TenantPermissionContext.getTenantCode(), departmentNames);
         employees.forEach(item -> item.setPhone(privacyProtectionUtil.maskPhone(item.getPhone())));
         return employees;
     }
@@ -256,6 +278,15 @@ public class OrganizationService {
         nodes.sort(Comparator.comparing((OrganizationDepartmentVO item) -> item.getSortNo() == null ? 99 : item.getSortNo())
                 .thenComparing(OrganizationDepartmentVO::getId));
         nodes.forEach(node -> sortTree(node.getChildren()));
+    }
+
+    private long sumEmployeeCounts(OrganizationDepartmentVO node) {
+        long count = node.getEmployeeCount() == null ? 0L : node.getEmployeeCount();
+        for (OrganizationDepartmentVO child : node.getChildren()) {
+            count += sumEmployeeCounts(child);
+        }
+        node.setEmployeeCount(count);
+        return count;
     }
 
     private OrganizationStatsVO buildStats(List<OrganizationDepartmentVO> nodes) {

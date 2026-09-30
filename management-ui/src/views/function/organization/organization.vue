@@ -61,7 +61,7 @@
           <header class="panel-header">
             <div class="min-w-0">
               <h2 class="truncate" :title="activeDepartment?.deptName">{{ activeDepartment?.deptName || '部门详情' }}</h2>
-              <p>{{ activeDepartment ? `负责人：${activeDepartment.leaderName || '未设置'} · 成员 ${activeDepartment.employeeCount || 0} 人 · 职位 ${activeDepartment.positionCount || 0} 个` : '请选择左侧部门' }}</p>
+              <p>{{ activeDepartment ? `负责人：${activeDepartment.leaderName || '未设置'} · 成员 ${activeDepartment.employeeCount || 0} 人${activeDepartment.children?.length ? '（含下级）' : ''} · 职位 ${activeDepartment.positionCount || 0} 个` : '请选择左侧部门' }}</p>
             </div>
             <el-button class="department-return" size="small" @click="returnToDepartments">返回部门</el-button>
           </header>
@@ -78,13 +78,14 @@
                       <div class="min-w-0">
                         <p class="truncate font-bold text-primary">{{ item.name }}</p>
                         <p class="mt-1 truncate text-xs text-on-surface-variant">{{ item.empNo || '无工号' }} / {{ item.positionName || '未设置职位' }}</p>
+                        <p v-if="item.departmentName && item.departmentName !== activeDepartment?.deptName" class="mt-1 truncate text-xs text-on-surface-variant">所属部门：{{ item.departmentName }}</p>
                       </div>
                       <el-tag :type="employeeStatusType(item.status)">{{ employeeStatusLabel(item.status) }}</el-tag>
                     </div>
                     <p class="mt-3 text-xs text-on-surface-variant">{{ item.phone || '未填写手机号' }}</p>
                   </article>
                 </div>
-                <el-empty v-else-if="!memberLoading" :description="activeDepartment ? '该部门暂无员工' : '请选择部门'" />
+                <el-empty v-else-if="!memberLoading" :description="activeDepartment ? (activeDepartment.children?.length ? '本部门及下级暂无员工' : '该部门暂无员工') : '请选择部门'" />
               </div>
             </el-tab-pane>
 
@@ -234,7 +235,7 @@ const DepartmentNode = defineComponent({
             ]),
             h('span', [
               h('span', { class: 'material-symbols-outlined', 'aria-hidden': 'true' }, 'group'),
-              `员工 ${props.node.employeeCount || 0} 人`
+              `员工 ${props.node.employeeCount || 0} 人${props.node.children?.length ? '（含下级）' : ''}`
             ]),
             h('span', [
               h('span', { class: 'material-symbols-outlined', 'aria-hidden': 'true' }, 'badge'),
