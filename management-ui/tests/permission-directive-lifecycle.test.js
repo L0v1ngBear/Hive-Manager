@@ -76,7 +76,7 @@ class FakeElement {
         this.immediatePropagationStopped = true
       }
     }
-    for (const { handler } of [...(this.listeners.get(type) || [])]) {
+    for (const { handler } of Array.from(this.listeners.get(type) || [])) {
       handler(event)
       if (event.immediatePropagationStopped) break
     }

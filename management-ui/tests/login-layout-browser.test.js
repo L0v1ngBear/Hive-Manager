@@ -109,7 +109,7 @@ const openLoginPage = async (browser, baseUrl, width) => {
   return { context, page }
 }
 
-const assertLoginMode = async (page, expected) => page.evaluate((mode) => {
+const assertLoginMode = async (page) => page.evaluate(() => {
   const accountTab = document.getElementById('login-account-tab')
   const scanTab = document.getElementById('login-scan-tab')
   const accountPanel = document.getElementById('login-account-panel')
@@ -127,7 +127,7 @@ const assertLoginMode = async (page, expected) => page.evaluate((mode) => {
     commonPromptVisible: document.querySelector('.login-account-heading')?.textContent.includes('登录您的 Hive 账户以继续'),
     scanLiveRegion: scanPanel?.querySelector('[role="status"][aria-live="polite"][aria-atomic="true"]')?.id || ''
   }
-}, expected)
+})
 
 const assertModeState = (state, mode) => {
   assert.equal(state.accountPanelPresent, true, 'account panel should remain in the DOM')

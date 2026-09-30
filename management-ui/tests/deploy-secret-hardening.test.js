@@ -190,7 +190,7 @@ function resolveBash() {
     }
   }
 
-  for (const candidate of [...new Set(candidates)]) {
+  for (const candidate of new Set(candidates)) {
     if (canRunBash(candidate)) {
       return candidate
     }

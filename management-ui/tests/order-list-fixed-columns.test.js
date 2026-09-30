@@ -5,7 +5,7 @@ import test from 'node:test'
 const orderPage = readFileSync(
   new URL('../src/views/function/order/order.vue', import.meta.url),
   'utf8',
-)
+).replace(/\r\n/g, '\n')
 
 const cssBlock = (selector) => {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
