@@ -7,6 +7,10 @@
           <h1 class="function-page-title">设备巡检记录</h1>
           <p class="function-page-desc">建立固定设备二维码，现场扫码巡检后记录自动沉淀到设备档案。</p>
         </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <el-tooltip :disabled="canExport" content="暂无 equipment:export 权限"><span><el-button :disabled="!canExport" @click="exportEquipmentExcel">导出 Excel</el-button></span></el-tooltip>
+            <el-tooltip :disabled="canCreate" content="暂无 equipment:create 权限"><span><el-button type="primary" :disabled="!canCreate" @click="openCreate">新增设备</el-button></span></el-tooltip>
+        </div>
       </header>
 
       <el-form v-filter-collapse :inline="true" class="function-filter-form equipment-filter-form" @submit.prevent="handleSearch">
@@ -22,8 +26,6 @@
           <el-form-item class="function-filter-actions">
             <el-button type="primary" @click="handleSearch">查询</el-button>
             <el-button @click="resetSearch">重置</el-button>
-            <el-tooltip :disabled="canExport" content="暂无 equipment:export 权限"><span><el-button :disabled="!canExport" @click="exportEquipmentExcel">导出 Excel</el-button></span></el-tooltip>
-            <el-tooltip :disabled="canCreate" content="暂无 equipment:create 权限"><span><el-button type="primary" :disabled="!canCreate" @click="openCreate">新增设备</el-button></span></el-tooltip>
           </el-form-item>
       </el-form>
 

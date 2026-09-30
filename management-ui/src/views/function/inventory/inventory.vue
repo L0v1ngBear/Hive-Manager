@@ -13,6 +13,26 @@
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
+          <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button
+            :disabled="!canInInventory"
+            @click="triggerImageRecognition"
+            class="inventory-secondary-btn"
+          >
+            <span class="material-symbols-outlined text-[20px]">photo_camera</span>
+            图片识别入库
+          </el-button></span></el-tooltip>
+          <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button :disabled="!canInInventory" @click="openInDrawer" class="function-action-primary">
+            <span class="material-symbols-outlined text-[20px]">add_circle</span>
+            新增入库
+          </el-button></span></el-tooltip>
+          <el-tooltip :disabled="canOutInventory" content="暂无 inventory:cloth:out 权限"><span><el-button :disabled="!canOutInventory" @click="openOutDrawer()" class="function-action-dark">
+            <span class="material-symbols-outlined text-[20px]">outbox</span>
+            扫码出库
+          </el-button></span></el-tooltip>
+        </div>
+      </header>
+
+      <PageActionGroup label="批量维护与设置">
           <el-tooltip :disabled="canConfigureWarning" content="暂无 inventory:warning:setting 权限"><span><el-button
             :disabled="!canConfigureWarning"
             @click="openWarningSetting"
@@ -37,26 +57,9 @@
             <span class="material-symbols-outlined text-[20px]">file_upload</span>
             导入外部库存
           </el-button></span></el-tooltip>
-          <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button
-            :disabled="!canInInventory"
-            @click="triggerImageRecognition"
-            class="inventory-secondary-btn"
-          >
-            <span class="material-symbols-outlined text-[20px]">photo_camera</span>
-            图片识别入库
-          </el-button></span></el-tooltip>
-          <el-tooltip :disabled="canInInventory" content="暂无 inventory:cloth:in 权限"><span><el-button :disabled="!canInInventory" @click="openInDrawer" class="function-action-primary">
-            <span class="material-symbols-outlined text-[20px]">add_circle</span>
-            新增入库
-          </el-button></span></el-tooltip>
-          <el-tooltip :disabled="canOutInventory" content="暂无 inventory:cloth:out 权限"><span><el-button :disabled="!canOutInventory" @click="openOutDrawer()" class="function-action-dark">
-            <span class="material-symbols-outlined text-[20px]">outbox</span>
-            扫码出库
-          </el-button></span></el-tooltip>
-        </div>
-      </header>
+      </PageActionGroup>
 
-      <section v-if="canListInventory" class="function-stats-grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5">
+      <section v-if="canListInventory" class="inventory-summary-grid function-stats-grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5">
         <div class="inventory-stat-card">
           <span class="material-symbols-outlined inventory-stat-bg text-blue-50">all_inbox</span>
           <p class="inventory-stat-label">可用总库存</p>
@@ -116,32 +119,33 @@
       <section class="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_340px]">
         <div class="function-list-panel flex min-h-0 flex-col shadow-sm">
           <div v-filter-collapse class="function-filter-form border-b border-slate-100 bg-slate-50/50 p-4">
-            <div class="contents">
-              <div class="relative">
-                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-slate-400">search</span>
+            <div class="inventory-filter-grid">
+              <div class="office-filter-field">
+                <label for="inventory-keyword">条码 / 型号 / 规格</label>
                 <el-input
+                  id="inventory-keyword"
                   v-model.trim="query.keyword"
                   @keyup.enter="handleFilter"
                   class="w-64 max-w-full"
                   placeholder="搜索条码、型号或规格"
                 />
               </div>
-              <div class="relative">
-                <el-select v-model="query.status" class="min-w-[120px]">
+              <div class="office-filter-field">
+                <label for="inventory-status">库存状态</label>
+                <el-select id="inventory-status" v-model="query.status" placeholder="全部状态" class="min-w-[120px]">
                   <el-option label="全部状态" value="" />
                   <el-option label="在库" value="0" />
                   <el-option label="部分出库" value="2" />
                   <el-option label="已出库" value="1" />
                 </el-select>
-                <span class="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">expand_more</span>
               </div>
-              <el-select v-model="query.timeOrder" @change="handleFilter" class="min-w-[132px]"><el-option label="先进先出" value="fifo" /><el-option label="先进后出" value="lifo" /></el-select>
-              <el-input-number v-model="query.specMin" :min="0" :step="0.01" :precision="2" placeholder="规格下限" class="w-28" />
-              <el-input-number v-model="query.specMax" :min="0" :step="0.01" :precision="2" placeholder="规格上限" class="w-28" />
-              <el-input-number v-model="query.remainingMin" :min="0" :step="0.01" :precision="2" placeholder="剩余米数下限" class="w-32" />
-              <el-input-number v-model="query.remainingMax" :min="0" :step="0.01" :precision="2" placeholder="剩余米数上限" class="w-32" />
-              <DateFilterInput v-model="query.updatedStart" placeholder="更新开始" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" />
-              <DateFilterInput v-model="query.updatedEnd" placeholder="更新结束" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" />
+              <div class="office-filter-field"><label for="inventory-time-order">出库顺序</label><el-select id="inventory-time-order" v-model="query.timeOrder" @change="handleFilter" class="min-w-[132px]"><el-option label="先进先出" value="fifo" /><el-option label="先进后出" value="lifo" /></el-select></div>
+              <div class="office-filter-field"><label for="inventory-spec-min">规格下限</label><el-input-number id="inventory-spec-min" v-model="query.specMin" :min="0" :step="0.01" :precision="2" placeholder="规格下限" class="w-28" /></div>
+              <div class="office-filter-field"><label for="inventory-spec-max">规格上限</label><el-input-number id="inventory-spec-max" v-model="query.specMax" :min="0" :step="0.01" :precision="2" placeholder="规格上限" class="w-28" /></div>
+              <div class="office-filter-field"><label for="inventory-remaining-min">剩余米数下限</label><el-input-number id="inventory-remaining-min" v-model="query.remainingMin" :min="0" :step="0.01" :precision="2" placeholder="剩余米数下限" class="w-32" /></div>
+              <div class="office-filter-field"><label for="inventory-remaining-max">剩余米数上限</label><el-input-number id="inventory-remaining-max" v-model="query.remainingMax" :min="0" :step="0.01" :precision="2" placeholder="剩余米数上限" class="w-32" /></div>
+              <div class="office-filter-field"><span>更新开始</span><DateFilterInput v-model="query.updatedStart" placeholder="更新开始" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-600/10" /></div>
+              <div class="office-filter-field"><span>更新结束</span><DateFilterInput v-model="query.updatedEnd" placeholder="更新结束" class="rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-sm outline-none transition-all focus:border-blue-500 focus:ring-blue-600/10" /></div>
               <div class="function-filter-actions">
               <el-button type="primary" @click="handleFilter">查询</el-button>
               <el-button @click="resetFilter">重置</el-button>
@@ -669,6 +673,7 @@
 </template>
 
 <script setup>
+import PageActionGroup from '@/components/PageActionGroup.vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { ElButton, ElCheckbox, ElDrawer, ElEmpty, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElPagination, ElSelect, ElTag, ElTooltip } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'

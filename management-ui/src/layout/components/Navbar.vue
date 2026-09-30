@@ -1,10 +1,10 @@
 <template>
   <header ref="navbarRef" class="ys-navbar min-h-16 md:min-h-20 bg-surface flex flex-wrap md:flex-nowrap items-center justify-between gap-3 px-3 py-3 md:px-8 shrink-0 relative z-30 isolate overflow-visible">
     <el-button
-      class="md:hidden p-2 text-on-surface-variant rounded-full hover:bg-surface-container-highest"
+      class="navbar-mobile-toggle md:hidden p-2 text-on-surface-variant rounded-full hover:bg-surface-container-highest"
       text
       circle
-      @click="emit('toggle-mobile-menu')"
+      @click="emit('toggle-mobile-menu')" aria-label="打开功能导航"
     >
       <span class="material-symbols-outlined">menu</span>
     </el-button>
@@ -16,7 +16,7 @@
         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">search</span>
         <el-input
           v-model.trim="keyword"
-          placeholder="搜索订单、库存、客户、员工..."
+          placeholder="查找功能：订单、库存、客户、员工…" aria-label="查找功能入口"
           clearable
           class="w-full"
           @focus="searchPanelOpen = true"
@@ -59,10 +59,10 @@
 
       <el-button
         v-if="!userStore.isPlatformTenant"
-        class="md:hidden w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors"
+        class="navbar-mobile-toggle md:hidden w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors"
         text
         circle
-        @click.stop="toggleMobileSearch"
+        @click.stop="toggleMobileSearch" aria-label="查找功能入口"
       >
         <span class="material-symbols-outlined">search</span>
       </el-button>
@@ -206,7 +206,7 @@
         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
         <el-input
           v-model.trim="keyword"
-          placeholder="搜索订单、库存、客户、员工..."
+          placeholder="查找功能：订单、库存、客户、员工…" aria-label="查找功能入口"
           clearable
           class="w-full"
           @focus="searchPanelOpen = true"
@@ -313,6 +313,8 @@ import { useUserStore } from '@/stores/user'
 import { changePassword } from '@/api/auth.js'
 import { closeNotificationTask, getUnreadNotifications, markNotificationRead, syncNotifications } from '@/api/notification.js'
 import { getAfterSalesTickets } from '@/views/function/afterSales/api/afterSales.js'
+import { getTreatmentTodos } from '@/views/function/afterSales/api/treatments.js'
+import { treatmentStates, treatmentTypes, treatmentTodoRoute } from '@/views/function/afterSales/treatmentHelpers.js'
 import {decorateAccessItems, resolveAccessState} from '@/utils/access'
 import { listenApprovalChanged } from '@/utils/approvalRefresh.js'
 import { listenOrderWarningChanged } from '@/utils/orderWarningRefresh.js'
@@ -371,7 +373,8 @@ const passwordForm = reactive({
 const pageTitle = computed(() => route.meta.title || '高管总览大盘')
 const displayName = computed(() => userStore.userInfo?.userName || '当前用户')
 const tenantName = computed(() => userStore.currentTenantName)
-const roleLabel = computed(() => '运营管理')
+// 顶栏职位必须与员工管理列表同源（员工档案 user.position）；员工未维护职位时按未设置显示，禁止用固定文案冒充。
+const roleLabel = computed(() => userStore.userInfo?.positionName || '未设置职位')
 const canSyncNotifications = computed(() => userStore.hasPermission('notification:announcement:publish'))
 const canLoadAssignedAfterSalesTasks = computed(() => userStore.hasPermission('after_sales:list') && userStore.hasPermission('after_sales:process') && userStore.userInfo?.userId != null)
 const notificationItems = computed(() => [...assignedAfterSalesTasks.value, ...pendingNotifications.value])
@@ -608,6 +611,13 @@ async function refreshAssignedAfterSalesTasks() {
       level: afterSalesTaskLevel(ticket.priority),
       afterSalesTask: true
     }))
+    const rounds = await getTreatmentTodos({ pageNum: 1, pageSize: 8 }, { silent: true, showGlobalLoading: false }).catch(() => ({ data: [] }))
+    assignedAfterSalesTasks.value.push(...(rounds?.data || []).map(record => ({
+      key: `after-sales-treatment-${record.id}`,
+      title: `${treatmentTypes[record.treatmentType]} · ${treatmentStates[record.status]}`,
+      desc: `${record.ticketNo} · 第${record.sequenceNo}次追加处理`,
+      type: '售后待办', route: treatmentTodoRoute(record), level: 'info', afterSalesTask: true
+    })))
   } catch {
     assignedAfterSalesTasks.value = []
   }

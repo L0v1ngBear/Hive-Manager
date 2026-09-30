@@ -1,5 +1,5 @@
 <template>
-  <main class="min-h-full bg-[#fbfcfe] px-4 py-10 text-[#0f172a]">
+  <main class="legal-page min-h-full bg-[#fbfcfe] px-4 py-10 text-[#0f172a]">
     <section class="mx-auto max-w-5xl overflow-hidden rounded-[2rem] border border-[#e2e8f0]/70 bg-white/95 shadow-xl shadow-slate-500/10">
       <header class="border-b border-[#e2e8f0]/60 bg-gradient-to-br from-[#ccfbf1] via-white to-[#ffffff] px-6 py-8 md:px-10">
         <div class="flex flex-wrap items-center justify-between gap-5">

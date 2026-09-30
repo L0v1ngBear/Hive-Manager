@@ -1845,4 +1845,8 @@ onBeforeUnmount(() => {
     display: none;
   }
 }
+@media screen {
+  .document-explorer { height: clamp(30rem, calc(100dvh - 12rem), 64rem); }
+  .document-tree-section, .document-content { overscroll-behavior: contain; }
+}
 </style>

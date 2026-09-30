@@ -397,6 +397,35 @@ class AuthenticationServiceTest {
     }
 
     @Test
+    void currentUserPublishesTheEmployeePositionFromTheUserRecord() {
+        LoginUserRow loginUser = user(7L, "a", 1);
+        loginUser.setUserName("企业管理员");
+        loginUser.setPositionName("  运营管理  ");
+        when(context.userId()).thenReturn(7L);
+        when(context.tenantCode()).thenReturn("a");
+        when(mapper.selectLoginUserByUserIdAndTenantCode(7L, "a")).thenReturn(loginUser);
+
+        LoginVO result = service.currentUser();
+
+        assertThat(result.getUserName()).isEqualTo("企业管理员");
+        assertThat(result.getPositionName()).isEqualTo("运营管理");
+        assertThat(result.getToken()).isNull();
+        assertThat(result.getResponseKey()).isNull();
+    }
+
+    @Test
+    void currentUserLeavesPositionNullWhenTheEmployeeHasNoPosition() {
+        LoginUserRow loginUser = user(7L, "a", 1);
+        loginUser.setUserName("企业管理员");
+        loginUser.setPositionName("   ");
+        when(context.userId()).thenReturn(7L);
+        when(context.tenantCode()).thenReturn("a");
+        when(mapper.selectLoginUserByUserIdAndTenantCode(7L, "a")).thenReturn(loginUser);
+
+        assertThat(service.currentUser().getPositionName()).isNull();
+    }
+
+    @Test
     void backfillsLegacyEmployeeBeforeHashOnlyRequery() {
         LoginUserRow legacy = user(7L, "a", 1);
         mockWechatCandidates(List.of(legacy));

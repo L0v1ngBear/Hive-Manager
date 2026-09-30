@@ -152,7 +152,7 @@ test('responsive table rules convert native tables on compact screens', () => {
   assert.equal(hasRule(compactRules, tableHeader, /display\s*:\s*none/), true, '640px rules must hide native table headers')
 })
 
-test('desktop sidebar starts collapsed while mobile navigation stays expanded', () => {
+test('desktop navigation starts collapsed while mobile navigation retains names', () => {
   const primaryMenu = templateSection(sidebar, 'v-for="item in primaryMenus"', '      <div v-if="secondaryMenus.length"')
   const moreControl = templateSection(sidebar, '<el-tooltip :disabled="!isCollapsed" content="更多功能"', '        <div v-show="showMore"')
   const secondaryMenu = templateSection(sidebar, 'v-for="item in secondaryMenus"', '    </nav>')
@@ -228,7 +228,8 @@ test('Hive branding is consistent', () => {
   assert.match(sidebar, /const brandTitle = computed\(\(\) => brandConfig\.productName\)/)
   assert.match(sidebar, /:src="brandConfig\.logoUrl"/)
   assert.match(sidebar, /:alt="brandConfig\.logoAlt"/)
-  assert.match(sidebar, /\{\{ brandConfig\.companyName \}\}/)
+  assert.match(sidebar, /:title="brandConfig\.companyName"/)
+  assert.doesNotMatch(sidebar, /sidebar-tenant-card/)
 })
 
 test('order page defines responsive summary filters and a compact mobile entry', () => {
@@ -319,7 +320,9 @@ test('equipment uses accessible shared filters, grouped actions and a scrolling 
   assert.match(filterForm, /<el-select\b(?=[^>]*v-model="filters\.status")(?=[^>]*aria-label="设备状态")[^>]*>/)
   assert.match(actions, /@click="handleSearch"/)
   assert.match(actions, /@click="resetSearch"/)
-  assert.match(actions, /@click="exportEquipmentExcel"/)
-  assert.match(actions, /@click="openCreate"/)
+  const header = equipment.slice(0, equipment.indexOf('</header>'))
+  assert.match(header, /@click="exportEquipmentExcel"/)
+  assert.match(header, /@click="openCreate"/)
+  assert.doesNotMatch(actions, /@click="(?:exportEquipmentExcel|openCreate)"/)
   assert.match(tableScroll, /<el-table\b[\s\S]*<el-table-column label="操作" width="210" fixed="right"[\s\S]*<\/el-table>/)
 })

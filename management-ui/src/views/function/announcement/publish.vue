@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-fit max-w-5xl mx-auto space-y-6">
+  <div class="announcement-publish-page min-h-fit max-w-5xl mx-auto space-y-6">
     <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-2 text-xs font-black tracking-[0.18em] text-primary">

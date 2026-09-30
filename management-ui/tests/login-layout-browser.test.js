@@ -160,10 +160,14 @@ browserTest('public authentication layouts work in Chrome across viewports and m
       const geometry = await page.evaluate(() => ({
         viewport: window.innerWidth,
         documentScrollWidth: document.documentElement.scrollWidth,
-        bodyScrollWidth: document.body.scrollWidth
+        bodyScrollWidth: document.body.scrollWidth,
+        shellTop: document.querySelector('.login-shell').getBoundingClientRect().top,
+        stagePaddingTop: getComputedStyle(document.querySelector('.login-stage')).paddingTop
       }))
       assert.ok(geometry.documentScrollWidth <= width, `${width}px document overflowed horizontally`)
       assert.ok(geometry.bodyScrollWidth <= width, `${width}px body overflowed horizontally`)
+      assert.equal(geometry.shellTop, 0, `${width}px login shell must touch the viewport top`)
+      assert.equal(geometry.stagePaddingTop, '0px', `${width}px login stage must not add a white strip`)
 
       await page.locator('#login-scan-tab').click()
       assertModeState(await assertLoginMode(page, 'scan'), 'scan')

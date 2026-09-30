@@ -1,5 +1,5 @@
 <template>
-  <el-drawer v-model="drawerVisible" size="550px" direction="rtl" :with-header="false" append-to-body destroy-on-close>
+  <el-drawer v-model="drawerVisible" size="550px" direction="rtl" :with-header="false" class="customer-editor-drawer" append-to-body destroy-on-close>
     <div class="flex h-full flex-col bg-white/95 backdrop-blur-2xl">
       <div class="flex items-center justify-between border-b border-outline-variant/20 bg-white p-6">
         <div>

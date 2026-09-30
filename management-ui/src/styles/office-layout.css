@@ -1,0 +1,136 @@
+/* Screen-only layout. Existing theme, state colors and printed documents are unchanged. */
+@media screen {
+  .hive-office-ui.app-compliance-shell:has(> .ys-app-shell) { height: 100dvh; min-height: 0; overflow: hidden; }
+  .hive-office-ui.app-compliance-shell .compliance-footer { flex-shrink: 0; padding: .5rem 1.25rem; }
+  .hive-office-ui.app-compliance-shell .ys-app-shell {
+    --ys-app-page-padding: 1.25rem;
+    --ys-app-content-gap: 1rem;
+  }
+
+  .hive-office-ui.app-compliance-shell .ys-app-main { padding: var(--ys-app-page-padding); }
+  .hive-office-ui.app-compliance-shell .ys-app-content-frame { max-width: 100rem; margin-inline: auto; }
+  .hive-office-ui.app-compliance-shell .ys-sidebar:not(.ys-sidebar--collapsed) { width: 14rem; flex-shrink: 0; }
+  .hive-office-ui.app-compliance-shell .sidebar-section-label { padding: .25rem .75rem .625rem; font-size: .75rem; font-weight: 700; }
+  .hive-office-ui.app-compliance-shell .ys-sidebar nav { padding: .5rem; scrollbar-width: thin; }
+  .hive-office-ui.app-compliance-shell .ys-sidebar nav > .space-y-2 > :not([hidden]) ~ :not([hidden]),
+  .hive-office-ui.app-compliance-shell .ys-sidebar nav .mt-2.space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: .25rem; }
+  .hive-office-ui.app-compliance-shell .ys-sidebar .sidebar-nav-button { min-height: 2.5rem; padding-block: .5rem; }
+  .hive-office-ui.app-compliance-shell .ys-sidebar nav > .mt-4 { margin-top: .75rem; padding-top: .75rem; }
+  .hive-office-ui.app-compliance-shell .ys-sidebar:not(.ys-sidebar--collapsed) .sidebar-brand-logo { width: 3.5rem; height: 2.5rem; }
+  .hive-office-ui.app-compliance-shell .ys-navbar { padding-inline: 1.25rem; gap: .75rem; }
+
+  .hive-office-ui.app-compliance-shell .responsive-page-frame { --responsive-section-gap: 1rem; }
+  .hive-office-ui.app-compliance-shell .function-page-shell { padding: 0; }
+  .hive-office-ui.app-compliance-shell .function-page-container { max-width: none; }
+  .hive-office-ui.app-compliance-shell .function-page-container.space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame :is(.function-page-header, .order-title-row, .label-print-header) {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .75rem 1.5rem;
+  }
+  .hive-office-ui.app-compliance-shell .function-page-header > :only-child { display: block; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-page-title { font-size: 1.5rem; line-height: 1.35; font-weight: 750; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-page-eyebrow { margin-bottom: .375rem; letter-spacing: .04em; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-page-desc { margin-top: .375rem; font-size: .8125rem; line-height: 1.6; max-width: 48rem; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame :is(.function-page-header, .order-title-row, .label-print-header) > :first-child { flex: 1 1 20rem; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame :is(.function-page-header, .order-title-row, .label-print-header) > :last-child:not(:first-child) {
+    flex: 0 1 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+    max-width: 100%;
+  }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame :is(.function-page-header, .order-title-row, .label-print-header) .el-button + .el-button { margin-left: 0; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame :is(.function-page-header, .order-title-row, .label-print-header) .el-button { min-height: 2.25rem; }
+
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-stat-card { padding: 1rem; min-height: 0; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-stats-grid { gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr)); }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-filter-collapse-bar { padding: .625rem 1rem; gap: .75rem; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-filter-collapse-labels { gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-filter-form { padding: 1rem; gap: .75rem; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-filter-form .el-form-item { margin-bottom: .5rem; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-filter-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-filter-actions .el-button + .el-button { margin-left: 0; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-filter-bar { align-items: center; gap: .75rem; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .function-filter-bar .el-button + .el-button { margin-left: 0; }
+  .hive-office-ui.app-compliance-shell .customer-filter-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+  .hive-office-ui.app-compliance-shell .customer-filter-form > :is(.el-input, .el-select, .el-date-editor) { width: 100%; min-width: 0; }
+  .hive-office-ui.app-compliance-shell .customer-filter-form > .function-filter-actions { grid-column: 1 / -1; }
+  .hive-office-ui.app-compliance-shell .employee-filter-form { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .hive-office-ui.app-compliance-shell .employee-filter-fields { grid-column: 1; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
+  .hive-office-ui.app-compliance-shell .employee-filter-fields > .function-filter-actions { grid-column: 1 / -1; }
+  .hive-office-ui.app-compliance-shell .employee-filter-control { padding: 0; }
+  @container (min-width: 64rem) {
+    .hive-office-ui.app-compliance-shell .customer-filter-form { grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(0, 1fr)); }
+  }
+  @container (max-width: 40rem) {
+    .hive-office-ui.app-compliance-shell .customer-filter-form { grid-template-columns: minmax(0, 1fr); }
+  }
+  .hive-office-ui.app-compliance-shell .inventory-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: .75rem; width: 100%; }
+  .hive-office-ui.app-compliance-shell .office-filter-field { display: flex; flex-direction: column; gap: .375rem; min-width: 0; font-size: .75rem; font-weight: 600; }
+  .hive-office-ui.app-compliance-shell .office-filter-field > :is(.el-input, .el-select, .el-input-number, input) { width: 100%; min-width: 0; }
+  .hive-office-ui.app-compliance-shell .inventory-filter-grid > .function-filter-actions { grid-column: 1 / -1; }
+  .hive-office-ui.app-compliance-shell .inventory-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @container (min-width: 45rem) {
+    .hive-office-ui.app-compliance-shell .inventory-summary-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .el-tabs__header { margin-bottom: 1rem; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .el-tabs__item { height: 2.75rem; font-weight: 600; }
+  .hive-office-ui.app-compliance-shell .responsive-page-frame .el-pagination { flex-wrap: wrap; row-gap: .5rem; max-width: 100%; }
+
+  /* Custom workspaces keep their own internal layouts and preview dimensions. */
+  .hive-office-ui.app-compliance-shell .dashboard-hero { gap: 1.5rem; padding: 1.25rem; }
+  .hive-office-ui.app-compliance-shell .dashboard-greeting { font-size: 1.75rem; line-height: 1.35; }
+  .hive-office-ui.app-compliance-shell .dashboard-summary-grid { gap: .75rem; }
+  .hive-office-ui.app-compliance-shell .dashboard-quick-action { padding: .75rem; min-height: 4rem; }
+  .hive-office-ui.app-compliance-shell .document-navigation-pane { width: 13rem; min-width: 13rem; }
+  .hive-office-ui.app-compliance-shell .document-topbar { flex-wrap: wrap; gap: .75rem; padding: .75rem 1rem; }
+  .hive-office-ui.app-compliance-shell .document-content-heading { flex-wrap: wrap; gap: .75rem; }
+  .hive-office-ui.app-compliance-shell .manual-hero { padding: 1.5rem; gap: 1.5rem; }
+  .hive-office-ui.app-compliance-shell .manual-hero h1 { font-size: 1.75rem; line-height: 1.35; }
+  .hive-office-ui.app-compliance-shell .manual-grid { gap: 1rem; }
+  .hive-office-ui.app-compliance-shell .manual-card { padding: 1.25rem; }
+  .hive-office-ui.app-compliance-shell .receipt-print-profile-controls { gap: .75rem; }
+  .hive-office-ui.app-compliance-shell .label-print-header .header-actions { justify-content: flex-end; }
+
+  .hive-office-ui.app-compliance-shell .join-stage { padding-block: 1.5rem; }
+  .hive-office-ui.app-compliance-shell :is(.login-auth-panel, .join-form-panel) { padding: clamp(1.25rem, 3vw, 2.5rem); }
+  .hive-office-ui.app-compliance-shell .join-brand-copy { margin-block: 2rem; }
+  .hive-office-ui.app-compliance-shell .legal-page { padding-block: 1.5rem; }
+  .hive-office-ui.app-compliance-shell .legal-page > section { max-width: 64rem; }
+  .hive-office-ui.app-compliance-shell .legal-page article { line-height: 1.8; }
+  .hive-office-ui.app-compliance-shell .password-change-page > section { padding-block: 1.5rem; }
+  .hive-office-ui.app-compliance-shell .binding-callback-page { padding: 1.25rem; }
+  .hive-office-ui.app-compliance-shell .announcement-publish-page > section:first-child h1 { margin-top: .75rem; font-size: 1.5rem; line-height: 1.35; }
+  .hive-office-ui.app-compliance-shell .announcement-publish-page > section:first-child p { font-size: .8125rem; }
+
+  @media (min-width: 768px) {
+    .hive-office-ui.app-compliance-shell .ys-navbar .navbar-mobile-toggle { display: none; }
+  }
+
+  @media (max-width: 1100px) {
+    .hive-office-ui.app-compliance-shell .responsive-page-frame :is(.function-page-header, .order-title-row, .label-print-header) > :last-child:not(:first-child) { justify-content: flex-start; }
+    .hive-office-ui.app-compliance-shell .document-navigation-pane { width: 11rem; min-width: 11rem; }
+    .hive-office-ui.app-compliance-shell .ys-navbar .navbar-main { gap: .75rem; }
+  }
+  @media (max-width: 767px) {
+    .hive-office-ui.app-compliance-shell .ys-app-shell { --ys-app-page-padding: .75rem; }
+    .hive-office-ui.app-compliance-shell .ys-navbar { padding-inline: .75rem; }
+    .hive-office-ui.app-compliance-shell .ys-sidebar:not(.ys-sidebar--collapsed) { width: 100%; }
+    .hive-office-ui.app-compliance-shell .responsive-page-frame .function-page-title { font-size: 1.25rem; }
+    .hive-office-ui.app-compliance-shell .responsive-page-frame :is(.function-page-header, .order-title-row, .label-print-header) { flex-direction: column; align-items: stretch; }
+    .hive-office-ui.app-compliance-shell .responsive-page-frame :is(.function-page-header, .order-title-row, .label-print-header) > :first-child { flex-basis: auto; }
+    .hive-office-ui.app-compliance-shell .responsive-page-frame :is(.function-page-header, .order-title-row, .label-print-header) > :last-child:not(:first-child) { width: 100%; }
+    .hive-office-ui.app-compliance-shell .responsive-page-frame .function-filter-form { padding: .75rem; }
+    .hive-office-ui.app-compliance-shell .responsive-page-frame .function-filter-collapse-labels small { display: none; }
+    .hive-office-ui.app-compliance-shell .responsive-page-frame .function-filter-bar > :is(.el-input, .el-select, .el-date-editor) { width: 100%; flex-basis: 100%; }
+    .hive-office-ui.app-compliance-shell .responsive-page-frame .function-filter-actions .el-button { min-height: 2.5rem; }
+    .hive-office-ui.app-compliance-shell .document-navigation-pane { width: 100%; min-width: 0; }
+    .hive-office-ui.app-compliance-shell .dashboard-greeting { font-size: 1.5rem; }
+    .hive-office-ui.app-compliance-shell .manual-hero { padding: 1rem; }
+    .hive-office-ui.app-compliance-shell .join-stage { padding-block: .75rem; }
+  }
+}

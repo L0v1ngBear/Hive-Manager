@@ -46,6 +46,7 @@ class AfterSalesOrderlessTicketTest {
     void setUp() {
         TenantPermissionContext.init("TENANT_001", 7L, Set.of("after_sales:update"));
         service = new AfterSalesService();
+        ReflectionTestUtils.setField(service, "treatmentMapper", mock(my.hive.domain.aftersales.mapper.AfterSalesTreatmentMapper.class));
         ReflectionTestUtils.setField(service, "ticketMapper", ticketMapper);
         ReflectionTestUtils.setField(service, "ticketPartMapper", ticketPartMapper);
         ReflectionTestUtils.setField(service, "salesOrderMapper", salesOrderMapper);

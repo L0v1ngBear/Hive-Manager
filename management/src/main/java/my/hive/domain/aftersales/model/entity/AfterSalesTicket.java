@@ -34,6 +34,10 @@ public class AfterSalesTicket {
     private String problemDesc;
     private String diagnosis;
     private String resolution;
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String treatmentClosuresJson;
+    @TableField(exist = false)
+    private List<my.hive.domain.aftersales.model.vo.AfterSalesClosureVO> treatmentClosures;
     private LocalDateTime scheduledTime;
     private LocalDate registrationDate;
     private String technicianName;
@@ -70,4 +74,6 @@ public class AfterSalesTicket {
     private List<AfterSalesRepairImageVO> followUpImages;
     @TableField(exist = false)
     private Boolean canAudit;
+    @TableField(exist = false)
+    private Boolean hasTreatmentRecords;
 }

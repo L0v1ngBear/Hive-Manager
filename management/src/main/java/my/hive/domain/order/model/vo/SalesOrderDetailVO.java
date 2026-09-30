@@ -20,6 +20,10 @@ public class SalesOrderDetailVO {
 
     private String customerPhone;
 
+    private String recipientName;
+
+    private String recipientPhoneSuffix;
+
     private String projectName;
 
     private String brandName;

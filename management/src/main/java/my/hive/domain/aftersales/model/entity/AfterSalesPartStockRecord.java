@@ -15,6 +15,7 @@ public class AfterSalesPartStockRecord {
     private String tenantCode;
     private Long partId;
     private Long ticketId;
+    private Long treatmentId;
     private String operateType;
     private Integer quantity;
     private Integer beforeQty;

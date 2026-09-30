@@ -5,9 +5,12 @@ import router from './router'
 import '@fontsource/material-symbols-outlined/400.css'
 import 'element-plus/dist/index.css'
 import './style.css'
+import './styles/office-layout.css'
+import './styles/component-details.css'
 import permissionDirective from '@/directives/permission'
 import filterCollapseDirective from '@/directives/filterCollapse'
 import { installElementPlusFoundation } from './plugins/elementPlus'
+import { startReleaseUpdates } from './utils/releaseUpdates'
 
 const app = createApp(App)
 
@@ -18,3 +21,10 @@ app.directive('filter-collapse', filterCollapseDirective)
 installElementPlusFoundation(app)
 
 app.mount('#app')
+
+if (import.meta.env.PROD) {
+  startReleaseUpdates({
+    buildId: import.meta.env.VITE_HIVE_BUILD_ID,
+    baseUrl: import.meta.env.BASE_URL,
+  })
+}

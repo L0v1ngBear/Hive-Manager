@@ -15,6 +15,17 @@ Output:
         </div>
         <div class="flex max-w-full flex-wrap justify-end gap-2">
           <el-button
+              v-permission="'employee:create'"
+              @click="openCreateDrawer"
+              class="px-5 py-2 bg-primary text-white font-bold rounded-lg flex items-center gap-2 shadow-md hover:bg-primary/90 transition-all text-sm active:scale-95"
+          >
+            <span class="material-symbols-outlined text-[20px]">person_add</span>添加员工
+          </el-button>
+        </div>
+      </div>
+
+      <PageActionGroup label="员工维护">
+          <el-button
               @click="openOrganizationDrawer"
               class="px-4 py-2 bg-surface-container-high text-on-surface font-bold rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors text-sm"
           >
@@ -48,15 +59,7 @@ Output:
           >
             <span class="material-symbols-outlined text-[20px]">download</span>导出 Excel
           </el-button>
-          <el-button
-              v-permission="'employee:create'"
-              @click="openCreateDrawer"
-              class="px-5 py-2 bg-primary text-white font-bold rounded-lg flex items-center gap-2 shadow-md hover:bg-primary/90 transition-all text-sm active:scale-95"
-          >
-            <span class="material-symbols-outlined text-[20px]">person_add</span>添加员工
-          </el-button>
-        </div>
-      </div>
+      </PageActionGroup>
 
       <div class="function-stats-grid grid-cols-1 md:grid-cols-4">
         <div class="function-stat-card bg-primary-container relative overflow-hidden group">
@@ -98,7 +101,7 @@ Output:
       </div>
 
       <div class="function-list-panel shadow-sm flex flex-col border border-surface-variant/50">
-        <div v-filter-collapse class="function-filter-form p-4 bg-surface-container-low border-b border-surface-variant/50">
+        <div v-filter-collapse class="employee-filter-form function-filter-form p-4 bg-surface-container-low border-b border-surface-variant/50">
           <div class="employee-filter-search relative">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
             <el-input
@@ -345,6 +348,7 @@ Output:
 </template>
 
 <script setup>
+import PageActionGroup from '@/components/PageActionGroup.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
   ElButton,
